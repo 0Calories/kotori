@@ -1,0 +1,19 @@
+{
+  "name": "@kotori/db",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SQLite database, migrations and repositories",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@effect/sql-sqlite-node": "4.0.3",
+    "@kotori/domain": "workspace:*",
+    "effect": "4.0.3"
+  }
+}

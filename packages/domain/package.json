@@ -1,0 +1,17 @@
+{
+  "name": "@kotori/domain",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared schemas and the HttpApi contract for Kotori",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "effect": "4.0.3"
+  }
+}

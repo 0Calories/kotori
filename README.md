@@ -1,0 +1,103 @@
+# Kotori ことり
+
+Kotori helps intermediate and advanced learners **sound natural** — in Japanese if you speak English, in English if you speak Japanese. Its mascot is a shima enaga (シマエナガ), Hokkaido's snowball of a bird.
+
+- **Dictionary** — all of [JMDict](https://www.edrdg.org/jmdict/j_jmdict.html) (≈219k entries), searchable in English, Japanese or rōmaji. Conjugated forms work too: 食べなかった finds 食べる.
+- **Nuance** — every sense gets judged for formality, speech vs. writing, keigo, speaker gender and age, how current it feels, connotation and learner pitfalls ("too casual for your boss"), plus similar words and how they differ. Judgments come from TypeSafe's **Jev**; JMDict's own usage tags override them where they exist.
+- **Examples and pronunciation** — a separate worker writes natural example sentences per meaning with **Claude** (with furigana) and voices headwords and sentences with **ElevenLabs**.
+- **Naturalness check** — write a sentence in the language you're learning; Kotori says how a native hears it, what to fix and how a native would say it.
+- **How do I say…** — describe what you mean in your own language; get the ways natives actually say it, with literal glosses, register, key words and pitfalls.
+- **Review** — save any word or phrase; cards are scheduled with Anki's SM-2 algorithm (learning steps, ease, lapses, fuzz, leeches).
+
+The app runs on iOS, Android and the web from one Expo codebase, in English or Japanese depending on who's learning.
+
+<p align="center">
+  <img src="docs/screenshots/onboarding.jpg" width="200" alt="Onboarding">
+  <img src="docs/screenshots/search.jpg" width="200" alt="Searching “eat”, with each word's formality from Jev">
+  <img src="docs/screenshots/entry.jpg" width="200" alt="食べる with its nuance and similar words">
+  <img src="docs/screenshots/review.jpg" width="200" alt="A review card with Anki's next intervals">
+</p>
+
+## Monorepo
+
+An [Nx](https://nx.dev) workspace using pnpm. Back end and data layer are TypeScript on [Effect 4](https://effect.website).
+
+```
+apps/
+  api/        HTTP API (Effect HttpApi): dictionary, coach, study, audio
+  worker/     CLI + job worker: seed JMDict, enrich with Jev / Claude / ElevenLabs
+  app/        Expo (Router) app for iOS, Android and web
+packages/
+  domain/     Schemas and the HttpApi contract shared by the API and the app (typed client)
+  db/         SQLite (node:sqlite) layer, migrations, repositories, FTS5 search index
+  jmdict/     Downloads and parses EDRDG's JMdict_e, imports it
+  japanese/   Romaji ↔ kana, script detection, Yomichan-style deinflection
+  nuance/     Jev questions, state building and interpretation for nuance + similar words
+  ai/         Claude service, coach prompts, example-sentence writer
+  tts/        ElevenLabs client, content-addressed audio store, monthly budget guard
+  srs/        Anki's SM-2 scheduler (v3), pure and fully tested
+tools/        Renders the mascot into app icons
+```
+
+`nx graph` shows how they fit together.
+
+## Getting started
+
+Requires **Node ≥ 22.12** (for `node:sqlite`) and **pnpm 11**.
+
+```sh
+pnpm install
+cp .env.example .env        # add your API keys (see below)
+pnpm seed                   # downloads JMDict (~10 MB) and imports it (~25 s)
+pnpm dev                    # API on :4000 + enrichment worker
+pnpm dev:app                # Expo: press w for web, i for iOS, a for Android
+```
+
+The app finds the API on the same host as the Expo dev server, so it works from a simulator or a phone on the same network. Set `EXPO_PUBLIC_API_URL` to point it elsewhere.
+
+Interactive API docs are served at <http://localhost:4000/docs> (OpenAPI at `/openapi.json`).
+
+### API keys
+
+| Variable | Used for | Without it |
+| --- | --- | --- |
+| `ANTHROPIC_API_KEY` | Naturalness check, How do I say, example sentences | Coach features show "not set up"; no examples |
+| `TYPESAFE_API_KEY` | Nuance and similar words (Jev) | Entries show meanings without nuance |
+| `ELEVENLABS_API_KEY` | Pronunciation audio | No audio buttons |
+
+The Anthropic SDK also picks up `ANTHROPIC_AUTH_TOKEN` or an `ant auth login` profile. Other settings (models, voices, paths, port, limits) are listed in `.env.example`.
+
+## Enrichment
+
+Looking at an entry in the app queues any missing enrichment at high priority; the worker (`pnpm dev` runs it) picks it up and the app updates itself when it's done. To backfill ahead of time, most frequent words first:
+
+```sh
+pnpm kotori enrich nuance --limit 2000      # Jev
+pnpm kotori enrich examples --limit 500     # Claude
+pnpm kotori enrich audio --limit 100        # ElevenLabs
+pnpm kotori status                          # coverage and queue
+```
+
+Runs skip entries that are already done, so they can be repeated or interrupted safely.
+
+**How nuance is judged.** For each sense Jev sees the word, that sense's meaning, its part of speech and JMDict's usage notes, and answers independent questions in one request: two scores (formality, speech ↔ writing), five choices (keigo type, gender, age group, currency, connotation) and three yes/no cautions. Similar-word candidates come from JMDict cross-references and words sharing an exact gloss; for each, Jev judges whether it's a near-synonym and how it differs (more casual, humble, broader…). Code combines the answers: JMDict tags such as `hon`, `col` or `male` win over Jev; low-confidence judgments are shown faded; raw distributions are stored so labels can be re-derived without re-running inference. The model is pinned (`jev-1.13.0`) so stored confidences stay comparable.
+
+**Examples** use Claude structured outputs validated with Effect Schema. Furigana is written inline as `{漢字|かんじ}` and checked against the sentence before it's shown.
+
+**Audio** is cached by content hash (voice, model, text), so each clip is generated once. `KOTORI_AUDIO_MONTHLY_CHARS` (default 50,000) caps spend; headwords are voiced from their kana reading to avoid kanji misreadings.
+
+Claude requests opt into server-side refusal fallbacks (`fallbacks: "default"`), so a safety-classifier decline is retried on Anthropic's recommended fallback model instead of failing.
+
+## Development
+
+```sh
+pnpm test        # every package's tests (Vitest + @effect/vitest), cached by Nx
+pnpm typecheck   # tsc across the workspace
+pnpm assets      # re-render icons and splash from the mascot geometry
+```
+
+Tests cover the SM-2 scheduler against Anki's behaviour, deinflection, JMDict parsing, repositories on an in-memory database, the Jev and ElevenLabs pipelines with fakes, structured-output schemas, and the HTTP API end to end through Effect's in-memory `HttpApiTest` client.
+
+## Data and credits
+
+Dictionary data is [JMDict](https://www.edrdg.org/jmdict/j_jmdict.html) by the Electronic Dictionary Research and Development Group, used under [CC BY-SA 4.0](https://www.edrdg.org/edrdg/licence.html). The app credits it in Settings. Local data (database, downloads, audio) lives in `data/` and is not committed.

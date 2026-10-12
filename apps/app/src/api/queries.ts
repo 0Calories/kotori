@@ -1,0 +1,93 @@
+import type {
+  AddNoteRequest,
+  CardId,
+  EntryId,
+  HowToSayRequest,
+  NaturalnessRequest,
+  NoteId,
+  Rating,
+  SpeakRequest
+} from "@kotori/domain"
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { call } from "./client.ts"
+
+export const keys = {
+  health: ["health"] as const,
+  search: (q: string) => ["search", q] as const,
+  entry: (id: number) => ["entry", id] as const,
+  notes: ["notes"] as const,
+  queue: ["queue"] as const,
+  stats: ["stats"] as const
+}
+
+export const useHealth = () =>
+  useQuery({ queryKey: keys.health, queryFn: () => call((api) => api.health()), staleTime: 60_000 })
+
+export const useSearch = (q: string) =>
+  useQuery({
+    queryKey: keys.search(q),
+    queryFn: () => call((api) => api.dictionary.search({ query: { q, limit: 30 } })),
+    enabled: q.trim().length > 0,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000
+  })
+
+export const useEntry = (id: number) =>
+  useQuery({
+    queryKey: keys.entry(id),
+    queryFn: () => call((api) => api.dictionary.entry({ params: { id: id as EntryId } })),
+    // While Kotori's worker is still enriching the entry, check back every few seconds.
+    refetchInterval: (query) => {
+      const enrichment = query.state.data?.enrichment
+      return enrichment && Object.values(enrichment).includes("queued") ? 3000 : false
+    }
+  })
+
+export const useNotes = () => useQuery({ queryKey: keys.notes, queryFn: () => call((api) => api.study.notes()) })
+
+const useInvalidateStudy = () => {
+  const client = useQueryClient()
+  return () => {
+    client.invalidateQueries({ queryKey: keys.notes })
+    client.invalidateQueries({ queryKey: keys.queue })
+    client.invalidateQueries({ queryKey: keys.stats })
+  }
+}
+
+export const useAddNote = () => {
+  const invalidate = useInvalidateStudy()
+  return useMutation({
+    mutationFn: (request: AddNoteRequest) => call((api) => api.study.addNote({ payload: request })),
+    onSuccess: invalidate
+  })
+}
+
+export const useRemoveNote = () => {
+  const invalidate = useInvalidateStudy()
+  return useMutation({
+    mutationFn: (id: NoteId) => call((api) => api.study.removeNote({ params: { id } })),
+    onSuccess: invalidate
+  })
+}
+
+export const useQueue = () =>
+  useQuery({ queryKey: keys.queue, queryFn: () => call((api) => api.study.queue({ query: { limit: 100 } })) })
+
+export const useStats = () => useQuery({ queryKey: keys.stats, queryFn: () => call((api) => api.study.stats()) })
+
+export const useAnswer = () =>
+  useMutation({
+    mutationFn: (input: { readonly id: CardId; readonly rating: Rating; readonly durationMs: number }) =>
+      call((api) =>
+        api.study.answer({ params: { id: input.id }, payload: { rating: input.rating, durationMs: input.durationMs } })
+      )
+  })
+
+export const useNaturalness = () =>
+  useMutation({ mutationFn: (request: NaturalnessRequest) => call((api) => api.coach.naturalness({ payload: request })) })
+
+export const useHowToSay = () =>
+  useMutation({ mutationFn: (request: HowToSayRequest) => call((api) => api.coach.howToSay({ payload: request })) })
+
+export const useSpeak = () =>
+  useMutation({ mutationFn: (request: SpeakRequest) => call((api) => api.audio.speak({ payload: request })) })

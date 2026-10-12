@@ -1,0 +1,17 @@
+{
+  "name": "@kotori/japanese",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Japanese text utilities: script detection, romaji, deinflection",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "wanakana": "^5.3.1"
+  }
+}
