@@ -1,0 +1,190 @@
+import type { ChoiceQuestion, NoulQuestion, ScoreQuestion } from "@typesafe-ai/sdk"
+
+/**
+ * The judgments Jev makes about one sense of a word. Each is narrow and
+ * independent (Jev answers them in parallel), and refers to fields of the state
+ * built in `state.ts` by backticked path. Code combines the answers.
+ */
+
+export const FORMALITY_LEVELS = ["vulgar", "casual", "neutral", "polite", "formal"] as const
+export const MEDIUM_LEVELS = ["spoken", "both", "written"] as const
+
+const formality: ScoreQuestion = {
+  type: "score",
+  instructions:
+    "How formal does the Japanese word `word` sound when a native speaker uses it with the meaning in `meaning`? Judge the Japanese word, not the English gloss.",
+  criteria: [
+    {
+      what: "Vulgar or crude: rude, insulting or coarse; it would offend strangers or superiors",
+      examples: ["てめえ", "くそ", "ぶっ殺す"]
+    },
+    {
+      what: "Casual: relaxed or slangy, for friends and family; too familiar for a boss or a stranger",
+      examples: ["めっちゃ", "やばい", "腹減った", "うん"]
+    },
+    {
+      what: "Neutral: plain everyday wording that fits almost any situation",
+      examples: ["歩く", "学校", "大きい", "時間"]
+    },
+    {
+      what: "Polite: courteous wording suited to strangers, customers or superiors",
+      examples: ["お手洗い", "ございます", "よろしい"]
+    },
+    {
+      what: "Formal: keigo, business or ceremonial wording for speeches, letters and official settings",
+      examples: ["召し上がる", "拝見する", "誠に", "ご逝去"]
+    }
+  ]
+}
+
+const medium: ScoreQuestion = {
+  type: "score",
+  instructions: "Where is the Japanese word `word`, with the meaning in `meaning`, typically used: in conversation or in writing?",
+  criteria: [
+    {
+      what: "Mostly spoken: conversational words that look out of place in formal writing",
+      examples: ["うん", "ちゃんと", "すごく", "やっぱり"]
+    },
+    {
+      what: "Equally common in conversation and in writing",
+      examples: ["歩く", "時間", "大切", "友達"]
+    },
+    {
+      what: "Mostly written: literary, journalistic, academic, legal or technical prose; sounds stiff or bookish aloud",
+      examples: ["鑑みる", "及び", "当該", "遺憾"]
+    }
+  ]
+}
+
+const keigo: ChoiceQuestion = {
+  type: "choice",
+  instructions: "Is the Japanese word `word`, with the meaning in `meaning`, a form of honorific language (keigo)?",
+  criteria: {
+    none: "Not keigo: an ordinary word with no built-in respect or humility",
+    sonkeigo: "Respectful language (尊敬語) that elevates someone else's actions, e.g. 召し上がる, いらっしゃる, おっしゃる",
+    kenjougo: "Humble language (謙譲語) that lowers the speaker's own actions, e.g. 申す, 伺う, いただく, 拝見する",
+    teineigo: "Polite language (丁寧語) not tied to anyone's actions, e.g. ございます, お手洗い, です",
+    bikago: "Beautified word (美化語): a word with お or ご added to sound refined, e.g. お茶, ご飯, お金"
+  }
+}
+
+const gender: ChoiceQuestion = {
+  type: "choice",
+  instructions: "Do Japanese speakers associate the word `word`, with the meaning in `meaning`, with a particular gender?",
+  criteria: {
+    neutral: "Used naturally by speakers of any gender",
+    masculine: "Sounds typically masculine; mostly used by men or boys, e.g. 俺, 腹減った, 〜ぜ",
+    feminine: "Sounds typically feminine; mostly used by women or girls, e.g. あたし, 〜かしら, 〜わよ"
+  }
+}
+
+const age: ChoiceQuestion = {
+  type: "choice",
+  instructions: "Is the Japanese word `word`, with the meaning in `meaning`, typical of a particular age group of speakers?",
+  criteria: {
+    any: "Used by people of all ages, including formal and business words that working adults of every age use, e.g. 恐縮, 拝見する",
+    children: "Childish or baby talk, used by or to small children, e.g. わんわん, おてて",
+    youth: "Youth or internet slang, used mostly by teenagers and young adults, e.g. マジ, エモい, ググる",
+    older: "Mainly used by older people; sounds old-fashioned coming from someone young, e.g. ハイカラ, 銀幕"
+  }
+}
+
+const currency: ChoiceQuestion = {
+  type: "choice",
+  instructions: "How current does the Japanese word `word`, with the meaning in `meaning`, feel in present-day Japanese?",
+  criteria: {
+    current: "In ordinary use today, including formal, written and business words, e.g. 恐縮, 拝見する, 申し上げる",
+    trendy: "A recent coinage or buzzword",
+    dated: "Understood, but sounds old-fashioned in today's speech and writing, e.g. ハイカラ, ナウい",
+    archaic: "Archaic or obsolete: found in classical texts or historical settings, not modern use, e.g. 候, 〜けり"
+  }
+}
+
+const connotation: ChoiceQuestion = {
+  type: "choice",
+  instructions: "Beyond its literal meaning in `meaning`, what feeling does the Japanese word `word` carry?",
+  criteria: {
+    neutral: "Neutral: no particular positive or negative feeling",
+    positive: "Positive, warm or complimentary",
+    negative: "Negative, critical or pejorative"
+  }
+}
+
+// Jev reads literally: without the conjugation caveat it judges the bare dictionary
+// form ("食べる？" to a boss), so ordinary verbs come out as rude.
+const rudeToSuperiors: NoulQuestion = {
+  type: "noul",
+  instructions:
+    "Someone talking to their boss or a customer uses the Japanese word `word` (meaning `meaning`), conjugated politely with です/ます wherever that applies. Is choosing this word still rude, crude or overly familiar?",
+  criteria: {
+    true: "Yes: the word itself is rough, slangy or overly familiar, so it sounds rude even with です/ます, e.g. 食う, めっちゃ, うまい (for 'tasty'), ご苦労様 (said to a superior)",
+    false: "No: with です/ます it is acceptable with a boss or customer, even if a more honorific word exists, e.g. 行く → 行きます, 見る → 見ます, 大きい → 大きいです"
+  }
+}
+
+const stiffWithFriends: NoulQuestion = {
+  type: "noul",
+  instructions:
+    "Would the Japanese word `word`, with the meaning in `meaning`, sound stiff, bookish or overly formal in a relaxed chat between close friends? Judge the Japanese word, not the English gloss.",
+  criteria: {
+    true: "Yes: friends would find the word stiff, formal or bookish, e.g. 鑑みる, 召し上がる, 誠に, 拝見する",
+    false: "No: friends use it naturally, e.g. 行く, 好き, 時間, やっぱり"
+  }
+}
+
+const slang: NoulQuestion = {
+  type: "noul",
+  instructions: "Is the Japanese word `word`, with the meaning in `meaning`, slang (including youth or internet slang)?",
+  criteria: {
+    true: "Yes: it is slang, e.g. マジ, エモい, ググる, ヤバい (for 'amazing')",
+    false: "No: it is standard vocabulary, even if casual, e.g. すごく, ちょっと, 友達"
+  }
+}
+
+export const senseQuestions = {
+  formality,
+  medium,
+  keigo,
+  gender,
+  age,
+  currency,
+  connotation,
+  rudeToSuperiors,
+  stiffWithFriends,
+  slang
+}
+
+export type SenseQuestions = typeof senseQuestions
+
+/** Ways a similar word can differ from the word being looked up. */
+export const DIFFERENCES = {
+  more_casual: "It is more casual or rough",
+  more_formal: "It is more formal or polite",
+  respectful: "It is the respectful (尊敬語) way to say this about someone else's action",
+  humble: "It is the humble (謙譲語) way to say this about one's own action",
+  more_literary: "It is more literary or used mainly in writing",
+  more_colloquial: "It is more colloquial or used mainly in speech",
+  more_specific: "Its meaning is narrower or more specific",
+  more_general: "Its meaning is broader or more general",
+  different_feeling: "It carries a different emotional tone or feeling",
+  different_usage: "It is used in different situations or word combinations"
+} as const
+
+/** Two questions per candidate: is it a near-synonym, and how does it differ. */
+export const candidateQuestions = (index: number) => ({
+  [`similar_${index}`]: {
+    type: "noul",
+    instructions:
+      `Can \`candidates[${index}].word\` express the same meaning as \`word\` (as described in \`meaning\`) in at least some sentences?`,
+    criteria: {
+      true: "Yes: it is a near-synonym that could replace it in some sentences",
+      false: "No: it is related, but means something different"
+    }
+  } satisfies NoulQuestion,
+  [`difference_${index}`]: {
+    type: "choice",
+    instructions:
+      `Compared with \`word\`, what is the main difference when a native speaker chooses \`candidates[${index}].word\` instead?`,
+    criteria: DIFFERENCES
+  } satisfies ChoiceQuestion
+})

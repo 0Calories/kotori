@@ -1,0 +1,14 @@
+{
+  "name": "@kotori/srs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Anki's SM-2 (v3 scheduler) spaced-repetition algorithm",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

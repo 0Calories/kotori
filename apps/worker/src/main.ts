@@ -1,0 +1,23 @@
+#!/usr/bin/env -S npx tsx
+import { NodeRuntime } from "@effect/platform-node"
+import { loadDotEnv } from "@kotori/db"
+import { Effect } from "effect"
+import { Command } from "effect/cli"
+import { enrich } from "./commands/enrich.ts"
+import { seed } from "./commands/seed.ts"
+import { status } from "./commands/status.ts"
+import { work } from "./commands/work.ts"
+import { WorkerLive } from "./layers.ts"
+
+loadDotEnv()
+
+const kotori = Command.make("kotori").pipe(
+  Command.withDescription("Kotori's data pipeline: seed JMDict, then enrich it with Jev, Claude and ElevenLabs"),
+  Command.withSubcommands([seed, enrich, work, status])
+)
+
+kotori.pipe(
+  Command.run({ version: "0.1.0" }),
+  Effect.provide(WorkerLive),
+  NodeRuntime.runMain
+)
