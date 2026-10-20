@@ -45,7 +45,9 @@ export const Health = Schema.Struct({
   features: Schema.Struct({
     coach: Schema.Boolean,
     nuance: Schema.Boolean,
-    audio: Schema.Boolean
+    audio: Schema.Boolean,
+    /** Whether an email provider is configured (verification, reset and approval emails). */
+    email: Schema.Boolean
   }),
   dictionary: Schema.Struct({ entries: Schema.Int })
 })

@@ -5,8 +5,10 @@ import { Config, Effect, Layer } from "effect"
 import { HttpRouter } from "effect/http"
 import { HttpApiBuilder, HttpApiScalar } from "effect/http-api"
 import { createServer } from "node:http"
+import { Auth } from "./auth.ts"
 import { AudioRoute } from "./http/audio.ts"
 import { AuthorizationLive } from "./http/Authorization.ts"
+import { BetterAuthRoute } from "./http/better-auth.ts"
 import { AllHandlers } from "./http/handlers.ts"
 import { AppLive } from "./layers.ts"
 
@@ -20,6 +22,7 @@ const ApiRoutes = HttpApiBuilder.layer(KotoriApi, { openapiPath: "/openapi.json"
 const Routes = Layer.mergeAll(
   ApiRoutes,
   AudioRoute,
+  BetterAuthRoute,
   HttpApiScalar.layer(KotoriApi, { path: "/docs" }),
   HttpRouter.cors({ maxAge: 86_400 })
 )
@@ -32,6 +35,7 @@ const ServerLive = Layer.unwrap(Effect.gen(function*() {
 
 Layer.launch(ServerLive).pipe(
   Effect.provide(AppLive),
+  Effect.provide(Auth.layer),
   Effect.provide(NodeHttpClient.layerUndici),
   Effect.provide(NodeServices.layer),
   NodeRuntime.runMain
