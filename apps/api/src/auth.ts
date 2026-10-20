@@ -1,5 +1,6 @@
 import { expo } from "@better-auth/expo"
-import { resolveFromRoot } from "@kotori/db"
+import { resolveFromRoot, UsersRepo } from "@kotori/db"
+import type { AccountStatus } from "@kotori/domain"
 import { betterAuth } from "better-auth"
 import { getMigrations } from "better-auth/db/migration"
 import { admin } from "better-auth/plugins/admin"
@@ -8,23 +9,24 @@ import { mkdirSync } from "node:fs"
 import { dirname } from "node:path"
 import { DatabaseSync } from "node:sqlite"
 
-/** Learners sign up freely but need approval before they can use the app. */
-export type AccountStatus = "pending" | "approved" | "archived"
-
 const DEV_SECRET = "kotori-dev-only-secret-set-BETTER_AUTH_SECRET-in-production"
 
-const makeOptions = (settings: {
-  database: DatabaseSync
-  baseURL: string
-  secret: string
-  trustedOrigins: Array<string>
-}) => ({
+interface Settings {
+  readonly database: DatabaseSync
+  readonly baseURL: string
+  readonly secret: string
+  readonly trustedOrigins: ReadonlyArray<string>
+  /** Called after Better Auth deletes a user, so Kotori can drop their profile and study data. */
+  readonly onUserDeleted: (userId: string) => Promise<void>
+}
+
+const makeOptions = (settings: Settings) => ({
   appName: "Kotori",
   database: settings.database,
   baseURL: settings.baseURL,
   secret: settings.secret,
   basePath: "/api/auth",
-  trustedOrigins: settings.trustedOrigins,
+  trustedOrigins: [...settings.trustedOrigins],
   emailAndPassword: {
     enabled: true,
     // Approval is the real gate; verification is encouraged but not blocking.
@@ -51,19 +53,60 @@ const makeOptions = (settings: {
       }
     }
   },
+  databaseHooks: {
+    user: {
+      delete: {
+        after: async (user: { id: string }) => settings.onUserDeleted(user.id)
+      }
+    }
+  },
   plugins: [admin(), expo()]
 })
 
-const makeAuth = (settings: Parameters<typeof makeOptions>[0]) => betterAuth(makeOptions(settings))
+const makeAuth = (settings: Settings) => betterAuth(makeOptions(settings))
 
 export type AuthInstance = ReturnType<typeof makeAuth>
 
+export interface AuthService {
+  readonly api: AuthInstance["api"]
+  readonly handler: AuthInstance["handler"]
+  /** Approve or archive a signup. Used by the CLI; learners can't change this themselves. */
+  setStatus(userId: string, status: AccountStatus): Effect.Effect<void>
+}
+
 /**
  * Better Auth, mounted at `/api/auth/*`. Owns identity, credentials and
- * sessions in its own database (`KOTORI_AUTH_DB_PATH`, default `data/auth.db`),
- * migrated by Better Auth itself on startup. Kotori never writes that file.
+ * sessions in its own database, migrated by Better Auth itself on startup.
+ * Kotori never writes that file.
  */
-export class Auth extends Context.Service<Auth, AuthInstance>()("@kotori/api/Auth") {
+export class Auth extends Context.Service<Auth, AuthService>()("@kotori/api/Auth") {
+  private static make = Effect.fn("Auth.make")(function*(
+    settings: Omit<Settings, "onUserDeleted">
+  ) {
+    const users = yield* UsersRepo
+    const full: Settings = {
+      ...settings,
+      onUserDeleted: (userId) => Effect.runPromise(users.delete(userId))
+    }
+
+    // Better Auth owns its schema: create/update its tables on startup.
+    yield* Effect.promise(async () => {
+      const { runMigrations } = await getMigrations(makeOptions(full))
+      await runMigrations()
+    })
+
+    const auth = makeAuth(full)
+
+    const setStatus = (userId: string, status: AccountStatus) =>
+      Effect.promise(async () => {
+        const context = await auth.$context
+        await context.internalAdapter.updateUser(userId, { status })
+      })
+
+    return Auth.of({ api: auth.api, handler: auth.handler, setStatus })
+  })
+
+  /** Configured from the environment; the database at `KOTORI_AUTH_DB_PATH` (default `data/auth.db`). */
   static readonly layer = Layer.effect(
     Auth,
     Effect.gen(function*() {
@@ -79,10 +122,9 @@ export class Auth extends Context.Service<Auth, AuthInstance>()("@kotori/api/Aut
 
       const path = filename === ":memory:" ? filename : resolveFromRoot(filename)
       if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true })
-      const database = new DatabaseSync(path)
 
-      const settings = {
-        database,
+      return yield* Auth.make({
+        database: new DatabaseSync(path),
         baseURL,
         secret,
         trustedOrigins: [
@@ -91,15 +133,18 @@ export class Auth extends Context.Service<Auth, AuthInstance>()("@kotori/api/Aut
           "exp://**",
           ...Option.toArray(webOrigin)
         ]
-      }
-
-      // Better Auth owns its schema: create/update its tables on startup.
-      yield* Effect.promise(async () => {
-        const { runMigrations } = await getMigrations(makeOptions(settings))
-        await runMigrations()
       })
+    })
+  )
 
-      return Auth.of(makeAuth(settings))
+  /** A fresh in-memory auth database, for tests. */
+  static readonly layerMemory = Layer.effect(
+    Auth,
+    Auth.make({
+      database: new DatabaseSync(":memory:"),
+      baseURL: "http://localhost:4000",
+      secret: DEV_SECRET,
+      trustedOrigins: []
     })
   )
 }

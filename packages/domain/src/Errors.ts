@@ -12,6 +12,13 @@ export class Unauthorized extends Schema.TaggedError<Unauthorized>()(
   { httpApiStatus: 401 }
 ) {}
 
+/** The account exists but Ash hasn't approved it yet (or it was archived). Only `/account` endpoints work. */
+export class PendingApproval extends Schema.TaggedError<PendingApproval>()(
+  "PendingApproval",
+  { message: Schema.String },
+  { httpApiStatus: 403 }
+) {}
+
 export class InvalidRequest extends Schema.TaggedError<InvalidRequest>()(
   "InvalidRequest",
   { message: Schema.String },

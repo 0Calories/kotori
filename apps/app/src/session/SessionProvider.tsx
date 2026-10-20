@@ -15,7 +15,6 @@ interface Session {
   readonly profile: Profile | null
   /** Interface copy in the learner's native language. */
   readonly t: Strings
-  createAccount(nativeLanguage: Language): Promise<void>
   updateProfile(patch: UpdateProfileRequest): Promise<void>
   signOut(): Promise<void>
   retry(): void
@@ -65,14 +64,8 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
     }
   }, [attempt])
 
-  const createAccount = useCallback(async (nativeLanguage: Language) => {
-    const session = await call((api) => api.account.create({ payload: { nativeLanguage, timezone: timeZone() } }))
-    await storage.set(TOKEN_KEY, session.token)
-    setToken(session.token)
-    setProfile(session.profile)
-    setStatus("ready")
-  }, [])
-
+  // Sign-up and sign-in move to Better Auth in the app step; until then the
+  // app can only load an existing session.
   const updateProfile = useCallback(async (patch: UpdateProfileRequest) => {
     const updated = await call((api) => api.account.update({ payload: patch }))
     setProfile(updated)
@@ -91,14 +84,13 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
     status,
     profile,
     t: strings[profile?.nativeLanguage ?? deviceLanguage()],
-    createAccount,
     updateProfile,
     signOut,
     retry: () => {
       setStatus("loading")
       setAttempt((n) => n + 1)
     }
-  }), [status, profile, createAccount, updateProfile, signOut])
+  }), [status, profile, updateProfile, signOut])
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
 }

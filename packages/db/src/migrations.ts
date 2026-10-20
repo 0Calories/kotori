@@ -256,8 +256,36 @@ const study = Effect.gen(function*() {
   yield* sql`CREATE INDEX coach_usage_user ON coach_usage (user_id, created_at)`
 })
 
+// Identity moves to Better Auth (its own database). `users` becomes the learner
+// profile, keyed by the Better Auth user id and created on first request.
+// Pre-beta there are no real learners: existing device accounts and their study
+// data are dropped rather than migrated, since their ids can't be mapped.
+const profiles = Effect.gen(function*() {
+  const sql = yield* SqlClient.SqlClient
+
+  yield* sql`DELETE FROM notes`
+  yield* sql`DELETE FROM coach_usage`
+  yield* sql`DELETE FROM users`
+  yield* sql`DROP TABLE users`
+
+  yield* sql`
+    CREATE TABLE users (
+      id TEXT PRIMARY KEY,
+      native_language TEXT NOT NULL DEFAULT 'en',
+      target_language TEXT NOT NULL DEFAULT 'ja',
+      onboarded_at INTEGER,
+      display_name TEXT,
+      timezone TEXT NOT NULL DEFAULT 'UTC',
+      daily_new_limit INTEGER NOT NULL DEFAULT 20,
+      daily_review_limit INTEGER NOT NULL DEFAULT 200,
+      created_at INTEGER NOT NULL
+    )
+  `
+})
+
 export const migrations = {
   "0001_dictionary": dictionary,
   "0002_enrichment": enrichment,
-  "0003_study": study
+  "0003_study": study,
+  "0004_profiles": profiles
 }

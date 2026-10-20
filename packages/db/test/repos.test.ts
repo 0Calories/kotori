@@ -181,11 +181,11 @@ layer(TestLayer)("StudyRepo", (it) => {
     Effect.gen(function*() {
       const users = yield* UsersRepo
       const study = yield* StudyRepo
-      yield* users.create({
+      yield* users.ensure({
         id: "u1",
-        tokenHash: "hash",
         nativeLanguage: "en",
         targetLanguage: "ja",
+        onboardedAt: null,
         displayName: null,
         timezone: "Asia/Tokyo",
         dailyNewLimit: 20,
