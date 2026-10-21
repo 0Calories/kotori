@@ -49,14 +49,8 @@ export const AccountHandlers = HttpApiBuilder.group(
   Effect.fn(function*(handlers) {
     const accounts = yield* Accounts
     return handlers.handleAll({
-      create: ({ payload }) => accounts.create(payload),
       me: () => Effect.map(CurrentUser, (user) => user.profile),
-      update: ({ payload }) =>
-        Effect.gen(function*() {
-          const user = yield* CurrentUser
-          const updated = yield* accounts.update(user.id, payload)
-          return Option.getOrElse(updated, () => user.profile)
-        })
+      update: ({ payload }) => Effect.flatMap(CurrentUser, (user) => accounts.update(user.profile, payload))
     })
   })
 )

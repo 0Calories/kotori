@@ -34,8 +34,7 @@ const ServerLive = Layer.unwrap(Effect.gen(function*() {
 }))
 
 Layer.launch(ServerLive).pipe(
-  Effect.provide(AppLive),
-  Effect.provide(Auth.layer),
+  Effect.provide(Auth.layer.pipe(Layer.provideMerge(AppLive))),
   Effect.provide(NodeHttpClient.layerUndici),
   Effect.provide(NodeServices.layer),
   NodeRuntime.runMain

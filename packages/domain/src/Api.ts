@@ -5,12 +5,11 @@ import * as HttpApiEndpoint from "effect/http-api/HttpApiEndpoint"
 import * as HttpApiGroup from "effect/http-api/HttpApiGroup"
 import * as HttpApiMiddleware from "effect/http-api/HttpApiMiddleware"
 import * as HttpApiSchema from "effect/http-api/HttpApiSchema"
-import * as HttpApiSecurity from "effect/http-api/HttpApiSecurity"
 import * as OpenApi from "effect/http-api/OpenApi"
-import { CreateAccountRequest, Profile, Session, UpdateProfileRequest, UserId } from "./Account.ts"
+import { Profile, UpdateProfileRequest, UserId } from "./Account.ts"
 import { HowToSayRequest, HowToSayResult, NaturalnessRequest, NaturalnessResult } from "./Coach.ts"
 import { Enrichment, Entry, EntryId, SearchResult } from "./Dictionary.ts"
-import { AiUnavailable, InvalidRequest, NotFound, RateLimited, Unauthorized } from "./Errors.ts"
+import { AiUnavailable, InvalidRequest, NotFound, PendingApproval, RateLimited, Unauthorized } from "./Errors.ts"
 import { Language } from "./Language.ts"
 import {
   AddNoteRequest,
@@ -28,14 +27,17 @@ export class CurrentUser extends Context.Service<CurrentUser, {
   readonly profile: Profile
 }>()("@kotori/domain/CurrentUser") {}
 
-/** Bearer-token auth. Tokens are issued when an account is created on first launch. */
+/**
+ * Session auth. Better Auth issues a session cookie at `/api/auth/*`; the app
+ * forwards it on every request. Resolves the learner, creates their profile on
+ * first sight, and refuses unapproved accounts everywhere except `/account`.
+ */
 export class Authorization extends HttpApiMiddleware.Service<Authorization, {
   provides: CurrentUser
   requires: never
 }>()("@kotori/domain/Authorization", {
   requiredForClient: true,
-  security: { bearer: HttpApiSecurity.bearer },
-  error: Unauthorized
+  error: [Unauthorized, PendingApproval]
 }) {}
 
 export const Health = Schema.Struct({
@@ -57,14 +59,13 @@ export class SystemApi extends HttpApiGroup.make("system", { topLevel: true }).a
   HttpApiEndpoint.get("health", "/health", { success: Health })
 ) {}
 
+/** Works for pending accounts too, so the app can show the approval status. */
 export class AccountApi extends HttpApiGroup.make("account")
   .add(
     HttpApiEndpoint.get("me", "/me", { success: Profile }),
     HttpApiEndpoint.patch("update", "/me", { payload: UpdateProfileRequest, success: Profile })
   )
   .middleware(Authorization)
-  // Creating an account is the one call that doesn't need a token.
-  .add(HttpApiEndpoint.post("create", "/", { payload: CreateAccountRequest, success: Session }))
   .prefix("/account")
 {}
 

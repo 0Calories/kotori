@@ -51,7 +51,7 @@ const Choice = ({ glyph, title, hint, selected, onPress }: {
 }
 
 export default function Onboarding() {
-  const { t, createAccount } = useSession()
+  const { t, updateProfile } = useSession()
   const theme = useTheme()
   const [native, setNative] = useState<Language | null>(null)
   const [busy, setBusy] = useState(false)
@@ -62,7 +62,8 @@ export default function Onboarding() {
     setBusy(true)
     setError(null)
     try {
-      await createAccount(native)
+      // Becomes the post-approval language picker in the app step.
+      await updateProfile({ nativeLanguage: native })
     } catch (e) {
       setError(e)
       setBusy(false)
