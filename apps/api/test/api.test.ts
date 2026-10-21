@@ -167,7 +167,7 @@ layer(TestLayer)("Kotori API", (it) => {
     Effect.gen(function*() {
       const api = yield* client
       const health = yield* api.health()
-      assert.deepStrictEqual(health.features, { coach: false, nuance: false, audio: false })
+      assert.deepStrictEqual(health.features, { coach: false, nuance: false, audio: false, email: false })
 
       const error = yield* api.coach.naturalness({ payload: { text: "私は学生です。" } }).pipe(Effect.flip)
       assert.strictEqual(error._tag, "AiUnavailable")
