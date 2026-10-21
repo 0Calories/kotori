@@ -3,19 +3,21 @@ import { assert, layer } from "@effect/vitest"
 import { Claude, ClaudeError } from "@kotori/ai"
 import { DatabaseMemory, DictionaryRepo, type EntryRecord, UsersRepo } from "@kotori/db"
 import { Authorization, KotoriApi } from "@kotori/domain"
+import { Mailbox, MailerMemory } from "@kotori/email"
 import { Jev, JevError } from "@kotori/nuance"
 import { Pronouncer, TtsError } from "@kotori/tts"
 import { Effect, Layer, Option } from "effect"
 import { HttpClientRequest, HttpServer } from "effect/http"
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api"
 import { SqlClient } from "effect/sql"
-import { Auth } from "../src/auth.ts"
+import { Auth } from "@kotori/auth"
 import { AuthorizationLive } from "../src/http/Authorization.ts"
 import { AllHandlers } from "../src/http/handlers.ts"
 import { makeApp } from "../src/layers.ts"
 
-// No AI providers are configured in tests: the app must degrade gracefully.
+// No AI providers are configured in tests: the app must degrade gracefully. Mail is captured.
 const OfflineProviders = Layer.mergeAll(
+  MailerMemory,
   Layer.succeed(Claude, Claude.of({
     model: "test",
     available: Effect.succeed(false),
@@ -64,7 +66,7 @@ const signedIn = (email: string) =>
   Effect.gen(function*() {
     const auth = yield* Auth
     const user = yield* signUp(email)
-    yield* auth.setStatus(user.id, "approved")
+    yield* auth.updateUser(user.id, { status: "approved" })
     cookie = user.cookie
     return user
   })
@@ -108,6 +110,11 @@ layer(TestLayer)("Kotori API", (it) => {
       const user = yield* signUp("pending@example.com")
       cookie = user.cookie
 
+      // Signing up sends a verification email.
+      const mail = yield* (yield* Mailbox).messages
+      assert.strictEqual(mail.at(-1)?.to, "pending@example.com")
+      assert.include(mail.at(-1)?.text, "/api/auth/verify-email?token=")
+
       // The profile is created on first sight and reports the approval state.
       const me = yield* api.account.me()
       assert.strictEqual(me.id, user.id)
@@ -123,11 +130,11 @@ layer(TestLayer)("Kotori API", (it) => {
       assert.strictEqual(gatedStudy._tag, "PendingApproval")
 
       // Archiving changes nothing for the learner.
-      yield* auth.setStatus(user.id, "archived")
+      yield* auth.updateUser(user.id, { status: "archived" })
       assert.strictEqual((yield* api.account.me()).status, "archived")
       assert.strictEqual((yield* api.study.notes().pipe(Effect.flip))._tag, "PendingApproval")
 
-      yield* auth.setStatus(user.id, "approved")
+      yield* auth.updateUser(user.id, { status: "approved" })
       assert.deepStrictEqual(yield* api.study.notes(), [])
 
       // Picking a language completes onboarding; bad time zones are ignored.
@@ -253,7 +260,7 @@ layer(TestLayer)("Kotori API", (it) => {
       yield* signedIn("coach@example.com")
       const api = yield* client
       const health = yield* api.health()
-      assert.deepStrictEqual(health.features, { coach: false, nuance: false, audio: false, email: false })
+      assert.deepStrictEqual(health.features, { coach: false, nuance: false, audio: false, email: true })
 
       const error = yield* api.coach.naturalness({ payload: { text: "私は学生です。" } }).pipe(Effect.flip)
       assert.strictEqual(error._tag, "AiUnavailable")

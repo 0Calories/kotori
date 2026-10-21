@@ -11,16 +11,16 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@better-auth/expo": "~1.7.12",
     "@effect/platform-node": "4.0.3",
     "@kotori/ai": "workspace:*",
+    "@kotori/auth": "workspace:*",
     "@kotori/db": "workspace:*",
     "@kotori/domain": "workspace:*",
+    "@kotori/email": "workspace:*",
     "@kotori/japanese": "workspace:*",
     "@kotori/nuance": "workspace:*",
     "@kotori/srs": "workspace:*",
     "@kotori/tts": "workspace:*",
-    "better-auth": "~1.7.12",
     "effect": "4.0.3"
   }
 }

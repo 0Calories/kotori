@@ -1,6 +1,6 @@
 import { Effect } from "effect"
 import { HttpEffect, HttpRouter } from "effect/http"
-import { Auth } from "../auth.ts"
+import { Auth } from "@kotori/auth"
 
 /** Sign-up, sign-in, sessions, verification and password reset, handled by Better Auth. */
 export const BetterAuthRoute = HttpRouter.add(
