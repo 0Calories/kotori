@@ -72,19 +72,18 @@ Pre-beta there are no real users, so this is a reshape, not a data migration:
 apps/
   api/
     src/
-      auth.ts                      + Better Auth server config (plugins: admin, expo; email callbacks)
       http/
         Authorization.ts           ~ bearer-token lookup → getSession + JIT profile + approval gate
-        auth.ts                    + mounts Better Auth's handler at /api/auth/*
+        better-auth.ts             + mounts Better Auth's handler at /api/auth/*
         reset-password.ts          + minimal web form for password reset (v1)
         handlers.ts                ~ account group: /me + PATCH /me only
       services/
         Accounts.ts                ~ profile read/update only; create/authenticate removed
-        Approvals.ts               + list / approve / archive (used by CLI; sends approval email)
-      layers.ts                    ~ wires Auth, Mailer, Approvals
+      layers.ts                    ~ wires Mailer; main.ts composes Auth over the app
     test/api.test.ts               ~ auth setup via Better Auth sign-up; new gate/approval/deletion tests
   worker/
-    src/cli/…                      + requests, approve, archive, users, admin, revoke commands
+    src/commands/accounts.ts       + requests, approve, archive, users, admin, revoke commands
+    src/layers.ts                  ~ adds Auth, Approvals, Mailer
   app/
     src/
       auth/client.ts               + Better Auth client with the Expo plugin (SecureStore)
@@ -104,13 +103,16 @@ packages/
     Errors.ts                      ~ + PendingApproval (403)
   db/src/
     migrations.ts                  ~ + 0004_profiles
-    UsersRepo.ts                   ~ byTokenHash removed; upsertProfile, delete added
+    UsersRepo.ts                   ~ byTokenHash removed; ensure, delete added
+  auth/                            + shared by the API and the worker CLI (apps don't import each other)
+    src/Auth.ts                      Better Auth config (admin + expo plugins, email callbacks, delete hook)
+    src/Approvals.ts                 list / approve / archive / role / revoke; sends the approval email
   email/                           + Mailer service: Console (dev) and Resend layers; EN/JA templates
-    src/Mailer.ts, Resend.ts, templates/
+    src/Mailer.ts, Resend.ts, templates.ts
 data/
   auth.db                          + (gitignored, created by `auth migrate`)
 .env.example                       ~ BETTER_AUTH_SECRET, BETTER_AUTH_URL, RESEND_API_KEY, KOTORI_EMAIL_FROM,
-                                     KOTORI_ADMIN_EMAILS, KOTORI_WEB_ORIGIN, KOTORI_AUTH_DB_PATH
+                                     KOTORI_WEB_ORIGIN, KOTORI_AUTH_DB_PATH (admins are made with `kotori admin`)
 ```
 
 `+` new, `~` changed, `−` removed.
@@ -228,7 +230,7 @@ Account deletion follows the reverse path: the app calls Better Auth's delete-us
 2. **Middleware and domain**: Authorization via `getSession`, JIT profile, `PendingApproval` gate, domain schema changes, removal of the hand-rolled paths, API test setup rewritten.
 3. **Email and approval**: `packages/email`, verification and reset wiring, admin plugin, Approvals service, CLI commands, approval email, gate and flow tests.
 4. **App**: Expo client plugin, cookie-forwarding API client, SessionProvider rebuild, sign-up / sign-in / forgot / pending screens, Settings account section, strings, CORS with credentials for the web origin.
-5. **Pre-invite checklist**: API behind HTTPS with `BETTER_AUTH_URL` set, Resend sending subdomain with SPF, DKIM and DMARC `p=none`, test emails to Gmail, Outlook and iCloud, `KOTORI_ADMIN_EMAILS` set, TestFlight build includes account deletion.
+5. **Pre-invite checklist**: API behind HTTPS with `BETTER_AUTH_URL` set, Resend sending subdomain with SPF, DKIM and DMARC `p=none`, test emails to Gmail, Outlook and iCloud, Ash's account promoted with `kotori admin`, TestFlight build includes account deletion.
 
 ## 10. v2 parking lot
 

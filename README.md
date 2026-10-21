@@ -88,6 +88,21 @@ Runs skip entries that are already done, so they can be repeated or interrupted 
 
 Claude requests opt into server-side refusal fallbacks (`fallbacks: "default"`), so a safety-classifier decline is retried on Anthropic's recommended fallback model instead of failing.
 
+## Accounts and sign-ups
+
+Identity is handled by [Better Auth](https://better-auth.com) at `/api/auth/*`, in its own SQLite database (`data/auth.db`). Learners sign up with email and password; the API keeps their profile and study data in `kotori.db` under the same id. Kotori is in private beta, so new accounts start **pending** and can only reach `/account` until approved:
+
+```sh
+pnpm kotori requests                  # sign-ups waiting for approval (--all includes archived)
+pnpm kotori approve ash@example.com   # unlocks the app and emails the learner
+pnpm kotori archive ash@example.com   # hides the request; nothing is sent
+pnpm kotori users                     # every account
+pnpm kotori admin admin@example.com     # admins skip approval (--remove to demote)
+pnpm kotori revoke user@example.com    # signs them out of every device
+```
+
+Verification, password-reset and approval emails go through [Resend](https://resend.com) when `RESEND_API_KEY` is set; otherwise they are printed to the API log, which is enough for local development. Set `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` before deploying (see `.env.example`).
+
 ## Development
 
 ```sh

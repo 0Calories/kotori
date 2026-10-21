@@ -1,9 +1,10 @@
 import { Claude } from "@kotori/ai"
 import { DictionaryRepo } from "@kotori/db"
 import { CurrentUser, InvalidRequest, KotoriApi, NotFound } from "@kotori/domain"
+import { Mailer } from "@kotori/email"
 import { Jev } from "@kotori/nuance"
 import { Pronouncer } from "@kotori/tts"
-import { Config, Effect, Layer, Option } from "effect"
+import { Effect, Layer, Option } from "effect"
 import { HttpApiBuilder } from "effect/http-api"
 import { Accounts } from "../services/Accounts.ts"
 import { Coaching } from "../services/Coaching.ts"
@@ -22,11 +23,11 @@ export const SystemHandlers = HttpApiBuilder.group(
     const claude = yield* Claude
     const jev = yield* Jev
     const pronouncer = yield* Pronouncer
+    const mailer = yield* Mailer
     const dictionary = yield* DictionaryRepo
     return handlers.handleAll({
       health: () =>
         Effect.gen(function*() {
-          const email = yield* Config.option(Config.String("RESEND_API_KEY")).pipe(Effect.orDie)
           return {
             ok: true,
             version: VERSION,
@@ -34,7 +35,7 @@ export const SystemHandlers = HttpApiBuilder.group(
               coach: yield* claude.available,
               nuance: jev.configured,
               audio: pronouncer.configured,
-              email: Option.isSome(email)
+              email: mailer.configured
             },
             dictionary: { entries: yield* dictionary.count }
           }

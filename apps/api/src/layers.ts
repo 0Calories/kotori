@@ -1,5 +1,6 @@
 import { Claude, Coach } from "@kotori/ai"
 import { DatabaseLive, Repositories } from "@kotori/db"
+import { MailerLive } from "@kotori/email"
 import { Jev } from "@kotori/nuance"
 import { AudioStore, ElevenLabs, Pronouncer } from "@kotori/tts"
 import { Layer } from "effect"
@@ -8,10 +9,11 @@ import { Coaching } from "./services/Coaching.ts"
 import { Dictionary } from "./services/Dictionary.ts"
 import { Study } from "./services/Study.ts"
 
-/** Providers that talk to external AI services. */
+/** Providers that talk to external services: AI and email. */
 export const ProvidersLive = Layer.mergeAll(
   Claude.layer,
   Jev.layer,
+  MailerLive,
   Pronouncer.layer.pipe(Layer.provideMerge(Layer.mergeAll(ElevenLabs.layer, AudioStore.layer)))
 )
 

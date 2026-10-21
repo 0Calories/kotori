@@ -3,6 +3,7 @@ import { NodeRuntime } from "@effect/platform-node"
 import { loadDotEnv } from "@kotori/db"
 import { Effect } from "effect"
 import { Command } from "effect/cli"
+import { adminCommand, approve, archive, requests, revoke, users } from "./commands/accounts.ts"
 import { enrich } from "./commands/enrich.ts"
 import { seed } from "./commands/seed.ts"
 import { status } from "./commands/status.ts"
@@ -12,8 +13,8 @@ import { WorkerLive } from "./layers.ts"
 loadDotEnv()
 
 const kotori = Command.make("kotori").pipe(
-  Command.withDescription("Kotori's data pipeline: seed JMDict, then enrich it with Jev, Claude and ElevenLabs"),
-  Command.withSubcommands([seed, enrich, work, status])
+  Command.withDescription("Kotori's toolbox: seed and enrich the dictionary, and manage learner sign-ups"),
+  Command.withSubcommands([seed, enrich, work, status, requests, approve, archive, users, adminCommand, revoke])
 )
 
 kotori.pipe(

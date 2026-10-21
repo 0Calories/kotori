@@ -1,7 +1,7 @@
 import { Authorization, CurrentUser, PendingApproval, Unauthorized } from "@kotori/domain"
 import { Effect, Layer } from "effect"
 import { HttpServerRequest } from "effect/http"
-import { Auth } from "../auth.ts"
+import { Auth } from "@kotori/auth"
 import { Accounts } from "../services/Accounts.ts"
 
 /** Groups a signed-in but unapproved learner may still call. */

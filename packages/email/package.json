@@ -1,0 +1,21 @@
+{
+  "name": "@kotori/email",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Transactional email: Resend in production, the console in development",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@kotori/domain": "workspace:*",
+    "effect": "4.0.3"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "4.0.3"
+  }
+}
