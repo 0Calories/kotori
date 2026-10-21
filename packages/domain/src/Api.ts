@@ -10,6 +10,7 @@ import * as OpenApi from "effect/http-api/OpenApi"
 import { CreateAccountRequest, Profile, Session, UpdateProfileRequest, UserId } from "./Account.ts"
 import { HowToSayRequest, HowToSayResult, NaturalnessRequest, NaturalnessResult } from "./Coach.ts"
 import { Enrichment, Entry, EntryId, SearchResult } from "./Dictionary.ts"
+import { SituationSearchResult } from "./Situations.ts"
 import { AiUnavailable, InvalidRequest, NotFound, RateLimited, Unauthorized } from "./Errors.ts"
 import { Language } from "./Language.ts"
 import {
@@ -74,6 +75,15 @@ export class DictionaryApi extends HttpApiGroup.make("dictionary")
         limit: Schema.optional(Schema.Int)
       },
       success: SearchResult
+    }),
+    // Prototype. Disabled unless KOTORI_SITUATIONS=1, so the default search route is unchanged.
+    HttpApiEndpoint.get("situations", "/situations", {
+      query: {
+        q: Schema.String,
+        limit: Schema.optional(Schema.Int)
+      },
+      success: SituationSearchResult,
+      error: NotFound
     }),
     HttpApiEndpoint.get("entry", "/entries/:id", {
       params: { id: EntryId },
