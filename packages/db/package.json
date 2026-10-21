@@ -5,7 +5,8 @@
   "description": "SQLite database, migrations and repositories",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./embedder": "./src/Embedder.ts"
   },
   "scripts": {
     "test": "vitest run",
@@ -13,7 +14,9 @@
   },
   "dependencies": {
     "@effect/sql-sqlite-node": "4.0.3",
+    "@huggingface/transformers": "^4.3.1",
     "@kotori/domain": "workspace:*",
-    "effect": "4.0.3"
+    "effect": "4.0.3",
+    "sqlite-vec": "^0.1.9"
   }
 }

@@ -9,6 +9,9 @@ allowBuilds:
   '@resvg/resvg-js': true
   esbuild: true
   nx: true
+  onnxruntime-node: true
+  protobufjs: true
+  sharp: true
 
 minimumReleaseAgeExclude:
   - '@vitest/mocker@5.0.4'

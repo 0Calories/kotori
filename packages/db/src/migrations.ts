@@ -256,8 +256,77 @@ const study = Effect.gen(function*() {
   yield* sql`CREATE INDEX coach_usage_user ON coach_usage (user_id, created_at)`
 })
 
+const situations = Effect.gen(function*() {
+  const sql = yield* SqlClient.SqlClient
+
+  // Prototype situation index. Titles and aliases are generated offline; entry
+  // links are real JMDict ids resolved at index time. Vectors live in
+  // `situation_embeddings` and, when the extension loads, in a vec0 table.
+  yield* sql`
+    CREATE TABLE situations (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      category TEXT NOT NULL,
+      note TEXT NOT NULL
+    )
+  `
+  yield* sql`
+    CREATE TABLE situation_aliases (
+      situation_id TEXT NOT NULL REFERENCES situations (id) ON DELETE CASCADE,
+      position INTEGER NOT NULL,
+      text TEXT NOT NULL,
+      PRIMARY KEY (situation_id, position)
+    )
+  `
+  yield* sql`
+    CREATE TABLE situation_phrases (
+      situation_id TEXT NOT NULL REFERENCES situations (id) ON DELETE CASCADE,
+      position INTEGER NOT NULL,
+      ja TEXT NOT NULL,
+      reading TEXT NOT NULL,
+      en TEXT NOT NULL,
+      formality TEXT NOT NULL,
+      PRIMARY KEY (situation_id, position)
+    )
+  `
+  yield* sql`
+    CREATE TABLE situation_entries (
+      situation_id TEXT NOT NULL REFERENCES situations (id) ON DELETE CASCADE,
+      position INTEGER NOT NULL,
+      entry_id INTEGER NOT NULL REFERENCES entries (id) ON DELETE CASCADE,
+      PRIMARY KEY (situation_id, position)
+    )
+  `
+  yield* sql`
+    CREATE TABLE situation_embeddings (
+      id INTEGER PRIMARY KEY,
+      situation_id TEXT NOT NULL REFERENCES situations (id) ON DELETE CASCADE,
+      text TEXT NOT NULL,
+      embedding BLOB NOT NULL
+    )
+  `
+  yield* sql`CREATE INDEX situation_embeddings_situation ON situation_embeddings (situation_id)`
+  yield* sql`
+    CREATE VIRTUAL TABLE situation_fts USING fts5 (
+      situation_id UNINDEXED,
+      text,
+      tokenize = 'porter unicode61 remove_diacritics 2'
+    )
+  `
+  yield* sql`
+    CREATE TABLE situation_misses (
+      id INTEGER PRIMARY KEY,
+      query TEXT NOT NULL,
+      top_score REAL,
+      top_id TEXT,
+      created_at INTEGER NOT NULL
+    )
+  `
+})
+
 export const migrations = {
   "0001_dictionary": dictionary,
   "0002_enrichment": enrichment,
-  "0003_study": study
+  "0003_study": study,
+  "0004_situations": situations
 }

@@ -6,6 +6,7 @@ import { Layer } from "effect"
 import { Accounts } from "./services/Accounts.ts"
 import { Coaching } from "./services/Coaching.ts"
 import { Dictionary } from "./services/Dictionary.ts"
+import { Situations } from "./services/Situations.ts"
 import { Study } from "./services/Study.ts"
 
 /** Providers that talk to external AI services. */
@@ -16,7 +17,7 @@ export const ProvidersLive = Layer.mergeAll(
 )
 
 /** Application services on top of the repositories and providers. */
-export const ServicesLive = Layer.mergeAll(Accounts.layer, Study.layer, Coaching.layer).pipe(
+export const ServicesLive = Layer.mergeAll(Accounts.layer, Study.layer, Coaching.layer, Situations.layer).pipe(
   Layer.provideMerge(Dictionary.layer),
   Layer.provideMerge(Coach.layer)
 )

@@ -3,11 +3,12 @@ import { DictionaryRepo } from "@kotori/db"
 import { CurrentUser, InvalidRequest, KotoriApi, NotFound } from "@kotori/domain"
 import { Jev } from "@kotori/nuance"
 import { Pronouncer } from "@kotori/tts"
-import { Effect, Layer, Option } from "effect"
+import { Config, Effect, Layer, Option } from "effect"
 import { HttpApiBuilder } from "effect/http-api"
 import { Accounts } from "../services/Accounts.ts"
 import { Coaching } from "../services/Coaching.ts"
 import { Dictionary } from "../services/Dictionary.ts"
+import { Situations } from "../services/Situations.ts"
 import { Study } from "../services/Study.ts"
 
 const VERSION = "0.1.0"
@@ -60,8 +61,15 @@ export const DictionaryHandlers = HttpApiBuilder.group(
   "dictionary",
   Effect.fn(function*(handlers) {
     const dictionary = yield* Dictionary
+    const situations = yield* Situations
     return handlers.handleAll({
       search: ({ query }) => dictionary.search(query.q, Math.min(Math.max(query.limit ?? 30, 1), 100)),
+      situations: ({ query }) =>
+        Effect.gen(function*() {
+          const enabled = yield* Effect.orDie(Config.Boolean("KOTORI_SITUATIONS").pipe(Config.withDefault(false)))
+          if (!enabled) return yield* new NotFound({ message: "Situation search is not enabled" })
+          return yield* situations.search(query.q, query.limit ?? 8)
+        }),
       entry: ({ params }) => dictionary.entry(params.id).pipe(Effect.flatMap(orNotFound("No such entry"))),
       enrich: ({ params }) =>
         dictionary.requestEnrichment(params.id).pipe(Effect.flatMap(orNotFound("No such entry")))

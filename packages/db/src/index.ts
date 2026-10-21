@@ -1,3 +1,5 @@
+export * from "./fusion.ts"
+export * from "./SituationRepo.ts"
 export * from "./CoachRepo.ts"
 export * from "./Database.ts"
 export * from "./DictionaryRepo.ts"
@@ -13,6 +15,7 @@ import { CoachRepo } from "./CoachRepo.ts"
 import { DictionaryRepo } from "./DictionaryRepo.ts"
 import { EnrichmentRepo } from "./EnrichmentRepo.ts"
 import { JobsRepo } from "./JobsRepo.ts"
+import { SituationRepo } from "./SituationRepo.ts"
 import { StudyRepo } from "./StudyRepo.ts"
 import { UsersRepo } from "./UsersRepo.ts"
 
@@ -23,5 +26,6 @@ export const Repositories = Layer.mergeAll(
   JobsRepo.layer,
   UsersRepo.layer,
   StudyRepo.layer,
-  CoachRepo.layer
+  CoachRepo.layer,
+  SituationRepo.layer
 )
