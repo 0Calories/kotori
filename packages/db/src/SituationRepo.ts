@@ -87,6 +87,13 @@ export class SituationRepo extends Context.Service<SituationRepo, {
   readonly vectorBackend: Effect.Effect<"sqlite-vec" | "blob">
   /** Best-first situation ids for an FTS5 MATCH expression over English text. */
   searchKeyword(match: string, limit: number): Effect.Effect<ReadonlyArray<string>>
+  /** Matching indexed phrases, best bm25 first. `rank` is 0 for the best row. */
+  searchKeywordRows(
+    match: string,
+    limit: number
+  ): Effect.Effect<ReadonlyArray<{ readonly id: string; readonly text: string; readonly rank: number }>>
+  /** English title, alias, and gloss text indexed for keyword overlap. */
+  readonly englishDocuments: Effect.Effect<ReadonlyArray<{ readonly id: string; readonly text: string }>>
   /** Best-first situation ids for a Japanese substring. */
   searchJapanese(fragment: string, limit: number): Effect.Effect<ReadonlyArray<string>>
   searchVector(vector: Float32Array, limit: number): Effect.Effect<ReadonlyArray<VectorHit>>
@@ -210,6 +217,32 @@ export class SituationRepo extends Context.Service<SituationRepo, {
         Effect.map((rows) => rows[0]?.n ?? 0),
         Effect.orDie
       )
+
+      const EnglishDoc = Schema.Struct({ situationId: Schema.String, text: Schema.String })
+
+      const englishDocuments = sql`SELECT situation_id, text FROM situation_fts`.pipe(
+        Effect.flatMap(decodeRows(EnglishDoc)),
+        Effect.map((rows) => rows.map((row) => ({ id: row.situationId, text: row.text }))),
+        Effect.orDie
+      )
+
+      const KeywordPhrase = Schema.Struct({
+        situationId: Schema.String,
+        text: Schema.String,
+        rank: Schema.Number
+      })
+
+      const searchKeywordRows = Effect.fn("SituationRepo.searchKeywordRows")(function*(match: string, limit: number) {
+        if (match.trim().length === 0) return []
+        const rows = yield* sql`
+          SELECT situation_id, text, bm25(situation_fts) AS rank
+          FROM situation_fts
+          WHERE situation_fts MATCH ${match}
+          ORDER BY rank
+          LIMIT ${limit}
+        `.pipe(Effect.flatMap(decodeRows(KeywordPhrase)))
+        return rows.map((row, rank) => ({ id: row.situationId, text: row.text, rank }))
+      }, Effect.orDie)
 
       const searchKeyword = Effect.fn("SituationRepo.searchKeyword")(function*(match: string, limit: number) {
         if (match.trim().length === 0) return []
@@ -342,6 +375,8 @@ export class SituationRepo extends Context.Service<SituationRepo, {
         count,
         vectorBackend: backend,
         searchKeyword,
+        searchKeywordRows,
+        englishDocuments,
         searchJapanese,
         searchVector,
         getMany: (ids) => load(ids),

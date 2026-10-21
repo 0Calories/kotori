@@ -4,7 +4,10 @@ import {
   DatabaseLive,
   DictionaryRepo,
   fuse,
+  isSingleLatinWord,
   Repositories,
+  SCORE_THRESHOLD,
+  shouldFallback,
   SituationRepo,
   type VectorHit
 } from "@kotori/db"
@@ -266,14 +269,14 @@ const program = Effect.gen(function*() {
   }
 
   const threshold = situations.threshold
-  const decided = rows.map((row) => ({ ...row, fallback: row.topScore < threshold }))
+  const decided = rows.map((row) => ({ ...row, fallback: shouldFallback(row.query.query, row.topScore) }))
   const want = (row: Scored) => row.query.wantFallback
   const confidentCorrect = decided.filter((row) =>
     !want(row) && !row.fallback && row.hybridRank === 1
   ).length
   const inCatalog = decided.filter((row) => !want(row))
-  const shouldFallback = decided.filter((row) => want(row))
-  const falseAccept = shouldFallback.filter((row) => !row.fallback)
+  const negatives = decided.filter((row) => want(row))
+  const falseAccept = negatives.filter((row) => !row.fallback)
   const missedAccept = inCatalog.filter((row) => row.fallback)
   console.log(`\nThreshold ${threshold}`)
   console.log(
@@ -282,28 +285,59 @@ const program = Effect.gen(function*() {
       `Fell through to AI: ${missedAccept.length}.`
   )
   console.log(
-    `Lexical+uncovered correctly sent to fallback: ${shouldFallback.length - falseAccept.length}/${shouldFallback.length}. ` +
+    `Lexical+uncovered correctly sent to fallback: ${negatives.length - falseAccept.length}/${negatives.length}. ` +
       `False accepts: ${falseAccept.length}.`
   )
 
-  console.log("\nThreshold sweep (accept if top score >= t)")
-  console.log("t      inCatalog@1  fallthrough  falseAccept")
+  console.log("\nThreshold sweep (single English words always fall back; else accept if top score >= t)")
+  console.log("t      inCatalog@1  fallthrough  falseAccept  lexical  uncovered")
   const sweep = []
+  const accepts = (row: Scored, cutoff: number) => !isSingleLatinWord(row.query.query) && row.topScore >= cutoff
   for (let t = 30; t <= 80; t += 2) {
     const cutoff = t / 100
-    const accepted = rows.filter((row) => row.topScore >= cutoff)
     const catalog = rows.filter((row) => !row.query.wantFallback)
-    const at1 = catalog.filter((row) => row.topScore >= cutoff && row.hybridRank === 1).length
-    const fall = catalog.filter((row) => row.topScore < cutoff).length
-    const falseA = rows.filter((row) => row.query.wantFallback && row.topScore >= cutoff).length
-    sweep.push({ t: cutoff, at1, fall, falseA, catalog: catalog.length, negatives: rows.length - catalog.length })
+    const at1 = catalog.filter((row) => accepts(row, cutoff) && row.hybridRank === 1).length
+    const fall = catalog.filter((row) => !accepts(row, cutoff)).length
+    const negatives = rows.filter((row) => row.query.wantFallback)
+    const falseRows = negatives.filter((row) => accepts(row, cutoff))
+    const falseLex = falseRows.filter((row) => row.query.kind === "lexical").length
+    const falseUnc = falseRows.filter((row) => row.query.kind === "uncovered").length
+    sweep.push({
+      t: cutoff,
+      at1,
+      fall,
+      falseA: falseRows.length,
+      falseLex,
+      falseUnc,
+      catalog: catalog.length,
+      negatives: negatives.length
+    })
     if (t % 4 === 0) {
       console.log(
         `${cutoff.toFixed(2)}   ${String(at1).padStart(3)}/${catalog.length}       ${String(fall).padStart(3)}          ${
-          String(falseA).padStart(3)
-        }/${rows.length - catalog.length}`
+          String(falseRows.length).padStart(3)
+        }/${negatives.length}     ${String(falseLex).padStart(3)}      ${String(falseUnc).padStart(3)}`
       )
     }
+  }
+
+  console.log("\nFalse accepts at the gate:")
+  for (const row of decided.filter((item) => item.query.wantFallback && !item.fallback)) {
+    console.log(`  ${row.topScore.toFixed(3)} ${row.topId} [${row.query.kind}] ${JSON.stringify(row.query.query)} kw ${row.keywordRank ?? "-"}`)
+  }
+  console.log("In-catalog sent to the model:")
+  for (const row of decided.filter((item) => !item.query.wantFallback && item.fallback)) {
+    console.log(
+      `  ${row.topScore.toFixed(3)} ${row.topId} [${row.query.kind}] ${JSON.stringify(row.query.query)} ` +
+        `expected ${row.query.situation} hybrid ${row.hybridRank ?? "-"} kw ${row.keywordRank ?? "-"}`
+    )
+  }
+  console.log("In-catalog accepted but not rank 1:")
+  for (const row of decided.filter((item) => !item.query.wantFallback && !item.fallback && item.hybridRank !== 1)) {
+    console.log(
+      `  ${row.topScore.toFixed(3)} ${row.topId} [${row.query.kind}] ${JSON.stringify(row.query.query)} ` +
+        `expected ${row.query.situation} hybrid ${row.hybridRank ?? "-"}`
+    )
   }
 
   const exact = rows.filter((row) => row.exactAlias).length
@@ -317,6 +351,7 @@ const program = Effect.gen(function*() {
     "自己紹介",
     "how do I break up with someone",
     "where is the station",
+    "how do I ask the price of a haircut",
     "I'm lost"
   ]
   console.log("\nExamples")
@@ -327,7 +362,11 @@ const program = Effect.gen(function*() {
       const hit = hybridTimed[queries.indexOf(row.query)]!.value[index]
       return `${id} (${hit?.score.toFixed(3)}, cos ${hit?.cosine?.toFixed(3) ?? "-"}, kw ${hit?.keywordRank ?? "-"})`
     })
-    console.log(`\n"${text}" [${row.query.kind}] expected ${row.query.situation ?? "none"} fallback ${row.topScore < threshold}`)
+    console.log(
+      `\n"${text}" [${row.query.kind}] expected ${row.query.situation ?? "none"} fallback ${
+        shouldFallback(text, row.topScore)
+      }`
+    )
     console.log(`  situations: ${top.join("; ") || "(none)"}`)
     console.log(`  dictionary: ${row.dictionaryHeadwords.join(", ") || "(none)"}`)
   }
@@ -336,8 +375,13 @@ const program = Effect.gen(function*() {
   const cosines = (kind: QueryKind) =>
     rows.filter((row) => row.query.kind === kind).map((row) => row.topCosine ?? 0).sort((a, b) => a - b)
   const median = (values: readonly number[]) => values.length === 0 ? null : values[Math.floor(values.length / 2)]!
-  console.log("\nTop-hit cosine median by kind:")
-  for (const kind of KINDS) console.log(`  ${kind.padEnd(12)} ${fmt(median(cosines(kind)), 3)}`)
+  console.log("\nTop-hit cosine / fused score median by kind:")
+  const scores = (kind: QueryKind) =>
+    rows.filter((row) => row.query.kind === kind).map((row) => row.topScore).sort((a, b) => a - b)
+  for (const kind of KINDS) {
+    console.log(`  ${kind.padEnd(12)} cos ${fmt(median(cosines(kind)), 3)}  score ${fmt(median(scores(kind)), 3)}`)
+  }
+  void SCORE_THRESHOLD
   void intentRows
 
   mkdirSync("data", { recursive: true })

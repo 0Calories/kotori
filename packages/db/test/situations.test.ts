@@ -1,7 +1,20 @@
 import { assert, describe, layer } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 import { SqlClient } from "effect/sql"
-import { DatabaseMemory, DictionaryRepo, type EntryRecord, fuse, rankByCosine, Repositories, SituationRepo } from "../src/index.ts"
+import {
+  contentTokens,
+  DatabaseMemory,
+  DictionaryRepo,
+  type EntryRecord,
+  fuzzyHits,
+  fuse,
+  isSingleLatinWord,
+  rankByCosine,
+  rankOverlap,
+  Repositories,
+  shouldFallback,
+  SituationRepo
+} from "../src/index.ts"
 
 const vector = (index: number) => {
   const values = new Float32Array(384)
@@ -52,6 +65,45 @@ describe("fuse", () => {
           { id: "b", vector: vector(1) }
         ], 2)
         assert.strictEqual(ranked[0]?.id, "b")
+
+        assert.deepStrictEqual(contentTokens("how do I introduce myself"), ["introduce", "myself"])
+        assert.deepStrictEqual(contentTokens("thankyou very much"), ["thank", "much"])
+        assert.isTrue(isSingleLatinWord("station"))
+        assert.isFalse(isSingleLatinWord("where is the station"))
+        assert.isFalse(isSingleLatinWord("自己紹介"))
+        assert.isTrue(shouldFallback("eat", 0.9))
+        assert.isFalse(shouldFallback("where is the station", 0.9))
+
+        const overlap = rankOverlap(["name", "meet", "polite"], [
+          { token: "name", id: "intro", field: "my name", rank: 0 },
+          { token: "meet", id: "intro", field: "nice to meet you", rank: 1 },
+          { token: "name", id: "other", field: "your name", rank: 2 }
+        ], 5)
+        assert.deepStrictEqual(overlap, ["intro"])
+        const crowd = [
+          { token: "break", id: "luck", field: "break a leg", rank: 0 },
+          ...Array.from({ length: 15 }, (_, index) => ({
+            token: "someone",
+            id: `s${index}`,
+            field: "someone",
+            rank: index
+          }))
+        ]
+        assert.deepStrictEqual(rankOverlap(["break", "someone"], crowd, 5), [])
+        const shared = rankOverlap(["price", "haircut"], [
+          { token: "price", id: "shop", field: "what's the price", rank: 0 },
+          { token: "price", id: "other", field: "price", rank: 1 }
+        ], 5)
+        assert.deepStrictEqual(shared, [])
+        const ambiguous = rankOverlap(["break"], [
+          { token: "break", id: "phone", field: "you're breaking up", rank: 0 },
+          { token: "break", id: "luck", field: "break a leg", rank: 1 }
+        ], 5)
+        assert.deepStrictEqual(ambiguous, [])
+        assert.deepStrictEqual(fuzzyHits("introduse", [
+          { id: "intro", tokens: ["introduce", "myself"] },
+          { id: "other", tokens: ["morning"] }
+        ]), ["intro"])
       }))
   })
 })

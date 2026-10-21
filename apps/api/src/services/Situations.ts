@@ -1,9 +1,15 @@
 import {
+  contentTokens,
   DictionaryRepo,
+  documentTokens,
   englishFtsMatch,
+  fuzzyHits,
   fuse,
+  rankOverlap,
   SCORE_THRESHOLD,
+  shouldFallback,
   SituationRepo,
+  type TokenHit,
   type VectorHit
 } from "@kotori/db"
 import { EntryId, type Formality, type SituationSearchResult } from "@kotori/domain"
@@ -38,10 +44,46 @@ export class Situations extends Context.Service<Situations, {
 
       const keyword = Effect.fn("Situations.keyword")(function*(raw: string) {
         const query = raw.normalize("NFKC").trim()
-        const match = englishFtsMatch(query)
-        const fts = match === null ? [] : yield* repo.searchKeyword(match, RETRIEVE)
+        const tokens = contentTokens(query)
+        const phrase = englishFtsMatch(query)
+        const phraseIds = phrase === null ? [] : yield* repo.searchKeyword(phrase, RETRIEVE)
+        const perToken = yield* Effect.all(
+          tokens.map((token) =>
+            repo.searchKeywordRows(`"${token}"`, 40).pipe(Effect.map((rows) => ({ token, rows })))
+          ),
+          { concurrency: "unbounded" }
+        )
+        const missed = perToken.filter((row) => row.rows.length === 0).map((row) => row.token)
+        const docs = missed.length === 0
+          ? []
+          : (yield* repo.englishDocuments).map((doc) => ({
+            id: doc.id,
+            text: doc.text,
+            tokens: documentTokens(doc.text)
+          }))
+        const hits: TokenHit[] = []
+        for (const row of perToken) {
+          if (row.rows.length > 0) {
+            for (const match of row.rows) {
+              hits.push({ token: row.token, id: match.id, field: match.text, rank: match.rank })
+            }
+          } else {
+            for (const doc of docs) {
+              if (fuzzyHits(row.token, [{ id: doc.id, tokens: doc.tokens }]).length === 0) continue
+              hits.push({ token: row.token, id: doc.id, field: doc.text, rank: 40 })
+            }
+          }
+        }
         const japanese = hasJapanese(query) ? yield* repo.searchJapanese(query, RETRIEVE) : []
-        const ids = [...fts]
+        const needle = query.toLowerCase().replace(/['’]/g, "").replace(/\s+/g, " ").trim()
+        const contained = phraseIds.length > 0 || needle.length < 6 || !needle.includes(" ")
+          ? []
+          : [...new Set((yield* repo.englishDocuments).flatMap((doc) =>
+            doc.text.toLowerCase().replace(/['’]/g, "").replace(/\s+/g, " ").includes(needle) ? [doc.id] : []
+          ))]
+        const ids = [...phraseIds]
+        for (const id of contained) if (!ids.includes(id)) ids.push(id)
+        for (const id of rankOverlap(tokens, hits, RETRIEVE)) if (!ids.includes(id)) ids.push(id)
         for (const id of japanese) if (!ids.includes(id)) ids.push(id)
         return ids
       })
@@ -79,8 +121,9 @@ export class Situations extends Context.Service<Situations, {
 
         const fused = fuse(keywordIds, vectorHits)
         const top = fused[0]
-        const fallback = top === undefined || top.score < SCORE_THRESHOLD
-        if (fallback && indexed > 0) yield* repo.logMiss(query, top?.score ?? null, top?.id ?? null)
+        const topScore = top?.score ?? 0
+        const fallback = shouldFallback(query, topScore)
+        if (topScore < SCORE_THRESHOLD && indexed > 0) yield* repo.logMiss(query, top?.score ?? null, top?.id ?? null)
 
         const chosen = fused.slice(0, capped)
         const records = yield* repo.getMany(chosen.map((hit) => hit.id))

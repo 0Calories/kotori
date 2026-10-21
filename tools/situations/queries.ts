@@ -103,5 +103,26 @@ export const queries: readonly LabeledQuery[] = [
   uncovered("how do you offer condolences"),
   uncovered("how do I ask someone to stop smoking"),
   uncovered("how do I tell my landlord the sink is broken"),
-  uncovered("how do I reschedule a visa appointment")
+  uncovered("how do I reschedule a visa appointment"),
+
+  uncovered("how do I ask someone on a date"),
+  uncovered("how do I tell the barber to take a little off the sides"),
+  uncovered("how do I describe this rash to a pharmacist"),
+  uncovered("how do I say I missed my flight"),
+  uncovered("how do I tell the waiter they brought the wrong dish"),
+  uncovered("how do I say the air conditioner is too cold"),
+  uncovered("how do I report a lost passport"),
+  uncovered("how do I invite my coworkers to a wedding"),
+  uncovered("how do I ask for stamps at the post office"),
+  uncovered("how do I say my glasses broke"),
+  uncovered("how do I order flowers for a funeral"),
+  uncovered("how do I ask if pets are allowed"),
+  uncovered("how do I say I forgot my password"),
+  uncovered("how do I ask the price of a haircut"),
+  uncovered("how do I tell a child to watch out for the cars"),
+  uncovered("how do I complain that the soup is cold"),
+  uncovered("how do I ask where to buy a sim card"),
+  uncovered("how do I say I'll pay you back tomorrow"),
+  uncovered("how do I ask the dentist if this will hurt"),
+  uncovered("how do I return a library book")
 ]
