@@ -20,9 +20,11 @@
     "@kotori/domain": "workspace:*",
     "@kotori/email": "workspace:*",
     "better-auth": "catalog:",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "pg": "catalog:"
   },
   "devDependencies": {
-    "@effect/platform-node": "catalog:"
+    "@effect/platform-node": "catalog:",
+    "@types/pg": "catalog:"
   }
 }

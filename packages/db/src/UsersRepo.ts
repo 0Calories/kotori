@@ -55,7 +55,7 @@ export class UsersRepo extends Context.Service<
         sql`SELECT * FROM users WHERE id = ${id}`.pipe(Effect.flatMap(decodeRows), Effect.map(first), Effect.orDie)
 
       const ensure = Effect.fn("UsersRepo.ensure")(function* (user: UserRow) {
-        yield* sql`INSERT OR IGNORE INTO users ${sql.insert(user)}`.pipe(Effect.orDie)
+        yield* sql`INSERT INTO users ${sql.insert(user)} ON CONFLICT (id) DO NOTHING`.pipe(Effect.orDie)
         return Option.getOrElse(yield* byId(user.id), () => user)
       })
 

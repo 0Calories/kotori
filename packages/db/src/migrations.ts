@@ -1,6 +1,10 @@
 import { Effect } from "effect"
 import { SqlClient } from "effect/sql"
 
+// A fresh start for Postgres: the SQLite databases predate the beta and are
+// re-seeded (JMDict) or re-generated (enrichment), not migrated. Timestamps
+// are millisecond epochs in BIGINT, matching what the code already stores.
+
 const dictionary = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
 
@@ -11,23 +15,25 @@ const dictionary = Effect.gen(function* () {
       id INTEGER PRIMARY KEY,
       headword TEXT NOT NULL,
       reading TEXT NOT NULL,
-      common INTEGER NOT NULL DEFAULT 0,
+      common BOOLEAN NOT NULL DEFAULT FALSE,
       priority INTEGER NOT NULL DEFAULT 0
     )
   `
   yield* sql`CREATE INDEX entries_priority ON entries (priority DESC, id)`
 
+  // `text` collates in "C" (byte order, as SQLite compared it) so the prefix
+  // search's range scan stays correct and indexable under any locale.
   yield* sql`
     CREATE TABLE forms (
       entry_id INTEGER NOT NULL REFERENCES entries (id) ON DELETE CASCADE,
       kind TEXT NOT NULL CHECK (kind IN ('kanji', 'kana')),
       position INTEGER NOT NULL,
-      text TEXT NOT NULL,
-      common INTEGER NOT NULL DEFAULT 0,
+      text TEXT COLLATE "C" NOT NULL,
+      common BOOLEAN NOT NULL DEFAULT FALSE,
       tags TEXT NOT NULL DEFAULT '[]',
       priorities TEXT NOT NULL DEFAULT '[]',
       restrictions TEXT NOT NULL DEFAULT '[]',
-      no_kanji INTEGER NOT NULL DEFAULT 0,
+      no_kanji BOOLEAN NOT NULL DEFAULT FALSE,
       PRIMARY KEY (entry_id, kind, position)
     )
   `
@@ -52,27 +58,22 @@ const dictionary = Effect.gen(function* () {
   `
 
   // One row per English gloss. `norm` ("to eat (a meal)" -> "eat") supports exact
-  // matching for EN->JP lookups and finding words that share a meaning.
+  // matching for EN->JP lookups and finding words that share a meaning. `ts` is
+  // the full-text index over the gloss, kept current by Postgres itself.
   yield* sql`
     CREATE TABLE glosses (
-      id INTEGER PRIMARY KEY,
+      id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       entry_id INTEGER NOT NULL REFERENCES entries (id) ON DELETE CASCADE,
       sense INTEGER NOT NULL,
       position INTEGER NOT NULL,
       text TEXT NOT NULL,
-      norm TEXT NOT NULL
+      norm TEXT NOT NULL,
+      ts tsvector NOT NULL GENERATED ALWAYS AS (to_tsvector('english', text)) STORED
     )
   `
   yield* sql`CREATE INDEX glosses_entry ON glosses (entry_id, sense)`
   yield* sql`CREATE INDEX glosses_norm ON glosses (norm)`
-  yield* sql`
-    CREATE VIRTUAL TABLE gloss_fts USING fts5 (
-      text,
-      content = 'glosses',
-      content_rowid = 'id',
-      tokenize = 'porter unicode61 remove_diacritics 2'
-    )
-  `
+  yield* sql`CREATE INDEX glosses_ts ON glosses USING gin (ts)`
 
   yield* sql`CREATE TABLE tags (code TEXT PRIMARY KEY, label TEXT NOT NULL)`
 })
@@ -89,7 +90,7 @@ const enrichment = Effect.gen(function* () {
       nuance TEXT NOT NULL,
       answers TEXT NOT NULL,
       model TEXT NOT NULL,
-      created_at INTEGER NOT NULL,
+      created_at BIGINT NOT NULL,
       PRIMARY KEY (entry_id, sense)
     )
   `
@@ -99,16 +100,16 @@ const enrichment = Effect.gen(function* () {
       entry_id INTEGER NOT NULL,
       sense INTEGER NOT NULL,
       similar_id INTEGER NOT NULL,
-      similarity REAL NOT NULL,
+      similarity DOUBLE PRECISION NOT NULL,
       difference TEXT NOT NULL,
-      confidence REAL NOT NULL,
+      confidence DOUBLE PRECISION NOT NULL,
       PRIMARY KEY (entry_id, sense, similar_id)
     )
   `
 
   yield* sql`
     CREATE TABLE examples (
-      id INTEGER PRIMARY KEY,
+      id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       entry_id INTEGER NOT NULL,
       sense INTEGER NOT NULL,
       position INTEGER NOT NULL,
@@ -118,12 +119,13 @@ const enrichment = Effect.gen(function* () {
       formality TEXT NOT NULL,
       note TEXT,
       model TEXT NOT NULL,
-      created_at INTEGER NOT NULL
+      created_at BIGINT NOT NULL
     )
   `
   yield* sql`CREATE INDEX examples_entry ON examples (entry_id, sense, position)`
 
-  // Content-addressed audio clips: key = sha256(voice, model, text).
+  // Content-addressed audio clips: key = sha256(voice, model, text). The bytes
+  // live in `audio_files` so the API and the worker share them without a disk.
   yield* sql`
     CREATE TABLE audio (
       key TEXT PRIMARY KEY,
@@ -133,9 +135,10 @@ const enrichment = Effect.gen(function* () {
       model_id TEXT NOT NULL,
       characters INTEGER NOT NULL,
       bytes INTEGER NOT NULL,
-      created_at INTEGER NOT NULL
+      created_at BIGINT NOT NULL
     )
   `
+  yield* sql`CREATE TABLE audio_files (key TEXT PRIMARY KEY, data BYTEA NOT NULL)`
   yield* sql`CREATE TABLE entry_audio (entry_id INTEGER PRIMARY KEY, audio_key TEXT NOT NULL)`
   yield* sql`
     CREATE TABLE example_audio (
@@ -149,16 +152,16 @@ const enrichment = Effect.gen(function* () {
   // Work queue shared by the API (on-demand requests) and the worker.
   yield* sql`
     CREATE TABLE jobs (
-      id INTEGER PRIMARY KEY,
+      id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       kind TEXT NOT NULL,
       entry_id INTEGER NOT NULL,
       priority INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'queued',
       attempts INTEGER NOT NULL DEFAULT 0,
       error TEXT,
-      run_after INTEGER NOT NULL DEFAULT 0,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL,
+      run_after BIGINT NOT NULL DEFAULT 0,
+      created_at BIGINT NOT NULL,
+      updated_at BIGINT NOT NULL,
       UNIQUE (kind, entry_id)
     )
   `
@@ -168,17 +171,19 @@ const enrichment = Effect.gen(function* () {
 const study = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
 
+  // The learner profile. Identity (email, credentials, sessions) lives in Better
+  // Auth's own tables; `id` is its user id, and the row is created on first request.
   yield* sql`
     CREATE TABLE users (
       id TEXT PRIMARY KEY,
-      token_hash TEXT NOT NULL UNIQUE,
-      native_language TEXT NOT NULL,
-      target_language TEXT NOT NULL,
+      native_language TEXT NOT NULL DEFAULT 'en',
+      target_language TEXT NOT NULL DEFAULT 'ja',
+      onboarded_at BIGINT,
       display_name TEXT,
-      timezone TEXT NOT NULL,
+      timezone TEXT NOT NULL DEFAULT 'UTC',
       daily_new_limit INTEGER NOT NULL DEFAULT 20,
       daily_review_limit INTEGER NOT NULL DEFAULT 200,
-      created_at INTEGER NOT NULL
+      created_at BIGINT NOT NULL
     )
   `
 
@@ -190,7 +195,7 @@ const study = Effect.gen(function* () {
       content TEXT NOT NULL,
       entry_id INTEGER,
       sense INTEGER,
-      created_at INTEGER NOT NULL
+      created_at BIGINT NOT NULL
     )
   `
   yield* sql`CREATE INDEX notes_user ON notes (user_id, created_at)`
@@ -203,17 +208,17 @@ const study = Effect.gen(function* () {
       user_id TEXT NOT NULL,
       template TEXT NOT NULL,
       queue TEXT NOT NULL,
-      due INTEGER NOT NULL,
+      due BIGINT NOT NULL,
       interval INTEGER NOT NULL DEFAULT 0,
-      ease REAL NOT NULL DEFAULT 0,
+      ease DOUBLE PRECISION NOT NULL DEFAULT 0,
       step INTEGER NOT NULL DEFAULT 0,
       reps INTEGER NOT NULL DEFAULT 0,
       lapses INTEGER NOT NULL DEFAULT 0,
-      leech INTEGER NOT NULL DEFAULT 0,
-      last_review INTEGER,
+      leech BOOLEAN NOT NULL DEFAULT FALSE,
+      last_review BIGINT,
       seed INTEGER NOT NULL,
       position INTEGER NOT NULL,
-      created_at INTEGER NOT NULL
+      created_at BIGINT NOT NULL
     )
   `
   yield* sql`CREATE INDEX cards_queue ON cards (user_id, queue, due)`
@@ -221,18 +226,18 @@ const study = Effect.gen(function* () {
 
   yield* sql`
     CREATE TABLE review_logs (
-      id INTEGER PRIMARY KEY,
+      id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       card_id TEXT NOT NULL REFERENCES cards (id) ON DELETE CASCADE,
       user_id TEXT NOT NULL,
       rating TEXT NOT NULL,
       queue_before TEXT NOT NULL,
       interval_before INTEGER NOT NULL,
       interval INTEGER NOT NULL,
-      ease_before REAL NOT NULL,
-      ease REAL NOT NULL,
-      delay INTEGER NOT NULL,
+      ease_before DOUBLE PRECISION NOT NULL,
+      ease DOUBLE PRECISION NOT NULL,
+      delay BIGINT NOT NULL,
       duration_ms INTEGER,
-      reviewed_at INTEGER NOT NULL,
+      reviewed_at BIGINT NOT NULL,
       study_day INTEGER NOT NULL
     )
   `
@@ -243,49 +248,21 @@ const study = Effect.gen(function* () {
     CREATE TABLE coach_cache (
       key TEXT PRIMARY KEY,
       result TEXT NOT NULL,
-      created_at INTEGER NOT NULL
+      created_at BIGINT NOT NULL
     )
   `
   yield* sql`
     CREATE TABLE coach_usage (
       user_id TEXT NOT NULL,
       kind TEXT NOT NULL,
-      created_at INTEGER NOT NULL
+      created_at BIGINT NOT NULL
     )
   `
   yield* sql`CREATE INDEX coach_usage_user ON coach_usage (user_id, created_at)`
 })
 
-// Identity moves to Better Auth (its own database). `users` becomes the learner
-// profile, keyed by the Better Auth user id and created on first request.
-// Pre-beta there are no real learners: existing device accounts and their study
-// data are dropped rather than migrated, since their ids can't be mapped.
-const profiles = Effect.gen(function* () {
-  const sql = yield* SqlClient.SqlClient
-
-  yield* sql`DELETE FROM notes`
-  yield* sql`DELETE FROM coach_usage`
-  yield* sql`DELETE FROM users`
-  yield* sql`DROP TABLE users`
-
-  yield* sql`
-    CREATE TABLE users (
-      id TEXT PRIMARY KEY,
-      native_language TEXT NOT NULL DEFAULT 'en',
-      target_language TEXT NOT NULL DEFAULT 'ja',
-      onboarded_at INTEGER,
-      display_name TEXT,
-      timezone TEXT NOT NULL DEFAULT 'UTC',
-      daily_new_limit INTEGER NOT NULL DEFAULT 20,
-      daily_review_limit INTEGER NOT NULL DEFAULT 200,
-      created_at INTEGER NOT NULL
-    )
-  `
-})
-
 export const migrations = {
   "0001_dictionary": dictionary,
   "0002_enrichment": enrichment,
-  "0003_study": study,
-  "0004_profiles": profiles
+  "0003_study": study
 }

@@ -16,7 +16,7 @@ const CardFields = {
   step: Schema.Int,
   reps: Schema.Int,
   lapses: Schema.Int,
-  leech: Schema.BooleanFromBit,
+  leech: Schema.Boolean,
   lastReview: Schema.NullOr(Schema.Number),
   seed: Schema.Int,
   position: Schema.Int,
@@ -56,7 +56,7 @@ export interface ReviewLogInput {
 
 const CountRow = Schema.Struct({ n: Schema.Int })
 const DueRow = Schema.Struct({ due: Schema.NullOr(Schema.Number) })
-const QueueCountRow = Schema.Struct({ queue: CardQueue, mature: Schema.BooleanFromBit, n: Schema.Int })
+const QueueCountRow = Schema.Struct({ queue: CardQueue, mature: Schema.Boolean, n: Schema.Int })
 const DayRow = Schema.Struct({ studyDay: Schema.Int })
 const RetentionRow = Schema.Struct({ total: Schema.Int, failed: Schema.NullOr(Schema.Int) })
 const SavedRow = Schema.Struct({ entryId: Schema.Int, sense: Schema.Int, id: Schema.String })
@@ -73,7 +73,7 @@ const encodeCard = (card: CardRow) => ({
   step: card.step,
   reps: card.reps,
   lapses: card.lapses,
-  leech: card.leech ? 1 : 0,
+  leech: card.leech,
   lastReview: card.lastReview,
   seed: card.seed,
   position: card.position,
@@ -249,8 +249,8 @@ export class StudyRepo extends Context.Service<
 
       const queueCounts = (userId: string) =>
         sql`
-          SELECT queue, (interval >= 21) AS mature, count(*) AS n FROM cards
-          WHERE user_id = ${userId} GROUP BY queue, mature
+          SELECT c.queue, (c.interval >= 21) AS mature, count(*) AS n FROM cards c
+          WHERE c.user_id = ${userId} GROUP BY c.queue, mature
         `.pipe(Effect.flatMap(decodeRows(QueueCountRow)), Effect.orDie)
 
       const studyDays = (userId: string) =>
@@ -264,7 +264,7 @@ export class StudyRepo extends Context.Service<
 
       const retention = (userId: string, sinceDay: number) =>
         sql`
-          SELECT count(*) AS total, sum(rating = 'again') AS failed FROM review_logs
+          SELECT count(*) AS total, count(*) FILTER (WHERE rating = 'again') AS failed FROM review_logs
           WHERE user_id = ${userId} AND queue_before = 'review' AND study_day >= ${sinceDay}
         `.pipe(
           Effect.flatMap(decodeRows(RetentionRow)),

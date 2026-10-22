@@ -1,7 +1,6 @@
 import { assert, describe, layer } from "@effect/vitest"
 import { Effect, Layer, Option } from "effect"
 import {
-  DatabaseMemory,
   DictionaryRepo,
   type EntryRecord,
   JobsRepo,
@@ -10,6 +9,7 @@ import {
   StudyRepo,
   UsersRepo
 } from "../src/index.ts"
+import { DatabaseMemory } from "../src/testing.ts"
 
 const sense = (glosses: Array<string>, extra: Partial<EntryRecord["senses"][number]> = {}) => ({
   glosses: glosses.map((text) => ({ text, type: null })),
@@ -94,7 +94,6 @@ layer(TestLayer)("DictionaryRepo", (it) => {
     Effect.gen(function* () {
       const repo = yield* DictionaryRepo
       yield* repo.insertEntries(entries)
-      yield* repo.rebuildSearchIndex
       assert.strictEqual(yield* repo.count, 4)
 
       const [taberu] = yield* repo.getEntries([1358280])
@@ -111,7 +110,6 @@ layer(TestLayer)("DictionaryRepo", (it) => {
     Effect.gen(function* () {
       const repo = yield* DictionaryRepo
       yield* repo.insertEntries([{ ...entries[3]!, priority: 5 }])
-      yield* repo.rebuildSearchIndex
       const [taiyaki] = yield* repo.getEntries([1000000])
       assert.strictEqual(taiyaki?.priority, 5)
       assert.strictEqual(taiyaki?.forms.length, 2)
@@ -133,7 +131,7 @@ layer(TestLayer)("DictionaryRepo", (it) => {
   it.effect("searches English glosses with stemming and exact matching", () =>
     Effect.gen(function* () {
       const repo = yield* DictionaryRepo
-      const fts = yield* repo.searchGlosses(`"eating"`, 20)
+      const fts = yield* repo.searchGlosses("eating", 20)
       assert.includeMembers(
         fts.map((match) => match.entryId),
         [1358280, 1269130, 1594790]

@@ -1,10 +1,13 @@
-import { resolveFromRoot } from "@kotori/db"
-import { Config, Context, Effect, FileSystem, Layer, Option, Path } from "effect"
+import { Context, Effect, Layer, Option, Schema } from "effect"
+import { SqlClient } from "effect/sql"
 
 /** Audio keys are sha256 hex digests, which also makes them safe to use in paths and URLs. */
 export const isAudioKey = (key: string) => /^[a-f0-9]{64}$/.test(key)
 
-/** MP3 clips on disk under `KOTORI_AUDIO_DIR` (default `data/audio`), sharded by key prefix. */
+const DataRow = Schema.Struct({ data: Schema.Uint8Array })
+const decodeRows = Schema.decodeUnknownEffect(Schema.Array(DataRow))
+
+/** MP3 clips in the `audio_files` table, so the API and the worker share them without a disk. */
 export class AudioStore extends Context.Service<
   AudioStore,
   {
@@ -16,26 +19,26 @@ export class AudioStore extends Context.Service<
   static readonly layer = Layer.effect(
     AudioStore,
     Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem
-      const path = yield* Path.Path
-      const directory = resolveFromRoot(yield* Config.String("KOTORI_AUDIO_DIR").pipe(Config.withDefault("data/audio")))
-      const file = (key: string) => path.join(directory, key.slice(0, 2), `${key}.mp3`)
+      const sql = yield* SqlClient.SqlClient
 
       const put = Effect.fn("AudioStore.put")(function* (key: string, bytes: Uint8Array) {
-        yield* fs.makeDirectory(path.dirname(file(key)), { recursive: true })
-        yield* fs.writeFile(file(key), bytes)
+        yield* sql`
+          INSERT INTO audio_files ${sql.insert({ key, data: bytes })}
+          ON CONFLICT (key) DO UPDATE SET data = excluded.data
+        `
       }, Effect.orDie)
 
-      const exists = (key: string) =>
-        isAudioKey(key) ? fs.exists(file(key)).pipe(Effect.orElseSucceed(() => false)) : Effect.succeed(false)
+      const read = Effect.fn("AudioStore.read")(function* (key: string) {
+        if (!isAudioKey(key)) return Option.none<Uint8Array>()
+        const rows = yield* sql`SELECT data FROM audio_files WHERE key = ${key}`.pipe(Effect.flatMap(decodeRows))
+        return Option.fromNullishOr(rows[0]?.data)
+      }, Effect.orDie)
 
-      const read = (key: string) =>
-        isAudioKey(key)
-          ? fs.readFile(file(key)).pipe(
-              Effect.map(Option.some),
-              Effect.orElseSucceed(() => Option.none())
-            )
-          : Effect.succeed(Option.none())
+      const exists = Effect.fn("AudioStore.exists")(function* (key: string) {
+        if (!isAudioKey(key)) return false
+        const rows = yield* sql`SELECT 1 AS one FROM audio_files WHERE key = ${key}`
+        return rows.length > 0
+      }, Effect.orDie)
 
       return AudioStore.of({ put, read, exists })
     })

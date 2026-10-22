@@ -2,6 +2,8 @@
 
 Status: agreed, 2026-10-20. Milestone: private beta — open signup, admin approval.
 
+> **Update 2026-10-22** (production-readiness phase 4): storage moved from SQLite to one shared Postgres at `DATABASE_URL`. The separation below survives as separate *tables* with the same owners — Better Auth still migrates and owns `user`/`session`/`account`/`verification`, Kotori's migrator owns the rest — but "two database files" is no longer literal. Better Auth connects through a `pg` pool; tests use its memory adapter instead of in-memory SQLite, and Kotori's repositories test on PGlite via `@kotori/db/testing`. See `docs/production-readiness.md` §4 and phase 4.
+
 ## 1. Decision summary
 
 - **Stack: Better Auth**, pinned to `~1.7.x`, self-hosted inside the existing API. MIT, Vercel-owned since July 2026; the library stays open source and host-agnostic. There is no hosted "Better Auth via Vercel" product — Vercel Connect is an OAuth gateway for third-party connectors, not managed auth — so we run the library and treat upkeep as dependency hygiene (§8).

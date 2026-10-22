@@ -73,7 +73,6 @@ export const importFile = Effect.fn("JMDict.importFile")(function* (options: Imp
     }
   }
   yield* repo.insertEntries(batch)
-  yield* Effect.logInfo(`Imported ${imported} entries; rebuilding search index`)
-  yield* repo.rebuildSearchIndex
+  yield* Effect.logInfo(`Imported ${imported} entries`)
   return { entries: imported, tags: tags.length }
 })

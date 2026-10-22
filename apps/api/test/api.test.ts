@@ -1,7 +1,8 @@
 import { NodeServices } from "@effect/platform-node"
 import { assert, layer } from "@effect/vitest"
 import { Claude, ClaudeError } from "@kotori/ai"
-import { DatabaseMemory, DictionaryRepo, type EntryRecord, UsersRepo } from "@kotori/db"
+import { DictionaryRepo, type EntryRecord, UsersRepo } from "@kotori/db"
+import { DatabaseMemory } from "@kotori/db/testing"
 import { Authorization, KotoriApi } from "@kotori/domain"
 import { Mailbox, MailerMemory } from "@kotori/email"
 import { Jev, JevError } from "@kotori/nuance"
@@ -171,7 +172,6 @@ layer(TestLayer)("Kotori API", (it) => {
         entry(2, "書く", "かく", ["to write"], ["v5k", "vt"]),
         entry(3, "猫", "ねこ", ["cat"], ["n"])
       ])
-      yield* repo.rebuildSearchIndex
       const api = yield* client
 
       const english = yield* api.dictionary.search({ query: { q: "eat" } })

@@ -4,6 +4,7 @@ import { MailerLive } from "@kotori/email"
 import { Jev } from "@kotori/nuance"
 import { AudioStore, ElevenLabs, Pronouncer } from "@kotori/tts"
 import { Layer } from "effect"
+import type { SqlClient } from "effect/sql"
 import { Accounts } from "./services/Accounts.ts"
 import { Coaching } from "./services/Coaching.ts"
 import { Dictionary } from "./services/Dictionary.ts"
@@ -26,7 +27,7 @@ export const ServicesLive = Layer.mergeAll(Accounts.layer, Study.layer, Coaching
 /** The services wired to repositories over the given database, with the given providers. */
 export const makeApp = <P, EP, RP, ED, RD>(
   providers: Layer.Layer<P, EP, RP>,
-  database: Layer.Layer<Layer.Success<typeof DatabaseLive>, ED, RD>
+  database: Layer.Layer<SqlClient.SqlClient, ED, RD>
 ) => ServicesLive.pipe(Layer.provideMerge(providers), Layer.provideMerge(Repositories), Layer.provideMerge(database))
 
 export const AppLive = makeApp(ProvidersLive, DatabaseLive)

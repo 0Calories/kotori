@@ -2,7 +2,7 @@ import { NodeHttpClient, NodeHttpServer, NodeRuntime, NodeServices } from "@effe
 import { Auth } from "@kotori/auth"
 import { loadDotEnv } from "@kotori/db"
 import { KotoriApi } from "@kotori/domain"
-import { Config, Effect, Layer } from "effect"
+import { Config, Effect, Layer, Logger } from "effect"
 import { HttpRouter } from "effect/http"
 import { HttpApiBuilder, HttpApiScalar } from "effect/http-api"
 import { createServer } from "node:http"
@@ -35,9 +35,13 @@ const ServerLive = Layer.unwrap(
   })
 )
 
+// Railway's log viewer parses JSON lines; development keeps the pretty logger.
+const LoggerLive = process.env.NODE_ENV === "production" ? Logger.layer([Logger.consoleJson]) : Layer.empty
+
 Layer.launch(ServerLive).pipe(
   Effect.provide(Auth.layer.pipe(Layer.provideMerge(AppLive))),
   Effect.provide(NodeHttpClient.layerUndici),
   Effect.provide(NodeServices.layer),
+  Effect.provide(LoggerLive),
   NodeRuntime.runMain
 )

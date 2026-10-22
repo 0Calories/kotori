@@ -1,10 +1,7 @@
-import { NodeServices } from "@effect/platform-node"
 import { assert, layer } from "@effect/vitest"
-import { DatabaseMemory, Repositories } from "@kotori/db"
+import { Repositories } from "@kotori/db"
+import { DatabaseMemory } from "@kotori/db/testing"
 import { ConfigProvider, Effect, Layer } from "effect"
-import { mkdtempSync } from "node:fs"
-import { tmpdir } from "node:os"
-import { join } from "node:path"
 import { AudioStore, ElevenLabs, isAudioKey, Pronouncer } from "../src/index.ts"
 
 const calls: Array<string> = []
@@ -23,17 +20,11 @@ const FakeElevenLabs = Layer.succeed(
   })
 )
 
-const Config = ConfigProvider.layer(
-  ConfigProvider.fromUnknown({
-    KOTORI_AUDIO_DIR: mkdtempSync(join(tmpdir(), "kotori-audio-")),
-    KOTORI_AUDIO_MONTHLY_CHARS: "10"
-  })
-)
+const Config = ConfigProvider.layer(ConfigProvider.fromUnknown({ KOTORI_AUDIO_MONTHLY_CHARS: "10" }))
 
 const TestLayer = Pronouncer.layer.pipe(
   Layer.provideMerge(Layer.mergeAll(Repositories, FakeElevenLabs, AudioStore.layer)),
   Layer.provideMerge(DatabaseMemory),
-  Layer.provide(NodeServices.layer),
   Layer.provide(Config)
 )
 

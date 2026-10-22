@@ -54,7 +54,7 @@ export class JobsRepo extends Context.Service<
           INSERT INTO jobs (kind, entry_id, priority, status, created_at, updated_at)
           VALUES (${kind}, ${entryId}, ${priority}, 'queued', ${now}, ${now})
           ON CONFLICT (kind, entry_id) DO UPDATE SET
-            priority = max(jobs.priority, excluded.priority),
+            priority = greatest(jobs.priority, excluded.priority),
             status = CASE WHEN jobs.status = 'failed' THEN 'queued' ELSE jobs.status END,
             attempts = CASE WHEN jobs.status = 'failed' THEN 0 ELSE jobs.attempts END,
             updated_at = excluded.updated_at
@@ -81,6 +81,7 @@ export class JobsRepo extends Context.Service<
             WHERE status = 'queued' AND kind IN ${sql.in(kinds)} AND run_after <= ${now}
             ORDER BY priority DESC, id
             LIMIT 1
+            FOR UPDATE SKIP LOCKED
           )
           RETURNING id, kind, entry_id, priority, status, attempts, error
         `.pipe(Effect.flatMap(decodeRows(Job)))

@@ -1,14 +1,13 @@
 import { expo } from "@better-auth/expo"
-import { resolveFromRoot, UsersRepo } from "@kotori/db"
+import { UsersRepo } from "@kotori/db"
 import { AccountStatus, Language } from "@kotori/domain"
 import { Mailer, templates } from "@kotori/email"
-import { betterAuth } from "better-auth"
+import { betterAuth, type BetterAuthOptions } from "better-auth"
+import { memoryAdapter } from "better-auth/adapters/memory"
 import { getMigrations } from "better-auth/db/migration"
 import { admin } from "better-auth/plugins/admin"
-import { Config, Context, Effect, Layer, Option, Schema } from "effect"
-import { mkdirSync } from "node:fs"
-import { dirname } from "node:path"
-import { DatabaseSync } from "node:sqlite"
+import { Config, Context, Effect, Layer, Option, Redacted, Schema } from "effect"
+import { Pool } from "pg"
 
 const DEV_SECRET = "kotori-dev-only-secret-set-BETTER_AUTH_SECRET-in-production"
 
@@ -55,7 +54,7 @@ const decodeUser = (raw: unknown): AuthUser => {
 }
 
 interface Settings {
-  readonly database: DatabaseSync
+  readonly database: BetterAuthOptions["database"]
   readonly baseURL: string
   readonly secret: string
   readonly trustedOrigins: ReadonlyArray<string>
@@ -136,11 +135,15 @@ export interface AuthService {
 
 /**
  * Better Auth, mounted at `/api/auth/*`. Owns identity, credentials and
- * sessions in its own database, migrated by Better Auth itself on startup.
- * Kotori never writes that file directly; everything goes through this service.
+ * sessions in its own tables of the shared Postgres database, migrated by
+ * Better Auth itself on startup. Kotori never touches those tables directly;
+ * everything goes through this service.
  */
 export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Auth") {
-  private static make = Effect.fn("Auth.make")(function* (settings: Omit<Settings, "onUserDeleted" | "sendMail">) {
+  private static make = Effect.fn("Auth.make")(function* (
+    settings: Omit<Settings, "onUserDeleted" | "sendMail">,
+    options: { readonly migrate: boolean }
+  ) {
     const users = yield* UsersRepo
     const mailer = yield* Mailer
     const full: Settings = {
@@ -150,10 +153,12 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
     }
 
     // Better Auth owns its schema: create/update its tables on startup.
-    yield* Effect.promise(async () => {
-      const { runMigrations } = await getMigrations(makeOptions(full))
-      await runMigrations()
-    })
+    if (options.migrate) {
+      yield* Effect.promise(async () => {
+        const { runMigrations } = await getMigrations(makeOptions(full))
+        await runMigrations()
+      })
+    }
 
     const auth = makeAuth(full)
     const context = Effect.promise(() => auth.$context)
@@ -195,34 +200,51 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
     return Auth.of({ api: auth.api, handler: auth.handler, users: list, userByEmail, updateUser, revokeSessions })
   })
 
-  /** Configured from the environment; the database at `KOTORI_AUTH_DB_PATH` (default `data/auth.db`). */
+  /**
+   * Configured from the environment, against the Postgres at `DATABASE_URL`.
+   * In production (`NODE_ENV=production`) `BETTER_AUTH_SECRET` and
+   * `BETTER_AUTH_URL` are required: missing values fail startup instead of
+   * falling back to development defaults.
+   */
   static readonly layer = Layer.effect(
     Auth,
     Effect.gen(function* () {
-      const filename = yield* Config.String("KOTORI_AUTH_DB_PATH").pipe(Config.withDefault("data/auth.db"))
+      const production = (yield* Config.String("NODE_ENV").pipe(Config.withDefault("development"))) === "production"
       const port = yield* Config.Port("KOTORI_PORT").pipe(Config.withDefault(4000))
-      const baseURL = yield* Config.String("BETTER_AUTH_URL").pipe(Config.withDefault(`http://localhost:${port}`))
-      const secret = yield* Config.String("BETTER_AUTH_SECRET").pipe(Config.withDefault(DEV_SECRET))
+      const baseURL = production
+        ? yield* Config.String("BETTER_AUTH_URL")
+        : yield* Config.String("BETTER_AUTH_URL").pipe(Config.withDefault(`http://localhost:${port}`))
+      const secret = production
+        ? Redacted.value(yield* Config.Redacted("BETTER_AUTH_SECRET"))
+        : yield* Config.String("BETTER_AUTH_SECRET").pipe(Config.withDefault(DEV_SECRET))
+      const url = yield* Config.Redacted("DATABASE_URL").pipe(
+        Config.withDefault(Redacted.make("postgres://localhost:5432/kotori"))
+      )
       const webOrigin = yield* Config.option(Config.String("KOTORI_WEB_ORIGIN"))
 
       if (secret === DEV_SECRET) {
         yield* Effect.logWarning("BETTER_AUTH_SECRET is not set; using an insecure development secret.")
       }
 
-      const path = filename === ":memory:" ? filename : resolveFromRoot(filename)
-      if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true })
+      const pool = yield* Effect.acquireRelease(
+        Effect.sync(() => new Pool({ connectionString: Redacted.value(url) })),
+        (pool) => Effect.promise(() => pool.end())
+      )
 
-      return yield* Auth.make({
-        database: new DatabaseSync(path),
-        baseURL,
-        secret,
-        trustedOrigins: [
-          "kotori://",
-          // Expo Go during development.
-          "exp://**",
-          ...Option.toArray(webOrigin)
-        ]
-      })
+      return yield* Auth.make(
+        {
+          database: pool,
+          baseURL,
+          secret,
+          trustedOrigins: [
+            "kotori://",
+            // Expo Go during development.
+            "exp://**",
+            ...Option.toArray(webOrigin)
+          ]
+        },
+        { migrate: true }
+      )
     })
   )
 
@@ -230,12 +252,15 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
   static readonly layerMemory = Layer.effect(
     Auth,
     Effect.suspend(() =>
-      Auth.make({
-        database: new DatabaseSync(":memory:"),
-        baseURL: "http://localhost:4000",
-        secret: DEV_SECRET,
-        trustedOrigins: []
-      })
+      Auth.make(
+        {
+          database: memoryAdapter({ user: [], session: [], account: [], verification: [] }),
+          baseURL: "http://localhost:4000",
+          secret: DEV_SECRET,
+          trustedOrigins: []
+        },
+        { migrate: false }
+      )
     )
   )
 }

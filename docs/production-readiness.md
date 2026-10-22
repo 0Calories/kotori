@@ -1,11 +1,11 @@
 # Production readiness: backend tooling and infra plan
 
-Status: phases 1 to 3 implemented 2026-10-21; phases 4 to 6 pending (see §4 for the Postgres decision).
+Status: phases 1 to 3 implemented 2026-10-21, phase 4 (Postgres port + production entry points) 2026-10-22; phases 5 and 6 pending.
 
 - [x] Phase 1: toolchain baseline (Node 24, TypeScript 7 + 6, Nx 23.3, pnpm catalog)
 - [x] Phase 2: TypeScript project references (Nx TS solution setup)
 - [x] Phase 3: lint and format (Oxlint, Oxfmt)
-- [ ] Phase 4: production entry points + Postgres port of packages/db (§4)
+- [x] Phase 4: production entry points + Postgres port of packages/db (§4)
 - [ ] Phase 5: Railway (api + worker services, Postgres plugin)
 - [ ] Phase 6: GitHub Actions CI
 - [ ] Follow-up: Nx 24 migration once past the release-age window (after 2026-10-22) Milestone: invite-only private beta. Scope: backend architecture and infra only; the Expo app is touched only where the workspace changes force it.
@@ -35,11 +35,14 @@ Verified while scoping; each one changes a step below.
 
 ```
 Railway project "kotori"
-└── service "api"            Railpack, from repo root (no Root Directory)
-    ├── volume  /data        KOTORI_DB_PATH, KOTORI_AUTH_DB_PATH, KOTORI_AUDIO_DIR point here
-    ├── build   pnpm nx run-many -t build -p @kotori/api @kotori/worker
-    ├── start   node apps/api/dist/main.js        (serves HTTP and runs the enrichment loop)
-    ├── health  GET /health
+├── plugin  Postgres          DATABASE_URL, shared by both services (Kotori + Better Auth tables, audio bytes)
+├── service "api"             Railpack, from repo root (no Root Directory)
+│   ├── build   pnpm nx run-many -t build -p @kotori/api
+│   ├── start   node apps/api/dist/main.js
+│   └── health  GET /health
+└── service "worker"          Railpack, from repo root
+    ├── build   pnpm nx run-many -t build -p @kotori/worker
+    ├── start   node apps/worker/dist/main.js work
     └── admin   railway ssh -- node apps/worker/dist/main.js approve <email>
 ```
 
@@ -112,14 +115,23 @@ Done 2026-10-21. Deviations: lint and format are root scripts (`pnpm lint`, `pnp
 - `@nx/oxlint` plugin infers `lint` per project; `nx format:check` picks Oxfmt up from the config file. Root scripts: `lint`, `format`, `format:check`.
 - `.vscode/settings.json` and `extensions.json` recommending `oxc.oxc-vscode` with format on save.
 
-### Phase 4: production entry points (to be rewritten for Postgres, see §4)
+### Phase 4: production entry points + Postgres port
 
-- **`GET /health`**: a plain `HttpRouter` route next to `AudioRoute`, returning 200 after the database layer is up (it is, by construction, once the server listens). No auth, no body beyond `{ "status": "ok" }`.
-- **Embedded worker** (§4 A): `packages/enrichment` with `Enrichers` and a `runWorker(options)` effect lifted out of `apps/worker/src/commands/work.ts`. API `main.ts` forks it under `Effect.forkScoped` when `KOTORI_WORKER=inline`; the worker CLI's `work` command calls the same function.
-- **Fail fast in production**: when `NODE_ENV=production`, missing `BETTER_AUTH_SECRET` or `BETTER_AUTH_URL` is a startup error, not a warning. Keep the dev fallback otherwise.
-- **Structured logs**: `Logger.json` layer when `NODE_ENV=production`, pretty logger otherwise. Railway's log viewer parses JSON lines.
-- **Shutdown**: `NodeRuntime.runMain` already handles SIGTERM and runs finalizers; `drainingSeconds` in Railway (§5) gives in-flight jobs a window.
-- **Paths**: `workspaceRoot` discovery via `pnpm-workspace.yaml` still works on Railway (the whole repo is deployed), and `resolveFromRoot` passes absolute paths through, so `/data/...` env values need no code change.
+Done 2026-10-22. The embedded-worker bullet from the original sketch was dropped per §4; the API and the worker stay separate processes on one Postgres. What shipped, including deviations from the sketch:
+
+- **`packages/db` on Postgres** via `@effect/sql-pg` (binary-protocol driver, no `pg` dependency in the data path), configured by `DATABASE_URL` (default `postgres://localhost:5432/kotori`). Migrations were rewritten as a fresh three-step Postgres schema in the final (post-profiles) shape — per §4 the SQLite data is dropped and re-seeded, so there is no history to carry. Real `BOOLEAN` columns and `BIGINT` millisecond timestamps; a custom `int8` codec decodes to `number` (safe-integer checked) so `count(*)`/`sum()` and timestamp reads need no per-query casts.
+- **Full-text search**: FTS5 is replaced by a `tsvector` generated column on `glosses` with a GIN index, so there is no `rebuildSearchIndex` step anymore (the method and its call sites are gone). Queries go through `plainto_tsquery('english', …)`, which ANDs every word and ignores query syntax — the same contract the hand-quoted FTS5 expression enforced. `rank` is `-ts_rank(...)` to keep bm25's ascending, more-negative-is-better shape for the scoring code.
+- **Dialect details**: `forms.text` is `COLLATE "C"` so the prefix search's range scan keeps SQLite's byte-order semantics and its index; `JobsRepo.claim` takes `FOR UPDATE SKIP LOCKED`, so multiple workers can share the queue safely (impossible under SQLite).
+- **Audio** moved off the local disk into an `audio_files` `BYTEA` table behind the unchanged `AudioStore` interface (§4 allowed object storage or bytea; bytea wins at beta volume — a few thousand short MP3 clips — and needs no second credential; revisit if it outgrows the database).
+- **Better Auth on the same Postgres** through a `pg` `Pool` (its own `user`/`session`/`account`/`verification` tables, still migrated by Better Auth itself on startup); `node:sqlite` is gone. Tests use Better Auth's memory adapter.
+- **Tests on PGlite** (`@effect/sql-pglite`): real in-process Postgres, same migrations, no server needed locally or in CI. It lives behind a separate `@kotori/db/testing` entry point so PGlite never enters the production module graph. Found while porting: Vitest resolved workspace packages through their built `dist/` — externalized deps ignore `resolve.conditions` — so a stale build could silently shadow source under test; `vitest.shared.ts` now sets `ssr.resolve.externalConditions` as well.
+- **`GET /health`**: finding 4 was stale — the `system` API group already serves a top-level `/health` that touches the database (`dictionary.count`) and reports configured features. Nothing to add; Railway's health check points at it.
+- **Fail fast in production**: with `NODE_ENV=production`, missing `BETTER_AUTH_SECRET` or `BETTER_AUTH_URL` fails startup with a `ConfigError` naming the variable. The dev fallback (and its warning) remains otherwise.
+- **Structured logs**: `Logger.layer([Logger.consoleJson])` when `NODE_ENV=production`, pretty logger otherwise.
+- **Shutdown**: unchanged — `NodeRuntime.runMain` handles SIGTERM and runs finalizers; the auth `Pool` is scoped and closed with the layer.
+- Smoke-tested against Postgres 17 in Docker: migrations, sign-up through Better Auth over the Pool, worker `status`/`approve` sharing the database with the API, `/health`, and the audio route.
+
+Local development now needs a Postgres; the README shows a one-line `docker run`. `pnpm dev` is otherwise unchanged.
 
 ### Phase 5: Railway (to be rewritten for two services + Postgres, see §4)
 
