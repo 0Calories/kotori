@@ -5,11 +5,14 @@
   "description": "Downloads, parses and imports JMDict into the Kotori database",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "@kotori/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "scripts": {
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "test": "vitest run"
   },
   "dependencies": {
     "@kotori/db": "workspace:*",

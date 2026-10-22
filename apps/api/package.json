@@ -5,10 +5,9 @@
   "description": "Kotori's HTTP API",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --clear-screen=false --disable-warning=ExperimentalWarning src/main.ts",
-    "start": "tsx --disable-warning=ExperimentalWarning src/main.ts",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "dev": "tsx watch -C @kotori/source --clear-screen=false --disable-warning=ExperimentalWarning src/main.ts",
+    "start": "node --disable-warning=ExperimentalWarning dist/main.js",
+    "test": "vitest run"
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",

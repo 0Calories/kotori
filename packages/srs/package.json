@@ -5,10 +5,13 @@
   "description": "Anki's SM-2 (v3 scheduler) spaced-repetition algorithm",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "@kotori/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "scripts": {
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "test": "vitest run"
   }
 }

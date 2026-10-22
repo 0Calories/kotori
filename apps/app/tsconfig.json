@@ -6,7 +6,16 @@
     "allowImportingTsExtensions": true,
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "customConditions": ["react-native", "@kotori/source"]
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
+  "references": [
+    {
+      "path": "../../packages/srs"
+    },
+    {
+      "path": "../../packages/domain"
+    }
+  ]
 }

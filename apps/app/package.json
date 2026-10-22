@@ -48,5 +48,22 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2"
+  },
+  "nx": {
+    "targets": {
+      "build": {
+        "cache": true,
+        "dependsOn": [
+          "^build"
+        ],
+        "inputs": [
+          "production",
+          "^production"
+        ],
+        "outputs": [
+          "{projectRoot}/dist"
+        ]
+      }
+    }
   }
 }

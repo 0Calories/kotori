@@ -5,11 +5,14 @@
   "description": "Transactional email: Resend in production, the console in development",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "@kotori/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "scripts": {
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "test": "vitest run"
   },
   "dependencies": {
     "@kotori/domain": "workspace:*",

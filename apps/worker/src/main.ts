@@ -1,4 +1,4 @@
-#!/usr/bin/env -S npx tsx
+#!/usr/bin/env node
 import { NodeRuntime } from "@effect/platform-node"
 import { loadDotEnv } from "@kotori/db"
 import { Effect } from "effect"

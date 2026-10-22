@@ -11,6 +11,7 @@
     "test": "nx run-many -t test",
     "typecheck": "nx run-many -t typecheck",
     "build": "nx run-many -t build",
+    "sync": "nx sync",
     "assets": "tsx tools/render-assets.ts",
     "graph": "nx graph"
   },
