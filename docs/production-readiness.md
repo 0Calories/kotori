@@ -9,7 +9,8 @@ Status: phases 1 to 3 implemented 2026-10-21, phases 4 (Postgres port + producti
 - [x] Phase 5: Fly.io + Neon (Dockerfile, one Fly app with api and worker process groups)
 - [ ] Phase 6: GitHub Actions CI
 - [ ] Follow-up: Nx 24 migration once past the release-age window (after 2026-10-22)
-- [ ] Follow-up: evaluate Neon Auth (managed Better Auth) against what `packages/auth` needs (`docs/deploy.md` §4)
+- [ ] Follow-up: migrate to Neon Managed Better Auth — decided 2026-10-22, compatibility verified against live docs, plan and cutover order in `docs/deploy.md` §4; needs a provisioned Neon project to execute
+- [ ] Follow-up: shrink the deploy image (~300 MB compressed) before/soon after launch — the hoisted linker resolves `better-auth`'s optional peers workspace-wide, dragging React, Vitest and the Expo/React Native tree into `packages/auth`'s lockfile entry; fixes are a separate pnpm workspace for `apps/app`, or dropping the `@better-auth/expo` server dependency (see phase 5 notes). The Neon Auth migration's last step removes `better-auth` from the server entirely, which resolves this.
 
 Milestone: invite-only private beta. Scope: backend architecture and infra only; the Expo app is touched only where the workspace changes force it.
 
