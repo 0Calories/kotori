@@ -43,7 +43,7 @@ tools/        Renders the mascot into app icons
 
 ## Getting started
 
-Requires **Node ≥ 22.12** (for `node:sqlite`) and **pnpm 11**.
+Requires **Node 24** (pinned in `.node-version`; `node:sqlite` needs ≥ 22.12) and **pnpm 12** (pinned in `package.json`, installed by Corepack or `pnpm self-update`).
 
 ```sh
 pnpm install

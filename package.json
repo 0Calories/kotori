@@ -3,10 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@12.14.0+sha512.c18ba6d87993d3d164cb5e8948f32b2c06ee854487e06cd8d86781342fb3e5bb4634367034711e86802baa9c37bea906ce1929ad08d70884c97d801df13389a6",
-  "engines": {
-    "node": ">=22.12"
-  },
   "scripts": {
     "dev": "nx run-many -t dev -p @kotori/api @kotori/worker --parallel=2 --outputStyle=stream",
     "dev:app": "nx run @kotori/app:dev",
@@ -19,13 +15,22 @@
     "graph": "nx graph"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.3",
+    "@effect/vitest": "catalog:",
+    "@nx/js": "catalog:",
     "@resvg/resvg-js": "^2.6.2",
-    "@types/node": "^22.20.5",
-    "effect": "4.0.3",
-    "nx": "23.3.0",
-    "tsx": "^4.23.15",
-    "typescript": "~6.0.3",
-    "vitest": "^5.0.4"
-  }
+    "@types/node": "catalog:",
+    "@typescript/native": "npm:typescript@~7.0.2",
+    "effect": "catalog:",
+    "nx": "catalog:",
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "npm:@typescript/typescript6@~6.0.2",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@12.14.0+sha512.c18ba6d87993d3d164cb5e8948f32b2c06ee854487e06cd8d86781342fb3e5bb4634367034711e86802baa9c37bea906ce1929ad08d70884c97d801df13389a6"
 }

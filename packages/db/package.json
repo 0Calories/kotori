@@ -12,8 +12,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@effect/sql-sqlite-node": "4.0.3",
+    "@effect/sql-sqlite-node": "catalog:",
     "@kotori/domain": "workspace:*",
-    "effect": "4.0.3"
+    "effect": "catalog:"
   }
 }

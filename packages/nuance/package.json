@@ -15,7 +15,7 @@
     "@kotori/db": "workspace:*",
     "@kotori/domain": "workspace:*",
     "@kotori/japanese": "workspace:*",
-    "@typesafe-ai/sdk": "^0.6.0",
-    "effect": "4.0.3"
+    "@typesafe-ai/sdk": "catalog:",
+    "effect": "catalog:"
   }
 }

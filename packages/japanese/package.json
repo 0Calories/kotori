@@ -12,6 +12,6 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "wanakana": "^5.3.1"
+    "wanakana": "catalog:"
   }
 }

@@ -12,14 +12,14 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@better-auth/expo": "~1.7.12",
+    "@better-auth/expo": "catalog:",
     "@kotori/db": "workspace:*",
     "@kotori/domain": "workspace:*",
     "@kotori/email": "workspace:*",
-    "better-auth": "~1.7.12",
-    "effect": "4.0.3"
+    "better-auth": "catalog:",
+    "effect": "catalog:"
   },
   "devDependencies": {
-    "@effect/platform-node": "4.0.3"
+    "@effect/platform-node": "catalog:"
   }
 }

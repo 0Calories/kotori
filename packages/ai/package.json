@@ -12,9 +12,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.133.0",
+    "@anthropic-ai/sdk": "catalog:",
     "@kotori/db": "workspace:*",
     "@kotori/domain": "workspace:*",
-    "effect": "4.0.3"
+    "effect": "catalog:"
   }
 }

@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.3",
+    "@effect/platform-node": "catalog:",
     "@kotori/ai": "workspace:*",
     "@kotori/auth": "workspace:*",
     "@kotori/db": "workspace:*",
@@ -21,6 +21,6 @@
     "@kotori/nuance": "workspace:*",
     "@kotori/srs": "workspace:*",
     "@kotori/tts": "workspace:*",
-    "effect": "4.0.3"
+    "effect": "catalog:"
   }
 }
