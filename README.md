@@ -125,6 +125,8 @@ Dependency versions shared across packages live in the `catalog:` of `pnpm-works
 
 Tests cover the SM-2 scheduler against Anki's behaviour, deinflection, JMDict parsing, repositories on an in-process Postgres ([PGlite](https://pglite.dev), no server needed), the Jev and ElevenLabs pipelines with fakes, structured-output schemas, and the HTTP API end to end through Effect's in-memory `HttpApiTest` client.
 
+Production runs on [Railway](https://railway.com) as two services (api, worker) sharing a managed Postgres, configured by `apps/*/railway.json`; see [`docs/deploy.md`](docs/deploy.md).
+
 ## Data and credits
 
 Dictionary data is [JMDict](https://www.edrdg.org/jmdict/j_jmdict.html) by the Electronic Dictionary Research and Development Group, used under [CC BY-SA 4.0](https://www.edrdg.org/edrdg/licence.html). The app credits it in Settings. JMDict downloads land in `data/` and are not committed; everything else lives in Postgres.

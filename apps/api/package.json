@@ -5,8 +5,8 @@
   "description": "Kotori's HTTP API",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch -C @kotori/source --clear-screen=false --disable-warning=ExperimentalWarning src/main.ts",
-    "start": "node --disable-warning=ExperimentalWarning dist/main.js",
+    "dev": "tsx watch -C @kotori/source --clear-screen=false src/main.ts",
+    "start": "node dist/main.js",
     "test": "vitest run"
   },
   "dependencies": {
