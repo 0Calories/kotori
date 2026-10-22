@@ -77,9 +77,9 @@ const fuzzDelta = (interval: number) =>
   interval < 2.5
     ? 0
     : FUZZ_RANGES.reduce(
-      (delta, range) => delta + range.factor * Math.max(Math.min(interval, range.end) - range.start, 0),
-      1
-    )
+        (delta, range) => delta + range.factor * Math.max(Math.min(interval, range.end) - range.start, 0),
+        1
+      )
 
 const constrainedFuzzBounds = (interval: number, minimum: number, maximum: number): [number, number] => {
   const min = Math.min(minimum, maximum)
@@ -171,7 +171,13 @@ const toReview = (interval: number, ease: number, lapses: number): Next => ({
   lapses
 })
 
-const learning = (s: Scheduler, queue: "learning" | "relearning", step: number, secs: number, card: Omit<Next, "queue" | "step">): Next => ({
+const learning = (
+  s: Scheduler,
+  queue: "learning" | "relearning",
+  step: number,
+  secs: number,
+  card: Omit<Next, "queue" | "step">
+): Next => ({
   ...card,
   queue,
   step,
@@ -222,7 +228,12 @@ const passingIntervals = (s: Scheduler, card: CardState) => {
 
   if (daysLate < 0) {
     const elapsed = scheduled + daysLate
-    const hard = constrainPassingInterval(s, Math.max(elapsed * hardMultiplier, scheduled * (hardMultiplier / 2)), 0, false)
+    const hard = constrainPassingInterval(
+      s,
+      Math.max(elapsed * hardMultiplier, scheduled * (hardMultiplier / 2)),
+      0,
+      false
+    )
     const good = constrainPassingInterval(s, Math.max(elapsed * card.ease, scheduled), 0, false)
     const reducedBonus = easyBonus - (easyBonus - 1) / 2
     const easy = constrainPassingInterval(s, Math.max(elapsed * card.ease, scheduled) * reducedBonus, 0, false)
@@ -296,15 +307,14 @@ export const answer = (
 ): ReviewOutcome => {
   const s: Scheduler = { config, ctx, fuzz: config.fuzz ? fuzzFactor(ctx.seed, card.reps) : null }
 
-  const next = card.queue === "review"
-    ? answerReview(s, card, rating)
-    : card.queue === "relearning"
-    ? answerRelearning(s, card, rating)
-    : answerLearning(s, card, rating)
+  const next =
+    card.queue === "review"
+      ? answerReview(s, card, rating)
+      : card.queue === "relearning"
+        ? answerRelearning(s, card, rating)
+        : answerLearning(s, card, rating)
 
-  const due = next.delaySecs !== undefined
-    ? ctx.now + next.delaySecs * 1000
-    : dayStart(today(s) + next.interval, ctx)
+  const due = next.delaySecs !== undefined ? ctx.now + next.delaySecs * 1000 : dayStart(today(s) + next.interval, ctx)
 
   const updated: CardState = {
     queue: next.queue,
@@ -351,4 +361,3 @@ export const preview = (
   }
   return { again: of("again"), hard: of("hard"), good: of("good"), easy: of("easy") }
 }
-

@@ -26,13 +26,15 @@ const play = (url: string, onEnd: () => void) => {
 }
 
 /** Plays a stored clip, or asks the server to voice `speak` on demand. */
-export const AudioButton = (
-  { url, speak, size = 40 }: {
-    readonly url?: string | null
-    readonly speak?: { readonly text: string; readonly language: Language }
-    readonly size?: number
-  }
-) => {
+export const AudioButton = ({
+  url,
+  speak,
+  size = 40
+}: {
+  readonly url?: string | null
+  readonly speak?: { readonly text: string; readonly language: Language }
+  readonly size?: number
+}) => {
   const t = useT()
   const [playing, setPlaying] = useState(false)
   const [resolved, setResolved] = useState<string | null>(url ?? null)

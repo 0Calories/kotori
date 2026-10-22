@@ -84,13 +84,14 @@ describe("normalizeGloss", () => {
         assert.strictEqual(normalizeGloss("to eat (a meal)"), "eat")
         assert.strictEqual(normalizeGloss("The Sun"), "sun")
         assert.strictEqual(normalizeGloss("(of a person) to be late"), "be late")
-      }))
+      })
+    )
   })
 })
 
 layer(TestLayer)("DictionaryRepo", (it) => {
   it.effect("imports entries and reads them back in order", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const repo = yield* DictionaryRepo
       yield* repo.insertEntries(entries)
       yield* repo.rebuildSearchIndex
@@ -98,61 +99,81 @@ layer(TestLayer)("DictionaryRepo", (it) => {
 
       const [taberu] = yield* repo.getEntries([1358280])
       assert.strictEqual(taberu?.headword, "食べる")
-      assert.deepStrictEqual(taberu?.forms.map((form) => form.text), ["食べる", "たべる"])
+      assert.deepStrictEqual(
+        taberu?.forms.map((form) => form.text),
+        ["食べる", "たべる"]
+      )
       assert.strictEqual(taberu?.senses[1]?.glosses[0]?.text, "to live on (e.g. a salary)")
-    }))
+    })
+  )
 
   it.effect("re-importing an entry replaces it", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const repo = yield* DictionaryRepo
       yield* repo.insertEntries([{ ...entries[3]!, priority: 5 }])
       yield* repo.rebuildSearchIndex
       const [taiyaki] = yield* repo.getEntries([1000000])
       assert.strictEqual(taiyaki?.priority, 5)
       assert.strictEqual(taiyaki?.forms.length, 2)
-    }))
+    })
+  )
 
   it.effect("finds Japanese forms exactly and by prefix", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const repo = yield* DictionaryRepo
       const exact = yield* repo.findForms(["たべる"])
-      assert.deepStrictEqual(exact.map((match) => match.entryId), [1358280])
+      assert.deepStrictEqual(
+        exact.map((match) => match.entryId),
+        [1358280]
+      )
       assert.deepStrictEqual(yield* repo.findFormPrefix("た", 10), [1358280, 1000000])
-    }))
+    })
+  )
 
   it.effect("searches English glosses with stemming and exact matching", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const repo = yield* DictionaryRepo
       const fts = yield* repo.searchGlosses(`"eating"`, 20)
-      assert.includeMembers(fts.map((match) => match.entryId), [1358280, 1269130, 1594790])
+      assert.includeMembers(
+        fts.map((match) => match.entryId),
+        [1358280, 1269130, 1594790]
+      )
 
       const exact = yield* repo.findGlossesExact("Eat", 20)
-      assert.deepStrictEqual(exact.map((match) => match.entryId), [1358280, 1269130, 1594790])
-    }))
+      assert.deepStrictEqual(
+        exact.map((match) => match.entryId),
+        [1358280, 1269130, 1594790]
+      )
+    })
+  )
 
   it.effect("suggests words sharing a meaning as similar-word candidates", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const repo = yield* DictionaryRepo
       const candidates = yield* repo.sharedGlossCandidates(1358280, 0, 10)
-      assert.deepStrictEqual(candidates.map((c) => c.entryId), [1269130, 1594790])
+      assert.deepStrictEqual(
+        candidates.map((c) => c.entryId),
+        [1269130, 1594790]
+      )
       assert.deepStrictEqual(yield* repo.sharedGlossCandidates(1358280, 1, 10), [])
-    }))
+    })
+  )
 
   it.effect("lists entries missing enrichment in priority order", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const repo = yield* DictionaryRepo
       assert.deepStrictEqual(yield* repo.entriesByPriority({ limit: 2, missing: "nuance" }), [1358280, 1269130])
-      assert.deepStrictEqual(yield* repo.entriesByPriority({ limit: 10, commonOnly: true }), [
-        1358280,
-        1269130,
-        1594790
-      ])
-    }))
+      assert.deepStrictEqual(
+        yield* repo.entriesByPriority({ limit: 10, commonOnly: true }),
+        [1358280, 1269130, 1594790]
+      )
+    })
+  )
 })
 
 layer(TestLayer)("JobsRepo", (it) => {
   it.effect("claims the most urgent job once and retries failures", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const jobs = yield* JobsRepo
       yield* jobs.enqueue("examples", 1, 0, 1000)
       yield* jobs.enqueue("examples", 2, 10, 1000)
@@ -173,12 +194,13 @@ layer(TestLayer)("JobsRepo", (it) => {
       yield* jobs.complete(Option.getOrThrow(retried).id, 7000)
       const status = yield* jobs.statusFor(2)
       assert.strictEqual(status.get("examples"), "done")
-    }))
+    })
+  )
 })
 
 layer(TestLayer)("StudyRepo", (it) => {
   it.effect("stores notes with cards and serves due queues", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const users = yield* UsersRepo
       const study = yield* StudyRepo
       yield* users.ensure({
@@ -236,8 +258,14 @@ layer(TestLayer)("StudyRepo", (it) => {
       assert.strictEqual(notes.length, 1)
       assert.strictEqual(notes[0]?.cards.length, 2)
 
-      assert.deepStrictEqual((yield* study.newCards("u1", 10)).map((c) => c.id), ["c1"])
-      assert.deepStrictEqual((yield* study.reviewDue("u1", 1000, 10)).map((c) => c.id), ["c2"])
+      assert.deepStrictEqual(
+        (yield* study.newCards("u1", 10)).map((c) => c.id),
+        ["c1"]
+      )
+      assert.deepStrictEqual(
+        (yield* study.reviewDue("u1", 1000, 10)).map((c) => c.id),
+        ["c2"]
+      )
       assert.deepStrictEqual(yield* study.reviewDue("u1", 100, 10), [])
 
       const loaded = Option.getOrThrow(yield* study.card("u1", "c2"))
@@ -247,5 +275,6 @@ layer(TestLayer)("StudyRepo", (it) => {
 
       assert.isTrue(yield* study.deleteNote("u1", "n1"))
       assert.isTrue(Option.isNone(yield* study.card("u1", "c2")))
-    }))
+    })
+  )
 })

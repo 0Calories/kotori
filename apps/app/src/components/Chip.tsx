@@ -18,19 +18,38 @@ export const useTone = (tone: Tone) => {
   }[tone]
 }
 
-export const Chip = (
-  { label, tone = "neutral", icon, style }: {
-    readonly label: string
-    readonly tone?: Tone
-    readonly icon?: keyof typeof Ionicons.glyphMap
-    readonly style?: StyleProp<ViewStyle>
-  }
-) => {
+export const Chip = ({
+  label,
+  tone = "neutral",
+  icon,
+  style
+}: {
+  readonly label: string
+  readonly tone?: Tone
+  readonly icon?: keyof typeof Ionicons.glyphMap
+  readonly style?: StyleProp<ViewStyle>
+}) => {
   const { fg, bg } = useTone(tone)
   return (
-    <View style={[{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: bg, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, alignSelf: "flex-start" }, style]}>
+    <View
+      style={[
+        {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 4,
+          backgroundColor: bg,
+          borderRadius: 999,
+          paddingHorizontal: 10,
+          paddingVertical: 4,
+          alignSelf: "flex-start"
+        },
+        style
+      ]}
+    >
       {icon ? <Ionicons name={icon} size={12} color={fg} /> : null}
-      <Text variant="caption" style={{ color: fg }}>{label}</Text>
+      <Text variant="caption" style={{ color: fg }}>
+        {label}
+      </Text>
     </View>
   )
 }

@@ -22,11 +22,14 @@ export const usePreference = <A>(key: string, fallback: A) => {
     }
   }, [key])
 
-  const update = useCallback((next: A) => {
-    const raw = JSON.stringify(next)
-    storage.set(`kotori.pref.${key}`, raw)
-    listeners.get(key)?.forEach((listener) => listener(raw))
-  }, [key])
+  const update = useCallback(
+    (next: A) => {
+      const raw = JSON.stringify(next)
+      storage.set(`kotori.pref.${key}`, raw)
+      listeners.get(key)?.forEach((listener) => listener(raw))
+    },
+    [key]
+  )
 
   return [value, update] as const
 }

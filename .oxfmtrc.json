@@ -1,0 +1,9 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 120,
+  "semi": false,
+  "singleQuote": false,
+  "trailingComma": "none",
+  "arrowParens": "always",
+  "ignorePatterns": ["**/*.md", "pnpm-lock.yaml", "data/**", "docs/**", "**/.expo/**", "apps/app/assets/**"]
+}

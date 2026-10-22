@@ -109,6 +109,8 @@ Verification, password-reset and approval emails go through [Resend](https://res
 pnpm test        # every package's tests (Vitest + @effect/vitest), cached by Nx
 pnpm typecheck   # TypeScript 7 (tsc --build) across the workspace
 pnpm build       # emits dist/ for the API, the worker and the packages they use
+pnpm lint        # Oxlint (.oxlintrc.json)
+pnpm format      # Oxfmt (.oxfmtrc.json); `pnpm format:check` in CI
 pnpm sync        # Nx keeps tsconfig project references in step with package.json
 pnpm assets      # re-render icons and splash from the mascot geometry
 ```

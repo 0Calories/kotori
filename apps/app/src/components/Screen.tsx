@@ -5,15 +5,18 @@ import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Text } from "./Text.tsx"
 
 /** A scrolling page with safe-area padding, centred into a readable column on wide screens. */
-export const Screen = (
-  { children, bottomInset = 110, refreshControl, scroll = true }: {
-    readonly children: ReactNode
-    /** Room left for the floating tab bar. */
-    readonly bottomInset?: number
-    readonly refreshControl?: React.ReactElement<RefreshControlProps>
-    readonly scroll?: boolean
-  }
-) => {
+export const Screen = ({
+  children,
+  bottomInset = 110,
+  refreshControl,
+  scroll = true
+}: {
+  readonly children: ReactNode
+  /** Room left for the floating tab bar. */
+  readonly bottomInset?: number
+  readonly refreshControl?: React.ReactElement<RefreshControlProps>
+  readonly scroll?: boolean
+}) => {
   const theme = useTheme()
   const insets = useSafeAreaInsets()
   const content = {
@@ -45,23 +48,33 @@ export const Screen = (
   )
 }
 
-export const Section = ({ title, children, action }: { readonly title?: string; readonly children: ReactNode; readonly action?: ReactNode }) => {
+export const Section = ({
+  title,
+  children,
+  action
+}: {
+  readonly title?: string
+  readonly children: ReactNode
+  readonly action?: ReactNode
+}) => {
   const theme = useTheme()
   return (
     <View style={{ gap: theme.space.md }}>
-      {title
-        ? (
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 2 }}>
-            <SectionTitle>{title}</SectionTitle>
-            {action}
-          </View>
-        )
-        : null}
+      {title ? (
+        <View
+          style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 2 }}
+        >
+          <SectionTitle>{title}</SectionTitle>
+          {action}
+        </View>
+      ) : null}
       {children}
     </View>
   )
 }
 
 const SectionTitle = ({ children }: { readonly children: string }) => (
-  <Text variant="label" color="textMuted">{children.toUpperCase()}</Text>
+  <Text variant="label" color="textMuted">
+    {children.toUpperCase()}
+  </Text>
 )

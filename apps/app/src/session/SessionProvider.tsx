@@ -66,11 +66,14 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
 
   // Sign-up and sign-in move to Better Auth in the app step; until then the
   // app can only load an existing session.
-  const updateProfile = useCallback(async (patch: UpdateProfileRequest) => {
-    const updated = await call((api) => api.account.update({ payload: patch }))
-    setProfile(updated)
-    queryClient.invalidateQueries()
-  }, [queryClient])
+  const updateProfile = useCallback(
+    async (patch: UpdateProfileRequest) => {
+      const updated = await call((api) => api.account.update({ payload: patch }))
+      setProfile(updated)
+      queryClient.invalidateQueries()
+    },
+    [queryClient]
+  )
 
   const signOut = useCallback(async () => {
     await storage.remove(TOKEN_KEY)
@@ -80,17 +83,20 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
     setStatus("anonymous")
   }, [queryClient])
 
-  const value = useMemo<Session>(() => ({
-    status,
-    profile,
-    t: strings[profile?.nativeLanguage ?? deviceLanguage()],
-    updateProfile,
-    signOut,
-    retry: () => {
-      setStatus("loading")
-      setAttempt((n) => n + 1)
-    }
-  }), [status, profile, updateProfile, signOut])
+  const value = useMemo<Session>(
+    () => ({
+      status,
+      profile,
+      t: strings[profile?.nativeLanguage ?? deviceLanguage()],
+      updateProfile,
+      signOut,
+      retry: () => {
+        setStatus("loading")
+        setAttempt((n) => n + 1)
+      }
+    }),
+    [status, profile, updateProfile, signOut]
+  )
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
 }

@@ -6,7 +6,7 @@ import { fonts, maxContentWidth, type Palette, palettes, radius, space } from ".
 /** Japanese text uses the platform's rounded Japanese face where one exists. */
 const japaneseFamily = Platform.select({
   ios: "Hiragino Maru Gothic ProN",
-  web: "\"Hiragino Maru Gothic ProN\", \"Zen Maru Gothic\", \"M PLUS Rounded 1c\", \"Hiragino Sans\", \"Yu Gothic\", \"Noto Sans JP\", sans-serif",
+  web: '"Hiragino Maru Gothic ProN", "Zen Maru Gothic", "M PLUS Rounded 1c", "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif',
   default: undefined
 })
 

@@ -18,21 +18,30 @@ import { makeApp } from "../src/layers.ts"
 // No AI providers are configured in tests: the app must degrade gracefully. Mail is captured.
 const OfflineProviders = Layer.mergeAll(
   MailerMemory,
-  Layer.succeed(Claude, Claude.of({
-    model: "test",
-    available: Effect.succeed(false),
-    generate: () => Effect.fail(new ClaudeError({ reason: "unconfigured", message: "not configured" }))
-  })),
-  Layer.succeed(Jev, Jev.of({
-    configured: false,
-    model: "test",
-    ask: () => Effect.fail(new JevError({ message: "not configured" }))
-  })),
-  Layer.succeed(Pronouncer, Pronouncer.of({
-    configured: false,
-    speak: () => Effect.fail(new TtsError({ reason: "unconfigured", message: "not configured" })),
-    enrichEntry: () => Effect.succeed({ clips: 0, characters: 0 })
-  }))
+  Layer.succeed(
+    Claude,
+    Claude.of({
+      model: "test",
+      available: Effect.succeed(false),
+      generate: () => Effect.fail(new ClaudeError({ reason: "unconfigured", message: "not configured" }))
+    })
+  ),
+  Layer.succeed(
+    Jev,
+    Jev.of({
+      configured: false,
+      model: "test",
+      ask: () => Effect.fail(new JevError({ message: "not configured" }))
+    })
+  ),
+  Layer.succeed(
+    Pronouncer,
+    Pronouncer.of({
+      configured: false,
+      speak: () => Effect.fail(new TtsError({ reason: "unconfigured", message: "not configured" })),
+      enrichEntry: () => Effect.succeed({ clips: 0, characters: 0 })
+    })
+  )
 )
 
 const App = Auth.layerMemory.pipe(Layer.provideMerge(makeApp(OfflineProviders, DatabaseMemory)))
@@ -41,9 +50,8 @@ const TestLayer = Layer.mergeAll(Handlers, HttpServer.layerServices, NodeService
 
 // The session cookie Better Auth issued, forwarded like the app does.
 let cookie: string | null = null
-const Session = HttpApiMiddleware.layerClient(
-  Authorization,
-  ({ next, request }) => next(cookie === null ? request : HttpClientRequest.setHeader(request, "cookie", cookie))
+const Session = HttpApiMiddleware.layerClient(Authorization, ({ next, request }) =>
+  next(cookie === null ? request : HttpClientRequest.setHeader(request, "cookie", cookie))
 )
 
 const client = HttpApiTest.groups(KotoriApi, ["system", "account", "dictionary", "coach", "study", "audio"])
@@ -52,7 +60,7 @@ const PASSWORD = "correct-horse-battery-staple"
 
 /** Signs up through Better Auth's server API and returns the user's id and session cookie. */
 const signUp = (email: string) =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const auth = yield* Auth
     const result = yield* Effect.promise(() =>
       auth.api.signUpEmail({ body: { email, password: PASSWORD, name: "Test Learner" }, returnHeaders: true })
@@ -63,7 +71,7 @@ const signUp = (email: string) =>
 
 /** A signed-up, approved learner whose cookie is used for subsequent calls. */
 const signedIn = (email: string) =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const auth = yield* Auth
     const user = yield* signUp(email)
     yield* auth.updateUser(user.id, { status: "approved" })
@@ -84,7 +92,13 @@ const sense = (glosses: Array<string>, pos: Array<string>) => ({
   antonyms: []
 })
 
-const entry = (id: number, headword: string, reading: string, glosses: Array<string>, pos: Array<string>): EntryRecord => ({
+const entry = (
+  id: number,
+  headword: string,
+  reading: string,
+  glosses: Array<string>,
+  pos: Array<string>
+): EntryRecord => ({
   id,
   headword,
   reading,
@@ -99,7 +113,7 @@ const entry = (id: number, headword: string, reading: string, glosses: Array<str
 
 layer(TestLayer)("Kotori API", (it) => {
   it.effect("signs up, waits for approval, then gets access", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const api = yield* client
       const auth = yield* Auth
 
@@ -138,15 +152,18 @@ layer(TestLayer)("Kotori API", (it) => {
       assert.deepStrictEqual(yield* api.study.notes(), [])
 
       // Picking a language completes onboarding; bad time zones are ignored.
-      const updated = yield* api.account.update({ payload: { nativeLanguage: "ja", dailyNewLimit: 5, timezone: "Not/AZone" } })
+      const updated = yield* api.account.update({
+        payload: { nativeLanguage: "ja", dailyNewLimit: 5, timezone: "Not/AZone" }
+      })
       assert.strictEqual(updated.targetLanguage, "en")
       assert.strictEqual(updated.onboarded, true)
       assert.strictEqual(updated.dailyNewLimit, 5)
       assert.strictEqual(updated.timezone, "UTC")
-    }).pipe(Effect.provide(Session)))
+    }).pipe(Effect.provide(Session))
+  )
 
   it.effect("searches in English, Japanese, romaji and conjugated forms", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       yield* signedIn("search@example.com")
       const repo = yield* DictionaryRepo
       yield* repo.insertEntries([
@@ -172,14 +189,19 @@ layer(TestLayer)("Kotori API", (it) => {
 
       const detail = yield* api.dictionary.entry({ params: { id: english.entries[0]!.id } })
       assert.deepStrictEqual(detail.senses[0]?.glosses, ["to eat"])
-      assert.deepStrictEqual(detail.enrichment, { nuance: "unavailable", examples: "unavailable", audio: "unavailable" })
+      assert.deepStrictEqual(detail.enrichment, {
+        nuance: "unavailable",
+        examples: "unavailable",
+        audio: "unavailable"
+      })
 
       const missing = yield* api.dictionary.entry({ params: { id: 999 as never } }).pipe(Effect.flip)
       assert.strictEqual(missing._tag, "NotFound")
-    }).pipe(Effect.provide(Session)))
+    }).pipe(Effect.provide(Session))
+  )
 
   it.effect("schedules saved words with Anki's algorithm", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       yield* signedIn("study@example.com")
       const api = yield* client
       const note = yield* api.study.addNote({
@@ -219,10 +241,11 @@ layer(TestLayer)("Kotori API", (it) => {
 
       yield* api.study.removeNote({ params: { id: note.id } })
       assert.deepStrictEqual(yield* api.study.notes(), [])
-    }).pipe(Effect.provide(Session)))
+    }).pipe(Effect.provide(Session))
+  )
 
   it.effect("deleting the account removes the profile and study data", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const user = yield* signedIn("leaving@example.com")
       const api = yield* client
       const auth = yield* Auth
@@ -253,10 +276,11 @@ layer(TestLayer)("Kotori API", (it) => {
       assert.strictEqual(notes[0]?.n, 0)
       const gone = yield* api.account.me().pipe(Effect.flip)
       assert.strictEqual(gone._tag, "Unauthorized")
-    }).pipe(Effect.provide(Session)))
+    }).pipe(Effect.provide(Session))
+  )
 
   it.effect("reports AI features as unavailable instead of failing", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       yield* signedIn("coach@example.com")
       const api = yield* client
       const health = yield* api.health()
@@ -264,5 +288,6 @@ layer(TestLayer)("Kotori API", (it) => {
 
       const error = yield* api.coach.naturalness({ payload: { text: "私は学生です。" } }).pipe(Effect.flip)
       assert.strictEqual(error._tag, "AiUnavailable")
-    }).pipe(Effect.provide(Session)))
+    }).pipe(Effect.provide(Session))
+  )
 })

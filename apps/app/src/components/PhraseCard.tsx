@@ -14,7 +14,15 @@ import { Furigana } from "./Furigana.tsx"
 import { Text } from "./Text.tsx"
 
 /** A target-language phrase from the coach, which learners can hear, copy and save for review. */
-export const PhraseCard = ({ text, furigana, register, lines, meaning, source, highlight }: {
+export const PhraseCard = ({
+  text,
+  furigana,
+  register,
+  lines,
+  meaning,
+  source,
+  highlight
+}: {
   readonly text: string
   readonly furigana: string | null
   readonly register: Register
@@ -33,18 +41,36 @@ export const PhraseCard = ({ text, furigana, register, lines, meaning, source, h
   const saved = addNote.isSuccess
 
   return (
-    <Card style={{ gap: theme.space.md, borderColor: highlight ? theme.color.primary : theme.color.border, borderWidth: highlight ? 2 : 1 }}>
+    <Card
+      style={{
+        gap: theme.space.md,
+        borderColor: highlight ? theme.color.primary : theme.color.border,
+        borderWidth: highlight ? 2 : 1
+      }}
+    >
       <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
         <View style={{ flex: 1, gap: 8 }}>
           <Chip tone={registerTone[register]} label={t.check.register[register]} />
-          {target === "ja" ? <Furigana text={text} furigana={furigana} size={22} /> : <Text variant="heading" size={20} selectable>{text}</Text>}
+          {target === "ja" ? (
+            <Furigana text={text} furigana={furigana} size={22} />
+          ) : (
+            <Text variant="heading" size={20} selectable>
+              {text}
+            </Text>
+          )}
         </View>
         <AudioButton speak={{ text, language: target }} />
       </View>
       {lines.map((line, index) => (
         <View key={index} style={{ gap: 2 }}>
-          {line.label ? <Text variant="label" color="textFaint">{line.label.toUpperCase()}</Text> : null}
-          <Text variant="small" color={line.label ? "text" : "textMuted"}>{line.text}</Text>
+          {line.label ? (
+            <Text variant="label" color="textFaint">
+              {line.label.toUpperCase()}
+            </Text>
+          ) : null}
+          <Text variant="small" color={line.label ? "text" : "textMuted"}>
+            {line.text}
+          </Text>
         </View>
       ))}
       <View style={{ flexDirection: "row", gap: 8, justifyContent: "flex-end" }}>
@@ -64,11 +90,23 @@ export const PhraseCard = ({ text, furigana, register, lines, meaning, source, h
           tone="primary"
           active={saved}
           size={36}
-          onPress={saved || addNote.isPending ? undefined : () =>
-            addNote.mutate({
-              content: { kind: "phrase", text, furigana, meaning, note: lines.map((l) => l.text).join("\n") || null, register, source },
-              templates: ["produce", "recognize"]
-            })}
+          onPress={
+            saved || addNote.isPending
+              ? undefined
+              : () =>
+                  addNote.mutate({
+                    content: {
+                      kind: "phrase",
+                      text,
+                      furigana,
+                      meaning,
+                      note: lines.map((l) => l.text).join("\n") || null,
+                      register,
+                      source
+                    },
+                    templates: ["produce", "recognize"]
+                  })
+          }
         />
       </View>
     </Card>

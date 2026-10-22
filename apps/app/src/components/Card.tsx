@@ -2,14 +2,18 @@ import { type ReactNode } from "react"
 import { type StyleProp, View, type ViewProps, type ViewStyle } from "react-native"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 
-export const Card = (
-  { children, style, padded = true, tone, ...props }: Omit<ViewProps, "style"> & {
-    readonly children?: ReactNode
-    readonly style?: StyleProp<ViewStyle>
-    readonly padded?: boolean
-    readonly tone?: "surface" | "muted" | "primary" | "sky" | "matcha" | "yuzu" | "plum"
-  }
-) => {
+export const Card = ({
+  children,
+  style,
+  padded = true,
+  tone,
+  ...props
+}: Omit<ViewProps, "style"> & {
+  readonly children?: ReactNode
+  readonly style?: StyleProp<ViewStyle>
+  readonly padded?: boolean
+  readonly tone?: "surface" | "muted" | "primary" | "sky" | "matcha" | "yuzu" | "plum"
+}) => {
   const theme = useTheme()
   const background = {
     surface: theme.color.surface,

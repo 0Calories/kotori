@@ -140,9 +140,7 @@ export interface AuthService {
  * Kotori never writes that file directly; everything goes through this service.
  */
 export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Auth") {
-  private static make = Effect.fn("Auth.make")(function*(
-    settings: Omit<Settings, "onUserDeleted" | "sendMail">
-  ) {
+  private static make = Effect.fn("Auth.make")(function* (settings: Omit<Settings, "onUserDeleted" | "sendMail">) {
     const users = yield* UsersRepo
     const mailer = yield* Mailer
     const full: Settings = {
@@ -161,11 +159,12 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
     const context = Effect.promise(() => auth.$context)
 
     const list = (filter?: { readonly status?: ReadonlyArray<AccountStatus> }) =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const ctx = yield* context
-        const where = filter?.status === undefined
-          ? undefined
-          : [{ field: "status", operator: "in" as const, value: [...filter.status] }]
+        const where =
+          filter?.status === undefined
+            ? undefined
+            : [{ field: "status", operator: "in" as const, value: [...filter.status] }]
         const rows = yield* Effect.promise(() =>
           ctx.internalAdapter.listUsers(undefined, undefined, { field: "createdAt", direction: "asc" }, where)
         )
@@ -173,21 +172,21 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
       })
 
     const userByEmail = (email: string) =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const ctx = yield* context
         const found = yield* Effect.promise(() => ctx.internalAdapter.findUserByEmail(email.trim().toLowerCase()))
         return Option.fromNullishOr(found?.user).pipe(Option.map(decodeUser))
       })
 
     const updateUser = (userId: string, patch: { status?: AccountStatus; role?: string }) =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const ctx = yield* context
         const fields = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined))
         return decodeUser(yield* Effect.promise(() => ctx.internalAdapter.updateUser(userId, fields)))
       })
 
     const revokeSessions = (userId: string) =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const ctx = yield* context
         const sessions = yield* Effect.promise(() => ctx.internalAdapter.listSessions(userId))
         yield* Effect.promise(() => ctx.internalAdapter.deleteSessions(sessions.map((s) => s.token)))
@@ -199,7 +198,7 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
   /** Configured from the environment; the database at `KOTORI_AUTH_DB_PATH` (default `data/auth.db`). */
   static readonly layer = Layer.effect(
     Auth,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const filename = yield* Config.String("KOTORI_AUTH_DB_PATH").pipe(Config.withDefault("data/auth.db"))
       const port = yield* Config.Port("KOTORI_PORT").pipe(Config.withDefault(4000))
       const baseURL = yield* Config.String("BETTER_AUTH_URL").pipe(Config.withDefault(`http://localhost:${port}`))

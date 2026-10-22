@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest"
 import { HowToSayOutput, NaturalnessOutput, outputSchema } from "../src/index.ts"
 import { ExamplesOutput } from "../src/ExampleWriter.ts"
 
-type JsonSchema = { type?: string; properties?: Record<string, JsonSchema>; items?: JsonSchema; additionalProperties?: unknown; required?: Array<string>; anyOf?: Array<JsonSchema> }
+type JsonSchema = {
+  type?: string
+  properties?: Record<string, JsonSchema>
+  items?: JsonSchema
+  additionalProperties?: unknown
+  required?: Array<string>
+  anyOf?: Array<JsonSchema>
+}
 
 const objects = (schema: JsonSchema): Array<JsonSchema> => [
   ...(schema.type === "object" ? [schema] : []),

@@ -35,7 +35,9 @@ const sanitize = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.map(sanitize)
   if (typeof value !== "object" || value === null) return value
   return Object.fromEntries(
-    Object.entries(value).filter(([key]) => !UNSUPPORTED.has(key)).map(([key, inner]) => [key, sanitize(inner)])
+    Object.entries(value)
+      .filter(([key]) => !UNSUPPORTED.has(key))
+      .map(([key, inner]) => [key, sanitize(inner)])
   )
 }
 
@@ -45,9 +47,10 @@ const sanitize = (value: unknown): unknown => {
  */
 export const outputSchema = (schema: Schema.Top): Record<string, unknown> => {
   const document = Schema.toJsonSchemaDocument(schema, { onExcessProperty: "error" })
-  const root = Object.keys(document.definitions).length === 0
-    ? document.schema
-    : { ...document.schema, $defs: document.definitions }
+  const root =
+    Object.keys(document.definitions).length === 0
+      ? document.schema
+      : { ...document.schema, $defs: document.definitions }
   return sanitize(root) as Record<string, unknown>
 }
 
@@ -64,15 +67,20 @@ const classify = (cause: unknown): ClaudeError => {
   return new ClaudeError({ reason: "unavailable", message: "Claude request failed", cause })
 }
 
-export class Claude extends Context.Service<Claude, {
-  readonly model: string
-  /** Whether credentials resolve and the model is reachable. Cached for a few minutes. */
-  readonly available: Effect.Effect<boolean>
-  generate<S extends Schema.Top>(options: GenerateOptions<S>): Effect.Effect<S["Type"], ClaudeError, S["DecodingServices"]>
-}>()("@kotori/ai/Claude") {
+export class Claude extends Context.Service<
+  Claude,
+  {
+    readonly model: string
+    /** Whether credentials resolve and the model is reachable. Cached for a few minutes. */
+    readonly available: Effect.Effect<boolean>
+    generate<S extends Schema.Top>(
+      options: GenerateOptions<S>
+    ): Effect.Effect<S["Type"], ClaudeError, S["DecodingServices"]>
+  }
+>()("@kotori/ai/Claude") {
   static readonly layer = Layer.effect(
     Claude,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const model = yield* Config.String("KOTORI_CLAUDE_MODEL").pipe(Config.withDefault("claude-opus-5-5"))
       // The SDK resolves credentials itself: ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN or an `ant` profile.
       const client = new Anthropic({ maxRetries: 3 })
@@ -86,7 +94,7 @@ export class Claude extends Context.Service<Claude, {
       )
 
       const generate = <S extends Schema.Top>(options: GenerateOptions<S>) =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const message = yield* Effect.tryPromise({
             try: (signal) =>
               client.beta.messages
@@ -119,8 +127,9 @@ export class Claude extends Context.Service<Claude, {
 
           const text = message.content.flatMap((block) => (block.type === "text" ? [block.text] : [])).join("")
           return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(options.schema))(text).pipe(
-            Effect.mapError((cause) =>
-              new ClaudeError({ reason: "invalid_output", message: "Claude's answer didn't match the schema", cause })
+            Effect.mapError(
+              (cause) =>
+                new ClaudeError({ reason: "invalid_output", message: "Claude's answer didn't match the schema", cause })
             )
           )
         }).pipe(Effect.withSpan("Claude.generate", { attributes: { model } }))

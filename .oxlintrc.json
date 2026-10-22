@@ -1,0 +1,41 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import", "react"],
+  "env": { "node": true, "es2024": true },
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "warn"
+  },
+  "rules": {
+    "import/no-cycle": "error",
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+
+    "react/react-in-jsx-scope": "off",
+    "no-underscore-dangle": "off",
+    "no-shadow": "off",
+    "import/no-named-as-default-member": "off",
+    "unicorn/consistent-function-scoping": "off",
+    "unicorn/no-array-sort": "off",
+    "unicorn/prefer-set-has": "off",
+    "oxc/no-map-spread": "off"
+  },
+  "ignorePatterns": ["**/dist/**", "**/out-tsc/**", "**/.expo/**", "data/**", "**/*.d.ts"],
+  "overrides": [
+    {
+      "files": ["apps/app/**"],
+      "env": { "browser": true, "node": false },
+      "rules": {
+        "no-unused-vars": "warn",
+        "no-unused-expressions": "warn",
+        "react/exhaustive-effect-dependencies": "warn",
+        "react/immutability": "warn",
+        "react/purity": "warn",
+        "react/set-state-in-effect": "warn",
+        "react/no-unstable-nested-components": "warn",
+        "react/memo-dependencies": "warn",
+        "react-hooks/exhaustive-deps": "warn"
+      }
+    }
+  ]
+}

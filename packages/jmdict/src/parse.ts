@@ -14,7 +14,7 @@ export interface JMDictTag {
   readonly label: string
 }
 
-const XML_ENTITIES: Record<string, string> = { lt: "<", gt: ">", amp: "&", quot: "\"", apos: "'" }
+const XML_ENTITIES: Record<string, string> = { lt: "<", gt: ">", amp: "&", quot: '"', apos: "'" }
 
 const decodeText = (raw: string) =>
   raw.replace(/&([\w-]+);/g, (whole, name: string) => XML_ENTITIES[name] ?? name).trim()
@@ -34,7 +34,9 @@ export const parseTags = (xml: string): Array<JMDictTag> => {
 }
 
 const elements = (block: string, name: string): Array<string> =>
-  Array.from(block.matchAll(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`, "g")), (match) => decodeText(match[1]!))
+  Array.from(block.matchAll(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`, "g")), (match) =>
+    decodeText(match[1]!)
+  )
 
 const first = (block: string, name: string) => elements(block, name)[0]
 
@@ -64,11 +66,13 @@ const MARKER_WEIGHT: Record<string, number> = {
  * frequency in bands of 500 words (nf01 = most frequent).
  */
 export const priorityScore = (priorities: ReadonlyArray<string>) =>
-  Math.round(priorities.reduce((score, marker) => {
-    const band = /^nf(\d\d)$/.exec(marker)
-    if (band) return score + (49 - Number(band[1])) * 1.5
-    return score + (MARKER_WEIGHT[marker] ?? 0)
-  }, 0))
+  Math.round(
+    priorities.reduce((score, marker) => {
+      const band = /^nf(\d\d)$/.exec(marker)
+      if (band) return score + (49 - Number(band[1])) * 1.5
+      return score + (MARKER_WEIGHT[marker] ?? 0)
+    }, 0)
+  )
 
 export const isCommon = (priorities: ReadonlyArray<string>) => priorities.some((marker) => COMMON_MARKERS.has(marker))
 
@@ -135,8 +139,10 @@ export const chooseHeadword = (forms: ReadonlyArray<FormRecord>, senses: Readonl
   const kanji = forms.filter((form) => form.kind === "kanji")
   const kana = forms.filter((form) => form.kind === "kana")
   const bestKanji = kanji.find((form) => visible(form) && form.common) ?? kanji.find(visible) ?? kanji[0]
-  const readings = kana.filter((form) =>
-    bestKanji === undefined || (!form.noKanji && (form.restrictions.length === 0 || form.restrictions.includes(bestKanji.text)))
+  const readings = kana.filter(
+    (form) =>
+      bestKanji === undefined ||
+      (!form.noKanji && (form.restrictions.length === 0 || form.restrictions.includes(bestKanji.text)))
   )
   const reading = (readings.find(visible) ?? readings[0] ?? kana[0])?.text ?? bestKanji?.text ?? ""
   const usuallyKana = senses[0]?.misc.includes("uk") ?? false

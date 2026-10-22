@@ -11,31 +11,28 @@ import { HowToSayRequest, HowToSayResult, NaturalnessRequest, NaturalnessResult 
 import { Enrichment, Entry, EntryId, SearchResult } from "./Dictionary.ts"
 import { AiUnavailable, InvalidRequest, NotFound, PendingApproval, RateLimited, Unauthorized } from "./Errors.ts"
 import { Language } from "./Language.ts"
-import {
-  AddNoteRequest,
-  AnswerRequest,
-  AnswerResult,
-  CardId,
-  Note,
-  NoteId,
-  ReviewQueue,
-  StudyStats
-} from "./Study.ts"
+import { AddNoteRequest, AnswerRequest, AnswerResult, CardId, Note, NoteId, ReviewQueue, StudyStats } from "./Study.ts"
 
-export class CurrentUser extends Context.Service<CurrentUser, {
-  readonly id: UserId
-  readonly profile: Profile
-}>()("@kotori/domain/CurrentUser") {}
+export class CurrentUser extends Context.Service<
+  CurrentUser,
+  {
+    readonly id: UserId
+    readonly profile: Profile
+  }
+>()("@kotori/domain/CurrentUser") {}
 
 /**
  * Session auth. Better Auth issues a session cookie at `/api/auth/*`; the app
  * forwards it on every request. Resolves the learner, creates their profile on
  * first sight, and refuses unapproved accounts everywhere except `/account`.
  */
-export class Authorization extends HttpApiMiddleware.Service<Authorization, {
-  provides: CurrentUser
-  requires: never
-}>()("@kotori/domain/Authorization", {
+export class Authorization extends HttpApiMiddleware.Service<
+  Authorization,
+  {
+    provides: CurrentUser
+    requires: never
+  }
+>()("@kotori/domain/Authorization", {
   requiredForClient: true,
   error: [Unauthorized, PendingApproval]
 }) {}
@@ -66,8 +63,7 @@ export class AccountApi extends HttpApiGroup.make("account")
     HttpApiEndpoint.patch("update", "/me", { payload: UpdateProfileRequest, success: Profile })
   )
   .middleware(Authorization)
-  .prefix("/account")
-{}
+  .prefix("/account") {}
 
 export class DictionaryApi extends HttpApiGroup.make("dictionary")
   .add(
@@ -91,8 +87,7 @@ export class DictionaryApi extends HttpApiGroup.make("dictionary")
     })
   )
   .middleware(Authorization)
-  .prefix("/dictionary")
-{}
+  .prefix("/dictionary") {}
 
 export class CoachApi extends HttpApiGroup.make("coach")
   .add(
@@ -108,8 +103,7 @@ export class CoachApi extends HttpApiGroup.make("coach")
     })
   )
   .middleware(Authorization)
-  .prefix("/coach")
-{}
+  .prefix("/coach") {}
 
 export class StudyApi extends HttpApiGroup.make("study")
   .add(
@@ -137,8 +131,7 @@ export class StudyApi extends HttpApiGroup.make("study")
     HttpApiEndpoint.get("stats", "/stats", { success: StudyStats })
   )
   .middleware(Authorization)
-  .prefix("/study")
-{}
+  .prefix("/study") {}
 
 export const SpeakRequest = Schema.Struct({
   text: Schema.String.pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(200))),
@@ -159,8 +152,7 @@ export class AudioApi extends HttpApiGroup.make("audio")
     })
   )
   .middleware(Authorization)
-  .prefix("/audio")
-{}
+  .prefix("/audio") {}
 
 export class KotoriApi extends HttpApi.make("kotori")
   .add(SystemApi)
@@ -169,8 +161,9 @@ export class KotoriApi extends HttpApi.make("kotori")
   .add(CoachApi)
   .add(StudyApi)
   .add(AudioApi)
-  .annotateMerge(OpenApi.annotations({
-    title: "Kotori API",
-    description: "Dictionary, coaching and spaced repetition for learners of Japanese and English."
-  }))
-{}
+  .annotateMerge(
+    OpenApi.annotations({
+      title: "Kotori API",
+      description: "Dictionary, coaching and spaced repetition for learners of Japanese and English."
+    })
+  ) {}

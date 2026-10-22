@@ -4,16 +4,20 @@ import { Claude, type ClaudeError } from "./Claude.ts"
 import { examplesSystem } from "./prompts.ts"
 
 export const ExamplesOutput = Schema.Struct({
-  senses: Schema.Array(Schema.Struct({
-    sense: Schema.Int,
-    examples: Schema.Array(Schema.Struct({
-      ja: Schema.String,
-      furigana: Schema.String,
-      en: Schema.String,
-      formality: Formality,
-      note: Schema.NullOr(Schema.String)
-    }))
-  }))
+  senses: Schema.Array(
+    Schema.Struct({
+      sense: Schema.Int,
+      examples: Schema.Array(
+        Schema.Struct({
+          ja: Schema.String,
+          furigana: Schema.String,
+          en: Schema.String,
+          formality: Formality,
+          note: Schema.NullOr(Schema.String)
+        })
+      )
+    })
+  )
 })
 
 export interface ExampleSense {
@@ -52,20 +56,27 @@ const describe = (request: ExampleRequest) =>
         `${sense.index}. ${sense.glosses.join("; ")}`,
         sense.partsOfSpeech.length > 0 ? `   part of speech: ${sense.partsOfSpeech.join(", ")}` : null,
         sense.notes.length > 0 ? `   notes: ${sense.notes.join("; ")}` : null
-      ].filter((line) => line !== null).join("\n")
+      ]
+        .filter((line) => line !== null)
+        .join("\n")
     )
-  ].filter((line) => line !== null).join("\n")
+  ]
+    .filter((line) => line !== null)
+    .join("\n")
 
-export class ExampleWriter extends Context.Service<ExampleWriter, {
-  readonly model: string
-  write(request: ExampleRequest): Effect.Effect<ReadonlyArray<WrittenExample>, ClaudeError>
-}>()("@kotori/ai/ExampleWriter") {
+export class ExampleWriter extends Context.Service<
+  ExampleWriter,
+  {
+    readonly model: string
+    write(request: ExampleRequest): Effect.Effect<ReadonlyArray<WrittenExample>, ClaudeError>
+  }
+>()("@kotori/ai/ExampleWriter") {
   static readonly layer = Layer.effect(
     ExampleWriter,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const claude = yield* Claude
 
-      const write = Effect.fn("ExampleWriter.write")(function*(request: ExampleRequest) {
+      const write = Effect.fn("ExampleWriter.write")(function* (request: ExampleRequest) {
         const known = new Set(request.senses.map((sense) => sense.index))
         const output = yield* claude.generate({
           schema: ExamplesOutput,

@@ -41,17 +41,20 @@ export const toProfile = (who: Identity, row: UserRow): Profile => ({
 })
 
 /** Learner profiles: identity comes from Better Auth, everything else lives here. */
-export class Accounts extends Context.Service<Accounts, {
-  /** The profile for a signed-in user, created with defaults on first sight. */
-  profile(user: AuthUser): Effect.Effect<Profile>
-  update(current: Profile, request: UpdateProfileRequest): Effect.Effect<Profile>
-}>()("@kotori/api/Accounts") {
+export class Accounts extends Context.Service<
+  Accounts,
+  {
+    /** The profile for a signed-in user, created with defaults on first sight. */
+    profile(user: AuthUser): Effect.Effect<Profile>
+    update(current: Profile, request: UpdateProfileRequest): Effect.Effect<Profile>
+  }
+>()("@kotori/api/Accounts") {
   static readonly layer = Layer.effect(
     Accounts,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const users = yield* UsersRepo
 
-      const profile = Effect.fn("Accounts.profile")(function*(user: AuthUser) {
+      const profile = Effect.fn("Accounts.profile")(function* (user: AuthUser) {
         const row = yield* users.ensure({
           id: user.id,
           nativeLanguage: "en",
@@ -66,7 +69,7 @@ export class Accounts extends Context.Service<Accounts, {
         return toProfile(identity(user), row)
       })
 
-      const update = Effect.fn("Accounts.update")(function*(current: Profile, request: UpdateProfileRequest) {
+      const update = Effect.fn("Accounts.update")(function* (current: Profile, request: UpdateProfileRequest) {
         const now = yield* Clock.currentTimeMillis
         const updated = yield* users.update(current.id, {
           nativeLanguage: request.nativeLanguage,

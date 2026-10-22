@@ -9,26 +9,28 @@ const OPEN_TO_PENDING = new Set(["account"])
 
 export const AuthorizationLive = Layer.effect(
   Authorization,
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const auth = yield* Auth
     const accounts = yield* Accounts
 
-    return Authorization.of(Effect.fn(function*(httpEffect, { group }) {
-      const request = yield* HttpServerRequest.HttpServerRequest
-      const session = yield* Effect.promise(() =>
-        auth.api.getSession({ headers: new Headers(request.headers as Record<string, string>) })
-      )
-      if (session === null) {
-        return yield* new Unauthorized({ message: "Please sign in." })
-      }
+    return Authorization.of(
+      Effect.fn(function* (httpEffect, { group }) {
+        const request = yield* HttpServerRequest.HttpServerRequest
+        const session = yield* Effect.promise(() =>
+          auth.api.getSession({ headers: new Headers(request.headers as Record<string, string>) })
+        )
+        if (session === null) {
+          return yield* new Unauthorized({ message: "Please sign in." })
+        }
 
-      const profile = yield* accounts.profile(session.user)
-      const approved = profile.status === "approved" || profile.role === "admin"
-      if (!approved && !OPEN_TO_PENDING.has(group.identifier)) {
-        return yield* new PendingApproval({ message: "Your account is waiting for approval." })
-      }
+        const profile = yield* accounts.profile(session.user)
+        const approved = profile.status === "approved" || profile.role === "admin"
+        if (!approved && !OPEN_TO_PENDING.has(group.identifier)) {
+          return yield* new PendingApproval({ message: "Your account is waiting for approval." })
+        }
 
-      return yield* Effect.provideService(httpEffect, CurrentUser, { id: profile.id, profile })
-    }))
+        return yield* Effect.provideService(httpEffect, CurrentUser, { id: profile.id, profile })
+      })
+    )
   })
 )

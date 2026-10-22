@@ -7,15 +7,18 @@ import { Clock, Context, Effect, Layer } from "effect"
 /** Senses that get example sentences; later senses are rarely what learners look for. */
 const EXAMPLE_SENSES = 4
 
-export class Enrichers extends Context.Service<Enrichers, {
-  /** Which kinds of enrichment have a configured provider. */
-  readonly available: Effect.Effect<ReadonlyArray<JobKind>>
-  /** Runs one kind of enrichment for an entry, returning a short description of what was done. */
-  run(kind: JobKind, entryId: number): Effect.Effect<string, unknown>
-}>()("@kotori/worker/Enrichers") {
+export class Enrichers extends Context.Service<
+  Enrichers,
+  {
+    /** Which kinds of enrichment have a configured provider. */
+    readonly available: Effect.Effect<ReadonlyArray<JobKind>>
+    /** Runs one kind of enrichment for an entry, returning a short description of what was done. */
+    run(kind: JobKind, entryId: number): Effect.Effect<string, unknown>
+  }
+>()("@kotori/worker/Enrichers") {
   static readonly layer = Layer.effect(
     Enrichers,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const nuance = yield* NuanceEnricher
       const writer = yield* ExampleWriter
       const pronouncer = yield* Pronouncer
@@ -24,7 +27,7 @@ export class Enrichers extends Context.Service<Enrichers, {
       const jev = yield* Jev
       const claude = yield* Claude
 
-      const available = Effect.gen(function*() {
+      const available = Effect.gen(function* () {
         const kinds: Array<JobKind> = []
         if (jev.configured) kinds.push("nuance")
         if (yield* claude.available) kinds.push("examples")
@@ -32,7 +35,7 @@ export class Enrichers extends Context.Service<Enrichers, {
         return kinds
       })
 
-      const examples = Effect.fn("Enrichers.examples")(function*(entryId: number) {
+      const examples = Effect.fn("Enrichers.examples")(function* (entryId: number) {
         const [entry] = yield* dictionary.getEntries([entryId])
         if (entry === undefined) return "missing entry"
         const tags = yield* dictionary.tags
@@ -55,7 +58,10 @@ export class Enrichers extends Context.Service<Enrichers, {
         const written = yield* writer.write({
           headword: entry.headword,
           reading: entry.reading,
-          otherForms: entry.forms.map((form) => form.text).filter((text) => text !== entry.headword).slice(0, 4),
+          otherForms: entry.forms
+            .map((form) => form.text)
+            .filter((text) => text !== entry.headword)
+            .slice(0, 4),
           senses,
           perSense: senses.length > 2 ? 2 : 3
         })
@@ -70,9 +76,9 @@ export class Enrichers extends Context.Service<Enrichers, {
       const run = (kind: JobKind, entryId: number): Effect.Effect<string, unknown> => {
         switch (kind) {
           case "nuance":
-            return nuance.enrich(entryId).pipe(
-              Effect.map((s) => `${s.senses} senses, ${s.similar} similar words, ${s.inputTokens} tokens`)
-            )
+            return nuance
+              .enrich(entryId)
+              .pipe(Effect.map((s) => `${s.senses} senses, ${s.similar} similar words, ${s.inputTokens} tokens`))
           case "examples":
             return examples(entryId)
           case "audio":

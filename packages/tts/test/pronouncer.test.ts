@@ -23,10 +23,12 @@ const FakeElevenLabs = Layer.succeed(
   })
 )
 
-const Config = ConfigProvider.layer(ConfigProvider.fromUnknown({
-  KOTORI_AUDIO_DIR: mkdtempSync(join(tmpdir(), "kotori-audio-")),
-  KOTORI_AUDIO_MONTHLY_CHARS: "10"
-}))
+const Config = ConfigProvider.layer(
+  ConfigProvider.fromUnknown({
+    KOTORI_AUDIO_DIR: mkdtempSync(join(tmpdir(), "kotori-audio-")),
+    KOTORI_AUDIO_MONTHLY_CHARS: "10"
+  })
+)
 
 const TestLayer = Pronouncer.layer.pipe(
   Layer.provideMerge(Layer.mergeAll(Repositories, FakeElevenLabs, AudioStore.layer)),
@@ -37,7 +39,7 @@ const TestLayer = Pronouncer.layer.pipe(
 
 layer(TestLayer)("Pronouncer", (it) => {
   it.effect("synthesises each clip once and serves it from the store afterwards", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const pronouncer = yield* Pronouncer
       const key = yield* pronouncer.speak("たべる", "ja")
       assert.isTrue(isAudioKey(key))
@@ -45,12 +47,17 @@ layer(TestLayer)("Pronouncer", (it) => {
       assert.deepStrictEqual(calls, ["たべる"])
 
       const bytes = yield* (yield* AudioStore).read(key)
-      assert.strictEqual(new TextDecoder().decode(bytes.pipe((o) => (o._tag === "Some" ? o.value : new Uint8Array()))), "mp3:たべる")
-    }))
+      assert.strictEqual(
+        new TextDecoder().decode(bytes.pipe((o) => (o._tag === "Some" ? o.value : new Uint8Array()))),
+        "mp3:たべる"
+      )
+    })
+  )
 
   it.effect("refuses to exceed the monthly character budget", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* (yield* Pronouncer).speak("これはとても長い文章です", "ja").pipe(Effect.flip)
       assert.strictEqual(error.reason, "quota")
-    }))
+    })
+  )
 })

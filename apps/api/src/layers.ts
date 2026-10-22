@@ -27,11 +27,6 @@ export const ServicesLive = Layer.mergeAll(Accounts.layer, Study.layer, Coaching
 export const makeApp = <P, EP, RP, ED, RD>(
   providers: Layer.Layer<P, EP, RP>,
   database: Layer.Layer<Layer.Success<typeof DatabaseLive>, ED, RD>
-) =>
-  ServicesLive.pipe(
-    Layer.provideMerge(providers),
-    Layer.provideMerge(Repositories),
-    Layer.provideMerge(database)
-  )
+) => ServicesLive.pipe(Layer.provideMerge(providers), Layer.provideMerge(Repositories), Layer.provideMerge(database))
 
 export const AppLive = makeApp(ProvidersLive, DatabaseLive)

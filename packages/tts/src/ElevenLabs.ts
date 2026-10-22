@@ -14,16 +14,19 @@ const DEFAULT_VOICES: Record<Language, string> = {
   en: "EXAVITQu4vr4xnSDxMaL" // Sarah — clear American English
 }
 
-export class ElevenLabs extends Context.Service<ElevenLabs, {
-  readonly configured: boolean
-  readonly model: string
-  voiceFor(language: Language): string
-  /** Speaks `text` and returns MP3 bytes. */
-  synthesize(text: string, language: Language): Effect.Effect<Uint8Array, TtsError>
-}>()("@kotori/tts/ElevenLabs") {
+export class ElevenLabs extends Context.Service<
+  ElevenLabs,
+  {
+    readonly configured: boolean
+    readonly model: string
+    voiceFor(language: Language): string
+    /** Speaks `text` and returns MP3 bytes. */
+    synthesize(text: string, language: Language): Effect.Effect<Uint8Array, TtsError>
+  }
+>()("@kotori/tts/ElevenLabs") {
   static readonly layer = Layer.effect(
     ElevenLabs,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const apiKey = yield* Config.Redacted("ELEVENLABS_API_KEY").pipe(Config.option)
       const model = yield* Config.String("KOTORI_ELEVENLABS_MODEL").pipe(Config.withDefault("eleven_v4"))
       const voices: Record<Language, string> = {
@@ -37,7 +40,8 @@ export class ElevenLabs extends Context.Service<ElevenLabs, {
           configured: false,
           model,
           voiceFor,
-          synthesize: () => Effect.fail(new TtsError({ reason: "unconfigured", message: "ELEVENLABS_API_KEY is not set" }))
+          synthesize: () =>
+            Effect.fail(new TtsError({ reason: "unconfigured", message: "ELEVENLABS_API_KEY is not set" }))
         })
       }
 
@@ -46,7 +50,7 @@ export class ElevenLabs extends Context.Service<ElevenLabs, {
         HttpClient.retryTransient({ schedule: Schedule.exponential(500), times: 3 })
       )
 
-      const synthesize = Effect.fn("ElevenLabs.synthesize")(function*(text: string, language: Language) {
+      const synthesize = Effect.fn("ElevenLabs.synthesize")(function* (text: string, language: Language) {
         const response = yield* HttpClientRequest.post(`/v1/text-to-speech/${voices[language]}`).pipe(
           HttpClientRequest.setUrlParams({ output_format: "mp3_44100_128" }),
           HttpClientRequest.setHeader("xi-api-key", Redacted.value(apiKey.value)),
@@ -56,12 +60,16 @@ export class ElevenLabs extends Context.Service<ElevenLabs, {
         )
         if (response.status >= 400) {
           const detail = yield* response.text.pipe(Effect.orElseSucceed(() => ""))
-          const reason = response.status === 401 && detail.includes("quota")
-            ? "quota"
-            : response.status === 401
-            ? "unconfigured"
-            : "failed"
-          return yield* new TtsError({ reason, message: `ElevenLabs returned ${response.status}: ${detail.slice(0, 300)}` })
+          const reason =
+            response.status === 401 && detail.includes("quota")
+              ? "quota"
+              : response.status === 401
+                ? "unconfigured"
+                : "failed"
+          return yield* new TtsError({
+            reason,
+            message: `ElevenLabs returned ${response.status}: ${detail.slice(0, 300)}`
+          })
         }
         const body = yield* response.arrayBuffer.pipe(
           Effect.mapError((cause) => new TtsError({ reason: "failed", message: "Could not read audio", cause }))

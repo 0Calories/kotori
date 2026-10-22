@@ -8,20 +8,25 @@ const STALE_AFTER = 10 * 60_000
 export const work = Command.make(
   "work",
   {
-    idle: Flag.Int("idle-ms").pipe(Flag.withDescription("Polling interval when the queue is empty"), Flag.withDefault(2000))
+    idle: Flag.Int("idle-ms").pipe(
+      Flag.withDescription("Polling interval when the queue is empty"),
+      Flag.withDefault(2000)
+    )
   },
-  Effect.fn(function*({ idle }) {
+  Effect.fn(function* ({ idle }) {
     const jobs = yield* JobsRepo
     const enrichers = yield* Enrichers
     const kinds = yield* enrichers.available
-    yield* Console.log(kinds.length === 0
-      ? "No enrichment providers are configured; waiting anyway. See .env.example."
-      : `Worker ready for: ${kinds.join(", ")}`)
+    yield* Console.log(
+      kinds.length === 0
+        ? "No enrichment providers are configured; waiting anyway. See .env.example."
+        : `Worker ready for: ${kinds.join(", ")}`
+    )
 
     const now = yield* Clock.currentTimeMillis
     yield* jobs.requeueStale(now - STALE_AFTER, now)
 
-    const step = Effect.gen(function*() {
+    const step = Effect.gen(function* () {
       const job = yield* jobs.claim(kinds, yield* Clock.currentTimeMillis)
       if (Option.isNone(job)) return false
       const { id, kind, entryId, priority, attempts } = job.value

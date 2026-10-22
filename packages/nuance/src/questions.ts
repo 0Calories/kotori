@@ -39,7 +39,8 @@ const formality: ScoreQuestion = {
 
 const medium: ScoreQuestion = {
   type: "score",
-  instructions: "Where is the Japanese word `word`, with the meaning in `meaning`, typically used: in conversation or in writing?",
+  instructions:
+    "Where is the Japanese word `word`, with the meaning in `meaning`, typically used: in conversation or in writing?",
   criteria: [
     {
       what: "Mostly spoken: conversational words that look out of place in formal writing",
@@ -61,7 +62,8 @@ const keigo: ChoiceQuestion = {
   instructions: "Is the Japanese word `word`, with the meaning in `meaning`, a form of honorific language (keigo)?",
   criteria: {
     none: "Not keigo: an ordinary word with no built-in respect or humility",
-    sonkeigo: "Respectful language (尊敬語) that elevates someone else's actions, e.g. 召し上がる, いらっしゃる, おっしゃる",
+    sonkeigo:
+      "Respectful language (尊敬語) that elevates someone else's actions, e.g. 召し上がる, いらっしゃる, おっしゃる",
     kenjougo: "Humble language (謙譲語) that lowers the speaker's own actions, e.g. 申す, 伺う, いただく, 拝見する",
     teineigo: "Polite language (丁寧語) not tied to anyone's actions, e.g. ございます, お手洗い, です",
     bikago: "Beautified word (美化語): a word with お or ご added to sound refined, e.g. お茶, ご飯, お金"
@@ -70,7 +72,8 @@ const keigo: ChoiceQuestion = {
 
 const gender: ChoiceQuestion = {
   type: "choice",
-  instructions: "Do Japanese speakers associate the word `word`, with the meaning in `meaning`, with a particular gender?",
+  instructions:
+    "Do Japanese speakers associate the word `word`, with the meaning in `meaning`, with a particular gender?",
   criteria: {
     neutral: "Used naturally by speakers of any gender",
     masculine: "Sounds typically masculine; mostly used by men or boys, e.g. 俺, 腹減った, 〜ぜ",
@@ -80,7 +83,8 @@ const gender: ChoiceQuestion = {
 
 const age: ChoiceQuestion = {
   type: "choice",
-  instructions: "Is the Japanese word `word`, with the meaning in `meaning`, typical of a particular age group of speakers?",
+  instructions:
+    "Is the Japanese word `word`, with the meaning in `meaning`, typical of a particular age group of speakers?",
   criteria: {
     any: "Used by people of all ages, including formal and business words that working adults of every age use, e.g. 恐縮, 拝見する",
     children: "Childish or baby talk, used by or to small children, e.g. わんわん, おてて",
@@ -91,7 +95,8 @@ const age: ChoiceQuestion = {
 
 const currency: ChoiceQuestion = {
   type: "choice",
-  instructions: "How current does the Japanese word `word`, with the meaning in `meaning`, feel in present-day Japanese?",
+  instructions:
+    "How current does the Japanese word `word`, with the meaning in `meaning`, feel in present-day Japanese?",
   criteria: {
     current: "In ordinary use today, including formal, written and business words, e.g. 恐縮, 拝見する, 申し上げる",
     trendy: "A recent coinage or buzzword",
@@ -118,7 +123,8 @@ const rudeToSuperiors: NoulQuestion = {
     "Someone talking to their boss or a customer uses the Japanese word `word` (meaning `meaning`), conjugated politely with です/ます wherever that applies. Is choosing this word still rude, crude or overly familiar?",
   criteria: {
     true: "Yes: the word itself is rough, slangy or overly familiar, so it sounds rude even with です/ます, e.g. 食う, めっちゃ, うまい (for 'tasty'), ご苦労様 (said to a superior)",
-    false: "No: with です/ます it is acceptable with a boss or customer, even if a more honorific word exists, e.g. 行く → 行きます, 見る → 見ます, 大きい → 大きいです"
+    false:
+      "No: with です/ます it is acceptable with a boss or customer, even if a more honorific word exists, e.g. 行く → 行きます, 見る → 見ます, 大きい → 大きいです"
   }
 }
 
@@ -134,7 +140,8 @@ const stiffWithFriends: NoulQuestion = {
 
 const slang: NoulQuestion = {
   type: "noul",
-  instructions: "Is the Japanese word `word`, with the meaning in `meaning`, slang (including youth or internet slang)?",
+  instructions:
+    "Is the Japanese word `word`, with the meaning in `meaning`, slang (including youth or internet slang)?",
   criteria: {
     true: "Yes: it is slang, e.g. マジ, エモい, ググる, ヤバい (for 'amazing')",
     false: "No: it is standard vocabulary, even if casual, e.g. すごく, ちょっと, 友達"
@@ -174,8 +181,7 @@ export const DIFFERENCES = {
 export const candidateQuestions = (index: number) => ({
   [`similar_${index}`]: {
     type: "noul",
-    instructions:
-      `Can \`candidates[${index}].word\` express the same meaning as \`word\` (as described in \`meaning\`) in at least some sentences?`,
+    instructions: `Can \`candidates[${index}].word\` express the same meaning as \`word\` (as described in \`meaning\`) in at least some sentences?`,
     criteria: {
       true: "Yes: it is a near-synonym that could replace it in some sentences",
       false: "No: it is related, but means something different"
@@ -183,8 +189,7 @@ export const candidateQuestions = (index: number) => ({
   } satisfies NoulQuestion,
   [`difference_${index}`]: {
     type: "choice",
-    instructions:
-      `Compared with \`word\`, what is the main difference when a native speaker chooses \`candidates[${index}].word\` instead?`,
+    instructions: `Compared with \`word\`, what is the main difference when a native speaker chooses \`candidates[${index}].word\` instead?`,
     criteria: DIFFERENCES
   } satisfies ChoiceQuestion
 })

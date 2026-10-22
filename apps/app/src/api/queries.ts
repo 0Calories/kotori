@@ -84,7 +84,9 @@ export const useAnswer = () =>
   })
 
 export const useNaturalness = () =>
-  useMutation({ mutationFn: (request: NaturalnessRequest) => call((api) => api.coach.naturalness({ payload: request })) })
+  useMutation({
+    mutationFn: (request: NaturalnessRequest) => call((api) => api.coach.naturalness({ payload: request }))
+  })
 
 export const useHowToSay = () =>
   useMutation({ mutationFn: (request: HowToSayRequest) => call((api) => api.coach.howToSay({ payload: request })) })

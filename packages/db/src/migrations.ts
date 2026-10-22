@@ -1,7 +1,7 @@
 import { Effect } from "effect"
 import { SqlClient } from "effect/sql"
 
-const dictionary = Effect.gen(function*() {
+const dictionary = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
 
   // Seeded from JMDict. `priority` folds JMDict's frequency markers (news1, ichi1, nf01…)
@@ -77,7 +77,7 @@ const dictionary = Effect.gen(function*() {
   yield* sql`CREATE TABLE tags (code TEXT PRIMARY KEY, label TEXT NOT NULL)`
 })
 
-const enrichment = Effect.gen(function*() {
+const enrichment = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
 
   // Jev's nuance judgments per sense. `answers` keeps the raw distributions so
@@ -165,7 +165,7 @@ const enrichment = Effect.gen(function*() {
   yield* sql`CREATE INDEX jobs_pending ON jobs (status, priority DESC, run_after)`
 })
 
-const study = Effect.gen(function*() {
+const study = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
 
   yield* sql`
@@ -260,7 +260,7 @@ const study = Effect.gen(function*() {
 // profile, keyed by the Better Auth user id and created on first request.
 // Pre-beta there are no real learners: existing device accounts and their study
 // data are dropped rather than migrated, since their ids can't be mapped.
-const profiles = Effect.gen(function*() {
+const profiles = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
 
   yield* sql`DELETE FROM notes`

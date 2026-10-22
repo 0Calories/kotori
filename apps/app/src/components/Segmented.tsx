@@ -3,13 +3,15 @@ import { useTheme } from "../theme/ThemeProvider.tsx"
 import { PressableScale } from "./PressableScale.tsx"
 import { Text } from "./Text.tsx"
 
-export const Segmented = <A extends string>(
-  { options, value, onChange }: {
-    readonly options: ReadonlyArray<{ readonly value: A; readonly label: string }>
-    readonly value: A
-    readonly onChange: (value: A) => void
-  }
-) => {
+export const Segmented = <A extends string>({
+  options,
+  value,
+  onChange
+}: {
+  readonly options: ReadonlyArray<{ readonly value: A; readonly label: string }>
+  readonly value: A
+  readonly onChange: (value: A) => void
+}) => {
   const { color, radius } = useTheme()
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
@@ -31,7 +33,9 @@ export const Segmented = <A extends string>(
               borderColor: selected ? color.ink : color.border
             }}
           >
-            <Text variant="caption" style={{ color: selected ? color.background : color.text }}>{option.label}</Text>
+            <Text variant="caption" style={{ color: selected ? color.background : color.text }}>
+              {option.label}
+            </Text>
           </PressableScale>
         )
       })}

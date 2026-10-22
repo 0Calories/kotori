@@ -17,8 +17,4 @@ const kotori = Command.make("kotori").pipe(
   Command.withSubcommands([seed, enrich, work, status, requests, approve, archive, users, adminCommand, revoke])
 )
 
-kotori.pipe(
-  Command.run({ version: "0.1.0" }),
-  Effect.provide(WorkerLive),
-  NodeRuntime.runMain
-)
+kotori.pipe(Command.run({ version: "0.1.0" }), Effect.provide(WorkerLive), NodeRuntime.runMain)

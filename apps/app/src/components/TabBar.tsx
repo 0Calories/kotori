@@ -19,7 +19,13 @@ const ICONS: Record<string, readonly [keyof typeof Ionicons.glyphMap, keyof type
   review: ["layers", "layers-outline"]
 }
 
-const Tab = ({ name, label, focused, onPress, badge }: {
+const Tab = ({
+  name,
+  label,
+  focused,
+  onPress,
+  badge
+}: {
   readonly name: string
   readonly label: string
   readonly focused: boolean
@@ -43,23 +49,58 @@ const Tab = ({ name, label, focused, onPress, badge }: {
       style={{ flex: 1, alignItems: "center", justifyContent: "center", height: 58 }}
     >
       <Animated.View
-        style={[{ position: "absolute", top: 6, bottom: 6, left: 6, right: 6, borderRadius: radius.lg, backgroundColor: color.primarySoft }, pill]}
+        style={[
+          {
+            position: "absolute",
+            top: 6,
+            bottom: 6,
+            left: 6,
+            right: 6,
+            borderRadius: radius.lg,
+            backgroundColor: color.primarySoft
+          },
+          pill
+        ]}
       />
       <View>
         <Ionicons name={focused ? active : inactive} size={22} color={focused ? color.primary : color.textMuted} />
         {badge ? (
-          <View style={{ position: "absolute", top: -4, right: -10, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: color.primary, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 }}>
-            <Text variant="label" style={{ color: color.onPrimary, fontSize: 10, lineHeight: 12 }}>{badge > 99 ? "99+" : badge}</Text>
+          <View
+            style={{
+              position: "absolute",
+              top: -4,
+              right: -10,
+              minWidth: 18,
+              height: 18,
+              borderRadius: 9,
+              backgroundColor: color.primary,
+              alignItems: "center",
+              justifyContent: "center",
+              paddingHorizontal: 4
+            }}
+          >
+            <Text variant="label" style={{ color: color.onPrimary, fontSize: 10, lineHeight: 12 }}>
+              {badge > 99 ? "99+" : badge}
+            </Text>
           </View>
         ) : null}
       </View>
-      <Text variant="caption" style={{ fontSize: 11, lineHeight: 14, marginTop: 2, color: focused ? color.primary : color.textMuted }}>{label}</Text>
+      <Text
+        variant="caption"
+        style={{ fontSize: 11, lineHeight: 14, marginTop: 2, color: focused ? color.primary : color.textMuted }}
+      >
+        {label}
+      </Text>
     </PressableScale>
   )
 }
 
 /** A floating, rounded tab bar that sits above the content. */
-export const TabBar = ({ state, navigation, badges }: BottomTabBarProps & { readonly badges?: Record<string, number> }) => {
+export const TabBar = ({
+  state,
+  navigation,
+  badges
+}: BottomTabBarProps & { readonly badges?: Record<string, number> }) => {
   const theme = useTheme()
   const t = useT()
   const insets = useSafeAreaInsets()
@@ -100,7 +141,17 @@ export const TabBar = ({ state, navigation, badges }: BottomTabBarProps & { read
     borderColor: theme.color.border,
     ...theme.shadow(3)
   }
-  return Platform.OS === "ios"
-    ? <BlurView intensity={60} tint={theme.dark ? "dark" : "light"} style={[shell, { backgroundColor: theme.dark ? "rgba(38,35,33,0.6)" : "rgba(255,255,255,0.7)" }]}>{bar}</BlurView>
-    : <View style={[shell, { backgroundColor: theme.dark ? "rgba(38,35,33,0.96)" : "rgba(255,255,255,0.96)" }]}>{bar}</View>
+  return Platform.OS === "ios" ? (
+    <BlurView
+      intensity={60}
+      tint={theme.dark ? "dark" : "light"}
+      style={[shell, { backgroundColor: theme.dark ? "rgba(38,35,33,0.6)" : "rgba(255,255,255,0.7)" }]}
+    >
+      {bar}
+    </BlurView>
+  ) : (
+    <View style={[shell, { backgroundColor: theme.dark ? "rgba(38,35,33,0.96)" : "rgba(255,255,255,0.96)" }]}>
+      {bar}
+    </View>
+  )
 }

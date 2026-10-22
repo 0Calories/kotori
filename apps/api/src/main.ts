@@ -27,11 +27,13 @@ const Routes = Layer.mergeAll(
   HttpRouter.cors({ maxAge: 86_400 })
 )
 
-const ServerLive = Layer.unwrap(Effect.gen(function*() {
-  const port = yield* Config.Port("KOTORI_PORT").pipe(Config.withDefault(4000))
-  // Listen on all interfaces so phones on the same network can reach a dev server.
-  return HttpRouter.serve(Routes).pipe(Layer.provide(NodeHttpServer.layer(createServer, { port, host: "0.0.0.0" })))
-}))
+const ServerLive = Layer.unwrap(
+  Effect.gen(function* () {
+    const port = yield* Config.Port("KOTORI_PORT").pipe(Config.withDefault(4000))
+    // Listen on all interfaces so phones on the same network can reach a dev server.
+    return HttpRouter.serve(Routes).pipe(Layer.provide(NodeHttpServer.layer(createServer, { port, host: "0.0.0.0" })))
+  })
+)
 
 Layer.launch(ServerLive).pipe(
   Effect.provide(Auth.layer.pipe(Layer.provideMerge(AppLive))),

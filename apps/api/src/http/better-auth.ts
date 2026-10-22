@@ -6,7 +6,7 @@ import { Auth } from "@kotori/auth"
 export const BetterAuthRoute = HttpRouter.add(
   "*",
   "/api/auth/*",
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const auth = yield* Auth
     return yield* HttpEffect.fromWebHandler(auth.handler)
   })

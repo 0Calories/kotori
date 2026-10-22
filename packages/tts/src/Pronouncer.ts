@@ -13,16 +13,19 @@ export interface AudioSummary {
 }
 
 /** Turns text into cached pronunciation clips, keeping TTS spend within a monthly character budget. */
-export class Pronouncer extends Context.Service<Pronouncer, {
-  readonly configured: boolean
-  /** Returns the audio key for `text`, synthesising it only if it isn't cached yet. */
-  speak(text: string, language: Language): Effect.Effect<string, TtsError>
-  /** Audio for an entry's headword and example sentences. */
-  enrichEntry(entryId: number): Effect.Effect<AudioSummary, TtsError>
-}>()("@kotori/tts/Pronouncer") {
+export class Pronouncer extends Context.Service<
+  Pronouncer,
+  {
+    readonly configured: boolean
+    /** Returns the audio key for `text`, synthesising it only if it isn't cached yet. */
+    speak(text: string, language: Language): Effect.Effect<string, TtsError>
+    /** Audio for an entry's headword and example sentences. */
+    enrichEntry(entryId: number): Effect.Effect<AudioSummary, TtsError>
+  }
+>()("@kotori/tts/Pronouncer") {
   static readonly layer = Layer.effect(
     Pronouncer,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tts = yield* ElevenLabs
       const store = yield* AudioStore
       const repo = yield* EnrichmentRepo
@@ -33,9 +36,11 @@ export class Pronouncer extends Context.Service<Pronouncer, {
         .map((language) => language.trim())
 
       const keyFor = (text: string, language: Language) =>
-        createHash("sha256").update([tts.voiceFor(language), tts.model, language, text].join("\n")).digest("hex")
+        createHash("sha256")
+          .update([tts.voiceFor(language), tts.model, language, text].join("\n"))
+          .digest("hex")
 
-      const speak = Effect.fn("Pronouncer.speak")(function*(text: string, language: Language) {
+      const speak = Effect.fn("Pronouncer.speak")(function* (text: string, language: Language) {
         const normalized = text.trim()
         const key = keyFor(normalized, language)
         const cached = yield* repo.findAudio(key)
@@ -65,7 +70,7 @@ export class Pronouncer extends Context.Service<Pronouncer, {
         return key
       })
 
-      const enrichEntry = Effect.fn("Pronouncer.enrichEntry")(function*(entryId: number) {
+      const enrichEntry = Effect.fn("Pronouncer.enrichEntry")(function* (entryId: number) {
         const [entry] = yield* dictionary.getEntries([entryId])
         if (entry === undefined) return { clips: 0, characters: 0 }
         let clips = 0
@@ -80,15 +85,19 @@ export class Pronouncer extends Context.Service<Pronouncer, {
         track(entry.reading)
 
         const examples = yield* repo.examplesFor([entryId])
-        yield* Effect.forEach(examples, (example) =>
-          Effect.gen(function*() {
-            yield* repo.linkExampleAudio(example.id, "ja", yield* speak(example.ja, "ja"))
-            track(example.ja)
-            if (exampleLanguages.includes("en")) {
-              yield* repo.linkExampleAudio(example.id, "en", yield* speak(example.en, "en"))
-              track(example.en)
-            }
-          }), { concurrency: 2, discard: true })
+        yield* Effect.forEach(
+          examples,
+          (example) =>
+            Effect.gen(function* () {
+              yield* repo.linkExampleAudio(example.id, "ja", yield* speak(example.ja, "ja"))
+              track(example.ja)
+              if (exampleLanguages.includes("en")) {
+                yield* repo.linkExampleAudio(example.id, "en", yield* speak(example.en, "en"))
+                track(example.en)
+              }
+            }),
+          { concurrency: 2, discard: true }
+        )
 
         return { clips, characters }
       })

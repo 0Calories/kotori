@@ -53,10 +53,24 @@ const KEIGO_TAGS: ReadonlyArray<readonly [string, Keigo]> = [
   ["pol", "teineigo"]
 ]
 
-const GENDER_TAGS: ReadonlyArray<readonly [string, Gender]> = [["male", "masculine"], ["fem", "feminine"]]
-const AGE_TAGS: ReadonlyArray<readonly [string, AgeGroup]> = [["chn", "children"], ["net-sl", "youth"], ["m-sl", "youth"]]
-const CURRENCY_TAGS: ReadonlyArray<readonly [string, Currency]> = [["arch", "archaic"], ["obs", "archaic"], ["dated", "dated"]]
-const CONNOTATION_TAGS: ReadonlyArray<readonly [string, Connotation]> = [["derog", "negative"], ["vulg", "negative"]]
+const GENDER_TAGS: ReadonlyArray<readonly [string, Gender]> = [
+  ["male", "masculine"],
+  ["fem", "feminine"]
+]
+const AGE_TAGS: ReadonlyArray<readonly [string, AgeGroup]> = [
+  ["chn", "children"],
+  ["net-sl", "youth"],
+  ["m-sl", "youth"]
+]
+const CURRENCY_TAGS: ReadonlyArray<readonly [string, Currency]> = [
+  ["arch", "archaic"],
+  ["obs", "archaic"],
+  ["dated", "dated"]
+]
+const CONNOTATION_TAGS: ReadonlyArray<readonly [string, Connotation]> = [
+  ["derog", "negative"],
+  ["vulg", "negative"]
+]
 const SLANG_TAGS = ["sl", "net-sl", "m-sl"]
 
 const scale = <L extends string>(levels: ReadonlyArray<L>, answer: ScoreResponse, tagged: L | undefined) => {
@@ -111,11 +125,13 @@ export const interpretCandidates = (
       const similar = answers[`similar_${index}`] as NoulResponse | undefined
       const difference = answers[`difference_${index}`] as ChoiceResponse | undefined
       if (similar === undefined || difference === undefined || similar.noul < 0.5) return []
-      return [{
-        similarId,
-        similarity: similar.noul,
-        difference: difference.choice as Difference,
-        confidence: difference.confidence
-      }]
+      return [
+        {
+          similarId,
+          similarity: similar.noul,
+          difference: difference.choice as Difference,
+          confidence: difference.confidence
+        }
+      ]
     })
     .sort((a, b) => b.similarity - a.similarity)

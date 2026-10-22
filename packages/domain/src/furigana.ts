@@ -22,7 +22,13 @@ export const parseFurigana = (input: string): Array<RubySegment> => {
 }
 
 /** The sentence as normally written. */
-export const furiganaToText = (input: string) => parseFurigana(input).map((s) => s.text).join("")
+export const furiganaToText = (input: string) =>
+  parseFurigana(input)
+    .map((s) => s.text)
+    .join("")
 
 /** The sentence with every annotated base replaced by its reading. */
-export const furiganaToKana = (input: string) => parseFurigana(input).map((s) => s.reading ?? s.text).join("")
+export const furiganaToKana = (input: string) =>
+  parseFurigana(input)
+    .map((s) => s.reading ?? s.text)
+    .join("")

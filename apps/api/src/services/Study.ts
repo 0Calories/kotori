@@ -72,26 +72,34 @@ const toNote = (note: NoteRow, cards: ReadonlyArray<CardRow>): Note => ({
   cards: cards.map(toSummary)
 })
 
-export class Study extends Context.Service<Study, {
-  notes(user: Profile): Effect.Effect<ReadonlyArray<Note>>
-  addNote(user: Profile, request: AddNoteRequest): Effect.Effect<Note>
-  removeNote(user: Profile, id: NoteId): Effect.Effect<boolean>
-  queue(user: Profile, limit: number): Effect.Effect<ReviewQueue>
-  answer(user: Profile, id: CardId, rating: Rating, durationMs: number | undefined): Effect.Effect<Option.Option<AnswerResult>>
-  stats(user: Profile): Effect.Effect<StudyStats>
-}>()("@kotori/api/Study") {
+export class Study extends Context.Service<
+  Study,
+  {
+    notes(user: Profile): Effect.Effect<ReadonlyArray<Note>>
+    addNote(user: Profile, request: AddNoteRequest): Effect.Effect<Note>
+    removeNote(user: Profile, id: NoteId): Effect.Effect<boolean>
+    queue(user: Profile, limit: number): Effect.Effect<ReviewQueue>
+    answer(
+      user: Profile,
+      id: CardId,
+      rating: Rating,
+      durationMs: number | undefined
+    ): Effect.Effect<Option.Option<AnswerResult>>
+    stats(user: Profile): Effect.Effect<StudyStats>
+  }
+>()("@kotori/api/Study") {
   static readonly layer = Layer.effect(
     Study,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const repo = yield* StudyRepo
 
       const clockFor = (user: Profile, now: number) => ({ utcOffsetMinutes: utcOffsetMinutes(user.timezone, now) })
 
-      const notes = Effect.fn("Study.notes")(function*(user: Profile) {
+      const notes = Effect.fn("Study.notes")(function* (user: Profile) {
         return (yield* repo.notes(user.id)).map(({ note, cards }) => toNote(note, cards))
       })
 
-      const addNote = Effect.fn("Study.addNote")(function*(user: Profile, request: AddNoteRequest) {
+      const addNote = Effect.fn("Study.addNote")(function* (user: Profile, request: AddNoteRequest) {
         const content = request.content
         const word = content.kind === "word" ? content : undefined
         if (word !== undefined) {
@@ -105,9 +113,8 @@ export class Study extends Context.Service<Study, {
         }
 
         const now = yield* Clock.currentTimeMillis
-        const templates: ReadonlyArray<CardTemplate> = request.templates && request.templates.length > 0
-          ? [...new Set(request.templates)]
-          : ["recognize", "produce"]
+        const templates: ReadonlyArray<CardTemplate> =
+          request.templates && request.templates.length > 0 ? [...new Set(request.templates)] : ["recognize", "produce"]
         const position = yield* repo.nextPosition(user.id)
         const note: NoteRow = {
           id: randomUUID(),
@@ -151,7 +158,7 @@ export class Study extends Context.Service<Study, {
         }
       }
 
-      const counts = Effect.fnUntraced(function*(user: Profile, now: number) {
+      const counts = Effect.fnUntraced(function* (user: Profile, now: number) {
         const clock = clockFor(user, now)
         const today = dayNumber(now, clock)
         const learning = yield* repo.learningDue(user.id, now + LEARN_AHEAD)
@@ -162,7 +169,7 @@ export class Study extends Context.Service<Study, {
         return { learning, reviews, fresh }
       })
 
-      const queue = Effect.fn("Study.queue")(function*(user: Profile, limit: number) {
+      const queue = Effect.fn("Study.queue")(function* (user: Profile, limit: number) {
         const now = yield* Clock.currentTimeMillis
         const { learning, reviews, fresh } = yield* counts(user, now)
         // Learning cards that are due come first (they're time-sensitive), then reviews with new cards
@@ -187,36 +194,39 @@ export class Study extends Context.Service<Study, {
         return { items, counts: queueCounts, nextDue }
       })
 
-      const answer = Effect.fn("Study.answer")(
-        function*(user: Profile, id: CardId, rating: Rating, durationMs: number | undefined) {
-          const found = yield* repo.card(user.id, id)
-          if (Option.isNone(found)) return Option.none()
-          const card = found.value
-          const now = yield* Clock.currentTimeMillis
-          const ctx: ReviewContext = { now, ...clockFor(user, now), seed: card.seed }
-          const outcome = answerCard(toState(card), rating, ctx, defaultConfig)
+      const answer = Effect.fn("Study.answer")(function* (
+        user: Profile,
+        id: CardId,
+        rating: Rating,
+        durationMs: number | undefined
+      ) {
+        const found = yield* repo.card(user.id, id)
+        if (Option.isNone(found)) return Option.none()
+        const card = found.value
+        const now = yield* Clock.currentTimeMillis
+        const ctx: ReviewContext = { now, ...clockFor(user, now), seed: card.seed }
+        const outcome = answerCard(toState(card), rating, ctx, defaultConfig)
 
-          const updated: CardWithContent = { ...card, ...outcome.card, leech: card.leech || outcome.log.leech }
-          yield* repo.updateCard(updated)
-          yield* repo.insertLog({
-            cardId: card.id,
-            userId: user.id,
-            rating,
-            queueBefore: outcome.log.queueBefore,
-            intervalBefore: outcome.log.intervalBefore,
-            interval: outcome.log.interval,
-            easeBefore: outcome.log.easeBefore,
-            ease: outcome.log.ease,
-            delay: outcome.log.delay,
-            durationMs: durationMs ?? null,
-            reviewedAt: now,
-            studyDay: dayNumber(now, ctx)
-          })
-          return Option.some({ card: toStudyCard(updated), leech: outcome.log.leech })
-        }
-      )
+        const updated: CardWithContent = { ...card, ...outcome.card, leech: card.leech || outcome.log.leech }
+        yield* repo.updateCard(updated)
+        yield* repo.insertLog({
+          cardId: card.id,
+          userId: user.id,
+          rating,
+          queueBefore: outcome.log.queueBefore,
+          intervalBefore: outcome.log.intervalBefore,
+          interval: outcome.log.interval,
+          easeBefore: outcome.log.easeBefore,
+          ease: outcome.log.ease,
+          delay: outcome.log.delay,
+          durationMs: durationMs ?? null,
+          reviewedAt: now,
+          studyDay: dayNumber(now, ctx)
+        })
+        return Option.some({ card: toStudyCard(updated), leech: outcome.log.leech })
+      })
 
-      const stats = Effect.fn("Study.stats")(function*(user: Profile) {
+      const stats = Effect.fn("Study.stats")(function* (user: Profile) {
         const now = yield* Clock.currentTimeMillis
         const clock = clockFor(user, now)
         const today = dayNumber(now, clock)
@@ -237,8 +247,10 @@ export class Study extends Context.Service<Study, {
 
         const retention = yield* repo.retention(user.id, today - 30)
         const dueTimes = yield* repo.reviewDueTimes(user.id, dayStart(today + 7, clock))
-        const forecast = Array.from({ length: 7 }, (_, offset) =>
-          dueTimes.filter((due) => Math.max(dayNumber(due, clock), today) === today + offset).length)
+        const forecast = Array.from(
+          { length: 7 },
+          (_, offset) => dueTimes.filter((due) => Math.max(dayNumber(due, clock), today) === today + offset).length
+        )
 
         return {
           due: { new: fresh.length, learning: learning.length, review: reviews.length },

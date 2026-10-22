@@ -80,33 +80,44 @@ const encodeCard = (card: CardRow) => ({
   createdAt: card.createdAt
 })
 
-export class StudyRepo extends Context.Service<StudyRepo, {
-  insertNote(note: NoteRow, cards: ReadonlyArray<CardRow>): Effect.Effect<void>
-  notes(userId: string): Effect.Effect<ReadonlyArray<{ readonly note: NoteRow; readonly cards: ReadonlyArray<CardRow> }>>
-  note(userId: string, noteId: string): Effect.Effect<Option.Option<{ readonly note: NoteRow; readonly cards: ReadonlyArray<CardRow> }>>
-  /** Returns whether a note was deleted. */
-  deleteNote(userId: string, noteId: string): Effect.Effect<boolean>
-  /** Saved word notes for the given entries. */
-  savedWords(userId: string, entryIds: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<{ entryId: number; sense: number; id: string }>>
-  card(userId: string, cardId: string): Effect.Effect<Option.Option<CardWithContent>>
-  learningDue(userId: string, until: number): Effect.Effect<ReadonlyArray<CardWithContent>>
-  reviewDue(userId: string, until: number, limit: number): Effect.Effect<ReadonlyArray<CardWithContent>>
-  newCards(userId: string, limit: number): Effect.Effect<ReadonlyArray<CardWithContent>>
-  nextLearningDue(userId: string): Effect.Effect<Option.Option<number>>
-  /** Answers logged on a study day; `queueBefore` narrows to e.g. newly introduced cards. */
-  countAnswers(userId: string, studyDay: number, queueBefore?: CardQueue): Effect.Effect<number>
-  updateCard(card: CardRow): Effect.Effect<void>
-  insertLog(log: ReviewLogInput): Effect.Effect<void>
-  nextPosition(userId: string): Effect.Effect<number>
-  queueCounts(userId: string): Effect.Effect<ReadonlyArray<{ queue: CardQueue; mature: boolean; n: number }>>
-  studyDays(userId: string): Effect.Effect<ReadonlyArray<number>>
-  retention(userId: string, sinceDay: number): Effect.Effect<{ total: number; failed: number }>
-  reviewDueTimes(userId: string, until: number): Effect.Effect<ReadonlyArray<number>>
-  readonly noteCount: (userId: string) => Effect.Effect<number>
-}>()("@kotori/db/StudyRepo") {
+export class StudyRepo extends Context.Service<
+  StudyRepo,
+  {
+    insertNote(note: NoteRow, cards: ReadonlyArray<CardRow>): Effect.Effect<void>
+    notes(
+      userId: string
+    ): Effect.Effect<ReadonlyArray<{ readonly note: NoteRow; readonly cards: ReadonlyArray<CardRow> }>>
+    note(
+      userId: string,
+      noteId: string
+    ): Effect.Effect<Option.Option<{ readonly note: NoteRow; readonly cards: ReadonlyArray<CardRow> }>>
+    /** Returns whether a note was deleted. */
+    deleteNote(userId: string, noteId: string): Effect.Effect<boolean>
+    /** Saved word notes for the given entries. */
+    savedWords(
+      userId: string,
+      entryIds: ReadonlyArray<number>
+    ): Effect.Effect<ReadonlyArray<{ entryId: number; sense: number; id: string }>>
+    card(userId: string, cardId: string): Effect.Effect<Option.Option<CardWithContent>>
+    learningDue(userId: string, until: number): Effect.Effect<ReadonlyArray<CardWithContent>>
+    reviewDue(userId: string, until: number, limit: number): Effect.Effect<ReadonlyArray<CardWithContent>>
+    newCards(userId: string, limit: number): Effect.Effect<ReadonlyArray<CardWithContent>>
+    nextLearningDue(userId: string): Effect.Effect<Option.Option<number>>
+    /** Answers logged on a study day; `queueBefore` narrows to e.g. newly introduced cards. */
+    countAnswers(userId: string, studyDay: number, queueBefore?: CardQueue): Effect.Effect<number>
+    updateCard(card: CardRow): Effect.Effect<void>
+    insertLog(log: ReviewLogInput): Effect.Effect<void>
+    nextPosition(userId: string): Effect.Effect<number>
+    queueCounts(userId: string): Effect.Effect<ReadonlyArray<{ queue: CardQueue; mature: boolean; n: number }>>
+    studyDays(userId: string): Effect.Effect<ReadonlyArray<number>>
+    retention(userId: string, sinceDay: number): Effect.Effect<{ total: number; failed: number }>
+    reviewDueTimes(userId: string, until: number): Effect.Effect<ReadonlyArray<number>>
+    readonly noteCount: (userId: string) => Effect.Effect<number>
+  }
+>()("@kotori/db/StudyRepo") {
   static readonly layer = Layer.effect(
     StudyRepo,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient
 
       const cardColumns = sql.literal(
@@ -114,7 +125,7 @@ export class StudyRepo extends Context.Service<StudyRepo, {
       )
 
       const insertNote = Effect.fn("StudyRepo.insertNote")(
-        function*(note: NoteRow, cards: ReadonlyArray<CardRow>) {
+        function* (note: NoteRow, cards: ReadonlyArray<CardRow>) {
           yield* sql`INSERT INTO notes ${sql.insert({ ...note, kind: note.content.kind, content: JSON.stringify(note.content) })}`
           if (cards.length > 0) yield* sql`INSERT INTO cards ${sql.insert(cards.map(encodeCard))}`
         },
@@ -126,15 +137,15 @@ export class StudyRepo extends Context.Service<StudyRepo, {
         noteIds.length === 0
           ? Effect.succeed([])
           : sql`SELECT ${cardColumns} FROM cards c WHERE c.note_id IN ${sql.in(noteIds)} ORDER BY c.template DESC`.pipe(
-            Effect.flatMap(decodeRows(CardRow))
-          )
+              Effect.flatMap(decodeRows(CardRow))
+            )
 
       const withCards = (notes: ReadonlyArray<NoteRow>) =>
         cardsFor(notes.map((note) => note.id)).pipe(
           Effect.map((cards) => notes.map((note) => ({ note, cards: cards.filter((card) => card.noteId === note.id) })))
         )
 
-      const notes = Effect.fn("StudyRepo.notes")(function*(userId: string) {
+      const notes = Effect.fn("StudyRepo.notes")(function* (userId: string) {
         const rows = yield* sql`
           SELECT id, user_id, content, entry_id, sense, created_at FROM notes
           WHERE user_id = ${userId} ORDER BY created_at DESC
@@ -142,7 +153,7 @@ export class StudyRepo extends Context.Service<StudyRepo, {
         return yield* withCards(rows)
       }, Effect.orDie)
 
-      const note = Effect.fn("StudyRepo.note")(function*(userId: string, noteId: string) {
+      const note = Effect.fn("StudyRepo.note")(function* (userId: string, noteId: string) {
         const rows = yield* sql`
           SELECT id, user_id, content, entry_id, sense, created_at FROM notes
           WHERE user_id = ${userId} AND id = ${noteId}
@@ -151,12 +162,12 @@ export class StudyRepo extends Context.Service<StudyRepo, {
         return Option.fromNullishOr(found[0])
       }, Effect.orDie)
 
-      const deleteNote = Effect.fn("StudyRepo.deleteNote")(function*(userId: string, noteId: string) {
+      const deleteNote = Effect.fn("StudyRepo.deleteNote")(function* (userId: string, noteId: string) {
         const rows = yield* sql`DELETE FROM notes WHERE user_id = ${userId} AND id = ${noteId} RETURNING id`
         return rows.length > 0
       }, Effect.orDie)
 
-      const savedWords = Effect.fn("StudyRepo.savedWords")(function*(userId: string, entryIds: ReadonlyArray<number>) {
+      const savedWords = Effect.fn("StudyRepo.savedWords")(function* (userId: string, entryIds: ReadonlyArray<number>) {
         if (entryIds.length === 0) return []
         return yield* sql`
           SELECT entry_id, sense, id FROM notes
@@ -164,7 +175,7 @@ export class StudyRepo extends Context.Service<StudyRepo, {
         `.pipe(Effect.flatMap(decodeRows(SavedRow)))
       }, Effect.orDie)
 
-      const card = Effect.fn("StudyRepo.card")(function*(userId: string, cardId: string) {
+      const card = Effect.fn("StudyRepo.card")(function* (userId: string, cardId: string) {
         const rows = yield* sql`
           SELECT ${cardColumns}, n.content FROM cards c JOIN notes n ON n.id = c.note_id
           WHERE c.user_id = ${userId} AND c.id = ${cardId}
@@ -172,7 +183,7 @@ export class StudyRepo extends Context.Service<StudyRepo, {
         return Option.fromNullishOr(rows[0])
       }, Effect.orDie)
 
-      const learningDue = Effect.fn("StudyRepo.learningDue")(function*(userId: string, until: number) {
+      const learningDue = Effect.fn("StudyRepo.learningDue")(function* (userId: string, until: number) {
         return yield* sql`
           SELECT ${cardColumns}, n.content FROM cards c JOIN notes n ON n.id = c.note_id
           WHERE c.user_id = ${userId} AND c.queue IN ('learning', 'relearning') AND c.due <= ${until}
@@ -180,7 +191,7 @@ export class StudyRepo extends Context.Service<StudyRepo, {
         `.pipe(Effect.flatMap(decodeRows(CardWithContent)))
       }, Effect.orDie)
 
-      const reviewDue = Effect.fn("StudyRepo.reviewDue")(function*(userId: string, until: number, limit: number) {
+      const reviewDue = Effect.fn("StudyRepo.reviewDue")(function* (userId: string, until: number, limit: number) {
         if (limit <= 0) return []
         return yield* sql`
           SELECT ${cardColumns}, n.content FROM cards c JOIN notes n ON n.id = c.note_id
@@ -190,7 +201,7 @@ export class StudyRepo extends Context.Service<StudyRepo, {
         `.pipe(Effect.flatMap(decodeRows(CardWithContent)))
       }, Effect.orDie)
 
-      const newCards = Effect.fn("StudyRepo.newCards")(function*(userId: string, limit: number) {
+      const newCards = Effect.fn("StudyRepo.newCards")(function* (userId: string, limit: number) {
         if (limit <= 0) return []
         return yield* sql`
           SELECT ${cardColumns}, n.content FROM cards c JOIN notes n ON n.id = c.note_id

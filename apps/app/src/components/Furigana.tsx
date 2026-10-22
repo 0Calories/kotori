@@ -15,20 +15,28 @@ interface Unit {
  * `{漢字|かんじ}`; every other character is laid out individually so lines can
  * wrap anywhere, as Japanese text does.
  */
-export const Furigana = (
-  { text, furigana, size = 20, color = "text", center }: {
-    readonly text: string
-    readonly furigana?: string | null
-    readonly size?: number
-    readonly color?: keyof Palette
-    readonly center?: boolean
-  }
-) => {
+export const Furigana = ({
+  text,
+  furigana,
+  size = 20,
+  color = "text",
+  center
+}: {
+  readonly text: string
+  readonly furigana?: string | null
+  readonly size?: number
+  readonly color?: keyof Palette
+  readonly center?: boolean
+}) => {
   const theme = useTheme()
   const [showFurigana] = usePreference("furigana", true)
 
   if (!showFurigana || !furigana) {
-    return <Text jp size={size} color={color} align={center ? "center" : undefined} selectable>{text}</Text>
+    return (
+      <Text jp size={size} color={color} align={center ? "center" : undefined} selectable>
+        {text}
+      </Text>
+    )
   }
 
   const units = parseFurigana(furigana).flatMap((segment): Array<Unit> =>
@@ -40,7 +48,12 @@ export const Furigana = (
 
   return (
     <View
-      style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "flex-end", justifyContent: center ? "center" : "flex-start" }}
+      style={{
+        flexDirection: "row",
+        flexWrap: "wrap",
+        alignItems: "flex-end",
+        justifyContent: center ? "center" : "flex-start"
+      }}
       accessible
       accessibilityLabel={text}
     >
@@ -49,7 +62,9 @@ export const Furigana = (
           <Text jp size={rubySize} style={{ color: theme.color.textMuted, lineHeight: rubySize * 1.25 }}>
             {unit.reading ?? "​"}
           </Text>
-          <Text jp size={size} color={color}>{unit.base}</Text>
+          <Text jp size={size} color={color}>
+            {unit.base}
+          </Text>
         </View>
       ))}
     </View>
