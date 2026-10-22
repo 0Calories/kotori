@@ -9,7 +9,7 @@ web-build/
 .env.local
 coverage/
 
-# Local data: JMDict downloads, SQLite database, generated audio
+# Local data: the JMDict download (the database is Postgres)
 data/*
 !data/.gitkeep
 

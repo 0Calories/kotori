@@ -1,5 +1,6 @@
 import { assert, describe, it, layer } from "@effect/vitest"
-import { DatabaseMemory, DictionaryRepo, EnrichmentRepo, type EntryRecord, Repositories } from "@kotori/db"
+import { DictionaryRepo, EnrichmentRepo, type EntryRecord, Repositories } from "@kotori/db"
+import { DatabaseMemory } from "@kotori/db/testing"
 import type { Question, Questions } from "@typesafe-ai/sdk"
 import { Effect, Layer } from "effect"
 import { interpretSense, Jev, NuanceEnricher, type SenseAnswers, senseQuestions } from "../src/index.ts"

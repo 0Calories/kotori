@@ -1,10 +1,14 @@
-import { resolveFromRoot } from "@kotori/db"
-import { Config, Context, Effect, FileSystem, Layer, Option, Path } from "effect"
+import { EnrichmentRepo } from "@kotori/db"
+import { Context, Effect, Layer, Option } from "effect"
 
 /** Audio keys are sha256 hex digests, which also makes them safe to use in paths and URLs. */
 export const isAudioKey = (key: string) => /^[a-f0-9]{64}$/.test(key)
 
-/** MP3 clips on disk under `KOTORI_AUDIO_DIR` (default `data/audio`), sharded by key prefix. */
+/**
+ * Where pronunciation clips live. This layer keeps the MP3 bytes in Postgres
+ * (`audio_clips`), which at beta volume is a few megabytes a month and needs no
+ * extra service; swap the layer for object storage when that changes.
+ */
 export class AudioStore extends Context.Service<
   AudioStore,
   {
@@ -16,28 +20,12 @@ export class AudioStore extends Context.Service<
   static readonly layer = Layer.effect(
     AudioStore,
     Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem
-      const path = yield* Path.Path
-      const directory = resolveFromRoot(yield* Config.String("KOTORI_AUDIO_DIR").pipe(Config.withDefault("data/audio")))
-      const file = (key: string) => path.join(directory, key.slice(0, 2), `${key}.mp3`)
-
-      const put = Effect.fn("AudioStore.put")(function* (key: string, bytes: Uint8Array) {
-        yield* fs.makeDirectory(path.dirname(file(key)), { recursive: true })
-        yield* fs.writeFile(file(key), bytes)
-      }, Effect.orDie)
-
-      const exists = (key: string) =>
-        isAudioKey(key) ? fs.exists(file(key)).pipe(Effect.orElseSucceed(() => false)) : Effect.succeed(false)
-
-      const read = (key: string) =>
-        isAudioKey(key)
-          ? fs.readFile(file(key)).pipe(
-              Effect.map(Option.some),
-              Effect.orElseSucceed(() => Option.none())
-            )
-          : Effect.succeed(Option.none())
-
-      return AudioStore.of({ put, read, exists })
+      const repo = yield* EnrichmentRepo
+      return AudioStore.of({
+        put: (key, bytes) => repo.putAudioClip(key, bytes),
+        read: (key) => (isAudioKey(key) ? repo.audioClip(key) : Effect.succeed(Option.none())),
+        exists: (key) => (isAudioKey(key) ? repo.hasAudioClip(key) : Effect.succeed(false))
+      })
     })
   )
 }

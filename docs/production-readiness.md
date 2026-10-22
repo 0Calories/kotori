@@ -1,11 +1,11 @@
 # Production readiness: backend tooling and infra plan
 
-Status: phases 1 to 3 implemented 2026-10-21; phases 4 to 6 pending (see §4 for the Postgres decision).
+Status: phases 1 to 3 implemented 2026-10-21, phase 4 on 2026-10-22; phases 5 and 6 pending (see §4 for the Postgres decision).
 
 - [x] Phase 1: toolchain baseline (Node 24, TypeScript 7 + 6, Nx 23.3, pnpm catalog)
 - [x] Phase 2: TypeScript project references (Nx TS solution setup)
 - [x] Phase 3: lint and format (Oxlint, Oxfmt)
-- [ ] Phase 4: production entry points + Postgres port of packages/db (§4)
+- [x] Phase 4: production entry points + Postgres port of packages/db (§4)
 - [ ] Phase 5: Railway (api + worker services, Postgres plugin)
 - [ ] Phase 6: GitHub Actions CI
 - [ ] Follow-up: Nx 24 migration once past the release-age window (after 2026-10-22) Milestone: invite-only private beta. Scope: backend architecture and infra only; the Expo app is touched only where the workspace changes force it.
@@ -33,17 +33,22 @@ Verified while scoping; each one changes a step below.
 
 ## 3. Target shape
 
+Updated 2026-10-22 for the decision in §4.
+
 ```
 Railway project "kotori"
-└── service "api"            Railpack, from repo root (no Root Directory)
-    ├── volume  /data        KOTORI_DB_PATH, KOTORI_AUTH_DB_PATH, KOTORI_AUDIO_DIR point here
-    ├── build   pnpm nx run-many -t build -p @kotori/api @kotori/worker
-    ├── start   node apps/api/dist/main.js        (serves HTTP and runs the enrichment loop)
-    ├── health  GET /health
+├── Postgres (plugin)           DATABASE_URL, referenced by both services; holds Better Auth's tables and audio clips too
+├── service "api"               Railpack, from repo root (no Root Directory)
+│   ├── build   pnpm nx run-many -t build -p @kotori/api
+│   ├── start   node apps/api/dist/main.js
+│   └── health  GET /health
+└── service "worker"            Railpack, from repo root
+    ├── build   pnpm nx run-many -t build -p @kotori/worker
+    ├── start   node apps/worker/dist/main.js work
     └── admin   railway ssh -- node apps/worker/dist/main.js approve <email>
 ```
 
-Locally nothing changes for day-to-day work: `pnpm dev` still runs the API and the worker from source with `tsx`; tests still run from source with Vitest. Compilation is for CI and deploys.
+Locally, `docker compose up -d` provides Postgres; `pnpm dev` runs the API and the worker from source with `tsx`; tests run from source with Vitest on PGlite, needing nothing installed. Compilation is for CI and deploys.
 
 ## 4. Decision: Postgres, separate API and worker services
 
@@ -112,14 +117,35 @@ Done 2026-10-21. Deviations: lint and format are root scripts (`pnpm lint`, `pnp
 - `@nx/oxlint` plugin infers `lint` per project; `nx format:check` picks Oxfmt up from the config file. Root scripts: `lint`, `format`, `format:check`.
 - `.vscode/settings.json` and `extensions.json` recommending `oxc.oxc-vscode` with format on save.
 
-### Phase 4: production entry points (to be rewritten for Postgres, see §4)
+### Phase 4: production entry points and the Postgres port
 
-- **`GET /health`**: a plain `HttpRouter` route next to `AudioRoute`, returning 200 after the database layer is up (it is, by construction, once the server listens). No auth, no body beyond `{ "status": "ok" }`.
-- **Embedded worker** (§4 A): `packages/enrichment` with `Enrichers` and a `runWorker(options)` effect lifted out of `apps/worker/src/commands/work.ts`. API `main.ts` forks it under `Effect.forkScoped` when `KOTORI_WORKER=inline`; the worker CLI's `work` command calls the same function.
-- **Fail fast in production**: when `NODE_ENV=production`, missing `BETTER_AUTH_SECRET` or `BETTER_AUTH_URL` is a startup error, not a warning. Keep the dev fallback otherwise.
-- **Structured logs**: `Logger.json` layer when `NODE_ENV=production`, pretty logger otherwise. Railway's log viewer parses JSON lines.
-- **Shutdown**: `NodeRuntime.runMain` already handles SIGTERM and runs finalizers; `drainingSeconds` in Railway (§5) gives in-flight jobs a window.
-- **Paths**: `workspaceRoot` discovery via `pnpm-workspace.yaml` still works on Railway (the whole repo is deployed), and `resolveFromRoot` passes absolute paths through, so `/data/...` env values need no code change.
+Done 2026-10-22. Verified with the whole suite on PGlite and again on Postgres 17 in Docker (`KOTORI_TEST_DATABASE_URL`), plus a smoke run of the built API in production mode and a full JMDict import through the built worker.
+
+**Postgres port of `packages/db`**
+
+- `@effect/sql-pg` (Effect's own wire-protocol client, no `pg`/`postgres` dependency) over `DATABASE_URL`, which is always required. Migrations run through `effect/sql/Migrator` at startup, under its lock, so the API and the worker can start together.
+- One migration, `0001_initial`, instead of replaying the SQLite history: there were no learners yet, so the SQLite files and the audio generated for them are not migrated. Re-seed JMDict after the first deploy (`DATABASE_URL=<Railway public URL> pnpm kotori seed` from a laptop, or `railway ssh`); the full import took 23 s against a local Postgres 17 and leaves a 253 MB database, indexes included.
+- Times stay millisecond numbers, stored as `bigint`. Effect's client decodes `bigint` as `BigInt`, so `@kotori/db` registers a codec that reads int8 as a number (and refuses anything past 2^53); PGlite already returns numbers.
+- JMDict's lists, nuance, raw Jev answers and note content are `jsonb`, written as JSON strings (the client binds strings untyped, so Postgres casts) and read back as values; `Schema.fromJsonString` is gone from the row schemas. `transformJson` is off so keys inside stored JSON are never renamed.
+- Booleans are `boolean`, identities are `GENERATED ALWAYS AS IDENTITY`, `INSERT OR IGNORE` became `ON CONFLICT DO NOTHING`, `max()` on booleans became `bool_or()`, `sum(cond)` became `count(*) FILTER (WHERE …)`. `interval` and `position` are quoted where they appear bare.
+- **Search**: FTS5 is replaced by a `tsvector` generated column on `glosses` (`to_tsvector('english', text)`) with a GIN index. Queries go through `websearch_to_tsquery`, which ANDs the words and never errors on user input, ranked by `ts_rank_cd` (higher is better; the API's scoring was adjusted). `rebuildSearchIndex` is gone: the column is always current. Japanese prefix search uses `COLLATE "C"` on `forms.text` so the range trick is an index scan.
+- **Jobs**: `claim` adds `FOR UPDATE SKIP LOCKED`, so several worker replicas can share the queue.
+- **Tests**: `DatabaseMemory` moved to `@kotori/db/testing` and runs PGlite (Postgres compiled to WebAssembly, `@effect/sql-pglite`, a devDependency) in memory. PGlite ships Postgres 18 while Railway runs 17; everything the schema uses exists since Postgres 12. Setting `KOTORI_TEST_DATABASE_URL` runs the same suites against a server, wiping its `public` schema first (`vitest --no-file-parallelism`).
+
+**Better Auth** stays in the same database: its `user`, `session`, `account` and `verification` tables sit next to Kotori's, still created and migrated by Better Auth. Rather than a second driver and pool, `packages/auth/src/SqlClientDialect.ts` is a small Kysely dialect that executes Better Auth's compiled Postgres SQL on Effect's `SqlClient` (reserving a connection per query or transaction). One `DATABASE_URL`, one pool, and the auth tests run on PGlite like the rest. Better Auth's migration is retried a few times so two processes starting at once don't trip over each other's `CREATE TABLE`. `KOTORI_AUTH_DB_PATH` is gone.
+
+**Audio** moved off the disk into Postgres: `audio_clips (key, data bytea)`, written through `EnrichmentRepo` and served by the same `AudioStore` interface (`packages/tts`). At beta volume (50k TTS characters a month) this is a few megabytes a month and needs no bucket or credentials; the interface is where object storage would plug in later. `KOTORI_AUDIO_DIR` is gone.
+
+**Entry points**
+
+- **`GET /health`** already existed as the `system` group of the HttpApi: unauthenticated, reports configured features and counts dictionary entries, so a 200 means the database is reachable. No second route was added. The server listens only after migrations and Better Auth's tables are in place.
+- **Fail fast**: with `NODE_ENV=production`, missing `BETTER_AUTH_SECRET` or `BETTER_AUTH_URL` is a `ConfigError` at startup; elsewhere the development secret and `http://localhost:<port>` stand in, with a warning.
+- **Structured logs**: `LoggerLive` (JSON lines in production, pretty console otherwise) wraps both `main.ts` files. Better Auth's own warnings still go through its logger in its format; routing them into Effect's is a follow-up.
+- **Shutdown**: unchanged, `NodeRuntime.runMain` handles SIGTERM and runs finalizers (pool, server).
+- **`@kotori/runtime`** is new and small: `workspaceRoot`, `resolveFromRoot`, `loadDotEnv` (moved out of `@kotori/db`, which no longer deals in paths), `isProduction` and `LoggerLive`. The API, the worker, `@kotori/auth` and `@kotori/jmdict` use it.
+- **Not done, by decision**: the embedded worker (`KOTORI_WORKER=inline`) from the earlier sketch, see §4. The worker is its own Railway service in phase 5.
+
+**Local development**: `docker-compose.yml` runs Postgres 17 with the credentials in `.env.example`; `pnpm seed` and `pnpm dev` work as before once it is up.
 
 ### Phase 5: Railway (to be rewritten for two services + Postgres, see §4)
 
@@ -145,7 +171,7 @@ Done 2026-10-21. Deviations: lint and format are root scripts (`pnpm lint`, `pnp
   ```
   `overlapSeconds: 0` is deliberate: the default overlap runs old and new containers together, which means two writers on one SQLite file. Brief downtime per deploy is the right trade at beta.
 - Service settings (dashboard, not expressible in the file): no Root Directory; volume mounted at `/data`; **Wait for CI** on, so a push to `main` deploys only after the GitHub workflow succeeds.
-- Environment: `NODE_ENV=production`, `KOTORI_PORT=${{PORT}}`, `KOTORI_DB_PATH=/data/kotori.db`, `KOTORI_AUTH_DB_PATH=/data/auth.db`, `KOTORI_AUDIO_DIR=/data/audio`, `KOTORI_WORKER=inline`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `KOTORI_WEB_ORIGIN`, `RESEND_API_KEY`, `ANTHROPIC_API_KEY`, `TYPESAFE_API_KEY`, `ELEVENLABS_API_KEY`. Document in `.env.example` and a short `docs/deploy.md` (first seed: `railway ssh -- node apps/worker/dist/main.js seed`).
+- Environment (after phase 4): both services get `NODE_ENV=production` and `DATABASE_URL=${{Postgres.DATABASE_URL}}`; the API also `KOTORI_PORT=${{PORT}}`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `KOTORI_WEB_ORIGIN`, `RESEND_API_KEY`; the worker the provider keys `ANTHROPIC_API_KEY`, `TYPESAFE_API_KEY`, `ELEVENLABS_API_KEY` (the API needs them too for the coach and on-demand audio). The worker still needs the Better Auth settings because its CLI shares `Auth` for approvals. Document in `.env.example` and a short `docs/deploy.md` (first seed: `railway ssh -- node apps/worker/dist/main.js seed`).
 - Railpack picks Node from `.node-version` and pnpm from `packageManager`; set `RAILPACK_PRUNE_DEPS=true` once the build is confirmed to need nothing from devDependencies at runtime (it should not: `tsx` and `typescript` are build-time only).
 
 ### Phase 6: GitHub Actions

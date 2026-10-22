@@ -19,8 +19,10 @@
     "@kotori/db": "workspace:*",
     "@kotori/domain": "workspace:*",
     "@kotori/email": "workspace:*",
+    "@kotori/runtime": "workspace:*",
     "better-auth": "catalog:",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "kysely": "^0.29.7"
   },
   "devDependencies": {
     "@effect/platform-node": "catalog:"

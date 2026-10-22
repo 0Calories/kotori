@@ -1,7 +1,7 @@
 import { NodeHttpClient, NodeHttpServer, NodeRuntime, NodeServices } from "@effect/platform-node"
 import { Auth } from "@kotori/auth"
-import { loadDotEnv } from "@kotori/db"
 import { KotoriApi } from "@kotori/domain"
+import { loadDotEnv, LoggerLive } from "@kotori/runtime"
 import { Config, Effect, Layer } from "effect"
 import { HttpRouter } from "effect/http"
 import { HttpApiBuilder, HttpApiScalar } from "effect/http-api"
@@ -35,9 +35,14 @@ const ServerLive = Layer.unwrap(
   })
 )
 
+// The database is migrated and Better Auth's tables exist before the server
+// listens, so `GET /health` (the API's own endpoint) answering 200 means the
+// process is ready. `NodeRuntime.runMain` turns SIGTERM into an interrupt and
+// runs every finalizer, which closes the pool and the server.
 Layer.launch(ServerLive).pipe(
   Effect.provide(Auth.layer.pipe(Layer.provideMerge(AppLive))),
   Effect.provide(NodeHttpClient.layerUndici),
   Effect.provide(NodeServices.layer),
+  Effect.provide(LoggerLive),
   NodeRuntime.runMain
 )

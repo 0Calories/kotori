@@ -8,13 +8,16 @@
   "include": ["src"],
   "references": [
     {
-      "path": "../db/tsconfig.lib.json"
+      "path": "../runtime/tsconfig.lib.json"
+    },
+    {
+      "path": "../email/tsconfig.lib.json"
     },
     {
       "path": "../domain/tsconfig.lib.json"
     },
     {
-      "path": "../email/tsconfig.lib.json"
+      "path": "../db/tsconfig.lib.json"
     }
   ]
 }

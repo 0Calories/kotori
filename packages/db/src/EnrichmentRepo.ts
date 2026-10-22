@@ -7,7 +7,7 @@ const decodeRows = <S extends Schema.Constraint>(schema: S) => Schema.decodeUnkn
 const NuanceRow = Schema.Struct({
   entryId: Schema.Int,
   sense: Schema.Int,
-  nuance: Schema.fromJsonString(Nuance),
+  nuance: Nuance,
   model: Schema.String
 })
 export type NuanceRow = typeof NuanceRow.Type
@@ -67,7 +67,8 @@ export type AudioRow = typeof AudioRow.Type
 
 const AudioLink = Schema.Struct({ id: Schema.Int, audioKey: Schema.String })
 const ExampleAudioLink = Schema.Struct({ id: Schema.Int, language: Language, audioKey: Schema.String })
-const SumRow = Schema.Struct({ n: Schema.NullOr(Schema.Number) })
+const SumRow = Schema.Struct({ n: Schema.Number })
+const ClipRow = Schema.Struct({ data: Schema.Uint8Array })
 
 export class EnrichmentRepo extends Context.Service<
   EnrichmentRepo,
@@ -80,6 +81,10 @@ export class EnrichmentRepo extends Context.Service<
     examplesFor(entryIds: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<ExampleRow>>
     findAudio(key: string): Effect.Effect<Option.Option<AudioRow>>
     saveAudio(row: AudioRow): Effect.Effect<void>
+    /** The MP3 bytes for a clip, stored in the database (`audio_clips`). */
+    putAudioClip(key: string, bytes: Uint8Array): Effect.Effect<void>
+    audioClip(key: string): Effect.Effect<Option.Option<Uint8Array>>
+    hasAudioClip(key: string): Effect.Effect<boolean>
     linkEntryAudio(entryId: number, key: string): Effect.Effect<void>
     linkExampleAudio(exampleId: number, language: Language, key: string): Effect.Effect<void>
     entryAudio(entryIds: ReadonlyArray<number>): Effect.Effect<ReadonlyMap<number, string>>
@@ -175,6 +180,25 @@ export class EnrichmentRepo extends Context.Service<
       const saveAudio = (row: AudioRow) =>
         sql`INSERT INTO audio ${sql.insert(row)} ON CONFLICT (key) DO NOTHING`.pipe(Effect.asVoid, Effect.orDie)
 
+      const putAudioClip = (key: string, bytes: Uint8Array) =>
+        sql`
+          INSERT INTO audio_clips (key, data) VALUES (${key}, ${bytes})
+          ON CONFLICT (key) DO UPDATE SET data = excluded.data
+        `.pipe(Effect.asVoid, Effect.orDie)
+
+      const audioClip = Effect.fn("EnrichmentRepo.audioClip")(function* (key: string) {
+        const rows = yield* sql`SELECT data FROM audio_clips WHERE key = ${key}`.pipe(
+          Effect.flatMap(decodeRows(ClipRow))
+        )
+        return Option.fromNullishOr(rows[0]?.data)
+      }, Effect.orDie)
+
+      const hasAudioClip = (key: string) =>
+        sql`SELECT 1 FROM audio_clips WHERE key = ${key}`.pipe(
+          Effect.map((rows) => rows.length > 0),
+          Effect.orDie
+        )
+
       const linkEntryAudio = (entryId: number, key: string) =>
         sql`
           INSERT INTO entry_audio (entry_id, audio_key) VALUES (${entryId}, ${key})
@@ -204,7 +228,7 @@ export class EnrichmentRepo extends Context.Service<
       }, Effect.orDie)
 
       const audioCharactersSince = (since: number) =>
-        sql`SELECT sum(characters) AS n FROM audio WHERE created_at >= ${since}`.pipe(
+        sql`SELECT coalesce(sum(characters), 0) AS n FROM audio WHERE created_at >= ${since}`.pipe(
           Effect.flatMap(decodeRows(SumRow)),
           Effect.map((rows) => rows[0]?.n ?? 0),
           Effect.orDie
@@ -219,6 +243,9 @@ export class EnrichmentRepo extends Context.Service<
         examplesFor,
         findAudio,
         saveAudio,
+        putAudioClip,
+        audioClip,
+        hasAudioClip,
         linkEntryAudio,
         linkExampleAudio,
         entryAudio,

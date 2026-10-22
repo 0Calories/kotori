@@ -1,13 +1,14 @@
 import { NodeServices } from "@effect/platform-node"
 import { assert, layer } from "@effect/vitest"
-import { DatabaseMemory, Repositories, UsersRepo } from "@kotori/db"
+import { Repositories, UsersRepo } from "@kotori/db"
+import { DatabaseMemory } from "@kotori/db/testing"
 import { Mailbox, MailerMemory } from "@kotori/email"
 import { Effect, Layer } from "effect"
 import { Approvals } from "../src/Approvals.ts"
 import { Auth } from "../src/Auth.ts"
 
 const TestLayer = Approvals.layer.pipe(
-  Layer.provideMerge(Auth.layerMemory),
+  Layer.provideMerge(Auth.layerTest),
   Layer.provideMerge(Layer.mergeAll(MailerMemory, Repositories)),
   Layer.provideMerge(DatabaseMemory),
   Layer.provideMerge(NodeServices.layer)

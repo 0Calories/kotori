@@ -29,13 +29,14 @@ apps/
   app/        Expo (Router) app for iOS, Android and web
 packages/
   domain/     Schemas and the HttpApi contract shared by the API and the app (typed client)
-  db/         SQLite (node:sqlite) layer, migrations, repositories, FTS5 search index
+  db/         Postgres layer (Effect sql-pg), migrations, repositories, full-text gloss search
   jmdict/     Downloads and parses EDRDG's JMdict_e, imports it
   japanese/   Romaji ↔ kana, script detection, Yomichan-style deinflection
   nuance/     Jev questions, state building and interpretation for nuance + similar words
   ai/         Claude service, coach prompts, example-sentence writer
   tts/        ElevenLabs client, content-addressed audio store, monthly budget guard
   srs/        Anki's SM-2 scheduler (v3), pure and fully tested
+  runtime/    Workspace paths, .env loading, production mode and logging, shared by the API and the worker
 tools/        Renders the mascot into app icons
 ```
 
@@ -43,12 +44,13 @@ tools/        Renders the mascot into app icons
 
 ## Getting started
 
-Requires **Node 24** (pinned in `.node-version`; `node:sqlite` needs ≥ 22.12) and **pnpm 12** (pinned in `package.json`, installed by Corepack or `pnpm self-update`).
+Requires **Node 24** (pinned in `.node-version`), **pnpm 12** (pinned in `package.json`, installed by Corepack or `pnpm self-update`) and **Postgres**: `docker compose up -d` starts one with the credentials in `.env.example`, or point `DATABASE_URL` at your own.
 
 ```sh
 pnpm install
+docker compose up -d        # Postgres 17 on :5432
 cp .env.example .env        # add your API keys (see below)
-pnpm seed                   # downloads JMDict (~10 MB) and imports it (~25 s)
+pnpm seed                   # downloads JMDict (~10 MB) and imports it
 pnpm dev                    # API on :4000 + enrichment worker
 pnpm dev:app                # Expo: press w for web, i for iOS, a for Android
 ```
@@ -90,7 +92,7 @@ Claude requests opt into server-side refusal fallbacks (`fallbacks: "default"`),
 
 ## Accounts and sign-ups
 
-Identity is handled by [Better Auth](https://better-auth.com) at `/api/auth/*`, in its own SQLite database (`data/auth.db`). Learners sign up with email and password; the API keeps their profile and study data in `kotori.db` under the same id. Kotori is in private beta, so new accounts start **pending** and can only reach `/account` until approved:
+Identity is handled by [Better Auth](https://better-auth.com) at `/api/auth/*`, in its own tables of the same Postgres database (`user`, `session`, `account`, `verification`), which it creates and migrates itself. Learners sign up with email and password; the API keeps their profile and study data in its own tables under the same id. Kotori is in private beta, so new accounts start **pending** and can only reach `/account` until approved:
 
 ```sh
 pnpm kotori requests                  # sign-ups waiting for approval (--all includes archived)
@@ -101,7 +103,7 @@ pnpm kotori admin admin@example.com     # admins skip approval (--remove to demo
 pnpm kotori revoke user@example.com    # signs them out of every device
 ```
 
-Verification, password-reset and approval emails go through [Resend](https://resend.com) when `RESEND_API_KEY` is set; otherwise they are printed to the API log, which is enough for local development. Set `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` before deploying (see `.env.example`).
+Verification, password-reset and approval emails go through [Resend](https://resend.com) when `RESEND_API_KEY` is set; otherwise they are printed to the API log, which is enough for local development. With `NODE_ENV=production` the API refuses to start unless `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` are set, and logs JSON lines (see `.env.example`).
 
 ## Development
 
@@ -119,8 +121,8 @@ Packages are TypeScript project references. Each one has a `tsconfig.lib.json` (
 
 Dependency versions shared across packages live in the `catalog:` of `pnpm-workspace.yaml`. TypeScript 7 is installed as `@typescript/native` (the `tsc` you run) alongside TypeScript 6 as `typescript` (the compiler API that Nx and editors still need; `tsc6`).
 
-Tests cover the SM-2 scheduler against Anki's behaviour, deinflection, JMDict parsing, repositories on an in-memory database, the Jev and ElevenLabs pipelines with fakes, structured-output schemas, and the HTTP API end to end through Effect's in-memory `HttpApiTest` client.
+Tests cover the SM-2 scheduler against Anki's behaviour, deinflection, JMDict parsing, repositories, auth and approvals, the Jev and ElevenLabs pipelines with fakes, structured-output schemas, and the HTTP API end to end through Effect's in-memory `HttpApiTest` client. Database tests run on [PGlite](https://pglite.dev) (Postgres in WebAssembly) in memory, so nothing needs to be installed; set `KOTORI_TEST_DATABASE_URL` to run them against a real server instead, which wipes that database first.
 
 ## Data and credits
 
-Dictionary data is [JMDict](https://www.edrdg.org/jmdict/j_jmdict.html) by the Electronic Dictionary Research and Development Group, used under [CC BY-SA 4.0](https://www.edrdg.org/edrdg/licence.html). The app credits it in Settings. Local data (database, downloads, audio) lives in `data/` and is not committed.
+Dictionary data is [JMDict](https://www.edrdg.org/jmdict/j_jmdict.html) by the Electronic Dictionary Research and Development Group, used under [CC BY-SA 4.0](https://www.edrdg.org/edrdg/licence.html). The app credits it in Settings. The JMDict download lives in `data/` and is not committed; everything else, including generated audio, is in Postgres.

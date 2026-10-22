@@ -1,43 +1,52 @@
-import { SqliteClient, SqliteMigrator } from "@effect/sql-sqlite-node"
-import { Config, Effect, Layer, String } from "effect"
-import { SqlClient } from "effect/sql"
-import { mkdirSync } from "node:fs"
-import { dirname } from "node:path"
+import { PgClient, PgTypes } from "@effect/sql-pg"
+import { Config, Effect, Layer, Result, String } from "effect"
+import * as Migrator from "effect/sql/Migrator"
 import { migrations } from "./migrations.ts"
-import { resolveFromRoot } from "./Paths.ts"
 
-const client = (filename: string) =>
-  SqliteClient.layer({
-    filename,
-    transformResultNames: String.snakeToCamel,
-    transformQueryNames: String.camelToSnake
-  })
+/** Column naming shared by every client: snake_case in SQL, camelCase in TypeScript. JSON values are left as written. */
+export const naming = {
+  transformResultNames: String.snakeToCamel,
+  transformQueryNames: String.camelToSnake,
+  transformJson: false
+}
 
-const Pragmas = Layer.effectDiscard(
-  Effect.gen(function* () {
-    const sql = yield* SqlClient.SqlClient
-    yield* sql`PRAGMA foreign_keys = ON`
-    yield* sql`PRAGMA synchronous = NORMAL`
-  })
-)
+const MIN_SAFE = BigInt(Number.MIN_SAFE_INTEGER)
+const MAX_SAFE = BigInt(Number.MAX_SAFE_INTEGER)
 
-const Migrations = SqliteMigrator.layer({ loader: SqliteMigrator.fromRecord(migrations) })
+/**
+ * `bigint` columns hold millisecond timestamps and counts, which fit a JavaScript
+ * number with room to spare. Decoding them as numbers keeps BigInt out of the
+ * repositories and matches what PGlite returns in tests.
+ */
+const int8AsNumber: PgTypes.Codec<number | bigint> = {
+  decode: (bytes) => {
+    const value = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getBigInt64(0)
+    return value >= MIN_SAFE && value <= MAX_SAFE
+      ? Result.succeed(Number(value))
+      : Result.fail(new PgTypes.CodecError({ message: `bigint ${value} does not fit a JavaScript number` }))
+  },
+  encode: (value) => {
+    const bytes = new Uint8Array(8)
+    new DataView(bytes.buffer).setBigInt64(0, BigInt(value))
+    return Result.succeed(bytes)
+  }
+}
 
-const withSchema = <E, R>(clientLayer: Layer.Layer<SqliteClient.SqliteClient | SqlClient.SqlClient, E, R>) =>
-  Layer.mergeAll(Pragmas, Migrations).pipe(Layer.provideMerge(clientLayer))
+/** The Postgres codec registry: built-ins, with `bigint` read as a number. */
+export const pgTypes = PgTypes.makeRegistry()
+pgTypes.register(PgTypes.OID.int8, int8AsNumber)
 
-/** The application database at `KOTORI_DB_PATH` (default `data/kotori.db`), migrated on startup. */
-export const DatabaseLive = withSchema(
-  Layer.unwrap(
-    Effect.gen(function* () {
-      const filename = resolveFromRoot(
-        yield* Config.String("KOTORI_DB_PATH").pipe(Config.withDefault("data/kotori.db"))
-      )
-      mkdirSync(dirname(filename), { recursive: true })
-      return client(filename)
-    })
+/** Runs pending migrations at startup. The migrator takes a lock, so the API and the worker can start together. */
+export const Migrations = Layer.effectDiscard(Migrator.make({})({ loader: Migrator.fromRecord(migrations) }))
+
+/** The application database at `DATABASE_URL` (Railway's Postgres provides it), migrated on startup. */
+export const DatabaseLive = Migrations.pipe(
+  Layer.provideMerge(
+    Layer.unwrap(
+      Effect.gen(function* () {
+        const url = yield* Config.Redacted("DATABASE_URL")
+        return PgClient.layer({ url, types: pgTypes, ...naming })
+      })
+    )
   )
 )
-
-/** A fresh, fully migrated in-memory database, for tests. */
-export const DatabaseMemory = withSchema(client(":memory:"))

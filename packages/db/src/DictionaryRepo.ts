@@ -2,13 +2,13 @@ import { Context, Effect, Layer, Schema } from "effect"
 import { SqlClient } from "effect/sql"
 import { type EntryRecord, GlossRecord, normalizeGloss } from "./records.ts"
 
-const StringList = Schema.fromJsonString(Schema.Array(Schema.String))
+const StringList = Schema.Array(Schema.String)
 
 const EntryRow = Schema.Struct({
   id: Schema.Int,
   headword: Schema.String,
   reading: Schema.String,
-  common: Schema.BooleanFromBit,
+  common: Schema.Boolean,
   priority: Schema.Int
 })
 
@@ -16,16 +16,16 @@ const FormRow = Schema.Struct({
   entryId: Schema.Int,
   kind: Schema.Literals(["kanji", "kana"]),
   text: Schema.String,
-  common: Schema.BooleanFromBit,
+  common: Schema.Boolean,
   tags: StringList,
   priorities: StringList,
   restrictions: StringList,
-  noKanji: Schema.BooleanFromBit
+  noKanji: Schema.Boolean
 })
 
 const SenseRow = Schema.Struct({
   entryId: Schema.Int,
-  glosses: Schema.fromJsonString(Schema.Array(GlossRecord)),
+  glosses: Schema.Array(GlossRecord),
   pos: StringList,
   misc: StringList,
   fields: StringList,
@@ -49,6 +49,7 @@ const GlossMatch = Schema.Struct({
   sense: Schema.Int,
   position: Schema.Int,
   text: Schema.String,
+  /** Full-text relevance, higher is better; 0 for exact matches. */
   rank: Schema.Number,
   /** How many glosses the matched sense has; a lone gloss is a more specific match. */
   glossCount: Schema.Int,
@@ -64,7 +65,7 @@ const Candidate = Schema.Struct({
 export type Candidate = typeof Candidate.Type
 
 const IdRow = Schema.Struct({ id: Schema.Int })
-const RankRow = Schema.Struct({ id: Schema.Int, common: Schema.BooleanFromBit, priority: Schema.Int })
+const RankRow = Schema.Struct({ id: Schema.Int, common: Schema.Boolean, priority: Schema.Int })
 const CountRow = Schema.Struct({ n: Schema.Int })
 const TagRow = Schema.Struct({ code: Schema.String, label: Schema.String })
 
@@ -88,9 +89,8 @@ const chunks = <A>(items: ReadonlyArray<A>, size: number): Array<ReadonlyArray<A
 export class DictionaryRepo extends Context.Service<
   DictionaryRepo,
   {
-    /** Inserts or replaces entries. Call `rebuildSearchIndex` once a batch of imports is done. */
+    /** Inserts or replaces entries; the search index is a generated column, so it is always current. */
     insertEntries(entries: ReadonlyArray<EntryRecord>): Effect.Effect<void>
-    readonly rebuildSearchIndex: Effect.Effect<void>
     replaceTags(tags: ReadonlyArray<{ readonly code: string; readonly label: string }>): Effect.Effect<void>
     readonly tags: Effect.Effect<ReadonlyMap<string, string>>
     readonly count: Effect.Effect<number>
@@ -99,8 +99,8 @@ export class DictionaryRepo extends Context.Service<
     findForms(texts: ReadonlyArray<string>): Effect.Effect<ReadonlyArray<FormMatch>>
     /** Entry ids with a form starting with `prefix`, most common first. */
     findFormPrefix(prefix: string, limit: number): Effect.Effect<ReadonlyArray<number>>
-    /** Full-text search over English glosses with an FTS5 MATCH expression. */
-    searchGlosses(match: string, limit: number): Effect.Effect<ReadonlyArray<GlossMatch>>
+    /** Full-text search over English glosses: every word required, stemmed (Postgres `english`). Never throws on input. */
+    searchGlosses(terms: string, limit: number): Effect.Effect<ReadonlyArray<GlossMatch>>
     /** Glosses whose normalised text equals `normalizeGloss(query)`. */
     findGlossesExact(query: string, limit: number): Effect.Effect<ReadonlyArray<GlossMatch>>
     /** Other entries sharing an exact gloss with the given sense: candidates for "similar words". */
@@ -131,7 +131,7 @@ export class DictionaryRepo extends Context.Service<
               id: entry.id,
               headword: entry.headword,
               reading: entry.reading,
-              common: entry.common ? 1 : 0,
+              common: entry.common,
               priority: entry.priority
             }))
           )}
@@ -149,11 +149,11 @@ export class DictionaryRepo extends Context.Service<
               kind: form.kind,
               position: position[form.kind]++,
               text: form.text,
-              common: form.common ? 1 : 0,
+              common: form.common,
               tags: JSON.stringify(form.tags),
               priorities: JSON.stringify(form.priorities),
               restrictions: JSON.stringify(form.restrictions),
-              noKanji: form.noKanji ? 1 : 0
+              noKanji: form.noKanji
             }))
           })
           for (const chunk of chunks(forms, 2000)) yield* sql`INSERT INTO forms ${sql.insert(chunk)}`
@@ -191,12 +191,6 @@ export class DictionaryRepo extends Context.Service<
         },
         (effect) => sql.withTransaction(effect),
         Effect.orDie
-      )
-
-      const rebuildSearchIndex = sql`INSERT INTO gloss_fts (gloss_fts) VALUES ('rebuild')`.pipe(
-        Effect.asVoid,
-        Effect.orDie,
-        Effect.withSpan("DictionaryRepo.rebuildSearchIndex")
       )
 
       const replaceTags = Effect.fn("DictionaryRepo.replaceTags")(
@@ -265,21 +259,23 @@ export class DictionaryRepo extends Context.Service<
           FROM forms f JOIN entries e ON e.id = f.entry_id
           WHERE f.text >= ${prefix} AND f.text < ${prefix + "\u{10FFFF}"}
           GROUP BY f.entry_id
-          ORDER BY max(e.common) DESC, max(e.priority) DESC, min(length(f.text))
+          ORDER BY bool_or(e.common) DESC, max(e.priority) DESC, min(length(f.text)), f.entry_id
           LIMIT ${limit}
         `.pipe(Effect.flatMap(decodeRows(IdRow)))
         return rows.map((row) => row.id)
       }, Effect.orDie)
 
-      const searchGlosses = Effect.fn("DictionaryRepo.searchGlosses")(function* (match: string, limit: number) {
+      // websearch_to_tsquery ANDs the words and tolerates anything a learner types.
+      // Normalisation 2 divides the rank by gloss length, so "to eat" beats a proverb
+      // that happens to mention eating twice.
+      const searchGlosses = Effect.fn("DictionaryRepo.searchGlosses")(function* (terms: string, limit: number) {
         return yield* sql`
-          SELECT g.entry_id, g.sense, g.position, g.text, bm25(gloss_fts) AS rank,
-            json_array_length(s.glosses) AS gloss_count, s.misc
-          FROM gloss_fts
-          JOIN glosses g ON g.id = gloss_fts.rowid
+          SELECT g.entry_id, g.sense, g.position, g.text, ts_rank_cd(g.search, query, 2) AS rank,
+            jsonb_array_length(s.glosses) AS gloss_count, s.misc
+          FROM websearch_to_tsquery('english', ${terms}) AS query
+          JOIN glosses g ON g.search @@ query
           JOIN senses s ON s.entry_id = g.entry_id AND s.position = g.sense
-          WHERE gloss_fts MATCH ${match}
-          ORDER BY rank
+          ORDER BY rank DESC, g.entry_id, g.sense, g.position
           LIMIT ${limit}
         `.pipe(Effect.flatMap(decodeRows(GlossMatch)))
       }, Effect.orDie)
@@ -289,12 +285,12 @@ export class DictionaryRepo extends Context.Service<
         if (norm.length === 0) return []
         return yield* sql`
           SELECT g.entry_id, g.sense, g.position, g.text, 0 AS rank,
-            json_array_length(s.glosses) AS gloss_count, s.misc
+            jsonb_array_length(s.glosses) AS gloss_count, s.misc
           FROM glosses g
           JOIN entries e ON e.id = g.entry_id
           JOIN senses s ON s.entry_id = g.entry_id AND s.position = g.sense
           WHERE g.norm = ${norm}
-          ORDER BY e.common DESC, e.priority DESC
+          ORDER BY e.common DESC, e.priority DESC, g.entry_id, g.sense, g.position
           LIMIT ${limit}
         `.pipe(Effect.flatMap(decodeRows(GlossMatch)))
       }, Effect.orDie)
@@ -311,7 +307,7 @@ export class DictionaryRepo extends Context.Service<
             JOIN entries e ON e.id = g2.entry_id
             WHERE g1.entry_id = ${entryId} AND g1.sense = ${sense} AND length(g1.norm) > 1
             GROUP BY g2.entry_id
-            ORDER BY max(e.common) DESC, max(e.priority) DESC
+            ORDER BY bool_or(e.common) DESC, max(e.priority) DESC, g2.entry_id
             LIMIT ${limit}
           `.pipe(Effect.flatMap(decodeRows(Candidate)))
       }, Effect.orDie)
@@ -337,7 +333,7 @@ export class DictionaryRepo extends Context.Service<
 
       const entriesByPriority = Effect.fn("DictionaryRepo.entriesByPriority")(function* (query: PriorityQuery) {
         const clauses = [
-          ...(query.commonOnly ? [sql`e.common = 1`] : []),
+          ...(query.commonOnly ? [sql`e.common`] : []),
           ...(query.missing ? [missingClause(query.missing)] : [])
         ]
         const rows = yield* sql`
@@ -351,7 +347,6 @@ export class DictionaryRepo extends Context.Service<
 
       return DictionaryRepo.of({
         insertEntries,
-        rebuildSearchIndex,
         replaceTags,
         tags,
         count,

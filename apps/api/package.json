@@ -18,6 +18,7 @@
     "@kotori/email": "workspace:*",
     "@kotori/japanese": "workspace:*",
     "@kotori/nuance": "workspace:*",
+    "@kotori/runtime": "workspace:*",
     "@kotori/srs": "workspace:*",
     "@kotori/tts": "workspace:*",
     "effect": "catalog:"

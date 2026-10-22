@@ -21,6 +21,7 @@
     "@kotori/email": "workspace:*",
     "@kotori/jmdict": "workspace:*",
     "@kotori/nuance": "workspace:*",
+    "@kotori/runtime": "workspace:*",
     "@kotori/tts": "workspace:*",
     "effect": "catalog:"
   }

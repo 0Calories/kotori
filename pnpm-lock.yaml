@@ -173,7 +173,10 @@ catalogs:
     '@effect/platform-node':
       specifier: 4.0.3
       version: 4.0.3
-    '@effect/sql-sqlite-node':
+    '@effect/sql-pg':
+      specifier: 4.0.3
+      version: 4.0.3
+    '@effect/sql-pglite':
       specifier: 4.0.3
       version: 4.0.3
     '@effect/vitest':
@@ -286,6 +289,9 @@ importers:
       '@kotori/nuance':
         specifier: workspace:*
         version: link:../../packages/nuance
+      '@kotori/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
       '@kotori/srs':
         specifier: workspace:*
         version: link:../../packages/srs
@@ -425,6 +431,9 @@ importers:
       '@kotori/nuance':
         specifier: workspace:*
         version: link:../../packages/nuance
+      '@kotori/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
       '@kotori/tts':
         specifier: workspace:*
         version: link:../../packages/tts
@@ -461,12 +470,18 @@ importers:
       '@kotori/email':
         specifier: workspace:*
         version: link:../email
+      '@kotori/runtime':
+        specifier: workspace:*
+        version: link:../runtime
       better-auth:
         specifier: 'catalog:'
         version: 1.7.12(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@5.0.4(@types/node@24.19.2)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.0)))
       effect:
         specifier: 'catalog:'
         version: 4.0.3
+      kysely:
+        specifier: ^0.29.7
+        version: 0.29.7
     devDependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
@@ -474,7 +489,7 @@ importers:
 
   packages/db:
     dependencies:
-      '@effect/sql-sqlite-node':
+      '@effect/sql-pg':
         specifier: 'catalog:'
         version: 4.0.3(effect@4.0.3)
       '@kotori/domain':
@@ -483,6 +498,10 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.0.3
+    devDependencies:
+      '@effect/sql-pglite':
+        specifier: 'catalog:'
+        version: 4.0.3(effect@4.0.3)
 
   packages/domain:
     dependencies:
@@ -514,6 +533,9 @@ importers:
       '@kotori/db':
         specifier: workspace:*
         version: link:../db
+      '@kotori/runtime':
+        specifier: workspace:*
+        version: link:../runtime
       effect:
         specifier: 'catalog:'
         version: 4.0.3
@@ -532,6 +554,12 @@ importers:
       '@typesafe-ai/sdk':
         specifier: 'catalog:'
         version: 0.6.0
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.3
+
+  packages/runtime:
+    dependencies:
       effect:
         specifier: 'catalog:'
         version: 4.0.3
@@ -1302,8 +1330,13 @@ packages:
       effect: ^4.0.3
       redis: '>=5.0.0 <7.0.0'
 
-  '@effect/sql-sqlite-node@4.0.3':
-    resolution: {integrity: sha512-u+b0X/yt8vATwUscXKHdWF75LRMQKBIkx9DsNw8tdgF9xxPOTfx+e30gdwBjd1kY1GmQYkzD7/cP+9mys2b0pg==}
+  '@effect/sql-pg@4.0.3':
+    resolution: {integrity: sha512-pHrR3FGUIoqwkn/0X1yB5Gr1HkPMwzDt/9+cFv2e3eLlpVJwkgYUDeL+IRaO9fXTrKGwQw+y3948lv3x1nLOaQ==}
+    peerDependencies:
+      effect: ^4.0.3
+
+  '@effect/sql-pglite@4.0.3':
+    resolution: {integrity: sha512-naWXw8iaMClBZJJ6Od59yD1K/urMUIL3zWUsTN8n+qW3NVM5pKBCFei1y7kZO6TMcWZDfTXesPiFykHCe8nF+Q==}
     peerDependencies:
       effect: ^4.0.3
 
@@ -1316,6 +1349,9 @@ packages:
   '@egjs/hammerjs@2.0.17':
     resolution: {integrity: sha512-XQsZgjm2EcVUiZQf11UBJQfmZeEmOW8DpI1gsFeln6w0ae0ii4dMQEQ0kjl6DspdWX1aGY1/loyXnP0JS06e/A==}
     engines: {node: '>=0.8.0'}
+
+  '@electric-sql/pglite@0.5.11':
+    resolution: {integrity: sha512-SWuqsTjA4DDWqgZ05PC1RJaq8e00p5KACxbqaikDFQ8dIGA0SLRzuPniky7IW+q/c5RDNMdEXwv7mFBWIx9Hxw==}
 
   '@emnapi/core@1.4.5':
     resolution: {integrity: sha512-XsLw1dEOpkSX/WucdqUhPWP7hDxSvZiY+fsUC14h+FtQ2Ifni4znbBt8punRX+Uj2JG/uDb8nEHVKvrVlvdZ5Q==}
@@ -6113,8 +6149,13 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@effect/sql-sqlite-node@4.0.3(effect@4.0.3)':
+  '@effect/sql-pg@4.0.3(effect@4.0.3)':
     dependencies:
+      effect: 4.0.3
+
+  '@effect/sql-pglite@4.0.3(effect@4.0.3)':
+    dependencies:
+      '@electric-sql/pglite': 0.5.11
       effect: 4.0.3
 
   '@effect/vitest@4.0.3(effect@4.0.3)(vitest@5.0.4(@types/node@24.19.2)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.0)))':
@@ -6125,6 +6166,8 @@ snapshots:
   '@egjs/hammerjs@2.0.17':
     dependencies:
       '@types/hammerjs': 2.0.46
+
+  '@electric-sql/pglite@0.5.11': {}
 
   '@emnapi/core@1.4.5':
     dependencies:

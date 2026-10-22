@@ -11,7 +11,8 @@ catalogMode: strict
 catalog:
   effect: "4.0.3"
   "@effect/platform-node": "4.0.3"
-  "@effect/sql-sqlite-node": "4.0.3"
+  "@effect/sql-pg": "4.0.3"
+  "@effect/sql-pglite": "4.0.3"
   "@effect/vitest": "4.0.3"
   vitest: "^5.0.4"
   vite: "^8.3.4"

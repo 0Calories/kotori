@@ -1,8 +1,8 @@
 import { assert, describe, layer } from "@effect/vitest"
 import { Effect, Layer, Option } from "effect"
 import {
-  DatabaseMemory,
   DictionaryRepo,
+  EnrichmentRepo,
   type EntryRecord,
   JobsRepo,
   normalizeGloss,
@@ -10,6 +10,7 @@ import {
   StudyRepo,
   UsersRepo
 } from "../src/index.ts"
+import { DatabaseMemory } from "../src/testing.ts"
 
 const sense = (glosses: Array<string>, extra: Partial<EntryRecord["senses"][number]> = {}) => ({
   glosses: glosses.map((text) => ({ text, type: null })),
@@ -94,7 +95,6 @@ layer(TestLayer)("DictionaryRepo", (it) => {
     Effect.gen(function* () {
       const repo = yield* DictionaryRepo
       yield* repo.insertEntries(entries)
-      yield* repo.rebuildSearchIndex
       assert.strictEqual(yield* repo.count, 4)
 
       const [taberu] = yield* repo.getEntries([1358280])
@@ -111,7 +111,6 @@ layer(TestLayer)("DictionaryRepo", (it) => {
     Effect.gen(function* () {
       const repo = yield* DictionaryRepo
       yield* repo.insertEntries([{ ...entries[3]!, priority: 5 }])
-      yield* repo.rebuildSearchIndex
       const [taiyaki] = yield* repo.getEntries([1000000])
       assert.strictEqual(taiyaki?.priority, 5)
       assert.strictEqual(taiyaki?.forms.length, 2)
@@ -133,11 +132,18 @@ layer(TestLayer)("DictionaryRepo", (it) => {
   it.effect("searches English glosses with stemming and exact matching", () =>
     Effect.gen(function* () {
       const repo = yield* DictionaryRepo
-      const fts = yield* repo.searchGlosses(`"eating"`, 20)
+      const fts = yield* repo.searchGlosses("eating", 20)
       assert.includeMembers(
         fts.map((match) => match.entryId),
         [1358280, 1269130, 1594790]
       )
+      assert.isAbove(fts[0]!.rank, 0)
+      // Every word is required, and syntax characters are just text.
+      assert.deepStrictEqual(
+        (yield* repo.searchGlosses("fish pancake", 20)).map((match) => match.entryId),
+        [1000000]
+      )
+      assert.deepStrictEqual(yield* repo.searchGlosses("eat & (nothing:*", 20), [])
 
       const exact = yield* repo.findGlossesExact("Eat", 20)
       assert.deepStrictEqual(
@@ -167,6 +173,32 @@ layer(TestLayer)("DictionaryRepo", (it) => {
         yield* repo.entriesByPriority({ limit: 10, commonOnly: true }),
         [1358280, 1269130, 1594790]
       )
+    })
+  )
+})
+
+layer(TestLayer)("EnrichmentRepo", (it) => {
+  it.effect("stores audio metadata and clip bytes separately", () =>
+    Effect.gen(function* () {
+      const repo = yield* EnrichmentRepo
+      const key = "a".repeat(64)
+      assert.isFalse(yield* repo.hasAudioClip(key))
+      yield* repo.putAudioClip(key, new Uint8Array([0xff, 0xfb, 0x90, 0x00]))
+      yield* repo.saveAudio({
+        key,
+        text: "たべる",
+        language: "ja",
+        voiceId: "voice",
+        modelId: "model",
+        characters: 3,
+        bytes: 4,
+        createdAt: 1_700_000_000_000
+      })
+      assert.isTrue(yield* repo.hasAudioClip(key))
+      assert.deepStrictEqual(Option.getOrThrow(yield* repo.audioClip(key)), new Uint8Array([0xff, 0xfb, 0x90, 0x00]))
+      assert.strictEqual(Option.getOrThrow(yield* repo.findAudio(key)).createdAt, 1_700_000_000_000)
+      assert.strictEqual(yield* repo.audioCharactersSince(1_600_000_000_000), 3)
+      assert.strictEqual(yield* repo.audioCharactersSince(1_800_000_000_000), 0)
     })
   )
 })

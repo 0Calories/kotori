@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { NodeRuntime } from "@effect/platform-node"
-import { loadDotEnv } from "@kotori/db"
+import { loadDotEnv, LoggerLive } from "@kotori/runtime"
 import { Effect } from "effect"
 import { Command } from "effect/cli"
 import { adminCommand, approve, archive, requests, revoke, users } from "./commands/accounts.ts"
@@ -17,4 +17,9 @@ const kotori = Command.make("kotori").pipe(
   Command.withSubcommands([seed, enrich, work, status, requests, approve, archive, users, adminCommand, revoke])
 )
 
-kotori.pipe(Command.run({ version: "0.1.0" }), Effect.provide(WorkerLive), NodeRuntime.runMain)
+kotori.pipe(
+  Command.run({ version: "0.1.0" }),
+  Effect.provide(WorkerLive),
+  Effect.provide(LoggerLive),
+  NodeRuntime.runMain
+)

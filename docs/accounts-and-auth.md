@@ -5,7 +5,7 @@ Status: agreed, 2026-10-20. Milestone: private beta — open signup, admin appro
 ## 1. Decision summary
 
 - **Stack: Better Auth**, pinned to `~1.7.x`, self-hosted inside the existing API. MIT, Vercel-owned since July 2026; the library stays open source and host-agnostic. There is no hosted "Better Auth via Vercel" product — Vercel Connect is an OAuth gateway for third-party connectors, not managed auth — so we run the library and treat upkeep as dependency hygiene (§8).
-- **Identity lives in its own database**, `data/auth.db`, owned and migrated by Better Auth. Kotori's `kotori.db` keeps the learner profile, study data, dictionary and enrichment. Rationale in §4.
+- **Identity lives in Better Auth's own tables**, owned and migrated by Better Auth; Kotori's tables keep the learner profile, study data, dictionary and enrichment. Rationale in §4. (Originally two SQLite files, `data/auth.db` and `data/kotori.db`; since the Postgres move on 2026-10-22 both sets of tables share one database and one connection pool, see `production-readiness.md` §4 and phase 4. The ownership rules below are unchanged.)
 - **v1 sign-in: email + password** with email verification and password reset. No login codes, no magic links.
 - **v2 (fast-follow): Apple + Google** via the native ID-token flow. They ship as a pair: App Store guideline 4.8 means any social login on iOS requires an equivalent privacy-preserving option, in practice Sign in with Apple.
 - **Access model: open signup, manual approval.** Anyone can create an account; it starts `pending`. Pending users can sign in but reach no feature endpoints — the app shows a "you're on the list" screen. Ash approves from a CLI surface; requests that won't be approved are archived, not banned.
@@ -46,6 +46,8 @@ Status: agreed, 2026-10-20. Milestone: private beta — open signup, admin appro
 ## 4. Data model
 
 ### 4.1 Two databases
+
+As written for SQLite. On Postgres (2026-10-22) the two columns are two sets of tables in one database: Better Auth's queries run on Kotori's pool through a Kysely dialect over Effect's `SqlClient`, and tests use PGlite for both. Who owns and writes what is unchanged.
 
 | | `data/auth.db` (Better Auth) | `data/kotori.db` (Kotori) |
 | --- | --- | --- |

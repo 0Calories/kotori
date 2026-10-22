@@ -1,4 +1,5 @@
-import { DictionaryRepo, type EntryRecord, resolveFromRoot } from "@kotori/db"
+import { DictionaryRepo, type EntryRecord } from "@kotori/db"
+import { resolveFromRoot } from "@kotori/runtime"
 import { Effect, FileSystem, Path, Schema, Stream } from "effect"
 import { HttpClient } from "effect/http"
 import { gunzipSync } from "node:zlib"
@@ -39,7 +40,7 @@ export interface ImportOptions {
   readonly batchSize?: number | undefined
 }
 
-/** Parses JMDict and loads it into the database, then rebuilds the gloss search index. */
+/** Parses JMDict and loads it into the database; the gloss search index is maintained by Postgres. */
 export const importFile = Effect.fn("JMDict.importFile")(function* (options: ImportOptions) {
   const fs = yield* FileSystem.FileSystem
   const repo = yield* DictionaryRepo
@@ -73,7 +74,6 @@ export const importFile = Effect.fn("JMDict.importFile")(function* (options: Imp
     }
   }
   yield* repo.insertEntries(batch)
-  yield* Effect.logInfo(`Imported ${imported} entries; rebuilding search index`)
-  yield* repo.rebuildSearchIndex
+  yield* Effect.logInfo(`Imported ${imported} entries`)
   return { entries: imported, tags: tags.length }
 })

@@ -8,6 +8,9 @@
   "include": ["src"],
   "references": [
     {
+      "path": "../runtime/tsconfig.lib.json"
+    },
+    {
       "path": "../db/tsconfig.lib.json"
     }
   ]

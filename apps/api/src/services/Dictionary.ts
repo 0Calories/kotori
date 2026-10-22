@@ -72,10 +72,10 @@ const TAG_PENALTY: Record<string, number> = {
 
 const tagPenalty = (misc: ReadonlyArray<string>) => misc.reduce((sum, tag) => sum + (TAG_PENALTY[tag] ?? 0), 0)
 
-/** An FTS5 expression requiring every word of the query, each quoted so user input can't be parsed as syntax. */
-const ftsExpression = (query: string) => {
+/** The words of an English query, for the full-text search (which requires all of them). */
+const searchTerms = (query: string) => {
   const words = query.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []
-  return words.length === 0 ? null : words.map((word) => `"${word}"`).join(" ")
+  return words.length === 0 ? null : words.join(" ")
 }
 
 const firstGlosses = (entry: EntryRecord, count: number) => {
@@ -145,9 +145,9 @@ export class Dictionary extends Context.Service<
       })
 
       const englishHits = Effect.fnUntraced(function* (query: string) {
-        const expression = ftsExpression(query)
+        const terms = searchTerms(query)
         const exact = yield* repo.findGlossesExact(query, 300)
-        const fuzzy = expression === null ? [] : yield* repo.searchGlosses(expression, 600)
+        const fuzzy = terms === null ? [] : yield* repo.searchGlosses(terms, 600)
         const norm = normalizeGloss(query)
         const ranks = yield* repo.ranks(unique([...exact, ...fuzzy].map((match) => match.entryId)))
 
@@ -163,7 +163,8 @@ export class Dictionary extends Context.Service<
               3 * match.position -
               4 * Math.min(match.glossCount - 1, 5) -
               tagPenalty(match.misc) +
-              Math.min(10, -match.rank) +
+              // Length-normalised ts_rank_cd: ~0.1 for a one-word gloss, far less for long ones.
+              Math.min(10, 50 * match.rank) +
               (rank?.common ? 30 : 0) +
               (rank?.priority ?? 0) / 5,
             inflection: []

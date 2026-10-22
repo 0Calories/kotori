@@ -16,7 +16,7 @@ const CardFields = {
   step: Schema.Int,
   reps: Schema.Int,
   lapses: Schema.Int,
-  leech: Schema.BooleanFromBit,
+  leech: Schema.Boolean,
   lastReview: Schema.NullOr(Schema.Number),
   seed: Schema.Int,
   position: Schema.Int,
@@ -26,13 +26,13 @@ const CardFields = {
 export const CardRow = Schema.Struct(CardFields)
 export type CardRow = typeof CardRow.Type
 
-export const CardWithContent = Schema.Struct({ ...CardFields, content: Schema.fromJsonString(NoteContent) })
+export const CardWithContent = Schema.Struct({ ...CardFields, content: NoteContent })
 export type CardWithContent = typeof CardWithContent.Type
 
 export const NoteRow = Schema.Struct({
   id: Schema.String,
   userId: Schema.String,
-  content: Schema.fromJsonString(NoteContent),
+  content: NoteContent,
   entryId: Schema.NullOr(Schema.Int),
   sense: Schema.NullOr(Schema.Int),
   createdAt: Schema.Number
@@ -56,9 +56,9 @@ export interface ReviewLogInput {
 
 const CountRow = Schema.Struct({ n: Schema.Int })
 const DueRow = Schema.Struct({ due: Schema.NullOr(Schema.Number) })
-const QueueCountRow = Schema.Struct({ queue: CardQueue, mature: Schema.BooleanFromBit, n: Schema.Int })
+const QueueCountRow = Schema.Struct({ queue: CardQueue, mature: Schema.Boolean, n: Schema.Int })
 const DayRow = Schema.Struct({ studyDay: Schema.Int })
-const RetentionRow = Schema.Struct({ total: Schema.Int, failed: Schema.NullOr(Schema.Int) })
+const RetentionRow = Schema.Struct({ total: Schema.Int, failed: Schema.Int })
 const SavedRow = Schema.Struct({ entryId: Schema.Int, sense: Schema.Int, id: Schema.String })
 
 const encodeCard = (card: CardRow) => ({
@@ -73,7 +73,7 @@ const encodeCard = (card: CardRow) => ({
   step: card.step,
   reps: card.reps,
   lapses: card.lapses,
-  leech: card.leech ? 1 : 0,
+  leech: card.leech,
   lastReview: card.lastReview,
   seed: card.seed,
   position: card.position,
@@ -120,8 +120,9 @@ export class StudyRepo extends Context.Service<
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient
 
+      // `interval` and `position` are also keywords in Postgres; quote them.
       const cardColumns = sql.literal(
-        "c.id, c.note_id, c.user_id, c.template, c.queue, c.due, c.interval, c.ease, c.step, c.reps, c.lapses, c.leech, c.last_review, c.seed, c.position, c.created_at"
+        'c.id, c.note_id, c.user_id, c.template, c.queue, c.due, c."interval", c.ease, c.step, c.reps, c.lapses, c.leech, c.last_review, c.seed, c."position", c.created_at'
       )
 
       const insertNote = Effect.fn("StudyRepo.insertNote")(
@@ -206,7 +207,7 @@ export class StudyRepo extends Context.Service<
         return yield* sql`
           SELECT ${cardColumns}, n.content FROM cards c JOIN notes n ON n.id = c.note_id
           WHERE c.user_id = ${userId} AND c.queue = 'new'
-          ORDER BY c.position, c.template DESC
+          ORDER BY c."position", c.template DESC
           LIMIT ${limit}
         `.pipe(Effect.flatMap(decodeRows(CardWithContent)))
       }, Effect.orDie)
@@ -241,7 +242,7 @@ export class StudyRepo extends Context.Service<
         sql`INSERT INTO review_logs ${sql.insert({ ...log })}`.pipe(Effect.asVoid, Effect.orDie)
 
       const nextPosition = (userId: string) =>
-        sql`SELECT coalesce(max(position) + 1, 0) AS n FROM cards WHERE user_id = ${userId}`.pipe(
+        sql`SELECT coalesce(max("position") + 1, 0) AS n FROM cards WHERE user_id = ${userId}`.pipe(
           Effect.flatMap(decodeRows(CountRow)),
           Effect.map((rows) => rows[0]?.n ?? 0),
           Effect.orDie
@@ -249,7 +250,7 @@ export class StudyRepo extends Context.Service<
 
       const queueCounts = (userId: string) =>
         sql`
-          SELECT queue, (interval >= 21) AS mature, count(*) AS n FROM cards
+          SELECT queue, ("interval" >= 21) AS mature, count(*) AS n FROM cards
           WHERE user_id = ${userId} GROUP BY queue, mature
         `.pipe(Effect.flatMap(decodeRows(QueueCountRow)), Effect.orDie)
 
@@ -264,7 +265,7 @@ export class StudyRepo extends Context.Service<
 
       const retention = (userId: string, sinceDay: number) =>
         sql`
-          SELECT count(*) AS total, sum(rating = 'again') AS failed FROM review_logs
+          SELECT count(*) AS total, count(*) FILTER (WHERE rating = 'again') AS failed FROM review_logs
           WHERE user_id = ${userId} AND queue_before = 'review' AND study_day >= ${sinceDay}
         `.pipe(
           Effect.flatMap(decodeRows(RetentionRow)),
