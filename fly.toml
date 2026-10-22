@@ -1,8 +1,8 @@
 # Fly.io: one app, two process groups from one image (Dockerfile at the repo root).
 # `fly launch --no-deploy` adopts this file; change `app` if the name is taken and
-# pick the region closest to the Neon project (see docs/deploy.md).
+# ord is closest to the Neon project's aws-us-east-2 (see docs/deploy.md).
 app = "kotori"
-primary_region = "iad"
+primary_region = "ord"
 kill_signal = "SIGTERM"
 # Seconds between SIGTERM and SIGKILL: lets the worker finish an in-flight job.
 kill_timeout = 60

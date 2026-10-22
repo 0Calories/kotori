@@ -1,26 +1,34 @@
 import { UsersRepo } from "@kotori/db"
 import type { AccountStatus } from "@kotori/domain"
 import { Mailer, templates } from "@kotori/email"
-import { Context, Effect, Layer, Option, Schema } from "effect"
+import { Clock, Context, Effect, Layer, Option, Schema } from "effect"
 import { Auth, type AuthUser } from "./Auth.ts"
 
 export class NoSuchUser extends Schema.TaggedError<NoSuchUser>()("NoSuchUser", { email: Schema.String }) {}
 
+/** A managed auth user together with the approval state and role Kotori keeps on the profile. */
+export interface Account extends AuthUser {
+  readonly status: AccountStatus
+  readonly role: string
+}
+
 /**
  * Ash's side of the sign-up gate. Approving tells the learner by email;
  * archiving is silent bookkeeping and looks like "pending" to them.
+ * Status and role live on Kotori's own `users` row (created here if the
+ * learner hasn't opened the app since signing up), never in the auth system.
  */
 export class Approvals extends Context.Service<
   Approvals,
   {
     /** Pending sign-ups, oldest first; `all` includes archived ones. */
-    requests(options?: { readonly all?: boolean }): Effect.Effect<ReadonlyArray<AuthUser>>
-    users(): Effect.Effect<ReadonlyArray<AuthUser>>
-    approve(email: string): Effect.Effect<AuthUser, NoSuchUser>
-    archive(email: string): Effect.Effect<AuthUser, NoSuchUser>
-    setRole(email: string, role: "admin" | "user"): Effect.Effect<AuthUser, NoSuchUser>
+    requests(options?: { readonly all?: boolean }): Effect.Effect<ReadonlyArray<Account>>
+    users(): Effect.Effect<ReadonlyArray<Account>>
+    approve(email: string): Effect.Effect<Account, NoSuchUser>
+    archive(email: string): Effect.Effect<Account, NoSuchUser>
+    setRole(email: string, role: "admin" | "user"): Effect.Effect<Account, NoSuchUser>
     /** Signs the learner out of every device. */
-    revoke(email: string): Effect.Effect<AuthUser, NoSuchUser>
+    revoke(email: string): Effect.Effect<Account, NoSuchUser>
   }
 >()("@kotori/auth/Approvals") {
   static readonly layer = Layer.effect(
@@ -30,44 +38,76 @@ export class Approvals extends Context.Service<
       const users = yield* UsersRepo
       const mailer = yield* Mailer
 
+      const profileFor = (user: AuthUser) =>
+        Effect.gen(function* () {
+          return yield* users.ensure({
+            id: user.id,
+            status: "pending",
+            role: "user",
+            nativeLanguage: "en",
+            targetLanguage: "ja",
+            onboardedAt: null,
+            displayName: user.name.trim() || null,
+            timezone: "UTC",
+            dailyNewLimit: 20,
+            dailyReviewLimit: 200,
+            createdAt: yield* Clock.currentTimeMillis
+          })
+        })
+
+      const combine = Effect.fn("Approvals.combine")(function* (authUsers: ReadonlyArray<AuthUser>) {
+        const rows = new Map((yield* users.byIds(authUsers.map((u) => u.id))).map((row) => [row.id, row]))
+        return authUsers.map((user): Account => ({
+          ...user,
+          status: rows.get(user.id)?.status ?? "pending",
+          role: rows.get(user.id)?.role ?? "user"
+        }))
+      })
+
       const find = Effect.fn("Approvals.find")(function* (email: string) {
         const user = yield* auth.userByEmail(email)
         if (Option.isNone(user)) return yield* new NoSuchUser({ email })
-        return user.value
+        const [account] = yield* combine([user.value])
+        return account!
       })
 
       const setStatus = (status: AccountStatus) =>
         Effect.fn(`Approvals.${status}`)(function* (email: string) {
-          const user = yield* find(email)
-          if (user.status === status) return user
-          const updated = yield* auth.updateUser(user.id, { status })
+          const account = yield* find(email)
+          if (account.status === status) return account
+          const profile = yield* profileFor(account)
+          yield* users.update(account.id, { status })
           if (status === "approved") {
             // Learners who already picked a language get the email in it.
-            const profile = yield* users.byId(user.id)
-            const language = Option.match(profile, {
-              onNone: () => user.locale,
-              onSome: (row) => (row.onboardedAt === null ? user.locale : row.nativeLanguage)
-            })
+            const language = profile.onboardedAt === null ? "en" : profile.nativeLanguage
             yield* mailer
-              .send(templates.approved({ to: user.email, name: user.name.trim() || null, language }))
+              .send(templates.approved({ to: account.email, name: account.name.trim() || null, language }))
               .pipe(Effect.catchCause((cause) => Effect.logWarning("Could not send approval email", cause)))
           }
-          return updated
+          return { ...account, status }
         })
 
       return Approvals.of({
-        requests: (options) => auth.users({ status: options?.all ? ["pending", "archived"] : ["pending"] }),
-        users: () => auth.users(),
+        requests: (options) =>
+          auth.users.pipe(
+            Effect.flatMap(combine),
+            Effect.map((accounts) =>
+              accounts.filter((a) => a.status === "pending" || (options?.all === true && a.status === "archived"))
+            )
+          ),
+        users: () => auth.users.pipe(Effect.flatMap(combine)),
         approve: setStatus("approved"),
         archive: setStatus("archived"),
         setRole: Effect.fn("Approvals.setRole")(function* (email: string, role: "admin" | "user") {
-          const user = yield* find(email)
-          return yield* auth.updateUser(user.id, { role })
+          const account = yield* find(email)
+          yield* profileFor(account)
+          yield* users.update(account.id, { role })
+          return { ...account, role }
         }),
         revoke: Effect.fn("Approvals.revoke")(function* (email: string) {
-          const user = yield* find(email)
-          yield* auth.revokeSessions(user.id)
-          return user
+          const account = yield* find(email)
+          yield* auth.revokeSessions(account.id)
+          return account
         })
       })
     })

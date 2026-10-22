@@ -4,14 +4,14 @@ import { Claude, ClaudeError } from "@kotori/ai"
 import { DictionaryRepo, type EntryRecord, UsersRepo } from "@kotori/db"
 import { DatabaseMemory } from "@kotori/db/testing"
 import { Authorization, KotoriApi } from "@kotori/domain"
-import { Mailbox, MailerMemory } from "@kotori/email"
+import { MailerMemory } from "@kotori/email"
 import { Jev, JevError } from "@kotori/nuance"
 import { Pronouncer, TtsError } from "@kotori/tts"
 import { Effect, Layer, Option } from "effect"
-import { HttpClientRequest, HttpServer } from "effect/http"
+import { Headers, HttpClientRequest, HttpServer } from "effect/http"
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api"
 import { SqlClient } from "effect/sql"
-import { Auth } from "@kotori/auth"
+import { Auth, TestAuth } from "@kotori/auth"
 import { AuthorizationLive } from "../src/http/Authorization.ts"
 import { AllHandlers } from "../src/http/handlers.ts"
 import { makeApp } from "../src/layers.ts"
@@ -45,38 +45,41 @@ const OfflineProviders = Layer.mergeAll(
   )
 )
 
-const App = Auth.layerMemory.pipe(Layer.provideMerge(makeApp(OfflineProviders, DatabaseMemory)))
+// One fake auth server, shared by the app (through Auth.layerMemory) and the tests (to sign up):
+// Effect memoizes a layer by reference within a build, so both see the same store.
+const TestAuthLive = TestAuth.layer
+const App = makeApp(OfflineProviders, DatabaseMemory, Auth.layerMemory.pipe(Layer.provide(TestAuthLive)))
 const Handlers = AllHandlers.pipe(Layer.provideMerge(AuthorizationLive), Layer.provideMerge(App))
-const TestLayer = Layer.mergeAll(Handlers, HttpServer.layerServices, NodeServices.layer)
+const TestLayer = Layer.mergeAll(Handlers, TestAuthLive, HttpServer.layerServices, NodeServices.layer)
 
-// The session cookie Better Auth issued, forwarded like the app does.
+// The session cookie (web) or managed JWT (app) forwarded with every request.
 let cookie: string | null = null
+let bearer: string | null = null
 const Session = HttpApiMiddleware.layerClient(Authorization, ({ next, request }) =>
-  next(cookie === null ? request : HttpClientRequest.setHeader(request, "cookie", cookie))
+  next(
+    bearer !== null
+      ? HttpClientRequest.bearerToken(request, bearer)
+      : cookie === null
+        ? request
+        : HttpClientRequest.setHeader(request, "cookie", cookie)
+  )
 )
 
 const client = HttpApiTest.groups(KotoriApi, ["system", "account", "dictionary", "coach", "study", "audio"])
 
-const PASSWORD = "correct-horse-battery-staple"
-
-/** Signs up through Better Auth's server API and returns the user's id and session cookie. */
-const signUp = (email: string) =>
-  Effect.gen(function* () {
-    const auth = yield* Auth
-    const result = yield* Effect.promise(() =>
-      auth.api.signUpEmail({ body: { email, password: PASSWORD, name: "Test Learner" }, returnHeaders: true })
-    )
-    const setCookie = result.headers.get("set-cookie") ?? ""
-    return { id: result.response.user.id, cookie: setCookie.split(";")[0]! }
-  })
+/** Signs up against the (in-memory) managed auth server and returns the user's id and session cookie. */
+const signUp = (email: string) => Effect.flatMap(TestAuth, (auth) => auth.signUp(email, "Test Learner"))
 
 /** A signed-up, approved learner whose cookie is used for subsequent calls. */
 const signedIn = (email: string) =>
   Effect.gen(function* () {
-    const auth = yield* Auth
+    const api = yield* client
     const user = yield* signUp(email)
-    yield* auth.updateUser(user.id, { status: "approved" })
     cookie = user.cookie
+    bearer = null
+    // The profile row appears on first contact; approval is Kotori's own state.
+    yield* api.account.me()
+    yield* Effect.flatMap(UsersRepo, (users) => users.update(user.id, { status: "approved" }))
     return user
   })
 
@@ -116,19 +119,16 @@ layer(TestLayer)("Kotori API", (it) => {
   it.effect("signs up, waits for approval, then gets access", () =>
     Effect.gen(function* () {
       const api = yield* client
-      const auth = yield* Auth
+      const users = yield* UsersRepo
+      const testAuth = yield* TestAuth
 
       cookie = null
+      bearer = null
       const unauthorized = yield* api.account.me().pipe(Effect.flip)
       assert.strictEqual(unauthorized._tag, "Unauthorized")
 
       const user = yield* signUp("pending@example.com")
       cookie = user.cookie
-
-      // Signing up sends a verification email.
-      const mail = yield* (yield* Mailbox).messages
-      assert.strictEqual(mail.at(-1)?.to, "pending@example.com")
-      assert.include(mail.at(-1)?.text, "/api/auth/verify-email?token=")
 
       // The profile is created on first sight and reports the approval state.
       const me = yield* api.account.me()
@@ -145,12 +145,21 @@ layer(TestLayer)("Kotori API", (it) => {
       assert.strictEqual(gatedStudy._tag, "PendingApproval")
 
       // Archiving changes nothing for the learner.
-      yield* auth.updateUser(user.id, { status: "archived" })
+      yield* users.update(user.id, { status: "archived" })
       assert.strictEqual((yield* api.account.me()).status, "archived")
       assert.strictEqual((yield* api.study.notes().pipe(Effect.flip))._tag, "PendingApproval")
 
-      yield* auth.updateUser(user.id, { status: "approved" })
+      yield* users.update(user.id, { status: "approved" })
       assert.deepStrictEqual(yield* api.study.notes(), [])
+
+      // The app authenticates with a managed JWT instead of the cookie.
+      cookie = null
+      bearer = yield* testAuth.token(user.cookie)
+      assert.strictEqual((yield* api.account.me()).id, user.id)
+      bearer = "not-a-jwt"
+      assert.strictEqual((yield* api.account.me().pipe(Effect.flip))._tag, "Unauthorized")
+      bearer = null
+      cookie = user.cookie
 
       // Picking a language completes onboarding; bad time zones are ignored.
       const updated = yield* api.account.update({
@@ -267,9 +276,9 @@ layer(TestLayer)("Kotori API", (it) => {
       })
       assert.isTrue(Option.isSome(yield* users.byId(user.id)))
 
-      yield* Effect.promise(() =>
-        auth.api.deleteUser({ headers: new Headers({ cookie: user.cookie }), body: { password: PASSWORD } })
-      )
+      // Deleting the account removes the learner's data and their identity (so the session dies too).
+      yield* api.account.delete()
+      assert.isTrue(Option.isNone(yield* auth.sessionFromCookies(Headers.fromInput({ cookie: user.cookie }))))
 
       assert.isTrue(Option.isNone(yield* users.byId(user.id)))
       const notes = yield* sql<{ n: number }>`SELECT count(*) AS n FROM notes WHERE user_id = ${user.id}`

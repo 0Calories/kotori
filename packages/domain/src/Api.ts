@@ -60,7 +60,9 @@ export class SystemApi extends HttpApiGroup.make("system", { topLevel: true }).a
 export class AccountApi extends HttpApiGroup.make("account")
   .add(
     HttpApiEndpoint.get("me", "/me", { success: Profile }),
-    HttpApiEndpoint.patch("update", "/me", { payload: UpdateProfileRequest, success: Profile })
+    HttpApiEndpoint.patch("update", "/me", { payload: UpdateProfileRequest, success: Profile }),
+    /** Deletes the account: identity, sessions, profile and everything studied. Irreversible. */
+    HttpApiEndpoint.delete("delete", "/me")
   )
   .middleware(Authorization)
   .prefix("/account") {}

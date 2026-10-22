@@ -1,45 +1,33 @@
-import { NodeServices } from "@effect/platform-node"
 import { assert, layer } from "@effect/vitest"
 import { Repositories, UsersRepo } from "@kotori/db"
 import { DatabaseMemory } from "@kotori/db/testing"
 import { Mailbox, MailerMemory } from "@kotori/email"
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Option } from "effect"
+import { Headers } from "effect/http"
 import { Approvals } from "../src/Approvals.ts"
-import { Auth } from "../src/Auth.ts"
+import { Auth, TestAuth } from "../src/Auth.ts"
 
 const TestLayer = Approvals.layer.pipe(
   Layer.provideMerge(Auth.layerMemory),
-  Layer.provideMerge(Layer.mergeAll(MailerMemory, Repositories)),
-  Layer.provideMerge(DatabaseMemory),
-  Layer.provideMerge(NodeServices.layer)
+  Layer.provideMerge(Layer.mergeAll(TestAuth.layer, MailerMemory, Repositories)),
+  Layer.provideMerge(DatabaseMemory)
 )
 
-const PASSWORD = "correct-horse-battery-staple"
-
-const signUp = (email: string, name: string, locale: "en" | "ja" = "en") =>
-  Effect.gen(function* () {
-    const auth = yield* Auth
-    const result = yield* Effect.promise(() =>
-      auth.api.signUpEmail({ body: { email, password: PASSWORD, name, locale }, returnHeaders: true })
-    )
-    return { id: result.response.user.id, cookie: (result.headers.get("set-cookie") ?? "").split(";")[0]! }
-  })
+const signUp = (email: string, name: string) => Effect.flatMap(TestAuth, (auth) => auth.signUp(email, name))
 
 layer(TestLayer)("Approvals", (it) => {
   it.effect("lists requests, approves with an email, archives silently", () =>
     Effect.gen(function* () {
       const approvals = yield* Approvals
       const mailbox = yield* Mailbox
+      const users = yield* UsersRepo
 
       yield* signUp("first@example.com", "First")
-      yield* signUp("second@example.com", "二番目", "ja")
-      // Sign-up itself sends verification emails.
-      assert.deepStrictEqual(
-        (yield* mailbox.messages).map((m) => m.to),
-        ["first@example.com", "second@example.com"]
-      )
-      yield* mailbox.clear
+      const second = yield* signUp("second@example.com", "二番目")
+      // Sign-up emails are Managed Auth's business (via webhooks); nothing is sent from here.
+      assert.deepStrictEqual(yield* mailbox.messages, [])
 
+      // Learners who haven't opened the app yet still show up as pending.
       const pending = yield* approvals.requests()
       assert.deepStrictEqual(
         pending.map((u) => [u.email, u.status]),
@@ -61,7 +49,20 @@ layer(TestLayer)("Approvals", (it) => {
       )
       assert.deepStrictEqual(yield* mailbox.messages, [])
 
-      // Approval emails the learner in their sign-up language until they pick one.
+      // A learner who already opened the app and picked Japanese is welcomed in Japanese.
+      yield* users.ensure({
+        id: second.id,
+        status: "pending",
+        role: "user",
+        nativeLanguage: "ja",
+        targetLanguage: "en",
+        onboardedAt: 1,
+        displayName: null,
+        timezone: "Asia/Tokyo",
+        dailyNewLimit: 20,
+        dailyReviewLimit: 200,
+        createdAt: 1
+      })
       const approved = yield* approvals.approve("Second@Example.com")
       assert.strictEqual(approved.status, "approved")
       const sent = yield* mailbox.messages
@@ -73,9 +74,10 @@ layer(TestLayer)("Approvals", (it) => {
       yield* approvals.approve("second@example.com")
       assert.strictEqual((yield* mailbox.messages).length, 1)
 
-      // Archived accounts can still be approved later.
+      // Archived accounts can still be approved later, in English by default.
       yield* approvals.approve("first@example.com")
       assert.strictEqual((yield* approvals.requests({ all: true })).length, 0)
+      assert.include((yield* mailbox.messages)[1]?.subject, "Welcome")
 
       const missing = yield* approvals.approve("nobody@example.com").pipe(Effect.flip)
       assert.strictEqual(missing._tag, "NoSuchUser")
@@ -91,16 +93,15 @@ layer(TestLayer)("Approvals", (it) => {
       const user = yield* signUp("admin@example.com", "Ash")
       const promoted = yield* approvals.setRole("admin@example.com", "admin")
       assert.strictEqual(promoted.role, "admin")
+      // The role lives on Kotori's profile, created on the spot if needed.
+      assert.strictEqual(Option.getOrThrow(yield* users.byId(user.id)).role, "admin")
 
-      const before = yield* Effect.promise(() => auth.api.getSession({ headers: new Headers({ cookie: user.cookie }) }))
-      assert.isNotNull(before)
+      const before = yield* auth.sessionFromCookies(Headers.fromInput({ cookie: user.cookie }))
+      assert.isTrue(Option.isSome(before))
 
       yield* approvals.revoke("admin@example.com")
-      const after = yield* Effect.promise(() => auth.api.getSession({ headers: new Headers({ cookie: user.cookie }) }))
-      assert.isNull(after)
-
-      // No profile row is created by admin actions alone; the API does that on first request.
-      assert.isTrue((yield* users.byId(user.id))._tag === "None")
+      const after = yield* auth.sessionFromCookies(Headers.fromInput({ cookie: user.cookie }))
+      assert.isTrue(Option.isNone(after))
     })
   )
 })

@@ -1,6 +1,6 @@
 # Production readiness: backend tooling and infra plan
 
-Status: phases 1 to 3 implemented 2026-10-21, phases 4 (Postgres port + production entry points) and 5 (Fly.io + Neon deploy config) 2026-10-22; phase 6 (CI) pending, then the Fly app and Neon project are created from `docs/deploy.md`.
+Status: phases 1 to 3 implemented 2026-10-21, phases 4 (Postgres port + production entry points) and 5 (Fly.io + Neon deploy config) 2026-10-22, plus the move to Neon Managed Better Auth the same day; phase 6 (CI) pending, then the Fly app is created from `docs/deploy.md` (the Neon project exists).
 
 - [x] Phase 1: toolchain baseline (Node 24, TypeScript 7 + 6, Nx 23.3, pnpm catalog)
 - [x] Phase 2: TypeScript project references (Nx TS solution setup)
@@ -9,8 +9,8 @@ Status: phases 1 to 3 implemented 2026-10-21, phases 4 (Postgres port + producti
 - [x] Phase 5: Fly.io + Neon (Dockerfile, one Fly app with api and worker process groups)
 - [ ] Phase 6: GitHub Actions CI
 - [ ] Follow-up: Nx 24 migration once past the release-age window (after 2026-10-22)
-- [ ] Follow-up: migrate to Neon Managed Better Auth — decided 2026-10-22, compatibility verified against live docs, plan and cutover order in `docs/deploy.md` §4; needs a provisioned Neon project to execute
-- [ ] Follow-up: shrink the deploy image (~300 MB compressed) before/soon after launch — the hoisted linker resolves `better-auth`'s optional peers workspace-wide, dragging React, Vitest and the Expo/React Native tree into `packages/auth`'s lockfile entry; fixes are a separate pnpm workspace for `apps/app`, or dropping the `@better-auth/expo` server dependency (see phase 5 notes). The Neon Auth migration's last step removes `better-auth` from the server entirely, which resolves this.
+- [x] Follow-up: migrate to Neon Managed Better Auth — done 2026-10-22 and verified on a Neon dev branch (`docs/deploy.md` §4); remaining before launch: email webhooks for Resend templates, trusted domains, app sign-in screens
+- [ ] Follow-up: shrink the deploy image (~300 MB compressed) before/soon after launch — the hoisted linker resolves `better-auth`'s optional peers workspace-wide, dragging React, Vitest and the Expo/React Native tree into `packages/auth`'s lockfile entry; fixes are a separate pnpm workspace for `apps/app`, or dropping the `@better-auth/expo` server dependency (see phase 5 notes). Done: `better-auth`, `@better-auth/expo` and `pg` are gone from the server, which was the main source of the bloat; re-measure the image.
 
 Milestone: invite-only private beta. Scope: backend architecture and infra only; the Expo app is touched only where the workspace changes force it.
 

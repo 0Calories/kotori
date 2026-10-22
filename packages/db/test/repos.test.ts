@@ -203,6 +203,8 @@ layer(TestLayer)("StudyRepo", (it) => {
       const study = yield* StudyRepo
       yield* users.ensure({
         id: "u1",
+        status: "approved",
+        role: "user",
         nativeLanguage: "en",
         targetLanguage: "ja",
         onboardedAt: null,

@@ -1,10 +1,10 @@
-import { Approvals, type AuthUser } from "@kotori/auth"
+import { type Account, Approvals } from "@kotori/auth"
 import { Console, Effect } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
 const email = Argument.String("email").pipe(Argument.withDescription("The learner's email address"))
 
-const line = (user: AuthUser) =>
+const line = (user: Account) =>
   [
     user.email.padEnd(32),
     user.status.padEnd(9),
@@ -14,7 +14,7 @@ const line = (user: AuthUser) =>
     user.name
   ].join("  ")
 
-const table = (users: ReadonlyArray<AuthUser>, empty: string) =>
+const table = (users: ReadonlyArray<Account>, empty: string) =>
   users.length === 0 ? Console.log(empty) : Effect.forEach(users, (user) => Console.log(line(user)), { discard: true })
 
 const notFound = (email: string) => Console.error(`No account with the email ${email}.`)

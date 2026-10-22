@@ -261,8 +261,22 @@ const study = Effect.gen(function* () {
   yield* sql`CREATE INDEX coach_usage_user ON coach_usage (user_id, created_at)`
 })
 
+// Identity moved to Neon's Managed Better Auth (`neon_auth` schema, same database).
+// Its user record has no custom fields, so the approval state and the role Kotori
+// cares about live on the learner profile instead.
+const accounts = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient
+  yield* sql`
+    ALTER TABLE users
+      ADD COLUMN status TEXT NOT NULL DEFAULT 'pending',
+      ADD COLUMN role TEXT NOT NULL DEFAULT 'user'
+  `
+  yield* sql`CREATE INDEX users_status ON users (status)`
+})
+
 export const migrations = {
   "0001_dictionary": dictionary,
   "0002_enrichment": enrichment,
-  "0003_study": study
+  "0003_study": study,
+  "0004_accounts": accounts
 }

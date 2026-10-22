@@ -3,8 +3,8 @@
 Compute on [Fly.io](https://fly.io), Postgres on [Neon](https://neon.tech). One Fly app runs two process groups from one Docker image; Neon holds everything stateful (Kotori's tables, Better Auth's tables, audio bytes). The two providers are deliberately independent: a compromise of one does not hand over the other, and either can be swapped without touching application code.
 
 ```
-Neon project "kotori"            Postgres 17, region matching Fly's primary region
-└── DATABASE_URL (direct, sslmode=verify-full)
+Neon project "Kotori"            Postgres 18, aws-us-east-2 (Fly primary region ord)
+└── DATABASE_URL (direct/unpooled string as pulled by the Neon CLI)
             ▲
 Fly app "kotori"                 Dockerfile at the repo root, config in fly.toml
 ├── process group "api"          node apps/api/dist/main.js      HTTPS :443 → :8080, health GET /health
@@ -19,16 +19,16 @@ Nothing is written to disk, so there are no volumes and any machine can be repla
 
 Tooling is already in the repo: the Neon CLI (`npm i -g neon`), `neon.ts` at the root (declares `auth: true` — Managed Better Auth — plus a cheap scale-to-zero policy for new dev branches), and `@neon/config`. The steps that need a human account:
 
-1. `neon login`, then from the repo root either create and link a project in the region closest to Fly's `primary_region` (`iad` ↔ `aws-us-east-1`):
+1. `neon login`, then from the repo root either create and link a project in the region closest to Fly's `primary_region` (the project is in `aws-us-east-2`, so Fly runs in `ord`):
 
    ```sh
    neon link --org-id <org-id> --project-name kotori --region-id aws-us-east-1
    ```
 
    or link an existing one (`neon link --project-id <id> -y`). Linking writes the git-ignored `.neon` and by default pulls the branch's env into `.env` — pass `--no-env-pull` to keep developing against local Docker Postgres instead of a Neon branch.
-2. `neon deploy` — applies `neon.ts` to the linked branch: provisions Managed Better Auth and pulls `NEON_AUTH_BASE_URL` (and `DATABASE_URL`) into the local env file. `neon neon-auth status` to confirm. Postgres 17; the smallest compute is fine for the beta — Neon suspends idle compute (first query after a pause takes about half a second); disable autosuspend for production once it matters, and set history retention for point-in-time recovery.
-3. Create a dedicated role (e.g. `kotori`) owning the application database rather than using the project owner. Kotori's migrator needs DDL; Managed Better Auth keeps its own `neon_auth` schema on the branch.
-4. For Fly, use the **direct** (unpooled) connection string with `?sslmode=verify-full`. Both drivers (Effect's `@effect/sql-pg` for Kotori, and `pg` while self-hosted Better Auth remains) verify Neon's certificate against the system CA store. The pooled string is not needed: two small machines hold a handful of connections each.
+2. `neon deploy` — applies `neon.ts` to the linked branch: provisions Managed Better Auth and pulls `NEON_AUTH_BASE_URL` (and `DATABASE_URL`) into the local env file. `neon neon-auth status` to confirm. Postgres 18; the smallest compute is fine for the beta — Neon suspends idle compute (first query after a pause takes about half a second); disable autosuspend for production once it matters, and set history retention for point-in-time recovery.
+3. The project owner role is what Managed Auth grants access to `neon_auth` for; a dedicated role would need those grants replicated. Kotori's migrator needs DDL on the database. (Today everything runs as the owner; revisit before opening the beta.)
+4. For Fly, use the **direct** (unpooled) connection string exactly as Neon hands it out (`neon env pull` writes it as `DATABASE_URL_UNPOOLED`; it already carries `sslmode=require&channel_binding=require`). The driver (Effect's `@effect/sql-pg`) treats `require` as full certificate verification against the system CA store, so there is nothing to append — appending a second `?sslmode=` breaks the URL. The pooled string is not needed: two small machines hold a handful of connections each.
 5. Managed Auth production settings (console or `neon neon-auth …`): add trusted domains (`neon neon-auth domain add https://app.kotori.app`), disable localhost access, set the application name, and point the email webhooks at the API (§4) so Resend keeps sending Kotori's EN/JA templates.
 
 ### Fly
@@ -37,9 +37,8 @@ Tooling is already in the repo: the Neon CLI (`npm i -g neon`), `neon.ts` at the
 fly auth login
 fly launch --no-deploy          # adopts fly.toml; pick the org, confirm the region, rename the app if "kotori" is taken
 fly secrets set \
-  DATABASE_URL='postgres://kotori:…@ep-….aws.neon.tech/kotori?sslmode=verify-full' \
-  BETTER_AUTH_SECRET="$(openssl rand -base64 32)" \
-  BETTER_AUTH_URL='https://kotori.fly.dev' \
+  DATABASE_URL='<DATABASE_URL_UNPOOLED of the production branch>' \
+  NEON_AUTH_BASE_URL='<NEON_AUTH_BASE_URL of the production branch>' \
   RESEND_API_KEY=… ANTHROPIC_API_KEY=… TYPESAFE_API_KEY=… ELEVENLABS_API_KEY=…
 fly deploy                      # builds the Dockerfile on Fly's remote builder, rolls out both process groups
 fly scale count api=1 worker=1  # one machine each; see "Availability" below before raising api
@@ -47,14 +46,14 @@ fly scale count api=1 worker=1  # one machine each; see "Availability" below bef
 
 Secrets are encrypted at rest, injected into machines at boot, and never displayed again after being set (`fly secrets list` shows digests). `fly secrets set --stage` queues a change for the next deploy instead of restarting now.
 
-Custom domain: `fly certs add api.kotori.app`, point a CNAME at `kotori.fly.dev`, then update `BETTER_AUTH_URL` and the app's API base URL.
+Custom domain: `fly certs add api.kotori.app`, point a CNAME at `kotori.fly.dev`, add it as a Neon Auth trusted domain, and update the app's API base URL.
 
 ### First data
 
 Neon is reachable from anywhere over TLS, so seeding from a laptop is the simplest path and takes the same route the machines use:
 
 ```sh
-DATABASE_URL='postgres://…neon.tech/kotori?sslmode=verify-full' pnpm seed            # full JMDict, ~200k entries
+DATABASE_URL='<DATABASE_URL_UNPOOLED>' pnpm seed            # full JMDict, ~200k entries (or just `pnpm seed` with .env.local pulled)
 DATABASE_URL='…' pnpm seed -- --common-only                                           # ~22k common entries, faster
 ```
 
@@ -68,12 +67,10 @@ Set with `fly secrets set` unless marked plain (plain values live in `[env]` of 
 
 | Variable | Needed by | Notes |
 | --- | --- | --- |
-| `DATABASE_URL` | api, worker | Neon direct string with `sslmode=verify-full`. Shared by Kotori's repositories and Better Auth. |
-| `NODE_ENV` | api, worker | `production`, plain in `fly.toml`. JSON logs; makes `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` mandatory (startup fails without them). |
+| `DATABASE_URL` | api, worker | Neon direct (unpooled) string as pulled. Kotori's tables and the `neon_auth` schema live here. |
+| `NODE_ENV` | api, worker | `production`, plain in `fly.toml`. JSON logs. |
 | `PORT` | api | `8080`, plain in `fly.toml`. The API reads `KOTORI_PORT`, then `PORT`, then 4000. |
-| `BETTER_AUTH_SECRET` | api, worker | `openssl rand -base64 32`. The worker's account commands load Better Auth too. |
-| `BETTER_AUTH_URL` | api, worker | Public origin of the API. Used in emailed links and cookie settings. |
-| `KOTORI_WEB_ORIGIN` | api | Optional. Origin of the deployed web app, allowed for cookies/CORS. |
+| `NEON_AUTH_BASE_URL` | api, worker | The branch's Managed Auth URL (`neon env pull` writes it). The API proxies `/api/auth/*` to it; the worker's account commands never call it (they use SQL) but the layer requires it. |
 | `RESEND_API_KEY`, `KOTORI_EMAIL_FROM` | api, worker | Optional. Without a key, emails are logged instead. The worker sends approval emails. |
 | `ANTHROPIC_API_KEY` | api, worker | Optional. Coach features (api), example sentences (worker). |
 | `TYPESAFE_API_KEY` | worker | Optional. Nuance via Jev. |
@@ -96,24 +93,28 @@ The platform's secret store is one layer; assume it can fail. Use **separate API
 - **Rollback**: `fly releases` then `fly deploy --image <previous image>`; or restore the database to a point in time in Neon (or branch from one to inspect first).
 - **Backups**: Neon's history retention is the backup; the dictionary and enrichment are rebuildable, learner data is not. Consider a periodic `pg_dump` to object storage once there are real learners.
 
-## 4. Managed Better Auth (Neon Auth) migration
+## 4. Managed Better Auth (Neon Auth)
 
-Decided 2026-10-22: migrate from self-hosted Better Auth to Neon's Managed Better Auth (`auth: true` in `neon.ts`). Checked against the live docs (plugins, webhooks, admin, customize-emails, production checklist) on 2026-10-22 — re-check before implementing. Self-hosted Better Auth keeps working against Neon until the cutover lands; `BETTER_AUTH_SECRET`/`BETTER_AUTH_URL` stay until then.
+Implemented 2026-10-22 and verified end to end on the `dev-neon-auth` branch of the Neon project (sign-up → pending gate → approve → JWT access → revoke → delete). Self-hosted Better Auth, `node:sqlite`'s successor `pg`, and `@better-auth/expo` are gone from the server.
 
-What `packages/auth` relies on, and where each lands:
+How it fits together:
 
-| Today (self-hosted) | Managed |
-| --- | --- |
-| `admin` plugin | Supported. `authClient.admin.listUsers / setRole / updateUser` need an **admin session**, not a server secret — see the CLI note below. |
-| `status`, `locale` additional user fields | Custom fields exist on the admin API (`data` on createUser/updateUser). Alternative worth taking anyway: move `status` into Kotori's own `users` profile table, so approval never writes to the auth system. |
-| Verification/reset emails via Resend (EN/JA templates) | **Webhooks**: subscribing to `send.otp` / `send.magic_link` makes Managed Auth skip its own email and POST the code/link (EdDSA-signed) to our endpoint, which renders Kotori's templates and sends via Resend. Multi-language is explicitly supported this way. Note: flows move from links to codes/magic-links; plain verification *links* need custom SMTP instead. |
-| Approval email (app-sent) | Unchanged — it never went through Better Auth. |
-| `user.delete.after` hook → deletes learner profile | No `user.deleted` webhook (events: `user.before_create`, `user.created`, send.*, org, phone). Account deletion must go through a Kotori API endpoint that calls managed deletion and then removes the profile. `user.created` can JIT-create the profile if wanted. |
-| Approvals CLI via `ctx.internalAdapter` | Reads: SQL against the `neon_auth` schema (identity lives in **our** database, queryable). Writes (approve/role/revoke): admin API with an admin session, or keep status in Kotori's table per above. |
-| `expo` plugin | **Not in the managed plugin set, and there is no RN/Expo SDK guide.** The app has no auth UI yet (it stores a bearer token), so nothing breaks today. Plan: the app talks to the managed auth REST endpoints directly for sign-up/sign-in, then authenticates to the Kotori API with the managed **JWT plugin** (15-minute EdDSA tokens, verified against the injected `NEON_AUTH_JWKS_URL` — no auth-server round trip per request). Revocation lag of ≤15 min is acceptable at beta. Verify this end to end on a dev branch before building the app's auth screens. |
-| `Auth.layerMemory` (tests on the memory adapter) | Tests of approval logic move to faking the thin client around managed endpoints; PGlite keeps covering Kotori's own tables. |
+- **One origin for the app.** The API proxies `/api/auth/*` to `NEON_AUTH_BASE_URL` (`apps/api/src/http/neon-auth.ts` → `Auth.forward`), forwarding cookies and body and relaying `Set-Cookie`. Better Auth requires an `Origin` header; browsers send the web app's, native apps send none, so the proxy fills in the API's own public origin (from `x-forwarded-proto`/`host`). Both origins must be **trusted domains** on the branch (`neon neon-auth domain add https://…`); localhost is allowed by default.
+- **Two credentials.** Web clients use the relayed session cookie; the API checks it upstream (`/get-session`). The app calls `GET /api/auth/token` with its cookie to get a 15-minute EdDSA **JWT** and sends it as `Authorization: Bearer`; the API verifies it locally against `NEON_AUTH_JWKS_URL` (`jose`), no round trip. Issuer and audience are the auth endpoint's origin. Revocation lag is bounded by the token lifetime.
+- **Identity in our database.** Users and sessions live in the `neon_auth` schema of the same Postgres (user ids are uuids). The CLI lists users and looks up emails with SQL there; `kotori revoke` deletes `neon_auth.session` rows; account deletion (`DELETE /account/me`, authenticated by cookie or JWT) removes the profile and then the `neon_auth.user` row, whose sessions and accounts cascade. Managed Auth doesn't enable Better Auth's `/delete-user` (it returns 404), and Neon's user-management guide documents no deletion flow, so this is the deletion path.
+- **Approval state is Kotori's.** The managed user record has no custom fields, so `status` and `role` moved to the `users` profile (migration `0004_accounts`). `kotori requests` shows every managed user with the profile's status (pending until a row exists); `approve`/`archive`/`admin` create the profile row if the learner hasn't opened the app yet. The welcome email is in the learner's chosen language once they've onboarded, English before.
 
-Cutover order (each step verifiable on a Neon dev branch before `main`): provision (`neon deploy`) → wire the API's Authorization middleware to JWKS verification → email webhooks → move approval status into Kotori's profile table + rewrite the CLI → app auth screens against the managed endpoints → remove `better-auth`, `@better-auth/expo` and `pg` from `packages/auth` (which also removes the React/Expo peer-dependency bloat from the deploy image). Per the production checklist: trusted domains, custom sender, app name, disable localhost.
+### Still to do before launch
+
+| Item | Why | How |
+| --- | --- | --- |
+| Email webhooks | Managed Auth's own verification/reset emails are off (`sendVerificationEmailOnSignUp: false`); learners currently get no verification mail. Resend + Kotori's EN/JA templates return via webhooks. | API endpoint for `send.otp` / `send.magic_link` (EdDSA-signed payloads), then `neon neon-auth config webhook update --enabled --url https://api…/webhooks/neon-auth --enabled-events send.otp,send.magic_link`. Verification becomes a code, not a link. |
+| Trusted domains | Proxy and web origins must be allow-listed; disable localhost in production. | `neon neon-auth domain add https://api.kotori.app` (and the web origin); `neon neon-auth domain allow-localhost disable`. |
+| Custom sender / app name | Production checklist. | `neon neon-auth config email-provider update …`; app name in the console. |
+| App sign-in screens | The Expo app has no auth UI yet; it only loads an existing session. | Call `/api/auth/sign-up/email`, `/sign-in/email`, then `/api/auth/token`; store the JWT (refresh on 401), send it as Bearer; set `nativeLanguage` via `PATCH /account/me` right after sign-up so approval emails use it. |
+| `neon_auth` writes | `revoke` and account deletion write to managed tables directly. Standard Better Auth schema, FK cascades verified, but a Neon schema change could bite. | Re-check on Neon upgrades; the admin API (`/admin/revoke-user-sessions`, `/admin/remove-user`) is the sanctioned alternative if an admin session becomes convenient. |
+
+Local development: `neon checkout <branch>` writes that branch's `DATABASE_URL`, `NEON_AUTH_BASE_URL` and `NEON_AUTH_JWKS_URL` into `.env.local` (loaded after `.env`). Use `--no-env-pull` to stay on Docker Postgres — but then there is no auth server locally; the branch-first flow is the intended way to run the API now.
 
 ## 5. Other follow-ups
 

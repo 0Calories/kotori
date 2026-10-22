@@ -3,6 +3,8 @@
 Status: agreed, 2026-10-20. Milestone: private beta — open signup, admin approval.
 
 > **Update 2026-10-22** (production-readiness phase 4): storage moved from SQLite to one shared Postgres at `DATABASE_URL`. The separation below survives as separate *tables* with the same owners — Better Auth still migrates and owns `user`/`session`/`account`/`verification`, Kotori's migrator owns the rest — but "two database files" is no longer literal. Better Auth connects through a `pg` pool; tests use its memory adapter instead of in-memory SQLite, and Kotori's repositories test on PGlite via `@kotori/db/testing`. See `docs/production-readiness.md` §4 and phase 4.
+>
+> **Update 2026-10-22, later**: Better Auth is no longer self-hosted. Identity moved to Neon's Managed Better Auth (proxied at `/api/auth/*`, JWT or cookie to the API); approval `status` and `role` moved onto Kotori's `users` profile because the managed user record has no custom fields. The CLI reads `neon_auth` via SQL. Details and remaining steps: `docs/deploy.md` §4.
 
 ## 1. Decision summary
 
