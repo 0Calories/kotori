@@ -1,25 +1,27 @@
 # Production readiness: backend tooling and infra plan
 
-Status: phases 1 to 3 implemented 2026-10-21, phases 4 (Postgres port + production entry points) and 5 (Railway config) 2026-10-22; phase 6 (CI) pending, then the Railway project is created from `docs/deploy.md`.
+Status: phases 1 to 3 implemented 2026-10-21, phases 4 (Postgres port + production entry points) and 5 (Fly.io + Neon deploy config) 2026-10-22; phase 6 (CI) pending, then the Fly app and Neon project are created from `docs/deploy.md`.
 
 - [x] Phase 1: toolchain baseline (Node 24, TypeScript 7 + 6, Nx 23.3, pnpm catalog)
 - [x] Phase 2: TypeScript project references (Nx TS solution setup)
 - [x] Phase 3: lint and format (Oxlint, Oxfmt)
 - [x] Phase 4: production entry points + Postgres port of packages/db (§4)
-- [x] Phase 5: Railway (api + worker services, Postgres plugin)
+- [x] Phase 5: Fly.io + Neon (Dockerfile, one Fly app with api and worker process groups)
 - [ ] Phase 6: GitHub Actions CI
 - [ ] Follow-up: Nx 24 migration once past the release-age window (after 2026-10-22)
+- [ ] Follow-up: evaluate Neon Auth (managed Better Auth) against what `packages/auth` needs (`docs/deploy.md` §4)
 
 Milestone: invite-only private beta. Scope: backend architecture and infra only; the Expo app is touched only where the workspace changes force it.
 
 ## 1. Decisions already made
 
 - **pnpm + Node** stay. Bun is revisited post-beta only if install or startup time becomes a measured problem.
-- **Railway with Railpack**, no Dockerfile. Reproducible local images are deferred until there is a reason to leave Railway or control the build.
+- **Fly.io for compute, Neon for Postgres** (decided 2026-10-22, replacing Railway). Railway suffered a security incident on 2026-10-21 in which attackers extracted secrets from customer deployments, targeting AI provider keys; Kotori holds exactly those. Fly and Neon are independent providers, so neither holds everything; Fly's pricing is per machine-second and Neon's per compute-hour, both cheap at beta scale; and Neon offers managed Better Auth as a possible later simplification. GCP (Cloud Run + Cloud SQL) was the runner-up on security primitives and would be the move if the beta outgrows this.
+- **Dockerfile** at the repo root, since Fly builds images. It replaces the Railpack dependency and makes the deployable reproducible anywhere.
 - **Compile with `tsc`** (TypeScript 7, project references, `tsc --build`), not a bundler. The deployable is the emitted `dist/` of each app plus the emitted `dist/` of the packages it references.
 - **Oxlint + Oxfmt** for lint and format. No ESLint, no Prettier.
 - **pnpm catalogs** for a single-version policy.
-- Deferred: observability beyond structured logs, staging environments, release versioning / changesets, Dockerfile.
+- Deferred: observability beyond structured logs, staging environments, release versioning / changesets.
 
 ## 2. Findings that shape the plan
 
@@ -36,28 +38,24 @@ Verified while scoping; each one changes a step below.
 ## 3. Target shape
 
 ```
-Railway project "kotori"
-├── plugin  Postgres          DATABASE_URL, shared by both services (Kotori + Better Auth tables, audio bytes)
-├── service "api"             Railpack, from repo root (no Root Directory)
-│   ├── build   pnpm nx run-many -t build -p @kotori/api
-│   ├── start   node apps/api/dist/main.js
-│   └── health  GET /health
-└── service "worker"          Railpack, from repo root
-    ├── build   pnpm nx run-many -t build -p @kotori/worker
-    ├── start   node apps/worker/dist/main.js work
-    └── admin   railway ssh -- node apps/worker/dist/main.js approve <email>
+Neon project "kotori"          Postgres 17 in the region matching Fly's primary region
+└── DATABASE_URL               Kotori's tables, Better Auth's tables, audio bytes; PITR via history retention
+
+Fly app "kotori"               one image (Dockerfile), config in fly.toml, secrets via `fly secrets`
+├── process group "api"        node apps/api/dist/main.js        HTTPS → :8080, health GET /health
+└── process group "worker"     node apps/worker/dist/main.js work
 ```
 
-Locally nothing changes for day-to-day work: `pnpm dev` still runs the API and the worker from source with `tsx`; tests still run from source with Vitest. Compilation is for CI and deploys.
+Locally nothing changes for day-to-day work: `pnpm dev` still runs the API and the worker from source with `tsx` against a local Postgres; tests run from source on PGlite. Compilation and the image are for deploys.
 
 ## 4. Decision: Postgres, separate API and worker services
 
-Decided 2026-10-21. The API and the worker stay separate processes and become separate Railway services. The worker has significant planned changes and will need to scale on its own, so an enrichment loop embedded in the API process was rejected as a short-term hack. The SQLite-on-one-volume constraint is therefore resolved by moving to **Postgres** (Railway managed), which also removes the deploy-overlap and single-writer caveats below.
+Decided 2026-10-21. The API and the worker stay separate processes and become separate Railway services. The worker has significant planned changes and will need to scale on its own, so an enrichment loop embedded in the API process was rejected as a short-term hack. The SQLite-on-one-volume constraint is therefore resolved by moving to **Postgres** (managed, now Neon), which also removes the deploy-overlap and single-writer caveats below.
 
 Consequences for later phases:
 
 - Phase 4 gains the `packages/db` port: Postgres client (`@effect/sql-pg`), migrations, full-text search replacing FTS5, the Better Auth adapter, and a re-seed of JMDict. Audio files move off the local disk too (object storage, or Postgres bytea at beta volume), since the volume that held them would otherwise tie `data/audio` to one service.
-- Phase 5 becomes two services (`api`, `worker`) plus a Postgres plugin, with no volume, default deploy overlap, and `railway.json` per app.
+- Phase 5 becomes two deployables (`api`, `worker`) sharing one managed Postgres, with no volume. (Originally sketched as two Railway services; now two Fly process groups of one app.)
 - The rejected alternative, for the record: fork the worker loop inside the API behind a flag. Cheaper by days, but it couples the two deployables exactly where they are expected to diverge.
 
 Phases 1 to 3 are unaffected by this decision.
@@ -135,17 +133,16 @@ Done 2026-10-22. The embedded-worker bullet from the original sketch was dropped
 
 Local development now needs a Postgres; the README shows a one-line `docker run`. `pnpm dev` is otherwise unchanged.
 
-### Phase 5: Railway
+### Phase 5: Fly.io + Neon
 
-Done 2026-10-22 as config-as-code plus a runbook; the Railway project itself is created from `docs/deploy.md` once phase 6's workflow exists for **Wait for CI**. Deviations from the sketch, all following from §4:
+Done 2026-10-22 as config-as-code plus a runbook (`docs/deploy.md`); the Fly app and Neon project are created from the runbook once phase 6's workflow exists to deploy from. First written for Railway the same morning, then redone after the Railway incident (§1). What shipped:
 
-- **Two services, no volume.** `apps/api/railway.json` and `apps/worker/railway.json`, each building only its own Nx project (`nx run-many -t build -p @kotori/<app>`, with `^build` pulling in the packages it depends on) and watching only its own app, `packages/**` and the workspace files, so an app-only change doesn't redeploy the other service. Both start from `dist/` with plain `node`.
-- **Overlap**: the API keeps Railway's default overlap (no SQLite single-writer to protect anymore) and drains for 30 s. The worker sets `overlapSeconds: 0` and drains for 60 s: two workers would be safe on the queue thanks to `SKIP LOCKED`, but a deploy shouldn't double enrichment spend, and an in-flight job needs time to finish.
-- **Health**: `GET /health` is the existing `system` endpoint, which reads the database, so a passing check also proves migrations ran.
-- **`PORT`**: instead of mapping `KOTORI_PORT=${{PORT}}` in the dashboard, the API reads `KOTORI_PORT`, then Railway's injected `PORT`, then 4000.
-- **Environment** is shared through `DATABASE_URL` from the Postgres plugin; `KOTORI_DB_PATH`, `KOTORI_AUTH_DB_PATH`, `KOTORI_AUDIO_DIR` and `KOTORI_WORKER` no longer exist. The worker also needs `BETTER_AUTH_SECRET`/`BETTER_AUTH_URL` because its account commands load Better Auth. Full table in `docs/deploy.md` §2.
-- **`RAILPACK_PRUNE_DEPS=true`** is confirmed safe: a clean `node:24` container ran `pnpm install --frozen-lockfile`, the build command, `pnpm prune --prod`, and then booted both services against Postgres from the pruned tree. `NX_DAEMON=false` is set in the build command so Nx never waits on a daemon in the build container.
-- **Seeding** runs inside the worker service over the private network (`railway ssh --service worker -- node apps/worker/dist/main.js seed`); the JMDict download lands in the container's ephemeral disk, which is fine for a one-off.
+- **`Dockerfile`** (multi-stage, one image for both process groups). Build stage: filtered `pnpm install --frozen-lockfile` and `nx run-many -t build -p @kotori/api @kotori/worker` with `NX_DAEMON=false`. Runtime stage: `node:24-bookworm-slim`, only each project's `package.json` and `dist/` plus the lockfile and workspace file, then `pnpm install --prod --frozen-lockfile` filtered to the two apps. The runtime install uses pnpm's isolated linker (`--config.node-linker=isolated`): the workspace's hoisted linker exists for Metro and ignores `--filter`, so it would install every workspace project's dependencies. Runs as `node`, exposes 8080, no sources, no PGlite, no Nx, no tsx. Known cost: the image is still ~300 MB compressed. Under the hoisted linker pnpm resolves *optional* peer dependencies against the whole workspace, so the lockfile entries for `better-auth` and `@better-auth/expo` in `packages/auth` carry React, Vitest and the Expo/React Native tree picked up from `apps/app`, and the filtered runtime install faithfully reproduces them (`dedupePeerDependents: false` does not change this). None of it is loaded at runtime. Real fixes, deferred: move the Expo app into its own pnpm workspace, or drop the `@better-auth/expo` server dependency in favour of configuring trusted origins and cookies directly. Verified end to end from the image against Postgres 17: `/health`, Better Auth sign-up and sign-in over the `pg` pool, worker `status` and the `work` loop, production fail-fast without `BETTER_AUTH_URL`, JSON logs.
+- **`fly.toml`**: `[processes]` `api` and `worker` from the same image; `[http_service]` for `api` only (force HTTPS, one machine kept warm, `/health` check with a 30 s grace period); `shared-cpu-1x` / 512 MB per group; `kill_timeout = 60` so an in-flight enrichment can finish on deploy; `[[restart]]` on failure. With one machine per group the rolling deploy stops the old worker before starting the new one, so the queue is never worked twice during a deploy. `PORT=8080` and `NODE_ENV=production` live in `[env]`; everything else is a Fly secret.
+- **`PORT`**: the API reads `KOTORI_PORT`, then the host's `PORT`, then 4000.
+- **Neon**: direct (unpooled) connection string with `sslmode=verify-full`, which both drivers map to full certificate verification against the system CA store (checked in `@effect/sql-pg`'s URL parser and `pg-connection-string`). Seeding runs from a laptop or the worker machine; Neon is reachable from both over TLS.
+- **Secrets**: `fly secrets` (encrypted, injected at boot, never displayed after set). The runbook also asks for production-only provider keys with hard spend caps, which is the mitigation that would have mattered in the Railway incident regardless of host.
+- **Not done**: no `fly launch` yet (needs your account), so the app name and region in `fly.toml` are placeholders to confirm. `railway.json` files removed.
 
 ### Phase 6: GitHub Actions
 
@@ -155,15 +152,14 @@ Done 2026-10-22 as config-as-code plus a runbook; the Railway project itself is 
 2. `pnpm install --frozen-lockfile`.
 3. `nrwl/nx-set-shas@v5`, then `pnpm nx sync:check`, `pnpm nx format:check`, `pnpm nx affected -t lint typecheck test build`.
 4. Nx cache: `.nx/cache` keyed on the lockfile via `actions/cache@v6`. Nx Cloud is not needed at this size.
-5. Concurrency: cancel in-progress runs for pull requests only. Runs on `main` must not be cancelled, because Railway's Wait for CI treats a cancelled run as a failure when nothing else on the commit passed.
+5. Concurrency: cancel in-progress runs for pull requests only; runs on `main` must not be cancelled, since they deploy.
 
-No deploy job: Railway's GitHub integration deploys `main` after this workflow is green. That keeps deploy credentials out of GitHub entirely.
+Deploy job (changed with phase 5): Fly has no "wait for CI" integration, so a `deploy` job on `push` to `main`, after the checks pass, runs `flyctl deploy --remote-only` with a Fly **deploy token** scoped to the app (`fly tokens create deploy`) stored as a GitHub secret. The token can only deploy; it cannot read secrets.
 
 Optional, same PR: Renovate (`renovate.json`, pnpm catalog aware, grouped `effect`, `expo`, `better-auth` updates, weekly) so the single-version policy is maintained by a bot instead of by hand.
 
 ## 6. Out of scope, noted for later
 
-- Dockerfile when build reproducibility or portability is needed.
 - Tag-based module boundaries once Oxlint can run the Nx rule, or if TS reference errors prove too blunt.
 - Type-aware lint rules on TypeScript 7.1.
-- Staging environment and Railway PR environments (the `pr` block in `railway.json` makes this cheap when wanted).
+- Staging environment: a Neon branch plus a second Fly app, when wanted.

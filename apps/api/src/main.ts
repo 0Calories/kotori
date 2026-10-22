@@ -29,7 +29,7 @@ const Routes = Layer.mergeAll(
 
 const ServerLive = Layer.unwrap(
   Effect.gen(function* () {
-    // Railway injects PORT; KOTORI_PORT still wins so a local override is one variable.
+    // Hosts inject PORT (Fly sets it in fly.toml); KOTORI_PORT still wins for a local override.
     const port = yield* Config.Port("KOTORI_PORT").pipe(
       Config.orElse(() => Config.Port("PORT")),
       Config.withDefault(4000)
