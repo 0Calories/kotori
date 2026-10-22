@@ -142,7 +142,7 @@ export interface AuthService {
 export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Auth") {
   private static make = Effect.fn("Auth.make")(function* (
     settings: Omit<Settings, "onUserDeleted" | "sendMail">,
-    options: { readonly migrate: boolean }
+    options: { readonly migrate: false } | { readonly migrate: true; readonly pool: Pool }
   ) {
     const users = yield* UsersRepo
     const mailer = yield* Mailer
@@ -152,11 +152,20 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
       onUserDeleted: (userId) => Effect.runPromise(users.delete(userId))
     }
 
-    // Better Auth owns its schema: create/update its tables on startup.
+    // Better Auth owns its schema: create/update its tables on startup. Its
+    // migrator takes no lock of its own, so an advisory lock serializes the API
+    // and the worker when they start together against a fresh database.
     if (options.migrate) {
       yield* Effect.promise(async () => {
-        const { runMigrations } = await getMigrations(makeOptions(full))
-        await runMigrations()
+        const client = await options.pool.connect()
+        try {
+          await client.query("SELECT pg_advisory_lock(hashtext('better-auth:migrations'))")
+          const { runMigrations } = await getMigrations(makeOptions(full))
+          await runMigrations()
+        } finally {
+          await client.query("SELECT pg_advisory_unlock_all()").catch(() => undefined)
+          client.release()
+        }
       })
     }
 
@@ -243,7 +252,7 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
             ...Option.toArray(webOrigin)
           ]
         },
-        { migrate: true }
+        { migrate: true, pool }
       )
     })
   )
