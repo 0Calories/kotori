@@ -29,7 +29,11 @@ const Routes = Layer.mergeAll(
 
 const ServerLive = Layer.unwrap(
   Effect.gen(function* () {
-    const port = yield* Config.Port("KOTORI_PORT").pipe(Config.withDefault(4000))
+    // Railway injects PORT; KOTORI_PORT still wins so a local override is one variable.
+    const port = yield* Config.Port("KOTORI_PORT").pipe(
+      Config.orElse(() => Config.Port("PORT")),
+      Config.withDefault(4000)
+    )
     // Listen on all interfaces so phones on the same network can reach a dev server.
     return HttpRouter.serve(Routes).pipe(Layer.provide(NodeHttpServer.layer(createServer, { port, host: "0.0.0.0" })))
   })

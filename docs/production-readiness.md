@@ -1,14 +1,16 @@
 # Production readiness: backend tooling and infra plan
 
-Status: phases 1 to 3 implemented 2026-10-21, phase 4 (Postgres port + production entry points) 2026-10-22; phases 5 and 6 pending.
+Status: phases 1 to 3 implemented 2026-10-21, phases 4 (Postgres port + production entry points) and 5 (Railway config) 2026-10-22; phase 6 (CI) pending, then the Railway project is created from `docs/deploy.md`.
 
 - [x] Phase 1: toolchain baseline (Node 24, TypeScript 7 + 6, Nx 23.3, pnpm catalog)
 - [x] Phase 2: TypeScript project references (Nx TS solution setup)
 - [x] Phase 3: lint and format (Oxlint, Oxfmt)
 - [x] Phase 4: production entry points + Postgres port of packages/db (§4)
-- [ ] Phase 5: Railway (api + worker services, Postgres plugin)
+- [x] Phase 5: Railway (api + worker services, Postgres plugin)
 - [ ] Phase 6: GitHub Actions CI
-- [ ] Follow-up: Nx 24 migration once past the release-age window (after 2026-10-22) Milestone: invite-only private beta. Scope: backend architecture and infra only; the Expo app is touched only where the workspace changes force it.
+- [ ] Follow-up: Nx 24 migration once past the release-age window (after 2026-10-22)
+
+Milestone: invite-only private beta. Scope: backend architecture and infra only; the Expo app is touched only where the workspace changes force it.
 
 ## 1. Decisions already made
 
@@ -133,32 +135,17 @@ Done 2026-10-22. The embedded-worker bullet from the original sketch was dropped
 
 Local development now needs a Postgres; the README shows a one-line `docker run`. `pnpm dev` is otherwise unchanged.
 
-### Phase 5: Railway (to be rewritten for two services + Postgres, see §4)
+### Phase 5: Railway
 
-- `apps/api/railway.json` (Railway's config-file setting on the service points at this path; config overrides the dashboard):
-  ```json
-  {
-    "$schema": "https://railway.com/railway.schema.json",
-    "build": {
-      "builder": "RAILPACK",
-      "buildCommand": "pnpm nx run-many -t build -p @kotori/api @kotori/worker",
-      "watchPatterns": ["/apps/api/**", "/apps/worker/**", "/packages/**", "/pnpm-lock.yaml", "/pnpm-workspace.yaml", "/package.json", "/tsconfig.base.json", "/apps/api/railway.json"]
-    },
-    "deploy": {
-      "startCommand": "node apps/api/dist/main.js",
-      "healthcheckPath": "/health",
-      "healthcheckTimeout": 120,
-      "restartPolicyType": "ON_FAILURE",
-      "restartPolicyMaxRetries": 5,
-      "overlapSeconds": 0,
-      "drainingSeconds": 30
-    }
-  }
-  ```
-  `overlapSeconds: 0` is deliberate: the default overlap runs old and new containers together, which means two writers on one SQLite file. Brief downtime per deploy is the right trade at beta.
-- Service settings (dashboard, not expressible in the file): no Root Directory; volume mounted at `/data`; **Wait for CI** on, so a push to `main` deploys only after the GitHub workflow succeeds.
-- Environment: `NODE_ENV=production`, `KOTORI_PORT=${{PORT}}`, `KOTORI_DB_PATH=/data/kotori.db`, `KOTORI_AUTH_DB_PATH=/data/auth.db`, `KOTORI_AUDIO_DIR=/data/audio`, `KOTORI_WORKER=inline`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `KOTORI_WEB_ORIGIN`, `RESEND_API_KEY`, `ANTHROPIC_API_KEY`, `TYPESAFE_API_KEY`, `ELEVENLABS_API_KEY`. Document in `.env.example` and a short `docs/deploy.md` (first seed: `railway ssh -- node apps/worker/dist/main.js seed`).
-- Railpack picks Node from `.node-version` and pnpm from `packageManager`; set `RAILPACK_PRUNE_DEPS=true` once the build is confirmed to need nothing from devDependencies at runtime (it should not: `tsx` and `typescript` are build-time only).
+Done 2026-10-22 as config-as-code plus a runbook; the Railway project itself is created from `docs/deploy.md` once phase 6's workflow exists for **Wait for CI**. Deviations from the sketch, all following from §4:
+
+- **Two services, no volume.** `apps/api/railway.json` and `apps/worker/railway.json`, each building only its own Nx project (`nx run-many -t build -p @kotori/<app>`, with `^build` pulling in the packages it depends on) and watching only its own app, `packages/**` and the workspace files, so an app-only change doesn't redeploy the other service. Both start from `dist/` with plain `node`.
+- **Overlap**: the API keeps Railway's default overlap (no SQLite single-writer to protect anymore) and drains for 30 s. The worker sets `overlapSeconds: 0` and drains for 60 s: two workers would be safe on the queue thanks to `SKIP LOCKED`, but a deploy shouldn't double enrichment spend, and an in-flight job needs time to finish.
+- **Health**: `GET /health` is the existing `system` endpoint, which reads the database, so a passing check also proves migrations ran.
+- **`PORT`**: instead of mapping `KOTORI_PORT=${{PORT}}` in the dashboard, the API reads `KOTORI_PORT`, then Railway's injected `PORT`, then 4000.
+- **Environment** is shared through `DATABASE_URL` from the Postgres plugin; `KOTORI_DB_PATH`, `KOTORI_AUTH_DB_PATH`, `KOTORI_AUDIO_DIR` and `KOTORI_WORKER` no longer exist. The worker also needs `BETTER_AUTH_SECRET`/`BETTER_AUTH_URL` because its account commands load Better Auth. Full table in `docs/deploy.md` §2.
+- **`RAILPACK_PRUNE_DEPS=true`** is confirmed safe: a clean `node:24` container ran `pnpm install --frozen-lockfile`, the build command, `pnpm prune --prod`, and then booted both services against Postgres from the pruned tree. `NX_DAEMON=false` is set in the build command so Nx never waits on a daemon in the build container.
+- **Seeding** runs inside the worker service over the private network (`railway ssh --service worker -- node apps/worker/dist/main.js seed`); the JMDict download lands in the container's ephemeral disk, which is fine for a one-off.
 
 ### Phase 6: GitHub Actions
 
