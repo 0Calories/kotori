@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "pnpm --filter @kotori/app build",
+  "outputDirectory": "apps/app/dist",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}

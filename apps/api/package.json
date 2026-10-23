@@ -5,7 +5,7 @@
   "description": "Kotori's HTTP API",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch -C @kotori/source --clear-screen=false src/main.ts",
+    "dev": "tsx watch --clear-screen=false -C @kotori/source src/main.ts",
     "start": "node dist/main.js",
     "test": "vitest run"
   },

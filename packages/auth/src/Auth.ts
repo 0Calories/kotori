@@ -1,5 +1,5 @@
 import { Config, Context, Duration, Effect, Layer, Option, Schema } from "effect"
-import { type Headers, HttpServerRequest, HttpServerResponse } from "effect/http"
+import { Headers, HttpServerRequest, HttpServerResponse } from "effect/http"
 import * as Cookies from "effect/http/Cookies"
 import { SqlClient } from "effect/sql"
 import {
@@ -114,6 +114,20 @@ export interface AuthService {
    * Kotori's database anyway, so this is a plain SQL delete.
    */
   deleteUser(userId: string): Effect.Effect<void>
+  /**
+   * Creates an account with a password, as the sign-up screen does. Used by the CLI to
+   * make the local development account; learners always go through the app.
+   */
+  signUp(input: {
+    readonly email: string
+    readonly password: string
+    readonly name: string
+  }): Effect.Effect<AuthUser, AuthUpstreamError>
+  /**
+   * Marks the address confirmed without a code, for the development account. The real
+   * path is the learner entering the code Managed Auth's webhook emailed them.
+   */
+  setEmailVerified(userId: string): Effect.Effect<void>
   /** Every user in sign-up order. */
   readonly users: Effect.Effect<ReadonlyArray<AuthUser>>
   userByEmail(email: string): Effect.Effect<Option.Option<AuthUser>>
@@ -273,12 +287,42 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
       const deleteUser = (userId: string) =>
         sql`DELETE FROM neon_auth."user" WHERE id = ${userId}::uuid`.pipe(Effect.asVoid, Effect.orDie)
 
+      const signUp = Effect.fn("Auth.signUp")(function* (input: {
+        readonly email: string
+        readonly password: string
+        readonly name: string
+      }) {
+        // No cookies to forward and no browser in play, so stand in with the base URL's
+        // own origin, which is trusted by definition.
+        const response = yield* upstream("/sign-up/email", {
+          method: "POST",
+          headers: Headers.fromInput({ "content-type": "application/json", origin }),
+          body: new TextEncoder().encode(JSON.stringify(input))
+        })
+        const text = new TextDecoder().decode(response.body)
+        if (response.status !== 200) {
+          return yield* new AuthUpstreamError({ message: `/sign-up/email answered ${response.status}: ${text}` })
+        }
+        return yield* Effect.try({
+          try: () => decodeUser((JSON.parse(text) as { readonly user: unknown }).user),
+          catch: (error) => new AuthUpstreamError({ message: `Unreadable /sign-up/email response: ${String(error)}` })
+        })
+      })
+
+      const setEmailVerified = (userId: string) =>
+        sql`UPDATE neon_auth."user" SET "emailVerified" = true WHERE id = ${userId}::uuid`.pipe(
+          Effect.asVoid,
+          Effect.orDie
+        )
+
       return Auth.of({
         forward,
         sessionFromCookies,
         verifyToken,
         webhookKey,
         deleteUser,
+        signUp,
+        setEmailVerified,
         users: list,
         userByEmail,
         revokeSessions
@@ -309,6 +353,18 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
             ? Effect.succeed(store.webhookKey(kid))
             : Effect.fail(new AuthUpstreamError({ message: "The test auth server is down" })),
         deleteUser: (userId) => Effect.sync(() => store.remove(userId)),
+        // The fake store has no passwords; the name and address are all the CLI needs back.
+        signUp: ({ email, name }) =>
+          store.signUp(email, name).pipe(
+            Effect.map(({ id }) => ({
+              id,
+              email: email.toLowerCase(),
+              emailVerified: false,
+              name,
+              createdAt: new Date()
+            }))
+          ),
+        setEmailVerified: (userId) => Effect.sync(() => store.setEmailVerified(userId)),
         users: Effect.sync(() => store.all()),
         userByEmail: (email) => Effect.sync(() => store.byEmail(email)),
         revokeSessions: (userId) => Effect.sync(() => store.revoke(userId))
@@ -389,6 +445,8 @@ export class TestAuth extends Context.Service<
     signUp(email: string, name: string): Effect.Effect<TestSignUp>
     /** A short-lived JWT for the session, like `GET /token`. */
     token(cookie: string): Effect.Effect<string>
+    /** Confirms the address, as `Auth.setEmailVerified` does upstream. */
+    setEmailVerified(userId: string): void
     /** Headers that sign `body` as a Managed Auth webhook, sent `ageMs` ago. */
     signWebhook(body: string, options?: { readonly ageMs?: number }): Effect.Effect<Record<string, string>>
     webhookKey(kid: string): Option.Option<KeyObject>
@@ -461,6 +519,10 @@ export class TestAuth extends Context.Service<
         webhookKey: (kid) => (kid === "test" ? Option.some(KeyObject.from(publicKey)) : Option.none()),
         userForCookie,
         hasSession: (userId) => [...sessions.values()].includes(userId),
+        setEmailVerified: (userId) => {
+          const user = users.get(userId)
+          if (user !== undefined) users.set(userId, { ...user, emailVerified: true })
+        },
         setReachable: (value) => {
           reachable = value
         },

@@ -56,5 +56,14 @@ export const managedAuth = {
   /** Emails a verification code (Email OTP); Kotori's webhook sends it in the learner's language. */
   sendVerificationCode: (email: string) =>
     request<unknown>("POST", "/email-otp/send-verification-otp", { email, type: "email-verification" }),
-  verifyEmail: (email: string, otp: string) => request<unknown>("POST", "/email-otp/verify-email", { email, otp })
+  verifyEmail: (email: string, otp: string) => request<unknown>("POST", "/email-otp/verify-email", { email, otp }),
+  /** Emails a reset code (Email OTP), the same way as the verification one. */
+  sendPasswordResetCode: (email: string) =>
+    request<unknown>("POST", "/email-otp/send-verification-otp", { email, type: "forget-password" }),
+  /** Sets a new password from a reset code; the learner then signs in with it. */
+  resetPassword: (email: string, otp: string, password: string) =>
+    request<unknown>("POST", "/email-otp/reset-password", { email, otp, password }),
+  /** Changes the signed-in learner's password, signing their other devices out. */
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<unknown>("POST", "/change-password", { currentPassword, newPassword, revokeOtherSessions: true })
 }

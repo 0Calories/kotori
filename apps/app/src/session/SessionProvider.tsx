@@ -4,6 +4,7 @@ import { getLocales } from "expo-localization"
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { ApiError, call } from "../api/client.ts"
 import { AuthError, managedAuth } from "../auth/client.ts"
+import { devCredentials } from "../auth/dev.ts"
 import { tokens } from "../auth/tokens.ts"
 import { transport } from "../auth/transport"
 import { strings, type Strings } from "../i18n/strings.ts"
@@ -32,6 +33,10 @@ interface Session {
   readonly signOut: () => Promise<void>
   readonly sendVerificationCode: () => Promise<void>
   readonly verifyEmail: (code: string) => Promise<void>
+  /** Changes the password and signs the learner's other devices out; this one stays in. */
+  readonly changePassword: (currentPassword: string, newPassword: string) => Promise<void>
+  /** Erases the account and everything studied, then lands on the welcome screen. Irreversible. */
+  readonly deleteAccount: () => Promise<void>
   /** Re-reads the profile, e.g. while waiting for approval. */
   readonly refresh: () => Promise<void>
   readonly updateProfile: (patch: UpdateProfileRequest) => Promise<void>
@@ -50,6 +55,23 @@ const statusOf = (profile: Profile): Status =>
 /** A JWT for the session just created, or the reason there isn't one. */
 const sessionToken = async () => {
   if ((await tokens.refresh()) === null) throw new AuthError("NO_SESSION", "", 401)
+}
+
+/** Whether a session was established as the development account; always false in a release build. */
+const signInAsDeveloper = async (): Promise<boolean> => {
+  const credentials = devCredentials()
+  if (credentials === null) return false
+  try {
+    await managedAuth.signIn(credentials)
+    return (await tokens.refresh()) !== null
+  } catch (error) {
+    // Usually the account doesn't exist on this branch yet, and the sign-in screen still works.
+    console.warn(
+      `Could not sign in as ${credentials.email}: ${error instanceof Error ? error.message : String(error)}. ` +
+        "Run `pnpm kotori dev-account` to create it."
+    )
+    return false
+  }
 }
 
 export const SessionProvider = ({ children }: { readonly children: ReactNode }) => {
@@ -76,7 +98,9 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
   useEffect(() => {
     let cancelled = false
     const load = async () => {
-      if ((await tokens.current()) === null) return cancelled || setStatus("signedOut")
+      if ((await tokens.current()) === null && !(await signInAsDeveloper())) {
+        return cancelled || setStatus("signedOut")
+      }
       const me = await call((api) => api.account.me())
       if (cancelled) return
       enter(me)
@@ -145,6 +169,21 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
     [profile, refresh]
   )
 
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    await managedAuth.changePassword(currentPassword, newPassword)
+    // The JWT in hand was minted from the old session, so drop it and mint from
+    // whatever cookie the response left with the transport.
+    tokens.clear()
+    await sessionToken()
+  }, [])
+
+  const deleteAccount = useCallback(async () => {
+    // The API deletes the identity along with the data, so there is no session left to end.
+    await call((api) => api.account.delete())
+    await transport.forget()
+    leave()
+  }, [leave])
+
   const updateProfile = useCallback(
     async (patch: UpdateProfileRequest) => {
       enter(await call((api) => api.account.update({ payload: patch })))
@@ -163,6 +202,8 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
       signOut,
       sendVerificationCode,
       verifyEmail,
+      changePassword,
+      deleteAccount,
       refresh,
       updateProfile,
       retry: () => {
@@ -170,7 +211,19 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
         setAttempt((n) => n + 1)
       }
     }),
-    [status, profile, signIn, signUp, signOut, sendVerificationCode, verifyEmail, refresh, updateProfile]
+    [
+      status,
+      profile,
+      signIn,
+      signUp,
+      signOut,
+      sendVerificationCode,
+      verifyEmail,
+      changePassword,
+      deleteAccount,
+      refresh,
+      updateProfile
+    ]
   )
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

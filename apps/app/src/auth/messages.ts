@@ -12,6 +12,9 @@ export const authMessage = (t: Strings, error: unknown): string => {
         return t.auth.errors.slowDown
       case "INVALID_EMAIL_OR_PASSWORD":
         return t.auth.errors.invalidCredentials
+      // Changing the password with the wrong current one.
+      case "INVALID_PASSWORD":
+        return t.auth.errors.wrongPassword
       case "USER_ALREADY_EXISTS":
       case "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL":
         return t.auth.errors.emailTaken

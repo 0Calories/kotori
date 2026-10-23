@@ -9,7 +9,7 @@
   "type": "module",
   "scripts": {
     "cli": "tsx -C @kotori/source src/main.ts",
-    "dev": "tsx watch -C @kotori/source --clear-screen=false src/main.ts work",
+    "dev": "tsx watch --clear-screen=false -C @kotori/source src/main.ts work",
     "start": "node dist/main.js work"
   },
   "dependencies": {

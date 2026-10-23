@@ -1,13 +1,8 @@
-import { useEffect, useState } from "react"
-import { View } from "react-native"
+import { useEffect } from "react"
 import Animated, { FadeInDown } from "react-native-reanimated"
-import { authMessage } from "../src/auth/messages.ts"
 import { Button } from "../src/components/Button.tsx"
-import { Card } from "../src/components/Card.tsx"
-import { Icon } from "../src/components/Icon.tsx"
-import { Input } from "../src/components/Input.tsx"
+import { ConfirmEmail } from "../src/components/ConfirmEmail.tsx"
 import { Mascot } from "../src/components/Mascot.tsx"
-import { Notice } from "../src/components/Notice.tsx"
 import { Screen } from "../src/components/Screen.tsx"
 import { Text } from "../src/components/Text.tsx"
 import { useSession } from "../src/session/SessionProvider.tsx"
@@ -15,81 +10,6 @@ import { useTheme } from "../src/theme/ThemeProvider.tsx"
 
 /** How often the screen checks whether the admin has approved the account. */
 const POLL_MS = 30_000
-
-const ConfirmEmail = () => {
-  const { t, profile, verifyEmail, sendVerificationCode } = useSession()
-  const theme = useTheme()
-  const [code, setCode] = useState("")
-  const [busy, setBusy] = useState<"verify" | "resend" | null>(null)
-  const [message, setMessage] = useState<{ readonly text: string; readonly ok: boolean } | null>(null)
-  if (profile === null) return null
-
-  if (profile.emailVerified) {
-    return (
-      <Card tone="primary" style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <Icon name="check_circle" size={20} color={theme.color.primaryDark} />
-        <Text variant="strong">{t.pending.confirmed}</Text>
-      </Card>
-    )
-  }
-
-  const run = async (action: "verify" | "resend") => {
-    setBusy(action)
-    setMessage(null)
-    try {
-      if (action === "verify") await verifyEmail(code)
-      else {
-        await sendVerificationCode()
-        setMessage({ text: t.pending.resent, ok: true })
-      }
-    } catch (e) {
-      setMessage({ text: authMessage(t, e), ok: false })
-    }
-    setBusy(null)
-  }
-
-  return (
-    <Card style={{ gap: theme.space.md }}>
-      <Text variant="label" color="textMuted">
-        {t.pending.confirmTitle.toUpperCase()}
-      </Text>
-      <Text variant="small" color="textMuted">
-        {t.pending.confirmBody(profile.email)}
-      </Text>
-      <Input
-        value={code}
-        onChangeText={(text) => setCode(text.replace(/\D/g, "").slice(0, 6))}
-        placeholder="123456"
-        keyboardType="number-pad"
-        autoComplete="one-time-code"
-        textContentType="oneTimeCode"
-        style={{ fontSize: 24, letterSpacing: 8, textAlign: "center" }}
-        accessibilityLabel={t.pending.confirmTitle}
-        onSubmitEditing={() => void run("verify")}
-      />
-      <Notice message={message?.text ?? null} tone={message?.ok ? "primary" : "accent"} />
-      <Button
-        label={t.pending.confirm}
-        full
-        icon="check"
-        disabled={code.length !== 6 || busy !== null}
-        loading={busy === "verify"}
-        onPress={() => void run("verify")}
-      />
-      <View style={{ alignItems: "center" }}>
-        <Button
-          label={t.pending.resend}
-          variant="ghost"
-          size="sm"
-          icon="mail"
-          disabled={busy !== null}
-          loading={busy === "resend"}
-          onPress={() => void run("resend")}
-        />
-      </View>
-    </Card>
-  )
-}
 
 export default function Pending() {
   const { t, refresh, signOut } = useSession()

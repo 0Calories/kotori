@@ -17,7 +17,9 @@ export const Snow = () => {
   // Pattern ids are global on the web, so each instance needs its own.
   const id = `kotori-snow-${useId().replace(/[^\w-]/g, "")}`
   return (
-    <Svg style={StyleSheet.absoluteFill} pointerEvents="none" accessible={false}>
+    // `aria-hidden` rather than `accessible={false}`: react-native-svg passes unknown
+    // props straight to the DOM element on the web, where `accessible` isn't an attribute.
+    <Svg style={StyleSheet.absoluteFill} pointerEvents="none" aria-hidden>
       <Defs>
         {LAYERS.map((layer, index) => (
           <Pattern
