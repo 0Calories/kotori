@@ -16,7 +16,13 @@ const light = {
   /** Dividers between rows inside a card. */
   divider: "#E9EFEA",
   /** The faint ring that lifts a white card off the snow. */
-  hairline: "rgba(19, 32, 26, 0.06)",
+  hairline: "rgba(19, 32, 26, 0.05)",
+  /** The ring around pills on the hero and the floating tab bar. */
+  ring: "rgba(19, 32, 26, 0.07)",
+  /** The ring around white controls: audio buttons and secondary buttons. */
+  outline: "rgba(19, 32, 26, 0.08)",
+  /** The line a nuance scale's dot sits on. */
+  track: "rgba(19, 32, 26, 0.12)",
   ink: "#13201A",
   text: "#13201A",
   /** Ink 2: secondary text. */
@@ -57,6 +63,9 @@ const dark: Palette = {
   border: "#2E3B33",
   divider: "#25312A",
   hairline: "rgba(232, 240, 234, 0.07)",
+  ring: "rgba(232, 240, 234, 0.09)",
+  outline: "rgba(232, 240, 234, 0.1)",
+  track: "rgba(232, 240, 234, 0.16)",
   ink: "#E8F0EA",
   text: "#E8F0EA",
   textMuted: "#A9B7AF",

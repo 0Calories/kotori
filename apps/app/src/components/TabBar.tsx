@@ -97,7 +97,7 @@ const Tab = ({
         variant="caption"
         weight={focused ? "bold" : "medium"}
         numberOfLines={1}
-        style={{ fontSize: 11, lineHeight: 13, color: tint }}
+        style={{ fontSize: 11, lineHeight: 13, letterSpacing: 0.11, color: tint }}
       >
         {label}
       </Text>
@@ -122,7 +122,7 @@ export const TabBar = ({
   }
   const bottom = Math.max(insets.bottom - 6, 12)
   const bar = (
-    <View style={{ flexDirection: "row", alignItems: "center", height: 66, paddingHorizontal: 3 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", height: 66, paddingHorizontal: 5 }}>
       {state.routes.map((route, index) => (
         <Tab
           key={route.key}
@@ -149,7 +149,7 @@ export const TabBar = ({
     borderRadius: 33,
     overflow: "hidden" as const,
     borderWidth: 1,
-    borderColor: theme.color.hairline,
+    borderColor: theme.color.ring,
     ...theme.shadow(3)
   }
   const paper = theme.color.background

@@ -120,7 +120,7 @@ export const Section = ({
             paddingTop: 4
           }}
         >
-          <Text variant="heading" accessibilityRole="header">
+          <Text variant="section" accessibilityRole="header">
             {title}
           </Text>
           {action}

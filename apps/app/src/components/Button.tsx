@@ -32,12 +32,14 @@ export const Button = ({
   const palette = {
     primary: { bg: color.primary, fg: color.onPrimary, ring: color.primary },
     dark: { bg: color.ink, fg: color.background, ring: color.ink },
-    secondary: { bg: color.surface, fg: color.text, ring: color.border },
+    secondary: { bg: color.surface, fg: color.text, ring: color.outline },
     soft: { bg: color.primaryTint, fg: color.primaryDeep, ring: color.primaryTint },
     ghost: { bg: "transparent", fg: color.text, ring: "transparent" }
   }[variant]
   const height = { sm: 36, md: 44, lg: 52 }[size]
   const inactive = disabled || loading
+  // Play is the one filled glyph, drawn larger and closer to the edge, with a bolder label (the Listen pill).
+  const play = icon === "play_arrow"
   return (
     <PressableScale
       haptic
@@ -50,8 +52,8 @@ export const Button = ({
       hitSlop={size === "sm" ? 4 : 0}
       style={{
         height,
-        paddingLeft: icon ? (size === "sm" ? 10 : 14) : size === "sm" ? 14 : 20,
-        paddingRight: size === "sm" ? 14 : 20,
+        paddingLeft: icon ? (size === "sm" ? 10 : play ? 12 : 14) : size === "sm" ? 14 : 20,
+        paddingRight: size === "sm" ? 14 : icon ? 18 : 20,
         borderRadius: radius.pill,
         backgroundColor: palette.bg,
         borderWidth: 1,
@@ -67,10 +69,14 @@ export const Button = ({
       {loading ? (
         <ActivityIndicator color={palette.fg} />
       ) : icon ? (
-        <Icon name={icon} size={size === "sm" ? 18 : 22} color={palette.fg} filled={icon === "play_arrow"} />
+        <Icon name={icon} size={size === "sm" ? 18 : play ? 24 : 19} color={palette.fg} filled={play} />
       ) : null}
       <View>
-        <Text variant="strong" style={{ color: palette.fg, fontSize: size === "lg" ? 16 : 14, lineHeight: 20 }}>
+        <Text
+          variant="strong"
+          weight={play ? "bold" : "semibold"}
+          style={{ color: palette.fg, fontSize: size === "lg" ? 16 : 14, lineHeight: 20 }}
+        >
           {label}
         </Text>
       </View>
@@ -121,7 +127,7 @@ export const IconButton = ({
         justifyContent: "center",
         backgroundColor: background,
         borderWidth: tone === "surface" && !active ? 1 : 0,
-        borderColor: color.hairline
+        borderColor: color.outline
       }}
     >
       <Icon

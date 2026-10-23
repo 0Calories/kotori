@@ -21,18 +21,24 @@ export interface Mark {
 
 const NO_MARKS: ReadonlyArray<Mark> = []
 
+/** Murecho's ascent plus descent, as a share of the size: the height of its glyph box. */
+const GLYPH_BOX = 1.448
+
 /**
  * Japanese text with readings above the kanji. Furigana arrives inline as
  * `{漢字|かんじ}`; every other character is laid out individually so lines can
- * wrap anywhere, as Japanese text does. Marks are drawn under whole units, so
- * they look the same on every platform: a marker behind the looked-up word,
- * and a squiggle under each mistake that runs unbroken along each line.
+ * wrap anywhere, as Japanese text does. Readings sit just above the kanji and
+ * overhang the line's leading instead of adding to it, as a browser sets
+ * `<ruby>`, so give furigana a line height of 1.6 or more. Marks are drawn
+ * under whole units, so they look the same on every platform: a marker behind
+ * the looked-up word, and a squiggle under each mistake that runs unbroken
+ * along each line.
  */
 export const Furigana = ({
   text,
   furigana,
   size = 20,
-  lineHeight = Math.round(size * 1.5),
+  lineHeight = Math.round(size * 1.6),
   color = "text",
   center,
   marks = NO_MARKS
@@ -89,6 +95,10 @@ export const Furigana = ({
   const overlaps = (unit: Unit) => (range: { readonly start: number; readonly end: number }) =>
     unit.start < range.end && unit.start + unit.base.length > range.start
   const rubySize = Math.max(Math.round(size * 0.5), 9)
+  const rubyLine = Math.round(rubySize * GLYPH_BOX)
+  // How far a reading reaches above the line box: its glyph box ends on top of the kanji's em box.
+  const overhang = Math.round(rubyLine / 2 + (GLYPH_BOX / 2) * rubySize - lineHeight / 2 + 0.444 * size)
+  const glyphBox = Math.round(GLYPH_BOX * size)
   // Each unit's base line is the bottom of its box; the squiggles are drawn against that line.
   const squiggled = units.flatMap((unit): Array<Piece> => {
     const mark = mistakes.findIndex(overlaps(unit))
@@ -119,11 +129,16 @@ export const Furigana = ({
       {units.map((unit) => (
         <View
           key={unit.start}
-          style={{ alignItems: "center" }}
+          style={{ alignItems: "center", marginTop: ruby === null ? 0 : -overhang }}
           onLayout={mistakes.some(overlaps(unit)) ? measure(String(unit.start)) : undefined}
         >
           {ruby !== null ? (
-            <Text jp size={rubySize} style={{ color: theme.color.textMuted, lineHeight: rubySize * 1.25 }}>
+            <Text
+              jp
+              weight="medium"
+              size={rubySize}
+              style={{ color: theme.color.textMuted, lineHeight: rubyLine, marginBottom: overhang - rubyLine }}
+            >
               {unit.reading ?? "​"}
             </Text>
           ) : null}
@@ -134,8 +149,8 @@ export const Furigana = ({
                   position: "absolute",
                   left: 0,
                   right: 0,
-                  bottom: 0,
-                  height: Math.round(lineHeight * 0.38),
+                  bottom: (lineHeight - glyphBox) / 2,
+                  height: Math.round(glyphBox * 0.38),
                   backgroundColor: theme.color.highlight
                 }}
               />

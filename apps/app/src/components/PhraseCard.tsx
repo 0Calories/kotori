@@ -105,14 +105,20 @@ export const PhraseCard = ({
       >
         <View style={{ flex: 1, gap: 2 }}>
           {target === "ja" ? (
-            <Furigana text={text} furigana={furigana} size={size} />
+            <Furigana text={text} furigana={furigana} size={size} lineHeight={Math.round(size * 1.7)} />
           ) : (
-            <Text variant="heading" size={size} selectable>
+            <Text
+              variant="heading"
+              size={size}
+              weight="semibold"
+              style={{ lineHeight: Math.round(size * 1.35) }}
+              selectable
+            >
               {text}
             </Text>
           )}
           {first && !first.label ? (
-            <Text variant="small" color="textMuted">
+            <Text variant={highlight ? "body" : "small"} color="textMuted" style={{ lineHeight: 19 }}>
               {first.text}
             </Text>
           ) : null}

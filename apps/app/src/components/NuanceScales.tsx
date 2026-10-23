@@ -14,7 +14,9 @@ export interface ScaleRow {
   readonly faded?: boolean
 }
 
-const ROW = 18
+/** Each row is as tall as its labels; the dot overhangs the row. */
+const ROW = 12.5
+const GAP = 16
 
 const Track = ({ row }: { readonly row: ScaleRow }) => {
   const { color } = useTheme()
@@ -24,11 +26,12 @@ const Track = ({ row }: { readonly row: ScaleRow }) => {
   }))
   return (
     <View style={{ height: ROW, justifyContent: "center", opacity: row.faded ? 0.45 : 1 }}>
-      <View style={{ height: 2, borderRadius: 1, backgroundColor: color.border }} />
+      <View style={{ height: 2, borderRadius: 1, backgroundColor: color.track }} />
       <Animated.View
         style={[
           {
             position: "absolute",
+            top: (ROW - 18) / 2,
             width: 18,
             height: 18,
             marginLeft: -9,
@@ -50,7 +53,7 @@ const Track = ({ row }: { readonly row: ScaleRow }) => {
  */
 export const NuanceScales = ({ rows }: { readonly rows: ReadonlyArray<ScaleRow> }) => {
   const label = (side: "left" | "right") => (
-    <View style={{ gap: 14, alignItems: side === "left" ? "flex-end" : "flex-start" }}>
+    <View style={{ gap: GAP, alignItems: side === "left" ? "flex-end" : "flex-start" }}>
       {rows.map((row) => (
         <View key={row.left} style={{ height: ROW, justifyContent: "center", opacity: row.faded ? 0.6 : 1 }}>
           <Text variant="caption" color="textMuted">
@@ -68,7 +71,7 @@ export const NuanceScales = ({ rows }: { readonly rows: ReadonlyArray<ScaleRow> 
       style={{ flexDirection: "row", gap: 12 }}
     >
       {label("left")}
-      <View style={{ flex: 1, gap: 14 }}>
+      <View style={{ flex: 1, gap: GAP }}>
         {rows.map((row) => (
           <Track key={row.left} row={row} />
         ))}

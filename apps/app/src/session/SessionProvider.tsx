@@ -109,3 +109,9 @@ export const useSession = () => {
 
 /** Interface copy for the current learner. */
 export const useT = () => useSession().t
+
+/** The language the interface is in; English outside a session. */
+export const useInterfaceLanguage = (): Language => {
+  const session = useContext(SessionContext)
+  return session?.t === strings.ja ? "ja" : "en"
+}
