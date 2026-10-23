@@ -1,5 +1,6 @@
 import { assert, describe, it, layer } from "@effect/vitest"
-import { DatabaseMemory, DictionaryRepo, EnrichmentRepo, type EntryRecord, Repositories } from "@kotori/db"
+import { DictionaryRepo, EnrichmentRepo, type EntryRecord, Repositories } from "@kotori/db"
+import { DatabaseMemory } from "@kotori/db/testing"
 import type { Question, Questions } from "@typesafe-ai/sdk"
 import { Effect, Layer } from "effect"
 import { interpretSense, Jev, NuanceEnricher, type SenseAnswers, senseQuestions } from "../src/index.ts"
@@ -104,7 +105,7 @@ const TestLayer = NuanceEnricher.layer.pipe(
 
 layer(TestLayer)("NuanceEnricher", (it) => {
   it.effect("classifies each sense and keeps near-synonyms", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const dictionary = yield* DictionaryRepo
       yield* dictionary.insertEntries([
         entry(1, "食べる", "たべる", [sense(["to eat"]), sense(["to live on"])]),
@@ -116,10 +117,17 @@ layer(TestLayer)("NuanceEnricher", (it) => {
       const summary = yield* (yield* NuanceEnricher).enrich(1)
       assert.deepStrictEqual(summary, { senses: 2, similar: 1, inputTokens: 200 })
 
-      const firstState = states[0] as { word: string; part_of_speech: Array<string>; candidates: Array<{ word: string }> }
+      const firstState = states[0] as {
+        word: string
+        part_of_speech: Array<string>
+        candidates: Array<{ word: string }>
+      }
       assert.strictEqual(firstState.word, "食べる")
       assert.deepStrictEqual(firstState.part_of_speech, ["Ichidan verb"])
-      assert.deepStrictEqual(firstState.candidates.map((c) => c.word), ["食う", "召し上がる"])
+      assert.deepStrictEqual(
+        firstState.candidates.map((c) => c.word),
+        ["食う", "召し上がる"]
+      )
 
       const repo = yield* EnrichmentRepo
       const saved = yield* repo.nuanceFor([1])
@@ -127,8 +135,12 @@ layer(TestLayer)("NuanceEnricher", (it) => {
       assert.strictEqual(saved[0]?.nuance.formality.value, "neutral")
 
       const similar = yield* repo.similarFor(1)
-      assert.deepStrictEqual(similar.map((row) => [row.similarId, row.difference]), [[2, "more_casual"]])
-    }))
+      assert.deepStrictEqual(
+        similar.map((row) => [row.similarId, row.difference]),
+        [[2, "more_casual"]]
+      )
+    })
+  )
 })
 
 describe("questions", () => {

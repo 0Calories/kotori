@@ -7,15 +7,18 @@ export class JevError extends Schema.TaggedError<JevError>()("JevError", {
 }) {}
 
 /** TypeSafe's Jev: typed judgments (choice, score, yes/no) with calibrated probabilities. */
-export class Jev extends Context.Service<Jev, {
-  readonly configured: boolean
-  /** The pinned model id; answers record the exact version that ran. */
-  readonly model: string
-  ask<Q extends Questions>(state: EntryType, questions: Q): Effect.Effect<SystemOneResult<Q>, JevError>
-}>()("@kotori/nuance/Jev") {
+export class Jev extends Context.Service<
+  Jev,
+  {
+    readonly configured: boolean
+    /** The pinned model id; answers record the exact version that ran. */
+    readonly model: string
+    ask<Q extends Questions>(state: EntryType, questions: Q): Effect.Effect<SystemOneResult<Q>, JevError>
+  }
+>()("@kotori/nuance/Jev") {
   static readonly layer = Layer.effect(
     Jev,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       // Pinned so stored confidences stay comparable; bump deliberately and re-run enrichment.
       const model = yield* Config.String("KOTORI_JEV_MODEL").pipe(Config.withDefault("jev-1.13.0"))
       const apiKey = yield* Config.Redacted("TYPESAFE_API_KEY").pipe(Config.option)

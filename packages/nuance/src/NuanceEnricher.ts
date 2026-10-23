@@ -20,19 +20,22 @@ export interface NuanceSummary {
   readonly inputTokens: number
 }
 
-export class NuanceEnricher extends Context.Service<NuanceEnricher, {
-  readonly model: string
-  enrich(entryId: number): Effect.Effect<NuanceSummary, JevError | EntryNotFound>
-}>()("@kotori/nuance/NuanceEnricher") {
+export class NuanceEnricher extends Context.Service<
+  NuanceEnricher,
+  {
+    readonly model: string
+    enrich(entryId: number): Effect.Effect<NuanceSummary, JevError | EntryNotFound>
+  }
+>()("@kotori/nuance/NuanceEnricher") {
   static readonly layer = Layer.effect(
     NuanceEnricher,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const jev = yield* Jev
       const dictionary = yield* DictionaryRepo
       const enrichment = yield* EnrichmentRepo
 
       /** JMDict "see also" references first (curated), then words sharing an exact gloss. */
-      const candidatesFor = Effect.fnUntraced(function*(entry: EntryRecord, senseIndex: number) {
+      const candidatesFor = Effect.fnUntraced(function* (entry: EntryRecord, senseIndex: number) {
         const sense = entry.senses[senseIndex]!
         const xrefTexts = sense.xrefs.map((xref) => xref.split("・")[0]!).filter((text) => text.length > 0)
         const xrefMatches = yield* dictionary.findForms(xrefTexts)
@@ -50,12 +53,15 @@ export class NuanceEnricher extends Context.Service<NuanceEnricher, {
             entryId: candidate.id,
             word: candidate.headword,
             reading: candidate.reading,
-            meaning: glosses.slice(0, 3).map((gloss) => gloss.text).join("; ")
+            meaning: glosses
+              .slice(0, 3)
+              .map((gloss) => gloss.text)
+              .join("; ")
           }
         })
       })
 
-      const enrich = Effect.fn("NuanceEnricher.enrich")(function*(entryId: number) {
+      const enrich = Effect.fn("NuanceEnricher.enrich")(function* (entryId: number) {
         const [entry] = yield* dictionary.getEntries([entryId])
         if (entry === undefined) return yield* new EntryNotFound({ entryId })
         const tags = yield* dictionary.tags
@@ -63,7 +69,7 @@ export class NuanceEnricher extends Context.Service<NuanceEnricher, {
         const judged = yield* Effect.forEach(
           entry.senses.slice(0, MAX_SENSES),
           (sense, index) =>
-            Effect.gen(function*() {
+            Effect.gen(function* () {
               const candidates = index < SIMILAR_SENSES ? yield* candidatesFor(entry, index) : []
               const questions: Record<string, Question> = { ...senseQuestions }
               candidates.forEach((_, i) => Object.assign(questions, candidateQuestions(i)))
@@ -81,7 +87,10 @@ export class NuanceEnricher extends Context.Service<NuanceEnricher, {
           model: result.model
         }))
         const similar = judged.flatMap(({ index, candidates, result }) =>
-          interpretCandidates(result.answers, candidates.map((c) => c.entryId)).map((j) => ({ sense: index, ...j }))
+          interpretCandidates(
+            result.answers,
+            candidates.map((c) => c.entryId)
+          ).map((j) => ({ sense: index, ...j }))
         )
 
         yield* enrichment.saveNuance(entryId, nuance, now)

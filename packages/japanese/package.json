@@ -5,13 +5,16 @@
   "description": "Japanese text utilities: script detection, romaji, deinflection",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "@kotori/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "scripts": {
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "test": "vitest run"
   },
   "dependencies": {
-    "wanakana": "^5.3.1"
+    "wanakana": "catalog:"
   }
 }

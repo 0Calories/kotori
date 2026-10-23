@@ -69,48 +69,51 @@ const AudioLink = Schema.Struct({ id: Schema.Int, audioKey: Schema.String })
 const ExampleAudioLink = Schema.Struct({ id: Schema.Int, language: Language, audioKey: Schema.String })
 const SumRow = Schema.Struct({ n: Schema.NullOr(Schema.Number) })
 
-export class EnrichmentRepo extends Context.Service<EnrichmentRepo, {
-  saveNuance(entryId: number, rows: ReadonlyArray<NuanceInput>, now: number): Effect.Effect<void>
-  nuanceFor(entryIds: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<NuanceRow>>
-  saveSimilar(entryId: number, rows: ReadonlyArray<SimilarRow>): Effect.Effect<void>
-  similarFor(entryId: number): Effect.Effect<ReadonlyArray<SimilarRow>>
-  saveExamples(entryId: number, rows: ReadonlyArray<ExampleInput>, now: number): Effect.Effect<void>
-  examplesFor(entryIds: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<ExampleRow>>
-  findAudio(key: string): Effect.Effect<Option.Option<AudioRow>>
-  saveAudio(row: AudioRow): Effect.Effect<void>
-  linkEntryAudio(entryId: number, key: string): Effect.Effect<void>
-  linkExampleAudio(exampleId: number, language: Language, key: string): Effect.Effect<void>
-  entryAudio(entryIds: ReadonlyArray<number>): Effect.Effect<ReadonlyMap<number, string>>
-  /** Audio keys per example, as `${exampleId}:${language}`. */
-  exampleAudio(exampleIds: ReadonlyArray<number>): Effect.Effect<ReadonlyMap<string, string>>
-  /** Characters sent to the TTS provider since `since`, for budgeting. */
-  audioCharactersSince(since: number): Effect.Effect<number>
-}>()("@kotori/db/EnrichmentRepo") {
+export class EnrichmentRepo extends Context.Service<
+  EnrichmentRepo,
+  {
+    saveNuance(entryId: number, rows: ReadonlyArray<NuanceInput>, now: number): Effect.Effect<void>
+    nuanceFor(entryIds: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<NuanceRow>>
+    saveSimilar(entryId: number, rows: ReadonlyArray<SimilarRow>): Effect.Effect<void>
+    similarFor(entryId: number): Effect.Effect<ReadonlyArray<SimilarRow>>
+    saveExamples(entryId: number, rows: ReadonlyArray<ExampleInput>, now: number): Effect.Effect<void>
+    examplesFor(entryIds: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<ExampleRow>>
+    findAudio(key: string): Effect.Effect<Option.Option<AudioRow>>
+    saveAudio(row: AudioRow): Effect.Effect<void>
+    linkEntryAudio(entryId: number, key: string): Effect.Effect<void>
+    linkExampleAudio(exampleId: number, language: Language, key: string): Effect.Effect<void>
+    entryAudio(entryIds: ReadonlyArray<number>): Effect.Effect<ReadonlyMap<number, string>>
+    /** Audio keys per example, as `${exampleId}:${language}`. */
+    exampleAudio(exampleIds: ReadonlyArray<number>): Effect.Effect<ReadonlyMap<string, string>>
+    /** Characters sent to the TTS provider since `since`, for budgeting. */
+    audioCharactersSince(since: number): Effect.Effect<number>
+  }
+>()("@kotori/db/EnrichmentRepo") {
   static readonly layer = Layer.effect(
     EnrichmentRepo,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient
 
       const saveNuance = Effect.fn("EnrichmentRepo.saveNuance")(
-        function*(entryId: number, rows: ReadonlyArray<NuanceInput>, now: number) {
+        function* (entryId: number, rows: ReadonlyArray<NuanceInput>, now: number) {
           yield* sql`DELETE FROM sense_nuance WHERE entry_id = ${entryId}`
           if (rows.length === 0) return
-          yield* sql`INSERT INTO sense_nuance ${
-            sql.insert(rows.map((row) => ({
+          yield* sql`INSERT INTO sense_nuance ${sql.insert(
+            rows.map((row) => ({
               entryId,
               sense: row.sense,
               nuance: JSON.stringify(row.nuance),
               answers: JSON.stringify(row.answers),
               model: row.model,
               createdAt: now
-            })))
-          }`
+            }))
+          )}`
         },
         (effect) => sql.withTransaction(effect),
         Effect.orDie
       )
 
-      const nuanceFor = Effect.fn("EnrichmentRepo.nuanceFor")(function*(entryIds: ReadonlyArray<number>) {
+      const nuanceFor = Effect.fn("EnrichmentRepo.nuanceFor")(function* (entryIds: ReadonlyArray<number>) {
         if (entryIds.length === 0) return []
         return yield* sql`
           SELECT entry_id, sense, nuance, model FROM sense_nuance WHERE entry_id IN ${sql.in(entryIds)}
@@ -118,7 +121,7 @@ export class EnrichmentRepo extends Context.Service<EnrichmentRepo, {
       }, Effect.orDie)
 
       const saveSimilar = Effect.fn("EnrichmentRepo.saveSimilar")(
-        function*(entryId: number, rows: ReadonlyArray<SimilarRow>) {
+        function* (entryId: number, rows: ReadonlyArray<SimilarRow>) {
           yield* sql`DELETE FROM similar_words WHERE entry_id = ${entryId}`
           if (rows.length === 0) return
           yield* sql`INSERT INTO similar_words ${sql.insert(rows.map((row) => ({ entryId, ...row })))}`
@@ -127,7 +130,7 @@ export class EnrichmentRepo extends Context.Service<EnrichmentRepo, {
         Effect.orDie
       )
 
-      const similarFor = Effect.fn("EnrichmentRepo.similarFor")(function*(entryId: number) {
+      const similarFor = Effect.fn("EnrichmentRepo.similarFor")(function* (entryId: number) {
         return yield* sql`
           SELECT sense, similar_id, similarity, difference, confidence
           FROM similar_words WHERE entry_id = ${entryId}
@@ -136,24 +139,24 @@ export class EnrichmentRepo extends Context.Service<EnrichmentRepo, {
       }, Effect.orDie)
 
       const saveExamples = Effect.fn("EnrichmentRepo.saveExamples")(
-        function*(entryId: number, rows: ReadonlyArray<ExampleInput>, now: number) {
+        function* (entryId: number, rows: ReadonlyArray<ExampleInput>, now: number) {
           yield* sql`DELETE FROM example_audio WHERE example_id IN (SELECT id FROM examples WHERE entry_id = ${entryId})`
           yield* sql`DELETE FROM examples WHERE entry_id = ${entryId}`
           if (rows.length === 0) return
           const position = new Map<number, number>()
-          yield* sql`INSERT INTO examples ${
-            sql.insert(rows.map((row) => {
+          yield* sql`INSERT INTO examples ${sql.insert(
+            rows.map((row) => {
               const next = position.get(row.sense) ?? 0
               position.set(row.sense, next + 1)
               return { entryId, position: next, createdAt: now, ...row }
-            }))
-          }`
+            })
+          )}`
         },
         (effect) => sql.withTransaction(effect),
         Effect.orDie
       )
 
-      const examplesFor = Effect.fn("EnrichmentRepo.examplesFor")(function*(entryIds: ReadonlyArray<number>) {
+      const examplesFor = Effect.fn("EnrichmentRepo.examplesFor")(function* (entryIds: ReadonlyArray<number>) {
         if (entryIds.length === 0) return []
         return yield* sql`
           SELECT id, entry_id, sense, position, ja, furigana, en, formality, note, model
@@ -162,7 +165,7 @@ export class EnrichmentRepo extends Context.Service<EnrichmentRepo, {
         `.pipe(Effect.flatMap(decodeRows(ExampleRow)))
       }, Effect.orDie)
 
-      const findAudio = Effect.fn("EnrichmentRepo.findAudio")(function*(key: string) {
+      const findAudio = Effect.fn("EnrichmentRepo.findAudio")(function* (key: string) {
         const rows = yield* sql`
           SELECT key, text, language, voice_id, model_id, characters, bytes, created_at FROM audio WHERE key = ${key}
         `.pipe(Effect.flatMap(decodeRows(AudioRow)))
@@ -184,7 +187,7 @@ export class EnrichmentRepo extends Context.Service<EnrichmentRepo, {
           ON CONFLICT (example_id, language) DO UPDATE SET audio_key = excluded.audio_key
         `.pipe(Effect.asVoid, Effect.orDie)
 
-      const entryAudio = Effect.fn("EnrichmentRepo.entryAudio")(function*(entryIds: ReadonlyArray<number>) {
+      const entryAudio = Effect.fn("EnrichmentRepo.entryAudio")(function* (entryIds: ReadonlyArray<number>) {
         if (entryIds.length === 0) return new Map<number, string>()
         const rows = yield* sql`
           SELECT entry_id AS id, audio_key FROM entry_audio WHERE entry_id IN ${sql.in(entryIds)}
@@ -192,7 +195,7 @@ export class EnrichmentRepo extends Context.Service<EnrichmentRepo, {
         return new Map(rows.map((row) => [row.id, row.audioKey]))
       }, Effect.orDie)
 
-      const exampleAudio = Effect.fn("EnrichmentRepo.exampleAudio")(function*(exampleIds: ReadonlyArray<number>) {
+      const exampleAudio = Effect.fn("EnrichmentRepo.exampleAudio")(function* (exampleIds: ReadonlyArray<number>) {
         if (exampleIds.length === 0) return new Map<string, string>()
         const rows = yield* sql`
           SELECT example_id AS id, language, audio_key FROM example_audio WHERE example_id IN ${sql.in(exampleIds)}

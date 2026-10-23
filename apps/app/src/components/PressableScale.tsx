@@ -14,7 +14,16 @@ export interface PressableScaleProps extends Omit<PressableProps, "style" | "chi
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
 
 /** Pressable with a quick, springy press-down that tracks the finger, plus a light haptic tick. */
-export const PressableScale = ({ style, children, scaleTo = 0.97, haptic = false, onPressIn, onPressOut, onPress, ...props }: PressableScaleProps) => {
+export const PressableScale = ({
+  style,
+  children,
+  scaleTo = 0.97,
+  haptic = false,
+  onPressIn,
+  onPressOut,
+  onPress,
+  ...props
+}: PressableScaleProps) => {
   const reduceMotion = useReducedMotion()
   const scale = useSharedValue(1)
   const animated = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))

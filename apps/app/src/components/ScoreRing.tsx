@@ -7,7 +7,15 @@ import { Text } from "./Text.tsx"
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle)
 
-export const ScoreRing = ({ score, color, size = 96 }: { readonly score: number; readonly color: string; readonly size?: number }) => {
+export const ScoreRing = ({
+  score,
+  color,
+  size = 96
+}: {
+  readonly score: number
+  readonly color: string
+  readonly size?: number
+}) => {
   const theme = useTheme()
   const stroke = 9
   const r = (size - stroke) / 2
@@ -36,7 +44,9 @@ export const ScoreRing = ({ score, color, size = 96 }: { readonly score: number;
           animatedProps={animatedProps}
         />
       </Svg>
-      <Text variant="title" style={{ color }}>{score}</Text>
+      <Text variant="title" style={{ color }}>
+        {score}
+      </Text>
     </View>
   )
 }

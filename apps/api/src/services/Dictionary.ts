@@ -12,7 +12,14 @@ import {
   type SimilarWord,
   type Tag
 } from "@kotori/domain"
-import { deinflect, hasJapanese, katakanaToHiragana, matchesPartOfSpeech, romajiToKana, romanize } from "@kotori/japanese"
+import {
+  deinflect,
+  hasJapanese,
+  katakanaToHiragana,
+  matchesPartOfSpeech,
+  romajiToKana,
+  romanize
+} from "@kotori/japanese"
 import { Jev } from "@kotori/nuance"
 import { Pronouncer } from "@kotori/tts"
 import { Clock, Context, Effect, Layer, Option } from "effect"
@@ -77,17 +84,22 @@ const firstGlosses = (entry: EntryRecord, count: number) => {
   return meanings.length < count && second !== undefined ? [...meanings, second] : meanings
 }
 
-export class Dictionary extends Context.Service<Dictionary, {
-  search(query: string, limit: number): Effect.Effect<SearchResult>
-  entry(id: EntryId): Effect.Effect<Option.Option<Entry>>
-  /** Queues whatever enrichment an entry is missing, returning its status. */
-  requestEnrichment(id: EntryId): Effect.Effect<Option.Option<Enrichment>>
-  /** Entry ids for words, for linking coach vocabulary to the dictionary. */
-  lookupWords(words: ReadonlyArray<{ readonly word: string; readonly reading: string }>): Effect.Effect<ReadonlyArray<EntryId | null>>
-}>()("@kotori/api/Dictionary") {
+export class Dictionary extends Context.Service<
+  Dictionary,
+  {
+    search(query: string, limit: number): Effect.Effect<SearchResult>
+    entry(id: EntryId): Effect.Effect<Option.Option<Entry>>
+    /** Queues whatever enrichment an entry is missing, returning its status. */
+    requestEnrichment(id: EntryId): Effect.Effect<Option.Option<Enrichment>>
+    /** Entry ids for words, for linking coach vocabulary to the dictionary. */
+    lookupWords(
+      words: ReadonlyArray<{ readonly word: string; readonly reading: string }>
+    ): Effect.Effect<ReadonlyArray<EntryId | null>>
+  }
+>()("@kotori/api/Dictionary") {
   static readonly layer = Layer.effect(
     Dictionary,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const repo = yield* DictionaryRepo
       const enrichment = yield* EnrichmentRepo
       const jobs = yield* JobsRepo
@@ -99,7 +111,7 @@ export class Dictionary extends Context.Service<Dictionary, {
       // Search
       // ---------------------------------------------------------------------
 
-      const japaneseHits = Effect.fnUntraced(function*(query: string) {
+      const japaneseHits = Effect.fnUntraced(function* (query: string) {
         const variants = unique([query, katakanaToHiragana(query)])
         const candidates = variants.flatMap(deinflect)
         const matches = yield* repo.findForms(unique(candidates.map((candidate) => candidate.term)))
@@ -113,8 +125,11 @@ export class Dictionary extends Context.Service<Dictionary, {
             .filter((candidate) => candidate.term === match.text && matchesPartOfSpeech(candidate.type, pos))
             .map((candidate) => ({
               entryId: entry.id,
-              score: (candidate.reasons.length === 0 ? 1000 : 800 - 10 * candidate.reasons.length) +
-                (match.text === entry.headword ? 20 : 0) + (entry.common ? 50 : 0) + entry.priority / 10,
+              score:
+                (candidate.reasons.length === 0 ? 1000 : 800 - 10 * candidate.reasons.length) +
+                (match.text === entry.headword ? 20 : 0) +
+                (entry.common ? 50 : 0) +
+                entry.priority / 10,
               inflection: candidate.reasons
             }))
         })
@@ -129,7 +144,7 @@ export class Dictionary extends Context.Service<Dictionary, {
         return keepBest([...exact, ...prefix])
       })
 
-      const englishHits = Effect.fnUntraced(function*(query: string) {
+      const englishHits = Effect.fnUntraced(function* (query: string) {
         const expression = ftsExpression(query)
         const exact = yield* repo.findGlossesExact(query, 300)
         const fuzzy = expression === null ? [] : yield* repo.searchGlosses(expression, 600)
@@ -141,7 +156,8 @@ export class Dictionary extends Context.Service<Dictionary, {
           const glossNorm = normalizeGloss(match.text)
           return {
             entryId: match.entryId,
-            score: (isExact ? 100 : 30) +
+            score:
+              (isExact ? 100 : 30) +
               (!isExact && glossNorm.startsWith(norm) ? 15 : 0) +
               (SENSE_BONUS[match.sense] ?? 0) -
               3 * match.position -
@@ -156,7 +172,7 @@ export class Dictionary extends Context.Service<Dictionary, {
         return keepBest([...exact.map((m) => score(m, true)), ...fuzzy.map((m) => score(m, false))])
       })
 
-      const summaries = Effect.fnUntraced(function*(hits: ReadonlyArray<Hit>) {
+      const summaries = Effect.fnUntraced(function* (hits: ReadonlyArray<Hit>) {
         const ids = hits.map((hit) => hit.entryId)
         const entries = new Map((yield* repo.getEntries(ids)).map((entry) => [entry.id, entry]))
         const nuance = yield* enrichment.nuanceFor(ids)
@@ -166,21 +182,23 @@ export class Dictionary extends Context.Service<Dictionary, {
         return hits.flatMap((hit): Array<EntrySummary> => {
           const entry = entries.get(hit.entryId)
           if (entry === undefined) return []
-          return [{
-            id: EntryId.make(entry.id),
-            headword: entry.headword,
-            reading: entry.reading,
-            romaji: romanize(entry.reading),
-            common: entry.common,
-            meanings: firstGlosses(entry, 3),
-            partOfSpeech: entry.senses[0]?.pos[0] ?? null,
-            formality: formality.get(entry.id) ?? null,
-            inflection: hit.inflection
-          }]
+          return [
+            {
+              id: EntryId.make(entry.id),
+              headword: entry.headword,
+              reading: entry.reading,
+              romaji: romanize(entry.reading),
+              common: entry.common,
+              meanings: firstGlosses(entry, 3),
+              partOfSpeech: entry.senses[0]?.pos[0] ?? null,
+              formality: formality.get(entry.id) ?? null,
+              inflection: hit.inflection
+            }
+          ]
         })
       })
 
-      const search = Effect.fn("Dictionary.search")(function*(raw: string, limit: number) {
+      const search = Effect.fn("Dictionary.search")(function* (raw: string, limit: number) {
         const query = raw.normalize("NFKC").trim()
         if (query.length === 0) return { query, mode: "english" as const, reading: null, entries: [] }
 
@@ -194,13 +212,12 @@ export class Dictionary extends Context.Service<Dictionary, {
         const romaji = kana === null ? [] : (yield* japaneseHits(kana)).filter((hit) => hit.score >= 700)
         const englishIsStrong = (english[0]?.score ?? 0) >= 150
         const preferRomaji = romaji.length > 0 && !englishIsStrong
-        const ordered = preferRomaji ? keepBest([...romaji, ...english.map((h) => ({ ...h, score: h.score - 1000 }))]) : [
-          ...english,
-          ...romaji.filter((hit) => !english.some((e) => e.entryId === hit.entryId))
-        ]
+        const ordered = preferRomaji
+          ? keepBest([...romaji, ...english.map((h) => ({ ...h, score: h.score - 1000 }))])
+          : [...english, ...romaji.filter((hit) => !english.some((e) => e.entryId === hit.entryId))]
         return {
           query,
-          mode: preferRomaji ? "romaji" as const : "english" as const,
+          mode: preferRomaji ? ("romaji" as const) : ("english" as const),
           reading: preferRomaji ? kana : null,
           entries: yield* summaries(ordered.slice(0, limit))
         }
@@ -213,7 +230,7 @@ export class Dictionary extends Context.Service<Dictionary, {
       const status = (ready: boolean, available: boolean, job: string | undefined): EnrichmentStatus =>
         ready ? "ready" : !available || job === "failed" ? "unavailable" : "queued"
 
-      const enrichmentFor = Effect.fnUntraced(function*(entry: EntryRecord, enqueue: boolean) {
+      const enrichmentFor = Effect.fnUntraced(function* (entry: EntryRecord, enqueue: boolean) {
         const hasNuance = (yield* enrichment.nuanceFor([entry.id])).length > 0
         const hasExamples = (yield* enrichment.examplesFor([entry.id])).length > 0
         const hasAudio = (yield* enrichment.entryAudio([entry.id])).size > 0
@@ -235,7 +252,7 @@ export class Dictionary extends Context.Service<Dictionary, {
         }
       })
 
-      const assemble = Effect.fnUntraced(function*(entry: EntryRecord) {
+      const assemble = Effect.fnUntraced(function* (entry: EntryRecord) {
         const tags = yield* repo.tags
         const tag = (code: string): Tag => ({ code, label: tags.get(code) ?? code })
 
@@ -281,15 +298,17 @@ export class Dictionary extends Context.Service<Dictionary, {
             .flatMap((row): Array<SimilarWord> => {
               const similar = similarEntries.get(row.similarId)
               if (similar === undefined) return []
-              return [{
-                entryId: EntryId.make(similar.id),
-                headword: similar.headword,
-                reading: similar.reading,
-                meaning: firstGlosses(similar, 2).join("; "),
-                difference: row.difference,
-                confidence: row.confidence,
-                formality: (similarFormality.get(similar.id) ?? null) as Formality | null
-              }]
+              return [
+                {
+                  entryId: EntryId.make(similar.id),
+                  headword: similar.headword,
+                  reading: similar.reading,
+                  meaning: firstGlosses(similar, 2).join("; "),
+                  difference: row.difference,
+                  confidence: row.confidence,
+                  formality: (similarFormality.get(similar.id) ?? null) as Formality | null
+                }
+              ]
             }),
           examples: examples
             .filter((example) => example.sense === index)
@@ -324,34 +343,36 @@ export class Dictionary extends Context.Service<Dictionary, {
         } satisfies Entry
       })
 
-      const entry = Effect.fn("Dictionary.entry")(function*(id: EntryId) {
+      const entry = Effect.fn("Dictionary.entry")(function* (id: EntryId) {
         const [record] = yield* repo.getEntries([id])
         return record === undefined ? Option.none() : Option.some(yield* assemble(record))
       })
 
-      const requestEnrichment = Effect.fn("Dictionary.requestEnrichment")(function*(id: EntryId) {
+      const requestEnrichment = Effect.fn("Dictionary.requestEnrichment")(function* (id: EntryId) {
         const [record] = yield* repo.getEntries([id])
         return record === undefined ? Option.none() : Option.some(yield* enrichmentFor(record, true))
       })
 
-      const lookupWords = Effect.fn("Dictionary.lookupWords")(
-        function*(words: ReadonlyArray<{ readonly word: string; readonly reading: string }>) {
-          const matches = yield* repo.findForms(unique(words.flatMap((w) => [w.word, w.reading])))
-          const ranks = yield* repo.ranks(unique(matches.map((m) => m.entryId)))
-          return words.map(({ word, reading }) => {
-            const candidates = matches.filter((m) => m.text === word || m.text === reading)
-            // Prefer an entry matching both spelling and reading, then the most frequent.
-            const best = candidates
-              .map((m) => ({
-                id: m.entryId,
-                score: (candidates.filter((c) => c.entryId === m.entryId).length > 1 ? 1000 : 0) +
-                  (m.text === word ? 100 : 0) + (ranks.get(m.entryId)?.priority ?? 0)
-              }))
-              .sort((a, b) => b.score - a.score)[0]
-            return best === undefined ? null : EntryId.make(best.id)
-          })
-        }
-      )
+      const lookupWords = Effect.fn("Dictionary.lookupWords")(function* (
+        words: ReadonlyArray<{ readonly word: string; readonly reading: string }>
+      ) {
+        const matches = yield* repo.findForms(unique(words.flatMap((w) => [w.word, w.reading])))
+        const ranks = yield* repo.ranks(unique(matches.map((m) => m.entryId)))
+        return words.map(({ word, reading }) => {
+          const candidates = matches.filter((m) => m.text === word || m.text === reading)
+          // Prefer an entry matching both spelling and reading, then the most frequent.
+          const best = candidates
+            .map((m) => ({
+              id: m.entryId,
+              score:
+                (candidates.filter((c) => c.entryId === m.entryId).length > 1 ? 1000 : 0) +
+                (m.text === word ? 100 : 0) +
+                (ranks.get(m.entryId)?.priority ?? 0)
+            }))
+            .sort((a, b) => b.score - a.score)[0]
+          return best === undefined ? null : EntryId.make(best.id)
+        })
+      })
 
       return Dictionary.of({ search, entry, requestEnrichment, lookupWords })
     })

@@ -29,7 +29,7 @@ apps/
   app/        Expo (Router) app for iOS, Android and web
 packages/
   domain/     Schemas and the HttpApi contract shared by the API and the app (typed client)
-  db/         SQLite (node:sqlite) layer, migrations, repositories, FTS5 search index
+  db/         Postgres layer (@effect/sql-pg), migrations, repositories, full-text search
   jmdict/     Downloads and parses EDRDG's JMdict_e, imports it
   japanese/   Romaji ↔ kana, script detection, Yomichan-style deinflection
   nuance/     Jev questions, state building and interpretation for nuance + similar words
@@ -43,7 +43,11 @@ tools/        Renders the mascot into app icons
 
 ## Getting started
 
-Requires **Node ≥ 22.12** (for `node:sqlite`) and **pnpm 11**.
+Requires **Node 24** (pinned in `.node-version`), **pnpm 12** (pinned in `package.json`, installed by Corepack or `pnpm self-update`) and a **Postgres** to point `DATABASE_URL` at (default `postgres://localhost:5432/kotori`), e.g.:
+
+```sh
+docker run -d --name kotori-pg -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=kotori -p 5432:5432 postgres:17-alpine
+```
 
 ```sh
 pnpm install
@@ -90,29 +94,37 @@ Claude requests opt into server-side refusal fallbacks (`fallbacks: "default"`),
 
 ## Accounts and sign-ups
 
-Identity is handled by [Better Auth](https://better-auth.com) at `/api/auth/*`, in its own SQLite database (`data/auth.db`). Learners sign up with email and password; the API keeps their profile and study data in `kotori.db` under the same id. Kotori is in private beta, so new accounts start **pending** and can only reach `/account` until approved:
+Identity is handled by Neon's [Managed Better Auth](https://neon.com/docs/auth/overview), proxied by the API at `/api/auth/*`; users and sessions live in the `neon_auth` schema of the same Postgres. Learners sign up with email and password; the app then authenticates to the API with a short-lived JWT (`GET /api/auth/token`), the web with the session cookie. Approval status and roles are Kotori's own, on the learner profile. Kotori is in private beta, so new accounts start **pending** and can only reach `/account` until approved:
 
 ```sh
 pnpm kotori requests                  # sign-ups waiting for approval (--all includes archived)
-pnpm kotori approve ash@example.com   # unlocks the app and emails the learner
-pnpm kotori archive ash@example.com   # hides the request; nothing is sent
+pnpm kotori approve user@example.com  # unlocks the app and emails the learner
+pnpm kotori archive user@example.com  # hides the request; nothing is sent
 pnpm kotori users                     # every account
 pnpm kotori admin admin@example.com     # admins skip approval (--remove to demote)
 pnpm kotori revoke user@example.com    # signs them out of every device
 ```
 
-Verification, password-reset and approval emails go through [Resend](https://resend.com) when `RESEND_API_KEY` is set; otherwise they are printed to the API log, which is enough for local development. Set `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` before deploying (see `.env.example`).
+The approval email goes through [Resend](https://resend.com) when `RESEND_API_KEY` is set; otherwise it is printed to the log, which is enough for local development. Verification and password-reset emails are Managed Auth's; routing them through Resend with Kotori's templates is a pre-launch item in `docs/deploy.md`. Running the API needs a Neon branch (`neon checkout <branch>` writes `DATABASE_URL` and `NEON_AUTH_BASE_URL` into `.env.local`).
 
 ## Development
 
 ```sh
 pnpm test        # every package's tests (Vitest + @effect/vitest), cached by Nx
-pnpm typecheck   # tsc across the workspace
+pnpm typecheck   # TypeScript 7 (tsc --build) across the workspace
+pnpm build       # emits dist/ for the API, the worker and the packages they use
+pnpm lint        # Oxlint (.oxlintrc.json)
+pnpm format      # Oxfmt (.oxfmtrc.json); `pnpm format:check` in CI
+pnpm sync        # Nx keeps tsconfig project references in step with package.json
 pnpm assets      # re-render icons and splash from the mascot geometry
 ```
 
-Tests cover the SM-2 scheduler against Anki's behaviour, deinflection, JMDict parsing, repositories on an in-memory database, the Jev and ElevenLabs pipelines with fakes, structured-output schemas, and the HTTP API end to end through Effect's in-memory `HttpApiTest` client.
+Packages are TypeScript project references. Each one has a `tsconfig.lib.json` (source, emitted to `dist/`) and a `tsconfig.spec.json` (tests, type-checked only); `nx sync` derives the `references` between them from `package.json` dependencies, so importing a package you have not declared fails the typecheck. Their `exports` maps point `@kotori/source` at `src/` and everything else at `dist/`: `tsc`, `tsx -C @kotori/source`, Vitest and Metro read source, while `node dist/main.js` in production reads the compiled output.
+
+CI (`.github/workflows/ci.yml`) runs `nx sync:check`, format and lint checks, then `nx affected -t typecheck test build`; a push to `main` deploys to Fly.io once the checks pass (see `docs/deploy.md`). Dependency versions shared across packages live in the `catalog:` of `pnpm-workspace.yaml`. TypeScript 7 is installed as `@typescript/native` (the `tsc` you run) alongside TypeScript 6 as `typescript` (the compiler API that Nx and editors still need; `tsc6`).
+
+Tests cover the SM-2 scheduler against Anki's behaviour, deinflection, JMDict parsing, repositories on an in-process Postgres ([PGlite](https://pglite.dev), no server needed), the Jev and ElevenLabs pipelines with fakes, structured-output schemas, and the HTTP API end to end through Effect's in-memory `HttpApiTest` client.
 
 ## Data and credits
 
-Dictionary data is [JMDict](https://www.edrdg.org/jmdict/j_jmdict.html) by the Electronic Dictionary Research and Development Group, used under [CC BY-SA 4.0](https://www.edrdg.org/edrdg/licence.html). The app credits it in Settings. Local data (database, downloads, audio) lives in `data/` and is not committed.
+Dictionary data is [JMDict](https://www.edrdg.org/jmdict/j_jmdict.html) by the Electronic Dictionary Research and Development Group, used under [CC BY-SA 4.0](https://www.edrdg.org/edrdg/licence.html). The app credits it in Settings. JMDict downloads land in `data/` and are not committed; everything else lives in Postgres.

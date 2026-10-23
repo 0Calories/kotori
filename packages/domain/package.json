@@ -5,13 +5,16 @@
   "description": "Shared schemas and the HttpApi contract for Kotori",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "@kotori/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "scripts": {
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "test": "vitest run"
   },
   "dependencies": {
-    "effect": "4.0.3"
+    "effect": "catalog:"
   }
 }

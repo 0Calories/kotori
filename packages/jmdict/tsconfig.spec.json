@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "out-tsc/spec",
+    "emitDeclarationOnly": true,
+    "rewriteRelativeImportExtensions": false,
+    "types": ["node"]
+  },
+  "include": ["test"],
+  "references": [
+    {
+      "path": "./tsconfig.lib.json"
+    }
+  ]
+}

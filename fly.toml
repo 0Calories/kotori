@@ -1,0 +1,57 @@
+# Fly.io: one app, two process groups from one image (Dockerfile at the repo root).
+# `fly launch --no-deploy` adopts this file; change `app` if the name is taken and
+# ord is closest to the Neon project's aws-us-east-2 (see docs/deploy.md).
+app = "kotori"
+primary_region = "ord"
+kill_signal = "SIGTERM"
+# Seconds between SIGTERM and SIGKILL, a ceiling rather than a wait: the API drains in-flight
+# requests (up to 20 s), the worker puts its in-flight job back in the queue and exits at once.
+kill_timeout = 60
+
+[build]
+dockerfile = "Dockerfile"
+
+[env]
+NODE_ENV = "production"
+PORT = "8080"
+
+[processes]
+api = "node apps/api/dist/main.js"
+worker = "node apps/worker/dist/main.js work"
+
+[http_service]
+processes = ["api"]
+internal_port = 8080
+force_https = true
+# Keep one API machine warm: sign-in and session checks shouldn't pay a cold start.
+auto_stop_machines = "off"
+auto_start_machines = true
+min_machines_running = 1
+
+[http_service.concurrency]
+type = "requests"
+soft_limit = 200
+hard_limit = 250
+
+# /health reads the database, so a passing check also proves migrations ran. Its Claude
+# probe is capped at 2 s, inside the 5 s timeout, so an Anthropic outage can't fail it.
+[[http_service.checks]]
+grace_period = "30s"
+interval = "15s"
+timeout = "5s"
+method = "GET"
+path = "/health"
+
+[[vm]]
+processes = ["api"]
+size = "shared-cpu-1x"
+memory = "512mb"
+
+[[vm]]
+processes = ["worker"]
+size = "shared-cpu-1x"
+memory = "512mb"
+
+[[restart]]
+policy = "on-failure"
+retries = 5

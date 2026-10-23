@@ -5,16 +5,19 @@
   "description": "Claude-powered coaching (naturalness, how do I say) and example sentences",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "@kotori/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "scripts": {
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "test": "vitest run"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.133.0",
+    "@anthropic-ai/sdk": "catalog:",
     "@kotori/db": "workspace:*",
     "@kotori/domain": "workspace:*",
-    "effect": "4.0.3"
+    "effect": "catalog:"
   }
 }

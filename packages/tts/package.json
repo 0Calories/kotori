@@ -5,18 +5,21 @@
   "description": "Pronunciation audio with ElevenLabs, stored content-addressed",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "@kotori/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "scripts": {
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "test": "vitest run"
   },
   "dependencies": {
     "@kotori/db": "workspace:*",
     "@kotori/domain": "workspace:*",
-    "effect": "4.0.3"
+    "effect": "catalog:"
   },
   "devDependencies": {
-    "@effect/platform-node": "4.0.3"
+    "@effect/platform-node": "catalog:"
   }
 }

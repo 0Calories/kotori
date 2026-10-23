@@ -16,7 +16,7 @@ export const seed = Command.make(
       Flag.withDefault(false)
     )
   },
-  Effect.fn(function*({ file, limit, commonOnly }) {
+  Effect.fn(function* ({ file, limit, commonOnly }) {
     const path = Option.isSome(file) ? file.value : yield* JMDict.download("data/jmdict")
     const started = Date.now()
     const result = yield* JMDict.importFile({ file: path, limit: Option.getOrUndefined(limit), commonOnly })

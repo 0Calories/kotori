@@ -26,32 +26,36 @@ export type NaturalnessOutput = typeof NaturalnessOutput.Type
 export const HowToSayOutput = Schema.Struct({
   intent: Schema.String,
   phrases: Schema.Array(Phrase),
-  keyWords: Schema.Array(Schema.Struct({
-    word: Schema.String,
-    reading: Schema.String,
-    meaning: Schema.String,
-    note: Schema.String
-  })),
+  keyWords: Schema.Array(
+    Schema.Struct({
+      word: Schema.String,
+      reading: Schema.String,
+      meaning: Schema.String,
+      note: Schema.String
+    })
+  ),
   pitfalls: Schema.Array(Pitfall),
   culturalNote: Schema.NullOr(Schema.String)
 })
 export type HowToSayOutput = typeof HowToSayOutput.Type
 
-
 /** Drops furigana that doesn't spell out the sentence it annotates, rather than show wrong readings. */
 const checkedFurigana = (text: string, furigana: string | null) =>
   furigana !== null && furiganaToText(furigana) === text ? furigana : null
 
-export class Coach extends Context.Service<Coach, {
-  naturalness(request: NaturalnessRequest, learner: Learner): Effect.Effect<NaturalnessOutput, ClaudeError>
-  howToSay(request: HowToSayRequest, learner: Learner): Effect.Effect<HowToSayOutput, ClaudeError>
-}>()("@kotori/ai/Coach") {
+export class Coach extends Context.Service<
+  Coach,
+  {
+    naturalness(request: NaturalnessRequest, learner: Learner): Effect.Effect<NaturalnessOutput, ClaudeError>
+    howToSay(request: HowToSayRequest, learner: Learner): Effect.Effect<HowToSayOutput, ClaudeError>
+  }
+>()("@kotori/ai/Coach") {
   static readonly layer = Layer.effect(
     Coach,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const claude = yield* Claude
 
-      const naturalness = Effect.fn("Coach.naturalness")(function*(request: NaturalnessRequest, learner: Learner) {
+      const naturalness = Effect.fn("Coach.naturalness")(function* (request: NaturalnessRequest, learner: Learner) {
         const output = yield* claude.generate({
           schema: NaturalnessOutput,
           system: naturalnessSystem(learner),
@@ -68,7 +72,7 @@ export class Coach extends Context.Service<Coach, {
         }
       })
 
-      const howToSay = Effect.fn("Coach.howToSay")(function*(request: HowToSayRequest, learner: Learner) {
+      const howToSay = Effect.fn("Coach.howToSay")(function* (request: HowToSayRequest, learner: Learner) {
         const output = yield* claude.generate({
           schema: HowToSayOutput,
           system: howToSaySystem(learner),

@@ -30,7 +30,12 @@ const Result = ({ result }: { readonly result: NaturalnessResult }) => {
   const theme = useTheme()
   const { t } = useSession()
   const tone = verdictTone[result.verdict]
-  const ringColor = { matcha: theme.color.matcha, sky: theme.color.sky, yuzu: theme.color.yuzu, plum: theme.color.plum }[tone as "matcha"]
+  const ringColor = {
+    matcha: theme.color.matcha,
+    sky: theme.color.sky,
+    yuzu: theme.color.yuzu,
+    plum: theme.color.plum
+  }[tone as "matcha"]
   const FORMALITY = ["vulgar", "casual", "neutral", "polite", "formal"] as const
 
   return (
@@ -40,74 +45,82 @@ const Result = ({ result }: { readonly result: NaturalnessResult }) => {
           <View style={{ flexDirection: "row", alignItems: "center", gap: theme.space.lg }}>
             <ScoreRing score={result.score} color={ringColor ?? theme.color.primary} />
             <View style={{ flex: 1, gap: 6 }}>
-              <Text variant="title" style={{ color: ringColor }}>{t.check.verdict[result.verdict]}</Text>
+              <Text variant="title" style={{ color: ringColor }}>
+                {t.check.verdict[result.verdict]}
+              </Text>
               <Chip tone={registerTone[result.register]} label={t.check.register[result.register]} />
             </View>
             <Mascot size={64} mood={MOOD[result.verdict]} />
           </View>
           <Text>{result.summary}</Text>
-          {result.formality
-            ? (
-              <Meter
-                title={t.check.sounds}
-                labels={FORMALITY.map((level) => t.nuance.scale[level])}
-                position={result.formality.position}
-                value={t.nuance.scale[FORMALITY[Math.round(result.formality.position * 4)] ?? "neutral"]}
-                faded={result.formality.confidence < 0.55}
-              />
-            )
-            : null}
+          {result.formality ? (
+            <Meter
+              title={t.check.sounds}
+              labels={FORMALITY.map((level) => t.nuance.scale[level])}
+              position={result.formality.position}
+              value={t.nuance.scale[FORMALITY[Math.round(result.formality.position * 4)] ?? "neutral"]}
+              faded={result.formality.confidence < 0.55}
+            />
+          ) : null}
         </Card>
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(100).duration(400)}>
         <Section title={t.check.meaning}>
-          <Card tone="muted"><Text>{result.meaning}</Text></Card>
+          <Card tone="muted">
+            <Text>{result.meaning}</Text>
+          </Card>
         </Section>
       </Animated.View>
 
-      {result.issues.length > 0
-        ? (
-          <Animated.View entering={FadeInDown.delay(180).duration(400)}>
-            <Section title={t.check.issues}>
-              {result.issues.map((issue, index) => (
-                <Card key={index} style={{ gap: 8 }}>
-                  <View style={{ flexDirection: "row", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                    <Chip tone="yuzu" label={t.check.issueKind[issue.kind]} />
-                    <Text jp variant="strong" style={{ textDecorationLine: "underline", textDecorationColor: theme.color.yuzu }}>{issue.excerpt}</Text>
-                  </View>
-                  <Text variant="small">{issue.explanation}</Text>
-                  <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
-                    <Text variant="small" color="matcha">→</Text>
-                    <Text jp variant="small" color="matcha" style={{ flex: 1 }}>{issue.fix}</Text>
-                  </View>
-                </Card>
-              ))}
-            </Section>
-          </Animated.View>
-        )
-        : null}
+      {result.issues.length > 0 ? (
+        <Animated.View entering={FadeInDown.delay(180).duration(400)}>
+          <Section title={t.check.issues}>
+            {result.issues.map((issue, index) => (
+              <Card key={index} style={{ gap: 8 }}>
+                <View style={{ flexDirection: "row", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <Chip tone="yuzu" label={t.check.issueKind[issue.kind]} />
+                  <Text
+                    jp
+                    variant="strong"
+                    style={{ textDecorationLine: "underline", textDecorationColor: theme.color.yuzu }}
+                  >
+                    {issue.excerpt}
+                  </Text>
+                </View>
+                <Text variant="small">{issue.explanation}</Text>
+                <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+                  <Text variant="small" color="matcha">
+                    →
+                  </Text>
+                  <Text jp variant="small" color="matcha" style={{ flex: 1 }}>
+                    {issue.fix}
+                  </Text>
+                </View>
+              </Card>
+            ))}
+          </Section>
+        </Animated.View>
+      ) : null}
 
-      {result.rewrites.length > 0
-        ? (
-          <Animated.View entering={FadeInDown.delay(260).duration(400)}>
-            <Section title={result.verdict === "natural" ? t.check.alternatives : t.check.rewrites}>
-              {result.rewrites.map((rewrite, index) => (
-                <PhraseCard
-                  key={index}
-                  text={rewrite.text}
-                  furigana={rewrite.furigana}
-                  register={rewrite.register}
-                  meaning={rewrite.translation}
-                  source="naturalness"
-                  highlight={index === 0 && result.verdict !== "natural"}
-                  lines={[{ text: rewrite.translation }, { text: rewrite.note }]}
-                />
-              ))}
-            </Section>
-          </Animated.View>
-        )
-        : null}
+      {result.rewrites.length > 0 ? (
+        <Animated.View entering={FadeInDown.delay(260).duration(400)}>
+          <Section title={result.verdict === "natural" ? t.check.alternatives : t.check.rewrites}>
+            {result.rewrites.map((rewrite, index) => (
+              <PhraseCard
+                key={index}
+                text={rewrite.text}
+                furigana={rewrite.furigana}
+                register={rewrite.register}
+                meaning={rewrite.translation}
+                source="naturalness"
+                highlight={index === 0 && result.verdict !== "natural"}
+                lines={[{ text: rewrite.translation }, { text: rewrite.note }]}
+              />
+            ))}
+          </Section>
+        </Animated.View>
+      ) : null}
     </View>
   )
 }
@@ -142,19 +155,51 @@ export default function CheckScreen() {
       <Text color="textMuted">{t.check.subtitle}</Text>
 
       <Card style={{ gap: theme.space.md }}>
-        <Input value={text} onChangeText={setText} placeholder={t.check.placeholder} multiline large jp={jp} maxLength={400} accessibilityLabel={t.check.title} />
-        <PressableScale onPress={() => setShowMore(!showMore)} style={{ flexDirection: "row", gap: 6, alignItems: "center", alignSelf: "flex-start", paddingVertical: 4 }}>
-          <Text variant="caption" color="primary">{showMore ? "−" : "+"} {t.check.context} · {t.check.intent}</Text>
+        <Input
+          value={text}
+          onChangeText={setText}
+          placeholder={t.check.placeholder}
+          multiline
+          large
+          jp={jp}
+          maxLength={400}
+          accessibilityLabel={t.check.title}
+        />
+        <PressableScale
+          onPress={() => setShowMore(!showMore)}
+          style={{ flexDirection: "row", gap: 6, alignItems: "center", alignSelf: "flex-start", paddingVertical: 4 }}
+        >
+          <Text variant="caption" color="primary">
+            {showMore ? "−" : "+"} {t.check.context} · {t.check.intent}
+          </Text>
         </PressableScale>
-        {showMore
-          ? (
-            <Animated.View entering={FadeInDown.duration(220)} style={{ gap: theme.space.md }}>
-              <Input label={t.check.context} value={context} onChangeText={setContext} placeholder={t.check.contextPlaceholder} maxLength={400} />
-              <Input label={t.check.intent} value={intent} onChangeText={setIntent} placeholder={t.check.intentPlaceholder} maxLength={400} />
-            </Animated.View>
-          )
-          : null}
-        <Button label={check.isPending ? t.check.checking : t.check.submit} icon="sparkles" size="lg" full loading={check.isPending} disabled={text.trim().length === 0} onPress={submit} />
+        {showMore ? (
+          <Animated.View entering={FadeInDown.duration(220)} style={{ gap: theme.space.md }}>
+            <Input
+              label={t.check.context}
+              value={context}
+              onChangeText={setContext}
+              placeholder={t.check.contextPlaceholder}
+              maxLength={400}
+            />
+            <Input
+              label={t.check.intent}
+              value={intent}
+              onChangeText={setIntent}
+              placeholder={t.check.intentPlaceholder}
+              maxLength={400}
+            />
+          </Animated.View>
+        ) : null}
+        <Button
+          label={check.isPending ? t.check.checking : t.check.submit}
+          icon="sparkles"
+          size="lg"
+          full
+          loading={check.isPending}
+          disabled={text.trim().length === 0}
+          onPress={submit}
+        />
       </Card>
 
       {check.isPending ? <MascotMessage mood="thinking" body={t.check.checking} size={90} /> : null}

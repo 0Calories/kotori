@@ -13,13 +13,15 @@ import { Study } from "../services/Study.ts"
 
 const VERSION = "0.1.0"
 
-const orNotFound = <A>(message: string) => (option: Option.Option<A>) =>
-  Option.match(option, { onNone: () => Effect.fail(new NotFound({ message })), onSome: Effect.succeed })
+const orNotFound =
+  <A>(message: string) =>
+  (option: Option.Option<A>) =>
+    Option.match(option, { onNone: () => Effect.fail(new NotFound({ message })), onSome: Effect.succeed })
 
 export const SystemHandlers = HttpApiBuilder.group(
   KotoriApi,
   "system",
-  Effect.fn(function*(handlers) {
+  Effect.fn(function* (handlers) {
     const claude = yield* Claude
     const jev = yield* Jev
     const pronouncer = yield* Pronouncer
@@ -27,7 +29,7 @@ export const SystemHandlers = HttpApiBuilder.group(
     const dictionary = yield* DictionaryRepo
     return handlers.handleAll({
       health: () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           return {
             ok: true,
             version: VERSION,
@@ -47,11 +49,12 @@ export const SystemHandlers = HttpApiBuilder.group(
 export const AccountHandlers = HttpApiBuilder.group(
   KotoriApi,
   "account",
-  Effect.fn(function*(handlers) {
+  Effect.fn(function* (handlers) {
     const accounts = yield* Accounts
     return handlers.handleAll({
       me: () => Effect.map(CurrentUser, (user) => user.profile),
-      update: ({ payload }) => Effect.flatMap(CurrentUser, (user) => accounts.update(user.profile, payload))
+      update: ({ payload }) => Effect.flatMap(CurrentUser, (user) => accounts.update(user.profile, payload)),
+      delete: () => Effect.flatMap(CurrentUser, (user) => accounts.delete(user.id))
     })
   })
 )
@@ -59,13 +62,12 @@ export const AccountHandlers = HttpApiBuilder.group(
 export const DictionaryHandlers = HttpApiBuilder.group(
   KotoriApi,
   "dictionary",
-  Effect.fn(function*(handlers) {
+  Effect.fn(function* (handlers) {
     const dictionary = yield* Dictionary
     return handlers.handleAll({
       search: ({ query }) => dictionary.search(query.q, Math.min(Math.max(query.limit ?? 30, 1), 100)),
       entry: ({ params }) => dictionary.entry(params.id).pipe(Effect.flatMap(orNotFound("No such entry"))),
-      enrich: ({ params }) =>
-        dictionary.requestEnrichment(params.id).pipe(Effect.flatMap(orNotFound("No such entry")))
+      enrich: ({ params }) => dictionary.requestEnrichment(params.id).pipe(Effect.flatMap(orNotFound("No such entry")))
     })
   })
 )
@@ -73,7 +75,7 @@ export const DictionaryHandlers = HttpApiBuilder.group(
 export const CoachHandlers = HttpApiBuilder.group(
   KotoriApi,
   "coach",
-  Effect.fn(function*(handlers) {
+  Effect.fn(function* (handlers) {
     const coaching = yield* Coaching
     return handlers.handleAll({
       naturalness: ({ payload }) => Effect.flatMap(CurrentUser, (user) => coaching.naturalness(user.profile, payload)),
@@ -85,7 +87,7 @@ export const CoachHandlers = HttpApiBuilder.group(
 export const AudioHandlers = HttpApiBuilder.group(
   KotoriApi,
   "audio",
-  Effect.fn(function*(handlers) {
+  Effect.fn(function* (handlers) {
     const coaching = yield* Coaching
     return handlers.handleAll({
       speak: ({ payload }) => Effect.flatMap(CurrentUser, (user) => coaching.speak(user.profile, payload))
@@ -96,12 +98,12 @@ export const AudioHandlers = HttpApiBuilder.group(
 export const StudyHandlers = HttpApiBuilder.group(
   KotoriApi,
   "study",
-  Effect.fn(function*(handlers) {
+  Effect.fn(function* (handlers) {
     const study = yield* Study
     return handlers.handleAll({
       notes: () => Effect.flatMap(CurrentUser, (user) => study.notes(user.profile)),
       addNote: ({ payload }) =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const user = yield* CurrentUser
           if (payload.content.kind === "phrase" && payload.content.text.trim().length === 0) {
             return yield* new InvalidRequest({ message: "A phrase needs some text" })
@@ -109,7 +111,7 @@ export const StudyHandlers = HttpApiBuilder.group(
           return yield* study.addNote(user.profile, payload)
         }),
       removeNote: ({ params }) =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const user = yield* CurrentUser
           if (!(yield* study.removeNote(user.profile, params.id))) {
             return yield* new NotFound({ message: "No such note" })
@@ -118,7 +120,7 @@ export const StudyHandlers = HttpApiBuilder.group(
       queue: ({ query }) =>
         Effect.flatMap(CurrentUser, (user) => study.queue(user.profile, Math.min(Math.max(query.limit ?? 50, 1), 200))),
       answer: ({ params, payload }) =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const user = yield* CurrentUser
           const result = yield* study.answer(user.profile, params.id, payload.rating, payload.durationMs)
           return yield* orNotFound<typeof result extends Option.Option<infer A> ? A : never>("No such card")(result)

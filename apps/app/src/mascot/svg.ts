@@ -6,16 +6,24 @@ export const mascotSvg = (options: { mood?: Mood; background?: string; padding?:
   const pad = options.padding ?? 0
   const size = 200 + pad * 2
   const { body } = shapes
-  const eyes = mood === "happy" || mood === "celebrate"
-    ? shapes.eyes.map((e) =>
-      `<path d="M${e.cx - 7} ${e.cy + 2} Q ${e.cx} ${e.cy - 7} ${e.cx + 7} ${e.cy + 2}" fill="none" stroke="${palette.ink}" stroke-width="4" stroke-linecap="round"/>`
-    ).join("")
-    : shapes.eyes.map((e) =>
-      `<circle cx="${e.cx}" cy="${e.cy}" r="7" fill="${palette.ink}"/><circle cx="${e.cx + 2.5}" cy="${e.cy - 2.5}" r="2.3" fill="${palette.white}"/>`
-    ).join("")
-  const wing = mood === "celebrate"
-    ? `<path d="${shapes.wingUp}" fill="${palette.ink}"/><path d="${shapes.wingUpShoulder}" fill="${palette.rose}"/>`
-    : `<path d="${shapes.wing}" fill="${palette.ink}"/><path d="${shapes.wingShoulder}" fill="${palette.rose}"/><path d="${shapes.wingEdge}" stroke="${palette.white}" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.85"/>`
+  const eyes =
+    mood === "happy" || mood === "celebrate"
+      ? shapes.eyes
+          .map(
+            (e) =>
+              `<path d="M${e.cx - 7} ${e.cy + 2} Q ${e.cx} ${e.cy - 7} ${e.cx + 7} ${e.cy + 2}" fill="none" stroke="${palette.ink}" stroke-width="4" stroke-linecap="round"/>`
+          )
+          .join("")
+      : shapes.eyes
+          .map(
+            (e) =>
+              `<circle cx="${e.cx}" cy="${e.cy}" r="7" fill="${palette.ink}"/><circle cx="${e.cx + 2.5}" cy="${e.cy - 2.5}" r="2.3" fill="${palette.white}"/>`
+          )
+          .join("")
+  const wing =
+    mood === "celebrate"
+      ? `<path d="${shapes.wingUp}" fill="${palette.ink}"/><path d="${shapes.wingUpShoulder}" fill="${palette.rose}"/>`
+      : `<path d="${shapes.wing}" fill="${palette.ink}"/><path d="${shapes.wingShoulder}" fill="${palette.rose}"/><path d="${shapes.wingEdge}" stroke="${palette.white}" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.85"/>`
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-pad} ${-pad} ${size} ${size}" width="${size}" height="${size}">
   <defs>

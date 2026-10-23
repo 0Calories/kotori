@@ -2,24 +2,23 @@
   "name": "@kotori/auth",
   "version": "0.1.0",
   "private": true,
-  "description": "Identity and sessions with Better Auth, plus signup approval",
+  "description": "Neon Managed Better Auth client (proxy, sessions, JWT verification) and signup approval",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "@kotori/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "scripts": {
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "test": "vitest run"
   },
   "dependencies": {
-    "@better-auth/expo": "~1.7.12",
     "@kotori/db": "workspace:*",
     "@kotori/domain": "workspace:*",
     "@kotori/email": "workspace:*",
-    "better-auth": "~1.7.12",
-    "effect": "4.0.3"
-  },
-  "devDependencies": {
-    "@effect/platform-node": "4.0.3"
+    "effect": "catalog:",
+    "jose": "catalog:"
   }
 }

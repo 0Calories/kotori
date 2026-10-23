@@ -31,7 +31,10 @@ export const shapes = {
     { cx: 54, cy: 113, rx: 11, ry: 7 },
     { cx: 115, cy: 113, rx: 10, ry: 7 }
   ],
-  eyes: [{ cx: 67, cy: 99 }, { cx: 103, cy: 99 }],
+  eyes: [
+    { cx: 67, cy: 99 },
+    { cx: 103, cy: 99 }
+  ],
   beak: "M80 109 L 90 109 L 85 116 Z"
 } as const
 

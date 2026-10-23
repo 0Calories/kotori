@@ -12,11 +12,18 @@ export class Unauthorized extends Schema.TaggedError<Unauthorized>()(
   { httpApiStatus: 401 }
 ) {}
 
-/** The account exists but Ash hasn't approved it yet (or it was archived). Only `/account` endpoints work. */
+/** The account exists but an admin hasn't approved it yet (or it was archived). Only `/account` endpoints work. */
 export class PendingApproval extends Schema.TaggedError<PendingApproval>()(
   "PendingApproval",
   { message: Schema.String },
   { httpApiStatus: 403 }
+) {}
+
+/** Sign-in couldn't be checked because Managed Auth is unreachable; the credentials may well be fine. */
+export class AuthUnavailable extends Schema.TaggedError<AuthUnavailable>()(
+  "AuthUnavailable",
+  { message: Schema.String },
+  { httpApiStatus: 503 }
 ) {}
 
 export class InvalidRequest extends Schema.TaggedError<InvalidRequest>()(

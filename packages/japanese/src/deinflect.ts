@@ -74,7 +74,14 @@ const GODAN = [
 const verbRules = (
   type: "v1" | "v5" | "vk" | "vs",
   dict: string,
-  stems: { readonly a: string; readonly i: string; readonly e: string; readonly o: string; readonly te: string; readonly ta: string }
+  stems: {
+    readonly a: string
+    readonly i: string
+    readonly e: string
+    readonly o: string
+    readonly te: string
+    readonly ta: string
+  }
 ): Array<Rule> => [
   rule(`${stems.i}ます`, dict, [], type, "polite"),
   rule(`${stems.i}ません`, dict, [], type, "polite"),

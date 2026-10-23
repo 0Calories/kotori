@@ -26,24 +26,29 @@ const decodeRows = <S extends Schema.Constraint>(schema: S) => Schema.decodeUnkn
 /** Attempts before a job is marked failed for good. */
 const MAX_ATTEMPTS = 3
 
-export class JobsRepo extends Context.Service<JobsRepo, {
-  /** Queues work for an entry. Re-queueing raises priority and revives failed jobs. */
-  enqueue(kind: JobKind, entryId: number, priority: number, now: number): Effect.Effect<void>
-  /** Queues a job to run again even if it already finished (e.g. audio once examples exist). */
-  requeue(kind: JobKind, entryId: number, priority: number, now: number): Effect.Effect<void>
-  /** Atomically takes the most urgent runnable job of the given kinds. */
-  claim(kinds: ReadonlyArray<JobKind>, now: number): Effect.Effect<Option.Option<Job>>
-  complete(id: number, now: number): Effect.Effect<void>
-  /** Records a failure; the job is retried after `retryAt` until it runs out of attempts. */
-  fail(id: number, error: string, retryAt: number, now: number): Effect.Effect<void>
-  statusFor(entryId: number): Effect.Effect<ReadonlyMap<JobKind, JobStatus>>
-  /** Puts jobs left `running` by a crashed worker back in the queue. */
-  requeueStale(olderThan: number, now: number): Effect.Effect<void>
-  readonly counts: Effect.Effect<ReadonlyArray<{ kind: JobKind; status: JobStatus; n: number }>>
-}>()("@kotori/db/JobsRepo") {
+export class JobsRepo extends Context.Service<
+  JobsRepo,
+  {
+    /** Queues work for an entry. Re-queueing raises priority and revives failed jobs. */
+    enqueue(kind: JobKind, entryId: number, priority: number, now: number): Effect.Effect<void>
+    /** Queues a job to run again even if it already finished (e.g. audio once examples exist). */
+    requeue(kind: JobKind, entryId: number, priority: number, now: number): Effect.Effect<void>
+    /** Atomically takes the most urgent runnable job of the given kinds. */
+    claim(kinds: ReadonlyArray<JobKind>, now: number): Effect.Effect<Option.Option<Job>>
+    complete(id: number, now: number): Effect.Effect<void>
+    /** Records a failure; the job is retried after `retryAt` until it runs out of attempts. */
+    fail(id: number, error: string, retryAt: number, now: number): Effect.Effect<void>
+    /** Puts a claimed job back in the queue without counting the attempt: its worker stopped, it didn't fail. */
+    release(id: number, now: number): Effect.Effect<void>
+    statusFor(entryId: number): Effect.Effect<ReadonlyMap<JobKind, JobStatus>>
+    /** Puts jobs left `running` by a worker that crashed or was killed back in the queue. */
+    requeueStale(olderThan: number, now: number): Effect.Effect<void>
+    readonly counts: Effect.Effect<ReadonlyArray<{ kind: JobKind; status: JobStatus; n: number }>>
+  }
+>()("@kotori/db/JobsRepo") {
   static readonly layer = Layer.effect(
     JobsRepo,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient
 
       const enqueue = (kind: JobKind, entryId: number, priority: number, now: number) =>
@@ -51,7 +56,7 @@ export class JobsRepo extends Context.Service<JobsRepo, {
           INSERT INTO jobs (kind, entry_id, priority, status, created_at, updated_at)
           VALUES (${kind}, ${entryId}, ${priority}, 'queued', ${now}, ${now})
           ON CONFLICT (kind, entry_id) DO UPDATE SET
-            priority = max(jobs.priority, excluded.priority),
+            priority = greatest(jobs.priority, excluded.priority),
             status = CASE WHEN jobs.status = 'failed' THEN 'queued' ELSE jobs.status END,
             attempts = CASE WHEN jobs.status = 'failed' THEN 0 ELSE jobs.attempts END,
             updated_at = excluded.updated_at
@@ -69,7 +74,7 @@ export class JobsRepo extends Context.Service<JobsRepo, {
             updated_at = excluded.updated_at
         `.pipe(Effect.asVoid, Effect.orDie)
 
-      const claim = Effect.fn("JobsRepo.claim")(function*(kinds: ReadonlyArray<JobKind>, now: number) {
+      const claim = Effect.fn("JobsRepo.claim")(function* (kinds: ReadonlyArray<JobKind>, now: number) {
         if (kinds.length === 0) return Option.none()
         const rows = yield* sql`
           UPDATE jobs SET status = 'running', attempts = attempts + 1, updated_at = ${now}
@@ -78,6 +83,7 @@ export class JobsRepo extends Context.Service<JobsRepo, {
             WHERE status = 'queued' AND kind IN ${sql.in(kinds)} AND run_after <= ${now}
             ORDER BY priority DESC, id
             LIMIT 1
+            FOR UPDATE SKIP LOCKED
           )
           RETURNING id, kind, entry_id, priority, status, attempts, error
         `.pipe(Effect.flatMap(decodeRows(Job)))
@@ -100,7 +106,13 @@ export class JobsRepo extends Context.Service<JobsRepo, {
           WHERE id = ${id}
         `.pipe(Effect.asVoid, Effect.orDie)
 
-      const statusFor = Effect.fn("JobsRepo.statusFor")(function*(entryId: number) {
+      const release = (id: number, now: number) =>
+        sql`
+          UPDATE jobs SET status = 'queued', attempts = greatest(attempts - 1, 0), updated_at = ${now}
+          WHERE id = ${id} AND status = 'running'
+        `.pipe(Effect.asVoid, Effect.orDie)
+
+      const statusFor = Effect.fn("JobsRepo.statusFor")(function* (entryId: number) {
         const rows = yield* sql`SELECT kind, status FROM jobs WHERE entry_id = ${entryId}`.pipe(
           Effect.flatMap(decodeRows(StatusRow))
         )
@@ -118,7 +130,7 @@ export class JobsRepo extends Context.Service<JobsRepo, {
         Effect.orDie
       )
 
-      return JobsRepo.of({ enqueue, requeue, claim, complete, fail, statusFor, requeueStale, counts })
+      return JobsRepo.of({ enqueue, requeue, claim, complete, fail, release, statusFor, requeueStale, counts })
     })
   )
 }

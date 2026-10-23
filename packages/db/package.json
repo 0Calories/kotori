@@ -2,18 +2,29 @@
   "name": "@kotori/db",
   "version": "0.1.0",
   "private": true,
-  "description": "SQLite database, migrations and repositories",
+  "description": "Postgres database, migrations and repositories",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "@kotori/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "@kotori/source": "./src/testing.ts",
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    }
   },
   "scripts": {
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "test": "vitest run"
   },
   "dependencies": {
-    "@effect/sql-sqlite-node": "4.0.3",
+    "@effect/sql-pg": "catalog:",
     "@kotori/domain": "workspace:*",
-    "effect": "4.0.3"
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/sql-pglite": "catalog:"
   }
 }

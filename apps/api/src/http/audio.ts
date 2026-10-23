@@ -6,7 +6,7 @@ import { HttpRouter, HttpServerResponse } from "effect/http"
 export const AudioRoute = HttpRouter.add(
   "GET",
   "/audio/:file",
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { file = "" } = yield* HttpRouter.params
     const key = file.replace(/\.mp3$/, "")
     if (!isAudioKey(key)) return HttpServerResponse.empty({ status: 404 })

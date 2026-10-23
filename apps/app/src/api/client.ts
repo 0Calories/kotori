@@ -22,9 +22,8 @@ export const setToken = (value: string | null) => {
 
 class Api extends Context.Service<Api, HttpApiClient.ForApi<typeof KotoriApi>>()("@kotori/app/Api") {}
 
-const AuthorizationClient = HttpApiMiddleware.layerClient(
-  Authorization,
-  ({ next, request }) => next(token === null ? request : HttpClientRequest.bearerToken(request, token))
+const AuthorizationClient = HttpApiMiddleware.layerClient(Authorization, ({ next, request }) =>
+  next(token === null ? request : HttpClientRequest.bearerToken(request, token))
 )
 
 const ApiLive = Layer.effect(
@@ -46,7 +45,10 @@ export type ApiErrorTag =
   | "Unexpected"
 
 export class ApiError extends Error {
-  constructor(readonly tag: ApiErrorTag, message: string) {
+  constructor(
+    readonly tag: ApiErrorTag,
+    message: string
+  ) {
     super(message)
   }
 }
@@ -58,19 +60,23 @@ const toApiError = (error: unknown): ApiError => {
     const message = Predicate.hasProperty(error, "message") && Predicate.isString(error.message) ? error.message : ""
     if (KNOWN.has(error._tag)) return new ApiError(error._tag as ApiErrorTag, message)
     if (error._tag === "HttpClientError") return new ApiError("Offline", message)
+    // Managed Auth is down: the stored token is still good, so this is not a sign-out.
+    if (error._tag === "AuthUnavailable") return new ApiError("Offline", message)
   }
   return new ApiError("Unexpected", error instanceof Error ? error.message : String(error))
 }
 
 /** Runs a typed API call as a promise, for React Query. Failures become `ApiError`s. */
 export const call = async <A, E>(request: (api: Api["Service"]) => Effect.Effect<A, E>): Promise<A> => {
-  const exit = await runtime.runPromiseExit(Effect.gen(function*() {
-    const api = yield* Api
-    return yield* request(api)
-  }).pipe(
-    // No tracing backend in the app, and trace headers would need extra CORS allowances.
-    Effect.provideService(HttpClient.TracerPropagationEnabled, false)
-  ))
+  const exit = await runtime.runPromiseExit(
+    Effect.gen(function* () {
+      const api = yield* Api
+      return yield* request(api)
+    }).pipe(
+      // No tracing backend in the app, and trace headers would need extra CORS allowances.
+      Effect.provideService(HttpClient.TracerPropagationEnabled, false)
+    )
+  )
   if (Exit.isSuccess(exit)) return exit.value
   throw toApiError(Cause.squash(exit.cause))
 }

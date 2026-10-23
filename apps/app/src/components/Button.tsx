@@ -16,7 +16,17 @@ export interface ButtonProps {
   readonly accessibilityHint?: string
 }
 
-export const Button = ({ label, onPress, variant = "primary", size = "md", icon, loading, disabled, full, accessibilityHint }: ButtonProps) => {
+export const Button = ({
+  label,
+  onPress,
+  variant = "primary",
+  size = "md",
+  icon,
+  loading,
+  disabled,
+  full,
+  accessibilityHint
+}: ButtonProps) => {
   const { color, radius, font } = useTheme()
   const palette = {
     primary: { bg: color.primary, fg: color.onPrimary, border: color.primary },
@@ -50,7 +60,11 @@ export const Button = ({ label, onPress, variant = "primary", size = "md", icon,
         alignSelf: full ? "stretch" : undefined
       }}
     >
-      {loading ? <ActivityIndicator color={palette.fg} /> : icon ? <Ionicons name={icon} size={size === "sm" ? 16 : 19} color={palette.fg} /> : null}
+      {loading ? (
+        <ActivityIndicator color={palette.fg} />
+      ) : icon ? (
+        <Ionicons name={icon} size={size === "sm" ? 16 : 19} color={palette.fg} />
+      ) : null}
       <View>
         <Text style={{ color: palette.fg, fontFamily: font.heavy, fontSize: size === "sm" ? 14 : 16 }}>{label}</Text>
       </View>
@@ -58,16 +72,21 @@ export const Button = ({ label, onPress, variant = "primary", size = "md", icon,
   )
 }
 
-export const IconButton = (
-  { icon, onPress, label, tone = "muted", size = 40, active }: {
-    readonly icon: keyof typeof Ionicons.glyphMap
-    readonly onPress?: () => void
-    readonly label: string
-    readonly tone?: "muted" | "primary"
-    readonly size?: number
-    readonly active?: boolean
-  }
-) => {
+export const IconButton = ({
+  icon,
+  onPress,
+  label,
+  tone = "muted",
+  size = 40,
+  active
+}: {
+  readonly icon: keyof typeof Ionicons.glyphMap
+  readonly onPress?: () => void
+  readonly label: string
+  readonly tone?: "muted" | "primary"
+  readonly size?: number
+  readonly active?: boolean
+}) => {
   const { color } = useTheme()
   return (
     <PressableScale
@@ -86,7 +105,11 @@ export const IconButton = (
         backgroundColor: active ? color.primary : tone === "primary" ? color.primarySoft : color.surfaceMuted
       }}
     >
-      <Ionicons name={icon} size={size * 0.48} color={active ? color.onPrimary : tone === "primary" ? color.primary : color.textMuted} />
+      <Ionicons
+        name={icon}
+        size={size * 0.48}
+        color={active ? color.onPrimary : tone === "primary" ? color.primary : color.textMuted}
+      />
     </PressableScale>
   )
 }

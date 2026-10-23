@@ -2,20 +2,22 @@
 
 Status: agreed, 2026-10-20. Milestone: private beta — open signup, admin approval.
 
+> **This is the original design record; the implementation has since moved on.** Storage is one Postgres at `DATABASE_URL` (Neon), and identity is Neon's Managed Better Auth rather than a self-hosted instance: the API proxies `/api/auth/*`, the app authenticates with a managed JWT and the web with the session cookie, users and sessions live in the `neon_auth` schema of the same database, and the approval `status` and `role` live on Kotori's `users` profile. The access model, approval flow and CLI below still describe the product; the storage and library details do not. Current details: `docs/deploy.md` §4.
+
 ## 1. Decision summary
 
 - **Stack: Better Auth**, pinned to `~1.7.x`, self-hosted inside the existing API. MIT, Vercel-owned since July 2026; the library stays open source and host-agnostic. There is no hosted "Better Auth via Vercel" product — Vercel Connect is an OAuth gateway for third-party connectors, not managed auth — so we run the library and treat upkeep as dependency hygiene (§8).
 - **Identity lives in its own database**, `data/auth.db`, owned and migrated by Better Auth. Kotori's `kotori.db` keeps the learner profile, study data, dictionary and enrichment. Rationale in §4.
 - **v1 sign-in: email + password** with email verification and password reset. No login codes, no magic links.
 - **v2 (fast-follow): Apple + Google** via the native ID-token flow. They ship as a pair: App Store guideline 4.8 means any social login on iOS requires an equivalent privacy-preserving option, in practice Sign in with Apple.
-- **Access model: open signup, manual approval.** Anyone can create an account; it starts `pending`. Pending users can sign in but reach no feature endpoints — the app shows a "you're on the list" screen. Ash approves from a CLI surface; requests that won't be approved are archived, not banned.
+- **Access model: open signup, manual approval.** Anyone can create an account; it starts `pending`. Pending users can sign in but reach no feature endpoints — the app shows a "you're on the list" screen. The admin approves from a CLI surface; requests that won't be approved are archived, not banned.
 - **The hand-rolled auth is removed**: anonymous device accounts, `kt_` token issuance, `token_hash` lookup, `Accounts.create/authenticate` and the onboarding "create account on first launch" flow. Better Auth owns identity and sessions; Kotori owns the learner profile and everything behind it.
 - Deferred but cheap later, by design: 2FA, passkeys, magic links (Better Auth plugins).
 
 ## 2. Goals
 
 1. Sign up and sign in with email + password on iOS, Android and web; same account and study data everywhere.
-2. Pending accounts can authenticate but not use the app; Ash can list, approve and archive requests.
+2. Pending accounts can authenticate but not use the app; the admin can list, approve and archive requests.
 3. Sessions are revocable (per device, everywhere, admin) and survive daily use without re-login.
 4. In-app account deletion (App Store 5.1.1(v); external TestFlight builds are reviewed).
 5. Future phases — social, passkeys, 2FA, public launch — are configuration and UI, not re-architecture.
@@ -40,7 +42,7 @@ Status: agreed, 2026-10-20. Milestone: private beta — open signup, admin appro
 
 - `status: "pending" | "approved" | "archived"` is an additional field on Better Auth's user (`input: false`, default `pending`). Admins are implicitly approved.
 - Enforcement lives in **Kotori's `Authorization` middleware**, not in Better Auth: after resolving the session, anything other than `approved` yields a `PendingApproval` (403) error on every API group except `account`, so `/me` keeps working for the pending screen. The gate is stack-agnostic and tested end to end.
-- `archived` behaves exactly like `pending` from the user's side. It is bookkeeping for Ash.
+- `archived` behaves exactly like `pending` from the user's side. It is bookkeeping for the admin.
 - Ban (admin plugin) is reserved for abuse; it is not part of the approval flow.
 
 ## 4. Data model
@@ -180,7 +182,7 @@ sequenceDiagram
   participant ADB as auth.db
   participant KDB as kotori.db
   participant M as Mailer
-  actor A as Ash (CLI)
+  actor A as Admin (CLI)
 
   U->>App: email + password
   App->>BA: POST /sign-up/email
@@ -230,7 +232,7 @@ Account deletion follows the reverse path: the app calls Better Auth's delete-us
 2. **Middleware and domain**: Authorization via `getSession`, JIT profile, `PendingApproval` gate, domain schema changes, removal of the hand-rolled paths, API test setup rewritten.
 3. **Email and approval**: `packages/email`, verification and reset wiring, admin plugin, Approvals service, CLI commands, approval email, gate and flow tests.
 4. **App**: Expo client plugin, cookie-forwarding API client, SessionProvider rebuild, sign-up / sign-in / forgot / pending screens, Settings account section, strings, CORS with credentials for the web origin.
-5. **Pre-invite checklist**: API behind HTTPS with `BETTER_AUTH_URL` set, Resend sending subdomain with SPF, DKIM and DMARC `p=none`, test emails to Gmail, Outlook and iCloud, Ash's account promoted with `kotori admin`, TestFlight build includes account deletion.
+5. **Pre-invite checklist**: API behind HTTPS with `BETTER_AUTH_URL` set, Resend sending subdomain with SPF, DKIM and DMARC `p=none`, test emails to Gmail, Outlook and iCloud, the admin's account promoted with `kotori admin`, TestFlight build includes account deletion.
 
 ## 10. v2 parking lot
 

@@ -28,12 +28,18 @@ const NoteRow = ({ note }: { readonly note: Note }) => {
       <PressableScale
         scaleTo={0.985}
         disabled={content.kind !== "word"}
-        onPress={() => content.kind === "word" && router.push({ pathname: "/entry/[id]", params: { id: String(content.entryId) } })}
+        onPress={() =>
+          content.kind === "word" && router.push({ pathname: "/entry/[id]", params: { id: String(content.entryId) } })
+        }
       >
         <Card style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <View style={{ flex: 1, gap: 4 }}>
-            <Text jp variant="heading">{content.kind === "word" ? content.headword : content.text}</Text>
-            <Text variant="small" color="textMuted" numberOfLines={2}>{content.meaning}</Text>
+            <Text jp variant="heading">
+              {content.kind === "word" ? content.headword : content.text}
+            </Text>
+            <Text variant="small" color="textMuted" numberOfLines={2}>
+              {content.meaning}
+            </Text>
             <View style={{ flexDirection: "row", gap: 6 }}>
               <Chip tone={learning ? "matcha" : "sky"} label={learning ? t.review.learning : t.review.new} />
               {leech ? <Chip tone="yuzu" icon="alert-circle" label="leech" /> : null}
@@ -57,14 +63,27 @@ export default function SavedScreen() {
   return (
     <Screen bottomInset={40}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <IconButton icon="chevron-back" label={t.common.close} onPress={() => (router.canGoBack() ? router.back() : router.replace("/review"))} />
+        <IconButton
+          icon="chevron-back"
+          label={t.common.close}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace("/review"))}
+        />
         <Text variant="title">{t.saved.title}</Text>
       </View>
-      <Segmented value={kind} onChange={setKind} options={[{ value: "word", label: t.saved.words }, { value: "phrase", label: t.saved.phrases }]} />
+      <Segmented
+        value={kind}
+        onChange={setKind}
+        options={[
+          { value: "word", label: t.saved.words },
+          { value: "phrase", label: t.saved.phrases }
+        ]}
+      />
       {notes.isError ? <ErrorState error={notes.error} onRetry={() => notes.refetch()} /> : null}
       {notes.data && shown.length === 0 ? <MascotMessage mood="curious" body={t.review.empty} /> : null}
       <View style={{ gap: theme.space.md }}>
-        {shown.map((note) => <NoteRow key={note.id} note={note} />)}
+        {shown.map((note) => (
+          <NoteRow key={note.id} note={note} />
+        ))}
       </View>
     </Screen>
   )

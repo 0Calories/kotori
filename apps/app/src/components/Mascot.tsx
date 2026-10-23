@@ -30,7 +30,14 @@ const Eyes = ({ mood, blinking }: { readonly mood: Mood; readonly blinking: bool
   }
   if (mood === "sleepy" || blinking) {
     return shapes.eyes.map((e) => (
-      <Path key={e.cx} d={`M${e.cx - 7} ${e.cy + 1} Q ${e.cx} ${e.cy + 5} ${e.cx + 7} ${e.cy + 1}`} stroke={palette.ink} strokeWidth={3.5} strokeLinecap="round" fill="none" />
+      <Path
+        key={e.cx}
+        d={`M${e.cx - 7} ${e.cy + 1} Q ${e.cx} ${e.cy + 5} ${e.cx + 7} ${e.cy + 1}`}
+        stroke={palette.ink}
+        strokeWidth={3.5}
+        strokeLinecap="round"
+        fill="none"
+      />
     ))
   }
   // Thinking: eyes glance up and to the side.
@@ -69,20 +76,26 @@ export const Mascot = ({ size = 120, mood = "curious" }: { readonly size?: numbe
 
   useEffect(() => {
     if (reduceMotion || mood !== "celebrate") return
-    hop.value = withSequence(withSpring(-size * 0.12, { duration: 280, dampingRatio: 0.5 }), withSpring(0, { duration: 420, dampingRatio: 0.45 }))
+    hop.value = withSequence(
+      withSpring(-size * 0.12, { duration: 280, dampingRatio: 0.5 }),
+      withSpring(0, { duration: 420, dampingRatio: 0.45 })
+    )
   }, [mood, reduceMotion, size])
 
   useEffect(() => {
     if (reduceMotion || mood === "sleepy" || mood === "happy" || mood === "celebrate") return
     let timer: ReturnType<typeof setTimeout>
     const schedule = () => {
-      timer = setTimeout(() => {
-        setBlinking(true)
-        timer = setTimeout(() => {
-          setBlinking(false)
-          schedule()
-        }, 140)
-      }, 2600 + Math.random() * 3200)
+      timer = setTimeout(
+        () => {
+          setBlinking(true)
+          timer = setTimeout(() => {
+            setBlinking(false)
+            schedule()
+          }, 140)
+        },
+        2600 + Math.random() * 3200
+      )
     }
     schedule()
     return () => clearTimeout(timer)
@@ -95,7 +108,11 @@ export const Mascot = ({ size = 120, mood = "curious" }: { readonly size?: numbe
   const celebrating = mood === "celebrate"
 
   return (
-    <View style={{ width: size, height: size }} accessibilityRole="image" accessibilityLabel="Kotori the long-tailed tit">
+    <View
+      style={{ width: size, height: size }}
+      accessibilityRole="image"
+      accessibilityLabel="Kotori the long-tailed tit"
+    >
       <Animated.View style={style}>
         <Svg width={size} height={size} viewBox="0 0 200 200">
           <Defs>
@@ -107,52 +124,76 @@ export const Mascot = ({ size = 120, mood = "curious" }: { readonly size?: numbe
           </Defs>
           <G transform={`translate(${centering.x} ${centering.y})`}>
             <Path d={shapes.tail} fill={palette.ink} />
-            <Path d={shapes.tailHighlight} stroke={palette.white} strokeOpacity={0.35} strokeWidth={2} fill="none" strokeLinecap="round" />
+            <Path
+              d={shapes.tailHighlight}
+              stroke={palette.white}
+              strokeOpacity={0.35}
+              strokeWidth={2}
+              fill="none"
+              strokeLinecap="round"
+            />
             <Path d={shapes.feet} stroke={palette.ink} strokeWidth={3.5} strokeLinecap="round" />
-            <Ellipse cx={body.cx} cy={body.cy} rx={body.rx} ry={body.ry} fill={`url(#${gradientId})`} stroke={palette.outline} strokeWidth={outline} />
+            <Ellipse
+              cx={body.cx}
+              cy={body.cy}
+              rx={body.rx}
+              ry={body.ry}
+              fill={`url(#${gradientId})`}
+              stroke={palette.outline}
+              strokeWidth={outline}
+            />
             <Path d={shapes.tuft} fill="none" stroke={palette.outline} strokeWidth={2.5} strokeLinecap="round" />
-            {celebrating
-              ? (
-                <>
-                  <Path d={shapes.wingUp} fill={palette.ink} />
-                  <Path d={shapes.wingUpShoulder} fill={palette.rose} />
-                </>
-              )
-              : (
-                <>
-                  <Path d={shapes.wing} fill={palette.ink} />
-                  <Path d={shapes.wingShoulder} fill={palette.rose} />
-                  <Path d={shapes.wingEdge} stroke={palette.white} strokeWidth={2.5} fill="none" strokeLinecap="round" opacity={0.85} />
-                </>
-              )}
-            {shapes.cheeks.map((c) => <Ellipse key={c.cx} cx={c.cx} cy={c.cy} rx={c.rx} ry={c.ry} fill={palette.blush} opacity={mood === "happy" || celebrating ? 0.8 : 0.6} />)}
+            {celebrating ? (
+              <>
+                <Path d={shapes.wingUp} fill={palette.ink} />
+                <Path d={shapes.wingUpShoulder} fill={palette.rose} />
+              </>
+            ) : (
+              <>
+                <Path d={shapes.wing} fill={palette.ink} />
+                <Path d={shapes.wingShoulder} fill={palette.rose} />
+                <Path
+                  d={shapes.wingEdge}
+                  stroke={palette.white}
+                  strokeWidth={2.5}
+                  fill="none"
+                  strokeLinecap="round"
+                  opacity={0.85}
+                />
+              </>
+            )}
+            {shapes.cheeks.map((c) => (
+              <Ellipse
+                key={c.cx}
+                cx={c.cx}
+                cy={c.cy}
+                rx={c.rx}
+                ry={c.ry}
+                fill={palette.blush}
+                opacity={mood === "happy" || celebrating ? 0.8 : 0.6}
+              />
+            ))}
             <Eyes mood={mood} blinking={blinking} />
             <Path d={shapes.beak} fill={palette.ink} stroke={palette.ink} strokeWidth={2} strokeLinejoin="round" />
             {mood === "oops" ? <Path d="M146 64 q 7 10 0 15 q -7 -5 0 -15 Z" fill={palette.sky} opacity={0.9} /> : null}
-            {mood === "sleepy"
-              ? (
-                <SvgText x={136} y={58} fontSize={22} fontWeight="bold" fill={palette.sky}>
-                  z
-                </SvgText>
-              )
-              : null}
-            {mood === "thinking"
-              ? (
-                <G opacity={0.85}>
-                  <Circle cx={150} cy={52} r={4} fill={palette.outline} />
-                  <Circle cx={163} cy={40} r={6} fill={palette.outline} />
-                  <Circle cx={180} cy={25} r={9} fill={palette.outline} />
-                </G>
-              )
-              : null}
-            {celebrating
-              ? (
-                <G fill={palette.rose}>
-                  <Path d="M30 40 l 3 8 l 8 3 l -8 3 l -3 8 l -3 -8 l -8 -3 l 8 -3 Z" />
-                  <Path d="M168 30 l 2 6 l 6 2 l -6 2 l -2 6 l -2 -6 l -6 -2 l 6 -2 Z" />
-                </G>
-              )
-              : null}
+            {mood === "sleepy" ? (
+              <SvgText x={136} y={58} fontSize={22} fontWeight="bold" fill={palette.sky}>
+                z
+              </SvgText>
+            ) : null}
+            {mood === "thinking" ? (
+              <G opacity={0.85}>
+                <Circle cx={150} cy={52} r={4} fill={palette.outline} />
+                <Circle cx={163} cy={40} r={6} fill={palette.outline} />
+                <Circle cx={180} cy={25} r={9} fill={palette.outline} />
+              </G>
+            ) : null}
+            {celebrating ? (
+              <G fill={palette.rose}>
+                <Path d="M30 40 l 3 8 l 8 3 l -8 3 l -3 8 l -3 -8 l -8 -3 l 8 -3 Z" />
+                <Path d="M168 30 l 2 6 l 6 2 l -6 2 l -2 6 l -2 -6 l -6 -2 l 6 -2 Z" />
+              </G>
+            ) : null}
           </G>
         </Svg>
       </Animated.View>

@@ -1,14 +1,18 @@
 node_modules/
 dist/
+out-tsc/
 .nx/
 .expo/
 web-build/
 *.tsbuildinfo
 .env
 .env.local
+
+# Neon CLI link state (org/project/branch ids)
+.neon
 coverage/
 
-# Local data: JMDict downloads, SQLite database, generated audio
+# Local data: JMDict downloads (everything else lives in Postgres)
 data/*
 !data/.gitkeep
 

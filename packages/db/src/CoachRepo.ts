@@ -5,15 +5,18 @@ const CacheRow = Schema.Struct({ result: Schema.String })
 const CountRow = Schema.Struct({ n: Schema.Int })
 
 /** Caches coach answers by request and records usage for per-user rate limits. */
-export class CoachRepo extends Context.Service<CoachRepo, {
-  cached(key: string, notBefore: number): Effect.Effect<Option.Option<string>>
-  store(key: string, result: string, now: number): Effect.Effect<void>
-  recordUsage(userId: string, kind: string, now: number): Effect.Effect<void>
-  usageSince(userId: string, since: number): Effect.Effect<number>
-}>()("@kotori/db/CoachRepo") {
+export class CoachRepo extends Context.Service<
+  CoachRepo,
+  {
+    cached(key: string, notBefore: number): Effect.Effect<Option.Option<string>>
+    store(key: string, result: string, now: number): Effect.Effect<void>
+    recordUsage(userId: string, kind: string, now: number): Effect.Effect<void>
+    usageSince(userId: string, since: number): Effect.Effect<number>
+  }
+>()("@kotori/db/CoachRepo") {
   static readonly layer = Layer.effect(
     CoachRepo,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient
 
       const cached = (key: string, notBefore: number) =>

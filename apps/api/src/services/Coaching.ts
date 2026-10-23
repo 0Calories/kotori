@@ -33,14 +33,20 @@ const fromClaude = (error: ClaudeError): AiUnavailable | RateLimited => {
   }
 }
 
-export class Coaching extends Context.Service<Coaching, {
-  naturalness(user: Profile, request: NaturalnessRequest): Effect.Effect<NaturalnessResult, AiUnavailable | RateLimited>
-  howToSay(user: Profile, request: HowToSayRequest): Effect.Effect<HowToSayResult, AiUnavailable | RateLimited>
-  speak(user: Profile, request: SpeakRequest): Effect.Effect<SpeakResult, AiUnavailable | RateLimited>
-}>()("@kotori/api/Coaching") {
+export class Coaching extends Context.Service<
+  Coaching,
+  {
+    naturalness(
+      user: Profile,
+      request: NaturalnessRequest
+    ): Effect.Effect<NaturalnessResult, AiUnavailable | RateLimited>
+    howToSay(user: Profile, request: HowToSayRequest): Effect.Effect<HowToSayResult, AiUnavailable | RateLimited>
+    speak(user: Profile, request: SpeakRequest): Effect.Effect<SpeakResult, AiUnavailable | RateLimited>
+  }
+>()("@kotori/api/Coaching") {
   static readonly layer = Layer.effect(
     Coaching,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const coach = yield* Coach
       const jev = yield* Jev
       const pronouncer = yield* Pronouncer
@@ -48,10 +54,13 @@ export class Coaching extends Context.Service<Coaching, {
       const repo = yield* CoachRepo
       const hourlyLimit = yield* Config.Int("KOTORI_COACH_HOURLY_LIMIT").pipe(Config.withDefault(60))
 
-      const limit = Effect.fnUntraced(function*(user: Profile, kind: string, perHour: number) {
+      const limit = Effect.fnUntraced(function* (user: Profile, kind: string, perHour: number) {
         const now = yield* Clock.currentTimeMillis
         if ((yield* repo.usageSince(user.id, now - HOUR)) >= perHour) {
-          return yield* new RateLimited({ message: "You've hit this hour's limit. Take a breather!", retryAfterSeconds: 600 })
+          return yield* new RateLimited({
+            message: "You've hit this hour's limit. Take a breather!",
+            retryAfterSeconds: 600
+          })
         }
         yield* repo.recordUsage(user.id, kind, now)
       })
@@ -64,7 +73,7 @@ export class Coaching extends Context.Service<Coaching, {
         request: unknown,
         compute: Effect.Effect<A, AiUnavailable | RateLimited>
       ) =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const key = createHash("sha256")
             .update(JSON.stringify([kind, user.nativeLanguage, user.targetLanguage, request]))
             .digest("hex")
@@ -83,36 +92,42 @@ export class Coaching extends Context.Service<Coaching, {
 
       const learner = (user: Profile) => ({ native: user.nativeLanguage, target: user.targetLanguage })
 
-      const naturalness = Effect.fn("Coaching.naturalness")(function*(user: Profile, request: NaturalnessRequest) {
+      const naturalness = Effect.fn("Coaching.naturalness")(function* (user: Profile, request: NaturalnessRequest) {
         return yield* cached(
           NaturalnessResult,
           "naturalness",
           user,
           request,
-          Effect.gen(function*() {
-            const [output, formality] = yield* Effect.all([
-              coach.naturalness(request, learner(user)).pipe(Effect.mapError(fromClaude)),
-              jev.configured
-                ? readFormality(jev, request.text).pipe(Effect.option, Effect.map(Option.getOrNull))
-                : Effect.succeed(null)
-            ], { concurrency: 2 })
+          Effect.gen(function* () {
+            const [output, formality] = yield* Effect.all(
+              [
+                coach.naturalness(request, learner(user)).pipe(Effect.mapError(fromClaude)),
+                jev.configured
+                  ? readFormality(jev, request.text).pipe(Effect.option, Effect.map(Option.getOrNull))
+                  : Effect.succeed(null)
+              ],
+              { concurrency: 2 }
+            )
             return { ...(output satisfies NaturalnessOutput), formality }
           })
         )
       })
 
-      const howToSay = Effect.fn("Coaching.howToSay")(function*(user: Profile, request: HowToSayRequest) {
+      const howToSay = Effect.fn("Coaching.howToSay")(function* (user: Profile, request: HowToSayRequest) {
         return yield* cached(
           HowToSayResult,
           "how-to-say",
           user,
           request,
-          Effect.gen(function*() {
-            const output: HowToSayOutput = yield* coach.howToSay(request, learner(user)).pipe(Effect.mapError(fromClaude))
+          Effect.gen(function* () {
+            const output: HowToSayOutput = yield* coach
+              .howToSay(request, learner(user))
+              .pipe(Effect.mapError(fromClaude))
             // Link Japanese vocabulary to dictionary entries so learners can open and save them.
-            const entryIds = user.targetLanguage === "ja"
-              ? yield* dictionary.lookupWords(output.keyWords)
-              : output.keyWords.map(() => null)
+            const entryIds =
+              user.targetLanguage === "ja"
+                ? yield* dictionary.lookupWords(output.keyWords)
+                : output.keyWords.map(() => null)
             return {
               ...output,
               keyWords: output.keyWords.map((word, index) => ({ ...word, entryId: entryIds[index] ?? null }))
@@ -121,7 +136,7 @@ export class Coaching extends Context.Service<Coaching, {
         )
       })
 
-      const speak = Effect.fn("Coaching.speak")(function*(user: Profile, request: SpeakRequest) {
+      const speak = Effect.fn("Coaching.speak")(function* (user: Profile, request: SpeakRequest) {
         if (!pronouncer.configured) {
           return yield* new AiUnavailable({ message: "Audio isn't set up on this server (missing ElevenLabs key)." })
         }
@@ -129,13 +144,15 @@ export class Coaching extends Context.Service<Coaching, {
         if ((yield* repo.usageSince(user.id, now - HOUR)) >= hourlyLimit * 3) {
           return yield* new RateLimited({ message: "Too many audio requests this hour.", retryAfterSeconds: 600 })
         }
-        const key = yield* pronouncer.speak(request.text, request.language).pipe(
-          Effect.mapError((error) =>
-            error.reason === "quota"
-              ? new RateLimited({ message: "The monthly audio budget has been used up.", retryAfterSeconds: 86_400 })
-              : new AiUnavailable({ message: "Couldn't generate audio right now." })
+        const key = yield* pronouncer
+          .speak(request.text, request.language)
+          .pipe(
+            Effect.mapError((error) =>
+              error.reason === "quota"
+                ? new RateLimited({ message: "The monthly audio budget has been used up.", retryAfterSeconds: 86_400 })
+                : new AiUnavailable({ message: "Couldn't generate audio right now." })
+            )
           )
-        )
         yield* repo.recordUsage(user.id, "speak", now)
         return { url: audioUrl(key) }
       })

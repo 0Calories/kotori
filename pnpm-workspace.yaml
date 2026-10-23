@@ -5,23 +5,46 @@ packages:
 # Expo / Metro and React Native autolinking expect a flat node_modules.
 nodeLinker: hoisted
 
+# Single-version policy: every external dependency used by more than one package is
+# declared here and referenced as `catalog:`. strict mode rejects out-of-catalog specs.
+catalogMode: strict
+catalog:
+  effect: "4.0.3"
+  "@effect/platform-node": "4.0.3"
+  "@effect/sql-pg": "4.0.3"
+  "@effect/sql-pglite": "4.0.3"
+  "@effect/vitest": "4.0.3"
+  vitest: "^5.0.4"
+  vite: "^8.3.4"
+  "@types/node": "^24.19.2"
+  jose: "^6.2.12"
+  "@anthropic-ai/sdk": "^0.133.0"
+  "@typesafe-ai/sdk": "^0.6.0"
+  wanakana: "^5.3.1"
+  tsx: "^4.23.15"
+  nx: "23.3.0"
+  "@nx/js": "23.3.0"
+  oxlint: "1.89.0"
+  oxfmt: "0.74.0"
+  "@neon/config": ^1.9.3
+
 allowBuilds:
-  '@resvg/resvg-js': true
+  "@resvg/resvg-js": true
   esbuild: true
   nx: true
 
 minimumReleaseAgeExclude:
-  - '@vitest/mocker@5.0.4'
-  - '@vitest/spy@5.0.4'
+  - "@vitest/mocker@5.0.4"
+  - "@vitest/spy@5.0.4"
   - vitest@5.0.4
-  - '@expo/cli@57.0.29'
-  - '@expo/fingerprint@0.20.14'
-  - '@expo/inline-modules@0.1.8'
-  - '@expo/local-build-cache-provider@57.0.9'
-  - '@expo/prebuild-config@57.0.18'
-  - '@expo/ui@57.0.23'
-  - '@tanstack/query-core@5.104.2'
-  - '@tanstack/react-query@5.104.2'
+  - "@expo/cli@57.0.29"
+  - "@expo/fingerprint@0.20.14"
+  - "@expo/inline-modules@0.1.8"
+  - "@expo/local-build-cache-provider@57.0.9"
+  - "@expo/prebuild-config@57.0.18"
+  - "@expo/ui@57.0.23"
+  - "@tanstack/query-core@5.104.2"
+  - "@tanstack/react-query@5.104.2"
   - babel-preset-expo@57.0.15
   - expo-modules-autolinking@57.0.15
   - expo-modules-core@57.0.22
@@ -29,13 +52,3 @@ minimumReleaseAgeExclude:
   - expo-router@57.0.26
   - expo-splash-screen@57.0.10
   - expo@57.0.28
-  - '@better-auth/core@1.7.12'
-  - '@better-auth/drizzle-adapter@1.7.12'
-  - '@better-auth/expo@1.7.12'
-  - '@better-auth/kysely-adapter@1.7.12'
-  - '@better-auth/memory-adapter@1.7.12'
-  - '@better-auth/mongo-adapter@1.7.12'
-  - '@better-auth/prisma-adapter@1.7.12'
-  - '@better-auth/telemetry@1.7.12'
-  - better-auth@1.7.12
-  - better-call@1.4.4

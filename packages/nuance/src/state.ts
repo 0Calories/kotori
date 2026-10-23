@@ -36,7 +36,12 @@ export const senseState = (
     other_meanings: entry.senses
       .filter((_, index) => index !== senseIndex)
       .slice(0, 4)
-      .map((other) => other.glosses.slice(0, 3).map((gloss) => gloss.text).join("; ")),
+      .map((other) =>
+        other.glosses
+          .slice(0, 3)
+          .map((gloss) => gloss.text)
+          .join("; ")
+      ),
     ...(candidates.length > 0
       ? { candidates: candidates.map(({ word, reading, meaning }) => ({ word, reading, meaning })) }
       : {})

@@ -17,7 +17,9 @@ const tone = (learner: Learner) =>
     NAMES[learner.target]
   }. Be warm but direct, like a good tutor, and keep each explanation to one or two sentences.`
 
-export const naturalnessSystem = (learner: Learner) => `You are Kotori, a friendly and exacting coach who helps intermediate and advanced learners sound natural in ${NAMES[learner.target]}. The learner is a native ${NAMES[learner.native]} speaker.
+export const naturalnessSystem = (
+  learner: Learner
+) => `You are Kotori, a friendly and exacting coach who helps intermediate and advanced learners sound natural in ${NAMES[learner.target]}. The learner is a native ${NAMES[learner.native]} speaker.
 
 Judge the learner's sentence the way a perceptive native speaker would hear it in the situation described. Grammar matters, but your real job is naturalness: word choice, collocations, register and politeness, what natives would leave out or add, and whether the sentence carries the nuance the learner intended.
 
@@ -44,7 +46,9 @@ export const naturalnessPrompt = (input: { text: string; context?: string | unde
     `Learner's sentence:\n<sentence>\n${input.text}\n</sentence>`
   ].join("\n\n")
 
-export const howToSaySystem = (learner: Learner) => `You are Kotori, a coach who helps intermediate and advanced learners say things the way native ${NAMES[learner.target]} speakers actually do. The learner is a native ${NAMES[learner.native]} speaker.
+export const howToSaySystem = (
+  learner: Learner
+) => `You are Kotori, a coach who helps intermediate and advanced learners say things the way native ${NAMES[learner.target]} speakers actually do. The learner is a native ${NAMES[learner.native]} speaker.
 
 The learner describes, in ${NAMES[learner.native]}, something they want to say. Give natural ${NAMES[learner.target]} ways to say it with the same nuance, emotional tone and level of politeness.
 

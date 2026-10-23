@@ -3,17 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "description": "Kotori's data pipeline: seeds JMDict and enriches entries with Jev, Claude and ElevenLabs",
-  "type": "module",
   "bin": {
-    "kotori": "./src/main.ts"
+    "kotori": "./dist/main.js"
   },
+  "type": "module",
   "scripts": {
-    "cli": "tsx --disable-warning=ExperimentalWarning src/main.ts",
-    "dev": "tsx watch --clear-screen=false --disable-warning=ExperimentalWarning src/main.ts work",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "cli": "tsx -C @kotori/source src/main.ts",
+    "dev": "tsx watch -C @kotori/source --clear-screen=false src/main.ts work",
+    "start": "node dist/main.js work"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.3",
+    "@effect/platform-node": "catalog:",
     "@kotori/ai": "workspace:*",
     "@kotori/auth": "workspace:*",
     "@kotori/db": "workspace:*",
@@ -22,6 +22,6 @@
     "@kotori/jmdict": "workspace:*",
     "@kotori/nuance": "workspace:*",
     "@kotori/tts": "workspace:*",
-    "effect": "4.0.3"
+    "effect": "catalog:"
   }
 }
