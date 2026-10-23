@@ -71,7 +71,8 @@ Set with `fly secrets set` unless marked plain (plain values live in `[env]` of 
 | `NODE_ENV` | api, worker | `production`, plain in `fly.toml`. JSON logs. |
 | `PORT` | api | `8080`, plain in `fly.toml`. The API reads `KOTORI_PORT`, then `PORT`, then 4000. |
 | `NEON_AUTH_BASE_URL` | api, worker | The branch's Managed Auth URL (`neon env pull` writes it). The API proxies `/api/auth/*` to it; the worker's account commands never call it (they use SQL) but the layer requires it. |
-| `RESEND_API_KEY`, `KOTORI_EMAIL_FROM` | api, worker | Optional. Without a key, emails are logged instead. The worker sends approval emails. |
+| `RESEND_API_KEY`, `KOTORI_EMAIL_FROM` | api, worker | Optional. Without a key, emails are logged instead. The API sends verification and reset codes (§4), the worker approval emails. |
+| `KOTORI_WEB_ORIGINS` | api | Comma-separated origins of the hosted web app (`https://app.kotori.app`), plain. The only browser origins allowed to call the API, with credentials, so the web app's session cookie reaches `/api/auth/*`. Outside production, local dev servers (`http://localhost:*`, private-network IPs) are allowed too. Native apps send no Origin and don't need it. |
 | `ANTHROPIC_API_KEY` | api, worker | Optional. Coach features (api), example sentences (worker). |
 | `TYPESAFE_API_KEY` | worker | Optional. Nuance via Jev. |
 | `ELEVENLABS_API_KEY` | api, worker | Optional. Pronunciation audio; `KOTORI_AUDIO_MONTHLY_CHARS` caps spend. |
@@ -107,7 +108,7 @@ Identity is Neon's Managed Better Auth, declared with `auth: true` in `neon.ts`.
 
 | Item | Why | How |
 | --- | --- | --- |
-| Trusted domains | Proxy and web origins must be allow-listed; disable localhost in production. | `neon neon-auth domain add https://api.kotori.app` (and the web origin); `neon neon-auth domain allow-localhost disable`. |
+| Trusted domains | Proxy and web origins must be allow-listed; disable localhost in production. | `neon neon-auth domain add https://api.kotori.app` (and the web origin); `neon neon-auth domain allow-localhost disable`. Once the web app is hosted, add its origin to the API too: `KOTORI_WEB_ORIGINS = "https://app.kotori.app"` under `[env]` in `fly.toml` (§2). |
 | Custom sender / app name | Production checklist. | `neon neon-auth config email-provider update …`; app name in the console. |
 | App sign-in screens | The Expo app has no auth UI yet; it only loads an existing session. | Call `/api/auth/sign-up/email`, `/sign-in/email`, then `/api/auth/token`; store the JWT (refresh on 401), send it as Bearer; set `nativeLanguage` via `PATCH /account/me` right after sign-up so approval emails use it. |
 | `neon_auth` writes | `revoke` and account deletion write to managed tables directly. Standard Better Auth schema, FK cascades verified, but a Neon schema change could bite. | Re-check on Neon upgrades; the admin API (`/admin/revoke-user-sessions`, `/admin/remove-user`) is the sanctioned alternative if an admin session becomes convenient. |
