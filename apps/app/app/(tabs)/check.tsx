@@ -14,6 +14,7 @@ import { NuanceScales } from "../../src/components/NuanceScales.tsx"
 import { PhraseCard } from "../../src/components/PhraseCard.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
 import { Screen, Section } from "../../src/components/Screen.tsx"
+import { mistakeRanges, type Range, Squiggles, useBoxes } from "../../src/components/Squiggle.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { registerTone } from "../../src/lib/tones.ts"
@@ -29,35 +30,115 @@ const MOOD: Record<NaturalnessResult["verdict"], Mood> = {
 
 const FORMALITY = ["vulgar", "casual", "neutral", "polite", "formal"] as const
 
-/** What the learner wrote, with each mistake underlined in rose. */
-const Written = ({ text, issues }: { readonly text: string; readonly issues: ReadonlyArray<Issue> }) => {
+/** A word, or a run of spaces, in the learner's English, cut where a mistake starts or ends. */
+interface Piece {
+  readonly text: string
+  readonly start: number
+  /** The mistake it belongs to, or -1. */
+  readonly mark: number
+}
+
+/**
+ * Splits English into words that keep their trailing spaces, so lines break
+ * between words as text does. A line break in the input forces one here too.
+ */
+const words = (text: string, ranges: ReadonlyArray<Range>) =>
+  Array.from(text.matchAll(/\n|\S+[^\S\n]*|[^\S\n]+/g), (match) => {
+    const start = match.index
+    const word = match[0]
+    // Cut at mistake edges, and before the trailing space so it can be left out at the end of a line.
+    const cuts = [
+      ...new Set(
+        [
+          0,
+          word.trimEnd().length || word.length,
+          ...ranges.flatMap((range) => [range.start - start, range.end - start])
+        ].filter((at) => at >= 0 && at < word.length)
+      )
+    ].sort((a, b) => a - b)
+    const pieces = cuts.map((at, index): Piece => ({
+      text: word.slice(at, cuts[index + 1] ?? word.length),
+      start: start + at,
+      mark: ranges.findIndex((range) => start + at >= range.start && start + at < range.end)
+    }))
+    return { start, text: word, pieces }
+  })
+
+const ENGLISH_SIZE = 21
+const ENGLISH_LINE = Math.round(ENGLISH_SIZE * 1.35)
+
+/** The learner's English, with a squiggle under every mistake. */
+const WrittenEnglish = ({ text, issues }: { readonly text: string; readonly issues: ReadonlyArray<Issue> }) => {
   const theme = useTheme()
-  const { profile } = useSession()
-  if (profile?.targetLanguage !== "en") {
-    return <Furigana text={text} size={20} marks={issues.map((issue) => ({ text: issue.excerpt, kind: "mistake" }))} />
-  }
-  // English wraps by word, so it's marked with a text underline instead of per-character units.
-  const mistake = issues.map((issue) => issue.excerpt).find((excerpt) => excerpt.length > 0 && text.includes(excerpt))
-  const at = mistake === undefined ? -1 : text.indexOf(mistake)
+  const [boxes, measure] = useBoxes()
+  const ranges = mistakeRanges(
+    text,
+    issues.map((issue) => issue.excerpt)
+  )
+  const tokens = words(text, ranges)
+  const squiggled = tokens.flatMap((token) => {
+    const outer = boxes.get(`w${token.start}`)
+    return token.pieces.flatMap((piece) => {
+      const inner = boxes.get(`p${piece.start}`)
+      return piece.mark < 0 || outer === undefined || inner === undefined
+        ? []
+        : [
+            {
+              mark: piece.mark,
+              space: piece.text.trim().length === 0,
+              box: { ...inner, x: outer.x + inner.x, y: outer.y + inner.y }
+            }
+          ]
+    })
+  })
   return (
-    <Text variant="heading" size={20} weight="medium" selectable>
-      {at < 0 || mistake === undefined ? (
-        text
-      ) : (
-        <>
-          {text.slice(0, at)}
-          <Text
-            variant="heading"
-            size={20}
-            weight="medium"
-            style={{ textDecorationLine: "underline", textDecorationColor: theme.color.accentMark }}
+    <View style={{ flexDirection: "row", flexWrap: "wrap" }} accessible accessibilityLabel={text}>
+      <Squiggles
+        pieces={squiggled}
+        face="latin"
+        size={ENGLISH_SIZE}
+        lineHeight={ENGLISH_LINE}
+        color={theme.color.accent}
+      />
+      {tokens.map((token) =>
+        token.text === "\n" ? (
+          <View key={token.start} style={{ width: "100%" }} />
+        ) : (
+          <View
+            key={token.start}
+            style={{ flexDirection: "row", maxWidth: "100%" }}
+            onLayout={token.pieces.some((piece) => piece.mark >= 0) ? measure(`w${token.start}`) : undefined}
           >
-            {mistake}
-          </Text>
-          {text.slice(at + mistake.length)}
-        </>
+            {token.pieces.map((piece) => (
+              <Text
+                key={piece.start}
+                variant="heading"
+                size={ENGLISH_SIZE}
+                weight="semibold"
+                style={{ lineHeight: ENGLISH_LINE, flexShrink: 1 }}
+                onLayout={piece.mark >= 0 ? measure(`p${piece.start}`) : undefined}
+              >
+                {piece.text}
+              </Text>
+            ))}
+          </View>
+        )
       )}
-    </Text>
+    </View>
+  )
+}
+
+/** What the learner wrote, with a squiggle under each mistake. */
+const Written = ({ text, issues }: { readonly text: string; readonly issues: ReadonlyArray<Issue> }) => {
+  const { profile } = useSession()
+  if (profile?.targetLanguage === "en") return <WrittenEnglish text={text} issues={issues} />
+  return (
+    <Furigana
+      text={text}
+      size={20}
+      lineHeight={34}
+      marks={issues.map((issue) => ({ text: issue.excerpt, kind: "mistake" }))}
+    />
   )
 }
 

@@ -36,10 +36,8 @@ const light = {
   primaryDeep: "#23412C",
   onPrimary: "#13201A",
   onPrimaryDark: "#FFFFFF",
-  /** Rose dark: overlines, warnings and "avoid" labels. */
+  /** Rose dark: overlines, warnings, "avoid" labels and the wavy line under a mistake. */
   accent: "#B03D5B",
-  /** Rose: marks under text, such as the wavy line under a mistake. */
-  accentMark: "#D5677C",
   /** Blush: behind warnings. */
   accentSoft: "#FFEEF0",
   /** The marker behind the word being looked up in an example. */
@@ -72,7 +70,6 @@ const dark: Palette = {
   onPrimary: "#0F1712",
   onPrimaryDark: "#0F1712",
   accent: "#EE90A8",
-  accentMark: "#D5677C",
   accentSoft: "#3A2229",
   highlight: "#6B2D3E",
   selected: "rgba(232, 240, 234, 0.09)",
@@ -122,6 +119,25 @@ export const fonts = {
   japanese,
   mincho: Platform.OS === "web" ? "HinaMincho_400Regular, Murecho_400Regular, serif" : "HinaMincho_400Regular"
 } as const
+
+export type Face = "latin" | "japanese"
+
+/** Ascent and descent of Gabarito and Murecho (hhea, as a share of the size): where text sits in its line. */
+const faceMetrics: Record<Face, { readonly ascent: number; readonly descent: number }> = {
+  latin: { ascent: 0.94, descent: 0.26 },
+  japanese: { ascent: 1.16, descent: 0.288 }
+}
+
+/**
+ * How far the baseline sits below the top of a line box. Every platform
+ * centres the glyphs in the line height, so the leading splits evenly; this
+ * rounds as browsers do, which native text is within a pixel of.
+ */
+export const baseline = (face: Face, size: number, lineHeight: number) => {
+  const ascent = Math.round(faceMetrics[face].ascent * size)
+  const descent = Math.round(faceMetrics[face].descent * size)
+  return Math.floor((lineHeight - ascent - descent) / 2) + ascent
+}
 
 /** Content width on large screens, so the web app reads like a phone-sized column. */
 export const maxContentWidth = 640
