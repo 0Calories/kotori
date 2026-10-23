@@ -6,6 +6,7 @@ import Animated, { FadeInDown } from "react-native-reanimated"
 import { useHowToSay } from "../../src/api/queries.ts"
 import { Button } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
+import { Icon } from "../../src/components/Icon.tsx"
 import { Input } from "../../src/components/Input.tsx"
 import { Mascot } from "../../src/components/Mascot.tsx"
 import { PhraseCard } from "../../src/components/PhraseCard.tsx"
@@ -22,14 +23,16 @@ type Tone = "any" | Register
 const Result = ({ result }: { readonly result: HowToSayResult }) => {
   const theme = useTheme()
   const router = useRouter()
-  const { t } = useSession()
+  const { t, profile } = useSession()
+  // Key words are in the language being learned; Japanese ones get the mincho face, like headwords.
+  const japanese = profile?.targetLanguage !== "en"
   return (
     <View style={{ gap: theme.space.lg }}>
       <Animated.View entering={FadeInDown.duration(400)}>
         <Card tone="primary" style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
           <Mascot size={48} mood="happy" />
           <View style={{ flex: 1, gap: 4 }}>
-            <Text variant="label" color="sky">
+            <Text variant="label" color="primaryDeep">
               {t.say.understood.toUpperCase()}
             </Text>
             <Text>{result.intent}</Text>
@@ -41,7 +44,7 @@ const Result = ({ result }: { readonly result: HowToSayResult }) => {
         <Section title={t.say.phrases}>
           {result.phrases.map((phrase, index) => (
             <PhraseCard
-              key={index}
+              key={phrase.text}
               text={phrase.text}
               furigana={phrase.furigana}
               register={phrase.register}
@@ -49,8 +52,8 @@ const Result = ({ result }: { readonly result: HowToSayResult }) => {
               source="how-to-say"
               highlight={index === 0}
               lines={[
-                { label: t.say.literal, text: phrase.literal },
                 { text: phrase.nuance },
+                { label: t.say.literal, text: phrase.literal },
                 { label: t.say.whenToUse, text: phrase.whenToUse }
               ]}
             />
@@ -61,19 +64,27 @@ const Result = ({ result }: { readonly result: HowToSayResult }) => {
       {result.keyWords.length > 0 ? (
         <Animated.View entering={FadeInDown.delay(180).duration(400)}>
           <Section title={t.say.keyWords}>
-            <Card style={{ gap: theme.space.md }}>
+            <Card padded={false} style={{ paddingHorizontal: theme.space.lg, paddingVertical: 2 }}>
               {result.keyWords.map((word, index) => (
                 <PressableScale
-                  key={index}
+                  key={word.word}
                   disabled={word.entryId === null}
                   onPress={() =>
                     word.entryId !== null &&
                     router.push({ pathname: "/entry/[id]", params: { id: String(word.entryId) } })
                   }
-                  style={{ flexDirection: "row", gap: 12, alignItems: "baseline" }}
+                  accessibilityRole={word.entryId !== null ? "link" : undefined}
+                  style={{
+                    flexDirection: "row",
+                    gap: 12,
+                    alignItems: "center",
+                    paddingVertical: 10,
+                    borderTopWidth: index === 0 ? 0 : 1,
+                    borderTopColor: theme.color.divider
+                  }}
                 >
                   <View style={{ minWidth: 84 }}>
-                    <Text jp variant="strong" size={18} color={word.entryId !== null ? "primary" : "text"}>
+                    <Text mincho={japanese} variant="strong" size={japanese ? 22 : 17}>
                       {word.word}
                     </Text>
                     {word.reading !== word.word ? (
@@ -90,6 +101,7 @@ const Result = ({ result }: { readonly result: HowToSayResult }) => {
                       </Text>
                     ) : null}
                   </View>
+                  {word.entryId !== null ? <Icon name="chevron_right" size={20} color={theme.color.textMuted} /> : null}
                 </PressableScale>
               ))}
             </Card>
@@ -100,9 +112,13 @@ const Result = ({ result }: { readonly result: HowToSayResult }) => {
       {result.pitfalls.length > 0 ? (
         <Animated.View entering={FadeInDown.delay(240).duration(400)}>
           <Section title={t.say.pitfalls}>
-            {result.pitfalls.map((pitfall, index) => (
-              <Card key={index} tone="accent" style={{ gap: 6 }}>
-                <Text jp variant="strong" color="plum" style={{ textDecorationLine: "line-through" }}>
+            {result.pitfalls.map((pitfall) => (
+              <Card key={pitfall.text} tone="accent" style={{ gap: 6 }}>
+                <Text
+                  variant="strong"
+                  color="accent"
+                  style={{ textDecorationLine: "line-through", textDecorationColor: theme.color.accent }}
+                >
                   {pitfall.text}
                 </Text>
                 <Text variant="small">{pitfall.why}</Text>
@@ -114,7 +130,7 @@ const Result = ({ result }: { readonly result: HowToSayResult }) => {
 
       {result.culturalNote ? (
         <Section title={t.say.culture}>
-          <Card tone="accent">
+          <Card tone="muted">
             <Text variant="small">{result.culturalNote}</Text>
           </Card>
         </Section>
@@ -141,11 +157,13 @@ export default function SayScreen() {
     <Screen>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
         <Mascot size={56} mood={ask.isPending ? "thinking" : "happy"} />
-        <Text variant="title" style={{ flex: 1 }}>
+        <Text variant="title" accessibilityRole="header" style={{ flex: 1 }}>
           {t.say.title}
         </Text>
       </View>
-      <Text color="textMuted">{t.say.subtitle}</Text>
+      <Text color="textMuted" style={{ paddingHorizontal: 2 }}>
+        {t.say.subtitle}
+      </Text>
 
       <Card style={{ gap: theme.space.md }}>
         <Input
