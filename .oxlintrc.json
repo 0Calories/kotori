@@ -2,6 +2,7 @@
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "unicorn", "oxc", "import", "react"],
   "env": { "node": true, "es2024": true },
+  "options": { "typeAware": true },
   "categories": {
     "correctness": "error",
     "suspicious": "error",
@@ -10,6 +11,14 @@
   "rules": {
     "import/no-cycle": "error",
     "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+
+    "typescript/switch-exhaustiveness-check": ["error", { "considerDefaultExhaustiveForUnions": true }],
+    "typescript/no-misused-promises": ["error", { "checksVoidReturn": { "attributes": false } }],
+    "typescript/only-throw-error": "error",
+    "typescript/prefer-promise-reject-errors": "error",
+    "typescript/no-deprecated": "warn",
+    "typescript/consistent-return": "off",
+    "typescript/no-unsafe-type-assertion": "off",
 
     "react/react-in-jsx-scope": "off",
     "no-underscore-dangle": "off",

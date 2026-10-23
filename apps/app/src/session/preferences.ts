@@ -9,9 +9,13 @@ export const usePreference = <A>(key: string, fallback: A) => {
 
   useEffect(() => {
     let active = true
-    storage.get(`kotori.pref.${key}`).then((raw) => {
-      if (active && raw !== null) setValue(JSON.parse(raw) as A)
-    })
+    // An unreadable or corrupt value leaves the default in place.
+    storage
+      .get(`kotori.pref.${key}`)
+      .then((raw) => {
+        if (active && raw !== null) setValue(JSON.parse(raw) as A)
+      })
+      .catch(() => {})
     const listener = (raw: string | null) => setValue(raw === null ? fallback : (JSON.parse(raw) as A))
     const set = listeners.get(key) ?? new Set()
     set.add(listener)
@@ -25,7 +29,7 @@ export const usePreference = <A>(key: string, fallback: A) => {
   const update = useCallback(
     (next: A) => {
       const raw = JSON.stringify(next)
-      storage.set(`kotori.pref.${key}`, raw)
+      storage.set(`kotori.pref.${key}`, raw).catch(() => {})
       listeners.get(key)?.forEach((listener) => listener(raw))
     },
     [key]

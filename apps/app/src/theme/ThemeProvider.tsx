@@ -45,7 +45,7 @@ export const ThemeProvider = ({ children }: { readonly children: ReactNode }) =>
             shadowOffset: { width: 0, height: [0, 6, 10, 10][elevation]! },
             elevation: elevation * 2
           }
-        })!
+        })
       }
     }
   }, [scheme])

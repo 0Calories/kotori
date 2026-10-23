@@ -48,9 +48,9 @@ export const useNotes = () => useQuery({ queryKey: keys.notes, queryFn: () => ca
 const useInvalidateStudy = () => {
   const client = useQueryClient()
   return () => {
-    client.invalidateQueries({ queryKey: keys.notes })
-    client.invalidateQueries({ queryKey: keys.queue })
-    client.invalidateQueries({ queryKey: keys.stats })
+    void client.invalidateQueries({ queryKey: keys.notes })
+    void client.invalidateQueries({ queryKey: keys.queue })
+    void client.invalidateQueries({ queryKey: keys.stats })
   }
 }
 

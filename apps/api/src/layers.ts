@@ -1,5 +1,5 @@
 import { Claude, Coach } from "@kotori/ai"
-import { Auth } from "@kotori/auth"
+import { Auth, AuthWebhooks } from "@kotori/auth"
 import { DatabaseLive, Repositories } from "@kotori/db"
 import { MailerLive } from "@kotori/email"
 import { Jev } from "@kotori/nuance"
@@ -20,7 +20,7 @@ export const ProvidersLive = Layer.mergeAll(
 )
 
 /** Application services on top of the repositories and providers. */
-export const ServicesLive = Layer.mergeAll(Accounts.layer, Study.layer, Coaching.layer).pipe(
+export const ServicesLive = Layer.mergeAll(Accounts.layer, Study.layer, Coaching.layer, AuthWebhooks.layer).pipe(
   Layer.provideMerge(Dictionary.layer),
   Layer.provideMerge(Coach.layer)
 )

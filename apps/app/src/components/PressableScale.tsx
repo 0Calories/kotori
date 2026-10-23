@@ -39,7 +39,7 @@ export const PressableScale = ({
         onPressOut?.(event)
       }}
       onPress={(event) => {
-        if (haptic && Platform.OS !== "web") Haptics.selectionAsync()
+        if (haptic && Platform.OS !== "web") Haptics.selectionAsync().catch(() => {})
         onPress?.(event)
       }}
       style={[animated, style]}

@@ -102,8 +102,8 @@ export default function ReviewScreen() {
         <RefreshControl
           refreshing={queue.isRefetching}
           onRefresh={() => {
-            queue.refetch()
-            stats.refetch()
+            void queue.refetch()
+            void stats.refetch()
           }}
         />
       }

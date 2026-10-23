@@ -25,7 +25,7 @@ import { MascotMessage } from "../src/components/States.tsx"
 import { SessionProvider, useSession } from "../src/session/SessionProvider.tsx"
 import { ThemeProvider, useTheme } from "../src/theme/ThemeProvider.tsx"
 
-SplashScreen.preventAutoHideAsync()
+SplashScreen.preventAutoHideAsync().catch(() => {})
 // Pronunciation should play even when the phone's ring switch is on silent.
 setAudioModeAsync({ playsInSilentMode: true }).catch(() => {})
 
@@ -43,7 +43,7 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
   const ready = fontsLoaded && status !== "loading"
 
   useEffect(() => {
-    if (ready) SplashScreen.hideAsync()
+    if (ready) SplashScreen.hideAsync().catch(() => {})
   }, [ready])
 
   if (!ready) return null
@@ -69,8 +69,16 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
           <Stack.Screen name="settings" options={{ presentation: "modal" }} />
           <Stack.Screen name="review/session" options={{ presentation: "fullScreenModal", gestureEnabled: false }} />
         </Stack.Protected>
-        <Stack.Protected guard={status !== "ready"}>
+        <Stack.Protected guard={status === "onboarding"}>
           <Stack.Screen name="onboarding" options={{ animation: "fade" }} />
+        </Stack.Protected>
+        <Stack.Protected guard={status === "pending"}>
+          <Stack.Screen name="pending" options={{ animation: "fade" }} />
+        </Stack.Protected>
+        <Stack.Protected guard={status === "signedOut"}>
+          <Stack.Screen name="welcome" options={{ animation: "fade" }} />
+          <Stack.Screen name="sign-in" />
+          <Stack.Screen name="sign-up" />
         </Stack.Protected>
       </Stack>
     </>
