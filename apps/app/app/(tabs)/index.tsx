@@ -1,7 +1,7 @@
 import type { EntrySummary, Language } from "@kotori/domain"
 import { useRouter } from "expo-router"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { TextInput, View } from "react-native"
+import { Platform, TextInput, View } from "react-native"
 import Animated, { FadeIn, FadeInDown, LinearTransition } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useQueue, useSearch, useStats } from "../../src/api/queries.ts"
@@ -160,7 +160,7 @@ export default function LookUpScreen() {
   const pill = {
     backgroundColor: theme.dark ? theme.color.surface : "rgba(255, 255, 255, 0.66)",
     borderWidth: 1,
-    borderColor: theme.color.hairline,
+    borderColor: theme.color.ring,
     borderRadius: theme.radius.pill,
     height: 40,
     flexDirection: "row" as const,
@@ -256,7 +256,14 @@ export default function LookUpScreen() {
               returnKeyType="search"
               accessibilityLabel={t.dictionary.placeholder}
               style={[
-                { flex: 1, fontSize: 17, color: theme.color.text, fontFamily: theme.font.regular, height: "100%" },
+                {
+                  flex: 1,
+                  // 16px on the web keeps iOS Safari from zooming into the field; the mock's 15.5 elsewhere.
+                  fontSize: Platform.OS === "web" ? 16 : 15.5,
+                  color: theme.color.text,
+                  fontFamily: theme.font.regular,
+                  height: "100%"
+                },
                 { outlineStyle: "none" } as object
               ]}
             />
@@ -272,8 +279,8 @@ export default function LookUpScreen() {
               </PressableScale>
             ) : null}
           </View>
-          <View pointerEvents="none" style={{ position: "absolute", right: 28, top: -50 }}>
-            <Mascot size={60} mood={searching ? "thinking" : "curious"} />
+          <View pointerEvents="none" style={{ position: "absolute", right: 62, top: -58 }}>
+            <Mascot size={70} mood={searching ? "thinking" : "curious"} />
           </View>
         </View>
 
@@ -290,7 +297,9 @@ export default function LookUpScreen() {
                   accessibilityRole="button"
                   style={[pill, { gap: 7, paddingLeft: 12, paddingRight: 15 }]}
                 >
-                  <Icon name="menu_book" size={18} color={theme.color.textMuted} />
+                  <View style={{ opacity: 0.85 }}>
+                    <Icon name="menu_book" size={18} color={theme.color.text} />
+                  </View>
                   <Text variant="caption" size={14}>
                     {tip}
                   </Text>
@@ -340,7 +349,7 @@ export default function LookUpScreen() {
                 </PressableScale>
               }
             >
-              <Card padded={false} style={{ paddingHorizontal: theme.space.lg }}>
+              <Card list padded={false} style={{ paddingHorizontal: theme.space.lg }}>
                 {recent.map((term, index) => (
                   <PressableScale
                     key={term}

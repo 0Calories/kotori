@@ -280,7 +280,7 @@ export type Strings = typeof en
 const ja: Strings = {
   appName: "ことり",
   tabs: { dictionary: "調べる", check: "添削", say: "話す", review: "ノート" },
-  greeting: { morning: "おはようございます", afternoon: "こんにちは", evening: "こんばんは" },
+  greeting: { morning: "おはよう", afternoon: "こんにちは", evening: "こんばんは" },
   common: {
     retry: "もう一度",
     cancel: "キャンセル",
