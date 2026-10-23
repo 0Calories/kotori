@@ -141,12 +141,17 @@ export default function SettingsScreen() {
         </Card>
       </Section>
 
-      <Section title={t.settings.resetTitle}>
+      <Section title={t.settings.account}>
         <Card style={{ gap: theme.space.md }}>
           <Text variant="small" color="textMuted">
-            {t.settings.resetBody}
+            {profile.email}
           </Text>
-          <Button label={t.settings.reset} variant="secondary" icon="refresh" onPress={signOut} />
+          <Button
+            label={t.settings.signOut}
+            variant="secondary"
+            icon="log-out-outline"
+            onPress={() => void signOut()}
+          />
         </Card>
       </Section>
     </Screen>

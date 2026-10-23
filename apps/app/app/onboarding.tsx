@@ -4,83 +4,12 @@ import { View } from "react-native"
 import Animated, { FadeInDown } from "react-native-reanimated"
 import { Button } from "../src/components/Button.tsx"
 import { Mascot } from "../src/components/Mascot.tsx"
-import { PressableScale } from "../src/components/PressableScale.tsx"
+import { LanguageChoice } from "../src/components/LanguageChoice.tsx"
 import { Screen } from "../src/components/Screen.tsx"
 import { ErrorState } from "../src/components/States.tsx"
 import { Text } from "../src/components/Text.tsx"
 import { useSession } from "../src/session/SessionProvider.tsx"
 import { useTheme } from "../src/theme/ThemeProvider.tsx"
-
-const Choice = ({
-  glyph,
-  title,
-  hint,
-  selected,
-  onPress
-}: {
-  readonly glyph: string
-  readonly title: string
-  readonly hint: string
-  readonly selected: boolean
-  readonly onPress: () => void
-}) => {
-  const { color, radius, shadow } = useTheme()
-  return (
-    <PressableScale
-      haptic
-      onPress={onPress}
-      accessibilityRole="radio"
-      accessibilityState={{ selected }}
-      style={[
-        {
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 16,
-          padding: 18,
-          borderRadius: radius.lg,
-          backgroundColor: color.surface,
-          borderWidth: 2,
-          borderColor: selected ? color.primary : color.border
-        },
-        shadow(selected ? 2 : 1)
-      ]}
-    >
-      <View
-        style={{
-          width: 52,
-          height: 52,
-          borderRadius: 16,
-          backgroundColor: selected ? color.primary : color.primarySoft,
-          alignItems: "center",
-          justifyContent: "center"
-        }}
-      >
-        <Text jp size={26} style={{ color: selected ? color.onPrimary : color.primary, fontWeight: "700" }}>
-          {glyph}
-        </Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text variant="heading">{title}</Text>
-        <Text variant="small" color="textMuted">
-          {hint}
-        </Text>
-      </View>
-      <View
-        style={{
-          width: 22,
-          height: 22,
-          borderRadius: 11,
-          borderWidth: 2,
-          borderColor: selected ? color.primary : color.border,
-          alignItems: "center",
-          justifyContent: "center"
-        }}
-      >
-        {selected ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: color.primary }} /> : null}
-      </View>
-    </PressableScale>
-  )
-}
 
 export default function Onboarding() {
   const { t, updateProfile } = useSession()
@@ -94,7 +23,7 @@ export default function Onboarding() {
     setBusy(true)
     setError(null)
     try {
-      // Becomes the post-approval language picker in the app step.
+      // Approved learners who signed up before picking a language land here once.
       await updateProfile({ nativeLanguage: native })
     } catch (e) {
       setError(e)
@@ -124,20 +53,7 @@ export default function Onboarding() {
         <Text variant="label" color="textMuted" style={{ paddingHorizontal: 4 }}>
           {t.onboarding.question.toUpperCase()}
         </Text>
-        <Choice
-          glyph="あ"
-          title={t.onboarding.learnJapanese}
-          hint={t.onboarding.learnJapaneseHint}
-          selected={native === "en"}
-          onPress={() => setNative("en")}
-        />
-        <Choice
-          glyph="A"
-          title={t.onboarding.learnEnglish}
-          hint={t.onboarding.learnEnglishHint}
-          selected={native === "ja"}
-          onPress={() => setNative("ja")}
-        />
+        <LanguageChoice value={native} onChange={setNative} />
       </Animated.View>
       <Animated.View entering={FadeInDown.delay(380).duration(500)} style={{ marginTop: theme.space.lg }}>
         <Button
