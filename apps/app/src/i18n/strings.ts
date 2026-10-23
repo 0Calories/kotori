@@ -4,7 +4,7 @@
  */
 const en = {
   appName: "Kotori",
-  tabs: { dictionary: "Dictionary", check: "Check", say: "Say it", review: "Review" },
+  tabs: { dictionary: "Look up", check: "Check", say: "Speak", review: "Notebook" },
   greeting: { morning: "Good morning", afternoon: "Good afternoon", evening: "Good evening" },
   common: {
     retry: "Try again",
@@ -47,7 +47,9 @@ const en = {
     reviewCard: (n: number) => (n === 1 ? "1 card is waiting for you" : `${n} cards are waiting for you`),
     reviewCardNone: "You're all caught up",
     startReview: "Review now",
-    streak: (n: number) => `${n}-day streak`
+    streak: (n: number) => `${n}-day streak`,
+    title: "What do you want to look up?",
+    language: "Language and settings"
   },
   entry: {
     forms: "Also written",
@@ -273,7 +275,7 @@ export type Strings = typeof en
 
 const ja: Strings = {
   appName: "ことり",
-  tabs: { dictionary: "辞書", check: "添削", say: "言い方", review: "復習" },
+  tabs: { dictionary: "調べる", check: "添削", say: "話す", review: "ノート" },
   greeting: { morning: "おはようございます", afternoon: "こんにちは", evening: "こんばんは" },
   common: {
     retry: "もう一度",
@@ -316,7 +318,9 @@ const ja: Strings = {
     reviewCard: (n: number) => `${n}枚のカードが待っています`,
     reviewCardNone: "今日の復習は完了です",
     startReview: "復習する",
-    streak: (n: number) => `${n}日連続`
+    streak: (n: number) => `${n}日連続`,
+    title: "何を調べたい？",
+    language: "言語と設定"
   },
   entry: {
     forms: "別の表記",

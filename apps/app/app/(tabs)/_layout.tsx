@@ -8,8 +8,8 @@ export default function TabsLayout() {
   return (
     <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <TabBar {...props} badges={{ review: due }} />}>
       <Tabs.Screen name="index" />
-      <Tabs.Screen name="check" />
       <Tabs.Screen name="say" />
+      <Tabs.Screen name="check" />
       <Tabs.Screen name="review" />
     </Tabs>
   )
