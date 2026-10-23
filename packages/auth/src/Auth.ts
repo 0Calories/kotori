@@ -1,10 +1,11 @@
-import { Config, Context, Effect, Layer, Option, Schema } from "effect"
+import { Config, Context, Duration, Effect, Layer, Option, Schema } from "effect"
 import { type Headers, HttpServerRequest, HttpServerResponse } from "effect/http"
 import * as Cookies from "effect/http/Cookies"
 import { SqlClient } from "effect/sql"
 import {
   createLocalJWKSet,
   createRemoteJWKSet,
+  errors as JoseErrors,
   exportJWK,
   generateKeyPair,
   type JWTVerifyGetKey,
@@ -52,10 +53,13 @@ const TokenClaims = Schema.Struct({
 })
 const decodeClaims = Schema.decodeUnknownOption(TokenClaims)
 
-/** Managed Auth could not be reached or answered with something other than HTTP. */
+/** Managed Auth could not be reached, timed out, or answered with a server error. */
 export class AuthUpstreamError extends Schema.TaggedError<AuthUpstreamError>()("AuthUpstreamError", {
   message: Schema.String
 }) {}
+
+/** How long a call to Managed Auth may take before it counts as unreachable. */
+const UPSTREAM_TIMEOUT = Duration.seconds(10)
 
 /** Request headers worth forwarding to the auth server; everything else is hop-by-hop or ours. */
 const FORWARDED_HEADERS = ["cookie", "content-type", "accept", "origin", "user-agent", "authorization"]
@@ -84,10 +88,16 @@ export interface AuthService {
     request: HttpServerRequest.HttpServerRequest,
     path: string
   ): Effect.Effect<HttpServerResponse.HttpServerResponse>
-  /** The signed-in user behind the request's session cookie, via `/get-session`. */
-  sessionFromCookies(headers: Headers.Headers): Effect.Effect<Option.Option<AuthUser>>
-  /** The user a managed JWT (from `GET /token`) was issued to, if the token verifies against the JWKS. */
-  verifyToken(token: string): Effect.Effect<Option.Option<AuthUser>>
+  /**
+   * The signed-in user behind the request's session cookie, via `/get-session`. Fails,
+   * rather than answering none, when Managed Auth can't say.
+   */
+  sessionFromCookies(headers: Headers.Headers): Effect.Effect<Option.Option<AuthUser>, AuthUpstreamError>
+  /**
+   * The user a managed JWT (from `GET /token`) was issued to, if the token verifies against
+   * the JWKS. Fails, rather than answering none, when the key set can't be fetched.
+   */
+  verifyToken(token: string): Effect.Effect<Option.Option<AuthUser>, AuthUpstreamError>
   /**
    * Deletes the identity: the `neon_auth` user row, whose sessions and accounts cascade.
    * Managed Auth doesn't enable Better Auth's own `/delete-user`, and identity lives in
@@ -146,7 +156,7 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
         init: { method: string; headers: Headers.Headers; body?: Uint8Array | undefined }
       ) =>
         Effect.tryPromise({
-          try: async (): Promise<Forwarded> => {
+          try: async (signal): Promise<Forwarded> => {
             const headers = new globalThis.Headers()
             for (const name of FORWARDED_HEADERS) {
               const value = init.headers[name]
@@ -156,7 +166,12 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
             // the web app's; native apps send none, so stand in with the API's own public origin,
             // which must be one of the trusted domains like the web origin is.
             if (!headers.has("origin")) headers.set("origin", requestOrigin(init.headers))
-            const options: RequestInit = { method: init.method, headers, redirect: "manual" }
+            const options: RequestInit = {
+              method: init.method,
+              headers,
+              redirect: "manual",
+              signal: AbortSignal.any([signal, AbortSignal.timeout(Duration.toMillis(UPSTREAM_TIMEOUT))])
+            }
             if (init.body !== undefined && init.method !== "GET" && init.method !== "HEAD") options.body = init.body
             const response = await fetch(`${baseUrl}${path}`, options)
             const relayed: Record<string, string> = {}
@@ -178,13 +193,19 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
         function* (headers: Headers.Headers) {
           if (headers["cookie"] === undefined) return Option.none<AuthUser>()
           const response = yield* upstream("/get-session", { method: "GET", headers })
+          // A server error or rate limit says nothing about the cookie; anything else that
+          // isn't a session (Better Auth answers `null` with 200) means signed out.
+          if (response.status >= 500 || response.status === 429) {
+            return yield* new AuthUpstreamError({ message: `/get-session answered ${response.status}` })
+          }
           if (response.status !== 200) return Option.none<AuthUser>()
-          const session = decodeSession(JSON.parse(new TextDecoder().decode(response.body)))
+          const session = yield* Effect.try({
+            try: () => decodeSession(JSON.parse(new TextDecoder().decode(response.body))),
+            catch: (error) => new AuthUpstreamError({ message: `Unreadable /get-session response: ${String(error)}` })
+          })
           return session === null ? Option.none<AuthUser>() : Option.some(decodeUser(session.user))
         },
-        Effect.catchCause((cause) =>
-          Effect.logWarning("Could not resolve the session", cause).pipe(Effect.as(Option.none()))
-        )
+        Effect.tapError((error) => Effect.logWarning("Could not resolve the session", error))
       )
 
       const verifyToken = makeVerifyToken(jwks, origin)
@@ -239,7 +260,10 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
     Effect.gen(function* () {
       const store = yield* TestAuth
 
-      const sessionFromCookies = (headers: Headers.Headers) => Effect.sync(() => store.userForCookie(headers["cookie"]))
+      const sessionFromCookies = (headers: Headers.Headers) =>
+        store.reachable()
+          ? Effect.sync(() => store.userForCookie(headers["cookie"]))
+          : Effect.fail(new AuthUpstreamError({ message: "The test auth server is down" }))
       const verifyToken = makeVerifyToken(store.jwks, store.issuer)
 
       return Auth.of({
@@ -255,24 +279,53 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
   )
 }
 
-const makeVerifyToken = (jwks: JWTVerifyGetKey, issuer: string) =>
-  Effect.fn("Auth.verifyToken")(
+/** The key set itself couldn't be had (network, timeout, a non-200 answer), as opposed to a bad token. */
+class KeySetUnavailable extends Error {}
+
+/** Marks key-set fetch failures so `verifyToken` doesn't mistake an outage for a forged token. */
+const distinguishOutages =
+  (jwks: JWTVerifyGetKey): JWTVerifyGetKey =>
+  async (header, token) => {
+    try {
+      return await jwks(header, token)
+    } catch (error) {
+      if (error instanceof JoseErrors.JWKSNoMatchingKey || error instanceof JoseErrors.JWKSMultipleMatchingKeys) {
+        throw error
+      }
+      throw new KeySetUnavailable(String(error), { cause: error })
+    }
+  }
+
+const makeVerifyToken = (jwks: JWTVerifyGetKey, issuer: string) => {
+  const keys = distinguishOutages(jwks)
+  return Effect.fn("Auth.verifyToken")(
     function* (token: string) {
-      const verified = yield* Effect.tryPromise(() =>
-        jwtVerify(token, jwks, { issuer, audience: issuer, algorithms: ["EdDSA"] })
+      const verified = yield* Effect.tryPromise({
+        try: () => jwtVerify(token, keys, { issuer, audience: issuer, algorithms: ["EdDSA"] }),
+        catch: (error) => error
+      }).pipe(
+        Effect.map(Option.some),
+        Effect.catch((error) =>
+          error instanceof KeySetUnavailable
+            ? Effect.fail(new AuthUpstreamError({ message: `JWKS unavailable: ${error.message}` }))
+            : Effect.succeed(Option.none())
+        )
       )
-      return decodeClaims(verified.payload).pipe(
-        Option.map((claims): AuthUser => ({
-          id: claims.sub,
-          email: claims.email,
-          emailVerified: claims.emailVerified,
-          name: claims.name,
-          createdAt: claims.createdAt
-        }))
+      return Option.flatMap(verified, (result) =>
+        decodeClaims(result.payload).pipe(
+          Option.map((claims): AuthUser => ({
+            id: claims.sub,
+            email: claims.email,
+            emailVerified: claims.emailVerified,
+            name: claims.name,
+            createdAt: claims.createdAt
+          }))
+        )
       )
     },
-    Effect.catchCause(() => Effect.succeed(Option.none<AuthUser>()))
+    Effect.tapError((error) => Effect.logWarning("Could not verify the token", error))
   )
+}
 
 interface TestSignUp {
   readonly id: string
@@ -293,6 +346,9 @@ export class TestAuth extends Context.Service<
     /** A short-lived JWT for the session, like `GET /token`. */
     token(cookie: string): Effect.Effect<string>
     userForCookie(cookie: string | undefined): Option.Option<AuthUser>
+    /** Simulates an outage: session checks and key-set fetches fail until switched back on. */
+    setReachable(reachable: boolean): void
+    reachable(): boolean
     byEmail(email: string): Option.Option<AuthUser>
     all(): ReadonlyArray<AuthUser>
     revoke(userId: string): void
@@ -305,7 +361,10 @@ export class TestAuth extends Context.Service<
       const issuer = "https://auth.test.invalid"
       const { privateKey, publicKey } = yield* Effect.promise(() => generateKeyPair("EdDSA", { crv: "Ed25519" }))
       const jwk = yield* Effect.promise(() => exportJWK(publicKey))
-      const jwks = createLocalJWKSet({ keys: [{ ...jwk, kid: "test", alg: "EdDSA" }] })
+      const local = createLocalJWKSet({ keys: [{ ...jwk, kid: "test", alg: "EdDSA" }] })
+      let reachable = true
+      const jwks: JWTVerifyGetKey = (header, token) =>
+        reachable ? local(header, token) : Promise.reject(new TypeError("fetch failed"))
 
       const users = new Map<string, AuthUser>()
       const sessions = new Map<string, string>()
@@ -350,6 +409,10 @@ export class TestAuth extends Context.Service<
             )
           }),
         userForCookie,
+        setReachable: (value) => {
+          reachable = value
+        },
+        reachable: () => reachable,
         byEmail: (email) =>
           Option.fromNullishOr([...users.values()].find((u) => u.email === email.trim().toLowerCase())),
         all: () => [...users.values()],

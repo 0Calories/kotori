@@ -1,5 +1,5 @@
 import { Auth } from "@kotori/auth"
-import { Authorization, CurrentUser, PendingApproval, Unauthorized } from "@kotori/domain"
+import { AuthUnavailable, Authorization, CurrentUser, PendingApproval, Unauthorized } from "@kotori/domain"
 import { Effect, Layer, Option } from "effect"
 import { HttpServerRequest } from "effect/http"
 import { Accounts } from "../services/Accounts.ts"
@@ -10,7 +10,9 @@ const OPEN_TO_PENDING = new Set(["account"])
 /**
  * Resolves the learner from either a managed JWT (`Authorization: Bearer`,
  * verified locally against the JWKS — the app's path) or the session cookie
- * (checked upstream — the web path), then applies the approval gate.
+ * (checked upstream — the web path), then applies the approval gate. When
+ * Managed Auth can't be reached the answer is 503, not 401: a 401 tells the
+ * app to throw its credentials away.
  */
 export const AuthorizationLive = Layer.effect(
   Authorization,
@@ -22,8 +24,13 @@ export const AuthorizationLive = Layer.effect(
       Effect.fn(function* (httpEffect, { group }) {
         const request = yield* HttpServerRequest.HttpServerRequest
         const bearer = request.headers["authorization"]?.match(/^Bearer\s+(.+)$/i)?.[1]
-        const user =
-          bearer === undefined ? yield* auth.sessionFromCookies(request.headers) : yield* auth.verifyToken(bearer)
+        const user = yield* (
+          bearer === undefined ? auth.sessionFromCookies(request.headers) : auth.verifyToken(bearer)
+        ).pipe(
+          Effect.mapError(
+            () => new AuthUnavailable({ message: "Sign-in can't be checked right now. Try again in a moment." })
+          )
+        )
         if (Option.isNone(user)) {
           return yield* new Unauthorized({ message: "Please sign in." })
         }

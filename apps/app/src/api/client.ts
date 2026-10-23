@@ -60,6 +60,8 @@ const toApiError = (error: unknown): ApiError => {
     const message = Predicate.hasProperty(error, "message") && Predicate.isString(error.message) ? error.message : ""
     if (KNOWN.has(error._tag)) return new ApiError(error._tag as ApiErrorTag, message)
     if (error._tag === "HttpClientError") return new ApiError("Offline", message)
+    // Managed Auth is down: the stored token is still good, so this is not a sign-out.
+    if (error._tag === "AuthUnavailable") return new ApiError("Offline", message)
   }
   return new ApiError("Unexpected", error instanceof Error ? error.message : String(error))
 }

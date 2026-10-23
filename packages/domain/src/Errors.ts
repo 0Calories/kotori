@@ -19,6 +19,13 @@ export class PendingApproval extends Schema.TaggedError<PendingApproval>()(
   { httpApiStatus: 403 }
 ) {}
 
+/** Sign-in couldn't be checked because Managed Auth is unreachable; the credentials may well be fine. */
+export class AuthUnavailable extends Schema.TaggedError<AuthUnavailable>()(
+  "AuthUnavailable",
+  { message: Schema.String },
+  { httpApiStatus: 503 }
+) {}
+
 export class InvalidRequest extends Schema.TaggedError<InvalidRequest>()(
   "InvalidRequest",
   { message: Schema.String },

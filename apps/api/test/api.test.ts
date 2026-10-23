@@ -161,6 +161,18 @@ layer(TestLayer)("Kotori API", (it) => {
       bearer = null
       cookie = user.cookie
 
+      // Managed Auth being down is a 503, never a 401 that would sign the learner out.
+      const token = yield* testAuth.token(user.cookie)
+      testAuth.setReachable(false)
+      assert.strictEqual((yield* api.account.me().pipe(Effect.flip))._tag, "AuthUnavailable")
+      cookie = null
+      bearer = token
+      assert.strictEqual((yield* api.account.me().pipe(Effect.flip))._tag, "AuthUnavailable")
+      testAuth.setReachable(true)
+      assert.strictEqual((yield* api.account.me()).id, user.id)
+      bearer = null
+      cookie = user.cookie
+
       // Picking a language completes onboarding; bad time zones are ignored.
       const updated = yield* api.account.update({
         payload: { nativeLanguage: "ja", dailyNewLimit: 5, timezone: "Not/AZone" }

@@ -9,7 +9,15 @@ import * as OpenApi from "effect/http-api/OpenApi"
 import { Profile, UpdateProfileRequest, UserId } from "./Account.ts"
 import { HowToSayRequest, HowToSayResult, NaturalnessRequest, NaturalnessResult } from "./Coach.ts"
 import { Enrichment, Entry, EntryId, SearchResult } from "./Dictionary.ts"
-import { AiUnavailable, InvalidRequest, NotFound, PendingApproval, RateLimited, Unauthorized } from "./Errors.ts"
+import {
+  AiUnavailable,
+  AuthUnavailable,
+  InvalidRequest,
+  NotFound,
+  PendingApproval,
+  RateLimited,
+  Unauthorized
+} from "./Errors.ts"
 import { Language } from "./Language.ts"
 import { AddNoteRequest, AnswerRequest, AnswerResult, CardId, Note, NoteId, ReviewQueue, StudyStats } from "./Study.ts"
 
@@ -34,7 +42,7 @@ export class Authorization extends HttpApiMiddleware.Service<
   }
 >()("@kotori/domain/Authorization", {
   requiredForClient: true,
-  error: [Unauthorized, PendingApproval]
+  error: [Unauthorized, PendingApproval, AuthUnavailable]
 }) {}
 
 export const Health = Schema.Struct({
