@@ -18,7 +18,7 @@ const orNotFound =
   (option: Option.Option<A>) =>
     Option.match(option, { onNone: () => Effect.fail(new NotFound({ message })), onSome: Effect.succeed })
 
-export const SystemHandlers = HttpApiBuilder.group(
+const SystemHandlers = HttpApiBuilder.group(
   KotoriApi,
   "system",
   Effect.fn(function* (handlers) {
@@ -46,7 +46,7 @@ export const SystemHandlers = HttpApiBuilder.group(
   })
 )
 
-export const AccountHandlers = HttpApiBuilder.group(
+const AccountHandlers = HttpApiBuilder.group(
   KotoriApi,
   "account",
   Effect.fn(function* (handlers) {
@@ -59,7 +59,7 @@ export const AccountHandlers = HttpApiBuilder.group(
   })
 )
 
-export const DictionaryHandlers = HttpApiBuilder.group(
+const DictionaryHandlers = HttpApiBuilder.group(
   KotoriApi,
   "dictionary",
   Effect.fn(function* (handlers) {
@@ -72,7 +72,7 @@ export const DictionaryHandlers = HttpApiBuilder.group(
   })
 )
 
-export const CoachHandlers = HttpApiBuilder.group(
+const CoachHandlers = HttpApiBuilder.group(
   KotoriApi,
   "coach",
   Effect.fn(function* (handlers) {
@@ -84,7 +84,7 @@ export const CoachHandlers = HttpApiBuilder.group(
   })
 )
 
-export const AudioHandlers = HttpApiBuilder.group(
+const AudioHandlers = HttpApiBuilder.group(
   KotoriApi,
   "audio",
   Effect.fn(function* (handlers) {
@@ -95,7 +95,7 @@ export const AudioHandlers = HttpApiBuilder.group(
   })
 )
 
-export const StudyHandlers = HttpApiBuilder.group(
+const StudyHandlers = HttpApiBuilder.group(
   KotoriApi,
   "study",
   Effect.fn(function* (handlers) {

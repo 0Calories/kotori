@@ -29,6 +29,8 @@ catalog:
   oxlint-tsgolint: "7.0.2004"
   oxfmt: "0.74.0"
   "@neon/config": ^1.9.3
+  knip: ^6.42.1
+  typescript: npm:@typescript/typescript6@~6.0.2
 
 allowBuilds:
   "@resvg/resvg-js": true

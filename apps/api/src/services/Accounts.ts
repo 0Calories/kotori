@@ -8,7 +8,7 @@ import { isTimeZone } from "./time.ts"
 /** What the profile shows from the auth user: contact details the row doesn't duplicate. */
 type Identity = Pick<AuthUser, "email" | "emailVerified">
 
-export const toProfile = (who: Identity, row: UserRow): Profile => ({
+const toProfile = (who: Identity, row: UserRow): Profile => ({
   id: UserId.make(row.id),
   email: who.email,
   emailVerified: who.emailVerified,

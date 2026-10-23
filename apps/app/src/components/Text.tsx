@@ -24,7 +24,7 @@ const variants = {
   label: { fontSize: 11.5, lineHeight: 14, weight: "bold", tracking: 0.92 }
 } as const satisfies Record<string, Spec>
 
-export type TextVariant = keyof typeof variants
+type TextVariant = keyof typeof variants
 
 /**
  * Japanese copy is set in Murecho a little smaller and looser than English, as

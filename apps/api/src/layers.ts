@@ -12,7 +12,7 @@ import { Dictionary } from "./services/Dictionary.ts"
 import { Study } from "./services/Study.ts"
 
 /** Providers that talk to external services: AI and email. */
-export const ProvidersLive = Layer.mergeAll(
+const ProvidersLive = Layer.mergeAll(
   Claude.layer,
   Jev.layer,
   MailerLive,
@@ -20,7 +20,7 @@ export const ProvidersLive = Layer.mergeAll(
 )
 
 /** Application services on top of the repositories and providers. */
-export const ServicesLive = Layer.mergeAll(Accounts.layer, Study.layer, Coaching.layer, AuthWebhooks.layer).pipe(
+const ServicesLive = Layer.mergeAll(Accounts.layer, Study.layer, Coaching.layer, AuthWebhooks.layer).pipe(
   Layer.provideMerge(Dictionary.layer),
   Layer.provideMerge(Coach.layer)
 )

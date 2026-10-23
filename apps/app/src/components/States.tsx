@@ -58,7 +58,7 @@ export const ErrorState = ({ error, onRetry }: { readonly error: unknown; readon
   )
 }
 
-export const Dots = () => {
+const Dots = () => {
   const { color } = useTheme()
   return (
     <View style={{ flexDirection: "row", gap: 6 }}>
