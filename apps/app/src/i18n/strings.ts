@@ -20,7 +20,8 @@ const en = {
     less: "Less",
     close: "Close",
     offline: "Can't reach Kotori's server. Is the API running?",
-    somethingWrong: "Something went wrong."
+    somethingWrong: "Something went wrong.",
+    back: "Back"
   },
   onboarding: {
     title: "Hi, I'm Kotori!",
@@ -62,7 +63,15 @@ const en = {
     judging: "Kotori is studying this word's nuance…",
     noExamples: "No example sentences yet.",
     appliesTo: (forms: string) => `Only for ${forms}`,
-    sense: (n: number) => `Meaning ${n}`
+    sense: (n: number) => `Meaning ${n}`,
+    share: "Share",
+    byAi: "Examples, audio and similar words by AI",
+    sources: "Sources",
+    fromDictionary: "from the dictionary",
+    similarIntro: (word: string) => `Picked for ${word} by AI, with how each one differs.`,
+    dictionaryOnly: "Dictionary entry only",
+    dictionaryOnlyBody: (word: string) => `Nuance, example sentences and audio haven't been added to ${word} yet.`,
+    ask: "Ask for this word"
   },
   nuance: {
     formality: "Formality",
@@ -102,7 +111,8 @@ const en = {
       more_general: "broader",
       different_feeling: "different feeling",
       different_usage: "different usage"
-    }
+    },
+    poles: { casual: "Casual", formal: "Formal", spoken: "Spoken", written: "Written" }
   },
   check: {
     title: "Does it sound natural?",
@@ -279,7 +289,8 @@ const ja: Strings = {
     less: "閉じる",
     close: "閉じる",
     offline: "サーバーに接続できません。APIは起動していますか？",
-    somethingWrong: "エラーが発生しました。"
+    somethingWrong: "エラーが発生しました。",
+    back: "戻る"
   },
   onboarding: {
     title: "こんにちは、ことりです！",
@@ -321,7 +332,15 @@ const ja: Strings = {
     judging: "ニュアンスを分析しています…",
     noExamples: "例文はまだありません。",
     appliesTo: (forms: string) => `${forms}のみ`,
-    sense: (n: number) => `意味 ${n}`
+    sense: (n: number) => `意味 ${n}`,
+    share: "共有",
+    byAi: "例文・音声・似た言葉はAIで作成しています",
+    sources: "出典",
+    fromDictionary: "辞書より",
+    similarIntro: (word: string) => `${word}に近い言葉をAIが選び、それぞれの違いを示しています。`,
+    dictionaryOnly: "辞書の情報のみ",
+    dictionaryOnlyBody: (word: string) => `${word}のニュアンス、例文、音声はまだ追加されていません。`,
+    ask: "この単語をリクエスト"
   },
   nuance: {
     formality: "丁寧さ",
@@ -349,7 +368,8 @@ const ja: Strings = {
       more_general: "意味が広い",
       different_feeling: "感じが違う",
       different_usage: "使い方が違う"
-    }
+    },
+    poles: { casual: "くだけた", formal: "かしこまった", spoken: "話し言葉", written: "書き言葉" }
   },
   check: {
     title: "自然に聞こえる？",

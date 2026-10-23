@@ -34,7 +34,8 @@ export const Chip = ({
           flexDirection: "row",
           alignItems: "center",
           gap: 4,
-          height: 26,
+          minHeight: 26,
+          paddingVertical: 4,
           backgroundColor: bg,
           borderWidth: 1,
           borderColor: ring,
@@ -46,7 +47,7 @@ export const Chip = ({
       ]}
     >
       {icon ? <Icon name={icon} size={15} color={fg} /> : null}
-      <Text variant="caption" style={{ color: fg, lineHeight: 16 }}>
+      <Text variant="caption" style={{ color: fg, lineHeight: 16, flexShrink: 1 }}>
         {label}
       </Text>
     </View>

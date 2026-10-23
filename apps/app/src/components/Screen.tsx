@@ -12,6 +12,7 @@ export const Screen = ({
   bottomInset = 110,
   refreshControl,
   scroll = true,
+  header,
   onScroll
 }: {
   readonly children: ReactNode
@@ -19,15 +20,16 @@ export const Screen = ({
   readonly bottomInset?: number
   readonly refreshControl?: React.ReactElement<RefreshControlProps>
   readonly scroll?: boolean
+  /** A bar that stays put above the scrolling content, such as `Header`. */
+  readonly header?: ReactNode
   readonly onScroll?: (y: number) => void
 }) => {
   const theme = useTheme()
   const insets = useSafeAreaInsets()
+  const column = { width: "100%" as const, maxWidth: theme.maxWidth, alignSelf: "center" as const }
   const content = {
-    width: "100%" as const,
-    maxWidth: theme.maxWidth,
-    alignSelf: "center" as const,
-    paddingTop: insets.top + theme.space.sm,
+    ...column,
+    paddingTop: header ? theme.space.xs : insets.top + theme.space.sm,
     paddingBottom: insets.bottom + bottomInset,
     paddingHorizontal: theme.space.lg,
     gap: theme.space.lg
@@ -39,7 +41,7 @@ export const Screen = ({
       </View>
     )
   }
-  return (
+  const scroller = (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.color.background }}
       contentContainerStyle={content}
@@ -51,6 +53,13 @@ export const Screen = ({
     >
       {children}
     </ScrollView>
+  )
+  if (!header) return scroller
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.color.background }}>
+      <View style={[column, { paddingTop: insets.top, paddingHorizontal: theme.space.lg }]}>{header}</View>
+      {scroller}
+    </View>
   )
 }
 
@@ -72,7 +81,7 @@ export const Header = ({
       <View style={{ flex: 1, alignItems: "flex-start" }}>
         <IconButton
           icon={backIcon === "close" ? "close" : Platform.OS === "android" ? "arrow_back" : "arrow_back_ios_new"}
-          label={t.common.close}
+          label={backIcon === "close" ? t.common.close : t.common.back}
           onPress={onBack}
         />
       </View>

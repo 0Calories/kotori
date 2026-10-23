@@ -8,6 +8,8 @@ import { Text } from "./Text.tsx"
 interface Unit {
   readonly base: string
   readonly reading: string | null
+  /** Where the unit starts in the plain sentence. */
+  readonly start: number
 }
 
 /** A stretch of the sentence to mark: the word being looked up, or a mistake. */
@@ -15,6 +17,8 @@ export interface Mark {
   readonly text: string
   readonly kind: "highlight" | "mistake"
 }
+
+const NO_MARKS: ReadonlyArray<Mark> = []
 
 /**
  * Japanese text with readings above the kanji. Furigana arrives inline as
@@ -28,7 +32,7 @@ export const Furigana = ({
   size = 20,
   color = "text",
   center,
-  marks = []
+  marks = NO_MARKS
 }: {
   readonly text: string
   readonly furigana?: string | null
@@ -54,14 +58,18 @@ export const Furigana = ({
     )
   }
 
-  const units = (ruby === null ? [{ text, reading: null }] : parseFurigana(ruby)).flatMap((segment): Array<Unit> =>
-    segment.reading !== null
-      ? [{ base: segment.text, reading: segment.reading }]
-      : Array.from(segment.text, (char) => ({ base: char, reading: null }))
+  const pieces = (ruby === null ? [{ text, reading: null }] : parseFurigana(ruby)).flatMap(
+    (segment): Array<Omit<Unit, "start">> =>
+      segment.reading !== null
+        ? [{ base: segment.text, reading: segment.reading }]
+        : Array.from(segment.text, (char) => ({ base: char, reading: null }))
   )
+  const units = pieces.map((piece, index): Unit => ({
+    ...piece,
+    start: pieces.slice(0, index).reduce((length, before) => length + before.base.length, 0)
+  }))
   const rubySize = Math.max(Math.round(size * 0.5), 9)
   const lineHeight = Math.round(size * 1.5)
-  let offset = 0
 
   return (
     <View
@@ -74,12 +82,11 @@ export const Furigana = ({
       accessible
       accessibilityLabel={text}
     >
-      {units.map((unit, index) => {
-        const start = offset
-        offset += unit.base.length
-        const mark = spans.find((span) => start < span.end && offset > span.start)
+      {units.map((unit) => {
+        const end = unit.start + unit.base.length
+        const mark = spans.find((span) => unit.start < span.end && end > span.start)
         return (
-          <View key={index} style={{ alignItems: "center" }}>
+          <View key={unit.start} style={{ alignItems: "center" }}>
             {ruby !== null ? (
               <Text jp size={rubySize} style={{ color: theme.color.textMuted, lineHeight: rubySize * 1.25 }}>
                 {unit.reading ?? "​"}
