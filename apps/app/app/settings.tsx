@@ -3,8 +3,10 @@ import { useRouter } from "expo-router"
 import { Switch, View } from "react-native"
 import { apiUrl } from "../src/api/config.ts"
 import { useHealth } from "../src/api/queries.ts"
+import { ChangePassword, DeleteAccount } from "../src/components/AccountSettings.tsx"
 import { Button, IconButton } from "../src/components/Button.tsx"
 import { Card } from "../src/components/Card.tsx"
+import { ConfirmEmail } from "../src/components/ConfirmEmail.tsx"
 import { Icon } from "../src/components/Icon.tsx"
 import { Mascot } from "../src/components/Mascot.tsx"
 import { Header, Screen, Section } from "../src/components/Screen.tsx"
@@ -141,12 +143,17 @@ export default function SettingsScreen() {
       </Section>
 
       <Section title={t.settings.account}>
-        <Card style={{ gap: theme.space.md }}>
-          <Text variant="small" color="textMuted">
-            {profile.email}
-          </Text>
-          <Button label={t.settings.signOut} variant="secondary" icon="logout" onPress={() => void signOut()} />
-        </Card>
+        <View style={{ gap: theme.space.md }}>
+          <ConfirmEmail />
+          <Card style={{ gap: theme.space.md }}>
+            <Text variant="small" color="textMuted">
+              {profile.email}
+            </Text>
+            <ChangePassword />
+            <Button label={t.settings.signOut} variant="secondary" icon="logout" onPress={() => void signOut()} />
+          </Card>
+          <DeleteAccount />
+        </View>
       </Section>
     </Screen>
   )

@@ -85,6 +85,7 @@ export default function SignIn() {
           onPress={() => void submit()}
         />
         <View style={{ alignItems: "center" }}>
+          <Button label={t.auth.forgot} variant="ghost" size="sm" onPress={() => router.push("/forgot-password")} />
           <Button label={t.auth.toSignUp} variant="ghost" size="sm" onPress={() => router.replace("/sign-up")} />
         </View>
       </Animated.View>

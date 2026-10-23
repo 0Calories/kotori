@@ -32,6 +32,10 @@ interface Session {
   readonly signOut: () => Promise<void>
   readonly sendVerificationCode: () => Promise<void>
   readonly verifyEmail: (code: string) => Promise<void>
+  /** Changes the password and signs the learner's other devices out; this one stays in. */
+  readonly changePassword: (currentPassword: string, newPassword: string) => Promise<void>
+  /** Erases the account and everything studied, then lands on the welcome screen. Irreversible. */
+  readonly deleteAccount: () => Promise<void>
   /** Re-reads the profile, e.g. while waiting for approval. */
   readonly refresh: () => Promise<void>
   readonly updateProfile: (patch: UpdateProfileRequest) => Promise<void>
@@ -145,6 +149,21 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
     [profile, refresh]
   )
 
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    await managedAuth.changePassword(currentPassword, newPassword)
+    // Revoking the other sessions rotates this one's cookie too; the JWT in hand was
+    // minted from the old one, so drop it and mint from the cookie the transport just kept.
+    tokens.clear()
+    await sessionToken()
+  }, [])
+
+  const deleteAccount = useCallback(async () => {
+    // The API deletes the identity along with the data, so there is no session left to end.
+    await call((api) => api.account.delete())
+    await transport.forget()
+    leave()
+  }, [leave])
+
   const updateProfile = useCallback(
     async (patch: UpdateProfileRequest) => {
       enter(await call((api) => api.account.update({ payload: patch })))
@@ -163,6 +182,8 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
       signOut,
       sendVerificationCode,
       verifyEmail,
+      changePassword,
+      deleteAccount,
       refresh,
       updateProfile,
       retry: () => {
@@ -170,7 +191,19 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
         setAttempt((n) => n + 1)
       }
     }),
-    [status, profile, signIn, signUp, signOut, sendVerificationCode, verifyEmail, refresh, updateProfile]
+    [
+      status,
+      profile,
+      signIn,
+      signUp,
+      signOut,
+      sendVerificationCode,
+      verifyEmail,
+      changePassword,
+      deleteAccount,
+      refresh,
+      updateProfile
+    ]
   )
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

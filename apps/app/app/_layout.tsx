@@ -79,6 +79,7 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
           <Stack.Screen name="welcome" options={{ animation: "fade" }} />
           <Stack.Screen name="sign-in" />
           <Stack.Screen name="sign-up" />
+          <Stack.Screen name="forgot-password" />
         </Stack.Protected>
       </Stack>
     </>
