@@ -22,8 +22,8 @@ catalog:
   "@typesafe-ai/sdk": "^0.6.0"
   wanakana: "^5.3.1"
   tsx: "^4.23.15"
-  nx: "23.3.0"
-  "@nx/js": "23.3.0"
+  nx: "24.0.0"
+  "@nx/js": "24.0.0"
   oxlint: "1.89.0"
   oxfmt: "0.74.0"
   "@neon/config": ^1.9.3

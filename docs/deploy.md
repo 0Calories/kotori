@@ -120,7 +120,7 @@ Local development: `neon checkout <branch>` writes that branch's `DATABASE_URL`,
 
 1. `pnpm install --frozen-lockfile` on the Node from `.node-version`, with the pnpm store and `.nx/cache` cached.
 2. `nx sync:check` (project references match `package.json` dependencies), `pnpm format:check`, `pnpm lint`.
-3. `nx affected -t typecheck test build` against the base commit (`nrwl/nx-set-shas`). Tests need no services: repositories run on PGlite and auth on an in-memory server.
+3. `nx affected -t typecheck test build` against the base commit (`nrwl/nx-set-shas`). Nx selects only the tasks whose inputs the change reaches (plus the tasks those depend on), so editing a test typechecks and tests without re-exporting the web app; a task's `inputs` are therefore what decides whether CI runs it. Tests need no services: repositories run on PGlite and auth on an in-memory server.
 4. On `main`, after the checks: `flyctl deploy --remote-only`. The job runs only when the repository variable `FLY_DEPLOY` is `true` and uses the `FLY_API_TOKEN` secret, a deploy token scoped to the app (`fly tokens create deploy -x 8760h`), which can deploy but not read secrets. Set both after `fly launch`.
 
 Pull-request runs cancel superseded ones; runs on `main` never cancel, because they deploy. Deploys use the `production` environment, so GitHub can require a reviewer there if wanted.
@@ -128,7 +128,6 @@ Pull-request runs cancel superseded ones; runs on `main` never cancel, because t
 ## 6. Follow-ups
 
 - **Image size.** The runtime image is ~176 MB (28 packages in `node_modules`). Watch for regressions: the workspace's hoisted linker resolves *optional* peer dependencies workspace-wide, so a server dependency with optional React or Expo peers would pull the app's toolchain into the image again (this is what `better-auth` did). If that happens, give `apps/app` its own pnpm workspace.
-- **Nx 24** (`pnpm nx migrate latest`): `@nx/js/typescript` becomes the only typecheck provider, affected tasks are selected by default, and `nx format` detects Oxfmt.
 - **Type-aware lint rules** once Oxlint can use the TypeScript 7 API.
 - **Dedicated database role** for the apps instead of the Neon project owner, with the `neon_auth` grants replicated.
 - **Staging**: a Neon branch plus a second Fly app (`fly launch` with another name); `fly.toml` needs no changes.
