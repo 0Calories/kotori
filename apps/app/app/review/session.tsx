@@ -53,7 +53,7 @@ const Faces = ({
             {content.reading !== content.headword ? content.reading : " "}
           </Text>
         ) : null}
-        <Text jp size={46} style={{ lineHeight: 58 }} align="center">
+        <Text mincho size={52} style={{ lineHeight: 62 }} align="center">
           {content.headword}
         </Text>
       </View>
@@ -331,7 +331,7 @@ export default function ReviewSession() {
         </PressableScale>
         {leech ? (
           <Animated.View entering={FadeInUp}>
-            <Text variant="caption" color="yuzu" align="center" style={{ marginTop: 12 }}>
+            <Text variant="caption" color="accent" align="center" style={{ marginTop: 12 }}>
               {t.review.leech}
             </Text>
           </Animated.View>

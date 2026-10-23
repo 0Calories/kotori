@@ -42,7 +42,7 @@ const Stat = ({ icon, label, value }: { readonly icon: IconName; readonly label:
   )
 }
 
-/** Cards due on each of the next seven days. One series, so one hue; today is emphasised. */
+/** Cards due on each of the next seven days. One series, so one hue: today in the dark mark, the rest faded. */
 const Forecast = ({ days }: { readonly days: ReadonlyArray<number> }) => {
   const theme = useTheme()
   const { t, profile } = useSession()
@@ -72,8 +72,7 @@ const Forecast = ({ days }: { readonly days: ReadonlyArray<number> }) => {
               maxWidth: 28,
               height: Math.max((count / max) * 72, 3),
               borderRadius: 6,
-              backgroundColor: theme.color.primary,
-              opacity: offset === 0 ? 1 : 0.45
+              backgroundColor: offset === 0 ? theme.color.primaryDark : theme.color.primarySoft
             }}
           />
           <Text variant="caption" color={offset === 0 ? "text" : "textFaint"} style={{ fontSize: 11 }}>
@@ -112,7 +111,9 @@ export default function ReviewScreen() {
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
         <Mascot size={56} mood={due > 0 ? "curious" : "sleepy"} />
         <View style={{ flex: 1 }}>
-          <Text variant="title">{t.review.title}</Text>
+          <Text variant="title" accessibilityRole="header">
+            {t.tabs.review}
+          </Text>
           <Text variant="small" color="textMuted">
             {t.review.subtitle}
           </Text>
@@ -189,7 +190,7 @@ export default function ReviewScreen() {
             {t.review.saved}
           </Text>
           <Text color="textMuted">{notes.data?.length ?? 0}</Text>
-          <Icon name="chevron_right" size={20} color={theme.color.textFaint} />
+          <Icon name="chevron_right" size={20} color={theme.color.textMuted} />
         </Card>
       </PressableScale>
     </Screen>

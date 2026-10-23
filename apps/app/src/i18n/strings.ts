@@ -172,7 +172,6 @@ const en = {
     again: "Ask another"
   },
   review: {
-    title: "Review",
     subtitle: "Spaced repetition, Anki-style. A few minutes a day keeps words fresh.",
     due: "Due today",
     new: "New",
@@ -429,7 +428,6 @@ const ja: Strings = {
     again: "ほかの表現を聞く"
   },
   review: {
-    title: "復習",
     subtitle: "Ankiと同じ間隔反復で、毎日少しずつ。",
     due: "今日の復習",
     new: "新規",

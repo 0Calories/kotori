@@ -47,18 +47,7 @@ const light = {
   /** A pressed or selected row: ink at 7.5%. */
   selected: "rgba(19, 32, 26, 0.075)",
   shadow: "#13201A",
-  overlay: "rgba(19, 32, 26, 0.35)",
-  // Legacy tones, kept until every screen has moved to the palette above.
-  sky: "#355D41",
-  skySoft: "#DBF2E0",
-  matcha: "#355D41",
-  matchaSoft: "#DBF2E0",
-  yuzu: "#B03D5B",
-  yuzuSoft: "#FFEEF0",
-  plum: "#B03D5B",
-  plumSoft: "#FFEEF0",
-  lavender: "#515E58",
-  lavenderSoft: "#ECF2ED"
+  overlay: "rgba(19, 32, 26, 0.35)"
 }
 
 export type Palette = typeof light
@@ -88,17 +77,7 @@ const dark: Palette = {
   highlight: "#6B2D3E",
   selected: "rgba(232, 240, 234, 0.09)",
   shadow: "#000000",
-  overlay: "rgba(0, 0, 0, 0.5)",
-  sky: "#A9D8B4",
-  skySoft: "#1D3125",
-  matcha: "#A9D8B4",
-  matchaSoft: "#1D3125",
-  yuzu: "#EE90A8",
-  yuzuSoft: "#3A2229",
-  plum: "#EE90A8",
-  plumSoft: "#3A2229",
-  lavender: "#A9B7AF",
-  lavenderSoft: "#202C25"
+  overlay: "rgba(0, 0, 0, 0.5)"
 }
 
 export const palettes = { light, dark }
