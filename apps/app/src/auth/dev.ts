@@ -12,7 +12,7 @@
  * To exercise the real sign-in flow instead, set `EXPO_PUBLIC_DEV_SIGN_IN=off`, or
  * sign out in the app, which stands until the next reload.
  */
-export const devSignInEnabled = __DEV__ && process.env.EXPO_PUBLIC_DEV_SIGN_IN !== "off"
+const devSignInEnabled = __DEV__ && process.env.EXPO_PUBLIC_DEV_SIGN_IN !== "off"
 
 /** The development account's credentials, or null when auto sign-in is off. */
 export const devCredentials = (): { readonly email: string; readonly password: string } | null =>

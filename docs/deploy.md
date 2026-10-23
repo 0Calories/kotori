@@ -142,10 +142,42 @@ Local development: `neon checkout <branch>` writes that branch's `DATABASE_URL`,
 
 Pull-request runs cancel superseded ones; runs on `main` never cancel, because they deploy. Deploys use the `production` environment, so GitHub can require a reviewer there if wanted.
 
-## 6. Follow-ups
+## 6. The web app on Vercel
+
+The Expo app exports to a static single-page bundle (`output: "single"` in `app.json`), so hosting it is file serving plus one rewrite. `vercel.json` at the repository root holds the whole configuration; **leave the project's Root Directory at the repository root** so the pnpm workspace installs and the paths in it line up.
+
+| Setting | Value | Where |
+| --- | --- | --- |
+| Install | `pnpm install --frozen-lockfile` | `vercel.json` |
+| Build | `pnpm check:web-env && pnpm --filter @kotori/app build` | `vercel.json` |
+| Output | `apps/app/dist` | `vercel.json` |
+| Framework preset | None | `vercel.json` (`"framework": null`) |
+| Node | 24, from `engines.node`; pnpm 12 from `packageManager` via Corepack | `package.json` |
+
+`EXPO_PUBLIC_API_URL` is the one value that must be set in the Vercel project (Settings → Environment Variables), for every environment the app is built for. Expo inlines `EXPO_PUBLIC_*` into the bundle at build time, so it is a build input, not a runtime setting: changing it needs a redeploy. Without it the app falls back to the host serving the page on port 4000, which is right for a dev server and useless once deployed — `pnpm check:web-env` fails the build rather than let that ship, and also rejects `http://` and local addresses.
+
+The build passes `--clear` to `expo export`. Metro's transform cache keys don't reliably account for inlined `EXPO_PUBLIC_*` values, so without it a build can silently reuse a bundle carrying the *previous* API URL. It costs about eight seconds here, which is worth paying every time.
+
+Two things outside Vercel have to name the web origin before sign-in works from a browser:
+
+```sh
+# 1. The API: only these origins may send credentialed requests (comma-separated).
+#    Uncomment and set KOTORI_WEB_ORIGINS under [env] in fly.toml, then deploy.
+fly deploy
+# 2. Managed Auth: Better Auth refuses requests from untrusted origins.
+neon neon-auth domain add https://<your-project>.vercel.app
+```
+
+Both want the exact origin, scheme included and no trailing slash. The API's own public origin must be a trusted domain too (§4); native apps send no `Origin` and need neither.
+
+The rewrite sends anything that isn't a file to `index.html`, which is what makes `/entry/123` work on a cold load — Vercel checks the filesystem before rewrites, so hashed assets still serve directly. `_expo/static` and `assets` are content-hashed and get a year's immutable caching; `index.html` is revalidated every time, so a deploy takes effect at once.
+
+**Preview deployments.** Every branch gets its own Vercel origin, which the API's exact-match allowlist will reject, so previews can't sign in or reach the API. That is the safe failure for now — a preview can't spend anything — and it is deliberate: wiring previews to a preview backend, navigable without auth but with the AI endpoints disabled server-side, is a separate piece of work. Until then, either test against production or disable preview builds in the project's Git settings.
+
+## 7. Follow-ups
 
 - **Image size.** The runtime image is ~176 MB (28 packages in `node_modules`). Watch for regressions: the workspace's hoisted linker resolves *optional* peer dependencies workspace-wide, so a server dependency with optional React or Expo peers would pull the app's toolchain into the image again (this is what `better-auth` did). If that happens, give `apps/app` its own pnpm workspace.
-- **App account screens**: password reset by code (the webhook already sends `forget-password` codes; Managed Auth's Email OTP `/email-otp/reset-password` takes them) and account deletion in Settings (`DELETE /account/me` exists; App Store guideline 5.1.1(v) wants it in the app).
+- **Preview environments**: a Neon branch and Fly app per preview, so Vercel previews reach a backend of their own rather than production — navigable without signing in, with the AI-backed endpoints refused server-side so preview traffic can't spend on Claude, Jev or ElevenLabs (§6).
 - **Dedicated database role** for the apps instead of the Neon project owner, with the `neon_auth` grants replicated.
 - **Staging**: a Neon branch plus a second Fly app (`fly launch` with another name); `fly.toml` needs no changes.
 - Observability beyond structured logs.
