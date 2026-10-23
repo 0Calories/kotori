@@ -1,8 +1,12 @@
-import { UsersRepo } from "@kotori/db"
-import type { AccountStatus } from "@kotori/domain"
+import { type UserRow, UsersRepo } from "@kotori/db"
+import type { AccountStatus, Language } from "@kotori/domain"
 import { Mailer, templates } from "@kotori/email"
 import { Clock, Context, Effect, Layer, Option, Schema } from "effect"
 import { Auth, type AuthUser } from "./Auth.ts"
+
+/** The language Kotori emails a learner in: the one they picked in the app, English until then. */
+export const emailLanguage = (profile: UserRow | undefined): Language =>
+  profile === undefined || profile.onboardedAt === null ? "en" : profile.nativeLanguage
 
 export class NoSuchUser extends Schema.TaggedError<NoSuchUser>()("NoSuchUser", { email: Schema.String }) {}
 
@@ -78,10 +82,14 @@ export class Approvals extends Context.Service<
           const profile = yield* profileFor(account)
           yield* users.update(account.id, { status })
           if (status === "approved") {
-            // Learners who already picked a language get the email in it.
-            const language = profile.onboardedAt === null ? "en" : profile.nativeLanguage
             yield* mailer
-              .send(templates.approved({ to: account.email, name: account.name.trim() || null, language }))
+              .send(
+                templates.approved({
+                  to: account.email,
+                  name: account.name.trim() || null,
+                  language: emailLanguage(profile)
+                })
+              )
               .pipe(Effect.catchCause((cause) => Effect.logWarning("Could not send approval email", cause)))
           }
           return { ...account, status }

@@ -2,22 +2,40 @@ import type { Language, Profile, UpdateProfileRequest } from "@kotori/domain"
 import { useQueryClient } from "@tanstack/react-query"
 import { getLocales } from "expo-localization"
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react"
-import { ApiError, call, setToken } from "../api/client.ts"
+import { ApiError, call } from "../api/client.ts"
+import { AuthError, managedAuth } from "../auth/client.ts"
+import { tokens } from "../auth/tokens.ts"
+import { transport } from "../auth/transport"
 import { strings, type Strings } from "../i18n/strings.ts"
-import { storage } from "./storage"
 
-const TOKEN_KEY = "kotori.token"
+/**
+ * Where the learner is: signed out; signed in but waiting for approval (archived
+ * looks the same); approved but yet to pick a language; or in. `offline` is the API
+ * or Managed Auth being unreachable, which never throws credentials away.
+ */
+type Status = "loading" | "signedOut" | "pending" | "onboarding" | "ready" | "offline"
 
-type Status = "loading" | "anonymous" | "ready" | "offline"
+export interface SignUp {
+  readonly email: string
+  readonly password: string
+  readonly name: string
+  readonly nativeLanguage: Language
+}
 
 interface Session {
   readonly status: Status
   readonly profile: Profile | null
   /** Interface copy in the learner's native language. */
   readonly t: Strings
-  updateProfile(patch: UpdateProfileRequest): Promise<void>
-  signOut(): Promise<void>
-  retry(): void
+  readonly signIn: (email: string, password: string) => Promise<void>
+  readonly signUp: (input: SignUp) => Promise<void>
+  readonly signOut: () => Promise<void>
+  readonly sendVerificationCode: () => Promise<void>
+  readonly verifyEmail: (code: string) => Promise<void>
+  /** Re-reads the profile, e.g. while waiting for approval. */
+  readonly refresh: () => Promise<void>
+  readonly updateProfile: (patch: UpdateProfileRequest) => Promise<void>
+  readonly retry: () => void
 }
 
 const SessionContext = createContext<Session | null>(null)
@@ -26,76 +44,133 @@ const deviceLanguage = (): Language => (getLocales()[0]?.languageCode === "ja" ?
 
 const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC"
 
+const statusOf = (profile: Profile): Status =>
+  profile.status !== "approved" && profile.role !== "admin" ? "pending" : profile.onboarded ? "ready" : "onboarding"
+
+/** A JWT for the session just created, or the reason there isn't one. */
+const sessionToken = async () => {
+  if ((await tokens.refresh()) === null) throw new AuthError("NO_SESSION", "", 401)
+}
+
 export const SessionProvider = ({ children }: { readonly children: ReactNode }) => {
   const queryClient = useQueryClient()
   const [status, setStatus] = useState<Status>("loading")
   const [profile, setProfile] = useState<Profile | null>(null)
   const [attempt, setAttempt] = useState(0)
 
+  const enter = useCallback((me: Profile) => {
+    setProfile(me)
+    setStatus(statusOf(me))
+  }, [])
+
+  const leave = useCallback(() => {
+    tokens.clear()
+    setProfile(null)
+    queryClient.clear()
+    setStatus("signedOut")
+  }, [queryClient])
+
+  // A session that ends elsewhere (sign-out on another device, revocation, deletion) lands here.
+  useEffect(() => tokens.onSignedOut(leave), [leave])
+
   useEffect(() => {
     let cancelled = false
     const load = async () => {
-      const saved = await storage.get(TOKEN_KEY)
-      if (saved === null) return cancelled || setStatus("anonymous")
-      setToken(saved)
-      try {
-        const me = await call((api) => api.account.me())
-        if (cancelled) return
-        setProfile(me)
-        setStatus("ready")
-        // Keep study days aligned with wherever the learner is now.
-        if (me.timezone !== timeZone()) {
-          call((api) => api.account.update({ payload: { timezone: timeZone() } })).then(setProfile, () => {})
-        }
-      } catch (error) {
-        if (cancelled) return
-        if (error instanceof ApiError && error.tag === "Unauthorized") {
-          await storage.remove(TOKEN_KEY)
-          setToken(null)
-          setStatus("anonymous")
-        } else {
-          setStatus("offline")
-        }
+      if ((await tokens.current()) === null) return cancelled || setStatus("signedOut")
+      const me = await call((api) => api.account.me())
+      if (cancelled) return
+      enter(me)
+      // Keep study days aligned with wherever the learner is now.
+      if (me.timezone !== timeZone()) {
+        call((api) => api.account.update({ payload: { timezone: timeZone() } })).then(setProfile, () => {})
       }
     }
-    load()
+    load().catch((error: unknown) => {
+      if (cancelled) return
+      setStatus(error instanceof ApiError && error.tag === "Unauthorized" ? "signedOut" : "offline")
+    })
     return () => {
       cancelled = true
     }
-  }, [attempt])
+  }, [attempt, enter])
 
-  // Sign-up and sign-in screens are not built yet: the app only loads an existing
-  // session (a managed JWT from `GET /api/auth/token`, sent as a bearer token).
-  const updateProfile = useCallback(
-    async (patch: UpdateProfileRequest) => {
-      const updated = await call((api) => api.account.update({ payload: patch }))
-      setProfile(updated)
-      queryClient.invalidateQueries()
+  const refresh = useCallback(async () => enter(await call((api) => api.account.me())), [enter])
+
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      await managedAuth.signIn({ email: email.trim(), password })
+      await sessionToken()
+      await refresh()
     },
-    [queryClient]
+    [refresh]
+  )
+
+  const signUp = useCallback(
+    async ({ email, password, name, nativeLanguage }: SignUp) => {
+      const address = email.trim()
+      // Managed Auth wants a name; the address's local part stands in, as in Neon's examples.
+      await managedAuth.signUp({ email: address, password, name: name.trim() || address.split("@")[0] || address })
+      await sessionToken()
+      // The language first, so the verification code, and later the approval email, arrive in it.
+      enter(
+        await call((api) =>
+          api.account.update({ payload: { nativeLanguage, timezone: timeZone(), displayName: name.trim() || null } })
+        )
+      )
+      // The pending screen offers a new code if this one doesn't arrive.
+      await managedAuth.sendVerificationCode(address).catch(() => {})
+    },
+    [enter]
   )
 
   const signOut = useCallback(async () => {
-    await storage.remove(TOKEN_KEY)
-    setToken(null)
-    setProfile(null)
-    queryClient.clear()
-    setStatus("anonymous")
-  }, [queryClient])
+    // Ends the session upstream; this device forgets it either way.
+    await managedAuth.signOut().catch(() => {})
+    await transport.forget()
+    leave()
+  }, [leave])
+
+  const sendVerificationCode = useCallback(async () => {
+    if (profile !== null) await managedAuth.sendVerificationCode(profile.email)
+  }, [profile])
+
+  const verifyEmail = useCallback(
+    async (code: string) => {
+      if (profile === null) return
+      await managedAuth.verifyEmail(profile.email, code.trim())
+      // The JWT carries emailVerified, so mint one that knows.
+      await sessionToken()
+      await refresh()
+    },
+    [profile, refresh]
+  )
+
+  const updateProfile = useCallback(
+    async (patch: UpdateProfileRequest) => {
+      enter(await call((api) => api.account.update({ payload: patch })))
+      void queryClient.invalidateQueries()
+    },
+    [enter, queryClient]
+  )
 
   const value = useMemo<Session>(
     () => ({
       status,
       profile,
       t: strings[profile?.nativeLanguage ?? deviceLanguage()],
-      updateProfile,
+      signIn,
+      signUp,
       signOut,
+      sendVerificationCode,
+      verifyEmail,
+      refresh,
+      updateProfile,
       retry: () => {
         setStatus("loading")
         setAttempt((n) => n + 1)
       }
     }),
-    [status, profile, updateProfile, signOut]
+    [status, profile, signIn, signUp, signOut, sendVerificationCode, verifyEmail, refresh, updateProfile]
   )
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

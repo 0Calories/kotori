@@ -94,7 +94,7 @@ Claude requests opt into server-side refusal fallbacks (`fallbacks: "default"`),
 
 ## Accounts and sign-ups
 
-Identity is handled by Neon's [Managed Better Auth](https://neon.com/docs/auth/overview), proxied by the API at `/api/auth/*`; users and sessions live in the `neon_auth` schema of the same Postgres. Learners sign up with email and password; the app then authenticates to the API with a short-lived JWT (`GET /api/auth/token`), the web with the session cookie. Approval status and roles are Kotori's own, on the learner profile. Kotori is in private beta, so new accounts start **pending** and can only reach `/account` until approved:
+Identity is handled by Neon's [Managed Better Auth](https://neon.com/docs/auth/overview), proxied by the API at `/api/auth/*`; users and sessions live in the `neon_auth` schema of the same Postgres. Learners sign up and sign in in the app with email and password, then confirm their email with a code. The app keeps Managed Auth's session (in the Keychain/Keystore on devices, as the browser's cookie on the web) and authenticates to the API with short-lived JWTs minted from it (`GET /api/auth/token`). Approval status and roles are Kotori's own, on the learner profile. Kotori is in private beta, so new accounts start **pending** and can only reach `/account` until approved:
 
 ```sh
 pnpm kotori requests                  # sign-ups waiting for approval (--all includes archived)
@@ -105,7 +105,7 @@ pnpm kotori admin admin@example.com     # admins skip approval (--remove to demo
 pnpm kotori revoke user@example.com    # signs them out of every device
 ```
 
-The approval email goes through [Resend](https://resend.com) when `RESEND_API_KEY` is set; otherwise it is printed to the log, which is enough for local development. Verification and password-reset emails are Managed Auth's; routing them through Resend with Kotori's templates is a pre-launch item in `docs/deploy.md`. Running the API needs a Neon branch (`neon checkout <branch>` writes `DATABASE_URL` and `NEON_AUTH_BASE_URL` into `.env.local`).
+Kotori sends its own email through [Resend](https://resend.com) when `RESEND_API_KEY` is set; otherwise messages are printed to the log, which is enough for local development. That covers the approval email and, once Managed Auth's webhook points at the API (`POST /webhooks/neon-auth`, signature-checked; see `docs/deploy.md`), the verification and password-reset codes, all in the learner's language. Running the API needs a Neon branch (`neon checkout <branch>` writes `DATABASE_URL` and `NEON_AUTH_BASE_URL` into `.env.local`).
 
 ## Development
 
@@ -113,7 +113,7 @@ The approval email goes through [Resend](https://resend.com) when `RESEND_API_KE
 pnpm test        # every package's tests (Vitest + @effect/vitest), cached by Nx
 pnpm typecheck   # TypeScript 7 (tsc --build) across the workspace
 pnpm build       # emits dist/ for the API, the worker and the packages they use
-pnpm lint        # Oxlint (.oxlintrc.json)
+pnpm lint        # Oxlint (.oxlintrc.json), including type-aware rules
 pnpm format      # Oxfmt (.oxfmtrc.json); `pnpm format:check` in CI
 pnpm sync        # Nx keeps tsconfig project references in step with package.json
 pnpm assets      # re-render icons and splash from the mascot geometry
@@ -121,7 +121,7 @@ pnpm assets      # re-render icons and splash from the mascot geometry
 
 Packages are TypeScript project references. Each one has a `tsconfig.lib.json` (source, emitted to `dist/`) and a `tsconfig.spec.json` (tests, type-checked only); `nx sync` derives the `references` between them from `package.json` dependencies, so importing a package you have not declared fails the typecheck. Their `exports` maps point `@kotori/source` at `src/` and everything else at `dist/`: `tsc`, `tsx -C @kotori/source`, Vitest and Metro read source, while `node dist/main.js` in production reads the compiled output.
 
-CI (`.github/workflows/ci.yml`) runs `nx sync:check`, format and lint checks, then `nx affected -t typecheck test build`; a push to `main` deploys to Fly.io once the checks pass (see `docs/deploy.md`). Dependency versions shared across packages live in the `catalog:` of `pnpm-workspace.yaml`. TypeScript 7 is installed as `@typescript/native` (the `tsc` you run) alongside TypeScript 6 as `typescript` (the compiler API that Nx and editors still need; `tsc6`).
+CI (`.github/workflows/ci.yml`) runs `nx sync:check`, format and lint checks, then `nx affected -t typecheck test build`; a push to `main` deploys to Fly.io once the checks pass (see `docs/deploy.md`). Dependency versions shared across packages live in the `catalog:` of `pnpm-workspace.yaml`. TypeScript 7 is installed as `@typescript/native` (the `tsc` you run) alongside TypeScript 6 as `typescript` (the compiler API that Nx and editors still need; `tsc6`). Oxlint's type-aware rules run on `oxlint-tsgolint`, which embeds its own TypeScript 7.
 
 Tests cover the SM-2 scheduler against Anki's behaviour, deinflection, JMDict parsing, repositories on an in-process Postgres ([PGlite](https://pglite.dev), no server needed), the Jev and ElevenLabs pipelines with fakes, structured-output schemas, and the HTTP API end to end through Effect's in-memory `HttpApiTest` client.
 

@@ -227,7 +227,7 @@ export default function ReviewSession() {
   useEffect(() => {
     if (current !== undefined || nextDue === null) return
     const timer = setInterval(() => setNow(Date.now()), 1000)
-    const refetch = setTimeout(() => queue.refetch(), Math.max(nextDue - Date.now(), 0) + 500)
+    const refetch = setTimeout(() => void queue.refetch(), Math.max(nextDue - Date.now(), 0) + 500)
     return () => {
       clearInterval(timer)
       clearTimeout(refetch)
@@ -235,8 +235,8 @@ export default function ReviewSession() {
   }, [current, nextDue])
 
   const close = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: keys.stats })
-    queryClient.invalidateQueries({ queryKey: keys.queue })
+    void queryClient.invalidateQueries({ queryKey: keys.stats })
+    void queryClient.invalidateQueries({ queryKey: keys.queue })
     router.canGoBack() ? router.back() : router.replace("/review")
   }, [queryClient, router])
 
@@ -245,7 +245,9 @@ export default function ReviewSession() {
       if (current === undefined || !revealed) return
       const id = current.card.id
       if (Platform.OS !== "web")
-        Haptics.impactAsync(rating === "again" ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light)
+        Haptics.impactAsync(
+          rating === "again" ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light
+        ).catch(() => {})
       setAnswered((set) => new Set(set).add(id))
       setRevealed(false)
       setReviewed((n) => n + 1)
@@ -253,6 +255,9 @@ export default function ReviewSession() {
         const result = await answer.mutateAsync({ id, rating, durationMs: Date.now() - shownAt.current })
         setLeech(result.leech)
         await queue.refetch()
+      } catch {
+        // Not recorded: the card comes back below to be answered again.
+        setReviewed((n) => n - 1)
       } finally {
         setAnswered((set) => {
           const next = new Set(set)
@@ -272,11 +277,11 @@ export default function ReviewSession() {
       if (event.key === " " || event.key === "Enter") {
         event.preventDefault()
         if (!revealed) setRevealed(true)
-        else respond("good")
+        else void respond("good")
         return
       }
       const choice = RATINGS.find((r) => r.key === event.key)
-      if (choice && revealed) respond(choice.rating)
+      if (choice && revealed) void respond(choice.rating)
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
