@@ -3,6 +3,7 @@ import { useTheme } from "../theme/ThemeProvider.tsx"
 import { PressableScale } from "./PressableScale.tsx"
 import { Text } from "./Text.tsx"
 
+/** A row of pills; the selected one is wakatake, the design's "selected segment". */
 export const Segmented = <A extends string>({
   options,
   value,
@@ -25,15 +26,21 @@ export const Segmented = <A extends string>({
             accessibilityState={{ selected }}
             onPress={() => onChange(option.value)}
             style={{
-              paddingHorizontal: 16,
-              paddingVertical: 8,
+              height: 36,
+              justifyContent: "center",
+              paddingHorizontal: 15,
               borderRadius: radius.pill,
-              backgroundColor: selected ? color.ink : color.surface,
-              borderWidth: 1.5,
-              borderColor: selected ? color.ink : color.border
+              backgroundColor: selected ? color.primary : color.surface,
+              borderWidth: 1,
+              borderColor: selected ? color.primary : color.border
             }}
           >
-            <Text variant="caption" style={{ color: selected ? color.background : color.text }}>
+            <Text
+              variant="caption"
+              size={14}
+              weight={selected ? "bold" : "medium"}
+              style={{ color: selected ? color.onPrimary : color.text }}
+            >
               {option.label}
             </Text>
           </PressableScale>

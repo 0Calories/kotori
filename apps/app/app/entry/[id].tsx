@@ -11,7 +11,7 @@ import { Card } from "../../src/components/Card.tsx"
 import { Chip } from "../../src/components/Chip.tsx"
 import { Furigana } from "../../src/components/Furigana.tsx"
 import { Mascot } from "../../src/components/Mascot.tsx"
-import { Meter } from "../../src/components/Meter.tsx"
+import { NuanceScales } from "../../src/components/NuanceScales.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
 import { Screen, Section } from "../../src/components/Screen.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
@@ -20,9 +20,6 @@ import { posLabel } from "../../src/i18n/strings.ts"
 import { formalityTone } from "../../src/lib/tones.ts"
 import { useT } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
-
-const FORMALITY = ["vulgar", "casual", "neutral", "polite", "formal"] as const
-const MEDIUM = ["spoken", "both", "written"] as const
 
 /** Below this confidence a judgment is shown faded rather than stated outright. */
 const CONFIDENT = 0.55
@@ -58,24 +55,28 @@ const NuancePanel = ({ nuance }: { readonly nuance: Nuance }) => {
         padding: theme.space.lg
       }}
     >
-      <Meter
-        title={t.nuance.formality}
-        labels={FORMALITY.map((level) => t.nuance.scale[level])}
-        position={nuance.formality.position}
-        value={t.nuance.scale[nuance.formality.value]}
-        faded={nuance.formality.confidence < CONFIDENT}
-      />
-      <Meter
-        title={t.nuance.medium}
-        labels={MEDIUM.map((level) => t.nuance.mediumScale[level])}
-        position={nuance.medium.position}
-        value={t.nuance.mediumScale[nuance.medium.value]}
-        faded={nuance.medium.confidence < CONFIDENT}
+      <NuanceScales
+        rows={[
+          {
+            left: t.nuance.scale.casual,
+            right: t.nuance.scale.formal,
+            position: nuance.formality.position,
+            value: t.nuance.scale[nuance.formality.value],
+            faded: nuance.formality.confidence < CONFIDENT
+          },
+          {
+            left: t.nuance.mediumScale.spoken,
+            right: t.nuance.mediumScale.written,
+            position: nuance.medium.position,
+            value: t.nuance.mediumScale[nuance.medium.value],
+            faded: nuance.medium.confidence < CONFIDENT
+          }
+        ]}
       />
       {tags.length > 0 ? (
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
           {tags.map((tag) => (
-            <Chip key={tag} tone="lavender" label={tag} />
+            <Chip key={tag} tone="neutral" label={tag} />
           ))}
         </View>
       ) : null}
@@ -135,7 +136,7 @@ const SenseCard = ({
               <Chip key={label} label={label} />
             ))}
             {[...sense.misc, ...sense.fields, ...sense.dialects].map((tag) => (
-              <Chip key={tag.code} tone="yuzu" label={tag.label} />
+              <Chip key={tag.code} tone="accent" label={tag.label} />
             ))}
           </View>
           {sense.info.map((note) => (
@@ -150,7 +151,7 @@ const SenseCard = ({
           ) : null}
         </View>
         <IconButton
-          icon={saved ? "bookmark" : "bookmark-outline"}
+          icon="bookmark"
           label={saved ? t.entry.saved : t.entry.save}
           tone="primary"
           active={saved}
@@ -177,7 +178,7 @@ const SenseCard = ({
                 </View>
                 <View style={{ flex: 1, gap: 4 }}>
                   <Chip
-                    tone={word.formality ? formalityTone[word.formality] : "rose"}
+                    tone={word.formality ? formalityTone[word.formality] : "neutral"}
                     label={t.nuance.difference[word.difference]}
                   />
                   <Text variant="small" color="textMuted" numberOfLines={1}>
@@ -222,12 +223,12 @@ const SenseCard = ({
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
           {sense.related.map((ref) => (
             <PressableScale key={`r-${ref.text}`} onPress={ref.entryId ? () => open(ref.entryId!) : undefined}>
-              <Chip tone="sky" icon="link" label={ref.text} />
+              <Chip tone="neutral" icon="link" label={ref.text} />
             </PressableScale>
           ))}
           {sense.antonyms.map((ref) => (
             <PressableScale key={`a-${ref.text}`} onPress={ref.entryId ? () => open(ref.entryId!) : undefined}>
-              <Chip tone="plum" icon="swap-horizontal" label={ref.text} />
+              <Chip tone="accent" icon="swap_horiz" label={ref.text} />
             </PressableScale>
           ))}
         </View>
@@ -294,7 +295,7 @@ export default function EntryScreen() {
     <Screen bottomInset={40}>
       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
         <IconButton
-          icon="chevron-back"
+          icon="arrow_back_ios_new"
           label={t.common.close}
           onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
         />
@@ -315,7 +316,7 @@ export default function EntryScreen() {
           </Text>
           <View style={{ flexDirection: "row", gap: 8, marginTop: theme.space.sm, alignItems: "center" }}>
             <AudioButton url={data.audioUrl} size={46} />
-            {data.common ? <Chip tone="matcha" label={t.dictionary.common} style={{ alignSelf: "center" }} /> : null}
+            {data.common ? <Chip tone="primary" label={t.dictionary.common} style={{ alignSelf: "center" }} /> : null}
           </View>
           {others.length > 0 ? (
             <Text variant="small" color="textMuted" jp style={{ marginTop: theme.space.sm }}>
@@ -325,7 +326,7 @@ export default function EntryScreen() {
           <View style={{ marginTop: theme.space.md }}>
             <Button
               label={savedSenses.has(0) ? t.entry.saved : t.entry.save}
-              icon={savedSenses.has(0) ? "checkmark" : "bookmark-outline"}
+              icon={savedSenses.has(0) ? "check" : "bookmark"}
               variant={savedSenses.has(0) ? "soft" : "primary"}
               loading={addNote.isPending}
               onPress={() => !savedSenses.has(0) && data.senses[0] && save(data.senses[0])}
@@ -336,7 +337,7 @@ export default function EntryScreen() {
 
       {waiting ? (
         <Animated.View entering={FadeIn}>
-          <Card tone="sky" style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <Card tone="primary" style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
             <Mascot size={52} mood="thinking" />
             <Text variant="small" style={{ flex: 1 }}>
               {data.enrichment.examples === "queued" ? t.entry.writing : t.entry.judging}

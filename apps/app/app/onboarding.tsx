@@ -144,7 +144,7 @@ export default function Onboarding() {
           label={busy ? t.onboarding.starting : t.onboarding.start}
           size="lg"
           full
-          icon="arrow-forward"
+          icon="arrow_forward"
           disabled={native === null}
           loading={busy}
           onPress={start}

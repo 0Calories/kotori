@@ -8,7 +8,7 @@ import { Card } from "../../src/components/Card.tsx"
 import { Chip } from "../../src/components/Chip.tsx"
 import { Input } from "../../src/components/Input.tsx"
 import { Mascot, type Mood } from "../../src/components/Mascot.tsx"
-import { Meter } from "../../src/components/Meter.tsx"
+import { NuanceScales } from "../../src/components/NuanceScales.tsx"
 import { PhraseCard } from "../../src/components/PhraseCard.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
 import { ScoreRing } from "../../src/components/ScoreRing.tsx"
@@ -54,12 +54,16 @@ const Result = ({ result }: { readonly result: NaturalnessResult }) => {
           </View>
           <Text>{result.summary}</Text>
           {result.formality ? (
-            <Meter
-              title={t.check.sounds}
-              labels={FORMALITY.map((level) => t.nuance.scale[level])}
-              position={result.formality.position}
-              value={t.nuance.scale[FORMALITY[Math.round(result.formality.position * 4)] ?? "neutral"]}
-              faded={result.formality.confidence < 0.55}
+            <NuanceScales
+              rows={[
+                {
+                  left: t.nuance.scale.casual,
+                  right: t.nuance.scale.formal,
+                  position: result.formality.position,
+                  value: t.nuance.scale[FORMALITY[Math.round(result.formality.position * 4)] ?? "neutral"],
+                  faded: result.formality.confidence < 0.55
+                }
+              ]}
             />
           ) : null}
         </Card>
@@ -79,7 +83,7 @@ const Result = ({ result }: { readonly result: NaturalnessResult }) => {
             {result.issues.map((issue, index) => (
               <Card key={index} style={{ gap: 8 }}>
                 <View style={{ flexDirection: "row", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  <Chip tone="yuzu" label={t.check.issueKind[issue.kind]} />
+                  <Chip tone="accent" label={t.check.issueKind[issue.kind]} />
                   <Text
                     jp
                     variant="strong"
@@ -193,7 +197,7 @@ export default function CheckScreen() {
         ) : null}
         <Button
           label={check.isPending ? t.check.checking : t.check.submit}
-          icon="sparkles"
+          icon="auto_awesome"
           size="lg"
           full
           loading={check.isPending}

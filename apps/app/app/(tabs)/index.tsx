@@ -60,12 +60,12 @@ const ResultRow = ({ entry, onPress }: { readonly entry: EntrySummary; readonly 
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
             {entry.inflection.length > 0 ? (
               <Chip
-                tone="rose"
-                icon="git-branch-outline"
+                tone="neutral"
+                icon="call_split"
                 label={t.dictionary.inflected(entry.inflection.map((i) => t.inflection[i] ?? i).join(" · "))}
               />
             ) : null}
-            {entry.common ? <Chip tone="matcha" label={t.dictionary.common} /> : null}
+            {entry.common ? <Chip tone="primary" label={t.dictionary.common} /> : null}
             {pos ? <Chip label={pos} /> : null}
             {entry.formality && entry.formality !== "neutral" ? (
               <Chip tone={formalityTone[entry.formality]} label={t.nuance.scale[entry.formality]} />
@@ -92,7 +92,7 @@ const ReviewTeaser = () => {
         <View style={{ flex: 1, gap: 6 }}>
           <Text variant="strong">{due > 0 ? t.dictionary.reviewCard(due) : t.dictionary.reviewCardNone}</Text>
           {stats.data && stats.data.streak > 0 ? (
-            <Chip tone="yuzu" icon="flame" label={t.dictionary.streak(stats.data.streak)} />
+            <Chip tone="accent" icon="local_fire_department" label={t.dictionary.streak(stats.data.streak)} />
           ) : null}
         </View>
         {due > 0 ? (
@@ -135,7 +135,7 @@ export default function DictionaryScreen() {
           <Text variant="title">{t.tabs.dictionary}</Text>
         </View>
         <Link href="/settings" asChild>
-          <IconButton icon="settings-outline" label="Settings" />
+          <IconButton icon="settings" label="Settings" />
         </Link>
       </View>
 

@@ -26,7 +26,7 @@ const Result = ({ result }: { readonly result: HowToSayResult }) => {
   return (
     <View style={{ gap: theme.space.lg }}>
       <Animated.View entering={FadeInDown.duration(400)}>
-        <Card tone="sky" style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
+        <Card tone="primary" style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
           <Mascot size={48} mood="happy" />
           <View style={{ flex: 1, gap: 4 }}>
             <Text variant="label" color="sky">
@@ -101,7 +101,7 @@ const Result = ({ result }: { readonly result: HowToSayResult }) => {
         <Animated.View entering={FadeInDown.delay(240).duration(400)}>
           <Section title={t.say.pitfalls}>
             {result.pitfalls.map((pitfall, index) => (
-              <Card key={index} tone="plum" style={{ gap: 6 }}>
+              <Card key={index} tone="accent" style={{ gap: 6 }}>
                 <Text jp variant="strong" color="plum" style={{ textDecorationLine: "line-through" }}>
                   {pitfall.text}
                 </Text>
@@ -114,7 +114,7 @@ const Result = ({ result }: { readonly result: HowToSayResult }) => {
 
       {result.culturalNote ? (
         <Section title={t.say.culture}>
-          <Card tone="yuzu">
+          <Card tone="accent">
             <Text variant="small">{result.culturalNote}</Text>
           </Card>
         </Section>
@@ -181,7 +181,7 @@ export default function SayScreen() {
         </View>
         <Button
           label={ask.isPending ? t.say.thinking : t.say.submit}
-          icon="chatbubble-ellipses"
+          icon="forum"
           size="lg"
           full
           loading={ask.isPending}

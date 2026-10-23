@@ -1,4 +1,3 @@
-import Ionicons from "@expo/vector-icons/Ionicons"
 import { formatDelay } from "@kotori/srs"
 import { useRouter } from "expo-router"
 import { RefreshControl, View } from "react-native"
@@ -6,7 +5,8 @@ import Animated, { FadeInDown } from "react-native-reanimated"
 import { useNotes, useQueue, useStats } from "../../src/api/queries.ts"
 import { Button } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
-import { useTone } from "../../src/components/Chip.tsx"
+import { type Tone, useTone } from "../../src/components/Chip.tsx"
+import { Icon, type IconName } from "../../src/components/Icon.tsx"
 import { Mascot } from "../../src/components/Mascot.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
 import { Screen, Section } from "../../src/components/Screen.tsx"
@@ -15,15 +15,7 @@ import { Text } from "../../src/components/Text.tsx"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
 
-const Count = ({
-  label,
-  value,
-  tone
-}: {
-  readonly label: string
-  readonly value: number
-  readonly tone: "sky" | "plum" | "matcha"
-}) => {
+const Count = ({ label, value, tone }: { readonly label: string; readonly value: number; readonly tone: Tone }) => {
   const { fg } = useTone(tone)
   return (
     <View style={{ flex: 1, alignItems: "center", gap: 2 }}>
@@ -37,19 +29,11 @@ const Count = ({
   )
 }
 
-const Stat = ({
-  icon,
-  label,
-  value
-}: {
-  readonly icon: keyof typeof Ionicons.glyphMap
-  readonly label: string
-  readonly value: string
-}) => {
+const Stat = ({ icon, label, value }: { readonly icon: IconName; readonly label: string; readonly value: string }) => {
   const theme = useTheme()
   return (
     <Card style={{ flexBasis: "47%", flexGrow: 1, gap: 6 }}>
-      <Ionicons name={icon} size={18} color={theme.color.primary} />
+      <Icon name={icon} size={20} color={theme.color.primaryDark} />
       <Text variant="title">{value}</Text>
       <Text variant="caption" color="textMuted">
         {label}
@@ -146,13 +130,13 @@ export default function ReviewScreen() {
                   {t.review.due.toUpperCase()}
                 </Text>
                 <View style={{ flexDirection: "row" }}>
-                  <Count label={t.review.new} value={counts.new} tone="sky" />
-                  <Count label={t.review.learning} value={counts.learning} tone="plum" />
-                  <Count label={t.review.toReview} value={counts.review} tone="matcha" />
+                  <Count label={t.review.new} value={counts.new} tone="neutral" />
+                  <Count label={t.review.learning} value={counts.learning} tone="accent" />
+                  <Count label={t.review.toReview} value={counts.review} tone="primary" />
                 </View>
                 <Button
                   label={t.review.start}
-                  icon="play"
+                  icon="play_arrow"
                   size="lg"
                   full
                   onPress={() => router.push("/review/session")}
@@ -176,15 +160,15 @@ export default function ReviewScreen() {
       {stats.data ? (
         <Section title={t.review.stats}>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: theme.space.md }}>
-            <Stat icon="flame" label={t.review.streak} value={String(stats.data.streak)} />
-            <Stat icon="checkmark-done" label={t.review.reviewedToday} value={String(stats.data.reviewedToday)} />
+            <Stat icon="local_fire_department" label={t.review.streak} value={String(stats.data.streak)} />
+            <Stat icon="done_all" label={t.review.reviewedToday} value={String(stats.data.reviewedToday)} />
             <Stat
-              icon="pulse"
+              icon="monitoring"
               label={t.review.retention}
               value={stats.data.retention === null ? "—" : `${Math.round(stats.data.retention * 100)}%`}
             />
             <Stat
-              icon="leaf"
+              icon="eco"
               label={`${t.review.mature} / ${t.review.cards}`}
               value={`${stats.data.mature} / ${stats.data.cards}`}
             />
@@ -200,12 +184,12 @@ export default function ReviewScreen() {
 
       <PressableScale onPress={() => router.push("/saved")} scaleTo={0.98}>
         <Card style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <Ionicons name="bookmarks" size={20} color={theme.color.primary} />
+          <Icon name="bookmarks" size={22} color={theme.color.primaryDark} />
           <Text variant="strong" style={{ flex: 1 }}>
             {t.review.saved}
           </Text>
           <Text color="textMuted">{notes.data?.length ?? 0}</Text>
-          <Ionicons name="chevron-forward" size={18} color={theme.color.textFaint} />
+          <Icon name="chevron_right" size={20} color={theme.color.textFaint} />
         </Card>
       </PressableScale>
     </Screen>

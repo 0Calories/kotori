@@ -34,6 +34,8 @@ export interface TextProps extends RNTextProps {
   /** Render with the mincho face, for the Japanese words being learned. */
   readonly mincho?: boolean
   readonly size?: number
+  /** Overrides the variant's weight, e.g. medium Japanese sentences at a custom size. */
+  readonly weight?: Weight
   readonly children?: ReactNode
 }
 
@@ -44,6 +46,7 @@ export const Text = ({
   jp,
   mincho,
   size,
+  weight,
   style,
   children,
   ...props
@@ -54,7 +57,8 @@ export const Text = ({
   // The web falls through from Gabarito to Murecho by itself; native text has no fallback chain.
   const japanese = jp ?? (Platform.OS !== "web" && JAPANESE.test(plain(children)))
   const lineHeight = size ? Math.round(size * (japanese || mincho ? 1.5 : 1.3)) : spec.lineHeight
-  const fontFamily = mincho ? theme.font.mincho : japanese ? theme.font.japanese[spec.weight] : theme.font[spec.weight]
+  const face = weight ?? spec.weight
+  const fontFamily = mincho ? theme.font.mincho : japanese ? theme.font.japanese[face] : theme.font[face]
   return (
     <RNText
       {...props}

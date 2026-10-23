@@ -41,11 +41,11 @@ const NoteRow = ({ note }: { readonly note: Note }) => {
               {content.meaning}
             </Text>
             <View style={{ flexDirection: "row", gap: 6 }}>
-              <Chip tone={learning ? "matcha" : "sky"} label={learning ? t.review.learning : t.review.new} />
-              {leech ? <Chip tone="yuzu" icon="alert-circle" label="leech" /> : null}
+              <Chip tone={learning ? "primary" : "neutral"} label={learning ? t.review.learning : t.review.new} />
+              {leech ? <Chip tone="accent" icon="error" label="leech" /> : null}
             </View>
           </View>
-          <IconButton icon="trash-outline" label={t.saved.remove} size={36} onPress={() => remove.mutate(note.id)} />
+          <IconButton icon="delete" label={t.saved.remove} size={36} onPress={() => remove.mutate(note.id)} />
         </Card>
       </PressableScale>
     </Animated.View>
@@ -64,7 +64,7 @@ export default function SavedScreen() {
     <Screen bottomInset={40}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
         <IconButton
-          icon="chevron-back"
+          icon="arrow_back_ios_new"
           label={t.common.close}
           onPress={() => (router.canGoBack() ? router.back() : router.replace("/review"))}
         />

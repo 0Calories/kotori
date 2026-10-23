@@ -2,6 +2,10 @@ import { type ReactNode } from "react"
 import { type StyleProp, View, type ViewProps, type ViewStyle } from "react-native"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 
+/**
+ * White cards float on the snow with a hairline ring and a soft drop; tinted
+ * cards (muted stone, primary tint, accent blush) sit flat.
+ */
 export const Card = ({
   children,
   style,
@@ -12,17 +16,15 @@ export const Card = ({
   readonly children?: ReactNode
   readonly style?: StyleProp<ViewStyle>
   readonly padded?: boolean
-  readonly tone?: "surface" | "muted" | "primary" | "sky" | "matcha" | "yuzu" | "plum"
+  readonly tone?: "surface" | "muted" | "primary" | "accent"
 }) => {
   const theme = useTheme()
+  const raised = tone === undefined || tone === "surface"
   const background = {
     surface: theme.color.surface,
     muted: theme.color.surfaceMuted,
-    primary: theme.color.primarySoft,
-    sky: theme.color.skySoft,
-    matcha: theme.color.matchaSoft,
-    yuzu: theme.color.yuzuSoft,
-    plum: theme.color.plumSoft
+    primary: theme.color.primaryTint,
+    accent: theme.color.accentSoft
   }[tone ?? "surface"]
   return (
     <View
@@ -32,10 +34,10 @@ export const Card = ({
           backgroundColor: background,
           borderRadius: theme.radius.lg,
           padding: padded ? theme.space.lg : 0,
-          borderWidth: tone === undefined || tone === "surface" ? 1 : 0,
-          borderColor: theme.color.border
+          borderWidth: raised ? 1 : 0,
+          borderColor: theme.color.hairline
         },
-        tone === undefined || tone === "surface" ? theme.shadow(1) : null,
+        raised ? theme.shadow(1) : null,
         style
       ]}
     >

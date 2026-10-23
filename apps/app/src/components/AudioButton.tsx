@@ -29,7 +29,7 @@ const play = (url: string, onEnd: () => void) => {
 export const AudioButton = ({
   url,
   speak,
-  size = 40
+  size = 44
 }: {
   readonly url?: string | null
   readonly speak?: { readonly text: string; readonly language: Language }
@@ -61,9 +61,9 @@ export const AudioButton = ({
 
   return (
     <IconButton
-      icon={synth.isPending ? "ellipsis-horizontal" : playing ? "volume-high" : "volume-medium-outline"}
+      icon={synth.isPending ? "more_horiz" : "volume_up"}
       label={t.common.listen}
-      tone="primary"
+      tone="surface"
       active={playing}
       size={size}
       onPress={onPress}

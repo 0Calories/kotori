@@ -22,10 +22,10 @@ import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
 
 const RATINGS: ReadonlyArray<{ readonly rating: Rating; readonly tone: Tone; readonly key: string }> = [
-  { rating: "again", tone: "plum", key: "1" },
-  { rating: "hard", tone: "yuzu", key: "2" },
-  { rating: "good", tone: "matcha", key: "3" },
-  { rating: "easy", tone: "sky", key: "4" }
+  { rating: "again", tone: "accent", key: "1" },
+  { rating: "hard", tone: "neutral", key: "2" },
+  { rating: "good", tone: "primary", key: "3" },
+  { rating: "easy", tone: "neutral", key: "4" }
 ]
 
 /** The two faces of a card: what's shown first, and what answers it. */
@@ -63,7 +63,7 @@ const Faces = ({
         <Text variant="title" align="center">
           {content.meaning}
         </Text>
-        {content.hint ? <Chip tone="lavender" label={content.hint} /> : null}
+        {content.hint ? <Chip tone="neutral" label={content.hint} /> : null}
       </View>
     )
     const japaneseFirst = target === "ja" ? recognize : !recognize
@@ -164,7 +164,7 @@ const AnswerButton = ({
   readonly onPress: () => void
   readonly hotkey: string
 }) => {
-  const { fg, bg } = useTone(tone)
+  const { fg, bg, ring } = useTone(tone)
   const { radius } = useTheme()
   return (
     <PressableScale
@@ -178,6 +178,8 @@ const AnswerButton = ({
         paddingVertical: 12,
         borderRadius: radius.md,
         backgroundColor: bg,
+        borderWidth: 1,
+        borderColor: ring,
         gap: 2
       }}
     >
@@ -300,7 +302,7 @@ export default function ReviewSession() {
           title={reviewed > 0 ? t.review.sessionDone : t.review.allDone}
           body={reviewed > 0 ? t.review.sessionDoneHint(reviewed) : t.review.allDoneHint}
         >
-          <Button label={t.review.finish} icon="checkmark" onPress={close} />
+          <Button label={t.review.finish} icon="check" onPress={close} />
         </MascotMessage>
       )
     }
