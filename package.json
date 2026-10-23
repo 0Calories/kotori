@@ -16,7 +16,8 @@
     "build": "nx run-many -t build",
     "sync": "nx sync",
     "assets": "tsx tools/render-assets.ts",
-    "graph": "nx graph"
+    "graph": "nx graph",
+    "knip": "knip"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
@@ -26,12 +27,13 @@
     "@types/node": "catalog:",
     "@typescript/native": "npm:typescript@~7.0.2",
     "effect": "catalog:",
+    "knip": "catalog:",
     "nx": "catalog:",
     "oxfmt": "catalog:",
     "oxlint": "catalog:",
     "oxlint-tsgolint": "catalog:",
     "tsx": "catalog:",
-    "typescript": "npm:@typescript/typescript6@~6.0.2",
+    "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
   },
