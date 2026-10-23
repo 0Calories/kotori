@@ -67,11 +67,17 @@ const classify = (cause: unknown): ClaudeError => {
   return new ClaudeError({ reason: "unavailable", message: "Claude request failed", cause })
 }
 
+/** How long the availability probe may take; a slower API counts as unavailable until the next probe. */
+const PROBE_TIMEOUT = Duration.seconds(2)
+
 export class Claude extends Context.Service<
   Claude,
   {
     readonly model: string
-    /** Whether credentials resolve and the model is reachable. Cached for a few minutes. */
+    /**
+     * Whether credentials resolve and the model is reachable. Cached for a few minutes, and
+     * answers within a couple of seconds even if the API hangs: `/health` (Fly's check) waits on it.
+     */
     readonly available: Effect.Effect<boolean>
     generate<S extends Schema.Top>(
       options: GenerateOptions<S>
@@ -86,7 +92,9 @@ export class Claude extends Context.Service<
       const client = new Anthropic({ maxRetries: 3 })
 
       const available = yield* Effect.cachedWithTTL(
-        Effect.tryPromise(() => client.models.retrieve(model)).pipe(
+        Effect.tryPromise((signal) =>
+          client.models.retrieve(model, null, { signal, timeout: Duration.toMillis(PROBE_TIMEOUT), maxRetries: 0 })
+        ).pipe(
           Effect.as(true),
           Effect.catch(() => Effect.succeed(false))
         ),

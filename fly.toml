@@ -33,7 +33,8 @@ type = "requests"
 soft_limit = 200
 hard_limit = 250
 
-# /health reads the database, so a passing check also proves migrations ran.
+# /health reads the database, so a passing check also proves migrations ran. Its Claude
+# probe is capped at 2 s, inside the 5 s timeout, so an Anthropic outage can't fail it.
 [[http_service.checks]]
 grace_period = "30s"
 interval = "15s"
