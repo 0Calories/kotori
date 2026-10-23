@@ -61,7 +61,7 @@ const FakeJev = Layer.succeed(
   Jev.of({
     configured: true,
     model: "jev-test",
-    ask: <Q extends Questions>(state: unknown, questions: Q) => {
+    ask: (state: unknown, questions: Questions) => {
       states.push(state)
       return Effect.succeed({
         model: "jev-test",

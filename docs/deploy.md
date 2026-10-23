@@ -128,7 +128,6 @@ Pull-request runs cancel superseded ones; runs on `main` never cancel, because t
 ## 6. Follow-ups
 
 - **Image size.** The runtime image is ~176 MB (28 packages in `node_modules`). Watch for regressions: the workspace's hoisted linker resolves *optional* peer dependencies workspace-wide, so a server dependency with optional React or Expo peers would pull the app's toolchain into the image again (this is what `better-auth` did). If that happens, give `apps/app` its own pnpm workspace.
-- **Type-aware lint rules** once Oxlint can use the TypeScript 7 API.
 - **Dedicated database role** for the apps instead of the Neon project owner, with the `neon_auth` grants replicated.
 - **Staging**: a Neon branch plus a second Fly app (`fly launch` with another name); `fly.toml` needs no changes.
 - Observability beyond structured logs.

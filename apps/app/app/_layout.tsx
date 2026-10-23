@@ -19,7 +19,7 @@ import { MascotMessage } from "../src/components/States.tsx"
 import { SessionProvider, useSession } from "../src/session/SessionProvider.tsx"
 import { ThemeProvider, useTheme } from "../src/theme/ThemeProvider.tsx"
 
-SplashScreen.preventAutoHideAsync()
+SplashScreen.preventAutoHideAsync().catch(() => {})
 // Pronunciation should play even when the phone's ring switch is on silent.
 setAudioModeAsync({ playsInSilentMode: true }).catch(() => {})
 
@@ -33,7 +33,7 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
   const ready = fontsLoaded && status !== "loading"
 
   useEffect(() => {
-    if (ready) SplashScreen.hideAsync()
+    if (ready) SplashScreen.hideAsync().catch(() => {})
   }, [ready])
 
   if (!ready) return null

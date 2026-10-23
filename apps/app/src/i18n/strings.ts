@@ -301,7 +301,7 @@ const ja: Strings = {
     tipsTitle: "検索してみよう",
     tips: ["気にする", "おいしい", "しょうがない", "awkward", "make sense"],
     common: "よく使う",
-    inflected: (forms: string) => `${forms}`,
+    inflected: (forms: string) => forms,
     reviewCard: (n: number) => `${n}枚のカードが待っています`,
     reviewCardNone: "今日の復習は完了です",
     startReview: "復習する",

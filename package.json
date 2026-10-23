@@ -29,6 +29,7 @@
     "nx": "catalog:",
     "oxfmt": "catalog:",
     "oxlint": "catalog:",
+    "oxlint-tsgolint": "catalog:",
     "tsx": "catalog:",
     "typescript": "npm:@typescript/typescript6@~6.0.2",
     "vite": "catalog:",

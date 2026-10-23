@@ -6,7 +6,6 @@ import {
   type Entry,
   EntryId,
   type EntrySummary,
-  type Formality,
   type SearchResult,
   type Sense,
   type SimilarWord,
@@ -306,7 +305,7 @@ export class Dictionary extends Context.Service<
                   meaning: firstGlosses(similar, 2).join("; "),
                   difference: row.difference,
                   confidence: row.confidence,
-                  formality: (similarFormality.get(similar.id) ?? null) as Formality | null
+                  formality: similarFormality.get(similar.id) ?? null
                 }
               ]
             }),

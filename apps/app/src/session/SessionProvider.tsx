@@ -15,9 +15,9 @@ interface Session {
   readonly profile: Profile | null
   /** Interface copy in the learner's native language. */
   readonly t: Strings
-  updateProfile(patch: UpdateProfileRequest): Promise<void>
-  signOut(): Promise<void>
-  retry(): void
+  readonly updateProfile: (patch: UpdateProfileRequest) => Promise<void>
+  readonly signOut: () => Promise<void>
+  readonly retry: () => void
 }
 
 const SessionContext = createContext<Session | null>(null)
@@ -58,7 +58,8 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
         }
       }
     }
-    load()
+    // Storage that can't be read is offline too, with a retry, rather than a splash screen forever.
+    load().catch(() => cancelled || setStatus("offline"))
     return () => {
       cancelled = true
     }
@@ -70,7 +71,7 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
     async (patch: UpdateProfileRequest) => {
       const updated = await call((api) => api.account.update({ payload: patch }))
       setProfile(updated)
-      queryClient.invalidateQueries()
+      void queryClient.invalidateQueries()
     },
     [queryClient]
   )

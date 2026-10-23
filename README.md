@@ -113,7 +113,7 @@ The approval email goes through [Resend](https://resend.com) when `RESEND_API_KE
 pnpm test        # every package's tests (Vitest + @effect/vitest), cached by Nx
 pnpm typecheck   # TypeScript 7 (tsc --build) across the workspace
 pnpm build       # emits dist/ for the API, the worker and the packages they use
-pnpm lint        # Oxlint (.oxlintrc.json)
+pnpm lint        # Oxlint (.oxlintrc.json), including type-aware rules
 pnpm format      # Oxfmt (.oxfmtrc.json); `pnpm format:check` in CI
 pnpm sync        # Nx keeps tsconfig project references in step with package.json
 pnpm assets      # re-render icons and splash from the mascot geometry
@@ -121,7 +121,7 @@ pnpm assets      # re-render icons and splash from the mascot geometry
 
 Packages are TypeScript project references. Each one has a `tsconfig.lib.json` (source, emitted to `dist/`) and a `tsconfig.spec.json` (tests, type-checked only); `nx sync` derives the `references` between them from `package.json` dependencies, so importing a package you have not declared fails the typecheck. Their `exports` maps point `@kotori/source` at `src/` and everything else at `dist/`: `tsc`, `tsx -C @kotori/source`, Vitest and Metro read source, while `node dist/main.js` in production reads the compiled output.
 
-CI (`.github/workflows/ci.yml`) runs `nx sync:check`, format and lint checks, then `nx affected -t typecheck test build`; a push to `main` deploys to Fly.io once the checks pass (see `docs/deploy.md`). Dependency versions shared across packages live in the `catalog:` of `pnpm-workspace.yaml`. TypeScript 7 is installed as `@typescript/native` (the `tsc` you run) alongside TypeScript 6 as `typescript` (the compiler API that Nx and editors still need; `tsc6`).
+CI (`.github/workflows/ci.yml`) runs `nx sync:check`, format and lint checks, then `nx affected -t typecheck test build`; a push to `main` deploys to Fly.io once the checks pass (see `docs/deploy.md`). Dependency versions shared across packages live in the `catalog:` of `pnpm-workspace.yaml`. TypeScript 7 is installed as `@typescript/native` (the `tsc` you run) alongside TypeScript 6 as `typescript` (the compiler API that Nx and editors still need; `tsc6`). Oxlint's type-aware rules run on `oxlint-tsgolint`, which embeds its own TypeScript 7.
 
 Tests cover the SM-2 scheduler against Anki's behaviour, deinflection, JMDict parsing, repositories on an in-process Postgres ([PGlite](https://pglite.dev), no server needed), the Jev and ElevenLabs pipelines with fakes, structured-output schemas, and the HTTP API end to end through Effect's in-memory `HttpApiTest` client.
 

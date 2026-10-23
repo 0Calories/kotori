@@ -25,6 +25,8 @@ catalog:
   nx: "24.0.0"
   "@nx/js": "24.0.0"
   oxlint: "1.89.0"
+  # Oxlint's type-aware backend; its version tracks the TypeScript 7 release it embeds (7.0.2 + patch 004).
+  oxlint-tsgolint: "7.0.2004"
   oxfmt: "0.74.0"
   "@neon/config": ^1.9.3
 
