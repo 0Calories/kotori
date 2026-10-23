@@ -2,7 +2,7 @@
 
 Status: agreed, 2026-10-20. Milestone: private beta — open signup, admin approval.
 
-> **This is the original design record; the implementation has since moved on.** Storage is one Postgres at `DATABASE_URL` (Neon), and identity is Neon's Managed Better Auth rather than a self-hosted instance: the API proxies `/api/auth/*`, the app authenticates with a managed JWT and the web with the session cookie, users and sessions live in the `neon_auth` schema of the same database, and the approval `status` and `role` live on Kotori's `users` profile. The access model, approval flow and CLI below still describe the product; the storage and library details do not. Current details: `docs/deploy.md` §4.
+> **This is the original design record; the implementation has since moved on.** Storage is one Postgres at `DATABASE_URL` (Neon), and identity is Neon's Managed Better Auth rather than a self-hosted instance: the API proxies `/api/auth/*`, the app authenticates with a managed JWT and the web with the session cookie, users and sessions live in the `neon_auth` schema of the same database, and the approval `status` and `role` live on Kotori's `users` profile. The access model, approval flow and CLI below still describe the product; the storage and library details do not. Current details: `docs/operations.md`, "Managed Better Auth".
 
 ## 1. Decision summary
 
