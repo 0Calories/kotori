@@ -145,12 +145,7 @@ export default function SettingsScreen() {
           <Text variant="small" color="textMuted">
             {profile.email}
           </Text>
-          <Button
-            label={t.settings.signOut}
-            variant="secondary"
-            icon="log-out-outline"
-            onPress={() => void signOut()}
-          />
+          <Button label={t.settings.signOut} variant="secondary" icon="logout" onPress={() => void signOut()} />
         </Card>
       </Section>
     </Screen>
