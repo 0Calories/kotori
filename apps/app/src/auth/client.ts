@@ -57,19 +57,13 @@ export const managedAuth = {
   sendVerificationCode: (email: string) =>
     request<unknown>("POST", "/email-otp/send-verification-otp", { email, type: "email-verification" }),
   verifyEmail: (email: string, otp: string) => request<unknown>("POST", "/email-otp/verify-email", { email, otp }),
-  /**
-   * Emails a reset code. Managed Auth answers the same whether or not the address has an
-   * account, so the screen can't be used to find out who has signed up.
-   */
+  /** Emails a reset code (Email OTP), the same way as the verification one. */
   sendPasswordResetCode: (email: string) =>
     request<unknown>("POST", "/email-otp/send-verification-otp", { email, type: "forget-password" }),
-  /** Sets a new password from a reset code. Signs no one in: the learner signs in with it. */
+  /** Sets a new password from a reset code; the learner then signs in with it. */
   resetPassword: (email: string, otp: string, password: string) =>
     request<unknown>("POST", "/email-otp/reset-password", { email, otp, password }),
-  /**
-   * Changes the password of the signed-in learner. Other devices are signed out, which is
-   * the point of changing it; this session survives, with a fresh cookie the transport keeps.
-   */
+  /** Changes the signed-in learner's password, signing their other devices out. */
   changePassword: (currentPassword: string, newPassword: string) =>
     request<unknown>("POST", "/change-password", { currentPassword, newPassword, revokeOtherSessions: true })
 }

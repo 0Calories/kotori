@@ -144,35 +144,15 @@ Pull-request runs cancel superseded ones; runs on `main` never cancel, because t
 
 ## 6. The web app on Vercel
 
-The Expo app exports to a static single-page bundle (`output: "single"` in `app.json`), so hosting it is file serving plus one rewrite. `vercel.json` at the repository root holds the whole configuration; **leave the project's Root Directory at the repository root** so the pnpm workspace installs and the paths in it line up.
+The Expo app exports to a static single-page bundle (`output: "single"` in `app.json`), so hosting it is file serving plus one rewrite. `vercel.json` at the repository root carries the parts that are properties of this repository rather than of the hosting: the build command and output directory (`apps/app/dist`), no framework preset, and a catch-all rewrite to `index.html` so a deep link survives a cold load. Vercel checks the filesystem before applying rewrites, so the hashed assets still serve directly. Everything else — install behaviour, Node version, caching, which branches deploy — is a project setting, left alone deliberately.
 
-| Setting | Value | Where |
-| --- | --- | --- |
-| Install | `pnpm install --frozen-lockfile` | `vercel.json` |
-| Build | `pnpm check:web-env && pnpm --filter @kotori/app build` | `vercel.json` |
-| Output | `apps/app/dist` | `vercel.json` |
-| Framework preset | None | `vercel.json` (`"framework": null`) |
-| Node | 24, from `engines.node`; pnpm 12 from `packageManager` via Corepack | `package.json` |
+The build reads `EXPO_PUBLIC_API_URL`, which Expo inlines into the bundle, so it is a build input rather than a runtime setting: set it in the Vercel project for each environment the app is built for, and redeploy to change it. Unset, the app falls back to the host serving the page on port 4000, which is right for a dev server and wrong once deployed.
 
-`EXPO_PUBLIC_API_URL` is the one value that must be set in the Vercel project (Settings → Environment Variables), for every environment the app is built for. Expo inlines `EXPO_PUBLIC_*` into the bundle at build time, so it is a build input, not a runtime setting: changing it needs a redeploy. Without it the app falls back to the host serving the page on port 4000, which is right for a dev server and useless once deployed — `pnpm check:web-env` fails the build rather than let that ship, and also rejects `http://` and local addresses.
+The paths in `vercel.json` are relative to the repository root, so the project's Root Directory needs to stay there for the workspace to install and the output to be found.
 
-The build passes `--clear` to `expo export`. Metro's transform cache keys don't reliably account for inlined `EXPO_PUBLIC_*` values, so without it a build can silently reuse a bundle carrying the *previous* API URL. It costs about eight seconds here, which is worth paying every time.
+Two things outside Vercel have to name the web app's origin before sign-in works from a browser: `KOTORI_WEB_ORIGINS` on the API (commented in `fly.toml` under `[env]`; §2), which is the allowlist of browser origins permitted to send credentialed requests, and the same origin as a Managed Auth trusted domain (`neon neon-auth domain add`; §4), since Better Auth refuses untrusted origins. Both want the exact origin, scheme included and no trailing slash. Native apps send no `Origin` and need neither.
 
-Two things outside Vercel have to name the web origin before sign-in works from a browser:
-
-```sh
-# 1. The API: only these origins may send credentialed requests (comma-separated).
-#    Uncomment and set KOTORI_WEB_ORIGINS under [env] in fly.toml, then deploy.
-fly deploy
-# 2. Managed Auth: Better Auth refuses requests from untrusted origins.
-neon neon-auth domain add https://<your-project>.vercel.app
-```
-
-Both want the exact origin, scheme included and no trailing slash. The API's own public origin must be a trusted domain too (§4); native apps send no `Origin` and need neither.
-
-The rewrite sends anything that isn't a file to `index.html`, which is what makes `/entry/123` work on a cold load — Vercel checks the filesystem before rewrites, so hashed assets still serve directly. `_expo/static` and `assets` are content-hashed and get a year's immutable caching; `index.html` is revalidated every time, so a deploy takes effect at once.
-
-**Preview deployments.** Every branch gets its own Vercel origin, which the API's exact-match allowlist will reject, so previews can't sign in or reach the API. That is the safe failure for now — a preview can't spend anything — and it is deliberate: wiring previews to a preview backend, navigable without auth but with the AI endpoints disabled server-side, is a separate piece of work. Until then, either test against production or disable preview builds in the project's Git settings.
+**Preview deployments.** Every branch gets its own Vercel origin, which an exact-match allowlist will reject, so previews cannot reach the API. That is the safe failure — a preview cannot spend anything — and giving them a backend of their own is tracked below.
 
 ## 7. Follow-ups
 

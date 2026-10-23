@@ -16,7 +16,6 @@
     "build": "nx run-many -t build",
     "sync": "nx sync",
     "assets": "tsx tools/render-assets.ts",
-    "check:web-env": "node tools/check-web-env.mjs",
     "graph": "nx graph",
     "knip": "knip"
   },

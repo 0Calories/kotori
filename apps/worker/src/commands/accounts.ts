@@ -97,14 +97,11 @@ export const revoke = Command.make(
 ).pipe(Command.withDescription("Sign a learner out of every device"))
 
 /**
- * The development account the app signs in as automatically, so manual testing
- * skips sign-up, the emailed confirmation code and waiting for approval. Creating
- * it is idempotent: run it again to put an existing account back into a usable state.
+ * The development account the app signs in as, so testing skips sign-up, the
+ * confirmation code and waiting for approval. Creating it is idempotent.
  *
- * These credentials are deliberately repeated in `apps/app/src/auth/dev.ts` rather
- * than shared through a package: a shared module would survive in release bundles,
- * where the app's copy is folded away with the rest of its `__DEV__` branch. Keep
- * the two in step.
+ * Repeated in `apps/app/src/auth/dev.ts` rather than shared through a package, so
+ * that the app's copy can be folded out of release builds. Keep the two in step.
  */
 const DEV_EMAIL = "dev@kotori.test"
 const DEV_PASSWORD = "kotori-dev-account"
@@ -124,8 +121,7 @@ export const devAccount = Command.make(
     )
   },
   Effect.fn(function* ({ email, password, language, admin }) {
-    // Belt and braces: this writes a known password into the identity store, so it must
-    // never reach the production branch. The app's half is compiled out of release builds.
+    // This writes a known password into the identity store, so it must not reach production.
     if (process.env["NODE_ENV"] === "production") {
       return yield* Console.error("Refusing to create a development account with NODE_ENV=production.")
     }
@@ -141,9 +137,8 @@ export const devAccount = Command.make(
     const user = Option.isSome(existing) ? existing.value : yield* auth.signUp({ email, password, name: "Dev Learner" })
     yield* Console.log(Option.isSome(existing) ? `Reusing ${user.email}.` : `Created ${user.email}.`)
 
-    // Confirmed, approved and past the language picker: the state the app needs to
-    // open straight onto the tabs. `ensure` then `update` so an account left over
-    // from an earlier run is put back into it.
+    // Confirmed, approved and past the language picker, so the app opens onto the tabs.
+    // `ensure` then `update`, so an account left over from an earlier run is reset too.
     yield* auth.setEmailVerified(user.id)
     const now = yield* Clock.currentTimeMillis
     const role = admin ? "admin" : "user"

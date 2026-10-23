@@ -9,7 +9,7 @@
     "web": "expo start --web",
     "ios": "expo start --ios",
     "android": "expo start --android",
-    "build": "expo export --platform web --clear",
+    "build": "expo export --platform web",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run"
   },

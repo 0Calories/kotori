@@ -57,11 +57,7 @@ const sessionToken = async () => {
   if ((await tokens.refresh()) === null) throw new AuthError("NO_SESSION", "", 401)
 }
 
-/**
- * In development, starts signed in as the account `kotori dev-account` creates,
- * rather than making every run go through sign-up and a confirmation code. Returns
- * whether a session was established; in a release build it is always false.
- */
+/** Whether a session was established as the development account; always false in a release build. */
 const signInAsDeveloper = async (): Promise<boolean> => {
   const credentials = devCredentials()
   if (credentials === null) return false
@@ -69,11 +65,10 @@ const signInAsDeveloper = async (): Promise<boolean> => {
     await managedAuth.signIn(credentials)
     return (await tokens.refresh()) !== null
   } catch (error) {
-    // Most likely the account doesn't exist on this branch yet; the sign-in screen
-    // still works, so say what to run and carry on rather than failing the launch.
+    // Usually the account doesn't exist on this branch yet, and the sign-in screen still works.
     console.warn(
       `Could not sign in as ${credentials.email}: ${error instanceof Error ? error.message : String(error)}. ` +
-        "Run `pnpm kotori dev-account` to create the development account."
+        "Run `pnpm kotori dev-account` to create it."
     )
     return false
   }
@@ -176,8 +171,8 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
 
   const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
     await managedAuth.changePassword(currentPassword, newPassword)
-    // Revoking the other sessions rotates this one's cookie too; the JWT in hand was
-    // minted from the old one, so drop it and mint from the cookie the transport just kept.
+    // The JWT in hand was minted from the old session, so drop it and mint from
+    // whatever cookie the response left with the transport.
     tokens.clear()
     await sessionToken()
   }, [])
