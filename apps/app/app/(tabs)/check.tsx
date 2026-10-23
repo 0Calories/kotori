@@ -144,7 +144,10 @@ const Written = ({ text, issues }: { readonly text: string; readonly issues: Rea
 
 const IssueCard = ({ issue, number }: { readonly issue: Issue; readonly number: number }) => {
   const theme = useTheme()
-  const { t } = useSession()
+  const { t, profile } = useSession()
+  // The mock sets the change in the language being learned: English at 17pt, Japanese in Murecho at 16pt.
+  const english = profile?.targetLanguage === "en"
+  const phrase = { jp: !english, size: english ? 17 : 16, style: { lineHeight: 22 } } as const
   return (
     <Card style={{ flexDirection: "row", gap: 12 }}>
       <View
@@ -167,15 +170,15 @@ const IssueCard = ({ issue, number }: { readonly issue: Issue; readonly number: 
         </Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
           <Text
-            variant="strong"
-            weight="medium"
+            {...phrase}
+            weight={english ? "semibold" : "medium"}
             color="textFaint"
-            style={{ textDecorationLine: "line-through", textDecorationColor: theme.color.accent }}
+            style={[phrase.style, { textDecorationLine: "line-through", textDecorationColor: theme.color.accent }]}
           >
             {issue.excerpt}
           </Text>
           <Icon name="arrow_forward" size={18} color={theme.color.textMuted} />
-          <Text variant="strong" weight="bold">
+          <Text {...phrase} weight="bold">
             {issue.fix}
           </Text>
         </View>
@@ -195,19 +198,50 @@ const Result = ({
   readonly onEdit: () => void
 }) => {
   const theme = useTheme()
-  const { t } = useSession()
+  const { t, profile } = useSession()
   const natural = result.verdict === "natural"
   const [best, ...others] = result.rewrites
-  const alternatives = natural ? result.rewrites : others
+  const japanese = profile?.targetLanguage !== "en"
+  // How it comes across: right under the verdict when there's nothing to fix, as the mock's tone card is,
+  // and after the fixes and other ways otherwise, so those come first as in the mock.
+  const comesAcross = (
+    <Animated.View entering={FadeInDown.delay(200).duration(400)}>
+      <Card style={{ gap: theme.space.md }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <Text variant="label" color="textMuted" style={{ flexShrink: 1 }}>
+            {t.check.meaning.toUpperCase()}
+          </Text>
+          <Chip tone={registerTone[result.register]} label={t.check.register[result.register]} />
+        </View>
+        <Text variant="strong">{result.meaning}</Text>
+        {result.formality ? (
+          <View style={{ paddingTop: theme.space.md, borderTopWidth: 1, borderTopColor: theme.color.divider }}>
+            <NuanceScales
+              rows={[
+                {
+                  left: t.nuance.poles.casual,
+                  right: t.nuance.poles.formal,
+                  position: result.formality.position,
+                  value: t.nuance.scale[FORMALITY[Math.round(result.formality.position * 4)] ?? "neutral"],
+                  faded: result.formality.confidence < 0.55
+                }
+              ]}
+            />
+          </View>
+        ) : null}
+      </Card>
+    </Animated.View>
+  )
 
   return (
     <View style={{ gap: theme.space.md }}>
-      <View style={{ paddingHorizontal: 6, gap: 12 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: -8 }}>
+      <View style={{ paddingHorizontal: 6, gap: 11 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", height: 14 }}>
           <Text variant="label" color="textMuted">
             {t.check.youWrote.toUpperCase()}
           </Text>
-          <View style={{ marginRight: -12 }}>
+          {/* The button overhangs the label's line, so the sentence sits as close under it as in the mock. */}
+          <View style={{ marginRight: -12, marginVertical: -15 }}>
             <IconButton icon="edit" label={t.check.again} onPress={onEdit} />
           </View>
         </View>
@@ -216,7 +250,14 @@ const Result = ({
 
       <Animated.View
         entering={FadeInDown.duration(400)}
-        style={{ flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 6, paddingVertical: 4 }}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 14,
+          paddingHorizontal: 6,
+          paddingTop: 6,
+          paddingBottom: 4
+        }}
       >
         <View
           style={{
@@ -230,7 +271,7 @@ const Result = ({
         >
           <Mascot size={48} mood={MOOD[result.verdict]} />
         </View>
-        <View style={{ flex: 1, gap: 4 }}>
+        <View style={{ flex: 1, gap: 5 }}>
           <Text variant="heading" accessibilityRole="header">
             {t.check.verdict[result.verdict]}
           </Text>
@@ -261,37 +302,12 @@ const Result = ({
         </Animated.View>
       ))}
 
-      <Animated.View entering={FadeInDown.delay(200).duration(400)}>
-        <Card style={{ gap: theme.space.md }}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <Text variant="label" color="textMuted" style={{ flexShrink: 1 }}>
-              {t.check.meaning.toUpperCase()}
-            </Text>
-            <Chip tone={registerTone[result.register]} label={t.check.register[result.register]} />
-          </View>
-          <Text variant="strong">{result.meaning}</Text>
-          {result.formality ? (
-            <View style={{ paddingTop: theme.space.md, borderTopWidth: 1, borderTopColor: theme.color.divider }}>
-              <NuanceScales
-                rows={[
-                  {
-                    left: t.nuance.poles.casual,
-                    right: t.nuance.poles.formal,
-                    position: result.formality.position,
-                    value: t.nuance.scale[FORMALITY[Math.round(result.formality.position * 4)] ?? "neutral"],
-                    faded: result.formality.confidence < 0.55
-                  }
-                ]}
-              />
-            </View>
-          ) : null}
-        </Card>
-      </Animated.View>
+      {natural ? comesAcross : null}
 
-      {alternatives.length > 0 ? (
+      {natural && result.rewrites.length > 0 ? (
         <Animated.View entering={FadeInDown.delay(260).duration(400)}>
-          <Section title={natural ? t.check.alternatives : t.check.rewrites}>
-            {alternatives.map((rewrite) => (
+          <Section title={t.check.alternatives}>
+            {result.rewrites.map((rewrite) => (
               <PhraseCard
                 key={rewrite.text}
                 text={rewrite.text}
@@ -305,6 +321,45 @@ const Result = ({
           </Section>
         </Animated.View>
       ) : null}
+
+      {!natural && others.length > 0 ? (
+        <Animated.View entering={FadeInDown.delay(260).duration(400)}>
+          <Section title={t.check.rewrites}>
+            <Card list padded={false} style={{ paddingHorizontal: theme.space.lg }}>
+              {others.map((rewrite, index) => (
+                <View
+                  key={rewrite.text}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 12,
+                    minHeight: 64,
+                    paddingVertical: 10,
+                    borderTopWidth: index === 0 ? 0 : 1,
+                    borderTopColor: theme.color.divider
+                  }}
+                >
+                  <View style={{ flex: 1, gap: 3 }}>
+                    {japanese ? (
+                      <Furigana text={rewrite.text} furigana={rewrite.furigana} size={16} />
+                    ) : (
+                      <Text variant="strong" style={{ lineHeight: 21.5 }} selectable>
+                        {rewrite.text}
+                      </Text>
+                    )}
+                    <Text variant="small" size={13} color="textMuted" style={{ lineHeight: 17 }}>
+                      {rewrite.translation}
+                    </Text>
+                  </View>
+                  <Chip tone={registerTone[rewrite.register]} label={t.check.register[rewrite.register]} />
+                </View>
+              ))}
+            </Card>
+          </Section>
+        </Animated.View>
+      ) : null}
+
+      {natural ? null : comesAcross}
     </View>
   )
 }
