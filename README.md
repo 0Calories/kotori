@@ -105,7 +105,7 @@ pnpm kotori admin admin@example.com     # admins skip approval (--remove to demo
 pnpm kotori revoke user@example.com    # signs them out of every device
 ```
 
-The approval email goes through [Resend](https://resend.com) when `RESEND_API_KEY` is set; otherwise it is printed to the log, which is enough for local development. Verification and password-reset emails are Managed Auth's; routing them through Resend with Kotori's templates is a pre-launch item in `docs/deploy.md`. Running the API needs a Neon branch (`neon checkout <branch>` writes `DATABASE_URL` and `NEON_AUTH_BASE_URL` into `.env.local`).
+Kotori sends its own email through [Resend](https://resend.com) when `RESEND_API_KEY` is set; otherwise messages are printed to the log, which is enough for local development. That covers the approval email and, once Managed Auth's webhook points at the API (`POST /webhooks/neon-auth`, signature-checked; see `docs/deploy.md`), the verification and password-reset codes, all in the learner's language. Running the API needs a Neon branch (`neon checkout <branch>` writes `DATABASE_URL` and `NEON_AUTH_BASE_URL` into `.env.local`).
 
 ## Development
 

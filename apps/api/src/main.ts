@@ -9,6 +9,7 @@ import { AudioRoute } from "./http/audio.ts"
 import { AuthorizationLive } from "./http/Authorization.ts"
 import { AllHandlers } from "./http/handlers.ts"
 import { AuthRoute } from "./http/neon-auth.ts"
+import { WebhooksRoute } from "./http/webhooks.ts"
 import { AppLive } from "./layers.ts"
 
 loadDotEnv()
@@ -22,6 +23,7 @@ const Routes = Layer.mergeAll(
   ApiRoutes,
   AudioRoute,
   AuthRoute,
+  WebhooksRoute,
   HttpApiScalar.layer(KotoriApi, { path: "/docs" }),
   HttpRouter.cors({ maxAge: 86_400 })
 )

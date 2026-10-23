@@ -12,6 +12,8 @@ import {
   jwtVerify,
   SignJWT
 } from "jose"
+import { KeyObject } from "node:crypto"
+import { ed25519Key, signWebhook } from "./WebhookSignature.ts"
 
 /** A Managed Better Auth user as Kotori reads it. Approval status and role live on the learner profile. */
 export interface AuthUser {
@@ -100,6 +102,12 @@ export interface AuthService {
    * the key set can't be fetched.
    */
   verifyToken(token: string): Effect.Effect<Option.Option<AuthUser>, AuthUpstreamError>
+  /**
+   * The Ed25519 key Managed Auth signed a webhook with (`X-Neon-Signature-Kid`), from the
+   * same key set as the JWTs, refetched when the id is unknown. None for an unknown id
+   * or a key that isn't Ed25519; fails when the key set can't be fetched.
+   */
+  webhookKey(kid: string): Effect.Effect<Option.Option<KeyObject>, AuthUpstreamError>
   /**
    * Deletes the identity: the `neon_auth` user row, whose sessions and accounts cascade.
    * Managed Auth doesn't enable Better Auth's own `/delete-user`, and identity lives in
@@ -218,6 +226,21 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
 
       const verifyToken = makeVerifyToken(jwks, origin, hasSession)
 
+      // Looked up by id alone, as Neon's verification steps do, through jose's cache: a
+      // stale set is refreshed, and an unknown id refetches it at most every 30 s.
+      const webhookKey = Effect.fn("Auth.webhookKey")(function* (kid: string) {
+        const jwk = yield* Effect.tryPromise({
+          try: async () => {
+            const find = () => jwks.jwks()?.keys.find((key) => key.kid === kid)
+            if (!jwks.fresh) await jwks.reload()
+            if (find() === undefined && !jwks.coolingDown) await jwks.reload()
+            return find()
+          },
+          catch: (error) => new AuthUpstreamError({ message: `JWKS unavailable: ${String(error)}` })
+        })
+        return Option.fromNullishOr(jwk === undefined ? undefined : ed25519Key(jwk))
+      })
+
       const forward = Effect.fn("Auth.forward")(
         function* (request: HttpServerRequest.HttpServerRequest, path: string) {
           const body = new Uint8Array(yield* request.arrayBuffer)
@@ -254,6 +277,7 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
         forward,
         sessionFromCookies,
         verifyToken,
+        webhookKey,
         deleteUser,
         users: list,
         userByEmail,
@@ -280,6 +304,10 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
         forward: () => Effect.die("Auth.forward is not available in tests"),
         sessionFromCookies,
         verifyToken,
+        webhookKey: (kid) =>
+          store.reachable()
+            ? Effect.succeed(store.webhookKey(kid))
+            : Effect.fail(new AuthUpstreamError({ message: "The test auth server is down" })),
         deleteUser: (userId) => Effect.sync(() => store.remove(userId)),
         users: Effect.sync(() => store.all()),
         userByEmail: (email) => Effect.sync(() => store.byEmail(email)),
@@ -361,6 +389,9 @@ export class TestAuth extends Context.Service<
     signUp(email: string, name: string): Effect.Effect<TestSignUp>
     /** A short-lived JWT for the session, like `GET /token`. */
     token(cookie: string): Effect.Effect<string>
+    /** Headers that sign `body` as a Managed Auth webhook, sent `ageMs` ago. */
+    signWebhook(body: string, options?: { readonly ageMs?: number }): Effect.Effect<Record<string, string>>
+    webhookKey(kid: string): Option.Option<KeyObject>
     userForCookie(cookie: string | undefined): Option.Option<AuthUser>
     hasSession(userId: string): boolean
     /** Simulates an outage: session checks and key-set fetches fail until switched back on. */
@@ -425,6 +456,9 @@ export class TestAuth extends Context.Service<
                 .sign(privateKey)
             )
           }),
+        signWebhook: (body, options) =>
+          Effect.promise(() => signWebhook(privateKey, "test", body, Date.now() - (options?.ageMs ?? 0))),
+        webhookKey: (kid) => (kid === "test" ? Option.some(KeyObject.from(publicKey)) : Option.none()),
         userForCookie,
         hasSession: (userId) => [...sessions.values()].includes(userId),
         setReachable: (value) => {
