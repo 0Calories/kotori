@@ -288,6 +288,8 @@ layer(TestLayer)("Kotori API", (it) => {
       })
       assert.isTrue(Option.isSome(yield* users.byId(user.id)))
 
+      const token = yield* Effect.flatMap(TestAuth, (testAuth) => testAuth.token(user.cookie))
+
       // Deleting the account removes the learner's data and their identity (so the session dies too).
       yield* api.account.delete()
       assert.isTrue(Option.isNone(yield* auth.sessionFromCookies(Headers.fromInput({ cookie: user.cookie }))))
@@ -297,6 +299,13 @@ layer(TestLayer)("Kotori API", (it) => {
       assert.strictEqual(notes[0]?.n, 0)
       const gone = yield* api.account.me().pipe(Effect.flip)
       assert.strictEqual(gone._tag, "Unauthorized")
+
+      // A JWT issued before the deletion is still unexpired, but must not bring the profile back.
+      cookie = null
+      bearer = token
+      assert.strictEqual((yield* api.account.me().pipe(Effect.flip))._tag, "Unauthorized")
+      assert.isTrue(Option.isNone(yield* users.byId(user.id)))
+      bearer = null
     }).pipe(Effect.provide(Session))
   )
 

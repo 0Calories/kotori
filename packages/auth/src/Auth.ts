@@ -95,7 +95,9 @@ export interface AuthService {
   sessionFromCookies(headers: Headers.Headers): Effect.Effect<Option.Option<AuthUser>, AuthUpstreamError>
   /**
    * The user a managed JWT (from `GET /token`) was issued to, if the token verifies against
-   * the JWKS. Fails, rather than answering none, when the key set can't be fetched.
+   * the JWKS and the user still has a session: deleting the account or revoking its sessions
+   * ends access at once, not when the token expires. Fails, rather than answering none, when
+   * the key set can't be fetched.
    */
   verifyToken(token: string): Effect.Effect<Option.Option<AuthUser>, AuthUpstreamError>
   /**
@@ -208,7 +210,13 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
         Effect.tapError((error) => Effect.logWarning("Could not resolve the session", error))
       )
 
-      const verifyToken = makeVerifyToken(jwks, origin)
+      const hasSession = (userId: string) =>
+        sql`SELECT 1 AS live FROM neon_auth.session WHERE "userId" = ${userId}::uuid LIMIT 1`.pipe(
+          Effect.map((rows) => rows.length > 0),
+          Effect.orDie
+        )
+
+      const verifyToken = makeVerifyToken(jwks, origin, hasSession)
 
       const forward = Effect.fn("Auth.forward")(
         function* (request: HttpServerRequest.HttpServerRequest, path: string) {
@@ -264,7 +272,9 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
         store.reachable()
           ? Effect.sync(() => store.userForCookie(headers["cookie"]))
           : Effect.fail(new AuthUpstreamError({ message: "The test auth server is down" }))
-      const verifyToken = makeVerifyToken(store.jwks, store.issuer)
+      const verifyToken = makeVerifyToken(store.jwks, store.issuer, (userId) =>
+        Effect.sync(() => store.hasSession(userId))
+      )
 
       return Auth.of({
         forward: () => Effect.die("Auth.forward is not available in tests"),
@@ -296,7 +306,11 @@ const distinguishOutages =
     }
   }
 
-const makeVerifyToken = (jwks: JWTVerifyGetKey, issuer: string) => {
+const makeVerifyToken = (
+  jwks: JWTVerifyGetKey,
+  issuer: string,
+  hasSession: (userId: string) => Effect.Effect<boolean>
+) => {
   const keys = distinguishOutages(jwks)
   return Effect.fn("Auth.verifyToken")(
     function* (token: string) {
@@ -311,7 +325,7 @@ const makeVerifyToken = (jwks: JWTVerifyGetKey, issuer: string) => {
             : Effect.succeed(Option.none())
         )
       )
-      return Option.flatMap(verified, (result) =>
+      const user = Option.flatMap(verified, (result) =>
         decodeClaims(result.payload).pipe(
           Option.map((claims): AuthUser => ({
             id: claims.sub,
@@ -322,6 +336,8 @@ const makeVerifyToken = (jwks: JWTVerifyGetKey, issuer: string) => {
           }))
         )
       )
+      if (Option.isNone(user) || !(yield* hasSession(user.value.id))) return Option.none<AuthUser>()
+      return user
     },
     Effect.tapError((error) => Effect.logWarning("Could not verify the token", error))
   )
@@ -346,6 +362,7 @@ export class TestAuth extends Context.Service<
     /** A short-lived JWT for the session, like `GET /token`. */
     token(cookie: string): Effect.Effect<string>
     userForCookie(cookie: string | undefined): Option.Option<AuthUser>
+    hasSession(userId: string): boolean
     /** Simulates an outage: session checks and key-set fetches fail until switched back on. */
     setReachable(reachable: boolean): void
     reachable(): boolean
@@ -409,6 +426,7 @@ export class TestAuth extends Context.Service<
             )
           }),
         userForCookie,
+        hasSession: (userId) => [...sessions.values()].includes(userId),
         setReachable: (value) => {
           reachable = value
         },

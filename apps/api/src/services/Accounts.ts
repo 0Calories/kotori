@@ -2,6 +2,7 @@ import { Auth, type AuthUser } from "@kotori/auth"
 import { type UserRow, UsersRepo } from "@kotori/db"
 import { otherLanguage, type Profile, type UpdateProfileRequest, UserId } from "@kotori/domain"
 import { Clock, Context, Effect, Layer, Option } from "effect"
+import { SqlClient } from "effect/sql"
 import { isTimeZone } from "./time.ts"
 
 /** What the profile shows from the auth user: contact details the row doesn't duplicate. */
@@ -30,13 +31,14 @@ export class Accounts extends Context.Service<
     /** The profile for a signed-in user, created with defaults on first sight. */
     profile(user: AuthUser): Effect.Effect<Profile>
     update(current: Profile, request: UpdateProfileRequest): Effect.Effect<Profile>
-    /** Removes the learner's data, then their identity and sessions. */
+    /** Removes the learner's data, their identity and their sessions, all or nothing. */
     delete(id: UserId): Effect.Effect<void>
   }
 >()("@kotori/api/Accounts") {
   static readonly layer = Layer.effect(
     Accounts,
     Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient
       const users = yield* UsersRepo
       const auth = yield* Auth
 
@@ -72,9 +74,10 @@ export class Accounts extends Context.Service<
         return Option.match(updated, { onNone: () => current, onSome: (row) => toProfile(current, row) })
       })
 
+      // One transaction: a profile deleted without its identity would be recreated, pending,
+      // on the learner's next request.
       const del = Effect.fn("Accounts.delete")(function* (id: UserId) {
-        yield* users.delete(id)
-        yield* auth.deleteUser(id)
+        yield* sql.withTransaction(Effect.andThen(users.delete(id), auth.deleteUser(id))).pipe(Effect.orDie)
       })
 
       return Accounts.of({ profile, update, delete: del })

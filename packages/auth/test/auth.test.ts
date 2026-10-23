@@ -2,12 +2,17 @@ import { assert, layer } from "@effect/vitest"
 import { DatabaseMemory } from "@kotori/db/testing"
 import { ConfigProvider, Effect, Layer, Option } from "effect"
 import { Headers, HttpServerRequest, HttpServerResponse } from "effect/http"
-import { generateKeyPair, SignJWT } from "jose"
+import { SqlClient } from "effect/sql"
+import { exportJWK, generateKeyPair, type JWK, SignJWT } from "jose"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import type { AddressInfo } from "node:net"
 import { Auth } from "../src/Auth.ts"
 
 const BASE_PATH = "/neondb/auth"
+
+/** What the stand-in serves as its key set; null answers 503, as during an outage. */
+let keySet: { keys: Array<JWK> } | null = null
+let upstreamOrigin = ""
 
 const signedInUser = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -39,8 +44,12 @@ const upstream = (req: IncomingMessage, res: ServerResponse) => {
       return res.end(JSON.stringify(cookie.includes("session=valid") ? { user: signedInUser } : null))
     }
     case "/.well-known/jwks.json":
-      res.writeHead(503)
-      return res.end()
+      if (keySet === null) {
+        res.writeHead(503)
+        return res.end()
+      }
+      res.writeHead(200, { "content-type": "application/json" })
+      return res.end(JSON.stringify(keySet))
     case "/sign-in/email":
       res.writeHead(200, { "content-type": "application/json", "set-auth-jwt": "jwt-value" })
       return res.end(JSON.stringify({ origin: req.headers.origin ?? null }))
@@ -64,10 +73,11 @@ const AuthAgainstUpstream = Layer.unwrap(
         })
     )
     const { port } = server.address() as AddressInfo
+    upstreamOrigin = `http://127.0.0.1:${port}`
     const config = ConfigProvider.fromUnknown({ NEON_AUTH_BASE_URL: `http://127.0.0.1:${port}${BASE_PATH}` })
     return Auth.layer.pipe(Layer.provide(ConfigProvider.layer(config)))
   })
-).pipe(Layer.provide(DatabaseMemory))
+).pipe(Layer.provideMerge(DatabaseMemory))
 
 /** Proxies a request through `Auth.forward` and returns what the client would receive. */
 const forward = (path: string, init?: RequestInit) =>
@@ -131,6 +141,41 @@ layer(AuthAgainstUpstream)("Auth sessions and tokens", (it) => {
       )
       const down = yield* auth.verifyToken(token).pipe(Effect.flip)
       assert.strictEqual(down._tag, "AuthUpstreamError")
+    })
+  )
+})
+
+layer(AuthAgainstUpstream)("Auth tokens and sessions", (it) => {
+  it.effect("accepts a valid token only while its user still has a session", () =>
+    Effect.gen(function* () {
+      const auth = yield* Auth
+      const sql = yield* SqlClient.SqlClient
+      // A stand-in for the slice of Managed Auth's schema that the check reads.
+      yield* sql`CREATE SCHEMA neon_auth`
+      yield* sql`CREATE TABLE neon_auth.session (id TEXT PRIMARY KEY, "userId" UUID NOT NULL)`
+      yield* sql`INSERT INTO neon_auth.session (id, "userId") VALUES ('s1', ${signedInUser.id}::uuid)`
+
+      const { privateKey, publicKey } = yield* Effect.promise(() => generateKeyPair("EdDSA", { crv: "Ed25519" }))
+      keySet = { keys: [{ ...(yield* Effect.promise(() => exportJWK(publicKey))), kid: "k1", alg: "EdDSA" }] }
+      const token = yield* Effect.promise(() =>
+        new SignJWT({
+          email: signedInUser.email,
+          emailVerified: true,
+          name: signedInUser.name,
+          createdAt: signedInUser.createdAt
+        })
+          .setProtectedHeader({ alg: "EdDSA", kid: "k1" })
+          .setSubject(signedInUser.id)
+          .setIssuer(upstreamOrigin)
+          .setAudience(upstreamOrigin)
+          .setExpirationTime("15m")
+          .sign(privateKey)
+      )
+
+      assert.strictEqual(Option.getOrThrow(yield* auth.verifyToken(token)).id, signedInUser.id)
+      // `kotori revoke` and account deletion both remove the sessions.
+      yield* auth.revokeSessions(signedInUser.id)
+      assert.isTrue(Option.isNone(yield* auth.verifyToken(token)))
     })
   )
 })
