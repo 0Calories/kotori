@@ -39,4 +39,4 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
  && mkdir -p data && chown node:node data
 USER node
 EXPOSE 8080
-CMD ["node", "--disable-warning=ExperimentalWarning", "apps/api/dist/main.js"]
+CMD ["node", "apps/api/dist/main.js"]

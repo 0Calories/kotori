@@ -15,8 +15,8 @@ NODE_ENV = "production"
 PORT = "8080"
 
 [processes]
-api = "node --disable-warning=ExperimentalWarning apps/api/dist/main.js"
-worker = "node --disable-warning=ExperimentalWarning apps/worker/dist/main.js work"
+api = "node apps/api/dist/main.js"
+worker = "node apps/worker/dist/main.js work"
 
 [http_service]
 processes = ["api"]
