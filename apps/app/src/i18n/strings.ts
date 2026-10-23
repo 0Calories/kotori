@@ -54,6 +54,7 @@ const en = {
   entry: {
     forms: "Also written",
     meanings: "Meanings",
+    meaning: "Meaning",
     nuance: "Nuance",
     similar: "Similar words",
     examples: "Examples",
@@ -72,7 +73,8 @@ const en = {
     fromDictionary: "from the dictionary",
     similarIntro: (word: string) => `Picked for ${word} by AI, with how each one differs.`,
     dictionaryOnly: "Dictionary entry only",
-    dictionaryOnlyBody: (word: string) => `Nuance, example sentences and audio haven't been added to ${word} yet.`,
+    dictionaryOnlyBody: (word: string) =>
+      `Nuance, example sentences and audio are added to the most common words first. ${word} isn’t one of them yet.`,
     ask: "Ask for this word"
   },
   nuance: {
@@ -327,6 +329,7 @@ const ja: Strings = {
   entry: {
     forms: "別の表記",
     meanings: "意味",
+    meaning: "意味",
     nuance: "ニュアンス",
     similar: "似た言葉",
     examples: "例文",
@@ -345,7 +348,8 @@ const ja: Strings = {
     fromDictionary: "辞書より",
     similarIntro: (word: string) => `${word}に近い言葉をAIが選び、それぞれの違いを示しています。`,
     dictionaryOnly: "辞書の情報のみ",
-    dictionaryOnlyBody: (word: string) => `${word}のニュアンス、例文、音声はまだ追加されていません。`,
+    dictionaryOnlyBody: (word: string) =>
+      `ニュアンス、例文、音声は、よく使われる単語から順に追加しています。${word} はまだ対象外です。`,
     ask: "この単語をリクエスト"
   },
   nuance: {

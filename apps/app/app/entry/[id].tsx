@@ -69,9 +69,8 @@ const NuanceNotes = ({ nuance }: { readonly nuance: Nuance }) => {
 /** Where the word sits between casual and formal, and between speech and writing. */
 const NuanceCard = ({ nuance }: { readonly nuance: Nuance }) => {
   const { t } = useSession()
-  const theme = useTheme()
   return (
-    <Card style={{ gap: theme.space.lg, paddingHorizontal: 18 }}>
+    <Card style={{ gap: 14, paddingHorizontal: 18, paddingBottom: 12 }}>
       <NuanceScales
         rows={[
           {
@@ -386,9 +385,13 @@ export default function EntryScreen() {
   const size = headwordSize(data.headword)
   // Romaji helps English speakers read the word; Japanese speakers don't need it.
   const learningJapanese = profile?.targetLanguage !== "en"
-  const meta = [data.reading === data.headword ? null : data.reading, data.common ? t.dictionary.common : null].filter(
-    (part): part is string => part !== null
-  )
+  // Words with nothing from Kotori yet get a plain header, with the part of speech among the details.
+  const plain = !byAi && !waiting
+  const meta = [
+    data.reading === data.headword ? null : data.reading,
+    data.common ? t.dictionary.common : null,
+    plain ? partOfSpeech : null
+  ].filter((part): part is string => part !== null)
 
   return (
     <Screen
@@ -428,23 +431,38 @@ export default function EntryScreen() {
     >
       <Animated.View
         entering={FadeInDown.duration(350)}
-        style={{
-          borderRadius: theme.radius.xl,
-          overflow: "hidden",
-          backgroundColor: theme.color.primaryTint,
-          paddingHorizontal: 20,
-          paddingTop: 20,
-          paddingBottom: 18
-        }}
+        style={
+          plain
+            ? { paddingHorizontal: 6, paddingTop: 4, marginBottom: 8 }
+            : {
+                borderRadius: theme.radius.xl,
+                overflow: "hidden",
+                backgroundColor: theme.color.primaryTint,
+                paddingHorizontal: 20,
+                paddingTop: 20,
+                paddingBottom: 18
+              }
+        }
       >
-        <Snow />
-        <Text mincho size={size} style={{ lineHeight: Math.round(size * 1.15) }} selectable accessibilityRole="header">
+        {plain ? null : <Snow />}
+        <Text
+          mincho
+          size={size}
+          style={plain ? { lineHeight: size } : { lineHeight: Math.round(size * 1.1), letterSpacing: size * 0.02 }}
+          selectable
+          accessibilityRole="header"
+        >
           {data.headword}
         </Text>
         {learningJapanese || meta.length > 0 ? (
-          <Text variant="small" size={14} color="textMuted" style={{ marginTop: 6 }}>
+          <Text
+            variant="caption"
+            size={14}
+            color="textMuted"
+            style={{ marginTop: plain ? 16 : 6, lineHeight: plain ? 17 : 18 }}
+          >
             {learningJapanese ? (
-              <Text variant="small" size={14} weight="semibold">
+              <Text variant="caption" size={14} weight="semibold" color="text">
                 {data.romaji}
               </Text>
             ) : null}
@@ -456,15 +474,17 @@ export default function EntryScreen() {
             {t.entry.forms}: {others.map((form) => form.text).join("・")}
           </Text>
         ) : null}
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14, minHeight: 44 }}>
-          {data.audioUrl ? <AudioButton url={data.audioUrl} label={t.common.listen} /> : null}
-          <View style={{ flex: 1 }} />
-          {partOfSpeech ? (
-            <Text variant="caption" size={13.5} color="textMuted">
-              {partOfSpeech}
-            </Text>
-          ) : null}
-        </View>
+        {plain && !data.audioUrl ? null : (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14, minHeight: 44 }}>
+            {data.audioUrl ? <AudioButton url={data.audioUrl} label={t.common.listen} /> : null}
+            <View style={{ flex: 1 }} />
+            {partOfSpeech && !plain ? (
+              <Text variant="caption" size={13.5} color="textMuted">
+                {partOfSpeech}
+              </Text>
+            ) : null}
+          </View>
+        )}
       </Animated.View>
 
       {featured?.nuance ? (
@@ -485,7 +505,7 @@ export default function EntryScreen() {
       ) : null}
 
       <Section
-        title={t.entry.meanings}
+        title={data.senses.length === 1 ? t.entry.meaning : t.entry.meanings}
         action={
           byAi ? null : (
             <Text variant="caption" color="textMuted">
