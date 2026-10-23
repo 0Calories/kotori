@@ -3,7 +3,6 @@ import * as Clipboard from "expo-clipboard"
 import { useState } from "react"
 import { View } from "react-native"
 import { useAddNote } from "../api/queries.ts"
-import { registerTone } from "../lib/tones.ts"
 import { useSession } from "../session/SessionProvider.tsx"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { AudioButton } from "./AudioButton.tsx"
@@ -21,17 +20,21 @@ export const PhraseCard = ({
   lines,
   meaning,
   source,
-  highlight
+  highlight,
+  label
 }: {
   readonly text: string
   readonly furigana: string | null
   readonly register: Register
-  /** Supporting notes shown under the phrase, in the learner's language. */
+  /** Supporting notes shown under the phrase, in the learner's language. The first sits with the phrase. */
   readonly lines: ReadonlyArray<{ readonly label?: string; readonly text: string }>
   /** What the saved card asks the learner to produce. */
   readonly meaning: string
   readonly source: "how-to-say" | "naturalness"
+  /** The best answer: shown larger. */
   readonly highlight?: boolean
+  /** An overline above the phrase, such as "Natural". */
+  readonly label?: string
 }) => {
   const theme = useTheme()
   const { t, profile } = useSession()
@@ -39,32 +42,93 @@ export const PhraseCard = ({
   const addNote = useAddNote()
   const [copied, setCopied] = useState(false)
   const saved = addNote.isSuccess
+  const [first, ...rest] = lines.filter((line) => line.text.length > 0)
+  const size = highlight ? 22 : 18
 
   return (
-    <Card
-      style={{
-        gap: theme.space.md,
-        borderColor: highlight ? theme.color.primary : theme.color.border,
-        borderWidth: highlight ? 2 : 1
-      }}
-    >
-      <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
-        <View style={{ flex: 1, gap: 8 }}>
-          <Chip tone={registerTone[register]} label={t.check.register[register]} />
+    <Card style={{ gap: theme.space.md, paddingTop: theme.space.md }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        {label ? (
+          <Text variant="label" style={{ color: theme.color.primaryDark }}>
+            {label.toUpperCase()}
+          </Text>
+        ) : null}
+        <Chip label={t.check.register[register]} />
+        <View style={{ flex: 1 }} />
+        <View style={{ flexDirection: "row", marginRight: -6 }}>
+          <IconButton
+            icon={copied ? "check" : "content_copy"}
+            label={copied ? t.common.copied : t.common.copy}
+            size={38}
+            onPress={async () => {
+              await Clipboard.setStringAsync(text)
+              setCopied(true)
+              setTimeout(() => setCopied(false), 1500)
+            }}
+          />
+          <IconButton
+            icon="bookmark"
+            label={saved ? t.common.saved : t.common.save}
+            filled={saved}
+            size={38}
+            onPress={
+              saved || addNote.isPending
+                ? undefined
+                : () =>
+                    addNote.mutate({
+                      content: {
+                        kind: "phrase",
+                        text,
+                        furigana,
+                        meaning,
+                        note: lines.map((l) => l.text).join("\n") || null,
+                        register,
+                        source
+                      },
+                      templates: ["produce", "recognize"]
+                    })
+            }
+          />
+        </View>
+      </View>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 10,
+          backgroundColor: theme.color.surfaceMuted,
+          borderRadius: theme.radius.md,
+          paddingVertical: 10,
+          paddingLeft: 14,
+          paddingRight: 8
+        }}
+      >
+        <View style={{ flex: 1, gap: 2 }}>
           {target === "ja" ? (
-            <Furigana text={text} furigana={furigana} size={22} />
+            <Furigana text={text} furigana={furigana} size={size} lineHeight={Math.round(size * 1.7)} />
           ) : (
-            <Text variant="heading" size={20} selectable>
+            <Text
+              variant="heading"
+              size={size}
+              weight="semibold"
+              style={{ lineHeight: Math.round(size * 1.35) }}
+              selectable
+            >
               {text}
             </Text>
           )}
+          {first && !first.label ? (
+            <Text variant={highlight ? "body" : "small"} color="textMuted" style={{ lineHeight: 19 }}>
+              {first.text}
+            </Text>
+          ) : null}
         </View>
         <AudioButton speak={{ text, language: target }} />
       </View>
-      {lines.map((line, index) => (
-        <View key={index} style={{ gap: 2 }}>
+      {(first?.label ? [first, ...rest] : rest).map((line) => (
+        <View key={`${line.label ?? ""}${line.text}`} style={{ gap: 2, paddingHorizontal: 2 }}>
           {line.label ? (
-            <Text variant="label" color="textFaint">
+            <Text variant="label" color="textMuted">
               {line.label.toUpperCase()}
             </Text>
           ) : null}
@@ -73,42 +137,6 @@ export const PhraseCard = ({
           </Text>
         </View>
       ))}
-      <View style={{ flexDirection: "row", gap: 8, justifyContent: "flex-end" }}>
-        <IconButton
-          icon={copied ? "checkmark" : "copy-outline"}
-          label={copied ? t.common.copied : t.common.copy}
-          size={36}
-          onPress={async () => {
-            await Clipboard.setStringAsync(text)
-            setCopied(true)
-            setTimeout(() => setCopied(false), 1500)
-          }}
-        />
-        <IconButton
-          icon={saved ? "bookmark" : "bookmark-outline"}
-          label={saved ? t.common.saved : t.common.save}
-          tone="primary"
-          active={saved}
-          size={36}
-          onPress={
-            saved || addNote.isPending
-              ? undefined
-              : () =>
-                  addNote.mutate({
-                    content: {
-                      kind: "phrase",
-                      text,
-                      furigana,
-                      meaning,
-                      note: lines.map((l) => l.text).join("\n") || null,
-                      register,
-                      source
-                    },
-                    templates: ["produce", "recognize"]
-                  })
-          }
-        />
-      </View>
     </Card>
   )
 }

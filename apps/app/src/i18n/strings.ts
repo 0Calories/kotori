@@ -4,7 +4,7 @@
  */
 const en = {
   appName: "Kotori",
-  tabs: { dictionary: "Dictionary", check: "Check", say: "Say it", review: "Review" },
+  tabs: { dictionary: "Look up", check: "Check", say: "Speak", review: "Notebook" },
   greeting: { morning: "Good morning", afternoon: "Good afternoon", evening: "Good evening" },
   common: {
     retry: "Try again",
@@ -20,7 +20,8 @@ const en = {
     less: "Less",
     close: "Close",
     offline: "Can't reach Kotori's server. Is the API running?",
-    somethingWrong: "Something went wrong."
+    somethingWrong: "Something went wrong.",
+    back: "Back"
   },
   onboarding: {
     title: "Hi, I'm Kotori!",
@@ -88,11 +89,14 @@ const en = {
     reviewCard: (n: number) => (n === 1 ? "1 card is waiting for you" : `${n} cards are waiting for you`),
     reviewCardNone: "You're all caught up",
     startReview: "Review now",
-    streak: (n: number) => `${n}-day streak`
+    streak: (n: number) => `${n}-day streak`,
+    title: "What do you want to look up?",
+    language: "Language and settings"
   },
   entry: {
     forms: "Also written",
     meanings: "Meanings",
+    meaning: "Meaning",
     nuance: "Nuance",
     similar: "Similar words",
     examples: "Examples",
@@ -104,7 +108,16 @@ const en = {
     judging: "Kotori is studying this word's nuance…",
     noExamples: "No example sentences yet.",
     appliesTo: (forms: string) => `Only for ${forms}`,
-    sense: (n: number) => `Meaning ${n}`
+    sense: (n: number) => `Meaning ${n}`,
+    share: "Share",
+    byAi: "Examples, audio and similar words by AI",
+    sources: "Sources",
+    fromDictionary: "from the dictionary",
+    similarIntro: (word: string) => `Picked for ${word} by AI, with how each one differs.`,
+    dictionaryOnly: "Dictionary entry only",
+    dictionaryOnlyBody: (word: string) =>
+      `Nuance, example sentences and audio are added to the most common words first. ${word} isn’t one of them yet.`,
+    ask: "Ask for this word"
   },
   nuance: {
     formality: "Formality",
@@ -144,7 +157,8 @@ const en = {
       more_general: "broader",
       different_feeling: "different feeling",
       different_usage: "different usage"
-    }
+    },
+    poles: { casual: "Casual", formal: "Formal", spoken: "Spoken", written: "Written" }
   },
   check: {
     title: "Does it sound natural?",
@@ -157,14 +171,14 @@ const en = {
     submit: "Check",
     checking: "Listening carefully…",
     verdict: {
-      natural: "Natural!",
-      understandable: "Understandable",
+      natural: "Natural",
+      understandable: "Understood, but not natural",
       unnatural: "A bit unnatural",
       incorrect: "Not quite right"
     },
     meaning: "How it comes across",
     issues: "What to fix",
-    rewrites: "How a native might say it",
+    rewrites: "Other ways to say it",
     alternatives: "Other natural ways",
     sounds: "Sounds",
     register: { casual: "Casual", neutral: "Neutral", polite: "Polite", formal: "Formal", mixed: "Mixed" },
@@ -177,7 +191,10 @@ const en = {
       spelling: "Spelling",
       other: "Note"
     },
-    again: "Check another"
+    again: "Check another",
+    youWrote: "You wrote",
+    natural: "Natural",
+    byAi: "Checked by AI, so it can be wrong."
   },
   say: {
     title: "How do I say…?",
@@ -199,7 +216,6 @@ const en = {
     again: "Ask another"
   },
   review: {
-    title: "Review",
     subtitle: "Spaced repetition, Anki-style. A few minutes a day keeps words fresh.",
     due: "Due today",
     new: "New",
@@ -304,8 +320,8 @@ export type Strings = typeof en
 
 const ja: Strings = {
   appName: "ことり",
-  tabs: { dictionary: "辞書", check: "添削", say: "言い方", review: "復習" },
-  greeting: { morning: "おはようございます", afternoon: "こんにちは", evening: "こんばんは" },
+  tabs: { dictionary: "調べる", check: "添削", say: "話す", review: "ノート" },
+  greeting: { morning: "おはよう", afternoon: "こんにちは", evening: "こんばんは" },
   common: {
     retry: "もう一度",
     cancel: "キャンセル",
@@ -320,7 +336,8 @@ const ja: Strings = {
     less: "閉じる",
     close: "閉じる",
     offline: "サーバーに接続できません。APIは起動していますか？",
-    somethingWrong: "エラーが発生しました。"
+    somethingWrong: "エラーが発生しました。",
+    back: "戻る"
   },
   onboarding: {
     title: "こんにちは、ことりです！",
@@ -388,11 +405,14 @@ const ja: Strings = {
     reviewCard: (n: number) => `${n}枚のカードが待っています`,
     reviewCardNone: "今日の復習は完了です",
     startReview: "復習する",
-    streak: (n: number) => `${n}日連続`
+    streak: (n: number) => `${n}日連続`,
+    title: "何を調べたい？",
+    language: "言語と設定"
   },
   entry: {
     forms: "別の表記",
     meanings: "意味",
+    meaning: "意味",
     nuance: "ニュアンス",
     similar: "似た言葉",
     examples: "例文",
@@ -404,7 +424,16 @@ const ja: Strings = {
     judging: "ニュアンスを分析しています…",
     noExamples: "例文はまだありません。",
     appliesTo: (forms: string) => `${forms}のみ`,
-    sense: (n: number) => `意味 ${n}`
+    sense: (n: number) => `意味 ${n}`,
+    share: "共有",
+    byAi: "例文・音声・似た言葉はAIで作成しています",
+    sources: "出典",
+    fromDictionary: "辞書より",
+    similarIntro: (word: string) => `${word}に近い言葉をAIが選び、それぞれの違いを示しています。`,
+    dictionaryOnly: "辞書の情報のみ",
+    dictionaryOnlyBody: (word: string) =>
+      `ニュアンス、例文、音声は、よく使われる単語から順に追加しています。${word} はまだ対象外です。`,
+    ask: "この単語をリクエスト"
   },
   nuance: {
     formality: "丁寧さ",
@@ -432,7 +461,8 @@ const ja: Strings = {
       more_general: "意味が広い",
       different_feeling: "感じが違う",
       different_usage: "使い方が違う"
-    }
+    },
+    poles: { casual: "くだけた", formal: "かしこまった", spoken: "話し言葉", written: "書き言葉" }
   },
   check: {
     title: "自然に聞こえる？",
@@ -444,13 +474,18 @@ const ja: Strings = {
     intentPlaceholder: "例：丁寧に断りたい",
     submit: "チェック",
     checking: "じっくり聞いています…",
-    verdict: { natural: "自然です！", understandable: "通じます", unnatural: "少し不自然", incorrect: "要修正" },
+    verdict: {
+      natural: "自然です",
+      understandable: "伝わるけど、不自然",
+      unnatural: "少し不自然",
+      incorrect: "要修正"
+    },
     meaning: "どう伝わるか",
     issues: "直すところ",
-    rewrites: "ネイティブならこう言う",
+    rewrites: "ほかの言い方",
     alternatives: "ほかの自然な言い方",
     sounds: "聞こえ方",
-    register: { casual: "カジュアル", neutral: "普通", polite: "丁寧", formal: "フォーマル", mixed: "混在" },
+    register: { casual: "カジュアル", neutral: "どんな場面でも", polite: "丁寧", formal: "フォーマル", mixed: "混在" },
     issueKind: {
       grammar: "文法",
       particle: "前置詞など",
@@ -460,7 +495,10 @@ const ja: Strings = {
       spelling: "スペル",
       other: "メモ"
     },
-    again: "別の文をチェック"
+    again: "別の文をチェック",
+    youWrote: "あなたの文",
+    natural: "自然な言い方",
+    byAi: "AIのチェックなので、間違うこともあります。"
   },
   say: {
     title: "英語でどう言う？",
@@ -482,7 +520,6 @@ const ja: Strings = {
     again: "ほかの表現を聞く"
   },
   review: {
-    title: "復習",
     subtitle: "Ankiと同じ間隔反復で、毎日少しずつ。",
     due: "今日の復習",
     new: "新規",

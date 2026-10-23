@@ -1,7 +1,7 @@
 import type { Language } from "@kotori/domain"
 import { useRouter } from "expo-router"
 import { useRef, useState } from "react"
-import { type TextInput, View } from "react-native"
+import { Platform, type TextInput, View } from "react-native"
 import Animated, { FadeInDown } from "react-native-reanimated"
 import { authMessage } from "../src/auth/messages.ts"
 import { Button, IconButton } from "../src/components/Button.tsx"
@@ -46,7 +46,7 @@ export default function SignUp() {
     <Screen bottomInset={40}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
         <IconButton
-          icon="chevron-back"
+          icon={Platform.OS === "android" ? "arrow_back" : "arrow_back_ios_new"}
           label={t.auth.back}
           onPress={() => (router.canGoBack() ? router.back() : router.replace("/welcome"))}
         />
@@ -100,7 +100,7 @@ export default function SignUp() {
           label={busy ? t.auth.signingUp : t.auth.signUp}
           size="lg"
           full
-          icon="arrow-forward"
+          icon="arrow_forward"
           disabled={!ready}
           loading={busy}
           onPress={() => void submit()}

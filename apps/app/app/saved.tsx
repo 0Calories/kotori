@@ -8,7 +8,7 @@ import { IconButton } from "../src/components/Button.tsx"
 import { Card } from "../src/components/Card.tsx"
 import { Chip } from "../src/components/Chip.tsx"
 import { PressableScale } from "../src/components/PressableScale.tsx"
-import { Screen } from "../src/components/Screen.tsx"
+import { Header, Screen } from "../src/components/Screen.tsx"
 import { Segmented } from "../src/components/Segmented.tsx"
 import { ErrorState, MascotMessage } from "../src/components/States.tsx"
 import { Text } from "../src/components/Text.tsx"
@@ -16,7 +16,6 @@ import { useSession } from "../src/session/SessionProvider.tsx"
 import { useTheme } from "../src/theme/ThemeProvider.tsx"
 
 const NoteRow = ({ note }: { readonly note: Note }) => {
-  const theme = useTheme()
   const router = useRouter()
   const { t } = useSession()
   const remove = useRemoveNote()
@@ -34,18 +33,22 @@ const NoteRow = ({ note }: { readonly note: Note }) => {
       >
         <Card style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <View style={{ flex: 1, gap: 4 }}>
-            <Text jp variant="heading">
-              {content.kind === "word" ? content.headword : content.text}
-            </Text>
+            {content.kind === "word" ? (
+              <Text mincho size={24} style={{ lineHeight: 30 }}>
+                {content.headword}
+              </Text>
+            ) : (
+              <Text variant="heading">{content.text}</Text>
+            )}
             <Text variant="small" color="textMuted" numberOfLines={2}>
               {content.meaning}
             </Text>
             <View style={{ flexDirection: "row", gap: 6 }}>
-              <Chip tone={learning ? "matcha" : "sky"} label={learning ? t.review.learning : t.review.new} />
-              {leech ? <Chip tone="yuzu" icon="alert-circle" label="leech" /> : null}
+              <Chip tone={learning ? "primary" : "neutral"} label={learning ? t.review.learning : t.review.new} />
+              {leech ? <Chip tone="accent" icon="error" label="leech" /> : null}
             </View>
           </View>
-          <IconButton icon="trash-outline" label={t.saved.remove} size={36} onPress={() => remove.mutate(note.id)} />
+          <IconButton icon="delete" label={t.saved.remove} size={40} onPress={() => remove.mutate(note.id)} />
         </Card>
       </PressableScale>
     </Animated.View>
@@ -61,15 +64,13 @@ export default function SavedScreen() {
   const shown = (notes.data ?? []).filter((note) => note.content.kind === kind)
 
   return (
-    <Screen bottomInset={40}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <IconButton
-          icon="chevron-back"
-          label={t.common.close}
-          onPress={() => (router.canGoBack() ? router.back() : router.replace("/review"))}
-        />
-        <Text variant="title">{t.saved.title}</Text>
-      </View>
+    <Screen
+      bottomInset={40}
+      header={<Header onBack={() => (router.canGoBack() ? router.back() : router.replace("/review"))} />}
+    >
+      <Text variant="title" accessibilityRole="header" style={{ paddingHorizontal: 2 }}>
+        {t.saved.title}
+      </Text>
       <Segmented
         value={kind}
         onChange={setKind}

@@ -1,15 +1,16 @@
-import Ionicons from "@expo/vector-icons/Ionicons"
 import { ActivityIndicator, View } from "react-native"
 import { useTheme } from "../theme/ThemeProvider.tsx"
+import { Icon, type IconName } from "./Icon.tsx"
 import { PressableScale } from "./PressableScale.tsx"
 import { Text } from "./Text.tsx"
 
 export interface ButtonProps {
   readonly label: string
   readonly onPress?: () => void
-  readonly variant?: "primary" | "secondary" | "soft" | "ghost"
+  /** primary: wakatake with ink text. dark: ink, for the action that finishes a flow. */
+  readonly variant?: "primary" | "dark" | "secondary" | "soft" | "ghost"
   readonly size?: "md" | "lg" | "sm"
-  readonly icon?: keyof typeof Ionicons.glyphMap
+  readonly icon?: IconName
   readonly loading?: boolean
   readonly disabled?: boolean
   readonly full?: boolean
@@ -27,15 +28,18 @@ export const Button = ({
   full,
   accessibilityHint
 }: ButtonProps) => {
-  const { color, radius, font } = useTheme()
+  const { color, radius } = useTheme()
   const palette = {
-    primary: { bg: color.primary, fg: color.onPrimary, border: color.primary },
-    secondary: { bg: color.surface, fg: color.text, border: color.border },
-    soft: { bg: color.primarySoft, fg: color.primary, border: color.primarySoft },
-    ghost: { bg: "transparent", fg: color.primary, border: "transparent" }
+    primary: { bg: color.primary, fg: color.onPrimary, ring: color.primary },
+    dark: { bg: color.ink, fg: color.background, ring: color.ink },
+    secondary: { bg: color.surface, fg: color.text, ring: color.outline },
+    soft: { bg: color.primaryTint, fg: color.primaryDeep, ring: color.primaryTint },
+    ghost: { bg: "transparent", fg: color.text, ring: "transparent" }
   }[variant]
-  const height = { sm: 36, md: 48, lg: 56 }[size]
+  const height = { sm: 36, md: 44, lg: 52 }[size]
   const inactive = disabled || loading
+  // Play is the one filled glyph, drawn larger and closer to the edge, with a bolder label (the Listen pill).
+  const play = icon === "play_arrow"
   return (
     <PressableScale
       haptic
@@ -45,17 +49,19 @@ export const Button = ({
       accessibilityState={{ disabled: !!inactive, busy: !!loading }}
       disabled={inactive}
       onPress={onPress}
+      hitSlop={size === "sm" ? 4 : 0}
       style={{
         height,
-        paddingHorizontal: size === "sm" ? 14 : 22,
+        paddingLeft: icon ? (size === "sm" ? 10 : play ? 12 : 14) : size === "sm" ? 14 : 20,
+        paddingRight: size === "sm" ? 14 : icon ? 18 : 20,
         borderRadius: radius.pill,
         backgroundColor: palette.bg,
-        borderWidth: 1.5,
-        borderColor: palette.border,
+        borderWidth: 1,
+        borderColor: palette.ring,
         alignItems: "center",
         justifyContent: "center",
         flexDirection: "row",
-        gap: 8,
+        gap: 6,
         opacity: disabled ? 0.45 : 1,
         alignSelf: full ? "stretch" : undefined
       }}
@@ -63,52 +69,72 @@ export const Button = ({
       {loading ? (
         <ActivityIndicator color={palette.fg} />
       ) : icon ? (
-        <Ionicons name={icon} size={size === "sm" ? 16 : 19} color={palette.fg} />
+        <Icon name={icon} size={size === "sm" ? 18 : play ? 24 : 19} color={palette.fg} filled={play} />
       ) : null}
       <View>
-        <Text style={{ color: palette.fg, fontFamily: font.heavy, fontSize: size === "sm" ? 14 : 16 }}>{label}</Text>
+        <Text
+          variant="strong"
+          weight={play ? "bold" : "semibold"}
+          style={{ color: palette.fg, fontSize: size === "lg" ? 16 : 14, lineHeight: 20 }}
+        >
+          {label}
+        </Text>
       </View>
     </PressableScale>
   )
 }
 
+/**
+ * An icon-only control. `plain` is a bare glyph, as in headers; `surface` is
+ * the white round button used for audio. Hit areas are never under 44pt.
+ */
 export const IconButton = ({
   icon,
   onPress,
   label,
-  tone = "muted",
-  size = 40,
-  active
+  tone = "plain",
+  size = 44,
+  active,
+  filled
 }: {
-  readonly icon: keyof typeof Ionicons.glyphMap
+  readonly icon: IconName
   readonly onPress?: () => void
   readonly label: string
-  readonly tone?: "muted" | "primary"
+  readonly tone?: "plain" | "muted" | "surface" | "primary"
   readonly size?: number
+  /** Toggled on, e.g. saved or playing. */
   readonly active?: boolean
+  readonly filled?: boolean
 }) => {
   const { color } = useTheme()
+  const background = active
+    ? color.primaryDark
+    : { plain: "transparent", muted: color.surfaceMuted, surface: color.surface, primary: color.primaryTint }[tone]
   return (
     <PressableScale
       haptic
       scaleTo={0.9}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={active === undefined ? undefined : { selected: active }}
       onPress={onPress}
-      hitSlop={6}
+      hitSlop={Math.max((44 - size) / 2, 0)}
       style={{
         width: size,
         height: size,
         borderRadius: size / 2,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: active ? color.primary : tone === "primary" ? color.primarySoft : color.surfaceMuted
+        backgroundColor: background,
+        borderWidth: tone === "surface" && !active ? 1 : 0,
+        borderColor: color.outline
       }}
     >
-      <Ionicons
+      <Icon
         name={icon}
-        size={size * 0.48}
-        color={active ? color.onPrimary : tone === "primary" ? color.primary : color.textMuted}
+        size={tone === "plain" ? Math.round(size * 0.52) : Math.round(size * 0.44)}
+        filled={filled ?? active}
+        color={active ? color.onPrimaryDark : tone === "primary" ? color.primaryDeep : color.text}
       />
     </PressableScale>
   )

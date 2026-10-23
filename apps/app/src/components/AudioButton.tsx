@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { apiAsset } from "../api/config.ts"
 import { useSpeak } from "../api/queries.ts"
 import { useT } from "../session/SessionProvider.tsx"
-import { IconButton } from "./Button.tsx"
+import { Button, IconButton } from "./Button.tsx"
 
 let current: AudioPlayer | null = null
 let stopCurrent: (() => void) | null = null
@@ -25,15 +25,17 @@ const play = (url: string, onEnd: () => void) => {
   player.play()
 }
 
-/** Plays a stored clip, or asks the server to voice `speak` on demand. */
+/** Plays a stored clip, or asks the server to voice `speak` on demand. With a `label`, it's a pill. */
 export const AudioButton = ({
   url,
   speak,
-  size = 40
+  size = 44,
+  label
 }: {
   readonly url?: string | null
   readonly speak?: { readonly text: string; readonly language: Language }
   readonly size?: number
+  readonly label?: string
 }) => {
   const t = useT()
   const [playing, setPlaying] = useState(false)
@@ -59,11 +61,15 @@ export const AudioButton = ({
     play(target, () => setPlaying(false))
   }
 
+  if (label) {
+    return <Button label={label} icon="play_arrow" loading={synth.isPending} onPress={onPress} />
+  }
+
   return (
     <IconButton
-      icon={synth.isPending ? "ellipsis-horizontal" : playing ? "volume-high" : "volume-medium-outline"}
+      icon={synth.isPending ? "more_horiz" : "volume_up"}
       label={t.common.listen}
-      tone="primary"
+      tone="surface"
       active={playing}
       size={size}
       onPress={onPress}

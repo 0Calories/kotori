@@ -1,5 +1,5 @@
-import Ionicons from "@expo/vector-icons/Ionicons"
 import { BlurView } from "expo-blur"
+import { LinearGradient } from "expo-linear-gradient"
 import type { Tabs } from "expo-router"
 import type { ComponentProps } from "react"
 import { Platform, View } from "react-native"
@@ -7,17 +7,22 @@ import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useT } from "../session/SessionProvider.tsx"
 import { useTheme } from "../theme/ThemeProvider.tsx"
+import { Icon, type IconName } from "./Icon.tsx"
 import { PressableScale } from "./PressableScale.tsx"
 import { Text } from "./Text.tsx"
 
 type BottomTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>["tabBar"]>>[0]
 
-const ICONS: Record<string, readonly [keyof typeof Ionicons.glyphMap, keyof typeof Ionicons.glyphMap]> = {
-  index: ["book", "book-outline"],
-  check: ["checkmark-circle", "checkmark-circle-outline"],
-  say: ["chatbubble-ellipses", "chatbubble-ellipses-outline"],
-  review: ["layers", "layers-outline"]
+const ICONS: Record<string, IconName> = {
+  index: "search",
+  say: "forum",
+  check: "spellcheck",
+  review: "bookmarks"
 }
+
+/** `#RRGGBB` at the given opacity, for fading the page into the bar. */
+const fade = (hex: string, alpha: number) =>
+  `rgba(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(", ")}, ${alpha})`
 
 const Tab = ({
   name,
@@ -32,12 +37,12 @@ const Tab = ({
   readonly onPress: () => void
   readonly badge?: number
 }) => {
-  const { color, radius } = useTheme()
+  const { color } = useTheme()
   const pill = useAnimatedStyle(() => ({
     opacity: withSpring(focused ? 1 : 0, { duration: 250, dampingRatio: 1 }),
     transform: [{ scale: withSpring(focused ? 1 : 0.85, { duration: 300, dampingRatio: 0.7 }) }]
   }))
-  const [active, inactive] = ICONS[name] ?? ["ellipse", "ellipse-outline"]
+  const tint = focused ? color.text : color.textFaint
   return (
     <PressableScale
       haptic
@@ -45,41 +50,44 @@ const Tab = ({
       onPress={onPress}
       accessibilityRole="tab"
       accessibilityState={{ selected: focused }}
-      accessibilityLabel={label}
-      style={{ flex: 1, alignItems: "center", justifyContent: "center", height: 58 }}
+      accessibilityLabel={badge ? `${label}, ${badge}` : label}
+      style={{ flex: 1, alignItems: "center", justifyContent: "center", height: 56, marginHorizontal: 2, gap: 3 }}
     >
       <Animated.View
         style={[
           {
             position: "absolute",
-            top: 6,
-            bottom: 6,
-            left: 6,
-            right: 6,
-            borderRadius: radius.lg,
-            backgroundColor: color.primarySoft
+            top: 0,
+            bottom: 0,
+            left: 0,
+            right: 0,
+            borderRadius: 28,
+            backgroundColor: color.selected
           },
           pill
         ]}
       />
       <View>
-        <Ionicons name={focused ? active : inactive} size={22} color={focused ? color.primary : color.textMuted} />
+        <Icon name={ICONS[name] ?? "search"} size={25} filled={focused} color={tint} />
         {badge ? (
           <View
             style={{
               position: "absolute",
               top: -4,
-              right: -10,
+              right: -11,
               minWidth: 18,
               height: 18,
               borderRadius: 9,
-              backgroundColor: color.primary,
+              backgroundColor: color.accent,
               alignItems: "center",
               justifyContent: "center",
               paddingHorizontal: 4
             }}
           >
-            <Text variant="label" style={{ color: color.onPrimary, fontSize: 10, lineHeight: 12 }}>
+            <Text
+              variant="label"
+              style={{ color: color.onPrimaryDark, fontSize: 10, lineHeight: 12, letterSpacing: 0 }}
+            >
               {badge > 99 ? "99+" : badge}
             </Text>
           </View>
@@ -87,7 +95,9 @@ const Tab = ({
       </View>
       <Text
         variant="caption"
-        style={{ fontSize: 11, lineHeight: 14, marginTop: 2, color: focused ? color.primary : color.textMuted }}
+        weight={focused ? "bold" : "medium"}
+        numberOfLines={1}
+        style={{ fontSize: 11, lineHeight: 13, letterSpacing: 0.11, color: tint }}
       >
         {label}
       </Text>
@@ -95,7 +105,7 @@ const Tab = ({
   )
 }
 
-/** A floating, rounded tab bar that sits above the content. */
+/** A floating pill of tabs over a fade, so content scrolls away beneath it. */
 export const TabBar = ({
   state,
   navigation,
@@ -110,8 +120,9 @@ export const TabBar = ({
     say: t.tabs.say,
     review: t.tabs.review
   }
+  const bottom = Math.max(insets.bottom - 6, 12)
   const bar = (
-    <View style={{ flexDirection: "row", paddingHorizontal: 6 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", height: 66, paddingHorizontal: 5 }}>
       {state.routes.map((route, index) => (
         <Tab
           key={route.key}
@@ -129,29 +140,43 @@ export const TabBar = ({
   )
   const shell = {
     position: "absolute" as const,
-    left: 16,
-    right: 16,
-    bottom: Math.max(insets.bottom, 12),
+    left: 18,
+    right: 18,
+    bottom,
     maxWidth: 520,
     alignSelf: "center" as const,
     marginHorizontal: "auto" as const,
-    borderRadius: theme.radius.xl,
+    borderRadius: 33,
     overflow: "hidden" as const,
     borderWidth: 1,
-    borderColor: theme.color.border,
+    borderColor: theme.color.ring,
     ...theme.shadow(3)
   }
-  return Platform.OS === "ios" ? (
-    <BlurView
-      intensity={60}
-      tint={theme.dark ? "dark" : "light"}
-      style={[shell, { backgroundColor: theme.dark ? "rgba(38,35,33,0.6)" : "rgba(255,255,255,0.7)" }]}
-    >
-      {bar}
-    </BlurView>
-  ) : (
-    <View style={[shell, { backgroundColor: theme.dark ? "rgba(38,35,33,0.96)" : "rgba(255,255,255,0.96)" }]}>
-      {bar}
-    </View>
+  const paper = theme.color.background
+  return (
+    <>
+      <LinearGradient
+        pointerEvents="none"
+        colors={[fade(paper, 0), fade(paper, 0.86), paper]}
+        locations={[0.18, 0.48, 0.68]}
+        style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: bottom + 66 + 50 }}
+      />
+      {Platform.OS === "ios" ? (
+        <BlurView
+          intensity={40}
+          tint={theme.dark ? "dark" : "light"}
+          style={[
+            shell,
+            { backgroundColor: theme.dark ? fade(theme.color.surface, 0.8) : "rgba(255, 255, 255, 0.86)" }
+          ]}
+        >
+          {bar}
+        </BlurView>
+      ) : (
+        <View style={[shell, { backgroundColor: theme.dark ? fade(theme.color.surface, 0.97) : "#FFFFFF" }]}>
+          {bar}
+        </View>
+      )}
+    </>
   )
 }

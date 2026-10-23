@@ -39,7 +39,7 @@ export const Input = forwardRef<TextInput, InputProps>(
               backgroundColor: theme.color.surface,
               borderRadius: theme.radius.md,
               borderWidth: 1.5,
-              borderColor: focused ? theme.color.primary : theme.color.border,
+              borderColor: focused ? theme.color.primaryDark : theme.color.border,
               paddingHorizontal: 16,
               paddingVertical: large ? 14 : 12,
               minHeight: large ? 110 : undefined,
@@ -47,7 +47,7 @@ export const Input = forwardRef<TextInput, InputProps>(
               fontSize: large ? 19 : 17,
               lineHeight: large ? 27 : 23,
               color: theme.color.text,
-              fontFamily: jp && theme.japanese ? theme.japanese : theme.font.medium,
+              fontFamily: jp ? theme.font.japanese.medium : theme.font.medium,
               textAlignVertical: large ? "top" : "center"
             },
             { outlineStyle: "none" } as object,

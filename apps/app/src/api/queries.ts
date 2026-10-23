@@ -91,5 +91,14 @@ export const useNaturalness = () =>
 export const useHowToSay = () =>
   useMutation({ mutationFn: (request: HowToSayRequest) => call((api) => api.coach.howToSay({ payload: request })) })
 
+/** Asks the worker to add nuance, examples and audio to an entry that has none yet. */
+export const useEnrich = (id: number) => {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => call((api) => api.dictionary.enrich({ params: { id: id as EntryId } })),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.entry(id) })
+  })
+}
+
 export const useSpeak = () =>
   useMutation({ mutationFn: (request: SpeakRequest) => call((api) => api.audio.speak({ payload: request })) })

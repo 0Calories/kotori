@@ -1,4 +1,3 @@
-import Ionicons from "@expo/vector-icons/Ionicons"
 import type { Language } from "@kotori/domain"
 import { useRouter } from "expo-router"
 import { Switch, View } from "react-native"
@@ -6,8 +5,9 @@ import { apiUrl } from "../src/api/config.ts"
 import { useHealth } from "../src/api/queries.ts"
 import { Button, IconButton } from "../src/components/Button.tsx"
 import { Card } from "../src/components/Card.tsx"
+import { Icon } from "../src/components/Icon.tsx"
 import { Mascot } from "../src/components/Mascot.tsx"
-import { Screen, Section } from "../src/components/Screen.tsx"
+import { Header, Screen, Section } from "../src/components/Screen.tsx"
 import { Segmented } from "../src/components/Segmented.tsx"
 import { Text } from "../src/components/Text.tsx"
 import { usePreference } from "../src/session/preferences.ts"
@@ -27,11 +27,11 @@ const Stepper = ({
 }) => (
   <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
     <Text style={{ flex: 1 }}>{label}</Text>
-    <IconButton icon="remove" label="−" size={34} onPress={() => onChange(Math.max(value - step, 0))} />
+    <IconButton icon="remove" label="−" tone="muted" size={36} onPress={() => onChange(Math.max(value - step, 0))} />
     <Text variant="strong" style={{ minWidth: 40, textAlign: "center" }}>
       {value}
     </Text>
-    <IconButton icon="add" label="+" size={34} onPress={() => onChange(Math.min(value + step, 9999))} />
+    <IconButton icon="add" label="+" tone="muted" size={36} onPress={() => onChange(Math.min(value + step, 9999))} />
   </View>
 )
 
@@ -39,10 +39,11 @@ const Feature = ({ label, on }: { readonly label: string; readonly on: boolean |
   const theme = useTheme()
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-      <Ionicons
-        name={on ? "checkmark-circle" : "ellipse-outline"}
-        size={18}
-        color={on ? theme.color.matcha : theme.color.textFaint}
+      <Icon
+        name={on ? "check_circle" : "radio_button_unchecked"}
+        filled={on}
+        size={20}
+        color={on ? theme.color.primaryDark : theme.color.textFaint}
       />
       <Text variant="small">{label}</Text>
     </View>
@@ -59,15 +60,13 @@ export default function SettingsScreen() {
   if (profile === null) return null
 
   return (
-    <Screen bottomInset={40}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <IconButton
-          icon="close"
-          label={t.common.close}
-          onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
-        />
-        <Text variant="title">{t.settings.title}</Text>
-      </View>
+    <Screen
+      bottomInset={40}
+      header={<Header backIcon="close" onBack={() => (router.canGoBack() ? router.back() : router.replace("/"))} />}
+    >
+      <Text variant="title" accessibilityRole="header" style={{ paddingHorizontal: 2 }}>
+        {t.settings.title}
+      </Text>
 
       <Card style={{ gap: theme.space.lg }}>
         <Text variant="label" color="textMuted">
@@ -146,12 +145,7 @@ export default function SettingsScreen() {
           <Text variant="small" color="textMuted">
             {profile.email}
           </Text>
-          <Button
-            label={t.settings.signOut}
-            variant="secondary"
-            icon="log-out-outline"
-            onPress={() => void signOut()}
-          />
+          <Button label={t.settings.signOut} variant="secondary" icon="logout" onPress={() => void signOut()} />
         </Card>
       </Section>
     </Screen>

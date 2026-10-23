@@ -34,7 +34,7 @@ const Choice = ({
           borderRadius: radius.lg,
           backgroundColor: color.surface,
           borderWidth: 2,
-          borderColor: selected ? color.primary : color.border
+          borderColor: selected ? color.primaryDark : color.border
         },
         shadow(selected ? 2 : 1)
       ]}
@@ -44,12 +44,12 @@ const Choice = ({
           width: 52,
           height: 52,
           borderRadius: 16,
-          backgroundColor: selected ? color.primary : color.primarySoft,
+          backgroundColor: selected ? color.primary : color.primaryTint,
           alignItems: "center",
           justifyContent: "center"
         }}
       >
-        <Text jp size={26} style={{ color: selected ? color.onPrimary : color.primary, fontWeight: "700" }}>
+        <Text mincho size={28} style={{ color: selected ? color.onPrimary : color.primaryDeep }}>
           {glyph}
         </Text>
       </View>
@@ -65,12 +65,14 @@ const Choice = ({
           height: 22,
           borderRadius: 11,
           borderWidth: 2,
-          borderColor: selected ? color.primary : color.border,
+          borderColor: selected ? color.primaryDark : color.border,
           alignItems: "center",
           justifyContent: "center"
         }}
       >
-        {selected ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: color.primary }} /> : null}
+        {selected ? (
+          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: color.primaryDark }} />
+        ) : null}
       </View>
     </PressableScale>
   )

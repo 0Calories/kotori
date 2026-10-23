@@ -31,7 +31,13 @@ export default function Welcome() {
         entering={FadeInDown.delay(260).duration(500)}
         style={{ gap: theme.space.md, marginTop: theme.space.xl }}
       >
-        <Button label={t.auth.createAccount} size="lg" full icon="sparkles" onPress={() => router.push("/sign-up")} />
+        <Button
+          label={t.auth.createAccount}
+          size="lg"
+          full
+          icon="auto_awesome"
+          onPress={() => router.push("/sign-up")}
+        />
         <Button label={t.auth.haveAccount} variant="secondary" size="lg" full onPress={() => router.push("/sign-in")} />
         <Text variant="caption" color="textFaint" align="center" style={{ marginTop: theme.space.sm }}>
           {t.auth.beta}

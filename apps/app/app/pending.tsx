@@ -1,10 +1,10 @@
-import Ionicons from "@expo/vector-icons/Ionicons"
 import { useEffect, useState } from "react"
 import { View } from "react-native"
 import Animated, { FadeInDown } from "react-native-reanimated"
 import { authMessage } from "../src/auth/messages.ts"
 import { Button } from "../src/components/Button.tsx"
 import { Card } from "../src/components/Card.tsx"
+import { Icon } from "../src/components/Icon.tsx"
 import { Input } from "../src/components/Input.tsx"
 import { Mascot } from "../src/components/Mascot.tsx"
 import { Notice } from "../src/components/Notice.tsx"
@@ -26,8 +26,8 @@ const ConfirmEmail = () => {
 
   if (profile.emailVerified) {
     return (
-      <Card tone="matcha" style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <Ionicons name="checkmark-circle" size={20} color={theme.color.matcha} />
+      <Card tone="primary" style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <Icon name="check_circle" size={20} color={theme.color.primaryDark} />
         <Text variant="strong">{t.pending.confirmed}</Text>
       </Card>
     )
@@ -67,11 +67,11 @@ const ConfirmEmail = () => {
         accessibilityLabel={t.pending.confirmTitle}
         onSubmitEditing={() => void run("verify")}
       />
-      <Notice message={message?.text ?? null} tone={message?.ok ? "matcha" : "plum"} />
+      <Notice message={message?.text ?? null} tone={message?.ok ? "primary" : "accent"} />
       <Button
         label={t.pending.confirm}
         full
-        icon="checkmark"
+        icon="check"
         disabled={code.length !== 6 || busy !== null}
         loading={busy === "verify"}
         onPress={() => void run("verify")}
@@ -81,7 +81,7 @@ const ConfirmEmail = () => {
           label={t.pending.resend}
           variant="ghost"
           size="sm"
-          icon="mail-outline"
+          icon="mail"
           disabled={busy !== null}
           loading={busy === "resend"}
           onPress={() => void run("resend")}
@@ -117,7 +117,7 @@ export default function Pending() {
       </Animated.View>
       <Animated.View entering={FadeInDown.delay(150).duration(500)} style={{ gap: theme.space.lg }}>
         <ConfirmEmail />
-        <Button label={t.pending.signOut} variant="secondary" icon="log-out-outline" onPress={() => void signOut()} />
+        <Button label={t.pending.signOut} variant="secondary" icon="logout" onPress={() => void signOut()} />
       </Animated.View>
     </Screen>
   )
