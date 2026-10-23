@@ -21,10 +21,10 @@ export interface AuthUser {
   readonly createdAt: Date
 }
 
-/** A proxied upstream response: status, body and the `Set-Cookie` headers to relay. */
+/** A proxied upstream response: status, the headers worth relaying, body and `Set-Cookie`. */
 export interface Forwarded {
   readonly status: number
-  readonly contentType: string | null
+  readonly headers: Readonly<Record<string, string>>
   readonly body: Uint8Array
   readonly setCookies: ReadonlyArray<string>
 }
@@ -60,6 +60,21 @@ export class AuthUpstreamError extends Schema.TaggedError<AuthUpstreamError>()("
 /** Request headers worth forwarding to the auth server; everything else is hop-by-hop or ours. */
 const FORWARDED_HEADERS = ["cookie", "content-type", "accept", "origin", "user-agent", "authorization"]
 
+/**
+ * Response headers relayed back besides `Set-Cookie`: redirects (verification and reset
+ * links), caching, Better Auth's token headers and its rate-limit hints.
+ */
+const RELAYED_HEADERS = [
+  "content-type",
+  "location",
+  "cache-control",
+  "retry-after",
+  "x-retry-after",
+  "set-auth-jwt",
+  "set-auth-token",
+  "www-authenticate"
+]
+
 export interface AuthService {
   /**
    * Forwards a request under `/api/auth/*` to Managed Better Auth with its cookies and
@@ -93,12 +108,17 @@ const requestOrigin = (headers: Headers.Headers) => {
   return `${proto}://${host}`
 }
 
-const toResponse = (forwarded: Forwarded) =>
-  HttpServerResponse.uint8Array(forwarded.body, {
+const toResponse = (forwarded: Forwarded) => {
+  const options = {
     status: forwarded.status,
-    ...(forwarded.contentType === null ? {} : { contentType: forwarded.contentType }),
+    headers: forwarded.headers,
     cookies: Cookies.fromSetCookie(forwarded.setCookies)
-  })
+  }
+  // An empty body (redirects, 204s) goes out without one, rather than as application/octet-stream.
+  return forwarded.body.length === 0
+    ? HttpServerResponse.empty(options)
+    : HttpServerResponse.uint8Array(forwarded.body, options)
+}
 
 const upstreamFailed = HttpServerResponse.text(
   JSON.stringify({ message: "The sign-in service is unavailable.", code: "AUTH_UNAVAILABLE" }),
@@ -139,9 +159,14 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
             const options: RequestInit = { method: init.method, headers, redirect: "manual" }
             if (init.body !== undefined && init.method !== "GET" && init.method !== "HEAD") options.body = init.body
             const response = await fetch(`${baseUrl}${path}`, options)
+            const relayed: Record<string, string> = {}
+            for (const name of RELAYED_HEADERS) {
+              const value = response.headers.get(name)
+              if (value !== null) relayed[name] = value
+            }
             return {
               status: response.status,
-              contentType: response.headers.get("content-type"),
+              headers: relayed,
               body: new Uint8Array(await response.arrayBuffer()),
               setCookies: response.headers.getSetCookie()
             }
