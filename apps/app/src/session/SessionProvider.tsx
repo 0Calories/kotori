@@ -4,6 +4,7 @@ import { getLocales } from "expo-localization"
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { ApiError, call } from "../api/client.ts"
 import { AuthError, managedAuth } from "../auth/client.ts"
+import { devCredentials } from "../auth/dev.ts"
 import { tokens } from "../auth/tokens.ts"
 import { transport } from "../auth/transport"
 import { strings, type Strings } from "../i18n/strings.ts"
@@ -56,6 +57,28 @@ const sessionToken = async () => {
   if ((await tokens.refresh()) === null) throw new AuthError("NO_SESSION", "", 401)
 }
 
+/**
+ * In development, starts signed in as the account `kotori dev-account` creates,
+ * rather than making every run go through sign-up and a confirmation code. Returns
+ * whether a session was established; in a release build it is always false.
+ */
+const signInAsDeveloper = async (): Promise<boolean> => {
+  const credentials = devCredentials()
+  if (credentials === null) return false
+  try {
+    await managedAuth.signIn(credentials)
+    return (await tokens.refresh()) !== null
+  } catch (error) {
+    // Most likely the account doesn't exist on this branch yet; the sign-in screen
+    // still works, so say what to run and carry on rather than failing the launch.
+    console.warn(
+      `Could not sign in as ${credentials.email}: ${error instanceof Error ? error.message : String(error)}. ` +
+        "Run `pnpm kotori dev-account` to create the development account."
+    )
+    return false
+  }
+}
+
 export const SessionProvider = ({ children }: { readonly children: ReactNode }) => {
   const queryClient = useQueryClient()
   const [status, setStatus] = useState<Status>("loading")
@@ -80,7 +103,9 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
   useEffect(() => {
     let cancelled = false
     const load = async () => {
-      if ((await tokens.current()) === null) return cancelled || setStatus("signedOut")
+      if ((await tokens.current()) === null && !(await signInAsDeveloper())) {
+        return cancelled || setStatus("signedOut")
+      }
       const me = await call((api) => api.account.me())
       if (cancelled) return
       enter(me)

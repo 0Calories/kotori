@@ -53,6 +53,7 @@ docker run -d --name kotori-pg -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB
 pnpm install
 cp .env.example .env        # add your API keys (see below)
 pnpm seed                   # downloads JMDict (~10 MB) and imports it (~25 s)
+pnpm kotori dev-account     # the development account the app signs in as
 pnpm dev                    # API on :4000 + enrichment worker
 pnpm dev:app                # Expo: press w for web, i for iOS, a for Android
 ```
@@ -104,6 +105,8 @@ pnpm kotori users                     # every account
 pnpm kotori admin admin@example.com     # admins skip approval (--remove to demote)
 pnpm kotori revoke user@example.com    # signs them out of every device
 ```
+
+For local work there's no need to go through any of that: `pnpm kotori dev-account` creates `dev@kotori.test` already confirmed, approved and past the language picker, and in development the app signs in as it on launch, landing straight on the tabs. The command is idempotent, so run it again on a new branch or after deleting the account. To exercise the real sign-up and sign-in flows instead, set `EXPO_PUBLIC_DEV_SIGN_IN=off` (or sign out in the app, which stands until the next reload). None of this reaches a release build: `__DEV__` is false there, so the bundler folds the auto sign-in away along with the credentials, and the command refuses to run with `NODE_ENV=production`.
 
 Kotori sends its own email through [Resend](https://resend.com) when `RESEND_API_KEY` is set; otherwise messages are printed to the log, which is enough for local development. That covers the approval email and, once Managed Auth's webhook points at the API (`POST /webhooks/neon-auth`, signature-checked; see `docs/deploy.md`), the verification and password-reset codes, all in the learner's language. Running the API needs a Neon branch (`neon checkout <branch>` writes `DATABASE_URL` and `NEON_AUTH_BASE_URL` into `.env.local`).
 
