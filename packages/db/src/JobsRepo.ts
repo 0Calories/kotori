@@ -38,8 +38,10 @@ export class JobsRepo extends Context.Service<
     complete(id: number, now: number): Effect.Effect<void>
     /** Records a failure; the job is retried after `retryAt` until it runs out of attempts. */
     fail(id: number, error: string, retryAt: number, now: number): Effect.Effect<void>
+    /** Puts a claimed job back in the queue without counting the attempt: its worker stopped, it didn't fail. */
+    release(id: number, now: number): Effect.Effect<void>
     statusFor(entryId: number): Effect.Effect<ReadonlyMap<JobKind, JobStatus>>
-    /** Puts jobs left `running` by a crashed worker back in the queue. */
+    /** Puts jobs left `running` by a worker that crashed or was killed back in the queue. */
     requeueStale(olderThan: number, now: number): Effect.Effect<void>
     readonly counts: Effect.Effect<ReadonlyArray<{ kind: JobKind; status: JobStatus; n: number }>>
   }
@@ -104,6 +106,12 @@ export class JobsRepo extends Context.Service<
           WHERE id = ${id}
         `.pipe(Effect.asVoid, Effect.orDie)
 
+      const release = (id: number, now: number) =>
+        sql`
+          UPDATE jobs SET status = 'queued', attempts = greatest(attempts - 1, 0), updated_at = ${now}
+          WHERE id = ${id} AND status = 'running'
+        `.pipe(Effect.asVoid, Effect.orDie)
+
       const statusFor = Effect.fn("JobsRepo.statusFor")(function* (entryId: number) {
         const rows = yield* sql`SELECT kind, status FROM jobs WHERE entry_id = ${entryId}`.pipe(
           Effect.flatMap(decodeRows(StatusRow))
@@ -122,7 +130,7 @@ export class JobsRepo extends Context.Service<
         Effect.orDie
       )
 
-      return JobsRepo.of({ enqueue, requeue, claim, complete, fail, statusFor, requeueStale, counts })
+      return JobsRepo.of({ enqueue, requeue, claim, complete, fail, release, statusFor, requeueStale, counts })
     })
   )
 }

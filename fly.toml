@@ -4,7 +4,8 @@
 app = "kotori"
 primary_region = "ord"
 kill_signal = "SIGTERM"
-# Seconds between SIGTERM and SIGKILL: lets the worker finish an in-flight job.
+# Seconds between SIGTERM and SIGKILL, a ceiling rather than a wait: the API drains in-flight
+# requests (up to 20 s), the worker puts its in-flight job back in the queue and exits at once.
 kill_timeout = 60
 
 [build]

@@ -194,6 +194,21 @@ layer(TestLayer)("JobsRepo", (it) => {
       assert.strictEqual(status.get("examples"), "done")
     })
   )
+
+  it.effect("puts a job back without counting the attempt when its worker stops", () =>
+    Effect.gen(function* () {
+      const jobs = yield* JobsRepo
+      yield* jobs.enqueue("nuance", 10, 0, 1000)
+      const claimed = Option.getOrThrow(yield* jobs.claim(["nuance"], 2000))
+      assert.strictEqual(claimed.attempts, 1)
+
+      yield* jobs.release(claimed.id, 2500)
+      assert.strictEqual((yield* jobs.statusFor(10)).get("nuance"), "queued")
+      const again = Option.getOrThrow(yield* jobs.claim(["nuance"], 3000))
+      assert.strictEqual(again.id, claimed.id)
+      assert.strictEqual(again.attempts, 1)
+    })
+  )
 })
 
 layer(TestLayer)("StudyRepo", (it) => {
