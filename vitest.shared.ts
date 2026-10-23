@@ -9,9 +9,8 @@ const conditions = ["@kotori/source", ...defaultServerConditions]
  * source condition must be set for external resolution too, or a stale `dist/`
  * would be loaded silently.
  *
- * `cacheDir` is per project (cwd = the project running vitest): the default is a
- * single root `node_modules/.vitest-cache`, which races when Nx runs suites in
- * parallel (ENOTEMPTY flakes seen locally and fatal for CI).
+ * `cacheDir` is per project (cwd = the project running vitest): a single shared
+ * cache directory races when Nx runs suites in parallel.
  */
 export default defineConfig({
   cacheDir: join(process.cwd(), "node_modules", ".vitest-cache"),

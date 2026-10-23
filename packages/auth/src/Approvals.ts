@@ -13,7 +13,7 @@ export interface Account extends AuthUser {
 }
 
 /**
- * Ash's side of the sign-up gate. Approving tells the learner by email;
+ * The admin's side of the sign-up gate. Approving tells the learner by email;
  * archiving is silent bookkeeping and looks like "pending" to them.
  * Status and role live on Kotori's own `users` row (created here if the
  * learner hasn't opened the app since signing up), never in the auth system.

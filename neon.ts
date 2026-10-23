@@ -13,14 +13,14 @@ export default defineConfig({
   branch: (branch) => {
     // Leave existing branches (and production) untouched.
     if (branch.exists || branch.isDefault) return {}
-    // Dev branches clean themselves up and scale to zero between sessions.
+    // Dev branches clean themselves up and stay small. (The suspend interval is
+    // left at the project default: changing it is not permitted on every plan.)
     return {
       ttl: "14d",
       postgres: {
         computeSettings: {
           autoscalingLimitMinCu: 0.25,
-          autoscalingLimitMaxCu: 1,
-          suspendTimeout: "5m"
+          autoscalingLimitMaxCu: 1
         }
       }
     }

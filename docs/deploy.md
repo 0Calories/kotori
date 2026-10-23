@@ -11,7 +11,7 @@ Fly app "kotori"                 Dockerfile at the repo root, config in fly.toml
 └── process group "worker"       node apps/worker/dist/main.js work
 ```
 
-Nothing is written to disk, so there are no volumes and any machine can be replaced at any time. The image is about 300 MB compressed (see the plan's phase 5 notes for why, and what would shrink it).
+Nothing is written to disk, so there are no volumes and any machine can be replaced at any time.
 
 ## 1. One-time setup
 
@@ -87,22 +87,20 @@ The platform's secret store is one layer; assume it can fail. Use **separate API
 - **Sign-ups**: `fly ssh console --process-group worker -C "node apps/worker/dist/main.js requests|approve|archive|users|admin|revoke …"` — the same `kotori` CLI as locally (`pnpm kotori …`), against production. Or run it from a laptop with `DATABASE_URL` set; Neon doesn't care where the client is.
 - **Enrichment coverage and queue**: `… status`. Backfill in bulk with `… enrich --help`.
 - **Logs**: `fly logs` (add `--process-group api`); JSON lines, one per request with method, path, status and span duration. Metrics and a Grafana dashboard come with the app.
-- **Deploys**: `fly deploy` (phase 6 moves this into GitHub Actions with a deploy token). Strategy is rolling. With one machine per group, the worker stops before its replacement starts, so two workers never process the queue at once during a deploy; `kill_timeout = 60` gives an in-flight enrichment a minute to finish, and jobs left `running` by a killed worker are requeued on the next start (`requeueStale`). The API is briefly unavailable during a one-machine deploy.
+- **Deploys**: every push to `main` that passes CI runs `flyctl deploy --remote-only` (§5); `fly deploy` from a laptop does the same. Strategy is rolling. With one machine per group, the worker stops before its replacement starts, so two workers never process the queue at once during a deploy; `kill_timeout = 60` gives an in-flight enrichment a minute to finish, and jobs left `running` by a killed worker are requeued on the next start (`requeueStale`). The API is briefly unavailable during a one-machine deploy.
 - **Availability**: `fly scale count api=2` keeps one API machine serving while the other updates and survives a single-machine failure, for about the price of a coffee. Fly's health check restarts a machine whose `/health` fails. Neon's compute is managed and restored from storage on failure; history retention gives point-in-time recovery.
-- **Schema changes**: Kotori's migrations run on API and worker startup (`effect_sql_migrations` tracks them); Better Auth migrates its own tables on startup too. Both are idempotent, so the two groups starting together is fine. Migrations are forward-only; write a new one rather than editing an applied one.
+- **Schema changes**: Kotori's migrations run on API and worker startup (`effect_sql_migrations` tracks them) and are idempotent, so the two groups starting together is fine. Managed Auth owns the `neon_auth` schema. Migrations are forward-only; write a new one rather than editing an applied one.
 - **Rollback**: `fly releases` then `fly deploy --image <previous image>`; or restore the database to a point in time in Neon (or branch from one to inspect first).
 - **Backups**: Neon's history retention is the backup; the dictionary and enrichment are rebuildable, learner data is not. Consider a periodic `pg_dump` to object storage once there are real learners.
 
 ## 4. Managed Better Auth (Neon Auth)
 
-Implemented 2026-10-22 and verified end to end on the `dev-neon-auth` branch of the Neon project (sign-up → pending gate → approve → JWT access → revoke → delete). Self-hosted Better Auth, `node:sqlite`'s successor `pg`, and `@better-auth/expo` are gone from the server.
-
-How it fits together:
+Identity is Neon's Managed Better Auth, declared with `auth: true` in `neon.ts`. How it fits together:
 
 - **One origin for the app.** The API proxies `/api/auth/*` to `NEON_AUTH_BASE_URL` (`apps/api/src/http/neon-auth.ts` → `Auth.forward`), forwarding cookies and body and relaying `Set-Cookie`. Better Auth requires an `Origin` header; browsers send the web app's, native apps send none, so the proxy fills in the API's own public origin (from `x-forwarded-proto`/`host`). Both origins must be **trusted domains** on the branch (`neon neon-auth domain add https://…`); localhost is allowed by default.
 - **Two credentials.** Web clients use the relayed session cookie; the API checks it upstream (`/get-session`). The app calls `GET /api/auth/token` with its cookie to get a 15-minute EdDSA **JWT** and sends it as `Authorization: Bearer`; the API verifies it locally against `NEON_AUTH_JWKS_URL` (`jose`), no round trip. Issuer and audience are the auth endpoint's origin. Revocation lag is bounded by the token lifetime.
-- **Identity in our database.** Users and sessions live in the `neon_auth` schema of the same Postgres (user ids are uuids). The CLI lists users and looks up emails with SQL there; `kotori revoke` deletes `neon_auth.session` rows; account deletion (`DELETE /account/me`, authenticated by cookie or JWT) removes the profile and then the `neon_auth.user` row, whose sessions and accounts cascade. Managed Auth doesn't enable Better Auth's `/delete-user` (it returns 404), and Neon's user-management guide documents no deletion flow, so this is the deletion path.
-- **Approval state is Kotori's.** The managed user record has no custom fields, so `status` and `role` moved to the `users` profile (migration `0004_accounts`). `kotori requests` shows every managed user with the profile's status (pending until a row exists); `approve`/`archive`/`admin` create the profile row if the learner hasn't opened the app yet. The welcome email is in the learner's chosen language once they've onboarded, English before.
+- **Identity in our database.** Users and sessions live in the `neon_auth` schema of the same Postgres (user ids are uuids). The CLI lists users and looks up emails with SQL there; `kotori revoke` deletes `neon_auth.session` rows; account deletion (`DELETE /account/me`, authenticated by cookie or JWT) removes the profile and then the `neon_auth.user` row, whose sessions and accounts cascade. Managed Auth does not expose Better Auth's `/delete-user`, so this is the deletion path.
+- **Approval state is Kotori's.** The managed user record has no custom fields, so `status` and `role` live on the `users` profile. `kotori requests` shows every managed user with the profile's status (pending until a row exists); `approve`/`archive`/`admin` create the profile row if the learner hasn't opened the app yet. The welcome email is in the learner's chosen language once they've onboarded, English before.
 
 ### Still to do before launch
 
@@ -114,9 +112,24 @@ How it fits together:
 | App sign-in screens | The Expo app has no auth UI yet; it only loads an existing session. | Call `/api/auth/sign-up/email`, `/sign-in/email`, then `/api/auth/token`; store the JWT (refresh on 401), send it as Bearer; set `nativeLanguage` via `PATCH /account/me` right after sign-up so approval emails use it. |
 | `neon_auth` writes | `revoke` and account deletion write to managed tables directly. Standard Better Auth schema, FK cascades verified, but a Neon schema change could bite. | Re-check on Neon upgrades; the admin API (`/admin/revoke-user-sessions`, `/admin/remove-user`) is the sanctioned alternative if an admin session becomes convenient. |
 
-Local development: `neon checkout <branch>` writes that branch's `DATABASE_URL`, `NEON_AUTH_BASE_URL` and `NEON_AUTH_JWKS_URL` into `.env.local` (loaded after `.env`). Use `--no-env-pull` to stay on Docker Postgres — but then there is no auth server locally; the branch-first flow is the intended way to run the API now.
+Local development: `neon checkout <branch>` writes that branch's `DATABASE_URL`, `NEON_AUTH_BASE_URL` and `NEON_AUTH_JWKS_URL` into `.env.local` (loaded after `.env`). There is no auth server without a Neon branch, so the branch-first flow is how the API runs locally; `--no-env-pull` with Docker Postgres only serves the worker and the repository tests.
 
-## 5. Other follow-ups
+## 5. CI and deploys
 
-- Staging: a Neon branch plus a second Fly app (`fly launch` with another name) is cheap when wanted; `fly.toml` needs no changes.
+`.github/workflows/ci.yml` runs on pull requests and on pushes to `main`:
+
+1. `pnpm install --frozen-lockfile` on the Node from `.node-version`, with the pnpm store and `.nx/cache` cached.
+2. `nx sync:check` (project references match `package.json` dependencies), `pnpm format:check`, `pnpm lint`.
+3. `nx affected -t typecheck test build` against the base commit (`nrwl/nx-set-shas`). Tests need no services: repositories run on PGlite and auth on an in-memory server.
+4. On `main`, after the checks: `flyctl deploy --remote-only`. The job runs only when the repository variable `FLY_DEPLOY` is `true` and uses the `FLY_API_TOKEN` secret, a deploy token scoped to the app (`fly tokens create deploy -x 8760h`), which can deploy but not read secrets. Set both after `fly launch`.
+
+Pull-request runs cancel superseded ones; runs on `main` never cancel, because they deploy. Deploys use the `production` environment, so GitHub can require a reviewer there if wanted.
+
+## 6. Follow-ups
+
+- **Image size.** The runtime image is ~176 MB (28 packages in `node_modules`). Watch for regressions: the workspace's hoisted linker resolves *optional* peer dependencies workspace-wide, so a server dependency with optional React or Expo peers would pull the app's toolchain into the image again (this is what `better-auth` did). If that happens, give `apps/app` its own pnpm workspace.
+- **Nx 24** (`pnpm nx migrate latest`): `@nx/js/typescript` becomes the only typecheck provider, affected tasks are selected by default, and `nx format` detects Oxfmt.
+- **Type-aware lint rules** once Oxlint can use the TypeScript 7 API.
+- **Dedicated database role** for the apps instead of the Neon project owner, with the `neon_auth` grants replicated.
+- **Staging**: a Neon branch plus a second Fly app (`fly launch` with another name); `fly.toml` needs no changes.
 - Observability beyond structured logs.

@@ -90,7 +90,7 @@ layer(TestLayer)("Approvals", (it) => {
       const auth = yield* Auth
       const users = yield* UsersRepo
 
-      const user = yield* signUp("admin@example.com", "Ash")
+      const user = yield* signUp("admin@example.com", "Admin")
       const promoted = yield* approvals.setRole("admin@example.com", "admin")
       assert.strictEqual(promoted.role, "admin")
       // The role lives on Kotori's profile, created on the spot if needed.

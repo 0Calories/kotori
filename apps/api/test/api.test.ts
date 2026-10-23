@@ -138,7 +138,7 @@ layer(TestLayer)("Kotori API", (it) => {
       assert.strictEqual(me.onboarded, false)
       assert.strictEqual(me.displayName, "Test Learner")
 
-      // Everything else is closed until Ash approves.
+      // Everything else is closed until an admin approves.
       const gated = yield* api.dictionary.search({ query: { q: "eat" } }).pipe(Effect.flip)
       assert.strictEqual(gated._tag, "PendingApproval")
       const gatedStudy = yield* api.study.notes().pipe(Effect.flip)

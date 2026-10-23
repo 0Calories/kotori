@@ -64,8 +64,8 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
     }
   }, [attempt])
 
-  // Sign-up and sign-in move to Better Auth in the app step; until then the
-  // app can only load an existing session.
+  // Sign-up and sign-in screens are not built yet: the app only loads an existing
+  // session (a managed JWT from `GET /api/auth/token`, sent as a bearer token).
   const updateProfile = useCallback(
     async (patch: UpdateProfileRequest) => {
       const updated = await call((api) => api.account.update({ payload: patch }))

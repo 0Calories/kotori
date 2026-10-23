@@ -1,9 +1,7 @@
 import { Effect } from "effect"
 import { SqlClient } from "effect/sql"
 
-// A fresh start for Postgres: the SQLite databases predate the beta and are
-// re-seeded (JMDict) or re-generated (enrichment), not migrated. Timestamps
-// are millisecond epochs in BIGINT, matching what the code already stores.
+// Timestamps are millisecond epochs in BIGINT throughout.
 
 const dictionary = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
@@ -21,8 +19,8 @@ const dictionary = Effect.gen(function* () {
   `
   yield* sql`CREATE INDEX entries_priority ON entries (priority DESC, id)`
 
-  // `text` collates in "C" (byte order, as SQLite compared it) so the prefix
-  // search's range scan stays correct and indexable under any locale.
+  // `text` collates in "C" (byte order) so the prefix search's range scan stays
+  // correct and indexable under any locale.
   yield* sql`
     CREATE TABLE forms (
       entry_id INTEGER NOT NULL REFERENCES entries (id) ON DELETE CASCADE,
@@ -171,11 +169,14 @@ const enrichment = Effect.gen(function* () {
 const study = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
 
-  // The learner profile. Identity (email, credentials, sessions) lives in Better
-  // Auth's own tables; `id` is its user id, and the row is created on first request.
+  // The learner profile. Identity (email, credentials, sessions) lives in Managed
+  // Better Auth's `neon_auth` schema; `id` is its user id, and the row is created on
+  // first request. Approval `status` and `role` are Kotori's own.
   yield* sql`
     CREATE TABLE users (
       id TEXT PRIMARY KEY,
+      status TEXT NOT NULL DEFAULT 'pending',
+      role TEXT NOT NULL DEFAULT 'user',
       native_language TEXT NOT NULL DEFAULT 'en',
       target_language TEXT NOT NULL DEFAULT 'ja',
       onboarded_at BIGINT,
@@ -186,6 +187,7 @@ const study = Effect.gen(function* () {
       created_at BIGINT NOT NULL
     )
   `
+  yield* sql`CREATE INDEX users_status ON users (status)`
 
   yield* sql`
     CREATE TABLE notes (
@@ -261,22 +263,8 @@ const study = Effect.gen(function* () {
   yield* sql`CREATE INDEX coach_usage_user ON coach_usage (user_id, created_at)`
 })
 
-// Identity moved to Neon's Managed Better Auth (`neon_auth` schema, same database).
-// Its user record has no custom fields, so the approval state and the role Kotori
-// cares about live on the learner profile instead.
-const accounts = Effect.gen(function* () {
-  const sql = yield* SqlClient.SqlClient
-  yield* sql`
-    ALTER TABLE users
-      ADD COLUMN status TEXT NOT NULL DEFAULT 'pending',
-      ADD COLUMN role TEXT NOT NULL DEFAULT 'user'
-  `
-  yield* sql`CREATE INDEX users_status ON users (status)`
-})
-
 export const migrations = {
   "0001_dictionary": dictionary,
   "0002_enrichment": enrichment,
-  "0003_study": study,
-  "0004_accounts": accounts
+  "0003_study": study
 }

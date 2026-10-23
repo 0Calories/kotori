@@ -38,7 +38,7 @@ const ServerLive = Layer.unwrap(
   })
 )
 
-// Railway's log viewer parses JSON lines; development keeps the pretty logger.
+// JSON lines in production for the host's log viewer; development keeps the pretty logger.
 const LoggerLive = process.env.NODE_ENV === "production" ? Logger.layer([Logger.consoleJson]) : Layer.empty
 
 Layer.launch(ServerLive).pipe(

@@ -98,14 +98,14 @@ Identity is handled by Neon's [Managed Better Auth](https://neon.com/docs/auth/o
 
 ```sh
 pnpm kotori requests                  # sign-ups waiting for approval (--all includes archived)
-pnpm kotori approve ash@example.com   # unlocks the app and emails the learner
-pnpm kotori archive ash@example.com   # hides the request; nothing is sent
+pnpm kotori approve user@example.com  # unlocks the app and emails the learner
+pnpm kotori archive user@example.com  # hides the request; nothing is sent
 pnpm kotori users                     # every account
 pnpm kotori admin admin@example.com     # admins skip approval (--remove to demote)
 pnpm kotori revoke user@example.com    # signs them out of every device
 ```
 
-Verification, password-reset and approval emails go through [Resend](https://resend.com) when `RESEND_API_KEY` is set; otherwise they are printed to the API log, which is enough for local development. Set `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` before deploying (see `.env.example`).
+The approval email goes through [Resend](https://resend.com) when `RESEND_API_KEY` is set; otherwise it is printed to the log, which is enough for local development. Verification and password-reset emails are Managed Auth's; routing them through Resend with Kotori's templates is a pre-launch item in `docs/deploy.md`. Running the API needs a Neon branch (`neon checkout <branch>` writes `DATABASE_URL` and `NEON_AUTH_BASE_URL` into `.env.local`).
 
 ## Development
 
@@ -121,7 +121,7 @@ pnpm assets      # re-render icons and splash from the mascot geometry
 
 Packages are TypeScript project references. Each one has a `tsconfig.lib.json` (source, emitted to `dist/`) and a `tsconfig.spec.json` (tests, type-checked only); `nx sync` derives the `references` between them from `package.json` dependencies, so importing a package you have not declared fails the typecheck. Their `exports` maps point `@kotori/source` at `src/` and everything else at `dist/`: `tsc`, `tsx -C @kotori/source`, Vitest and Metro read source, while `node dist/main.js` in production reads the compiled output.
 
-Dependency versions shared across packages live in the `catalog:` of `pnpm-workspace.yaml`. TypeScript 7 is installed as `@typescript/native` (the `tsc` you run) alongside TypeScript 6 as `typescript` (the compiler API that Nx and editors still need; `tsc6`).
+CI (`.github/workflows/ci.yml`) runs `nx sync:check`, format and lint checks, then `nx affected -t typecheck test build`; a push to `main` deploys to Fly.io once the checks pass (see `docs/deploy.md`). Dependency versions shared across packages live in the `catalog:` of `pnpm-workspace.yaml`. TypeScript 7 is installed as `@typescript/native` (the `tsc` you run) alongside TypeScript 6 as `typescript` (the compiler API that Nx and editors still need; `tsc6`).
 
 Tests cover the SM-2 scheduler against Anki's behaviour, deinflection, JMDict parsing, repositories on an in-process Postgres ([PGlite](https://pglite.dev), no server needed), the Jev and ElevenLabs pipelines with fakes, structured-output schemas, and the HTTP API end to end through Effect's in-memory `HttpApiTest` client.
 

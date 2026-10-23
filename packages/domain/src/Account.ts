@@ -5,7 +5,7 @@ import { Language } from "./Language.ts"
 export const UserId = Schema.String.pipe(Schema.brand("UserId"))
 export type UserId = typeof UserId.Type
 
-/** Anyone can sign up; Ash approves accounts before they can use Kotori. Archived requests look pending to the learner. */
+/** Anyone can sign up; an admin approves accounts before they can use Kotori. Archived requests look pending to the learner. */
 export const AccountStatus = Schema.Literals(["pending", "approved", "archived"])
 export type AccountStatus = typeof AccountStatus.Type
 

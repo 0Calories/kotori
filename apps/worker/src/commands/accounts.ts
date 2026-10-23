@@ -19,7 +19,7 @@ const table = (users: ReadonlyArray<Account>, empty: string) =>
 
 const notFound = (email: string) => Console.error(`No account with the email ${email}.`)
 
-/** Sign-ups waiting for Ash. */
+/** Sign-ups waiting for the admin. */
 export const requests = Command.make(
   "requests",
   { all: Flag.Boolean("all").pipe(Flag.withDescription("Include archived requests"), Flag.withDefault(false)) },
