@@ -1,4 +1,4 @@
-import type { Formality, Register, Verdict } from "@kotori/domain"
+import type { Formality, Register } from "@kotori/domain"
 import type { Tone } from "../components/Chip.tsx"
 
 /** Tags are neutral outlines; only the registers a learner should be careful with stand out. */
@@ -16,11 +16,4 @@ export const registerTone: Record<Register | "mixed", Tone> = {
   polite: "neutral",
   formal: "neutral",
   mixed: "accent"
-}
-
-export const verdictTone: Record<Verdict, Tone> = {
-  natural: "primary",
-  understandable: "neutral",
-  unnatural: "accent",
-  incorrect: "accent"
 }

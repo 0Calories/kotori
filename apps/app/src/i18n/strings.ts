@@ -147,7 +147,10 @@ const en = {
       spelling: "Spelling",
       other: "Note"
     },
-    again: "Check another"
+    again: "Check another",
+    youWrote: "You wrote",
+    natural: "Natural",
+    byAi: "Checked by AI, so it can be wrong."
   },
   say: {
     title: "How do I say…?",
@@ -401,7 +404,10 @@ const ja: Strings = {
       spelling: "スペル",
       other: "メモ"
     },
-    again: "別の文をチェック"
+    again: "別の文をチェック",
+    youWrote: "あなたの文",
+    natural: "自然な言い方",
+    byAi: "AIのチェックなので、間違うこともあります。"
   },
   say: {
     title: "英語でどう言う？",

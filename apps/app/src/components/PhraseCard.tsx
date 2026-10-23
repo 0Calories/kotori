@@ -46,16 +46,50 @@ export const PhraseCard = ({
   const size = highlight ? 22 : 18
 
   return (
-    <Card style={{ gap: theme.space.md }}>
+    <Card style={{ gap: theme.space.md, paddingTop: theme.space.md }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <View style={{ flex: 1 }}>
-          {label ? (
-            <Text variant="label" style={{ color: theme.color.primaryDark }}>
-              {label.toUpperCase()}
-            </Text>
-          ) : null}
-        </View>
+        {label ? (
+          <Text variant="label" style={{ color: theme.color.primaryDark }}>
+            {label.toUpperCase()}
+          </Text>
+        ) : null}
         <Chip label={t.check.register[register]} />
+        <View style={{ flex: 1 }} />
+        <View style={{ flexDirection: "row", marginRight: -6 }}>
+          <IconButton
+            icon={copied ? "check" : "content_copy"}
+            label={copied ? t.common.copied : t.common.copy}
+            size={38}
+            onPress={async () => {
+              await Clipboard.setStringAsync(text)
+              setCopied(true)
+              setTimeout(() => setCopied(false), 1500)
+            }}
+          />
+          <IconButton
+            icon="bookmark"
+            label={saved ? t.common.saved : t.common.save}
+            filled={saved}
+            size={38}
+            onPress={
+              saved || addNote.isPending
+                ? undefined
+                : () =>
+                    addNote.mutate({
+                      content: {
+                        kind: "phrase",
+                        text,
+                        furigana,
+                        meaning,
+                        note: lines.map((l) => l.text).join("\n") || null,
+                        register,
+                        source
+                      },
+                      templates: ["produce", "recognize"]
+                    })
+            }
+          />
+        </View>
       </View>
       <View
         style={{
@@ -85,8 +119,8 @@ export const PhraseCard = ({
         </View>
         <AudioButton speak={{ text, language: target }} />
       </View>
-      {(first?.label ? [first, ...rest] : rest).map((line, index) => (
-        <View key={index} style={{ gap: 2, paddingHorizontal: 2 }}>
+      {(first?.label ? [first, ...rest] : rest).map((line) => (
+        <View key={`${line.label ?? ""}${line.text}`} style={{ gap: 2, paddingHorizontal: 2 }}>
           {line.label ? (
             <Text variant="label" color="textMuted">
               {line.label.toUpperCase()}
@@ -97,41 +131,6 @@ export const PhraseCard = ({
           </Text>
         </View>
       ))}
-      <View style={{ flexDirection: "row", gap: 4, justifyContent: "flex-end", marginBottom: -6, marginRight: -6 }}>
-        <IconButton
-          icon={copied ? "check" : "content_copy"}
-          label={copied ? t.common.copied : t.common.copy}
-          size={40}
-          onPress={async () => {
-            await Clipboard.setStringAsync(text)
-            setCopied(true)
-            setTimeout(() => setCopied(false), 1500)
-          }}
-        />
-        <IconButton
-          icon="bookmark"
-          label={saved ? t.common.saved : t.common.save}
-          filled={saved}
-          size={40}
-          onPress={
-            saved || addNote.isPending
-              ? undefined
-              : () =>
-                  addNote.mutate({
-                    content: {
-                      kind: "phrase",
-                      text,
-                      furigana,
-                      meaning,
-                      note: lines.map((l) => l.text).join("\n") || null,
-                      register,
-                      source
-                    },
-                    templates: ["produce", "recognize"]
-                  })
-          }
-        />
-      </View>
     </Card>
   )
 }
