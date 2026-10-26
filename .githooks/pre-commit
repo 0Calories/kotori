@@ -1,0 +1,14 @@
+#!/bin/sh
+# Rejects staged authored files over 5,000 tokens (bytes / 4). See tools/file-token-limit.ts.
+# Installed when `pnpm install` sets core.hooksPath to .githooks.
+
+set -eu
+
+cd "$(dirname "$0")/.."
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "pre-commit: node is not on PATH, so the file token limit could not be checked." >&2
+  exit 1
+fi
+
+exec node tools/file-token-limit.ts

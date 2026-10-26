@@ -113,7 +113,7 @@ Kotori sends its own email through [Resend](https://resend.com) when `RESEND_API
 ## Development
 
 ```sh
-pnpm test        # every package's tests (Vitest + @effect/vitest), cached by Nx
+pnpm test        # every package's tests (Vitest + @effect/vitest), then the token-limit hook tests
 pnpm typecheck   # TypeScript 7 (tsc --build) across the workspace
 pnpm build       # emits dist/ for the API, the worker and the packages they use
 pnpm lint        # Oxlint (.oxlintrc.json), including type-aware rules
@@ -122,9 +122,17 @@ pnpm sync        # Nx keeps tsconfig project references in step with package.jso
 pnpm assets      # re-render icons and splash from the mascot geometry
 ```
 
+### Pre-commit token limit
+
+`pnpm install` points this clone at `.githooks`. The pre-commit hook rejects a staged file over **5,000 tokens** (tokens = bytes ÷ 4, so **20,000 bytes**). It reads the staged blob, so an edit that is not staged does not count, and deletions are ignored. Lockfiles, generated output, vendored trees, snapshots, and binary, image, and font assets are skipped. The ignore list is `NON_AUTHORED` in `tools/file-token-limit.ts` — add a lockfile name, directory, glob, or asset extension there.
+
+When the hook fails, split the file: move each class, component, function, or test suite into a new file named for what it contains, re-export or import it from the original so callers keep working, keep the original under the limit, update imports, `git add`, and commit again. `pnpm test:token-limit` runs the hook's tests.
+
+`git commit --no-verify` skips the hook. Use it for a small edit to a file that is already over the limit, or for a generated file the ignore list does not know yet; extend `NON_AUTHORED` for the latter when you can. New authored files should be split instead. These tracked files are already over the limit and fail only once they are staged: `apps/app/src/i18n/strings.ts`, `packages/auth/src/Auth.ts`, and `apps/app/app/entry/[id].tsx`.
+
 Packages are TypeScript project references. Each one has a `tsconfig.lib.json` (source, emitted to `dist/`) and a `tsconfig.spec.json` (tests, type-checked only); `nx sync` derives the `references` between them from `package.json` dependencies, so importing a package you have not declared fails the typecheck. Their `exports` maps point `@kotori/source` at `src/` and everything else at `dist/`: `tsc`, `tsx -C @kotori/source`, Vitest and Metro read source, while `node dist/main.js` in production reads the compiled output.
 
-CI (`.github/workflows/ci.yml`) runs `nx sync:check`, format and lint checks, then `nx affected -t typecheck test build`; a push to `main` deploys the API and worker to Fly.io once the checks pass, and the web app is built and served by Vercel from `vercel.json` (see `docs/operations.md`; what is still to be done by hand is in `docs/deploy.md`). Dependency versions shared across packages live in the `catalog:` of `pnpm-workspace.yaml`. TypeScript 7 is installed as `@typescript/native` (the `tsc` you run) alongside TypeScript 6 as `typescript` (the compiler API that Nx and editors still need; `tsc6`). Oxlint's type-aware rules run on `oxlint-tsgolint`, which embeds its own TypeScript 7.
+CI (`.github/workflows/ci.yml`) runs `nx sync:check`, format and lint checks, the token-limit hook's typecheck and tests, then `nx affected -t typecheck test build`; a push to `main` deploys the API and worker to Fly.io once the checks pass, and the web app is built and served by Vercel from `vercel.json` (see `docs/operations.md`; what is still to be done by hand is in `docs/deploy.md`). Dependency versions shared across packages live in the `catalog:` of `pnpm-workspace.yaml`. TypeScript 7 is installed as `@typescript/native` (the `tsc` you run) alongside TypeScript 6 as `typescript` (the compiler API that Nx and editors still need; `tsc6`). Oxlint's type-aware rules run on `oxlint-tsgolint`, which embeds its own TypeScript 7.
 
 Tests cover the SM-2 scheduler against Anki's behaviour, deinflection, JMDict parsing, repositories on an in-process Postgres ([PGlite](https://pglite.dev), no server needed), the Jev and ElevenLabs pipelines with fakes, structured-output schemas, and the HTTP API end to end through Effect's in-memory `HttpApiTest` client.
 
