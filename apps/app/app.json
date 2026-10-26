@@ -6,7 +6,7 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "app.kotori",
@@ -33,7 +33,7 @@
       "backgroundColor": "#F7FAF7"
     },
     "plugins": [
-      "expo-router",
+      ["expo-router", { "adaptiveColors": false }],
       "expo-secure-store",
       "expo-audio",
       "expo-font",
@@ -43,8 +43,7 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 160,
           "resizeMode": "contain",
-          "backgroundColor": "#F7FAF7",
-          "dark": { "image": "./assets/splash-icon.png", "backgroundColor": "#0F1712" }
+          "backgroundColor": "#F7FAF7"
         }
       ]
     ],

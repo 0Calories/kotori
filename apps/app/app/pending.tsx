@@ -6,15 +6,13 @@ import { Mascot } from "../src/components/Mascot.tsx"
 import { Screen } from "../src/components/Screen.tsx"
 import { Text } from "../src/components/Text.tsx"
 import { useSession } from "../src/session/SessionProvider.tsx"
-import { useTheme } from "../src/theme/ThemeProvider.tsx"
+import { theme } from "../src/theme/tokens.ts"
 
 /** How often the screen checks whether the admin has approved the account. */
 const POLL_MS = 30_000
 
 export default function Pending() {
   const { t, refresh, signOut } = useSession()
-  const theme = useTheme()
-
   // Approval happens in the admin's CLI; check back now and then, and move on when it lands.
   useEffect(() => {
     const timer = setInterval(() => void refresh().catch(() => {}), POLL_MS)

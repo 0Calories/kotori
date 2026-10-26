@@ -13,7 +13,7 @@ import { Segmented } from "../src/components/Segmented.tsx"
 import { ErrorState, MascotMessage } from "../src/components/States.tsx"
 import { Text } from "../src/components/Text.tsx"
 import { useSession } from "../src/session/SessionProvider.tsx"
-import { useTheme } from "../src/theme/ThemeProvider.tsx"
+import { theme } from "../src/theme/tokens.ts"
 
 const NoteRow = ({ note }: { readonly note: Note }) => {
   const router = useRouter()
@@ -56,7 +56,6 @@ const NoteRow = ({ note }: { readonly note: Note }) => {
 }
 
 export default function SavedScreen() {
-  const theme = useTheme()
   const router = useRouter()
   const { t } = useSession()
   const notes = useNotes()

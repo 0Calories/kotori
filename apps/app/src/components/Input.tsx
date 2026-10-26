@@ -1,6 +1,6 @@
 import { forwardRef, useState } from "react"
 import { TextInput, type TextInputProps, View } from "react-native"
-import { useTheme } from "../theme/ThemeProvider.tsx"
+import { theme } from "../theme/tokens.ts"
 import { Text } from "./Text.tsx"
 
 export interface InputProps extends TextInputProps {
@@ -12,7 +12,6 @@ export interface InputProps extends TextInputProps {
 
 export const Input = forwardRef<TextInput, InputProps>(
   ({ label, jp, large, style, maxLength, value, ...props }, ref) => {
-    const theme = useTheme()
     const [focused, setFocused] = useState(false)
     return (
       <View style={{ gap: 6 }}>

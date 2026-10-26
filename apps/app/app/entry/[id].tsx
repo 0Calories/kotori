@@ -19,7 +19,7 @@ import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { posLabel, type Strings } from "../../src/i18n/strings.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
-import { useTheme } from "../../src/theme/ThemeProvider.tsx"
+import { theme } from "../../src/theme/tokens.ts"
 
 /** Below this confidence a judgment is shown faded rather than stated outright. */
 const CONFIDENT = 0.55
@@ -95,7 +95,6 @@ const NuanceCard = ({ nuance }: { readonly nuance: Nuance }) => {
 }
 
 const ExampleRow = ({ example, mark }: { readonly example: Example; readonly mark: string | undefined }) => {
-  const theme = useTheme()
   const { profile } = useSession()
   // Japanese speakers are learning the English side, so it leads and is the one spoken.
   const english = profile?.targetLanguage === "en"
@@ -168,7 +167,6 @@ const SenseCard = ({
   readonly saving: boolean
 }) => {
   const { t } = useSession()
-  const theme = useTheme()
   const router = useRouter()
   const [first, second, ...rest] = sense.glosses
   const pos = [...new Set(sense.partsOfSpeech.map((tag) => posLabel(t, tag.code) ?? tag.label))].filter(
@@ -262,7 +260,6 @@ const SenseCard = ({
 /** Words close to this one, each with how it differs. */
 const SimilarList = ({ words }: { readonly words: ReadonlyArray<SimilarWord> }) => {
   const { t } = useSession()
-  const theme = useTheme()
   const router = useRouter()
   return (
     <Card padded={false} style={{ paddingHorizontal: theme.space.lg, paddingVertical: 2 }}>
@@ -315,7 +312,6 @@ const headwordSize = (headword: string) => {
 
 export default function EntryScreen() {
   const { t, profile } = useSession()
-  const theme = useTheme()
   const router = useRouter()
   const { id } = useLocalSearchParams<{ id: string }>()
   const entry = useEntry(Number(id))

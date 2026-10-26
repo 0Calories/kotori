@@ -9,11 +9,10 @@ import { Screen } from "../src/components/Screen.tsx"
 import { ErrorState } from "../src/components/States.tsx"
 import { Text } from "../src/components/Text.tsx"
 import { useSession } from "../src/session/SessionProvider.tsx"
-import { useTheme } from "../src/theme/ThemeProvider.tsx"
+import { theme } from "../src/theme/tokens.ts"
 
 export default function Onboarding() {
   const { t, updateProfile } = useSession()
-  const theme = useTheme()
   const [native, setNative] = useState<Language | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<unknown>(null)

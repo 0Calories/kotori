@@ -1,8 +1,7 @@
 import { furiganaToText, parseFurigana } from "@kotori/domain"
 import { View } from "react-native"
 import { usePreference } from "../session/preferences.ts"
-import { useTheme } from "../theme/ThemeProvider.tsx"
-import type { Palette } from "../theme/tokens.ts"
+import { theme, type Palette } from "../theme/tokens.ts"
 import { mistakeRanges, type Piece, Squiggles, useBoxes } from "./Squiggle.tsx"
 import { Text } from "./Text.tsx"
 
@@ -52,7 +51,6 @@ export const Furigana = ({
   readonly center?: boolean
   readonly marks?: ReadonlyArray<Mark>
 }) => {
-  const theme = useTheme()
   const [showFurigana] = usePreference("furigana", true)
   const [boxes, measure] = useBoxes()
   const ruby = showFurigana && furigana ? furigana : null

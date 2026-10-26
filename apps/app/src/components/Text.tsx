@@ -1,8 +1,7 @@
 import { type ReactNode } from "react"
 import { Platform, Text as RNText, type TextProps as RNTextProps, type TextStyle } from "react-native"
 import { useInterfaceLanguage } from "../session/SessionProvider.tsx"
-import type { Palette, Weight } from "../theme/tokens.ts"
-import { useTheme } from "../theme/ThemeProvider.tsx"
+import { theme, type Palette, type Weight } from "../theme/tokens.ts"
 
 interface Spec {
   readonly fontSize: number
@@ -73,7 +72,6 @@ export const Text = ({
   children,
   ...props
 }: TextProps) => {
-  const theme = useTheme()
   const ui = useInterfaceLanguage()
   const detected = jp === undefined && JAPANESE.test(plain(children))
   // Japanese copy in a Japanese interface is set in Murecho throughout, Latin letters included.

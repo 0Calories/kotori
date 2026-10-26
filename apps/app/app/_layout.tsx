@@ -23,7 +23,7 @@ import { iconFonts } from "../src/components/Icon.tsx"
 import { Screen } from "../src/components/Screen.tsx"
 import { MascotMessage } from "../src/components/States.tsx"
 import { SessionProvider, useSession } from "../src/session/SessionProvider.tsx"
-import { ThemeProvider, useTheme } from "../src/theme/ThemeProvider.tsx"
+import { theme } from "../src/theme/tokens.ts"
 
 SplashScreen.preventAutoHideAsync().catch(() => {})
 // Pronunciation should play even when the phone's ring switch is on silent.
@@ -37,9 +37,11 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 } }
 })
 
+// expo-status-bar icon color. A binding, so oxlint does not treat the attribute as a view style.
+const statusBarStyle = "dark" as const
+
 const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
   const { status, t, retry } = useSession()
-  const theme = useTheme()
   const ready = fontsLoaded && status !== "loading"
 
   useEffect(() => {
@@ -60,7 +62,7 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
 
   return (
     <>
-      <StatusBar style={theme.dark ? "light" : "dark"} />
+      <StatusBar style={statusBarStyle} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.color.background } }}>
         <Stack.Protected guard={status === "ready"}>
           <Stack.Screen name="(tabs)" />
@@ -106,13 +108,11 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <ThemeProvider>
-          <QueryClientProvider client={queryClient}>
-            <SessionProvider>
-              <Navigator fontsLoaded={fontsLoaded} />
-            </SessionProvider>
-          </QueryClientProvider>
-        </ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <SessionProvider>
+            <Navigator fontsLoaded={fontsLoaded} />
+          </SessionProvider>
+        </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   )

@@ -16,12 +16,11 @@ import { Segmented } from "../../src/components/Segmented.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { useSession } from "../../src/session/SessionProvider.tsx"
-import { useTheme } from "../../src/theme/ThemeProvider.tsx"
+import { theme } from "../../src/theme/tokens.ts"
 
 type Tone = "any" | Register
 
 const Result = ({ result }: { readonly result: HowToSayResult }) => {
-  const theme = useTheme()
   const router = useRouter()
   const { t, profile } = useSession()
   // Key words are in the language being learned; Japanese ones get the mincho face, like headwords.
@@ -140,7 +139,6 @@ const Result = ({ result }: { readonly result: HowToSayResult }) => {
 }
 
 export default function SayScreen() {
-  const theme = useTheme()
   const { t, profile } = useSession()
   const ask = useHowToSay()
   const [text, setText] = useState("")
