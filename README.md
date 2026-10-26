@@ -27,6 +27,7 @@ apps/
   api/        HTTP API (Effect HttpApi): dictionary, coach, study, audio
   worker/     CLI + job worker: seed JMDict, enrich with Jev / Claude / ElevenLabs
   app/        Expo (Router) app for iOS, Android and web
+  local-auth/ Development stand-in for Neon's Managed Better Auth
 packages/
   domain/     Schemas and the HttpApi contract shared by the API and the app (typed client)
   db/         Postgres layer (@effect/sql-pg), migrations, repositories, full-text search
@@ -36,31 +37,50 @@ packages/
   ai/         Claude service, coach prompts, example-sentence writer
   tts/        ElevenLabs client, content-addressed audio store, monthly budget guard
   srs/        Anki's SM-2 scheduler (v3), pure and fully tested
-tools/        Renders the mascot into app icons
+tools/        Local setup script; renders the mascot into app icons
 ```
 
 `nx graph` shows how they fit together.
 
 ## Getting started
 
-Requires **Node 24** (pinned in `.node-version`), **pnpm 12** (pinned in `package.json`, installed by Corepack or `pnpm self-update`) and a **Postgres** to point `DATABASE_URL` at (default `postgres://localhost:5432/kotori`), e.g.:
+You need **Node 24** (pinned in `.node-version`), **pnpm 12** (`corepack enable` installs the version pinned in `package.json`) and **Docker**, for Postgres.
 
-```sh
-docker run -d --name kotori-pg -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=kotori -p 5432:5432 postgres:17-alpine
-```
+**1. Install and build**
 
 ```sh
 pnpm install
-cp .env.example .env        # add your API keys (see below)
-pnpm seed                   # downloads JMDict (~10 MB) and imports it (~25 s)
-pnpm kotori dev-account     # the development account the app signs in as
-pnpm dev                    # API on :4000 + enrichment worker
-pnpm dev:app                # Expo: press w for web, i for iOS, a for Android
+pnpm build    # compiles the API, the worker and their packages to dist/, and exports the web app
 ```
 
-The app finds the API on the same host as the Expo dev server, so it works from a simulator or a phone on the same network. Set `EXPO_PUBLIC_API_URL` to point it elsewhere.
+Development runs from source, so the build is only needed to check what production runs.
 
-Interactive API docs are served at <http://localhost:4000/docs> (OpenAPI at `/openapi.json`).
+**2. Run the tests**
+
+```sh
+pnpm test
+```
+
+Tests need no database, server or API keys: repositories run on an in-process Postgres ([PGlite](https://pglite.dev)) and auth on an in-memory fake.
+
+**3. Set up the database**
+
+```sh
+pnpm dev:setup
+```
+
+This creates `.env` from `.env.example`, starts Postgres in Docker (`compose.yaml`), downloads JMDict (~10 MB) and imports its ~219k entries (~30 s), and creates the development account `dev@kotori.test` (password `kotori-dev-account`), already confirmed, approved and learning Japanese. Each step skips what is already done, so it is safe to re-run. `pnpm seed` re-imports the dictionary; `docker compose down -v` deletes the database so you can start over.
+
+**4. Run the backend and the app**
+
+```sh
+pnpm dev       # auth server on :4001, API on :4000, enrichment worker
+pnpm dev:app   # in a second terminal: press w for web, i for iOS, a for Android
+```
+
+In development the app signs in as the development account on launch. The app finds the API on the same host as the Expo dev server, so it works from a simulator or a phone on the same network; set `EXPO_PUBLIC_API_URL` to point it elsewhere. Interactive API docs are at <http://localhost:4000/docs> (OpenAPI at `/openapi.json`).
+
+Dictionary search and review work without any API keys. The rest needs the keys below in `.env`.
 
 ### API keys
 
@@ -106,9 +126,11 @@ pnpm kotori admin admin@example.com     # admins skip approval (--remove to demo
 pnpm kotori revoke user@example.com    # signs them out of every device
 ```
 
-For local work none of that is needed: `pnpm kotori dev-account` creates an account already confirmed, approved and past the language picker, and in development the app signs in as it on launch. The command is idempotent, so run it again on a new branch. Set `EXPO_PUBLIC_DEV_SIGN_IN=off` to use the real screens instead. Neither half reaches a release build, where `__DEV__` is false and the command refuses to run.
+For local work none of that is needed: `pnpm kotori dev-account` (run by `pnpm dev:setup`) creates an account already confirmed, approved and past the language picker, and in development the app signs in as it on launch. The command is idempotent, so run it again on a new database. Set `EXPO_PUBLIC_DEV_SIGN_IN=off` to use the real screens instead. Neither half reaches a release build, where `__DEV__` is false and the command refuses to run.
 
-Kotori sends its own email through [Resend](https://resend.com) when `RESEND_API_KEY` is set; otherwise messages are printed to the log, which is enough for local development. That covers the approval email and, once Managed Auth's webhook points at the API (`POST /webhooks/neon-auth`, signature-checked; see `docs/operations.md`), the verification and password-reset codes, all in the learner's language. Running the API needs a Neon branch (`neon checkout <branch>` writes `DATABASE_URL` and `NEON_AUTH_BASE_URL` into `.env.local`).
+Locally, `apps/local-auth` stands in for Managed Auth: Better Auth set up the way Neon runs it (the `neon_auth` schema, Email OTP, EdDSA JWTs and their key set), so the API and the CLI run unchanged against `NEON_AUTH_BASE_URL=http://localhost:4001/neondb/auth`. Verification and password-reset codes are printed in its log. It refuses to run in production and isn't part of the deployed image. To work against a Neon branch instead, `neon checkout <branch>` writes the branch's `DATABASE_URL` and `NEON_AUTH_BASE_URL` into `.env.local`, which overrides `.env`; the local auth server then stays off.
+
+Kotori sends its own email through [Resend](https://resend.com) when `RESEND_API_KEY` is set; otherwise messages are printed to the log, which is enough for local development. That covers the approval email and, once Managed Auth's webhook points at the API (`POST /webhooks/neon-auth`, signature-checked; see `docs/operations.md`), the verification and password-reset codes, all in the learner's language.
 
 ## Development
 
