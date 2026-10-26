@@ -4,8 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "nx run-many -t dev -p @kotori/api @kotori/worker --parallel=2 --outputStyle=stream",
+    "dev": "nx run-many -t dev -p @kotori/local-auth @kotori/api @kotori/worker --parallel=3 --outputStyle=stream",
     "dev:app": "nx run @kotori/app:dev",
+    "dev:setup": "tsx tools/dev-setup.ts",
     "seed": "pnpm --filter @kotori/worker run cli seed",
     "kotori": "pnpm --filter @kotori/worker run cli",
     "test": "nx run-many -t test",

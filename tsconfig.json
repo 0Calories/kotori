@@ -37,6 +37,9 @@
     },
     {
       "path": "./packages/tts"
+    },
+    {
+      "path": "./apps/local-auth"
     }
   ]
 }

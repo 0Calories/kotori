@@ -36,13 +36,13 @@ types.register(PgTypes.OID.int8, int8AsNumber, { arrayOid: PgTypes.OID.int8Array
 
 const Migrations = PgMigrator.layer({ loader: PgMigrator.fromRecord(migrations) })
 
-/** The application database at `DATABASE_URL` (default `postgres://localhost:5432/kotori`), migrated on startup. */
+/** The application database at `DATABASE_URL` (default `postgres://kotori:kotori@localhost:5432/kotori`), migrated on startup. */
 export const DatabaseLive = Migrations.pipe(
   Layer.provideMerge(
     Layer.unwrap(
       Effect.gen(function* () {
         const url = yield* Config.Redacted("DATABASE_URL").pipe(
-          Config.withDefault(Redacted.make("postgres://localhost:5432/kotori"))
+          Config.withDefault(Redacted.make("postgres://kotori:kotori@localhost:5432/kotori"))
         )
         return PgClient.layer({
           url,
