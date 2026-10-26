@@ -1,5 +1,5 @@
 import { loadDotEnv } from "@kotori/db"
-import { betterAuth } from "better-auth"
+import { betterAuth, type BetterAuthOptions } from "better-auth"
 import { getMigrations } from "better-auth/db/migration"
 import { toNodeHandler } from "better-auth/node"
 import { emailOTP } from "better-auth/plugins/email-otp"
@@ -56,7 +56,7 @@ const pool = new pg.Pool({
   options: "-c search_path=neon_auth"
 })
 
-const auth = betterAuth({
+const options = {
   baseURL: base.origin,
   basePath: base.pathname,
   // Signs cookies and encrypts the stored signing keys. Fixed, so sessions survive restarts.
@@ -82,17 +82,18 @@ const auth = betterAuth({
       }
     })
   ]
-})
+} satisfies BetterAuthOptions
 
 await pool
   .query("CREATE SCHEMA IF NOT EXISTS neon_auth")
   .catch((error: unknown) =>
     fail(`Could not reach Postgres (${String(error)}). Is it running? \`docker compose up -d --wait\` starts it.`)
   )
-const { runMigrations } = await getMigrations(auth.options)
+// Better Auth checks its tables when it starts, so they are created first.
+const { runMigrations } = await getMigrations(options)
 await runMigrations()
 
-const handler = toNodeHandler(auth)
+const handler = toNodeHandler(betterAuth(options))
 const server = createServer((request, response) => void handler(request, response))
 server.listen(Number(base.port || 80), base.hostname, () => {
   console.log(`[local-auth] Managed Auth stand-in at ${base.href}`)

@@ -5,8 +5,7 @@
   "description": "A stand-in for Neon's Managed Better Auth, so the API runs locally without a Neon branch",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --clear-screen=false -C @kotori/source src/main.ts",
-    "start": "tsx -C @kotori/source src/main.ts"
+    "dev": "tsx watch --clear-screen=false -C @kotori/source src/main.ts"
   },
   "dependencies": {
     "@kotori/db": "workspace:*",
