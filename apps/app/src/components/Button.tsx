@@ -1,5 +1,5 @@
 import { ActivityIndicator, View } from "react-native"
-import { useTheme } from "../theme/ThemeProvider.tsx"
+import { theme } from "../theme/tokens.ts"
 import { Icon, type IconName } from "./Icon.tsx"
 import { PressableScale } from "./PressableScale.tsx"
 import { Text } from "./Text.tsx"
@@ -28,7 +28,7 @@ export const Button = ({
   full,
   accessibilityHint
 }: ButtonProps) => {
-  const { color, radius } = useTheme()
+  const { color, radius } = theme
   const palette = {
     primary: { bg: color.primary, fg: color.onPrimary, ring: color.primary },
     dark: { bg: color.ink, fg: color.background, ring: color.ink },
@@ -106,7 +106,7 @@ export const IconButton = ({
   readonly active?: boolean
   readonly filled?: boolean
 }) => {
-  const { color } = useTheme()
+  const { color } = theme
   const background = active
     ? color.primaryDark
     : { plain: "transparent", muted: color.surfaceMuted, surface: color.surface, primary: color.primaryTint }[tone]

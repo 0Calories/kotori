@@ -14,7 +14,7 @@ import { Segmented } from "../src/components/Segmented.tsx"
 import { Text } from "../src/components/Text.tsx"
 import { usePreference } from "../src/session/preferences.ts"
 import { useSession } from "../src/session/SessionProvider.tsx"
-import { type Appearance, useTheme } from "../src/theme/ThemeProvider.tsx"
+import { theme } from "../src/theme/tokens.ts"
 
 const Stepper = ({
   label,
@@ -37,28 +37,23 @@ const Stepper = ({
   </View>
 )
 
-const Feature = ({ label, on }: { readonly label: string; readonly on: boolean | undefined }) => {
-  const theme = useTheme()
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-      <Icon
-        name={on ? "check_circle" : "radio_button_unchecked"}
-        filled={on}
-        size={20}
-        color={on ? theme.color.primaryDark : theme.color.textFaint}
-      />
-      <Text variant="small">{label}</Text>
-    </View>
-  )
-}
+const Feature = ({ label, on }: { readonly label: string; readonly on: boolean | undefined }) => (
+  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+    <Icon
+      name={on ? "check_circle" : "radio_button_unchecked"}
+      filled={on}
+      size={20}
+      color={on ? theme.color.primaryDark : theme.color.textFaint}
+    />
+    <Text variant="small">{label}</Text>
+  </View>
+)
 
 export default function SettingsScreen() {
-  const theme = useTheme()
   const router = useRouter()
   const { t, profile, updateProfile, signOut } = useSession()
   const health = useHealth()
   const [furigana, setFurigana] = usePreference("furigana", true)
-  const [appearance, setAppearance] = usePreference<Appearance>("appearance", "system")
   if (profile === null) return null
 
   return (
@@ -94,17 +89,6 @@ export default function SettingsScreen() {
           step={50}
           onChange={(dailyReviewLimit) => updateProfile({ dailyReviewLimit })}
         />
-        <View style={{ gap: 8 }}>
-          <Text>{t.settings.appearance}</Text>
-          <Segmented<Appearance>
-            value={appearance}
-            onChange={setAppearance}
-            options={(["system", "light", "dark"] as const).map((value) => ({
-              value,
-              label: t.settings.appearances[value]
-            }))}
-          />
-        </View>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <Text style={{ flex: 1 }}>{t.settings.furigana}</Text>
           <Switch

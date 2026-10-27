@@ -2,7 +2,7 @@ import { useRef, useState } from "react"
 import { type TextInput, View } from "react-native"
 import { authMessage } from "../auth/messages.ts"
 import { useSession } from "../session/SessionProvider.tsx"
-import { useTheme } from "../theme/ThemeProvider.tsx"
+import { theme } from "../theme/tokens.ts"
 import { Button } from "./Button.tsx"
 import { Card } from "./Card.tsx"
 import { Input } from "./Input.tsx"
@@ -15,7 +15,6 @@ const MIN_PASSWORD = 8
 /** Changing the password from Settings. Signs the learner's other devices out, not this one. */
 export const ChangePassword = () => {
   const { t, changePassword } = useSession()
-  const theme = useTheme()
   const [open, setOpen] = useState(false)
   const [current, setCurrent] = useState("")
   const [next, setNext] = useState("")
@@ -113,7 +112,6 @@ export const ChangePassword = () => {
  */
 export const DeleteAccount = () => {
   const { t, deleteAccount } = useSession()
-  const theme = useTheme()
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)

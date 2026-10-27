@@ -5,7 +5,7 @@ import { Platform } from "react-native"
  * taken from the bird's rosy shoulders. Every lighter tint and darker shade of
  * green is drawn from Wakatake 500 at the same hue.
  */
-const light = {
+const color = {
   /** Snow: the screen background. */
   background: "#F7FAF7",
   surface: "#FFFFFF",
@@ -54,43 +54,11 @@ const light = {
   overlay: "rgba(19, 32, 26, 0.35)"
 }
 
-export type Palette = typeof light
+export type Palette = typeof color
 
-const dark: Palette = {
-  background: "#0F1712",
-  surface: "#18221C",
-  surfaceMuted: "#202C25",
-  border: "#2E3B33",
-  divider: "#25312A",
-  hairline: "rgba(232, 240, 234, 0.07)",
-  ring: "rgba(232, 240, 234, 0.09)",
-  outline: "rgba(232, 240, 234, 0.1)",
-  track: "rgba(232, 240, 234, 0.16)",
-  ink: "#E8F0EA",
-  text: "#E8F0EA",
-  textMuted: "#A9B7AF",
-  textFaint: "#8A9890",
-  primary: "#81B38E",
-  primaryPressed: "#94C3A0",
-  primaryTint: "#1D3125",
-  primarySoft: "#2B4834",
-  primaryDark: "#A9D8B4",
-  primaryDeep: "#C3E5CB",
-  onPrimary: "#0F1712",
-  onPrimaryDark: "#0F1712",
-  accent: "#EE90A8",
-  accentSoft: "#3A2229",
-  highlight: "#6B2D3E",
-  selected: "rgba(232, 240, 234, 0.09)",
-  shadow: "#000000",
-  overlay: "rgba(0, 0, 0, 0.5)"
-}
+const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, xxxl: 48 } as const
 
-export const palettes = { light, dark }
-
-export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, xxxl: 48 } as const
-
-export const radius = { sm: 14, md: 16, lg: 24, xl: 28, pill: 999 } as const
+const radius = { sm: 14, md: 16, lg: 24, xl: 28, pill: 999 } as const
 
 /**
  * Three families: Gabarito for the interface and English, Murecho for Japanese
@@ -119,7 +87,7 @@ const japanese: Record<Weight, string> = {
 const stack = (weight: Weight) =>
   Platform.OS === "web" ? `${latin[weight]}, ${japanese[weight]}, system-ui, sans-serif` : latin[weight]
 
-export const fonts = {
+const fonts = {
   regular: stack("regular"),
   medium: stack("medium"),
   semibold: stack("semibold"),
@@ -149,4 +117,32 @@ export const baseline = (face: Face, size: number, lineHeight: number) => {
 }
 
 /** Content width on large screens, so the web app reads like a phone-sized column. */
-export const maxContentWidth = 640
+const maxContentWidth = 640
+
+/** Soft drops that fade out before the card's edge: cards, the search field, then the tab bar. */
+const shadow = (elevation: 1 | 2 | 3) => {
+  const web = ["none", "0 10px 24px -18px", "0 16px 30px -16px", "0 16px 34px -14px"][elevation]!
+  const opacity = [0, 0.4, 0.35, 0.42][elevation]!
+  return (
+    Platform.select({
+      web: { boxShadow: `${web} rgba(19,32,26, ${opacity})` },
+      default: {
+        shadowColor: color.shadow,
+        shadowOpacity: [0, 0.07, 0.1, 0.14][elevation]!,
+        shadowRadius: [0, 10, 14, 18][elevation]!,
+        shadowOffset: { width: 0, height: [0, 6, 10, 10][elevation]! },
+        elevation: elevation * 2
+      }
+    }) ?? {}
+  )
+}
+
+/** Palette, spacing, type, and shadows. */
+export const theme = {
+  color,
+  space,
+  radius,
+  font: fonts,
+  maxWidth: maxContentWidth,
+  shadow
+}

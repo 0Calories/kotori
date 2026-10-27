@@ -55,6 +55,11 @@
   },
   "nx": {
     "targets": {
+      "typecheck": {
+        "dependsOn": [
+          "^build"
+        ]
+      },
       "build": {
         "cache": true,
         "dependsOn": [
