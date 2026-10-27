@@ -17,6 +17,7 @@
   "dependencies": {
     "@kotori/db": "workspace:*",
     "@kotori/domain": "workspace:*",
+    "drizzle-orm": "catalog:",
     "effect": "catalog:"
   },
   "devDependencies": {

@@ -1,43 +1,41 @@
-import { CardQueue, CardTemplate, NoteContent, Rating } from "@kotori/domain"
-import { Context, Effect, Layer, Option, Schema } from "effect"
-import { SqlClient } from "effect/sql"
+import type { CardQueue, CardTemplate, NoteContent, Rating } from "@kotori/domain"
+import { and, asc, count, countDistinct, desc, eq, getTableColumns, inArray, lt, lte, max, min, sql } from "drizzle-orm"
+import { Context, Effect, Layer, Option } from "effect"
+import { Database } from "./Database.ts"
+import { at, atOrNull, millis, millisOrNull } from "./rows.ts"
+import { cards, notes, reviewLogs } from "./schema/index.ts"
 
-const decodeRows = <S extends Schema.Constraint>(schema: S) => Schema.decodeUnknownEffect(Schema.Array(schema))
-
-const CardFields = {
-  id: Schema.String,
-  noteId: Schema.String,
-  userId: Schema.String,
-  template: CardTemplate,
-  queue: CardQueue,
-  due: Schema.Number,
-  interval: Schema.Int,
-  ease: Schema.Number,
-  step: Schema.Int,
-  reps: Schema.Int,
-  lapses: Schema.Int,
-  leech: Schema.Boolean,
-  lastReview: Schema.NullOr(Schema.Number),
-  seed: Schema.Int,
-  position: Schema.Int,
-  createdAt: Schema.Number
+export interface CardRow {
+  readonly id: string
+  readonly noteId: string
+  readonly userId: string
+  readonly template: CardTemplate
+  readonly queue: CardQueue
+  readonly due: number
+  readonly interval: number
+  readonly ease: number
+  readonly step: number
+  readonly reps: number
+  readonly lapses: number
+  readonly leech: boolean
+  readonly lastReview: number | null
+  readonly seed: number
+  readonly position: number
+  readonly createdAt: number
 }
 
-export const CardRow = Schema.Struct(CardFields)
-export type CardRow = typeof CardRow.Type
+export interface CardWithContent extends CardRow {
+  readonly content: NoteContent
+}
 
-export const CardWithContent = Schema.Struct({ ...CardFields, content: Schema.fromJsonString(NoteContent) })
-export type CardWithContent = typeof CardWithContent.Type
-
-export const NoteRow = Schema.Struct({
-  id: Schema.String,
-  userId: Schema.String,
-  content: Schema.fromJsonString(NoteContent),
-  entryId: Schema.NullOr(Schema.Int),
-  sense: Schema.NullOr(Schema.Int),
-  createdAt: Schema.Number
-})
-export type NoteRow = typeof NoteRow.Type
+export interface NoteRow {
+  readonly id: string
+  readonly userId: string
+  readonly content: NoteContent
+  readonly entryId: number | null
+  readonly sense: number | null
+  readonly createdAt: number
+}
 
 export interface ReviewLogInput {
   readonly cardId: string
@@ -48,49 +46,48 @@ export interface ReviewLogInput {
   readonly interval: number
   readonly easeBefore: number
   readonly ease: number
-  readonly delay: number
+  /** How late the review was, in milliseconds. */
+  readonly delayMs: number
   readonly durationMs: number | null
   readonly reviewedAt: number
   readonly studyDay: number
 }
 
-const CountRow = Schema.Struct({ n: Schema.Int })
-const DueRow = Schema.Struct({ due: Schema.NullOr(Schema.Number) })
-const QueueCountRow = Schema.Struct({ queue: CardQueue, mature: Schema.Boolean, n: Schema.Int })
-const DayRow = Schema.Struct({ studyDay: Schema.Int })
-const RetentionRow = Schema.Struct({ total: Schema.Int, failed: Schema.NullOr(Schema.Int) })
-const SavedRow = Schema.Struct({ entryId: Schema.Int, sense: Schema.Int, id: Schema.String })
+export interface NoteWithCards {
+  readonly note: NoteRow
+  readonly cards: ReadonlyArray<CardRow>
+}
 
-const encodeCard = (card: CardRow) => ({
-  id: card.id,
-  noteId: card.noteId,
-  userId: card.userId,
-  template: card.template,
-  queue: card.queue,
-  due: card.due,
-  interval: card.interval,
-  ease: card.ease,
-  step: card.step,
-  reps: card.reps,
-  lapses: card.lapses,
-  leech: card.leech,
-  lastReview: card.lastReview,
-  seed: card.seed,
-  position: card.position,
-  createdAt: card.createdAt
+const toCard = (card: typeof cards.$inferSelect): CardRow => ({
+  ...card,
+  due: millis(card.due),
+  lastReview: millisOrNull(card.lastReview),
+  createdAt: millis(card.createdAt)
+})
+
+const toNote = (note: typeof notes.$inferSelect): NoteRow => ({
+  id: note.id,
+  userId: note.userId,
+  content: note.content,
+  entryId: note.entryId,
+  sense: note.sense,
+  createdAt: millis(note.createdAt)
+})
+
+const fromCard = (card: CardRow): typeof cards.$inferInsert => ({
+  ...card,
+  due: at(card.due),
+  lastReview: atOrNull(card.lastReview),
+  createdAt: at(card.createdAt)
 })
 
 export class StudyRepo extends Context.Service<
   StudyRepo,
   {
     insertNote(note: NoteRow, cards: ReadonlyArray<CardRow>): Effect.Effect<void>
-    notes(
-      userId: string
-    ): Effect.Effect<ReadonlyArray<{ readonly note: NoteRow; readonly cards: ReadonlyArray<CardRow> }>>
-    note(
-      userId: string,
-      noteId: string
-    ): Effect.Effect<Option.Option<{ readonly note: NoteRow; readonly cards: ReadonlyArray<CardRow> }>>
+    /** The learner's notes, newest first, each with its cards. */
+    notes(userId: string): Effect.Effect<ReadonlyArray<NoteWithCards>>
+    note(userId: string, noteId: string): Effect.Effect<Option.Option<NoteWithCards>>
     /** Returns whether a note was deleted. */
     deleteNote(userId: string, noteId: string): Effect.Effect<boolean>
     /** Saved word notes for the given entries. */
@@ -118,178 +115,213 @@ export class StudyRepo extends Context.Service<
   static readonly layer = Layer.effect(
     StudyRepo,
     Effect.gen(function* () {
-      const sql = yield* SqlClient.SqlClient
+      const db = yield* Database
 
-      const cardColumns = sql.literal(
-        "c.id, c.note_id, c.user_id, c.template, c.queue, c.due, c.interval, c.ease, c.step, c.reps, c.lapses, c.leech, c.last_review, c.seed, c.position, c.created_at"
-      )
-
-      const insertNote = Effect.fn("StudyRepo.insertNote")(
-        function* (note: NoteRow, cards: ReadonlyArray<CardRow>) {
-          yield* sql`INSERT INTO notes ${sql.insert({ ...note, kind: note.content.kind, content: JSON.stringify(note.content) })}`
-          if (cards.length > 0) yield* sql`INSERT INTO cards ${sql.insert(cards.map(encodeCard))}`
-        },
-        (effect) => sql.withTransaction(effect),
-        Effect.orDie
-      )
-
-      const cardsFor = (noteIds: ReadonlyArray<string>) =>
-        noteIds.length === 0
-          ? Effect.succeed([])
-          : sql`SELECT ${cardColumns} FROM cards c WHERE c.note_id IN ${sql.in(noteIds)} ORDER BY c.template DESC`.pipe(
-              Effect.flatMap(decodeRows(CardRow))
-            )
-
-      const withCards = (notes: ReadonlyArray<NoteRow>) =>
-        cardsFor(notes.map((note) => note.id)).pipe(
-          Effect.map((cards) => notes.map((note) => ({ note, cards: cards.filter((card) => card.noteId === note.id) })))
+      const insertNote = Effect.fn("StudyRepo.insertNote")(function* (note: NoteRow, rows: ReadonlyArray<CardRow>) {
+        yield* db.transaction((tx) =>
+          Effect.gen(function* () {
+            yield* tx.insert(notes).values({ ...note, kind: note.content.kind, createdAt: at(note.createdAt) })
+            if (rows.length > 0) yield* tx.insert(cards).values(rows.map(fromCard))
+          })
         )
-
-      const notes = Effect.fn("StudyRepo.notes")(function* (userId: string) {
-        const rows = yield* sql`
-          SELECT id, user_id, content, entry_id, sense, created_at FROM notes
-          WHERE user_id = ${userId} ORDER BY created_at DESC
-        `.pipe(Effect.flatMap(decodeRows(NoteRow)))
-        return yield* withCards(rows)
       }, Effect.orDie)
 
-      const note = Effect.fn("StudyRepo.note")(function* (userId: string, noteId: string) {
-        const rows = yield* sql`
-          SELECT id, user_id, content, entry_id, sense, created_at FROM notes
-          WHERE user_id = ${userId} AND id = ${noteId}
-        `.pipe(Effect.flatMap(decodeRows(NoteRow)))
-        const found = yield* withCards(rows)
-        return Option.fromNullishOr(found[0])
+      const withCards = (
+        rows: ReadonlyArray<typeof notes.$inferSelect & { cards: Array<typeof cards.$inferSelect> }>
+      ) =>
+        rows.map(({ cards: cardRows, ...note }): NoteWithCards => ({ note: toNote(note), cards: cardRows.map(toCard) }))
+
+      const notesFor = Effect.fn("StudyRepo.notes")(function* (userId: string) {
+        const rows = yield* db.query.notes.findMany({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+          with: { cards: { orderBy: { template: "asc" } } }
+        })
+        return withCards(rows)
+      }, Effect.orDie)
+
+      const noteFor = Effect.fn("StudyRepo.note")(function* (userId: string, noteId: string) {
+        const row = yield* db.query.notes.findFirst({
+          where: { userId, id: noteId },
+          with: { cards: { orderBy: { template: "asc" } } }
+        })
+        return Option.fromNullishOr(row).pipe(Option.map((found) => withCards([found])[0]!))
       }, Effect.orDie)
 
       const deleteNote = Effect.fn("StudyRepo.deleteNote")(function* (userId: string, noteId: string) {
-        const rows = yield* sql`DELETE FROM notes WHERE user_id = ${userId} AND id = ${noteId} RETURNING id`
+        const rows = yield* db
+          .delete(notes)
+          .where(and(eq(notes.userId, userId), eq(notes.id, noteId)))
+          .returning({ id: notes.id })
         return rows.length > 0
       }, Effect.orDie)
 
       const savedWords = Effect.fn("StudyRepo.savedWords")(function* (userId: string, entryIds: ReadonlyArray<number>) {
         if (entryIds.length === 0) return []
-        return yield* sql`
-          SELECT entry_id, sense, id FROM notes
-          WHERE user_id = ${userId} AND entry_id IN ${sql.in(entryIds)}
-        `.pipe(Effect.flatMap(decodeRows(SavedRow)))
+        const rows = yield* db
+          .select({ entryId: notes.entryId, sense: notes.sense, id: notes.id })
+          .from(notes)
+          .where(and(eq(notes.userId, userId), inArray(notes.entryId, entryIds)))
+        return rows.flatMap((row) =>
+          row.entryId === null || row.sense === null ? [] : [{ entryId: row.entryId, sense: row.sense, id: row.id }]
+        )
       }, Effect.orDie)
 
+      const cardsWithContent = { ...getTableColumns(cards), content: notes.content }
+      const toCardWithContent = (row: typeof cards.$inferSelect & { content: NoteContent }): CardWithContent => ({
+        ...toCard(row),
+        content: row.content
+      })
+
       const card = Effect.fn("StudyRepo.card")(function* (userId: string, cardId: string) {
-        const rows = yield* sql`
-          SELECT ${cardColumns}, n.content FROM cards c JOIN notes n ON n.id = c.note_id
-          WHERE c.user_id = ${userId} AND c.id = ${cardId}
-        `.pipe(Effect.flatMap(decodeRows(CardWithContent)))
-        return Option.fromNullishOr(rows[0])
+        const rows = yield* db
+          .select(cardsWithContent)
+          .from(cards)
+          .innerJoin(notes, eq(notes.id, cards.noteId))
+          .where(and(eq(cards.userId, userId), eq(cards.id, cardId)))
+        return Option.fromNullishOr(rows[0]).pipe(Option.map(toCardWithContent))
       }, Effect.orDie)
 
       const learningDue = Effect.fn("StudyRepo.learningDue")(function* (userId: string, until: number) {
-        return yield* sql`
-          SELECT ${cardColumns}, n.content FROM cards c JOIN notes n ON n.id = c.note_id
-          WHERE c.user_id = ${userId} AND c.queue IN ('learning', 'relearning') AND c.due <= ${until}
-          ORDER BY c.due
-        `.pipe(Effect.flatMap(decodeRows(CardWithContent)))
+        const rows = yield* db
+          .select(cardsWithContent)
+          .from(cards)
+          .innerJoin(notes, eq(notes.id, cards.noteId))
+          .where(
+            and(eq(cards.userId, userId), inArray(cards.queue, ["learning", "relearning"]), lte(cards.due, at(until)))
+          )
+          .orderBy(asc(cards.due))
+        return rows.map(toCardWithContent)
       }, Effect.orDie)
 
       const reviewDue = Effect.fn("StudyRepo.reviewDue")(function* (userId: string, until: number, limit: number) {
         if (limit <= 0) return []
-        return yield* sql`
-          SELECT ${cardColumns}, n.content FROM cards c JOIN notes n ON n.id = c.note_id
-          WHERE c.user_id = ${userId} AND c.queue = 'review' AND c.due <= ${until}
-          ORDER BY c.due, c.seed
-          LIMIT ${limit}
-        `.pipe(Effect.flatMap(decodeRows(CardWithContent)))
+        const rows = yield* db
+          .select(cardsWithContent)
+          .from(cards)
+          .innerJoin(notes, eq(notes.id, cards.noteId))
+          .where(and(eq(cards.userId, userId), eq(cards.queue, "review"), lte(cards.due, at(until))))
+          .orderBy(asc(cards.due), asc(cards.seed))
+          .limit(limit)
+        return rows.map(toCardWithContent)
       }, Effect.orDie)
 
       const newCards = Effect.fn("StudyRepo.newCards")(function* (userId: string, limit: number) {
         if (limit <= 0) return []
-        return yield* sql`
-          SELECT ${cardColumns}, n.content FROM cards c JOIN notes n ON n.id = c.note_id
-          WHERE c.user_id = ${userId} AND c.queue = 'new'
-          ORDER BY c.position, c.template DESC
-          LIMIT ${limit}
-        `.pipe(Effect.flatMap(decodeRows(CardWithContent)))
+        const rows = yield* db
+          .select(cardsWithContent)
+          .from(cards)
+          .innerJoin(notes, eq(notes.id, cards.noteId))
+          .where(and(eq(cards.userId, userId), eq(cards.queue, "new")))
+          .orderBy(asc(cards.position), asc(cards.template))
+          .limit(limit)
+        return rows.map(toCardWithContent)
       }, Effect.orDie)
 
       const nextLearningDue = (userId: string) =>
-        sql`
-          SELECT min(due) AS due FROM cards WHERE user_id = ${userId} AND queue IN ('learning', 'relearning')
-        `.pipe(
-          Effect.flatMap(decodeRows(DueRow)),
-          Effect.map((rows) => Option.fromNullishOr(rows[0]?.due)),
-          Effect.orDie
-        )
+        db
+          .select({ due: min(cards.due) })
+          .from(cards)
+          .where(and(eq(cards.userId, userId), inArray(cards.queue, ["learning", "relearning"])))
+          .pipe(
+            Effect.map((rows) => Option.fromNullishOr(rows[0]?.due).pipe(Option.map(millis))),
+            Effect.orDie
+          )
 
       const countAnswers = (userId: string, studyDay: number, queueBefore?: CardQueue) =>
-        sql`
-          SELECT count(DISTINCT card_id) AS n FROM review_logs
-          WHERE user_id = ${userId} AND study_day = ${studyDay}
-          ${queueBefore === undefined ? sql.literal("") : sql`AND queue_before = ${queueBefore}`}
-        `.pipe(
-          Effect.flatMap(decodeRows(CountRow)),
-          Effect.map((rows) => rows[0]?.n ?? 0),
-          Effect.orDie
-        )
+        db
+          .select({ n: countDistinct(reviewLogs.cardId) })
+          .from(reviewLogs)
+          .where(
+            and(
+              eq(reviewLogs.userId, userId),
+              eq(reviewLogs.studyDay, studyDay),
+              queueBefore === undefined ? undefined : eq(reviewLogs.queueBefore, queueBefore)
+            )
+          )
+          .pipe(
+            Effect.map((rows) => rows[0]?.n ?? 0),
+            Effect.orDie
+          )
 
-      const updateCard = (card: CardRow) =>
-        sql`UPDATE cards SET ${sql.update(encodeCard(card), ["id"])} WHERE id = ${card.id}`.pipe(
-          Effect.asVoid,
-          Effect.orDie
-        )
+      const updateCard = (row: CardRow) => {
+        const { id: _, ...fields } = fromCard(row)
+        return db.update(cards).set(fields).where(eq(cards.id, row.id)).pipe(Effect.asVoid, Effect.orDie)
+      }
 
       const insertLog = (log: ReviewLogInput) =>
-        sql`INSERT INTO review_logs ${sql.insert({ ...log })}`.pipe(Effect.asVoid, Effect.orDie)
+        db
+          .insert(reviewLogs)
+          .values({ ...log, reviewedAt: at(log.reviewedAt) })
+          .pipe(Effect.asVoid, Effect.orDie)
 
       const nextPosition = (userId: string) =>
-        sql`SELECT coalesce(max(position) + 1, 0) AS n FROM cards WHERE user_id = ${userId}`.pipe(
-          Effect.flatMap(decodeRows(CountRow)),
-          Effect.map((rows) => rows[0]?.n ?? 0),
-          Effect.orDie
-        )
+        db
+          .select({ n: sql<number>`coalesce(max(${cards.position}) + 1, 0)`.mapWith(Number) })
+          .from(cards)
+          .where(eq(cards.userId, userId))
+          .pipe(
+            Effect.map((rows) => rows[0]?.n ?? 0),
+            Effect.orDie
+          )
+
+      const mature = sql<boolean>`(${cards.interval} >= 21)`
 
       const queueCounts = (userId: string) =>
-        sql`
-          SELECT c.queue, (c.interval >= 21) AS mature, count(*) AS n FROM cards c
-          WHERE c.user_id = ${userId} GROUP BY c.queue, mature
-        `.pipe(Effect.flatMap(decodeRows(QueueCountRow)), Effect.orDie)
+        db
+          .select({ queue: cards.queue, mature, n: count() })
+          .from(cards)
+          .where(eq(cards.userId, userId))
+          .groupBy(cards.queue, mature)
+          .pipe(Effect.orDie)
 
       const studyDays = (userId: string) =>
-        sql`
-          SELECT DISTINCT study_day FROM review_logs WHERE user_id = ${userId} ORDER BY study_day DESC LIMIT 400
-        `.pipe(
-          Effect.flatMap(decodeRows(DayRow)),
-          Effect.map((rows) => rows.map((row) => row.studyDay)),
-          Effect.orDie
-        )
+        db
+          .selectDistinct({ studyDay: reviewLogs.studyDay })
+          .from(reviewLogs)
+          .where(eq(reviewLogs.userId, userId))
+          .orderBy(desc(reviewLogs.studyDay))
+          .limit(400)
+          .pipe(
+            Effect.map((rows) => rows.map((row) => row.studyDay)),
+            Effect.orDie
+          )
 
       const retention = (userId: string, sinceDay: number) =>
-        sql`
-          SELECT count(*) AS total, count(*) FILTER (WHERE rating = 'again') AS failed FROM review_logs
-          WHERE user_id = ${userId} AND queue_before = 'review' AND study_day >= ${sinceDay}
-        `.pipe(
-          Effect.flatMap(decodeRows(RetentionRow)),
-          Effect.map((rows) => ({ total: rows[0]?.total ?? 0, failed: rows[0]?.failed ?? 0 })),
-          Effect.orDie
-        )
+        db
+          .select({
+            total: count(),
+            failed: sql<number>`count(*) FILTER (WHERE ${reviewLogs.rating} = 'again')`.mapWith(Number)
+          })
+          .from(reviewLogs)
+          .where(
+            and(
+              eq(reviewLogs.userId, userId),
+              eq(reviewLogs.queueBefore, "review"),
+              sql`${reviewLogs.studyDay} >= ${sinceDay}`
+            )
+          )
+          .pipe(
+            Effect.map((rows) => ({ total: rows[0]?.total ?? 0, failed: rows[0]?.failed ?? 0 })),
+            Effect.orDie
+          )
 
       const reviewDueTimes = (userId: string, until: number) =>
-        sql`SELECT due FROM cards WHERE user_id = ${userId} AND queue = 'review' AND due < ${until}`.pipe(
-          Effect.flatMap(decodeRows(DueRow)),
-          Effect.map((rows) => rows.flatMap((row) => (row.due === null ? [] : [row.due]))),
-          Effect.orDie
-        )
+        db
+          .select({ due: cards.due })
+          .from(cards)
+          .where(and(eq(cards.userId, userId), eq(cards.queue, "review"), lt(cards.due, at(until))))
+          .pipe(
+            Effect.map((rows) => rows.map((row) => millis(row.due))),
+            Effect.orDie
+          )
 
-      const noteCount = (userId: string) =>
-        sql`SELECT count(*) AS n FROM notes WHERE user_id = ${userId}`.pipe(
-          Effect.flatMap(decodeRows(CountRow)),
-          Effect.map((rows) => rows[0]?.n ?? 0),
-          Effect.orDie
-        )
+      const noteCount = (userId: string) => db.$count(notes, eq(notes.userId, userId)).pipe(Effect.orDie)
 
       return StudyRepo.of({
         insertNote,
-        notes,
-        note,
+        notes: notesFor,
+        note: noteFor,
         deleteNote,
         savedWords,
         card,

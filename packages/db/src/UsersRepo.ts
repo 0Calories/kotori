@@ -1,27 +1,31 @@
-import { AccountStatus, Language } from "@kotori/domain"
-import { Context, Effect, Layer, Option, Schema } from "effect"
-import { SqlClient } from "effect/sql"
+import type { AccountStatus, Language } from "@kotori/domain"
+import { eq, inArray } from "drizzle-orm"
+import { Context, Effect, Layer, Option } from "effect"
+import { Database } from "./Database.ts"
+import { at, atOrNull, millis, millisOrNull } from "./rows.ts"
+import { users } from "./schema/index.ts"
+
+export type UserRole = "user" | "admin"
 
 /**
  * The learner profile. Identity (email, credentials, sessions) lives in Neon's
  * Managed Better Auth; `id` is its user id. Approval `status` and `role` are
  * Kotori's own, since the managed user record has no custom fields.
  */
-export const UserRow = Schema.Struct({
-  id: Schema.String,
-  status: AccountStatus,
-  role: Schema.String,
-  nativeLanguage: Language,
-  targetLanguage: Language,
+export interface UserRow {
+  readonly id: string
+  readonly status: AccountStatus
+  readonly role: UserRole
+  readonly nativeLanguage: Language
+  readonly targetLanguage: Language
   /** When the learner picked a language; null until onboarding is done. */
-  onboardedAt: Schema.NullOr(Schema.Number),
-  displayName: Schema.NullOr(Schema.String),
-  timezone: Schema.String,
-  dailyNewLimit: Schema.Int,
-  dailyReviewLimit: Schema.Int,
-  createdAt: Schema.Number
-})
-export type UserRow = typeof UserRow.Type
+  readonly onboardedAt: number | null
+  readonly displayName: string | null
+  readonly timezone: string
+  readonly dailyNewLimit: number
+  readonly dailyReviewLimit: number
+  readonly createdAt: number
+}
 
 /** Fields to change; undefined leaves a field as it is. */
 export type UserPatch = {
@@ -39,7 +43,11 @@ export type UserPatch = {
   ]?: UserRow[K] | undefined
 }
 
-const decodeRows = Schema.decodeUnknownEffect(Schema.Array(UserRow))
+const toRow = (user: typeof users.$inferSelect): UserRow => ({
+  ...user,
+  onboardedAt: millisOrNull(user.onboardedAt),
+  createdAt: millis(user.createdAt)
+})
 
 export class UsersRepo extends Context.Service<
   UsersRepo,
@@ -56,36 +64,47 @@ export class UsersRepo extends Context.Service<
   static readonly layer = Layer.effect(
     UsersRepo,
     Effect.gen(function* () {
-      const sql = yield* SqlClient.SqlClient
-
-      const first = (rows: ReadonlyArray<UserRow>) => Option.fromNullishOr(rows[0])
+      const db = yield* Database
 
       const byId = (id: string) =>
-        sql`SELECT * FROM users WHERE id = ${id}`.pipe(Effect.flatMap(decodeRows), Effect.map(first), Effect.orDie)
+        db
+          .select()
+          .from(users)
+          .where(eq(users.id, id))
+          .pipe(
+            Effect.map((rows) => Option.fromNullishOr(rows[0]).pipe(Option.map(toRow))),
+            Effect.orDie
+          )
 
       const byIds = Effect.fn("UsersRepo.byIds")(function* (ids: ReadonlyArray<string>) {
         if (ids.length === 0) return []
-        return yield* sql`SELECT * FROM users WHERE id IN ${sql.in(ids)}`.pipe(Effect.flatMap(decodeRows))
+        const rows = yield* db.select().from(users).where(inArray(users.id, ids))
+        return rows.map(toRow)
       }, Effect.orDie)
 
       const ensure = Effect.fn("UsersRepo.ensure")(function* (user: UserRow) {
-        yield* sql`INSERT INTO users ${sql.insert(user)} ON CONFLICT (id) DO NOTHING`.pipe(Effect.orDie)
+        yield* db
+          .insert(users)
+          .values({ ...user, onboardedAt: atOrNull(user.onboardedAt), createdAt: at(user.createdAt) })
+          .onConflictDoNothing()
+          .pipe(Effect.orDie)
         return Option.getOrElse(yield* byId(user.id), () => user)
       })
 
       const update = Effect.fn("UsersRepo.update")(function* (id: string, patch: UserPatch) {
-        const fields = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined))
+        const { onboardedAt, ...rest } = patch
+        const fields = {
+          ...Object.fromEntries(Object.entries(rest).filter(([, value]) => value !== undefined)),
+          ...(onboardedAt === undefined ? {} : { onboardedAt: atOrNull(onboardedAt) })
+        }
         if (Object.keys(fields).length > 0) {
-          yield* sql`UPDATE users SET ${sql.update(fields)} WHERE id = ${id}`.pipe(Effect.orDie)
+          yield* db.update(users).set(fields).where(eq(users.id, id)).pipe(Effect.orDie)
         }
         return yield* byId(id)
       })
 
-      // notes → cards → review_logs cascade from users; coach_usage has no key.
-      const del = Effect.fn("UsersRepo.delete")(function* (id: string) {
-        yield* sql`DELETE FROM coach_usage WHERE user_id = ${id}`.pipe(Effect.orDie)
-        yield* sql`DELETE FROM users WHERE id = ${id}`.pipe(Effect.orDie)
-      })
+      // Notes, cards, review logs and coach usage all cascade from the profile.
+      const del = (id: string) => db.delete(users).where(eq(users.id, id)).pipe(Effect.asVoid, Effect.orDie)
 
       return UsersRepo.of({ ensure, byId, byIds, update, delete: del })
     })

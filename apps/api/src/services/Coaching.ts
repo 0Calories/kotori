@@ -80,12 +80,12 @@ export class Coaching extends Context.Service<
           const now = yield* Clock.currentTimeMillis
           const hit = yield* repo.cached(key, now - CACHE_TTL)
           if (Option.isSome(hit)) {
-            const decoded = Schema.decodeUnknownOption(Schema.fromJsonString(schema))(hit.value)
+            const decoded = Schema.decodeUnknownOption(schema)(hit.value)
             if (Option.isSome(decoded)) return decoded.value
           }
           yield* limit(user, kind, hourlyLimit)
           const result = yield* compute
-          const encoded = Schema.encodeUnknownOption(Schema.fromJsonString(schema))(result)
+          const encoded = Schema.encodeUnknownOption(schema)(result)
           if (Option.isSome(encoded)) yield* repo.store(key, encoded.value, now)
           return result
         })

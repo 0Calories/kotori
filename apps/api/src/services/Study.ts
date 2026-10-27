@@ -218,7 +218,7 @@ export class Study extends Context.Service<
           interval: outcome.log.interval,
           easeBefore: outcome.log.easeBefore,
           ease: outcome.log.ease,
-          delay: outcome.log.delay,
+          delayMs: outcome.log.delay,
           durationMs: durationMs ?? null,
           reviewedAt: now,
           studyDay: dayNumber(now, ctx)

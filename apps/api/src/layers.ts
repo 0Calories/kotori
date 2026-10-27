@@ -1,6 +1,6 @@
 import { Claude, Coach } from "@kotori/ai"
 import { Auth, AuthWebhooks } from "@kotori/auth"
-import { DatabaseLive, Repositories } from "@kotori/db"
+import { type Database, DatabaseLive, Repositories } from "@kotori/db"
 import { MailerLive } from "@kotori/email"
 import { Jev } from "@kotori/nuance"
 import { AudioStore, ElevenLabs, Pronouncer } from "@kotori/tts"
@@ -28,7 +28,7 @@ const ServicesLive = Layer.mergeAll(Accounts.layer, Study.layer, Coaching.layer,
 /** The services wired to repositories over the given database, with the given providers and auth. */
 export const makeApp = <P, EP, RP, ED, RD, EA, RA>(
   providers: Layer.Layer<P, EP, RP>,
-  database: Layer.Layer<SqlClient.SqlClient, ED, RD>,
+  database: Layer.Layer<Database | SqlClient.SqlClient, ED, RD>,
   auth: Layer.Layer<Auth, EA, RA>
 ) =>
   ServicesLive.pipe(

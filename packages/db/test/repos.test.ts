@@ -1,12 +1,15 @@
 import { assert, describe, layer } from "@effect/vitest"
 import { Effect, Layer, Option } from "effect"
 import {
+  CoachRepo,
   DictionaryRepo,
+  EnrichmentRepo,
   type EntryRecord,
   JobsRepo,
   normalizeGloss,
   Repositories,
   StudyRepo,
+  type UserRow,
   UsersRepo
 } from "../src/index.ts"
 import { DatabaseMemory } from "../src/testing.ts"
@@ -76,6 +79,12 @@ const entries: Array<EntryRecord> = [
 ]
 
 const TestLayer = Repositories.pipe(Layer.provideMerge(DatabaseMemory))
+
+// Study ids are uuids, as Better Auth's user ids and the API's note and card ids are.
+const U1 = "00000000-0000-4000-8000-000000000001"
+const N1 = "00000000-0000-4000-8000-00000000000a"
+const C1 = "00000000-0000-4000-8000-0000000000c1"
+const C2 = "00000000-0000-4000-8000-0000000000c2"
 
 describe("normalizeGloss", () => {
   layer(Layer.empty)((it) => {
@@ -169,10 +178,27 @@ layer(TestLayer)("DictionaryRepo", (it) => {
   )
 })
 
+/** Jobs reference dictionary entries, so the queue tests need a few to point at. */
+const stubEntries = (ids: ReadonlyArray<number>) =>
+  Effect.flatMap(DictionaryRepo, (dictionary) =>
+    dictionary.insertEntries(
+      ids.map((id) => ({
+        id,
+        headword: `w${id}`,
+        reading: `r${id}`,
+        common: false,
+        priority: 0,
+        forms: [],
+        senses: []
+      }))
+    )
+  )
+
 layer(TestLayer)("JobsRepo", (it) => {
   it.effect("claims the most urgent job once and retries failures", () =>
     Effect.gen(function* () {
       const jobs = yield* JobsRepo
+      yield* stubEntries([1, 2, 3])
       yield* jobs.enqueue("examples", 1, 0, 1000)
       yield* jobs.enqueue("examples", 2, 10, 1000)
       yield* jobs.enqueue("audio", 3, 99, 1000)
@@ -198,6 +224,7 @@ layer(TestLayer)("JobsRepo", (it) => {
   it.effect("puts a job back without counting the attempt when its worker stops", () =>
     Effect.gen(function* () {
       const jobs = yield* JobsRepo
+      yield* stubEntries([10])
       yield* jobs.enqueue("nuance", 10, 0, 1000)
       const claimed = Option.getOrThrow(yield* jobs.claim(["nuance"], 2000))
       assert.strictEqual(claimed.attempts, 1)
@@ -211,29 +238,31 @@ layer(TestLayer)("JobsRepo", (it) => {
   )
 })
 
+const learner: UserRow = {
+  id: U1,
+  status: "approved",
+  role: "user",
+  nativeLanguage: "en",
+  targetLanguage: "ja",
+  onboardedAt: null,
+  displayName: null,
+  timezone: "Asia/Tokyo",
+  dailyNewLimit: 20,
+  dailyReviewLimit: 200,
+  createdAt: 0
+}
+
 layer(TestLayer)("StudyRepo", (it) => {
   it.effect("stores notes with cards and serves due queues", () =>
     Effect.gen(function* () {
       const users = yield* UsersRepo
       const study = yield* StudyRepo
-      yield* users.ensure({
-        id: "u1",
-        status: "approved",
-        role: "user",
-        nativeLanguage: "en",
-        targetLanguage: "ja",
-        onboardedAt: null,
-        displayName: null,
-        timezone: "Asia/Tokyo",
-        dailyNewLimit: 20,
-        dailyReviewLimit: 200,
-        createdAt: 0
-      })
+      yield* users.ensure(learner)
 
       const card = (id: string, queue: "new" | "review", due: number) => ({
         id,
-        noteId: "n1",
-        userId: "u1",
+        noteId: N1,
+        userId: U1,
         template: "recognize" as const,
         queue,
         due,
@@ -251,8 +280,8 @@ layer(TestLayer)("StudyRepo", (it) => {
 
       yield* study.insertNote(
         {
-          id: "n1",
-          userId: "u1",
+          id: N1,
+          userId: U1,
           content: {
             kind: "phrase",
             text: "お疲れ様です",
@@ -266,30 +295,169 @@ layer(TestLayer)("StudyRepo", (it) => {
           sense: null,
           createdAt: 0
         },
-        [card("c1", "new", 0), { ...card("c2", "review", 500), template: "produce" }]
+        [card(C1, "new", 0), { ...card(C2, "review", 500), template: "produce" }]
       )
 
-      const notes = yield* study.notes("u1")
+      const notes = yield* study.notes(U1)
       assert.strictEqual(notes.length, 1)
       assert.strictEqual(notes[0]?.cards.length, 2)
 
       assert.deepStrictEqual(
-        (yield* study.newCards("u1", 10)).map((c) => c.id),
-        ["c1"]
+        (yield* study.newCards(U1, 10)).map((c) => c.id),
+        [C1]
       )
       assert.deepStrictEqual(
-        (yield* study.reviewDue("u1", 1000, 10)).map((c) => c.id),
-        ["c2"]
+        (yield* study.reviewDue(U1, 1000, 10)).map((c) => c.id),
+        [C2]
       )
-      assert.deepStrictEqual(yield* study.reviewDue("u1", 100, 10), [])
+      assert.deepStrictEqual(yield* study.reviewDue(U1, 100, 10), [])
 
-      const loaded = Option.getOrThrow(yield* study.card("u1", "c2"))
+      const loaded = Option.getOrThrow(yield* study.card(U1, C2))
       assert.strictEqual(loaded.content.kind, "phrase")
       yield* study.updateCard({ ...loaded, due: 99_999, interval: 8 })
-      assert.strictEqual(Option.getOrThrow(yield* study.card("u1", "c2")).interval, 8)
+      assert.strictEqual(Option.getOrThrow(yield* study.card(U1, C2)).interval, 8)
 
-      assert.isTrue(yield* study.deleteNote("u1", "n1"))
-      assert.isTrue(Option.isNone(yield* study.card("u1", "c2")))
+      // Answers are logged per study day and feed the statistics.
+      yield* study.insertLog({
+        cardId: C2,
+        userId: U1,
+        rating: "again",
+        queueBefore: "review",
+        intervalBefore: 3,
+        interval: 1,
+        easeBefore: 2.5,
+        ease: 2.3,
+        delayMs: 500,
+        durationMs: 4200,
+        reviewedAt: 1000,
+        studyDay: 20_000
+      })
+      yield* study.insertLog({
+        cardId: C1,
+        userId: U1,
+        rating: "good",
+        queueBefore: "new",
+        intervalBefore: 0,
+        interval: 0,
+        easeBefore: 0,
+        ease: 2.5,
+        delayMs: 0,
+        durationMs: null,
+        reviewedAt: 1100,
+        studyDay: 20_000
+      })
+      assert.strictEqual(yield* study.countAnswers(U1, 20_000), 2)
+      assert.strictEqual(yield* study.countAnswers(U1, 20_000, "new"), 1)
+      assert.deepStrictEqual(yield* study.studyDays(U1), [20_000])
+      assert.deepStrictEqual(yield* study.retention(U1, 19_000), { total: 1, failed: 1 })
+      assert.deepStrictEqual(
+        (yield* study.queueCounts(U1)).map((row) => `${row.queue}:${row.mature}:${row.n}`).sort(),
+        ["new:false:1", "review:false:1"]
+      )
+      assert.strictEqual(yield* study.nextPosition(U1), 1)
+      assert.deepStrictEqual(yield* study.reviewDueTimes(U1, 100_000), [99_999])
+
+      assert.isTrue(yield* study.deleteNote(U1, N1))
+      assert.isTrue(Option.isNone(yield* study.card(U1, C2)))
+      assert.strictEqual(yield* study.noteCount(U1), 0)
+    })
+  )
+})
+
+layer(TestLayer)("UsersRepo", (it) => {
+  it.effect("creates a profile once, updates it, and deletes it with everything the learner did", () =>
+    Effect.gen(function* () {
+      const users = yield* UsersRepo
+      const coach = yield* CoachRepo
+      const created = yield* users.ensure(learner)
+      assert.strictEqual(created.status, "approved")
+      // A second `ensure` keeps the existing row.
+      const again = yield* users.ensure({ ...learner, status: "pending", displayName: "ignored" })
+      assert.strictEqual(again.status, "approved")
+      assert.isNull(again.displayName)
+
+      const updated = yield* users.update(U1, { displayName: "Ash", onboardedAt: 5000, dailyNewLimit: 10 })
+      assert.strictEqual(Option.getOrThrow(updated).displayName, "Ash")
+      assert.strictEqual(Option.getOrThrow(updated).onboardedAt, 5000)
+      assert.strictEqual(Option.getOrThrow(updated).dailyNewLimit, 10)
+      assert.deepStrictEqual((yield* users.byIds([U1])).length, 1)
+
+      yield* coach.recordUsage(U1, "naturalness", 1000)
+      assert.strictEqual(yield* coach.usageSince(U1, 0), 1)
+      yield* users.delete(U1)
+      assert.isTrue(Option.isNone(yield* users.byId(U1)))
+      assert.strictEqual(yield* coach.usageSince(U1, 0), 0)
+    })
+  )
+})
+
+layer(TestLayer)("CoachRepo", (it) => {
+  it.effect("caches answers by key with a freshness bound", () =>
+    Effect.gen(function* () {
+      const coach = yield* CoachRepo
+      yield* coach.store("k", { verdict: "natural", score: 90 }, 1000)
+      assert.deepStrictEqual(Option.getOrThrow(yield* coach.cached("k", 500)), { verdict: "natural", score: 90 })
+      assert.isTrue(Option.isNone(yield* coach.cached("k", 2000)))
+      yield* coach.store("k", { verdict: "unnatural", score: 20 }, 3000)
+      assert.deepStrictEqual(Option.getOrThrow(yield* coach.cached("k", 2000)), { verdict: "unnatural", score: 20 })
+    })
+  )
+})
+
+layer(TestLayer)("EnrichmentRepo", (it) => {
+  it.effect("stores nuance, examples and audio per sense and replaces them on re-enrichment", () =>
+    Effect.gen(function* () {
+      const dictionary = yield* DictionaryRepo
+      const enrichment = yield* EnrichmentRepo
+      yield* dictionary.insertEntries(entries)
+      const taberu = 1358280
+      const judgment = { value: "neutral" as const, confidence: 0.9, source: "jev" as const }
+      const nuance = {
+        formality: { value: "neutral" as const, position: 0.5, confidence: 0.9, source: "jev" as const },
+        medium: { value: "both" as const, position: 0.5, confidence: 0.8, source: "jev" as const },
+        keigo: { ...judgment, value: "none" as const },
+        gender: judgment,
+        age: { ...judgment, value: "any" as const },
+        currency: { ...judgment, value: "current" as const },
+        connotation: judgment,
+        cautions: { rudeToSuperiors: 0.1, stiffWithFriends: 0.1, slang: 0.05 }
+      }
+      yield* enrichment.saveNuance(taberu, [{ sense: 0, nuance, answers: { raw: true }, model: "jev-1" }], 1000)
+      assert.deepStrictEqual((yield* enrichment.nuanceFor([taberu]))[0]?.nuance, nuance)
+      assert.deepStrictEqual(yield* dictionary.entriesByPriority({ limit: 1, missing: "nuance" }), [1269130])
+
+      yield* enrichment.saveSimilar(taberu, [
+        { sense: 0, similarId: 1269130, similarity: 0.8, difference: "more_casual", confidence: 0.7 }
+      ])
+      assert.strictEqual((yield* enrichment.similarFor(taberu))[0]?.difference, "more_casual")
+
+      const example = {
+        ja: "ご飯を食べる",
+        furigana: "ご{飯|はん}を{食|た}べる",
+        en: "to eat a meal",
+        note: null,
+        model: "m"
+      }
+      yield* enrichment.saveExamples(taberu, [{ sense: 0, formality: "neutral", ...example }], 1000)
+      const [first] = yield* enrichment.examplesFor([taberu])
+      assert.strictEqual(first?.position, 0)
+
+      const clip = { key: "a".repeat(64), text: "食べる", language: "ja" as const, voiceId: "v", modelId: "m" }
+      yield* enrichment.saveAudio({ ...clip, characters: 3, bytes: 10, createdAt: 1000 })
+      yield* enrichment.linkEntryAudio(taberu, clip.key)
+      yield* enrichment.linkExampleAudio(first!.id, "ja", clip.key)
+      assert.strictEqual((yield* enrichment.entryAudio([taberu])).get(taberu), clip.key)
+      assert.strictEqual((yield* enrichment.exampleAudio([first!.id])).get(`${first!.id}:ja`), clip.key)
+      assert.strictEqual(yield* enrichment.audioCharactersSince(500), 3)
+      assert.strictEqual(yield* enrichment.audioCharactersSince(1500), 0)
+
+      // Re-enriching replaces the examples; their audio links go with them.
+      yield* enrichment.saveExamples(taberu, [{ sense: 1, formality: "polite", ...example }], 2000)
+      const replaced = yield* enrichment.examplesFor([taberu])
+      assert.strictEqual(replaced.length, 1)
+      assert.strictEqual(replaced[0]?.sense, 1)
+      assert.strictEqual((yield* enrichment.exampleAudio([first!.id])).size, 0)
+      assert.isTrue(Option.isSome(yield* enrichment.findAudio(clip.key)))
     })
   )
 })
