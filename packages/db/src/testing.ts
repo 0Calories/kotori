@@ -1,18 +1,17 @@
-import { PgliteClient, PgliteMigrator } from "@effect/sql-pglite"
-import { Layer, String } from "effect"
-import { migrations } from "./migrations.ts"
+import { PgliteClient } from "@effect/sql-pglite"
+import * as PgliteDrizzle from "drizzle-orm/effect-pglite"
+import { Layer } from "effect"
+import { Database } from "./Database.ts"
+import { migrateDatabase } from "./Migrate.ts"
+import { relations } from "./schema/relations.ts"
 
 /**
- * A fresh, fully migrated in-memory Postgres (PGlite), for tests.
- * Lives in its own entry point so `@electric-sql/pglite` never enters the
- * production module graph; import it as `@kotori/db/testing`.
+ * A fresh in-memory Postgres (PGlite) for tests, migrated from `packages/db/migrations`
+ * exactly as production is, with Drizzle and the Effect SQL client over it. Lives in its
+ * own entry point so `@electric-sql/pglite` never enters the production module graph;
+ * import it as `@kotori/db/testing`.
  */
-export const DatabaseMemory = PgliteMigrator.layer({ loader: PgliteMigrator.fromRecord(migrations) }).pipe(
-  Layer.provideMerge(
-    PgliteClient.layer({
-      dataDir: "memory://",
-      transformResultNames: String.snakeToCamel,
-      transformQueryNames: String.camelToSnake
-    })
-  )
+export const DatabaseMemory = Layer.effectDiscard(migrateDatabase()).pipe(
+  Layer.provideMerge(Layer.effect(Database, PgliteDrizzle.makeWithDefaults({ relations }))),
+  Layer.provideMerge(PgliteClient.layer({ dataDir: "memory://" }))
 )
