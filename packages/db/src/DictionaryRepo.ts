@@ -1,10 +1,10 @@
-import { and, asc, desc, eq, inArray, max, min, ne, notExists, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gte, inArray, max, min, ne, notExists, sql } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import { Context, Effect, Layer } from "effect"
 import { Database } from "./Database.ts"
 import { type EntryRecord, normalizeGloss } from "./records.ts"
 import { chunks } from "./rows.ts"
-import { entries, entryAudio, examples, forms, glosses, senseNuance, senses, tags } from "./schema/index.ts"
+import { entries, entryAudio, examples, forms, glosses, jobKind, senseNuance, senses, tags } from "./schema/index.ts"
 
 export interface FormMatch {
   readonly entryId: number
@@ -31,7 +31,7 @@ export interface Candidate {
 }
 
 /** Enrichment an entry can be missing, used to find work for the worker. */
-export type EnrichmentKind = "nuance" | "examples" | "audio"
+export type EnrichmentKind = (typeof jobKind.enumValues)[number]
 
 export interface PriorityQuery {
   readonly limit: number
@@ -42,7 +42,7 @@ export interface PriorityQuery {
 export class DictionaryRepo extends Context.Service<
   DictionaryRepo,
   {
-    /** Inserts or replaces entries and their forms, senses and glosses. Enrichment keyed by entry survives. */
+    /** Inserts or replaces entries and their forms, senses and glosses. Enrichment survives for every sense the entry still has. */
     insertEntries(entries: ReadonlyArray<EntryRecord>): Effect.Effect<void>
     replaceTags(tags: ReadonlyArray<{ readonly code: string; readonly label: string }>): Effect.Effect<void>
     readonly tags: Effect.Effect<ReadonlyMap<string, string>>
@@ -82,9 +82,20 @@ export class DictionaryRepo extends Context.Service<
         const ids = records.map((entry) => entry.id)
         yield* db.transaction((tx) =>
           Effect.gen(function* () {
-            // Children are replaced wholesale; glosses cascade from senses.
+            // Forms and glosses are replaced wholesale. Senses are upserted by position, since
+            // enrichment references them and would cascade away; only senses past an entry's
+            // new count are deleted.
             yield* tx.delete(forms).where(inArray(forms.entryId, ids))
-            yield* tx.delete(senses).where(inArray(senses.entryId, ids))
+            yield* tx.delete(glosses).where(inArray(glosses.entryId, ids))
+            const bySenseCount = new Map<number, Array<number>>()
+            for (const entry of records) {
+              const group = bySenseCount.get(entry.senses.length)
+              if (group) group.push(entry.id)
+              else bySenseCount.set(entry.senses.length, [entry.id])
+            }
+            for (const [count, group] of bySenseCount) {
+              yield* tx.delete(senses).where(and(inArray(senses.entryId, group), gte(senses.position, count)))
+            }
             yield* tx
               .insert(entries)
               .values(
@@ -137,7 +148,25 @@ export class DictionaryRepo extends Context.Service<
                 antonyms: [...sense.antonyms]
               }))
             )
-            for (const chunk of chunks(senseRows, 1500)) yield* tx.insert(senses).values([...chunk])
+            for (const chunk of chunks(senseRows, 1500)) {
+              yield* tx
+                .insert(senses)
+                .values([...chunk])
+                .onConflictDoUpdate({
+                  target: [senses.entryId, senses.position],
+                  set: {
+                    pos: sql`excluded.pos`,
+                    misc: sql`excluded.misc`,
+                    fields: sql`excluded.fields`,
+                    dialects: sql`excluded.dialects`,
+                    info: sql`excluded.info`,
+                    stagk: sql`excluded.stagk`,
+                    stagr: sql`excluded.stagr`,
+                    xrefs: sql`excluded.xrefs`,
+                    antonyms: sql`excluded.antonyms`
+                  }
+                })
+            }
 
             const glossRows = records.flatMap((entry) =>
               entry.senses.flatMap((sense, senseIndex) =>

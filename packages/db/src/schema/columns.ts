@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { customType, snakeCase, timestamp } from "drizzle-orm/pg-core"
+import { type AnyPgColumn, customType, snakeCase, timestamp } from "drizzle-orm/pg-core"
 
 /** Table constructor for every table in this schema: camelCase fields, snake_case columns. */
 export const { table } = snakeCase
@@ -28,4 +28,4 @@ export const tsvector = customType<{ data: string }>({
 })
 
 /** `to_tsvector('english', column)`, for generated full-text columns. */
-export const englishDocument = (column: unknown) => sql`to_tsvector('english', ${column})`
+export const englishDocument = (column: AnyPgColumn) => sql`to_tsvector('english', ${column})`

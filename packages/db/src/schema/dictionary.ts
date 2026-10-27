@@ -4,7 +4,7 @@ import { bytewiseText, englishDocument, table, tsvector } from "./columns.ts"
 
 // The dictionary is seeded from JMDict and read everywhere. Entries are JMDict's own
 // units; forms, senses and glosses are ordered children with a `position`. The seeder
-// upserts entries and replaces their children, so enrichment keyed by entry survives.
+// upserts entries and senses and replaces forms and glosses, so enrichment survives a reseed.
 
 /** Declared in display order: an enum sorts by declaration, so `ORDER BY kind` puts kanji before kana. */
 export const formKind = pgEnum("form_kind", ["kanji", "kana"])

@@ -3,9 +3,9 @@ import { eq, inArray } from "drizzle-orm"
 import { Context, Effect, Layer, Option } from "effect"
 import { Database } from "./Database.ts"
 import { at, atOrNull, millis, millisOrNull } from "./rows.ts"
-import { users } from "./schema/index.ts"
+import { userRole, users } from "./schema/index.ts"
 
-export type UserRole = "user" | "admin"
+export type UserRole = (typeof userRole.enumValues)[number]
 
 /**
  * The learner profile. Identity (email, credentials, sessions) lives in Neon's

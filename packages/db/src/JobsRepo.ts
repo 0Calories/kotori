@@ -2,10 +2,10 @@ import { and, asc, count, desc, eq, inArray, lt, lte, sql } from "drizzle-orm"
 import { Context, Effect, Layer, Option } from "effect"
 import { Database } from "./Database.ts"
 import { at } from "./rows.ts"
-import { jobs } from "./schema/index.ts"
+import { jobKind, jobs, jobStatus } from "./schema/index.ts"
 
-export type JobKind = "nuance" | "examples" | "audio"
-export type JobStatus = "queued" | "running" | "done" | "failed"
+export type JobKind = (typeof jobKind.enumValues)[number]
+export type JobStatus = (typeof jobStatus.enumValues)[number]
 
 export interface Job {
   readonly id: number

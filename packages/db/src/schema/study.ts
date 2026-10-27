@@ -1,6 +1,17 @@
 import type { AccountStatus, CardQueue, CardTemplate, Language, NoteContent, Rating } from "@kotori/domain"
 import { sql } from "drizzle-orm"
-import { boolean, doublePrecision, index, integer, jsonb, pgEnum, text, uniqueIndex, uuid } from "drizzle-orm/pg-core"
+import {
+  bigint,
+  boolean,
+  doublePrecision,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  text,
+  uniqueIndex,
+  uuid
+} from "drizzle-orm/pg-core"
 import { createdAt, table, timestamptz } from "./columns.ts"
 import { entries } from "./dictionary.ts"
 import { language } from "./enrichment.ts"
@@ -117,7 +128,7 @@ export const reviewLogs = table(
     easeBefore: doublePrecision().notNull(),
     ease: doublePrecision().notNull(),
     /** How late the review was, in milliseconds (negative when early). */
-    delayMs: integer().notNull(),
+    delayMs: bigint({ mode: "number" }).notNull(),
     /** How long the learner took to answer, when the client reported it. */
     durationMs: integer(),
     reviewedAt: timestamptz().notNull(),
@@ -134,6 +145,8 @@ export const coachCache = table("coach_cache", {
   createdAt: createdAt()
 })
 
+export const coachKind = pgEnum("coach_kind", ["naturalness", "how-to-say", "speak"])
+
 /** One row per coach request, for the per-learner hourly rate limit. */
 export const coachUsage = table(
   "coach_usage",
@@ -142,7 +155,7 @@ export const coachUsage = table(
     userId: uuid()
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    kind: text().notNull(),
+    kind: coachKind().notNull(),
     createdAt: createdAt()
   },
   (t) => [index("coach_usage_user").on(t.userId, t.createdAt)]

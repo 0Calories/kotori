@@ -2,7 +2,10 @@ import { and, count, eq, gte } from "drizzle-orm"
 import { Context, Effect, Layer, Option } from "effect"
 import { Database } from "./Database.ts"
 import { at } from "./rows.ts"
-import { coachCache, coachUsage } from "./schema/index.ts"
+import { coachCache, coachKind, coachUsage } from "./schema/index.ts"
+
+/** What a coach request asked for, recorded with its usage. */
+export type CoachKind = (typeof coachKind.enumValues)[number]
 
 /** Caches coach answers by request and records usage for per-user rate limits. */
 export class CoachRepo extends Context.Service<
@@ -11,7 +14,7 @@ export class CoachRepo extends Context.Service<
     /** The cached answer for `key`, if it was stored at or after `notBefore`. Decoding is the caller's. */
     cached(key: string, notBefore: number): Effect.Effect<Option.Option<unknown>>
     store(key: string, result: unknown, now: number): Effect.Effect<void>
-    recordUsage(userId: string, kind: string, now: number): Effect.Effect<void>
+    recordUsage(userId: string, kind: CoachKind, now: number): Effect.Effect<void>
     usageSince(userId: string, since: number): Effect.Effect<number>
   }
 >()("@kotori/db/CoachRepo") {
@@ -37,7 +40,7 @@ export class CoachRepo extends Context.Service<
           .onConflictDoUpdate({ target: coachCache.key, set: { result, createdAt: at(now) } })
           .pipe(Effect.asVoid, Effect.orDie)
 
-      const recordUsage = (userId: string, kind: string, now: number) =>
+      const recordUsage = (userId: string, kind: CoachKind, now: number) =>
         db
           .insert(coachUsage)
           .values({ userId, kind, createdAt: at(now) })

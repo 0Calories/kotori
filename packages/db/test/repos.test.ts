@@ -460,4 +460,28 @@ layer(TestLayer)("EnrichmentRepo", (it) => {
       assert.isTrue(Option.isSome(yield* enrichment.findAudio(clip.key)))
     })
   )
+
+  it.effect("keeps enrichment through a reseed, except for senses the entry lost", () =>
+    Effect.gen(function* () {
+      const dictionary = yield* DictionaryRepo
+      const enrichment = yield* EnrichmentRepo
+      const taberu = 1358280
+      // From the test above: nuance and a similar word on sense 0, an example on sense 1.
+      yield* dictionary.insertEntries(entries)
+      assert.strictEqual((yield* enrichment.nuanceFor([taberu])).length, 1)
+      assert.strictEqual((yield* enrichment.similarFor(taberu)).length, 1)
+      assert.strictEqual((yield* enrichment.examplesFor([taberu])).length, 1)
+      const [reseeded] = yield* dictionary.getEntries([taberu])
+      assert.strictEqual(reseeded?.senses[1]?.glosses.length, 2)
+
+      yield* dictionary.insertEntries([{ ...entries[0]!, senses: [sense(["to eat", "to have a meal"])] }])
+      assert.strictEqual((yield* enrichment.nuanceFor([taberu])).length, 1)
+      assert.strictEqual((yield* enrichment.examplesFor([taberu])).length, 0)
+      const [shrunk] = yield* dictionary.getEntries([taberu])
+      assert.deepStrictEqual(
+        shrunk?.senses.map((s) => s.glosses.map((gloss) => gloss.text)),
+        [["to eat", "to have a meal"]]
+      )
+    })
+  )
 })

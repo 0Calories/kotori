@@ -14,7 +14,6 @@ export default defineConfig({
   dialect: "postgresql",
   schema: "./src/schema/index.ts",
   out: "./migrations",
-  casing: "snake_case",
   schemaFilter: ["public"],
   dbCredentials: { url: process.env["DATABASE_URL"] ?? "postgres://kotori:kotori@localhost:5432/kotori" },
   strict: true,

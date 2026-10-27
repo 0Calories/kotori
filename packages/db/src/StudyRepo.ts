@@ -1,5 +1,5 @@
 import type { CardQueue, CardTemplate, NoteContent, Rating } from "@kotori/domain"
-import { and, asc, count, countDistinct, desc, eq, getTableColumns, inArray, lt, lte, max, min, sql } from "drizzle-orm"
+import { and, asc, count, countDistinct, desc, eq, getTableColumns, gte, inArray, lt, lte, min, sql } from "drizzle-orm"
 import { Context, Effect, Layer, Option } from "effect"
 import { Database } from "./Database.ts"
 import { at, atOrNull, millis, millisOrNull } from "./rows.ts"
@@ -295,11 +295,7 @@ export class StudyRepo extends Context.Service<
           })
           .from(reviewLogs)
           .where(
-            and(
-              eq(reviewLogs.userId, userId),
-              eq(reviewLogs.queueBefore, "review"),
-              sql`${reviewLogs.studyDay} >= ${sinceDay}`
-            )
+            and(eq(reviewLogs.userId, userId), eq(reviewLogs.queueBefore, "review"), gte(reviewLogs.studyDay, sinceDay))
           )
           .pipe(
             Effect.map((rows) => ({ total: rows[0]?.total ?? 0, failed: rows[0]?.failed ?? 0 })),

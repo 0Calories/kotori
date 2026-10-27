@@ -1,9 +1,10 @@
+import { readdirSync } from "node:fs"
 import { assert, layer } from "@effect/vitest"
 import { sql } from "drizzle-orm"
 import { Effect } from "effect"
 import { SqlClient } from "effect/sql"
 import { Database } from "../src/Database.ts"
-import { migrateDatabase } from "../src/Migrate.ts"
+import { migrateDatabase, migrationsFolder } from "../src/Migrate.ts"
 import { DatabaseMemory } from "../src/testing.ts"
 
 // The Drizzle instance and the migrator over PGlite: the same code paths production
@@ -25,9 +26,13 @@ layer(DatabaseMemory)("Database", (it) => {
       const applied = yield* sqlClient<{ readonly name: string }>`
         SELECT name FROM drizzle.__drizzle_migrations ORDER BY id
       `
+      const folders = readdirSync(migrationsFolder, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name)
+        .sort()
       assert.deepStrictEqual(
         applied.map((row) => row.name),
-        ["20261027175222_initial"]
+        folders
       )
     })
   )
