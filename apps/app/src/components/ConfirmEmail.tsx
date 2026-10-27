@@ -2,7 +2,7 @@ import { useState } from "react"
 import { View } from "react-native"
 import { authMessage } from "../auth/messages.ts"
 import { useSession } from "../session/SessionProvider.tsx"
-import { useTheme } from "../theme/ThemeProvider.tsx"
+import { theme } from "../theme/tokens.ts"
 import { Button } from "./Button.tsx"
 import { Card } from "./Card.tsx"
 import { Icon } from "./Icon.tsx"
@@ -17,7 +17,6 @@ import { Text } from "./Text.tsx"
  */
 export const ConfirmEmail = () => {
   const { t, profile, verifyEmail, sendVerificationCode } = useSession()
-  const theme = useTheme()
   const [code, setCode] = useState("")
   const [busy, setBusy] = useState<"verify" | "resend" | null>(null)
   const [message, setMessage] = useState<{ readonly text: string; readonly ok: boolean } | null>(null)

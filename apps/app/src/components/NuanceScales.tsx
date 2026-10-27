@@ -1,6 +1,6 @@
 import { View } from "react-native"
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated"
-import { useTheme } from "../theme/ThemeProvider.tsx"
+import { theme } from "../theme/tokens.ts"
 import { Text } from "./Text.tsx"
 
 export interface ScaleRow {
@@ -19,7 +19,7 @@ const ROW = 12.5
 const GAP = 16
 
 const Track = ({ row }: { readonly row: ScaleRow }) => {
-  const { color } = useTheme()
+  const { color } = theme
   const clamped = Math.min(Math.max(row.position, 0), 1)
   const dot = useAnimatedStyle(() => ({
     left: withSpring(`${clamped * 100}%`, { duration: 600, dampingRatio: 0.8 })

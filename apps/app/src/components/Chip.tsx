@@ -1,5 +1,5 @@
 import { type StyleProp, View, type ViewStyle } from "react-native"
-import { useTheme } from "../theme/ThemeProvider.tsx"
+import { theme } from "../theme/tokens.ts"
 import { Icon, type IconName } from "./Icon.tsx"
 import { Text } from "./Text.tsx"
 
@@ -7,7 +7,7 @@ import { Text } from "./Text.tsx"
 export type Tone = "neutral" | "primary" | "accent"
 
 export const useTone = (tone: Tone) => {
-  const { color } = useTheme()
+  const { color } = theme
   return {
     neutral: { fg: color.text, bg: "transparent", ring: color.border },
     primary: { fg: color.primaryDeep, bg: color.primaryTint, ring: color.primaryTint },

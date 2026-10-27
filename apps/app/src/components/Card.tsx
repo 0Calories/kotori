@@ -1,6 +1,6 @@
 import { type ReactNode } from "react"
 import { type StyleProp, View, type ViewProps, type ViewStyle } from "react-native"
-import { useTheme } from "../theme/ThemeProvider.tsx"
+import { theme } from "../theme/tokens.ts"
 
 /**
  * White cards float on the snow with a hairline ring and a soft drop; tinted
@@ -22,7 +22,6 @@ export const Card = ({
   readonly tone?: "surface" | "muted" | "primary" | "accent"
   readonly list?: boolean
 }) => {
-  const theme = useTheme()
   const raised = tone === undefined || tone === "surface"
   const background = {
     surface: theme.color.surface,

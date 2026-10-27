@@ -6,11 +6,10 @@ import { Mascot } from "../src/components/Mascot.tsx"
 import { Screen } from "../src/components/Screen.tsx"
 import { Text } from "../src/components/Text.tsx"
 import { useT } from "../src/session/SessionProvider.tsx"
-import { useTheme } from "../src/theme/ThemeProvider.tsx"
+import { theme } from "../src/theme/tokens.ts"
 
 export default function Welcome() {
   const t = useT()
-  const theme = useTheme()
   const router = useRouter()
   return (
     <Screen bottomInset={40}>

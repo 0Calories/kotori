@@ -1,7 +1,7 @@
 import type { Language } from "@kotori/domain"
 import { View } from "react-native"
 import { useT } from "../session/SessionProvider.tsx"
-import { useTheme } from "../theme/ThemeProvider.tsx"
+import { theme } from "../theme/tokens.ts"
 import { PressableScale } from "./PressableScale.tsx"
 import { Text } from "./Text.tsx"
 
@@ -18,7 +18,7 @@ const Choice = ({
   readonly selected: boolean
   readonly onPress: () => void
 }) => {
-  const { color, radius, shadow } = useTheme()
+  const { color, radius, shadow } = theme
   return (
     <PressableScale
       haptic

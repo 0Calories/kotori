@@ -19,7 +19,7 @@ import { posLabel, strings } from "../../src/i18n/strings.ts"
 import { formalityTone } from "../../src/lib/tones.ts"
 import { usePreference } from "../../src/session/preferences.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
-import { useTheme } from "../../src/theme/ThemeProvider.tsx"
+import { theme } from "../../src/theme/tokens.ts"
 
 const useDebounced = (value: string, delay: number) => {
   const [debounced, setDebounced] = useState(value)
@@ -55,7 +55,6 @@ const ResultRow = ({
   readonly onPress: () => void
 }) => {
   const { t } = useSession()
-  const theme = useTheme()
   const pos = posLabel(t, entry.partOfSpeech)
   return (
     <PressableScale
@@ -136,7 +135,6 @@ const ReviewTeaser = () => {
 
 export default function LookUpScreen() {
   const { t, profile } = useSession()
-  const theme = useTheme()
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const input = useRef<TextInput>(null)
@@ -158,7 +156,7 @@ export default function LookUpScreen() {
   const results = search.data
   const tips = useMemo(() => t.dictionary.tips, [t])
   const pill = {
-    backgroundColor: theme.dark ? theme.color.surface : "rgba(255, 255, 255, 0.66)",
+    backgroundColor: "rgba(255, 255, 255, 0.66)",
     borderWidth: 1,
     borderColor: theme.color.ring,
     borderRadius: theme.radius.pill,

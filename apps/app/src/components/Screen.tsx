@@ -2,7 +2,7 @@ import { type ReactNode } from "react"
 import { Platform, type RefreshControlProps, ScrollView, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useT } from "../session/SessionProvider.tsx"
-import { useTheme } from "../theme/ThemeProvider.tsx"
+import { theme } from "../theme/tokens.ts"
 import { IconButton } from "./Button.tsx"
 import { Text } from "./Text.tsx"
 
@@ -24,7 +24,6 @@ export const Screen = ({
   readonly header?: ReactNode
   readonly onScroll?: (y: number) => void
 }) => {
-  const theme = useTheme()
   const insets = useSafeAreaInsets()
   const column = { width: "100%" as const, maxWidth: theme.maxWidth, alignSelf: "center" as const }
   const content = {
@@ -107,7 +106,6 @@ export const Section = ({
   /** A note or link on the right of the title. */
   readonly action?: ReactNode
 }) => {
-  const theme = useTheme()
   return (
     <View style={{ gap: theme.space.md - 2 }}>
       {title ? (

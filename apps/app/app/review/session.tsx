@@ -19,7 +19,7 @@ import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { registerTone } from "../../src/lib/tones.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
-import { useTheme } from "../../src/theme/ThemeProvider.tsx"
+import { theme } from "../../src/theme/tokens.ts"
 
 const RATINGS: ReadonlyArray<{ readonly rating: Rating; readonly tone: Tone; readonly key: string }> = [
   { rating: "again", tone: "accent", key: "1" },
@@ -38,7 +38,6 @@ const Faces = ({
   readonly revealed: boolean
   readonly target: Language
 }) => {
-  const theme = useTheme()
   const { t } = useSession()
   const { card } = item
   const content = card.content
@@ -165,7 +164,7 @@ const AnswerButton = ({
   readonly hotkey: string
 }) => {
   const { fg, bg, ring } = useTone(tone)
-  const { radius } = useTheme()
+  const { radius } = theme
   return (
     <PressableScale
       onPress={onPress}
@@ -199,7 +198,6 @@ const AnswerButton = ({
 }
 
 export default function ReviewSession() {
-  const theme = useTheme()
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const queryClient = useQueryClient()

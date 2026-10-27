@@ -1,5 +1,5 @@
 import { ScrollView } from "react-native"
-import { useTheme } from "../theme/ThemeProvider.tsx"
+import { theme } from "../theme/tokens.ts"
 import { PressableScale } from "./PressableScale.tsx"
 import { Text } from "./Text.tsx"
 
@@ -13,7 +13,7 @@ export const Segmented = <A extends string>({
   readonly value: A
   readonly onChange: (value: A) => void
 }) => {
-  const { color, radius } = useTheme()
+  const { color, radius } = theme
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
       {options.map((option) => {

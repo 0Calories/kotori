@@ -1,6 +1,6 @@
 import { View } from "react-native"
 import Animated, { FadeIn } from "react-native-reanimated"
-import { useTheme } from "../theme/ThemeProvider.tsx"
+import { theme } from "../theme/tokens.ts"
 import { Card } from "./Card.tsx"
 import { Icon } from "./Icon.tsx"
 import { Text } from "./Text.tsx"
@@ -13,7 +13,7 @@ export const Notice = ({
   readonly message: string | null
   readonly tone?: "accent" | "primary"
 }) => {
-  const { color } = useTheme()
+  const { color } = theme
   if (message === null) return null
   return (
     <Animated.View entering={FadeIn.duration(200)} accessibilityLiveRegion="polite">

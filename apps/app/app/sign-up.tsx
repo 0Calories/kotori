@@ -11,14 +11,13 @@ import { Notice } from "../src/components/Notice.tsx"
 import { Screen } from "../src/components/Screen.tsx"
 import { Text } from "../src/components/Text.tsx"
 import { useSession } from "../src/session/SessionProvider.tsx"
-import { useTheme } from "../src/theme/ThemeProvider.tsx"
+import { theme } from "../src/theme/tokens.ts"
 
 /** Better Auth's default minimum; Managed Auth's own answer wins if it differs. */
 const MIN_PASSWORD = 8
 
 export default function SignUp() {
   const { t, signUp } = useSession()
-  const theme = useTheme()
   const router = useRouter()
   const [native, setNative] = useState<Language | null>(null)
   const [name, setName] = useState("")

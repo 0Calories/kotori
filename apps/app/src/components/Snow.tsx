@@ -1,7 +1,7 @@
 import { useId } from "react"
 import { StyleSheet } from "react-native"
 import Svg, { Circle, Defs, Pattern, Rect } from "react-native-svg"
-import { useTheme } from "../theme/ThemeProvider.tsx"
+import { theme } from "../theme/tokens.ts"
 
 /** Four tiled layers of flakes at different spacings, so the pattern never visibly repeats. */
 const LAYERS = [
@@ -13,7 +13,7 @@ const LAYERS = [
 
 /** Light snowfall over a tinted hero. Purely decorative. */
 export const Snow = () => {
-  const { color, dark } = useTheme()
+  const { color } = theme
   // Pattern ids are global on the web, so each instance needs its own.
   const id = `kotori-snow-${useId().replace(/[^\w-]/g, "")}`
   return (
@@ -33,10 +33,10 @@ export const Snow = () => {
               cx={layer.x * layer.width}
               cy={layer.y * layer.height}
               r={layer.r}
-              fill={dark ? color.textFaint : color.surface}
-              fillOpacity={dark ? 0.35 : 1}
+              fill={color.surface}
+              fillOpacity={1}
               stroke={color.primaryDark}
-              strokeOpacity={dark ? 0 : 0.18}
+              strokeOpacity={0.18}
               strokeWidth={0.8}
             />
           </Pattern>
