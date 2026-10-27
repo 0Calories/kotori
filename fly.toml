@@ -14,7 +14,8 @@ dockerfile = 'Dockerfile'
 [env]
 NODE_ENV = 'production'
 PORT = '8080'
-# KOTORI_WEB_ORIGINS: the hosted web app's origins, comma-separated (docs/deploy.md §6).
+KOTORI_WEB_ORIGINS = 'https://kotori-azure.vercel.app'
+
 
 [processes]
 api = 'node apps/api/dist/main.js'
