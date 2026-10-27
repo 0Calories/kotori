@@ -137,14 +137,20 @@ export const TabBar = ({
       ))}
     </View>
   )
-  const shell = {
+  // `left` and `right` together with `maxWidth` pin the bar to the leading edge once
+  // the max width wins, so center it in a full-width dock instead. `box-none` keeps
+  // taps on the page beside the bar working.
+  const dock = {
     position: "absolute" as const,
-    left: 18,
-    right: 18,
+    left: 0,
+    right: 0,
     bottom,
+    paddingHorizontal: 18,
+    alignItems: "center" as const
+  }
+  const shell = {
+    width: "100%" as const,
     maxWidth: 520,
-    alignSelf: "center" as const,
-    marginHorizontal: "auto" as const,
     borderRadius: 33,
     overflow: "hidden" as const,
     borderWidth: 1,
@@ -152,6 +158,14 @@ export const TabBar = ({
     ...theme.shadow(3)
   }
   const paper = theme.color.background
+  const floating =
+    Platform.OS === "ios" ? (
+      <BlurView intensity={40} tint="light" style={[shell, { backgroundColor: "rgba(255, 255, 255, 0.86)" }]}>
+        {bar}
+      </BlurView>
+    ) : (
+      <View style={[shell, { backgroundColor: "#FFFFFF" }]}>{bar}</View>
+    )
   return (
     <>
       <LinearGradient
@@ -160,13 +174,9 @@ export const TabBar = ({
         locations={[0.18, 0.48, 0.68]}
         style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: bottom + 66 + 50 }}
       />
-      {Platform.OS === "ios" ? (
-        <BlurView intensity={40} tint="light" style={[shell, { backgroundColor: "rgba(255, 255, 255, 0.86)" }]}>
-          {bar}
-        </BlurView>
-      ) : (
-        <View style={[shell, { backgroundColor: "#FFFFFF" }]}>{bar}</View>
-      )}
+      <View pointerEvents="box-none" style={dock}>
+        {floating}
+      </View>
     </>
   )
 }
