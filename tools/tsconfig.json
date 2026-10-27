@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "incremental": false,
+    "noEmit": true,
+    "types": ["node"],
+    "rootDir": ".",
+    "rewriteRelativeImportExtensions": false
+  },
+  "include": ["file-token-limit.ts", "file-token-limit.test.ts", "vitest.config.ts"]
+}

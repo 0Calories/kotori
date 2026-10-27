@@ -37,6 +37,10 @@ jobs:
         run: pnpm nx sync:check
       - run: pnpm format:check
       - run: pnpm lint
+      - name: Token-limit pre-commit hook
+        run: |
+          pnpm exec tsc -p tools/tsconfig.json --noEmit --pretty false
+          pnpm test:token-limit
       - name: Typecheck, test and build affected projects
         run: pnpm nx affected -t typecheck test build
         env:
