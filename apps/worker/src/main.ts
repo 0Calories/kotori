@@ -5,6 +5,7 @@ import { Effect } from "effect"
 import { Command } from "effect/cli"
 import { adminCommand, approve, archive, devAccount, requests, revoke, users } from "./commands/accounts.ts"
 import { enrich } from "./commands/enrich.ts"
+import { migrate } from "./commands/migrate.ts"
 import { seed } from "./commands/seed.ts"
 import { status } from "./commands/status.ts"
 import { work } from "./commands/work.ts"
@@ -15,6 +16,7 @@ loadDotEnv()
 const kotori = Command.make("kotori").pipe(
   Command.withDescription("Kotori's toolbox: seed and enrich the dictionary, and manage learner sign-ups"),
   Command.withSubcommands([
+    migrate,
     seed,
     enrich,
     work,

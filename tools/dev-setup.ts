@@ -1,6 +1,6 @@
 /**
  * One-time local setup, safe to re-run: `.env` from `.env.example`, Postgres in Docker,
- * the JMDict dictionary, and the development account the app signs in as. Each step
+ * the schema, the JMDict dictionary, and the development account the app signs in as. Each step
  * skips what is already done. Run with `pnpm dev:setup`.
  */
 import { type ChildProcess, spawn, spawnSync } from "node:child_process"
@@ -51,6 +51,9 @@ if (LOCAL.has(databaseUrl.hostname)) {
 } else {
   console.log(`DATABASE_URL points at ${databaseUrl.hostname}; not starting the local one.`)
 }
+
+step("Schema")
+run("pnpm", ["--silent", "kotori", "migrate"])
 
 step("Dictionary")
 run("pnpm", ["--silent", "kotori", "seed", "--if-empty"])

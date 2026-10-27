@@ -1,8 +1,9 @@
 # Local Postgres for development: `docker compose up -d --wait` (or `pnpm dev:setup`).
 # The API, the worker and the local auth server share it, as they share Neon in production.
+# Postgres 18, the same major as Neon, so generated columns and collation behave alike.
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: kotori
       POSTGRES_PASSWORD: kotori

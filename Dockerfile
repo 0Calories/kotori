@@ -18,11 +18,12 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
       --filter kotori --filter "@kotori/api..." --filter "@kotori/worker..."
 RUN NX_DAEMON=false pnpm nx run-many -t build -p @kotori/api @kotori/worker --skip-nx-cache --outputStyle=static
 # Deploy layout: every package.json (so the lockfile still describes the whole
-# workspace), each project's dist/, and the workspace files. No sources.
+# workspace), each project's dist/, the database migrations, and the workspace files. No sources.
 RUN mkdir -p /out \
  && find . -name package.json -not -path '*/node_modules/*' -not -path '*/dist/*' | tar -cf - -T - | tar -xf - -C /out \
  && for p in apps/api apps/worker packages/*; do \
       if [ -d "$p/dist" ]; then mkdir -p "/out/$p" && cp -r "$p/dist" "/out/$p/dist"; fi; \
+      if [ -d "$p/migrations" ]; then mkdir -p "/out/$p" && cp -r "$p/migrations" "/out/$p/migrations"; fi; \
     done \
  && cp pnpm-lock.yaml pnpm-workspace.yaml /out/
 
