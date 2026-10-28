@@ -1,5 +1,5 @@
 /**
- * Conversions at the repository boundary. Tables store `timestamptz` and Drizzle reads
+ * Conversions at the services' boundary. Tables store `timestamptz` and Drizzle reads
  * them as `Date`; the domain and the SRS code work in millisecond epochs.
  */
 export const millis = (date: Date): number => date.getTime()

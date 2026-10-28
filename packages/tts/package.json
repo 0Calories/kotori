@@ -2,7 +2,7 @@
   "name": "@kotori/tts",
   "version": "0.1.0",
   "private": true,
-  "description": "Pronunciation audio with ElevenLabs, stored content-addressed",
+  "description": "ElevenLabs text-to-speech client",
   "type": "module",
   "exports": {
     ".": {
@@ -15,12 +15,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@kotori/db": "workspace:*",
     "@kotori/domain": "workspace:*",
-    "drizzle-orm": "catalog:",
     "effect": "catalog:"
-  },
-  "devDependencies": {
-    "@effect/platform-node": "catalog:"
   }
 }

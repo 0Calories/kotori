@@ -11,15 +11,18 @@
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
-    "@kotori/ai": "workspace:*",
     "@kotori/auth": "workspace:*",
     "@kotori/db": "workspace:*",
     "@kotori/domain": "workspace:*",
-    "@kotori/email": "workspace:*",
-    "@kotori/japanese": "workspace:*",
-    "@kotori/nuance": "workspace:*",
-    "@kotori/srs": "workspace:*",
-    "@kotori/tts": "workspace:*",
+    "@kotori/services": "workspace:*",
     "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@kotori/ai": "workspace:*",
+    "@kotori/email": "workspace:*",
+    "@kotori/jmdict": "workspace:*",
+    "@kotori/nuance": "workspace:*",
+    "@kotori/tts": "workspace:*",
+    "drizzle-orm": "catalog:"
   }
 }

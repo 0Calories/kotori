@@ -1,9 +1,8 @@
 import { assert, describe, it, layer } from "@effect/vitest"
-import { DictionaryRepo, EnrichmentRepo, type EntryRecord, Repositories } from "@kotori/db"
-import { DatabaseMemory } from "@kotori/db/testing"
+import type { EntryRecord } from "@kotori/jmdict"
 import type { Question, Questions } from "@typesafe-ai/sdk"
 import { Effect, Layer } from "effect"
-import { interpretSense, Jev, NuanceEnricher, type SenseAnswers, senseQuestions } from "../src/index.ts"
+import { interpretSense, Jev, judgeEntry, type SenseAnswers, senseQuestions } from "../src/index.ts"
 
 const score = (value: number, confidence = 0.9) =>
   ({ type: "score", score: value, confidence, legend: {}, probabilities: {} }) as const
@@ -98,47 +97,47 @@ const entry = (id: number, headword: string, reading: string, senses: EntryRecor
   senses
 })
 
-const TestLayer = NuanceEnricher.layer.pipe(
-  Layer.provideMerge(Layer.mergeAll(Repositories, FakeJev)),
-  Layer.provideMerge(DatabaseMemory)
-)
+const candidate = (entryId: number, word: string, reading: string, meaning: string) => ({
+  entryId,
+  word,
+  reading,
+  meaning
+})
 
-layer(TestLayer)("NuanceEnricher", (it) => {
-  it.effect("classifies each sense and keeps near-synonyms", () =>
+layer(FakeJev)("judgeEntry", (it) => {
+  it.effect("judges each sense and keeps the candidates Jev finds near-synonyms", () =>
     Effect.gen(function* () {
-      const dictionary = yield* DictionaryRepo
-      yield* dictionary.insertEntries([
-        entry(1, "食べる", "たべる", [sense(["to eat"]), sense(["to live on"])]),
-        entry(2, "食う", "くう", [sense(["to eat"], ["male"])]),
-        entry(3, "召し上がる", "めしあがる", [sense(["to eat", "to drink"], ["hon"])])
+      const taberu = entry(1, "食べる", "たべる", [sense(["to eat"]), sense(["to live on"])])
+      const judgment = yield* judgeEntry(taberu, new Map([["v1", "Ichidan verb"]]), [
+        [candidate(2, "食う", "くう", "to eat"), candidate(3, "召し上がる", "めしあがる", "to eat; to drink")]
       ])
-      yield* dictionary.replaceTags([{ code: "v1", label: "Ichidan verb" }])
 
-      const summary = yield* (yield* NuanceEnricher).enrich(1)
-      assert.deepStrictEqual(summary, { senses: 2, similar: 1, inputTokens: 200 })
+      assert.deepStrictEqual(
+        judgment.senses.map((s) => [s.sense, s.nuance.formality.value, s.model]),
+        [
+          [0, "neutral", "jev-test"],
+          [1, "neutral", "jev-test"]
+        ]
+      )
+      assert.deepStrictEqual(
+        judgment.similar.map((s) => [s.sense, s.similarId, s.difference]),
+        [[0, 2, "more_casual"]]
+      )
+      assert.strictEqual(judgment.inputTokens, 200)
 
-      const firstState = states[0] as {
+      const [first, second] = states as Array<{
         word: string
         part_of_speech: Array<string>
-        candidates: Array<{ word: string }>
-      }
-      assert.strictEqual(firstState.word, "食べる")
-      assert.deepStrictEqual(firstState.part_of_speech, ["Ichidan verb"])
+        candidates?: Array<{ word: string }>
+      }>
+      assert.strictEqual(first?.word, "食べる")
+      assert.deepStrictEqual(first?.part_of_speech, ["Ichidan verb"])
       assert.deepStrictEqual(
-        firstState.candidates.map((c) => c.word),
+        first?.candidates?.map((c) => c.word),
         ["食う", "召し上がる"]
       )
-
-      const repo = yield* EnrichmentRepo
-      const saved = yield* repo.nuanceFor([1])
-      assert.strictEqual(saved.length, 2)
-      assert.strictEqual(saved[0]?.nuance.formality.value, "neutral")
-
-      const similar = yield* repo.similarFor(1)
-      assert.deepStrictEqual(
-        similar.map((row) => [row.similarId, row.difference]),
-        [[2, "more_casual"]]
-      )
+      // A sense without candidates is asked about its nuance alone.
+      assert.isUndefined(second?.candidates)
     })
   )
 })

@@ -2,13 +2,18 @@
   "name": "@kotori/db",
   "version": "0.1.0",
   "private": true,
-  "description": "Postgres database, migrations and repositories",
+  "description": "Postgres schema, migrations and the Database service",
   "type": "module",
   "exports": {
     ".": {
       "@kotori/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./schema": {
+      "@kotori/source": "./src/schema/index.ts",
+      "types": "./dist/schema/index.d.ts",
+      "default": "./dist/schema/index.js"
     },
     "./testing": {
       "@kotori/source": "./src/testing.ts",

@@ -1,22 +1,23 @@
 import { assert, layer } from "@effect/vitest"
-import { Auth, AuthWebhooks, TestAuth } from "@kotori/auth"
-import { UsersRepo } from "@kotori/db"
+import type { Auth } from "@kotori/auth"
+import type { Database } from "@kotori/db"
 import { DatabaseMemory } from "@kotori/db/testing"
-import { Mailbox, MailerMemory } from "@kotori/email"
+import { type Mailer, Mailbox, MailerMemory } from "@kotori/email"
+import { AuthEmailDeliveries } from "@kotori/services"
+import { AuthMemory, TestAuth } from "@kotori/services/testing"
 import { Effect, Layer } from "effect"
 import { HttpRouter } from "effect/http"
 import { WebhooksRoute } from "../src/http/webhooks.ts"
 
-const TestAuthLive = TestAuth.layer
-const TestLayer = AuthWebhooks.layer.pipe(
-  Layer.provideMerge(Layer.mergeAll(Auth.layerMemory, UsersRepo.layer, MailerMemory)),
-  Layer.provideMerge(Layer.mergeAll(TestAuthLive, DatabaseMemory))
+const TestLayer = Layer.mergeAll(AuthMemory, MailerMemory, AuthEmailDeliveries.layer).pipe(
+  Layer.provideMerge(TestAuth.layer),
+  Layer.provideMerge(DatabaseMemory)
 )
 
 /** POSTs to the route as Neon would, with the test layer's services behind it, and returns the status. */
 const post = (headers: Record<string, string>, body: string) =>
   Effect.gen(function* () {
-    const context = yield* Effect.context<AuthWebhooks>()
+    const context = yield* Effect.context<Auth | AuthEmailDeliveries | Database | Mailer>()
     const request = new Request("http://api.test/webhooks/neon-auth", { method: "POST", headers, body })
     return yield* Effect.acquireUseRelease(
       Effect.sync(() => HttpRouter.toWebHandler(WebhooksRoute, { disableLogger: true })),

@@ -1,6 +1,6 @@
+import { Enrichment } from "@kotori/services"
 import { Cause, Console, Duration, Effect, Schedule } from "effect"
 import { Command, Flag } from "effect/cli"
-import { Enrichers } from "../Enrichers.ts"
 import { makeJobRunner } from "../JobRunner.ts"
 
 /** Waits between tries when a cycle fails (usually the database being unreachable): 1 s doubling, at most 1 min. */
@@ -15,15 +15,15 @@ export const work = Command.make(
     )
   },
   Effect.fn(function* ({ idle }) {
-    const kinds = yield* (yield* Enrichers).available
+    const kinds = yield* Enrichment.available
     yield* Console.log(
       kinds.length === 0
         ? "No enrichment providers are configured; waiting anyway. See .env.example."
         : `Worker ready for: ${kinds.join(", ")}`
     )
-    const step = yield* makeJobRunner(kinds)
+    const step = makeJobRunner(kinds)
 
-    // A failed cycle (repository errors are defects) backs off and tries again instead of ending
+    // A failed cycle (database errors are defects) backs off and tries again instead of ending
     // the process: a brief database outage shouldn't use up the machine's restart budget.
     yield* step.pipe(
       Effect.flatMap((worked) => (worked ? Effect.void : Effect.sleep(Duration.millis(idle)))),

@@ -1,8 +1,9 @@
 # Restructuring: a `services` package as the application layer
 
-> Working document, agreed in outline on 2026-10-27. The Drizzle rebuild it waited on has
-> cut over (its plan, `docs/data-model-rebuild.md`, is in the history of PR #22). Pick it up
-> from "Steps" below.
+> Agreed in outline on 2026-10-27 and implemented on 2026-10-28, in the PR that adds
+> `packages/services`. Kept as the record of why the code is laid out this way; "Outcome"
+> at the end says where the implementation settled the open questions or departed from
+> the plan.
 
 ## Goal
 
@@ -116,7 +117,7 @@ Providers after the move, and what they stop doing:
 
 `schema/`, `migrations/`, `Database`, `DatabaseLive`, `DatabaseMemory`, `migrateDatabase`,
 `neonAuth.ts`, and `rows.ts`-style converters if services share them. Nothing else. The
-package stops depending on `domain` once `records.ts` moves out.
+package stops depending on `domain` once `records.ts` moves out (it didn't; see "Outcome").
 
 ## Steps
 
@@ -140,12 +141,39 @@ Each step leaves the workspace green. Order chosen so the API keeps working thro
 6. **Delete `Repositories`** and the repository files; `db` no longer depends on `domain`.
    Update `docs/operations.md` and the README's package table.
 
-## Open questions to settle when picking this up
+## Outcome
 
-- Whether `EntryRecord` (JMDict's shape) belongs in `domain` (it is an input format, not
-  API vocabulary) or in `services/dictionary`. Leaning `services/dictionary`.
-- Whether services expose domain shapes (`Profile`, `StudyCard`) or their own, with the
-  API doing the final mapping. Leaning domain shapes, since the API should stay a thin
-  router and the worker CLI prints the same things.
-- Whether to keep millisecond epochs in the SRS code or move it to `Date`. Not blocking:
-  the service converts either way.
+Settled questions:
+
+- **`EntryRecord` lives in `jmdict`**, next to the parser that produces it, not in
+  `services/dictionary`: `jmdict` sits below `services` and returns it, so the type can't
+  live above it. `services/dictionary` stores entries in that shape and reads them back in
+  it; `nuance` takes it as input.
+- **Services return domain shapes** (`Profile`, `StudyCard`, `Entry`), so the API maps
+  nothing.
+- **Millisecond epochs stay** in the SRS code and the domain; services convert from and to
+  `Date` at their boundary (`rows.ts`).
+
+Where the code departs from the plan:
+
+- **`db` still depends on `domain`.** The schema types its `jsonb` and enum columns with
+  domain types (`$type<Nuance>()`, `$type<AccountStatus>()`), which is what keeps the model
+  and the API vocabulary one thing. `records.ts` was never the reason. `Paths.ts`
+  (`loadDotEnv`, `resolveFromRoot`) stays in `db` too, as infrastructure the apps share.
+- **The `Services` layer holds what services keep besides the database and providers:**
+  settings read once at startup (`AudioSettings`, `CoachingLimits`) and in-process state
+  (`AuthEmailDeliveries`, the webhook ids already emailed). `makeServices(providers,
+  database)` adds the rest, and `ServicesLive` is the production composition both apps
+  provide. `ServicesContext` names everything a use case may require.
+- **API handlers capture the services' context** once per group, when its layer is built
+  (`withServices` in `apps/api/src/http/services.ts`). A handler that required `Database`
+  directly would turn it into a per-request router requirement, which `HttpRouter.serve`
+  meets in production but nothing meets under `HttpApiTest`.
+- **The API still imports `auth`**, only to proxy `/api/auth/*` (`Auth.forward`): a service
+  wrapping a byte-for-byte proxy would add nothing.
+- **The worker keeps the stale-job sweep's schedule** (once a minute, in `JobRunner.ts`);
+  `Enrichment.claimAndRun` claims, runs and settles one job, and `Enrichment.requeueStale`
+  decides what counts as stale.
+- **Tests fake Managed Auth over the database.** `@kotori/services/testing` has `TestAuth`
+  and `AuthMemory`, which keep users and sessions in a `neon_auth` stand-in that
+  `DatabaseMemory` creates, so services read identity in tests exactly as in production.

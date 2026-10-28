@@ -1,8 +1,8 @@
-import { Auth } from "@kotori/auth"
 import { AuthUnavailable, Authorization, CurrentUser, PendingApproval, Unauthorized } from "@kotori/domain"
+import { Accounts } from "@kotori/services"
 import { Effect, Layer, Option } from "effect"
 import { HttpServerRequest } from "effect/http"
-import { Accounts } from "../services/Accounts.ts"
+import { withServices } from "./services.ts"
 
 /** Groups a signed-in but unapproved learner may still call. */
 const OPEN_TO_PENDING = new Set(["account"])
@@ -17,31 +17,34 @@ const OPEN_TO_PENDING = new Set(["account"])
 export const AuthorizationLive = Layer.effect(
   Authorization,
   Effect.gen(function* () {
-    const auth = yield* Auth
-    const accounts = yield* Accounts
+    const run = yield* withServices
+    const signedIn = (credentials: Accounts.Credentials) =>
+      Accounts.authenticate(credentials).pipe(
+        Effect.mapError(
+          () => new AuthUnavailable({ message: "Sign-in can't be checked right now. Try again in a moment." })
+        ),
+        // The profile is created on first sight, pending until an admin approves it.
+        Effect.flatMap((user) =>
+          Option.isNone(user) ? Effect.succeedNone : Effect.asSome(Accounts.profile(user.value))
+        ),
+        run
+      )
 
     return Authorization.of(
       Effect.fn(function* (httpEffect, { group }) {
         const request = yield* HttpServerRequest.HttpServerRequest
         const bearer = request.headers["authorization"]?.match(/^Bearer\s+(.+)$/i)?.[1]
-        const user = yield* (
-          bearer === undefined ? auth.sessionFromCookies(request.headers) : auth.verifyToken(bearer)
-        ).pipe(
-          Effect.mapError(
-            () => new AuthUnavailable({ message: "Sign-in can't be checked right now. Try again in a moment." })
-          )
-        )
-        if (Option.isNone(user)) {
+        const profile = yield* signedIn(bearer === undefined ? { cookies: request.headers } : { token: bearer })
+        if (Option.isNone(profile)) {
           return yield* new Unauthorized({ message: "Please sign in." })
         }
 
-        const profile = yield* accounts.profile(user.value)
-        const approved = profile.status === "approved" || profile.role === "admin"
+        const approved = profile.value.status === "approved" || profile.value.role === "admin"
         if (!approved && !OPEN_TO_PENDING.has(group.identifier)) {
           return yield* new PendingApproval({ message: "Your account is waiting for approval." })
         }
 
-        return yield* Effect.provideService(httpEffect, CurrentUser, { id: profile.id, profile })
+        return yield* Effect.provideService(httpEffect, CurrentUser, { id: profile.value.id, profile: profile.value })
       })
     )
   })

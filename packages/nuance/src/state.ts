@@ -1,4 +1,4 @@
-import type { EntryRecord } from "@kotori/db"
+import type { EntryRecord } from "@kotori/jmdict"
 import { romanize } from "@kotori/japanese"
 
 export interface CandidateState {

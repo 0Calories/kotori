@@ -27,8 +27,8 @@ export const pgCodecs: PgCodecs = {
 }
 
 /**
- * The application database as a Drizzle instance. Repositories take this and build
- * typed queries from the tables in `./schema`. Transactions are `db.transaction(tx => …)`;
+ * The application database as a Drizzle instance. Only `@kotori/services` takes this,
+ * building typed queries from the tables in `./schema`. Transactions are `db.transaction(tx => …)`;
  * they run on the underlying client's `withTransaction`, so Effect SQL and Drizzle
  * share one connection and one transaction.
  */

@@ -8,28 +8,22 @@
   "include": ["src"],
   "references": [
     {
-      "path": "../../packages/ai/tsconfig.lib.json"
-    },
-    {
-      "path": "../../packages/auth/tsconfig.lib.json"
-    },
-    {
-      "path": "../../packages/db/tsconfig.lib.json"
-    },
-    {
-      "path": "../../packages/domain/tsconfig.lib.json"
-    },
-    {
-      "path": "../../packages/email/tsconfig.lib.json"
+      "path": "../../packages/services/tsconfig.lib.json"
     },
     {
       "path": "../../packages/jmdict/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/nuance/tsconfig.lib.json"
+      "path": "../../packages/db/tsconfig.lib.json"
     },
     {
       "path": "../../packages/tts/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/nuance/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/ai/tsconfig.lib.json"
     }
   ]
 }

@@ -15,14 +15,15 @@
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
-    "@kotori/ai": "workspace:*",
-    "@kotori/auth": "workspace:*",
     "@kotori/db": "workspace:*",
-    "@kotori/domain": "workspace:*",
-    "@kotori/email": "workspace:*",
     "@kotori/jmdict": "workspace:*",
+    "@kotori/services": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@kotori/ai": "workspace:*",
     "@kotori/nuance": "workspace:*",
     "@kotori/tts": "workspace:*",
-    "effect": "catalog:"
+    "drizzle-orm": "catalog:"
   }
 }

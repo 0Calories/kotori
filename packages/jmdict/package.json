@@ -2,7 +2,7 @@
   "name": "@kotori/jmdict",
   "version": "0.1.0",
   "private": true,
-  "description": "Downloads, parses and imports JMDict into the Kotori database",
+  "description": "Downloads, reads and parses EDRDG's JMdict",
   "type": "module",
   "exports": {
     ".": {
@@ -15,7 +15,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@kotori/db": "workspace:*",
     "effect": "catalog:"
   }
 }

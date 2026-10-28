@@ -1,0 +1,6 @@
+export { audioUrl, clip, isAudioKey, speak, voiceEntry } from "./audio.ts"
+export { backlog, coverage } from "./backlog.ts"
+export { examplesFor, writeExamples } from "./examples.ts"
+export { enqueue, jobCounts, type JobKind, requeueStale, statusFor } from "./jobs.ts"
+export { EntryNotFound, judgeNuance, nuanceFor } from "./nuance.ts"
+export { available, claimAndRun, run } from "./run.ts"

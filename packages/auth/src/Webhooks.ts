@@ -1,16 +1,10 @@
-import { UsersRepo } from "@kotori/db"
-import { type MailError, Mailer, type OneTime, templates } from "@kotori/email"
-import { Clock, Context, Duration, Effect, Layer, Option, Schema } from "effect"
+import { Clock, Duration, Effect, Option, Schema } from "effect"
 import type { Headers } from "effect/http"
-import { emailLanguage } from "./Approvals.ts"
-import { Auth, type AuthUpstreamError } from "./Auth.ts"
+import { Auth } from "./Auth.ts"
 import { signatureIsValid } from "./WebhookSignature.ts"
 
 /** Neon's replay window: a correctly signed request older than this is still turned away. */
 const MAX_AGE = Duration.minutes(5)
-
-/** How long a delivered event id is remembered, comfortably past Neon's 15 s of retries. */
-const REMEMBER = Duration.minutes(15)
 
 /** Not provably from Managed Auth (headers, signature, key or age). Nothing is sent. */
 export class WebhookRejected extends Schema.TaggedError<WebhookRejected>()("WebhookRejected", {
@@ -46,120 +40,79 @@ const OtpData = Schema.Struct({
 })
 const MagicLinkData = Schema.Struct({ link_type: Purpose, link_url: Schema.String })
 
-const TEMPLATES = {
-  "email-verification": templates.verifyEmail,
-  "forget-password": templates.resetPassword,
-  "sign-in": templates.signIn
+/** A code or link Managed Auth wants emailed, from a verified `send.otp` or `send.magic_link`. */
+export interface OneTimeEmail {
+  /** Neon's id for the event, the same on every retry of it. */
+  readonly eventId: string
+  readonly purpose: typeof Purpose.Type
+  readonly secret: { readonly code: string } | { readonly url: string }
+  readonly to: string
+  readonly userId: string | undefined
+  readonly name: string | null
 }
-
-export type WebhookOutcome = "sent" | "duplicate" | "ignored"
 
 /**
  * Managed Better Auth's `send.otp` and `send.magic_link` webhooks, which replace its
- * own emails, so verification, reset and sign-in codes go out through Resend with
- * Kotori's templates, in the learner's language. Fails closed: nothing is sent, and
- * the request is refused, unless the signature verifies against Managed Auth's keys.
+ * own emails. Fails closed: unless the signature verifies against Managed Auth's keys
+ * and the request is fresh, the body isn't even parsed. Other event types are verified
+ * and answered with none. Sending the email is the caller's.
  */
-export class AuthWebhooks extends Context.Service<
-  AuthWebhooks,
-  {
-    /** Verifies a webhook and delivers what it carries; other event types are acknowledged and ignored. */
-    receive(
-      headers: Headers.Headers,
-      body: Uint8Array
-    ): Effect.Effect<WebhookOutcome, WebhookRejected | WebhookUnusable | AuthUpstreamError | MailError>
+export const verifyWebhook = Effect.fn("AuthWebhooks.verify")(function* (headers: Headers.Headers, body: Uint8Array) {
+  const auth = yield* Auth
+  const reject = (reason: string) => Effect.fail(new WebhookRejected({ reason }))
+  const unusable = (reason: string) => Effect.fail(new WebhookUnusable({ reason }))
+
+  const signature = headers["x-neon-signature"]
+  const kid = headers["x-neon-signature-kid"]
+  const timestamp = headers["x-neon-timestamp"]
+  if (signature === undefined || kid === undefined || timestamp === undefined) {
+    return yield* reject("missing signature headers")
   }
->()("@kotori/auth/AuthWebhooks") {
-  static readonly layer = Layer.effect(
-    AuthWebhooks,
-    Effect.gen(function* () {
-      const auth = yield* Auth
-      const users = yield* UsersRepo
-      const mailer = yield* Mailer
+  if (!/^\d{1,16}$/.test(timestamp)) return yield* reject("malformed timestamp")
+  const key = yield* auth.webhookKey(kid)
+  if (Option.isNone(key)) return yield* reject(`no Ed25519 key ${kid} in the key set`)
+  if (!signatureIsValid(body, signature, timestamp, key.value)) return yield* reject("bad signature")
+  if ((yield* Clock.currentTimeMillis) - Number(timestamp) > Duration.toMillis(MAX_AGE)) {
+    return yield* reject("timestamp too old")
+  }
+  // Only now is the body Neon's; parse it, not re-serialise it.
+  const text = yield* Effect.try({
+    try: () => new TextDecoder("utf-8", { fatal: true }).decode(body),
+    catch: () => new WebhookUnusable({ reason: "body is not UTF-8" })
+  })
+  const event = yield* decodeEnvelope(text).pipe(
+    Effect.mapError((error) => new WebhookUnusable({ reason: `unexpected payload: ${error.message}` }))
+  )
 
-      // Neon retries with the same event id when a response is lost; this process doesn't send twice.
-      const delivered = new Map<string, number>()
-      const remember = (eventId: string, now: number) => {
-        for (const [id, at] of delivered) if (now - at > Duration.toMillis(REMEMBER)) delivered.delete(id)
-        delivered.set(eventId, now)
-      }
-
-      const reject = (reason: string) => Effect.fail(new WebhookRejected({ reason }))
-      const unusable = (reason: string) => Effect.fail(new WebhookUnusable({ reason }))
-
-      const verify = Effect.fn("AuthWebhooks.verify")(function* (headers: Headers.Headers, body: Uint8Array) {
-        const signature = headers["x-neon-signature"]
-        const kid = headers["x-neon-signature-kid"]
-        const timestamp = headers["x-neon-timestamp"]
-        if (signature === undefined || kid === undefined || timestamp === undefined) {
-          return yield* reject("missing signature headers")
-        }
-        if (!/^\d{1,16}$/.test(timestamp)) return yield* reject("malformed timestamp")
-        const key = yield* auth.webhookKey(kid)
-        if (Option.isNone(key)) return yield* reject(`no Ed25519 key ${kid} in the key set`)
-        if (!signatureIsValid(body, signature, timestamp, key.value)) return yield* reject("bad signature")
-        if ((yield* Clock.currentTimeMillis) - Number(timestamp) > Duration.toMillis(MAX_AGE)) {
-          return yield* reject("timestamp too old")
-        }
-        // Only now is the body Neon's; parse it, not re-serialise it.
-        const text = yield* Effect.try({
-          try: () => new TextDecoder("utf-8", { fatal: true }).decode(body),
-          catch: () => new WebhookUnusable({ reason: "body is not UTF-8" })
-        })
-        return yield* decodeEnvelope(text).pipe(
-          Effect.mapError((error) => new WebhookUnusable({ reason: `unexpected payload: ${error.message}` }))
-        )
-      })
-
-      const oneTimeFor = Effect.fn("AuthWebhooks.oneTime")(function* (event: typeof Envelope.Type) {
-        if (event.event_type === "send.otp") {
-          const data = yield* Schema.decodeUnknownEffect(OtpData)(event.event_data).pipe(
-            Effect.mapError((error) => new WebhookUnusable({ reason: `unexpected send.otp data: ${error.message}` }))
+  if (event.event_type !== "send.otp" && event.event_type !== "send.magic_link") {
+    yield* Effect.logInfo(`Ignoring Managed Auth event ${event.event_type}`)
+    return Option.none<OneTimeEmail>()
+  }
+  const { purpose, secret } =
+    event.event_type === "send.otp"
+      ? yield* Schema.decodeUnknownEffect(OtpData)(event.event_data).pipe(
+          Effect.mapError((error) => new WebhookUnusable({ reason: `unexpected send.otp data: ${error.message}` })),
+          Effect.flatMap((data) =>
+            data.delivery_preference === "sms"
+              ? unusable("SMS codes are not delivered")
+              : Effect.succeed({ purpose: data.otp_type, secret: { code: data.otp_code } })
           )
-          if (data.delivery_preference === "sms") return yield* unusable("SMS codes are not delivered")
-          return { purpose: data.otp_type, secret: { code: data.otp_code } satisfies OneTime }
-        }
-        const data = yield* Schema.decodeUnknownEffect(MagicLinkData)(event.event_data).pipe(
+        )
+      : yield* Schema.decodeUnknownEffect(MagicLinkData)(event.event_data).pipe(
           Effect.mapError(
             (error) => new WebhookUnusable({ reason: `unexpected send.magic_link data: ${error.message}` })
-          )
+          ),
+          Effect.map((data) => ({ purpose: data.link_type, secret: { url: data.link_url } }))
         )
-        return { purpose: data.link_type, secret: { url: data.link_url } satisfies OneTime }
-      })
+  const to = event.user?.email
+  if (to === undefined || to === "") return yield* unusable(`${event.event_type} has no email address`)
 
-      const receive = Effect.fn("AuthWebhooks.receive")(
-        function* (headers: Headers.Headers, body: Uint8Array) {
-          const event = yield* verify(headers, body)
-          if (event.event_type !== "send.otp" && event.event_type !== "send.magic_link") {
-            yield* Effect.logInfo(`Ignoring Managed Auth event ${event.event_type}`)
-            return "ignored" as const
-          }
-          if (delivered.has(event.event_id)) return "duplicate" as const
-
-          const { purpose, secret } = yield* oneTimeFor(event)
-          const to = event.user?.email
-          if (to === undefined || to === "") return yield* unusable(`${event.event_type} has no email address`)
-          // Same rule as the approval email: the learner's chosen language once they've onboarded.
-          const profile = event.user?.id === undefined ? Option.none() : yield* users.byId(event.user.id)
-          const language = emailLanguage(Option.getOrUndefined(profile))
-          const name = event.user?.name?.trim() || null
-
-          yield* mailer.send(TEMPLATES[purpose]({ to, name, language }, secret))
-          remember(event.event_id, yield* Clock.currentTimeMillis)
-          yield* Effect.logInfo(`Sent the ${purpose} email`).pipe(Effect.annotateLogs({ language }))
-          return "sent" as const
-        },
-        (effect, headers) =>
-          effect.pipe(
-            Effect.annotateLogs({
-              webhookEvent: headers["x-neon-event-id"] ?? "",
-              attempt: headers["x-neon-delivery-attempt"] ?? ""
-            }),
-            Effect.tapError((error) => Effect.logWarning("Managed Auth webhook not delivered", error))
-          )
-      )
-
-      return AuthWebhooks.of({ receive })
-    })
-  )
-}
+  return Option.some<OneTimeEmail>({
+    eventId: event.event_id,
+    purpose,
+    secret,
+    to,
+    userId: event.user?.id,
+    name: event.user?.name?.trim() || null
+  })
+})
