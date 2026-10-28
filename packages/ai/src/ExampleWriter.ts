@@ -1,4 +1,4 @@
-import { Formality, furiganaToText } from "@kotori/domain"
+import { Formality, furiganaToText, SentenceMedium, SentenceTone, SpeakerAge, SpeakerGender } from "@kotori/domain"
 import { Context, Effect, Layer, Schema } from "effect"
 import { Claude, type ClaudeError } from "./Claude.ts"
 import { examplesSystem } from "./prompts.ts"
@@ -13,6 +13,11 @@ export const ExamplesOutput = Schema.Struct({
           furigana: Schema.String,
           en: Schema.String,
           formality: Formality,
+          speaker: Schema.Struct({ gender: SpeakerGender, age: SpeakerAge }),
+          medium: SentenceMedium,
+          /** Regional variety as a lowercase label ("kansai"); null for the standard language. */
+          variety: Schema.NullOr(Schema.String),
+          tone: SentenceTone,
           note: Schema.NullOr(Schema.String)
         })
       )
@@ -26,6 +31,8 @@ export interface ExampleSense {
   readonly partsOfSpeech: ReadonlyArray<string>
   /** Human-readable usage tags and notes (e.g. "honorific language", "colloquial"). */
   readonly notes: ReadonlyArray<string>
+  /** Dialect labels from JMDict (e.g. "Kansai-ben"); the sentences are written in that dialect. */
+  readonly dialects: ReadonlyArray<string>
 }
 
 export interface ExampleRequest {
@@ -42,10 +49,17 @@ export interface WrittenExample {
   readonly furigana: string
   readonly en: string
   readonly formality: Formality
+  readonly speakerGender: SpeakerGender
+  readonly speakerAge: SpeakerAge
+  readonly medium: SentenceMedium
+  /** Lowercased regional variety label, or null for the standard language. */
+  readonly variety: string | null
+  readonly tone: SentenceTone
   readonly note: string | null
 }
 
-const describe = (request: ExampleRequest) =>
+/** The user turn: the headword and each sense with the hints that shape its sentences. */
+export const describeRequest = (request: ExampleRequest) =>
   [
     `Headword: ${request.headword} (${request.reading})`,
     request.otherForms.length > 0 ? `Other forms: ${request.otherForms.join(", ")}` : null,
@@ -55,6 +69,7 @@ const describe = (request: ExampleRequest) =>
       [
         `${sense.index}. ${sense.glosses.join("; ")}`,
         sense.partsOfSpeech.length > 0 ? `   part of speech: ${sense.partsOfSpeech.join(", ")}` : null,
+        sense.dialects.length > 0 ? `   dialect: ${sense.dialects.join(", ")} (write every sentence in it)` : null,
         sense.notes.length > 0 ? `   notes: ${sense.notes.join("; ")}` : null
       ]
         .filter((line) => line !== null)
@@ -63,6 +78,17 @@ const describe = (request: ExampleRequest) =>
   ]
     .filter((line) => line !== null)
     .join("\n")
+
+/** "Kansai-ben", "Kansai dialect" and "kansai" all mean the same variety to casting. */
+const normalizeVariety = (label: string | null): string | null => {
+  if (label === null) return null
+  const normalized = label
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]*(ben|dialect|english|japanese)$/u, "")
+    .trim()
+  return normalized === "" || normalized === "standard" || normalized === "null" ? null : normalized
+}
 
 export class ExampleWriter extends Context.Service<
   ExampleWriter,
@@ -81,7 +107,7 @@ export class ExampleWriter extends Context.Service<
         const output = yield* claude.generate({
           schema: ExamplesOutput,
           system: examplesSystem,
-          prompt: describe(request),
+          prompt: describeRequest(request),
           effort: "low"
         })
         return output.senses
@@ -94,6 +120,11 @@ export class ExampleWriter extends Context.Service<
               furigana: furiganaToText(example.furigana) === example.ja ? example.furigana : example.ja,
               en: example.en,
               formality: example.formality,
+              speakerGender: example.speaker.gender,
+              speakerAge: example.speaker.age,
+              medium: example.medium,
+              variety: normalizeVariety(example.variety),
+              tone: example.tone,
               note: example.note
             }))
           )

@@ -154,9 +154,11 @@ Prompt additions:
 - "variety": the regional variety the sentence is written in, or null for the default one.
 - "tone": the dominant feel of the delivery. Stored for later voice settings, not used for
   selection yet.
-- **Dialect rule:** when a sense's notes include a dialect tag (Kansai-ben, Osaka-ben,
-  Tohoku-ben...), write every example for that sense *in* that dialect, not in the standard
-  language, and label it. This fixes dialect at generation, so a Kansai voice never reads a
+- **Dialect rule:** the request lists a sense's JMDict dialect tags (Kansai-ben, Osaka-ben,
+  Tohoku-ben...) on their own `dialect:` line, apart from the other notes, and the prompt
+  says to write every example for that sense *in* that dialect, not in the standard
+  language, and to label it. The writer lowercases the label and strips suffixes like
+  "-ben" and "dialect" so "Kansai-ben" and "kansai" store the same variety. This fixes dialect at generation, so a Kansai voice never reads a
   Tokyo sentence.
 
 `ExamplesOutput`, `WrittenExample` and the `examples` table gain matching columns:

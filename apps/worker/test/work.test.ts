@@ -63,6 +63,10 @@ const FakeClaude = Layer.succeed(
                 furigana: "パンを{食|た}べる。",
                 en: "I eat bread.",
                 formality: "neutral",
+                speaker: { gender: "unspecified", age: "unspecified" },
+                medium: "conversation",
+                variety: null,
+                tone: "neutral",
                 note: null
               }
             ]

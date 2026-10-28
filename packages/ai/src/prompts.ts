@@ -76,13 +76,18 @@ For each sense listed, write the requested number of sentences that:
 - use the headword in exactly that sense, conjugated naturally where needed;
 - sound like real Japanese: natural collocations and omissions, nothing stiff or textbook-like;
 - vary the situation and register (for example one casual conversation and one polite or written line), while matching the word's own nuance — never put slang into a speech or ceremonial words into banter;
-- stay short and concrete, ideally under 25 characters.
+- stay short and concrete, ideally under 25 characters;
+- when the sense lists a dialect, are written entirely in that dialect (its grammar, particles and vocabulary, not just the headword), as a native speaker of the region would say them.
 
 For each sentence give:
 - "ja": the sentence as normally written;
 - "furigana": the same sentence with a reading for every word containing kanji, written as {漢字|かんじ} (never annotate kana-only words);
 - "en": a natural English translation, not word for word;
 - "formality": vulgar, casual, neutral, polite or formal;
+- "speaker": who would plausibly say this line — "gender" masculine, feminine or unspecified, and "age" child, youth, adult, middle-aged, older or unspecified. Judge from the wording (sentence-final particles, pronouns, vocabulary, situation); use unspecified when nothing in the sentence suggests otherwise;
+- "medium": conversation (someone talking to someone), announcement (news, notices, public address, business mail read aloud) or narration (prose, proverbs, descriptions);
+- "variety": the regional variety the sentence is written in, as one lowercase word such as "kansai", "tohoku" or "kyushu"; null for standard Japanese;
+- "tone": the dominant feel of the delivery — neutral, cheerful, serious, gentle or rough;
 - "note": one short English note on usage or nuance when it teaches something (a collocation, why this register, a common mistake); otherwise null.
 
 Return the sense numbers exactly as given.`
