@@ -47,36 +47,59 @@ Non-goals for this iteration: user-selectable voices per sentence, voice setting
 
 ## Design
 
-### 1. Voice tags and the cast
+### 1. Voice tags and the casts
 
-Each curated voice carries a set of **trait tags**. Tags are grouped into dimensions; a
-voice has at most one tag from each single-valued dimension and any number from the
-multi-valued ones. Selection works on tags, so adding a voice never changes code, and two
-voices can cover overlapping situations.
+Each curated voice carries **trait tags**. Tags are grouped into dimensions; a voice has
+exactly one tag from each single-valued dimension (gender, age, variety) and any number
+from the multi-valued ones. Selection works on tags, so adding a voice never changes code,
+and two voices can cover overlapping situations.
+
+**Variety** is the regional variety of the language in the linguist's sense. It covers both
+Japanese dialects (Kansai-ben differs in grammar and vocabulary) and national varieties of
+English (mostly accent and spelling), without calling the latter "dialects". Each language
+has its own list of varieties and its own default, which is the variety an unlabelled
+sentence is read in: `standard` for Japanese, `american` for English.
 
 ```ts
 // packages/tts/src/voices.ts (target: packages/ai/providers/elevenlabs/voices.ts)
-export const VOICE_TAGS = {
-  gender:    ["masculine", "feminine", "androgynous"],                 // one
-  age:       ["child", "youth", "adult", "middle-aged", "older"],      // one
-  dialect:   ["standard", "kansai", "tohoku", "kyushu",                // one; English dialects
-              "american", "british", "australian"],                    // live in the same dimension
-  formality: ["vulgar", "casual", "neutral", "polite", "formal"],      // many: registers it sounds right in
-  medium:    ["conversation", "announcement", "narration"],            // many
-  tone:      ["warm", "bright", "calm", "serious", "rough", "gentle"], // many; unused by scoring for now
-  use:       ["headword"]                                              // many: eligible as a dictionary voice
-} as const
+export const VOICE_GENDERS = ["masculine", "feminine", "androgynous"]
+export const VOICE_AGES    = ["child", "youth", "adult", "middle-aged", "older"]
+export const VOICE_MEDIUMS = ["conversation", "announcement", "narration"]
+export const VOICE_TONES   = ["warm", "bright", "calm", "serious", "rough", "gentle"]  // unused by scoring for now
+export const VARIETIES = {
+  ja: ["standard", "kansai", "tohoku", "kyushu"],
+  en: ["american", "british", "australian"]
+}
+export const DEFAULT_VARIETY = { ja: "standard", en: "american" }
 
-export interface Voice {
+export interface VoiceTags<L extends Language> {
+  readonly gender: VoiceGender                 // one
+  readonly age: VoiceAge                       // one
+  readonly variety: Variety<L>                 // one, typed by the voice's language
+  readonly formality: ReadonlyArray<Formality> // registers it sounds right in
+  readonly medium: ReadonlyArray<VoiceMedium>
+  readonly tone: ReadonlyArray<VoiceTone>
+  readonly headword: boolean                   // eligible as a dictionary voice
+}
+
+export interface Voice<L extends Language> {
   readonly id: string                 // stable Kotori id, e.g. "ja-kyoko"
-  readonly language: Language
-  readonly providerId: string         // ElevenLabs voice id
+  readonly language: L
+  readonly providerId: string | null  // ElevenLabs voice id; null until the role is cast
   readonly name: string
-  readonly tags: ReadonlySet<VoiceTag>
+  readonly tags: VoiceTags<L>
   /** One line for Jev and for humans: how this voice sounds and when to use it. */
   readonly description: string
 }
+
+export const JAPANESE_CAST: ReadonlyArray<Voice<"ja">>
+export const ENGLISH_CAST: ReadonlyArray<Voice<"en">>
+export const CASTS = { ja: JAPANESE_CAST, en: ENGLISH_CAST }
 ```
+
+Each language has its own cast, so the two can grow independently and a voice can never be
+tagged with another language's variety. Helpers `castVoices(language)` and
+`headwordVoices(language)` return the voices that have a provider id.
 
 Initial cast. Provider ids are chosen by auditioning the ElevenLabs library; the tags are
 the contract. Each language is cast independently against the same tag vocabulary, so the
@@ -103,7 +126,7 @@ English:
 | en-announcer | masculine, middle-aged, american, polite, formal, announcement, narration, serious, headword | |
 | en-casual-f | feminine, youth, american, casual, neutral, vulgar, conversation, bright | |
 | en-casual-m | masculine, youth, american, casual, neutral, vulgar, conversation, rough | |
-| en-british-m | masculine, adult, british, neutral, polite, formal, conversation, narration, calm, headword | Dialect variety for the English dictionary |
+| en-british-m | masculine, adult, british, neutral, polite, formal, conversation, narration, calm, headword | Variety coverage for the English dictionary |
 | en-elder-f | feminine, older, american, neutral, polite, narration, gentle | |
 
 The cast lives in code, not env vars. `KOTORI_VOICE_JA` / `KOTORI_VOICE_EN` are removed;
@@ -119,7 +142,7 @@ marginal cost. They are language-neutral and will apply unchanged to English exa
 ```ts
 speaker: { gender: "masculine" | "feminine" | "unspecified", age: "child" | "youth" | "adult" | "middle-aged" | "older" | "unspecified" }
 medium:  "conversation" | "announcement" | "narration"
-dialect: string | null     // "kansai", "british"...; null when standard
+variety: string | null     // "kansai", "british"...; null for the default variety
 tone:    "neutral" | "cheerful" | "serious" | "gentle" | "rough"
 ```
 
@@ -128,7 +151,7 @@ Prompt additions:
 - "speaker": who would plausibly say this line; unspecified when the sentence gives no hint.
 - "medium": conversation (someone talking to someone), announcement (news, notices, public
   address, business mail read aloud) or narration (prose, proverbs, descriptions).
-- "dialect": the regional variety the sentence is written in, or null for the standard one.
+- "variety": the regional variety the sentence is written in, or null for the default one.
 - "tone": the dominant feel of the delivery. Stored for later voice settings, not used for
   selection yet.
 - **Dialect rule:** when a sense's notes include a dialect tag (Kansai-ben, Osaka-ben,
@@ -137,7 +160,7 @@ Prompt additions:
   Tokyo sentence.
 
 `ExamplesOutput`, `WrittenExample` and the `examples` table gain matching columns:
-`speakerGender`, `speakerAge`, `medium`, `dialect`, `tone`, nullable so existing rows stay
+`speakerGender`, `speakerAge`, `medium`, `variety`, `tone`, nullable so existing rows stay
 valid. One migration in `packages/db/migrations/`.
 
 ### 3. The selector
@@ -147,31 +170,38 @@ Two pure functions, fully unit-tested, no I/O:
 ```ts
 // packages/tts/src/casting.ts (target: features/audio/casting.ts)
 
-/** What the sentence asks of a voice, derived once and used for every language. */
-export interface Wanted {
-  readonly dialect: string | null              // hard
+/**
+ * A casting brief: the kind of speaker a sentence calls for, independent of
+ * language. Derived once per sentence and used to cast both its Japanese and
+ * its English clip, so the two land on matching speakers.
+ */
+export interface CastingBrief {
+  readonly variety: Variety | null             // hard; null means the language's default
   readonly gender: "masculine" | "feminine" | null
-  readonly age: VoiceTag<"age"> | null
+  readonly age: VoiceAge | null
   readonly formality: Formality
-  readonly medium: VoiceTag<"medium"> | null
+  readonly medium: VoiceMedium | null
   readonly slang: boolean
   readonly archaic: boolean
 }
 
-export const wanted = (input: {
-  sentence: ExampleRow
+export const briefFor = (input: {
+  sentence: SentenceSignals    // formality plus the new example columns
   sense: { misc: string[]; dialects: string[]; fields: string[] }
   nuance: Nuance | null
-}): Wanted
+}): CastingBrief
 
-/** Voices of `language` ranked by fit; ties share a score. */
-export const rank = (wanted: Wanted, cast: ReadonlyArray<Voice>, language: Language): ReadonlyArray<{ voice: Voice; score: number }>
+/** Cast voices of `language` ranked by fit against the brief. */
+export const rank = (brief: CastingBrief, language: Language, casts = CASTS): ReadonlyArray<{ voice: Voice; score: number }>
+
+/** The top voices scoring could not separate; more than one means Jev decides. */
+export const tied = (ranked): ReadonlyArray<{ voice: Voice; score: number }>
 ```
 
-`wanted` merges the signals, most specific first:
+`briefFor` merges the signals, most specific first:
 
-- dialect: sentence `dialect` → sense `dialects` (`ksb`/`osb` → kansai, `thb` → tohoku,
-  `kyu` → kyushu) → null.
+- variety: sentence `variety` → sense `dialects` (`ksb`/`osb`/`kyb` → kansai, `thb` →
+  tohoku, `kyu` → kyushu) → null.
 - gender: sentence `speakerGender` → misc `male`/`fem` → nuance gender at confidence ≥ 0.6.
 - age: sentence `speakerAge` → misc `chn` → child; nuance age youth/older.
 - medium: sentence `medium`; else formality `formal` with nuance medium `written` or a
@@ -179,23 +209,23 @@ export const rank = (wanted: Wanted, cast: ReadonlyArray<Voice>, language: Langu
 - slang: formality `vulgar`, misc `sl`/`vulg`, or nuance `cautions.slang`.
 - archaic: misc `arch`/`dated` or nuance currency archaic/dated.
 
-`rank` scores each voice of the language:
+`rank` scores each cast voice of the language:
 
-1. **Hard filter.** Voice dialect must equal the wanted dialect; when wanted is null, the
-   voice must carry the language's standard dialect (`standard` for ja, `american` for en by
-   default; `british` and others are reached only when wanted). A voice whose `formality`
-   tags do not include the sentence formality is dropped unless that would drop everyone.
+1. **Hard filter.** The voice's variety must equal the brief's; when the brief has none, the
+   voice must carry the language's default variety, so `british` and `kansai` voices are
+   reached only when asked for. A voice whose `formality` tags do not include the sentence
+   formality is dropped unless that would drop everyone.
 2. **Score.** Start at 0. Gender match +3, mismatch −3 (androgynous counts as a half match,
    +1). Age exact +2, adjacent (youth/adult, adult/middle-aged, middle-aged/older) +1,
-   otherwise −1. Medium tag present +2. Slang wanted and voice has `vulgar` or `casual` +1;
-   archaic wanted and the voice is `older` +1 (narration is already rewarded by the medium match). Formality in the voice's tags +1
-   on top of the filter, so a voice that lists it explicitly beats one let through by the
-   fallback.
-3. **Result.** Sorted by score. Voices within 1 point of the top form the tie set.
+   otherwise −1. Medium tag present +2. Slang in the brief and voice has `vulgar` or
+   `casual` +1; archaic in the brief and the voice is `older` +1 (narration is already
+   rewarded by the medium match). Formality in the voice's tags +1 on top of the filter, so a
+   voice that lists it explicitly beats one let through by the fallback.
+3. **Result.** Sorted by score. Voices within 1 point of the top form the tie set (`tied`).
 
 Weights are constants at the top of the file with a comment on each; tuning them is the
 expected way to adjust behaviour. Because the English and Japanese clips of one sentence
-are ranked from the same `Wanted`, they land on matching speakers without any cross-language
+are ranked from the same brief, they land on matching speakers without any cross-language
 mapping.
 
 ### 4. Jev as the tiebreaker
@@ -263,10 +293,10 @@ hearing a word from more than one speaker is better for learners than one canoni
 - `speak(text, language, voice: Voice)` builds the key from `voice.providerId`, checks the
   cache and budget, synthesises and saves `voiceId` and `voice`.
 - `speakDefault(text, language)` keeps Coaching's `/speak` working: it uses the first
-  `headword` voice of the language. Coaching can pass a `Wanted` later if it wants cast
+  `headword` voice of the language. Coaching can pass a `CastingBrief` later if it wants cast
   phrases.
 - `enrichEntry` loads senses (`misc`, `dialects`, `fields`), nuance via `nuanceFor`, and
-  examples with the new columns, once per entry. For each example it computes `wanted`,
+  examples with the new columns, once per entry. For each example it computes the brief,
   ranks each configured language, calls Jev on ties, voices and links with
   `linkExampleAudio(id, language, key, { castBy, score })`. Headwords follow section 5.
 - `EnrichmentRepo`: `examplesFor` returns the new columns; `linkExampleAudio` takes the
@@ -288,14 +318,14 @@ kotori audio regen --headword 1234567                  only the headword clips
 kotori audio regen ... --voice ja-casual-m             force a cast voice by Kotori id
 kotori audio regen ... --provider-voice <elevenlabs id> force any ElevenLabs voice, cast or not (auditioning)
 kotori audio regen ... --language ja|en                one side only (default: all configured)
-kotori audio regen ... --dry-run                       print wanted, ranking, Jev's pick and cost; change nothing
+kotori audio regen ... --dry-run                       print the brief, ranking, Jev's pick and cost; change nothing
 kotori audio show --example 123 | --entry 1234567      current clips: voice, provider id, key, castBy, score, created at
 kotori audio voices [--language ja]                    list the cast with tags
 ```
 
 Behaviour:
 
-- Runs the same `wanted` → `rank` → Jev path as the worker, so `--dry-run` shows exactly what
+- Runs the same `briefFor` → `rank` → Jev path as the worker, so `--dry-run` shows exactly what
   enrichment would do. `--voice` and `--provider-voice` bypass both and record
   `castBy = manual`. `--provider-voice` is for auditioning candidates before adding them to
   the cast; the clip is stored with `voice = null`.
@@ -316,12 +346,12 @@ the learner pin or reroll a voice, which is why `voice` is stored and returned.
 
 ## Testing
 
-- `casting.test.ts`: table-driven. `wanted`: Kansai from sentence label, Kansai from `ksb`
+- `casting.test.ts`: table-driven. `briefFor`: Kansai from sentence label, Kansai from `ksb`
   with no label, `fem` misc pins feminine, `chn` → child, fields + formal → announcement,
-  slang and archaic flags. `rank`: dialect filter never relaxed, formality filter relaxed
+  slang and archaic flags. `rank`: variety filter never relaxed, formality filter relaxed
   only when it would empty the list, gender and age weights produce the intended winner for
   a formal announcement, a vulgar banter line, a proverb, and a Kansai sentence; ja and en
-  ranked from one `Wanted` pick matching-trait voices; tie set uses the 1-point window.
+  ranked from one brief pick matching-trait voices; tie set uses the 1-point window.
 - Jev tiebreak: stub Jev returning each candidate; failing Jev falls back to the top score.
 - `pronouncer.test.ts`: key uses the chosen provider id; headword gets N clips capped by
   `KOTORI_HEADWORD_VOICES`; `castBy`/`score` persisted; existing Kyoko and Sarah keys stable.
@@ -348,7 +378,7 @@ the learner pin or reroll a voice, which is why `voice` is stored and returned.
 ## Open points
 
 - Kansai voice quality on ElevenLabs is the main unknown. If no voice convinces, drop the
-  `kansai` tag from the cast and the hard filter falls back to standard voices while
+  `kansai` voice from the Japanese cast and the hard filter falls back to standard voices while
   sentences stay labelled; adding a voice later is a data change.
 - A `child` voice is deferred until `status` shows how often `chn` and
   `speakerAge = child` occur.

@@ -1,16 +1,28 @@
 import type { Formality, Language, Nuance } from "@kotori/domain"
-import type { Voice, VoiceAge, VoiceDialect, VoiceMedium } from "./voices.ts"
+import {
+  CASTS,
+  DEFAULT_VARIETY,
+  type Casts,
+  type Variety,
+  type Voice,
+  type VoiceAge,
+  type VoiceMedium
+} from "./voices.ts"
 
 /**
- * Picks the voice that fits a sentence. Pure: `wanted` merges the stored
- * signals into one language-neutral profile, `rank` scores a language's cast
- * against it. Ties (within TIE_WINDOW of the top) are broken by Jev elsewhere.
+ * Picks the voice that fits a sentence. Pure: `briefFor` merges the stored
+ * signals into one language-neutral casting brief, `rank` scores a language's
+ * cast against it. Ties (within TIE_WINDOW of the top) are broken by Jev elsewhere.
  */
 
-/** What the sentence asks of a voice, derived once and used for every language. */
-export interface Wanted {
-  /** Hard requirement; null means the language's standard variety. */
-  readonly dialect: VoiceDialect | null
+/**
+ * A casting brief: the kind of speaker a sentence calls for, independent of
+ * language. Derived once per sentence and used to cast both its Japanese and
+ * its English clip, so the two land on matching speakers.
+ */
+export interface CastingBrief {
+  /** Hard requirement; null means the language's default variety. */
+  readonly variety: Variety | null
   readonly gender: "masculine" | "feminine" | null
   readonly age: VoiceAge | null
   readonly formality: Formality
@@ -25,7 +37,8 @@ export interface SentenceSignals {
   readonly speakerGender?: "masculine" | "feminine" | "unspecified" | null
   readonly speakerAge?: "child" | "youth" | "adult" | "middle-aged" | "older" | "unspecified" | null
   readonly medium?: VoiceMedium | null
-  readonly dialect?: string | null
+  /** Regional variety label written by Claude ("kansai", "british"...); null for the default. */
+  readonly variety?: string | null
 }
 
 export interface SenseSignals {
@@ -40,8 +53,8 @@ export interface CastingInput {
   readonly nuance: Nuance | null
 }
 
-/** JMDict dial codes → voice dialect tags. Codes without a cast dialect stay standard. */
-const JMDICT_DIALECTS: Record<string, VoiceDialect> = {
+/** JMDict dial codes → varieties. Codes without a cast variety stay default. */
+const JMDICT_VARIETIES: Record<string, Variety> = {
   ksb: "kansai",
   osb: "kansai",
   kyb: "kansai",
@@ -49,8 +62,8 @@ const JMDICT_DIALECTS: Record<string, VoiceDialect> = {
   kyu: "kyushu"
 }
 
-/** Sentence dialect labels (free-form from Claude) → voice dialect tags. */
-const SENTENCE_DIALECTS: Record<string, VoiceDialect> = {
+/** Sentence variety labels (free-form from Claude) → varieties. */
+const SENTENCE_VARIETIES: Record<string, Variety> = {
   kansai: "kansai",
   tohoku: "tohoku",
   kyushu: "kyushu",
@@ -62,7 +75,7 @@ const SENTENCE_DIALECTS: Record<string, VoiceDialect> = {
 /** Below this, a Jev nuance judgment is too unsure to steer casting. */
 const NUANCE_CONFIDENCE = 0.6
 
-const nuanceGender = (nuance: Nuance | null): Wanted["gender"] =>
+const nuanceGender = (nuance: Nuance | null): CastingBrief["gender"] =>
   nuance !== null &&
   nuance.gender.confidence >= NUANCE_CONFIDENCE &&
   (nuance.gender.value === "masculine" || nuance.gender.value === "feminine")
@@ -83,10 +96,10 @@ const nuanceAge = (nuance: Nuance | null): VoiceAge | null => {
   }
 }
 
-/** Merges sentence, JMDict and nuance signals, most specific first. */
-export const wanted = ({ nuance, sense, sentence }: CastingInput): Wanted => {
-  const sentenceDialect = sentence.dialect == null ? null : (SENTENCE_DIALECTS[sentence.dialect] ?? null)
-  const senseDialect = sense.dialects.map((code) => JMDICT_DIALECTS[code]).find((tag) => tag !== undefined) ?? null
+/** Writes the casting brief for a sentence, merging its signals most specific first. */
+export const briefFor = ({ nuance, sense, sentence }: CastingInput): CastingBrief => {
+  const sentenceVariety = sentence.variety == null ? null : (SENTENCE_VARIETIES[sentence.variety] ?? null)
+  const senseVariety = sense.dialects.map((code) => JMDICT_VARIETIES[code]).find((tag) => tag !== undefined) ?? null
 
   const speakerGender =
     sentence.speakerGender === "masculine" || sentence.speakerGender === "feminine" ? sentence.speakerGender : null
@@ -100,7 +113,7 @@ export const wanted = ({ nuance, sense, sentence }: CastingInput): Wanted => {
     ((nuance !== null && nuance.medium.value === "written") || sense.fields.length > 0)
 
   return {
-    dialect: sentenceDialect ?? senseDialect,
+    variety: sentenceVariety ?? senseVariety,
     gender: speakerGender ?? miscGender ?? nuanceGender(nuance),
     age: speakerAge ?? miscAge ?? nuanceAge(nuance),
     formality: sentence.formality,
@@ -119,11 +132,8 @@ export const wanted = ({ nuance, sense, sentence }: CastingInput): Wanted => {
   }
 }
 
-/** The regional variety a sentence without a dialect label is read in. */
-const STANDARD_DIALECT: Record<Language, VoiceDialect> = { ja: "standard", en: "american" }
-
 // Scoring weights. Gender outranks everything soft because a mismatched speaker
-// (a man voicing わ-speech) is the most audible miscast after dialect; age and
+// (a man voicing わ-speech) is the most audible miscast after variety; age and
 // medium shape the scene; the rest nudge. Tune these from `regen --dry-run`.
 const GENDER_MATCH = 3
 const GENDER_MISMATCH = -3
@@ -146,50 +156,50 @@ const ageScore = (want: VoiceAge, has: VoiceAge): number => {
   return distance === 1 ? AGE_ADJACENT : AGE_MISMATCH
 }
 
-export interface RankedVoice {
-  readonly voice: Voice
+export interface RankedVoice<L extends Language = Language> {
+  readonly voice: Voice<L>
   readonly score: number
 }
 
 /**
- * The voices of `language` that may read the sentence, best fit first.
- * Dialect is a hard filter; the register filter is relaxed rather than return
+ * The cast voices of `language` that may read the sentence, best fit first.
+ * Variety is a hard filter; the register filter is relaxed rather than return
  * nobody, so there is always at least one candidate when the language is cast.
  */
-export const rank = (want: Wanted, cast: ReadonlyArray<Voice>, language: Language): ReadonlyArray<RankedVoice> => {
-  const spoken = cast.filter(
-    (voice) =>
-      voice.language === language &&
-      voice.providerId !== null &&
-      voice.tags.dialect === (want.dialect ?? STANDARD_DIALECT[language])
-  )
-  const inRegister = spoken.filter((voice) => voice.tags.formality.includes(want.formality))
+export const rank = <L extends Language>(
+  brief: CastingBrief,
+  language: L,
+  casts: Casts = CASTS
+): ReadonlyArray<RankedVoice<L>> => {
+  const variety = brief.variety ?? DEFAULT_VARIETY[language]
+  const spoken = casts[language].filter((voice) => voice.providerId !== null && voice.tags.variety === variety)
+  const inRegister = spoken.filter((voice) => voice.tags.formality.includes(brief.formality))
   const candidates = inRegister.length > 0 ? inRegister : spoken
 
   return candidates
     .map((voice) => {
       let score = 0
-      if (want.gender !== null) {
+      if (brief.gender !== null) {
         score +=
-          voice.tags.gender === want.gender
+          voice.tags.gender === brief.gender
             ? GENDER_MATCH
             : voice.tags.gender === "androgynous"
               ? GENDER_ANDROGYNOUS
               : GENDER_MISMATCH
       }
-      if (want.age !== null) score += ageScore(want.age, voice.tags.age)
-      if (want.medium !== null && voice.tags.medium.includes(want.medium)) score += MEDIUM_MATCH
-      if (want.slang && (voice.tags.formality.includes("vulgar") || voice.tags.formality.includes("casual"))) {
+      if (brief.age !== null) score += ageScore(brief.age, voice.tags.age)
+      if (brief.medium !== null && voice.tags.medium.includes(brief.medium)) score += MEDIUM_MATCH
+      if (brief.slang && (voice.tags.formality.includes("vulgar") || voice.tags.formality.includes("casual"))) {
         score += SLANG_FIT
       }
       // Older only: a narration bonus here would double-count the medium match.
-      if (want.archaic && voice.tags.age === "older") score += ARCHAIC_FIT
-      if (voice.tags.formality.includes(want.formality)) score += FORMALITY_LISTED
+      if (brief.archaic && voice.tags.age === "older") score += ARCHAIC_FIT
+      if (voice.tags.formality.includes(brief.formality)) score += FORMALITY_LISTED
       return { voice, score }
     })
     .sort((a, b) => b.score - a.score)
 }
 
 /** The top voices that scoring could not separate; more than one means Jev decides. */
-export const tied = (ranked: ReadonlyArray<RankedVoice>): ReadonlyArray<RankedVoice> =>
+export const tied = <L extends Language>(ranked: ReadonlyArray<RankedVoice<L>>): ReadonlyArray<RankedVoice<L>> =>
   ranked.length === 0 ? [] : ranked.filter(({ score }) => ranked[0]!.score - score <= TIE_WINDOW)

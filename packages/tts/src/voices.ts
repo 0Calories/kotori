@@ -1,28 +1,41 @@
 import type { Formality, Language } from "@kotori/domain"
 
 /**
- * Trait tags describing how a curated voice sounds. Gender, age and dialect are
+ * Trait tags describing how a curated voice sounds. Gender, age and variety are
  * single-valued; the rest are sets. Selection works on tags (see `casting.ts`),
  * so adding or recasting a voice is a data change, never a code change.
  */
 export const VOICE_GENDERS = ["masculine", "feminine", "androgynous"] as const
 export const VOICE_AGES = ["child", "youth", "adult", "middle-aged", "older"] as const
-/** Japanese and English regional varieties share one dimension. */
-export const VOICE_DIALECTS = ["standard", "kansai", "tohoku", "kyushu", "american", "british", "australian"] as const
 export const VOICE_MEDIUMS = ["conversation", "announcement", "narration"] as const
 /** Stored for later voice-settings work; scoring ignores tone for now. */
 export const VOICE_TONES = ["warm", "bright", "calm", "serious", "rough", "gentle"] as const
 
+/**
+ * Regional variety of the language, in the linguist's sense: it covers both
+ * Japanese dialects (Kansai-ben differs in grammar and vocabulary) and national
+ * varieties of English (mostly accent and spelling). Each language has its own
+ * list and its own default, the variety an unlabelled sentence is read in.
+ */
+export const VARIETIES = {
+  ja: ["standard", "kansai", "tohoku", "kyushu"],
+  en: ["american", "british", "australian"]
+} as const satisfies Record<Language, ReadonlyArray<string>>
+
+export const DEFAULT_VARIETY = { ja: "standard", en: "american" } as const satisfies {
+  [L in Language]: Variety<L>
+}
+
+export type Variety<L extends Language = Language> = (typeof VARIETIES)[L][number]
 export type VoiceGender = (typeof VOICE_GENDERS)[number]
 export type VoiceAge = (typeof VOICE_AGES)[number]
-export type VoiceDialect = (typeof VOICE_DIALECTS)[number]
 export type VoiceMedium = (typeof VOICE_MEDIUMS)[number]
 export type VoiceTone = (typeof VOICE_TONES)[number]
 
-export interface VoiceTags {
+export interface VoiceTags<L extends Language = Language> {
   readonly gender: VoiceGender
   readonly age: VoiceAge
-  readonly dialect: VoiceDialect
+  readonly variety: Variety<L>
   /** Registers this voice sounds right in. */
   readonly formality: ReadonlyArray<Formality>
   readonly medium: ReadonlyArray<VoiceMedium>
@@ -31,23 +44,24 @@ export interface VoiceTags {
   readonly headword: boolean
 }
 
-export interface Voice {
+export interface Voice<L extends Language = Language> {
   /** Stable Kotori id, e.g. "ja-kyoko". Stored on clips; survives recasting the provider voice. */
   readonly id: string
-  readonly language: Language
+  readonly language: L
   /** ElevenLabs voice id; null while the role is designed but not yet cast. */
   readonly providerId: string | null
   readonly name: string
-  readonly tags: VoiceTags
+  readonly tags: VoiceTags<L>
   /** One line for Jev and for humans: how this voice sounds and when to use it. */
   readonly description: string
 }
 
 /**
- * The curated cast. Provider ids are filled in by auditioning the ElevenLabs
- * library (`kotori audio regen --provider-voice`); the tags are the contract.
+ * The curated casts, one per language. Provider ids are filled in by auditioning
+ * the ElevenLabs library (`kotori audio regen --provider-voice`); the tags are
+ * the contract.
  */
-export const CAST: ReadonlyArray<Voice> = [
+export const JAPANESE_CAST: ReadonlyArray<Voice<"ja">> = [
   {
     id: "ja-kyoko",
     language: "ja",
@@ -56,7 +70,7 @@ export const CAST: ReadonlyArray<Voice> = [
     tags: {
       gender: "feminine",
       age: "adult",
-      dialect: "standard",
+      variety: "standard",
       formality: ["neutral", "polite"],
       medium: ["conversation", "narration"],
       tone: ["warm"],
@@ -72,7 +86,7 @@ export const CAST: ReadonlyArray<Voice> = [
     tags: {
       gender: "masculine",
       age: "middle-aged",
-      dialect: "standard",
+      variety: "standard",
       formality: ["polite", "formal"],
       medium: ["announcement", "narration"],
       tone: ["serious"],
@@ -88,7 +102,7 @@ export const CAST: ReadonlyArray<Voice> = [
     tags: {
       gender: "feminine",
       age: "adult",
-      dialect: "standard",
+      variety: "standard",
       formality: ["polite", "formal"],
       medium: ["conversation"],
       tone: ["gentle"],
@@ -104,7 +118,7 @@ export const CAST: ReadonlyArray<Voice> = [
     tags: {
       gender: "feminine",
       age: "youth",
-      dialect: "standard",
+      variety: "standard",
       formality: ["vulgar", "casual", "neutral"],
       medium: ["conversation"],
       tone: ["bright"],
@@ -120,7 +134,7 @@ export const CAST: ReadonlyArray<Voice> = [
     tags: {
       gender: "masculine",
       age: "youth",
-      dialect: "standard",
+      variety: "standard",
       formality: ["vulgar", "casual", "neutral"],
       medium: ["conversation"],
       tone: ["rough"],
@@ -136,7 +150,7 @@ export const CAST: ReadonlyArray<Voice> = [
     tags: {
       gender: "feminine",
       age: "middle-aged",
-      dialect: "standard",
+      variety: "standard",
       formality: ["casual", "neutral"],
       medium: ["conversation"],
       tone: ["warm"],
@@ -152,7 +166,7 @@ export const CAST: ReadonlyArray<Voice> = [
     tags: {
       gender: "masculine",
       age: "adult",
-      dialect: "kansai",
+      variety: "kansai",
       formality: ["casual", "neutral", "polite"],
       medium: ["conversation"],
       tone: ["bright"],
@@ -168,14 +182,17 @@ export const CAST: ReadonlyArray<Voice> = [
     tags: {
       gender: "masculine",
       age: "older",
-      dialect: "standard",
+      variety: "standard",
       formality: ["neutral", "polite", "formal"],
       medium: ["narration"],
       tone: ["calm"],
       headword: true
     },
     description: "A calm older man with a literary delivery; proverbs, archaic and dated words, prose."
-  },
+  }
+]
+
+export const ENGLISH_CAST: ReadonlyArray<Voice<"en">> = [
   {
     id: "en-sarah",
     language: "en",
@@ -184,7 +201,7 @@ export const CAST: ReadonlyArray<Voice> = [
     tags: {
       gender: "feminine",
       age: "adult",
-      dialect: "american",
+      variety: "american",
       formality: ["neutral", "polite"],
       medium: ["conversation", "narration"],
       tone: ["warm"],
@@ -200,7 +217,7 @@ export const CAST: ReadonlyArray<Voice> = [
     tags: {
       gender: "masculine",
       age: "middle-aged",
-      dialect: "american",
+      variety: "american",
       formality: ["polite", "formal"],
       medium: ["announcement", "narration"],
       tone: ["serious"],
@@ -216,7 +233,7 @@ export const CAST: ReadonlyArray<Voice> = [
     tags: {
       gender: "feminine",
       age: "youth",
-      dialect: "american",
+      variety: "american",
       formality: ["vulgar", "casual", "neutral"],
       medium: ["conversation"],
       tone: ["bright"],
@@ -232,7 +249,7 @@ export const CAST: ReadonlyArray<Voice> = [
     tags: {
       gender: "masculine",
       age: "youth",
-      dialect: "american",
+      variety: "american",
       formality: ["vulgar", "casual", "neutral"],
       medium: ["conversation"],
       tone: ["rough"],
@@ -248,7 +265,7 @@ export const CAST: ReadonlyArray<Voice> = [
     tags: {
       gender: "masculine",
       age: "adult",
-      dialect: "british",
+      variety: "british",
       formality: ["neutral", "polite", "formal"],
       medium: ["conversation", "narration"],
       tone: ["calm"],
@@ -264,7 +281,7 @@ export const CAST: ReadonlyArray<Voice> = [
     tags: {
       gender: "feminine",
       age: "older",
-      dialect: "american",
+      variety: "american",
       formality: ["neutral", "polite"],
       medium: ["narration"],
       tone: ["gentle"],
@@ -274,10 +291,14 @@ export const CAST: ReadonlyArray<Voice> = [
   }
 ]
 
+export type Casts = { readonly [L in Language]: ReadonlyArray<Voice<L>> }
+
+export const CASTS: Casts = { ja: JAPANESE_CAST, en: ENGLISH_CAST }
+
 /** The voices of one language that are actually cast (have a provider voice). */
-export const castVoices = (language: Language, cast: ReadonlyArray<Voice> = CAST): ReadonlyArray<Voice> =>
-  cast.filter((voice) => voice.language === language && voice.providerId !== null)
+export const castVoices = <L extends Language>(language: L, casts: Casts = CASTS): ReadonlyArray<Voice<L>> =>
+  casts[language].filter((voice) => voice.providerId !== null)
 
 /** Dictionary voices for headword pronunciations, in cast order. */
-export const headwordVoices = (language: Language, cast: ReadonlyArray<Voice> = CAST): ReadonlyArray<Voice> =>
-  castVoices(language, cast).filter((voice) => voice.tags.headword)
+export const headwordVoices = <L extends Language>(language: L, casts: Casts = CASTS): ReadonlyArray<Voice<L>> =>
+  castVoices(language, casts).filter((voice) => voice.tags.headword)
