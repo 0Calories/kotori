@@ -53,8 +53,8 @@ export interface CastingInput {
   readonly nuance: Nuance | null
 }
 
-/** JMDict dial codes → varieties. Codes without a cast variety stay default. */
-const JMDICT_VARIETIES: Record<string, Variety> = {
+/** JMDict dialect codes (`dial`) → the variety a voice must have. Codes without one stay default. */
+const JMDICT_DIALECTS: Record<string, Variety> = {
   ksb: "kansai",
   osb: "kansai",
   kyb: "kansai",
@@ -99,7 +99,7 @@ const nuanceAge = (nuance: Nuance | null): VoiceAge | null => {
 /** Writes the casting brief for a sentence, merging its signals most specific first. */
 export const briefFor = ({ nuance, sense, sentence }: CastingInput): CastingBrief => {
   const sentenceVariety = sentence.variety == null ? null : (SENTENCE_VARIETIES[sentence.variety] ?? null)
-  const senseVariety = sense.dialects.map((code) => JMDICT_VARIETIES[code]).find((tag) => tag !== undefined) ?? null
+  const senseVariety = sense.dialects.map((code) => JMDICT_DIALECTS[code]).find((tag) => tag !== undefined) ?? null
 
   const speakerGender =
     sentence.speakerGender === "masculine" || sentence.speakerGender === "feminine" ? sentence.speakerGender : null
