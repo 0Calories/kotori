@@ -123,10 +123,46 @@ Learned: `bytea` travels as a `Buffer` in Drizzle; enum ordering again (cards or
 `template` ascending, recognize before produce); `jobs` now needs real `entries` rows,
 which the tests stub.
 
-### Phase 4 — Seeding and enrichment
+### Phase 4 — Seeding and enrichment ✅ (2026-10-27)
 
 Point the JMDict seeder (upserting) and the enrichment worker at the new tables. Dictionary
 and enrichment are rebuildable, so this is a reseed, not a data migration.
+
+- The seeder (`packages/jmdict`) and the enrichers (`packages/nuance`, `ai`, `tts`) already
+  went through the kept repository interfaces, so they needed no changes. Neither did
+  `kotori seed`, `enrich` or `status`.
+- **Seeding failed on real Postgres.** `@effect/sql-pg` infers parameter types from the
+  values and can't bind an empty JS array, and Drizzle's Effect Postgres codecs pass
+  `text[]` through as JS arrays (most other array types become literals). Every form
+  without tags or sense without misc codes failed. `Database.ts` now gives the driver
+  `pgCodecs`, which send `text[]` as array literals; `test/database.test.ts` checks the
+  encoding, since PGlite never had the problem. No schema change.
+- `migrateDatabase` fails with `LegacySchemaError`, changing nothing, on a database with
+  `effect_sql_migrations` and no `drizzle.__drizzle_migrations`. `kotori migrate` prints
+  what to do (locally `docker compose down -v`; on Neon reset the branch) and exits 1.
+- `compose.yaml` mounts the volume at `/var/lib/postgresql`. Postgres 18 images refuse
+  `/var/lib/postgresql/data` even on a fresh volume, so the phase 1 compose file didn't
+  start at all. A Postgres 17 volume (main's) still won't start: `pnpm dev:setup` spots
+  the image's error in the container log and says to run `docker compose down -v`. It
+  never deletes anything itself. The README's setup step says the same.
+- The worker's claim/run/settle cycle moved from `commands/work.ts` to `src/JobRunner.ts`.
+  `apps/worker` now has tests: queued nuance and examples run into the new tables through
+  the real enrichers with fake Jev, Claude and ElevenLabs, examples queue audio, and a
+  failed job retries after its delay. `packages/jmdict/test/import.test.ts` seeds twice
+  and keeps nuance, examples and queued jobs; a newer release drops only the lost senses'
+  enrichment and updates tag labels.
+- Verified against a throwaway Postgres 18 in Docker: `dev:setup` stops correctly on a
+  Postgres 17 volume and on a legacy schema; from fresh it migrates, seeds 218,969
+  entries (~25 s) and creates the dev account; a re-run skips each step. A full reseed
+  (~26 s) keeps enrichment and queued jobs, and every entry reads back equal to the
+  parsed JMDict. The worker, API and repository test suites also pass when pointed at
+  that database through `DatabaseLive` (a one-off run, not part of CI).
+
+Learned: PGlite is more lenient than `@effect/sql-pg` about parameters, so the repository
+tests can pass while Postgres fails. Anything that binds a new kind of value needs one
+run against real Postgres. Main's Compose file was Postgres 17, not 16. The seeder still
+doesn't delete entries a newer JMDict drops (neither did the old one); they stay
+searchable until a reset.
 
 ### Phase 5 — Cutover
 
@@ -134,3 +170,10 @@ Reset the Neon production branch, `kotori migrate`, reseed, deploy. Update
 `docs/operations.md` and the README; delete this document. The two existing accounts keep
 their `neon_auth` identity and get fresh profile rows on first request. Local developers
 run `docker compose down -v` once for the Postgres 18 volume.
+
+From phase 4: `kotori migrate` refuses an unreset branch (legacy schema) with exit 1, so
+Fly's release command fails safely if the reset is skipped. CI still tests on PGlite only,
+so smoke-test the deployed API against Neon once after the reseed (sign in, search,
+review); the one-off Postgres 18 runs above cover the code paths, not Neon's network or
+TLS. `apps/api` `Accounts` still opens its transaction through `SqlClient` directly;
+that's fine for now, and the services restructuring removes it.

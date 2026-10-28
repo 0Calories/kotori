@@ -1,6 +1,6 @@
 import { PgClient } from "@effect/sql-pg"
 import * as PgDrizzle from "drizzle-orm/effect-postgres"
-import type { PgQueryResultHKT } from "drizzle-orm/pg-core"
+import { makePgArray, type PgCodecs, type PgQueryResultHKT } from "drizzle-orm/pg-core"
 import type { PgEffectDatabase } from "drizzle-orm/pg-core/effect"
 import { Config, Context, Effect, Layer, Redacted } from "effect"
 import { relations } from "./schema/relations.ts"
@@ -13,6 +13,20 @@ import { relations } from "./schema/relations.ts"
 export type DatabaseShape = PgEffectDatabase<PgDrizzle.EffectPgQueryEffectHKT, PgQueryResultHKT, typeof relations>
 
 /**
+ * Drizzle's codecs for the Effect Postgres driver, with `text[]` parameters sent as array
+ * literals (`{"a","b"}`) the way the driver already sends most other array types. Left as
+ * JS arrays, an empty one fails to encode: `@effect/sql-pg` infers parameter types from
+ * the values and can't from `[]` ("Cannot infer the type of an empty array"). A literal is
+ * an untyped parameter, so Postgres takes `text[]` from the column. PGlite never had the
+ * problem, so tests on it can't catch a regression; `test/database.test.ts` checks the
+ * encoding instead.
+ */
+export const pgCodecs: PgCodecs = {
+  ...PgDrizzle.effectPgCodecs,
+  text: { ...PgDrizzle.effectPgCodecs.text, normalizeParamArray: (values) => makePgArray(values) }
+}
+
+/**
  * The application database as a Drizzle instance. Repositories take this and build
  * typed queries from the tables in `./schema`. Transactions are `db.transaction(tx => …)`;
  * they run on the underlying client's `withTransaction`, so Effect SQL and Drizzle
@@ -20,7 +34,7 @@ export type DatabaseShape = PgEffectDatabase<PgDrizzle.EffectPgQueryEffectHKT, P
  */
 export class Database extends Context.Service<Database, DatabaseShape>()("@kotori/db/Database") {
   /** Drizzle over whichever `PgClient` is in scope; see `DatabaseLive` and `DatabaseMemory`. */
-  static readonly layer = Layer.effect(Database, PgDrizzle.makeWithDefaults({ relations }))
+  static readonly layer = Layer.effect(Database, PgDrizzle.makeWithDefaults({ relations, codecs: pgCodecs }))
 }
 
 /** The Postgres client at `DATABASE_URL` (default `postgres://kotori:kotori@localhost:5432/kotori`). */

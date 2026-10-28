@@ -19,7 +19,7 @@ import { JobsRepo } from "./JobsRepo.ts"
 import { StudyRepo } from "./StudyRepo.ts"
 import { UsersRepo } from "./UsersRepo.ts"
 
-/** Every repository; requires a `SqlClient` (see `DatabaseLive` / `DatabaseMemory`). */
+/** Every repository; requires `Database` (see `DatabaseLive` / `DatabaseMemory`). */
 export const Repositories = Layer.mergeAll(
   DictionaryRepo.layer,
   EnrichmentRepo.layer,
