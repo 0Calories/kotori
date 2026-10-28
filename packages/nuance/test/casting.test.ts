@@ -50,6 +50,19 @@ describe("castVoice", () => {
     expect(Exit.isFailure(exit)).toBe(true)
   })
 
+  it("returns a lone candidate without asking Jev", async () => {
+    const { asked, jev } = fakeJev(Effect.die(new Error("must not be called")))
+    const vote = await Effect.runPromise(castVoice(jev, { sentence: "x", meaning: "y", candidates: [candidates[0]!] }))
+    expect(vote).toEqual({ voiceId: "ja-casual-m", confidence: 1 })
+    expect(asked).toHaveLength(0)
+  })
+
+  it("dies on an empty candidate list: the selector guarantees at least one", async () => {
+    const { jev } = fakeJev(Effect.die(new Error("must not be called")))
+    const exit = await Effect.runPromiseExit(castVoice(jev, { sentence: "x", meaning: "y", candidates: [] }))
+    expect(Exit.isFailure(exit)).toBe(true)
+  })
+
   it("exposes the confidence floor for the caller's logging", () => {
     expect(CAST_CONFIDENCE_FLOOR).toBeGreaterThan(0)
     expect(CAST_CONFIDENCE_FLOOR).toBeLessThan(1)

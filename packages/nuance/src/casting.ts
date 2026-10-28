@@ -33,15 +33,21 @@ const castingQuestion = (candidates: ReadonlyArray<VoiceCandidate>): ChoiceQuest
 })
 
 /**
- * Jev's pick among voices the selector could not separate. Expects at least
- * two candidates; with fewer there is nothing to break and the caller should
- * not pay for the call.
+ * Jev's pick among voices the selector could not separate. A single candidate
+ * is returned as-is without paying for a Jev call — there is nothing to break —
+ * and no candidates is a defect: the selector guarantees at least one.
  */
 export const castVoice = (
   jev: Jev["Service"],
   input: { sentence: string; meaning: string; candidates: ReadonlyArray<VoiceCandidate> }
-): Effect.Effect<CastVote, JevError> =>
-  jev.ask({ sentence: input.sentence, meaning: input.meaning }, { voice: castingQuestion(input.candidates) }).pipe(
-    Effect.map(({ answers }) => ({ voiceId: answers.voice.choice, confidence: answers.voice.confidence })),
-    Effect.withSpan("castVoice", { attributes: { candidates: input.candidates.length } })
-  )
+): Effect.Effect<CastVote, JevError> => {
+  const [first, second] = input.candidates
+  if (first === undefined) return Effect.die(new Error("castVoice needs at least one candidate"))
+  if (second === undefined) return Effect.succeed({ voiceId: first.id, confidence: 1 })
+  return jev
+    .ask({ sentence: input.sentence, meaning: input.meaning }, { voice: castingQuestion(input.candidates) })
+    .pipe(
+      Effect.map(({ answers }) => ({ voiceId: answers.voice.choice, confidence: answers.voice.confidence })),
+      Effect.withSpan("castVoice", { attributes: { candidates: input.candidates.length } })
+    )
+}
