@@ -188,7 +188,7 @@ export const rank = (wanted: Wanted, cast: ReadonlyArray<Voice>, language: Langu
 2. **Score.** Start at 0. Gender match +3, mismatch −3 (androgynous counts as a half match,
    +1). Age exact +2, adjacent (youth/adult, adult/middle-aged, middle-aged/older) +1,
    otherwise −1. Medium tag present +2. Slang wanted and voice has `vulgar` or `casual` +1;
-   archaic wanted and voice has `older` or `narration` +1. Formality in the voice's tags +1
+   archaic wanted and the voice is `older` +1 (narration is already rewarded by the medium match). Formality in the voice's tags +1
    on top of the filter, so a voice that lists it explicitly beats one let through by the
    fallback.
 3. **Result.** Sorted by score. Voices within 1 point of the top form the tie set.
