@@ -1,0 +1,3 @@
+# drizzle-kit's schema snapshots: needed by `generate` and `check`, never edited by hand.
+# Collapsed in GitHub diffs and left out of language stats.
+packages/db/migrations/*/snapshot.json linguist-generated=true
