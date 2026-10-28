@@ -62,6 +62,8 @@ export class Pronouncer extends Context.Service<
           text: normalized,
           language,
           voiceId: tts.voiceFor(language),
+          // Cast voices arrive with the Pronouncer rewrite; until then clips are uncast.
+          voice: null,
           modelId: tts.model,
           characters: normalized.length,
           bytes: bytes.byteLength,

@@ -20,7 +20,7 @@ import {
   romanize
 } from "@kotori/japanese"
 import { Jev } from "@kotori/nuance"
-import { Pronouncer } from "@kotori/tts"
+import { CASTS, Pronouncer } from "@kotori/tts"
 import { Clock, Context, Effect, Layer, Option } from "effect"
 
 export const audioUrl = (key: string) => `/audio/${key}.mp3`
@@ -258,7 +258,9 @@ export class Dictionary extends Context.Service<
         const nuance = new Map((yield* enrichment.nuanceFor([entry.id])).map((row) => [row.sense, row.nuance]))
         const examples = yield* enrichment.examplesFor([entry.id])
         const exampleAudio = yield* enrichment.exampleAudio(examples.map((example) => example.id))
-        const entryAudio = (yield* enrichment.entryAudio([entry.id])).get(entry.id)
+        const entryClips = (yield* enrichment.entryAudio([entry.id])).get(entry.id) ?? []
+        const voiceName = (voice: string | null) =>
+          voice === null ? null : (CASTS.ja.find((candidate) => candidate.id === voice)?.name ?? null)
 
         const similarRows = yield* enrichment.similarFor(entry.id)
         const similarIds = unique(similarRows.map((row) => row.similarId))
@@ -337,7 +339,12 @@ export class Dictionary extends Context.Service<
             .filter((form) => !form.tags.includes("sK") && !form.tags.includes("sk"))
             .map((form) => ({ text: form.text, kind: form.kind, common: form.common, tags: form.tags.map(tag) })),
           senses,
-          audioUrl: entryAudio === undefined ? null : audioUrl(entryAudio),
+          audioUrl: entryClips[0] === undefined ? null : audioUrl(entryClips[0].key),
+          audio: entryClips.map((clip) => ({
+            url: audioUrl(clip.key),
+            voice: clip.voice,
+            voiceName: voiceName(clip.voice)
+          })),
           enrichment: yield* enrichmentFor(entry, true)
         } satisfies Entry
       })

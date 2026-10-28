@@ -259,14 +259,15 @@ the regen workflow.
 Headwords are short, so extra clips are nearly free against the character budget, and
 hearing a word from more than one speaker is better for learners than one canonical voice.
 
-- `entry_audio` becomes `(entryId, audioKey)` primary key with a `voiceId` column, so an
-  entry links to several clips.
+- `entry_audio` becomes `(entryId, audioKey)` primary key, so an entry links to several
+  clips. The voice comes from the joined `audio` row rather than a duplicate column.
 - `enrichEntry` voices the kana reading (ja) with every cast voice tagged `headword` for the
   entry's language. The initial casts above give 3 per language. `KOTORI_HEADWORD_VOICES`
   (default 3) caps the count, taking cast order.
-- The API's entry payload returns `audio: Array<{ key, voiceId, voiceName }>` instead of a
-  single key. The client plays a random one on each tap for now; a long-press or settings
-  option to pin a voice is a follow-up, which is why name and id are in the payload.
+- The API's entry payload gains `audio: Array<{ url, voice, voiceName }>`. `audioUrl` stays
+  as the first clip until the app plays from the list (step 6), then goes. The client plays a
+  random one on each tap for now; a long-press or settings option to pin a voice is a
+  follow-up, which is why name and id are in the payload.
 - Readings with reading-specific JMDict info (`ok`, `ik`, `sk`) keep today's behaviour of
   voicing only the primary reading.
 

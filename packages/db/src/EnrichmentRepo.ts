@@ -1,4 +1,14 @@
-import type { Difference, Formality, Language, Nuance } from "@kotori/domain"
+import type {
+  CastBy,
+  Difference,
+  Formality,
+  Language,
+  Nuance,
+  SentenceMedium,
+  SentenceTone,
+  SpeakerAge,
+  SpeakerGender
+} from "@kotori/domain"
 import { asc, desc, eq, gte, inArray, sum } from "drizzle-orm"
 import { Context, Effect, Layer, Option } from "effect"
 import { Database } from "./Database.ts"
@@ -28,7 +38,17 @@ export interface SimilarRow {
   readonly confidence: number
 }
 
-export interface ExampleRow {
+/** Who would say the sentence and how; null on sentences written before voice casting. */
+export interface CastingSignals {
+  readonly speakerGender: SpeakerGender | null
+  readonly speakerAge: SpeakerAge | null
+  readonly medium: SentenceMedium | null
+  /** Regional variety label ("kansai", "british"); null for the language's default. */
+  readonly variety: string | null
+  readonly tone: SentenceTone | null
+}
+
+export interface ExampleRow extends CastingSignals {
   readonly id: number
   readonly entryId: number
   readonly sense: number
@@ -41,7 +61,7 @@ export interface ExampleRow {
   readonly model: string
 }
 
-export interface ExampleInput {
+export interface ExampleInput extends Partial<CastingSignals> {
   readonly sense: number
   readonly ja: string
   readonly furigana: string
@@ -55,11 +75,26 @@ export interface AudioRow {
   readonly key: string
   readonly text: string
   readonly language: Language
+  /** The provider's voice id. */
   readonly voiceId: string
+  /** The Kotori cast voice, e.g. "ja-kyoko"; null when the clip was not cast. */
+  readonly voice: string | null
   readonly modelId: string
   readonly characters: number
   readonly bytes: number
   readonly createdAt: number
+}
+
+/** A headword clip and the cast voice that reads it. */
+export interface EntryClip {
+  readonly key: string
+  readonly voice: string | null
+}
+
+/** How an example clip's voice was chosen. */
+export interface Casting {
+  readonly castBy: CastBy
+  readonly score: number | null
 }
 
 export class EnrichmentRepo extends Context.Service<
@@ -73,9 +108,11 @@ export class EnrichmentRepo extends Context.Service<
     examplesFor(entryIds: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<ExampleRow>>
     findAudio(key: string): Effect.Effect<Option.Option<AudioRow>>
     saveAudio(row: AudioRow): Effect.Effect<void>
+    /** Adds a headword clip to the entry; an entry has one clip per dictionary voice. */
     linkEntryAudio(entryId: number, key: string): Effect.Effect<void>
-    linkExampleAudio(exampleId: number, language: Language, key: string): Effect.Effect<void>
-    entryAudio(entryIds: ReadonlyArray<number>): Effect.Effect<ReadonlyMap<number, string>>
+    linkExampleAudio(exampleId: number, language: Language, key: string, casting?: Casting): Effect.Effect<void>
+    /** Headword clips per entry, oldest first. */
+    entryAudio(entryIds: ReadonlyArray<number>): Effect.Effect<ReadonlyMap<number, ReadonlyArray<EntryClip>>>
     /** Audio keys per example, as `${exampleId}:${language}`. */
     exampleAudio(exampleIds: ReadonlyArray<number>): Effect.Effect<ReadonlyMap<string, string>>
     /** Characters sent to the TTS provider since `since`, for budgeting. */
@@ -185,6 +222,11 @@ export class EnrichmentRepo extends Context.Service<
             en: examples.en,
             formality: examples.formality,
             note: examples.note,
+            speakerGender: examples.speakerGender,
+            speakerAge: examples.speakerAge,
+            medium: examples.medium,
+            variety: examples.variety,
+            tone: examples.tone,
             model: examples.model
           })
           .from(examples)
@@ -207,23 +249,32 @@ export class EnrichmentRepo extends Context.Service<
           .pipe(Effect.asVoid, Effect.orDie)
 
       const linkEntryAudio = (entryId: number, key: string) =>
-        db
-          .insert(entryAudio)
-          .values({ entryId, audioKey: key })
-          .onConflictDoUpdate({ target: entryAudio.entryId, set: { audioKey: key } })
-          .pipe(Effect.asVoid, Effect.orDie)
+        db.insert(entryAudio).values({ entryId, audioKey: key }).onConflictDoNothing().pipe(Effect.asVoid, Effect.orDie)
 
-      const linkExampleAudio = (exampleId: number, language: Language, key: string) =>
-        db
+      const linkExampleAudio = (exampleId: number, language: Language, key: string, casting?: Casting) => {
+        const row = { audioKey: key, castBy: casting?.castBy ?? null, score: casting?.score ?? null }
+        return db
           .insert(exampleAudio)
-          .values({ exampleId, language, audioKey: key })
-          .onConflictDoUpdate({ target: [exampleAudio.exampleId, exampleAudio.language], set: { audioKey: key } })
+          .values({ exampleId, language, ...row })
+          .onConflictDoUpdate({ target: [exampleAudio.exampleId, exampleAudio.language], set: row })
           .pipe(Effect.asVoid, Effect.orDie)
+      }
 
       const entryAudioFor = Effect.fn("EnrichmentRepo.entryAudio")(function* (entryIds: ReadonlyArray<number>) {
-        if (entryIds.length === 0) return new Map<number, string>()
-        const rows = yield* db.select().from(entryAudio).where(inArray(entryAudio.entryId, entryIds))
-        return new Map(rows.map((row) => [row.entryId, row.audioKey]))
+        const clips = new Map<number, Array<EntryClip>>()
+        if (entryIds.length === 0) return clips
+        const rows = yield* db
+          .select({ entryId: entryAudio.entryId, key: entryAudio.audioKey, voice: audio.voice })
+          .from(entryAudio)
+          .innerJoin(audio, eq(audio.key, entryAudio.audioKey))
+          .where(inArray(entryAudio.entryId, entryIds))
+          .orderBy(asc(audio.createdAt), asc(audio.key))
+        for (const { entryId, ...clip } of rows) {
+          const list = clips.get(entryId)
+          if (list === undefined) clips.set(entryId, [clip])
+          else list.push(clip)
+        }
+        return clips
       }, Effect.orDie)
 
       const exampleAudioFor = Effect.fn("EnrichmentRepo.exampleAudio")(function* (exampleIds: ReadonlyArray<number>) {

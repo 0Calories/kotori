@@ -34,6 +34,25 @@ export const SimilarWord = Schema.Struct({
 })
 export type SimilarWord = typeof SimilarWord.Type
 
+/** Who would plausibly say an example sentence, as judged when it was written. */
+export const SpeakerGender = Schema.Literals(["masculine", "feminine", "unspecified"])
+export type SpeakerGender = typeof SpeakerGender.Type
+
+export const SpeakerAge = Schema.Literals(["child", "youth", "adult", "middle-aged", "older", "unspecified"])
+export type SpeakerAge = typeof SpeakerAge.Type
+
+/** Conversation (someone talking to someone), announcement (news, notices, mail read aloud) or narration (prose). */
+export const SentenceMedium = Schema.Literals(["conversation", "announcement", "narration"])
+export type SentenceMedium = typeof SentenceMedium.Type
+
+/** The dominant feel of the delivery; stored for voice settings, not used for casting yet. */
+export const SentenceTone = Schema.Literals(["neutral", "cheerful", "serious", "gentle", "rough"])
+export type SentenceTone = typeof SentenceTone.Type
+
+/** How a clip's voice was chosen: scoring alone, Jev breaking a tie, or a person via the CLI. */
+export const CastBy = Schema.Literals(["rules", "jev", "manual"])
+export type CastBy = typeof CastBy.Type
+
 export const Example = Schema.Struct({
   id: Schema.Int,
   /** The sentence in Japanese. */
@@ -78,6 +97,15 @@ export const Enrichment = Schema.Struct({
 })
 export type Enrichment = typeof Enrichment.Type
 
+/** One spoken headword clip and who reads it. */
+export const EntryAudio = Schema.Struct({
+  url: Schema.String,
+  /** Kotori voice id from the cast, e.g. "ja-kyoko"; null for clips made before casting. */
+  voice: Schema.NullOr(Schema.String),
+  voiceName: Schema.NullOr(Schema.String)
+})
+export type EntryAudio = typeof EntryAudio.Type
+
 export const Entry = Schema.Struct({
   id: EntryId,
   headword: Schema.String,
@@ -86,7 +114,10 @@ export const Entry = Schema.Struct({
   common: Schema.Boolean,
   forms: Schema.Array(Form),
   senses: Schema.Array(Sense),
+  /** The first headword clip; kept until the app plays from `audio`. */
   audioUrl: Schema.NullOr(Schema.String),
+  /** Every headword clip, one per dictionary voice. */
+  audio: Schema.Array(EntryAudio),
   enrichment: Enrichment
 })
 export type Entry = typeof Entry.Type
