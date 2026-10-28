@@ -311,7 +311,7 @@ const headwordSize = (headword: string) => {
 }
 
 export default function EntryScreen() {
-  const { t, profile } = useSession()
+  const { t } = useSession()
   const router = useRouter()
   const { id } = useLocalSearchParams<{ id: string }>()
   const entry = useEntry(Number(id))
@@ -379,8 +379,6 @@ export default function EntryScreen() {
   const partOfSpeech = firstPos ? (posLabel(t, firstPos.code) ?? firstPos.label) : null
   const forms = [data.headword, ...data.forms.map((form) => form.text), data.reading]
   const size = headwordSize(data.headword)
-  // Romaji helps English speakers read the word; Japanese speakers don't need it.
-  const learningJapanese = profile?.targetLanguage !== "en"
   // Words with nothing from Kotori yet get a plain header, with the part of speech among the details.
   const plain = !byAi && !waiting
   const meta = [
@@ -450,19 +448,14 @@ export default function EntryScreen() {
         >
           {data.headword}
         </Text>
-        {learningJapanese || meta.length > 0 ? (
+        {meta.length > 0 ? (
           <Text
             variant="caption"
             size={14}
             color="textMuted"
             style={{ marginTop: plain ? 16 : 6, lineHeight: plain ? 17 : 18 }}
           >
-            {learningJapanese ? (
-              <Text variant="caption" size={14} weight="semibold" color="text">
-                {data.romaji}
-              </Text>
-            ) : null}
-            {(learningJapanese && meta.length > 0 ? " · " : "") + meta.join(" · ")}
+            {meta.join(" · ")}
           </Text>
         ) : null}
         {others.length > 0 ? (

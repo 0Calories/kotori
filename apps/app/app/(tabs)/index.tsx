@@ -83,8 +83,7 @@ const ResultRow = ({
           ) : null}
         </View>
         <Text color="textMuted" numberOfLines={2}>
-          <Text weight="semibold">{entry.romaji}</Text>
-          {` · ${entry.meanings.join("; ")}`}
+          {entry.meanings.join("; ")}
         </Text>
         {entry.inflection.length > 0 || entry.common || pos || (entry.formality && entry.formality !== "neutral") ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
