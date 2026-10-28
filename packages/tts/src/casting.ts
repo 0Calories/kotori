@@ -31,7 +31,7 @@ export interface CastingBrief {
   readonly archaic: boolean
 }
 
-/** The sentence columns casting reads; all but formality land with the examples migration. */
+/** The sentence columns casting reads; the speaker columns are null on examples written before casting. */
 export interface SentenceSignals {
   readonly formality: Formality
   readonly speakerGender?: "masculine" | "feminine" | "unspecified" | null
@@ -148,10 +148,12 @@ const FORMALITY_LISTED = 1
 /** Voices within this of the top score are considered tied and go to Jev. */
 export const TIE_WINDOW = 1
 
-const AGE_ORDER: ReadonlyArray<VoiceAge> = ["child", "youth", "adult", "middle-aged", "older"]
+/** Adults by age; a child has no neighbour, so an adult voice never passes for one. */
+const AGE_ORDER: ReadonlyArray<VoiceAge> = ["youth", "adult", "middle-aged", "older"]
 
 const ageScore = (want: VoiceAge, has: VoiceAge): number => {
   if (want === has) return AGE_EXACT
+  if (want === "child" || has === "child") return AGE_MISMATCH
   const distance = Math.abs(AGE_ORDER.indexOf(want) - AGE_ORDER.indexOf(has))
   return distance === 1 ? AGE_ADJACENT : AGE_MISMATCH
 }

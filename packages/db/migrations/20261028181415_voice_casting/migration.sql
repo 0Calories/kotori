@@ -12,4 +12,6 @@ ALTER TABLE "examples" ADD COLUMN "medium" "sentence_medium";--> statement-break
 ALTER TABLE "examples" ADD COLUMN "variety" text;--> statement-breakpoint
 ALTER TABLE "examples" ADD COLUMN "tone" "sentence_tone";--> statement-breakpoint
 ALTER TABLE "entry_audio" DROP CONSTRAINT "entry_audio_pkey";--> statement-breakpoint
-ALTER TABLE "entry_audio" ADD PRIMARY KEY ("entry_id","audio_key");
+ALTER TABLE "entry_audio" ADD PRIMARY KEY ("entry_id","audio_key");--> statement-breakpoint
+UPDATE "audio" SET "voice" = 'ja-kyoko' WHERE "voice_id" = '4lOQ7A2l7HPuG7UIHiKA';--> statement-breakpoint
+UPDATE "audio" SET "voice" = 'en-sarah' WHERE "voice_id" = 'EXAVITQu4vr4xnSDxMaL';

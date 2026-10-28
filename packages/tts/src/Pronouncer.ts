@@ -51,10 +51,11 @@ export class Pronouncer extends Context.Service<
       const casts = yield* VoiceCasts
       const budget = yield* Config.Int("KOTORI_AUDIO_MONTHLY_CHARS").pipe(Config.withDefault(50_000))
       const headwordCap = yield* Config.Int("KOTORI_HEADWORD_VOICES").pipe(Config.withDefault(3))
-      const exampleLanguages = (yield* Config.String("KOTORI_AUDIO_LANGUAGES").pipe(Config.withDefault("ja")))
+      // Japanese is always voiced; KOTORI_AUDIO_LANGUAGES only opts English in.
+      const voicedEnglish = (yield* Config.String("KOTORI_AUDIO_LANGUAGES").pipe(Config.withDefault("ja")))
         .split(",")
-        .map((language) => language.trim())
-        .filter((language): language is Language => language === "ja" || language === "en")
+        .some((language) => language.trim() === "en")
+      const exampleLanguages: ReadonlyArray<Language> = voicedEnglish ? ["ja", "en"] : ["ja"]
 
       const defaultVoice = (language: Language): Effect.Effect<Voice, TtsError> => {
         const voice = headwordVoices(language, casts)[0]
@@ -119,7 +120,10 @@ export class Pronouncer extends Context.Service<
         let ranked: ReadonlyArray<RankedVoice> = rank(brief, language, casts)
         if (ranked.length === 0) ranked = rank({ ...brief, variety: null }, language, casts)
         const top = ranked[0]
-        if (top === undefined) return Option.none<CastingDecision>()
+        if (top === undefined) {
+          yield* Effect.logWarning(`No ${language} voice is cast for example ${example.id}; skipping its audio`)
+          return Option.none<CastingDecision>()
+        }
 
         const ties = tied(ranked)
         const byRules: CastingDecision = { voice: top.voice, casting: { castBy: "rules", score: top.score } }
@@ -139,7 +143,13 @@ export class Pronouncer extends Context.Service<
             `castVoice picked ${vote.value.voiceId} for example ${example.id} (${language}) at low confidence ${vote.value.confidence}`
           )
         }
-        const chosen = ties.find(({ voice }) => voice.id === vote.value.voiceId) ?? top
+        const chosen = ties.find(({ voice }) => voice.id === vote.value.voiceId)
+        if (chosen === undefined) {
+          yield* Effect.logWarning(
+            `castVoice picked ${vote.value.voiceId} outside the tie for example ${example.id} (${language}); using the top score`
+          )
+          return Option.some(byRules)
+        }
         return Option.some<CastingDecision>({
           voice: chosen.voice,
           casting: { castBy: "jev", score: chosen.score }

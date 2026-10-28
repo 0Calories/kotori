@@ -144,6 +144,20 @@ describe("rank", () => {
     expect(topVoice(brief)).toBe("ja-elder-m")
   })
 
+  it("gives no adult voice an adjacency bonus for a child speaker", () => {
+    const scores = (speakerAge: "child" | null) =>
+      new Map(
+        rank(briefFor(input({ formality: "casual", speakerAge })), "ja", FULL_CASTS).map(({ voice, score }) => [
+          voice.id,
+          score
+        ])
+      )
+    const child = scores("child")
+    const unspecified = scores(null)
+    // Youth sits next to child by age, but a child line read by a youth still mismatches.
+    expect(child.get("ja-casual-m")).toBe(unspecified.get("ja-casual-m")! - 1)
+  })
+
   it("matches feminine misc words to feminine voices", () => {
     const ranked = rank(briefFor(input({ formality: "casual" }, { misc: ["fem"] })), "ja", FULL_CASTS)
     expect(ranked[0]!.voice.tags.gender).toBe("feminine")
