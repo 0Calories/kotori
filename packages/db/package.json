@@ -17,14 +17,18 @@
     }
   },
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "generate": "drizzle-kit generate",
+    "check": "drizzle-kit check"
   },
   "dependencies": {
     "@effect/sql-pg": "catalog:",
     "@kotori/domain": "workspace:*",
+    "drizzle-orm": "catalog:",
     "effect": "catalog:"
   },
   "devDependencies": {
-    "@effect/sql-pglite": "catalog:"
+    "@effect/sql-pglite": "catalog:",
+    "drizzle-kit": "catalog:"
   }
 }

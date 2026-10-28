@@ -10,7 +10,8 @@
   "scripts": {
     "cli": "tsx -C @kotori/source src/main.ts",
     "dev": "tsx watch --clear-screen=false -C @kotori/source src/main.ts work",
-    "start": "node dist/main.js work"
+    "start": "node dist/main.js work",
+    "test": "vitest run"
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",

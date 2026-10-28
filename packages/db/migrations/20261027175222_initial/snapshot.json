@@ -1,0 +1,3800 @@
+{
+  "type": "base",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "21255a03-ab25-4370-a794-3f0555c94803",
+  "prevIds": ["00000000-0000-0000-0000-000000000000"],
+  "footprints": [
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "form_kind"],
+      "writes": [
+        "s|enum|public.form_kind",
+        "n|enum|public.form_kind",
+        "e|enum|public.form_kind",
+        "n|type|public.form_kind"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "difference"],
+      "writes": [
+        "s|enum|public.difference",
+        "n|enum|public.difference",
+        "e|enum|public.difference",
+        "n|type|public.difference"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "formality"],
+      "writes": [
+        "s|enum|public.formality",
+        "n|enum|public.formality",
+        "e|enum|public.formality",
+        "n|type|public.formality"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "job_kind"],
+      "writes": [
+        "s|enum|public.job_kind",
+        "n|enum|public.job_kind",
+        "e|enum|public.job_kind",
+        "n|type|public.job_kind"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "job_status"],
+      "writes": [
+        "s|enum|public.job_status",
+        "n|enum|public.job_status",
+        "e|enum|public.job_status",
+        "n|type|public.job_status"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "language"],
+      "writes": [
+        "s|enum|public.language",
+        "n|enum|public.language",
+        "e|enum|public.language",
+        "n|type|public.language"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "account_status"],
+      "writes": [
+        "s|enum|public.account_status",
+        "n|enum|public.account_status",
+        "e|enum|public.account_status",
+        "n|type|public.account_status"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "card_queue"],
+      "writes": [
+        "s|enum|public.card_queue",
+        "n|enum|public.card_queue",
+        "e|enum|public.card_queue",
+        "n|type|public.card_queue"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "card_template"],
+      "writes": [
+        "s|enum|public.card_template",
+        "n|enum|public.card_template",
+        "e|enum|public.card_template",
+        "n|type|public.card_template"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "note_kind"],
+      "writes": [
+        "s|enum|public.note_kind",
+        "n|enum|public.note_kind",
+        "e|enum|public.note_kind",
+        "n|type|public.note_kind"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "rating"],
+      "writes": ["s|enum|public.rating", "n|enum|public.rating", "e|enum|public.rating", "n|type|public.rating"],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "user_role"],
+      "writes": [
+        "s|enum|public.user_role",
+        "n|enum|public.user_role",
+        "e|enum|public.user_role",
+        "n|type|public.user_role"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "entries"],
+      "writes": [
+        "s|tbl|public.entries",
+        "n|tbl|public.entries",
+        "e|tbl|public.entries",
+        "n|rel|public.entries",
+        "n|type|public.entries",
+        "n|rel|public.entries_pkey"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "forms"],
+      "writes": [
+        "s|tbl|public.forms",
+        "n|tbl|public.forms",
+        "e|tbl|public.forms",
+        "n|rel|public.forms",
+        "n|type|public.forms",
+        "n|rel|public.forms_pkey"
+      ],
+      "reads": ["n|sch|public", "n|enum|public.form_kind"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "glosses"],
+      "writes": [
+        "s|tbl|public.glosses",
+        "n|tbl|public.glosses",
+        "e|tbl|public.glosses",
+        "n|rel|public.glosses",
+        "n|type|public.glosses",
+        "n|rel|public.glosses_pkey"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "senses"],
+      "writes": [
+        "s|tbl|public.senses",
+        "n|tbl|public.senses",
+        "e|tbl|public.senses",
+        "n|rel|public.senses",
+        "n|type|public.senses",
+        "n|rel|public.senses_pkey"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "tags"],
+      "writes": [
+        "s|tbl|public.tags",
+        "n|tbl|public.tags",
+        "e|tbl|public.tags",
+        "n|rel|public.tags",
+        "n|type|public.tags",
+        "n|rel|public.tags_pkey"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "audio"],
+      "writes": [
+        "s|tbl|public.audio",
+        "n|tbl|public.audio",
+        "e|tbl|public.audio",
+        "n|rel|public.audio",
+        "n|type|public.audio",
+        "n|rel|public.audio_pkey"
+      ],
+      "reads": ["n|sch|public", "n|enum|public.language"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "audio_files"],
+      "writes": [
+        "s|tbl|public.audio_files",
+        "n|tbl|public.audio_files",
+        "e|tbl|public.audio_files",
+        "n|rel|public.audio_files",
+        "n|type|public.audio_files",
+        "n|rel|public.audio_files_pkey"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "entry_audio"],
+      "writes": [
+        "s|tbl|public.entry_audio",
+        "n|tbl|public.entry_audio",
+        "e|tbl|public.entry_audio",
+        "n|rel|public.entry_audio",
+        "n|type|public.entry_audio",
+        "n|rel|public.entry_audio_pkey"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "example_audio"],
+      "writes": [
+        "s|tbl|public.example_audio",
+        "n|tbl|public.example_audio",
+        "e|tbl|public.example_audio",
+        "n|rel|public.example_audio",
+        "n|type|public.example_audio",
+        "n|rel|public.example_audio_pkey"
+      ],
+      "reads": ["n|sch|public", "n|enum|public.language"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "examples"],
+      "writes": [
+        "s|tbl|public.examples",
+        "n|tbl|public.examples",
+        "e|tbl|public.examples",
+        "n|rel|public.examples",
+        "n|type|public.examples",
+        "n|rel|public.examples_pkey"
+      ],
+      "reads": ["n|sch|public", "n|enum|public.formality"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "jobs"],
+      "writes": [
+        "s|tbl|public.jobs",
+        "n|tbl|public.jobs",
+        "e|tbl|public.jobs",
+        "n|rel|public.jobs",
+        "n|type|public.jobs",
+        "n|rel|public.jobs_pkey",
+        "n|rel|public.jobs_kind_entry"
+      ],
+      "reads": ["n|sch|public", "n|enum|public.job_kind", "n|enum|public.job_status"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "sense_nuance"],
+      "writes": [
+        "s|tbl|public.sense_nuance",
+        "n|tbl|public.sense_nuance",
+        "e|tbl|public.sense_nuance",
+        "n|rel|public.sense_nuance",
+        "n|type|public.sense_nuance",
+        "n|rel|public.sense_nuance_pkey"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "similar_words"],
+      "writes": [
+        "s|tbl|public.similar_words",
+        "n|tbl|public.similar_words",
+        "e|tbl|public.similar_words",
+        "n|rel|public.similar_words",
+        "n|type|public.similar_words",
+        "n|rel|public.similar_words_pkey"
+      ],
+      "reads": ["n|sch|public", "n|enum|public.difference"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "cards"],
+      "writes": [
+        "s|tbl|public.cards",
+        "n|tbl|public.cards",
+        "e|tbl|public.cards",
+        "n|rel|public.cards",
+        "n|type|public.cards",
+        "n|rel|public.cards_pkey"
+      ],
+      "reads": ["n|sch|public", "n|enum|public.card_template", "n|enum|public.card_queue"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "coach_cache"],
+      "writes": [
+        "s|tbl|public.coach_cache",
+        "n|tbl|public.coach_cache",
+        "e|tbl|public.coach_cache",
+        "n|rel|public.coach_cache",
+        "n|type|public.coach_cache",
+        "n|rel|public.coach_cache_pkey"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "coach_usage"],
+      "writes": [
+        "s|tbl|public.coach_usage",
+        "n|tbl|public.coach_usage",
+        "e|tbl|public.coach_usage",
+        "n|rel|public.coach_usage",
+        "n|type|public.coach_usage",
+        "n|rel|public.coach_usage_pkey"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "notes"],
+      "writes": [
+        "s|tbl|public.notes",
+        "n|tbl|public.notes",
+        "e|tbl|public.notes",
+        "n|rel|public.notes",
+        "n|type|public.notes",
+        "n|rel|public.notes_pkey"
+      ],
+      "reads": ["n|sch|public", "n|enum|public.note_kind"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "review_logs"],
+      "writes": [
+        "s|tbl|public.review_logs",
+        "n|tbl|public.review_logs",
+        "e|tbl|public.review_logs",
+        "n|rel|public.review_logs",
+        "n|type|public.review_logs",
+        "n|rel|public.review_logs_pkey"
+      ],
+      "reads": ["n|sch|public", "n|enum|public.rating", "n|enum|public.card_queue"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "users"],
+      "writes": [
+        "s|tbl|public.users",
+        "n|tbl|public.users",
+        "e|tbl|public.users",
+        "n|rel|public.users",
+        "n|type|public.users",
+        "n|rel|public.users_pkey"
+      ],
+      "reads": [
+        "n|sch|public",
+        "n|enum|public.account_status",
+        "n|enum|public.user_role",
+        "n|enum|public.language",
+        "n|enum|public.language"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "entries", "entries_priority"],
+      "writes": [
+        "s|idx|public.entries_priority",
+        "n|idx|public.entries_priority",
+        "e|idx|public.entries_priority",
+        "n|rel|public.entries_priority"
+      ],
+      "reads": ["n|tbl|public.entries", "n|sch|public", "n|col|public.entries.priority", "n|col|public.entries.id"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "forms", "forms_text"],
+      "writes": [
+        "s|idx|public.forms_text",
+        "n|idx|public.forms_text",
+        "e|idx|public.forms_text",
+        "n|rel|public.forms_text"
+      ],
+      "reads": ["n|tbl|public.forms", "n|sch|public", "n|col|public.forms.text"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "glosses", "glosses_sense"],
+      "writes": [
+        "s|idx|public.glosses_sense",
+        "n|idx|public.glosses_sense",
+        "e|idx|public.glosses_sense",
+        "n|rel|public.glosses_sense"
+      ],
+      "reads": ["n|tbl|public.glosses", "n|sch|public", "n|col|public.glosses.entry_id", "n|col|public.glosses.sense"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "glosses", "glosses_norm"],
+      "writes": [
+        "s|idx|public.glosses_norm",
+        "n|idx|public.glosses_norm",
+        "e|idx|public.glosses_norm",
+        "n|rel|public.glosses_norm"
+      ],
+      "reads": ["n|tbl|public.glosses", "n|sch|public", "n|col|public.glosses.norm"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "glosses", "glosses_document"],
+      "writes": [
+        "s|idx|public.glosses_document",
+        "n|idx|public.glosses_document",
+        "e|idx|public.glosses_document",
+        "n|rel|public.glosses_document"
+      ],
+      "reads": ["n|tbl|public.glosses", "n|sch|public", "n|col|public.glosses.document"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "examples", "examples_sense"],
+      "writes": [
+        "s|idx|public.examples_sense",
+        "n|idx|public.examples_sense",
+        "e|idx|public.examples_sense",
+        "n|rel|public.examples_sense"
+      ],
+      "reads": [
+        "n|tbl|public.examples",
+        "n|sch|public",
+        "n|col|public.examples.entry_id",
+        "n|col|public.examples.sense",
+        "n|col|public.examples.position"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "jobs", "jobs_pending"],
+      "writes": [
+        "s|idx|public.jobs_pending",
+        "n|idx|public.jobs_pending",
+        "e|idx|public.jobs_pending",
+        "n|rel|public.jobs_pending"
+      ],
+      "reads": [
+        "n|tbl|public.jobs",
+        "n|sch|public",
+        "n|col|public.jobs.status",
+        "n|col|public.jobs.priority",
+        "n|col|public.jobs.run_after"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "cards", "cards_queue"],
+      "writes": [
+        "s|idx|public.cards_queue",
+        "n|idx|public.cards_queue",
+        "e|idx|public.cards_queue",
+        "n|rel|public.cards_queue"
+      ],
+      "reads": [
+        "n|tbl|public.cards",
+        "n|sch|public",
+        "n|col|public.cards.user_id",
+        "n|col|public.cards.queue",
+        "n|col|public.cards.due"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "cards", "cards_note"],
+      "writes": [
+        "s|idx|public.cards_note",
+        "n|idx|public.cards_note",
+        "e|idx|public.cards_note",
+        "n|rel|public.cards_note"
+      ],
+      "reads": ["n|tbl|public.cards", "n|sch|public", "n|col|public.cards.note_id"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "coach_usage", "coach_usage_user"],
+      "writes": [
+        "s|idx|public.coach_usage_user",
+        "n|idx|public.coach_usage_user",
+        "e|idx|public.coach_usage_user",
+        "n|rel|public.coach_usage_user"
+      ],
+      "reads": [
+        "n|tbl|public.coach_usage",
+        "n|sch|public",
+        "n|col|public.coach_usage.user_id",
+        "n|col|public.coach_usage.created_at"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "notes", "notes_user"],
+      "writes": [
+        "s|idx|public.notes_user",
+        "n|idx|public.notes_user",
+        "e|idx|public.notes_user",
+        "n|rel|public.notes_user"
+      ],
+      "reads": ["n|tbl|public.notes", "n|sch|public", "n|col|public.notes.user_id", "n|col|public.notes.created_at"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "notes", "notes_word"],
+      "writes": [
+        "s|idx|public.notes_word",
+        "n|idx|public.notes_word",
+        "e|idx|public.notes_word",
+        "n|rel|public.notes_word"
+      ],
+      "reads": [
+        "n|tbl|public.notes",
+        "n|sch|public",
+        "n|col|public.notes.user_id",
+        "n|col|public.notes.entry_id",
+        "n|col|public.notes.sense"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "review_logs", "review_logs_user_day"],
+      "writes": [
+        "s|idx|public.review_logs_user_day",
+        "n|idx|public.review_logs_user_day",
+        "e|idx|public.review_logs_user_day",
+        "n|rel|public.review_logs_user_day"
+      ],
+      "reads": [
+        "n|tbl|public.review_logs",
+        "n|sch|public",
+        "n|col|public.review_logs.user_id",
+        "n|col|public.review_logs.study_day"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "users", "users_status"],
+      "writes": [
+        "s|idx|public.users_status",
+        "n|idx|public.users_status",
+        "e|idx|public.users_status",
+        "n|rel|public.users_status"
+      ],
+      "reads": ["n|tbl|public.users", "n|sch|public", "n|col|public.users.status"]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "forms"],
+      "writes": [
+        "s|fk|public.forms.forms_entry_id_entries_id_fkey",
+        "n|fk|public.forms.forms_entry_id_entries_id_fkey",
+        "e|fk|public.forms.forms_entry_id_entries_id_fkey",
+        "n|con|public.forms.forms_entry_id_entries_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.forms",
+        "n|sch|public",
+        "n|tbl|public.entries",
+        "n|sch|public",
+        "n|col|public.forms.entry_id",
+        "n|col|public.entries.id",
+        "e|uniqueness|public.entries.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "glosses"],
+      "writes": [
+        "s|fk|public.glosses.glosses_entry_id_sense_senses_entry_id_position_fkey",
+        "n|fk|public.glosses.glosses_entry_id_sense_senses_entry_id_position_fkey",
+        "e|fk|public.glosses.glosses_entry_id_sense_senses_entry_id_position_fkey",
+        "n|con|public.glosses.glosses_entry_id_sense_senses_entry_id_position_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.glosses",
+        "n|sch|public",
+        "n|tbl|public.senses",
+        "n|sch|public",
+        "n|col|public.glosses.entry_id",
+        "n|col|public.glosses.sense",
+        "n|col|public.senses.entry_id",
+        "n|col|public.senses.position",
+        "e|uniqueness|public.senses.entry_id.position"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "senses"],
+      "writes": [
+        "s|fk|public.senses.senses_entry_id_entries_id_fkey",
+        "n|fk|public.senses.senses_entry_id_entries_id_fkey",
+        "e|fk|public.senses.senses_entry_id_entries_id_fkey",
+        "n|con|public.senses.senses_entry_id_entries_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.senses",
+        "n|sch|public",
+        "n|tbl|public.entries",
+        "n|sch|public",
+        "n|col|public.senses.entry_id",
+        "n|col|public.entries.id",
+        "e|uniqueness|public.entries.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "audio_files"],
+      "writes": [
+        "s|fk|public.audio_files.audio_files_key_audio_key_fkey",
+        "n|fk|public.audio_files.audio_files_key_audio_key_fkey",
+        "e|fk|public.audio_files.audio_files_key_audio_key_fkey",
+        "n|con|public.audio_files.audio_files_key_audio_key_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.audio_files",
+        "n|sch|public",
+        "n|tbl|public.audio",
+        "n|sch|public",
+        "n|col|public.audio_files.key",
+        "n|col|public.audio.key",
+        "e|uniqueness|public.audio.key"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "entry_audio"],
+      "writes": [
+        "s|fk|public.entry_audio.entry_audio_entry_id_entries_id_fkey",
+        "n|fk|public.entry_audio.entry_audio_entry_id_entries_id_fkey",
+        "e|fk|public.entry_audio.entry_audio_entry_id_entries_id_fkey",
+        "n|con|public.entry_audio.entry_audio_entry_id_entries_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.entry_audio",
+        "n|sch|public",
+        "n|tbl|public.entries",
+        "n|sch|public",
+        "n|col|public.entry_audio.entry_id",
+        "n|col|public.entries.id",
+        "e|uniqueness|public.entries.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "entry_audio"],
+      "writes": [
+        "s|fk|public.entry_audio.entry_audio_audio_key_audio_key_fkey",
+        "n|fk|public.entry_audio.entry_audio_audio_key_audio_key_fkey",
+        "e|fk|public.entry_audio.entry_audio_audio_key_audio_key_fkey",
+        "n|con|public.entry_audio.entry_audio_audio_key_audio_key_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.entry_audio",
+        "n|sch|public",
+        "n|tbl|public.audio",
+        "n|sch|public",
+        "n|col|public.entry_audio.audio_key",
+        "n|col|public.audio.key",
+        "e|uniqueness|public.audio.key"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "example_audio"],
+      "writes": [
+        "s|fk|public.example_audio.example_audio_example_id_examples_id_fkey",
+        "n|fk|public.example_audio.example_audio_example_id_examples_id_fkey",
+        "e|fk|public.example_audio.example_audio_example_id_examples_id_fkey",
+        "n|con|public.example_audio.example_audio_example_id_examples_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.example_audio",
+        "n|sch|public",
+        "n|tbl|public.examples",
+        "n|sch|public",
+        "n|col|public.example_audio.example_id",
+        "n|col|public.examples.id",
+        "e|uniqueness|public.examples.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "example_audio"],
+      "writes": [
+        "s|fk|public.example_audio.example_audio_audio_key_audio_key_fkey",
+        "n|fk|public.example_audio.example_audio_audio_key_audio_key_fkey",
+        "e|fk|public.example_audio.example_audio_audio_key_audio_key_fkey",
+        "n|con|public.example_audio.example_audio_audio_key_audio_key_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.example_audio",
+        "n|sch|public",
+        "n|tbl|public.audio",
+        "n|sch|public",
+        "n|col|public.example_audio.audio_key",
+        "n|col|public.audio.key",
+        "e|uniqueness|public.audio.key"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "examples"],
+      "writes": [
+        "s|fk|public.examples.examples_entry_id_sense_senses_entry_id_position_fkey",
+        "n|fk|public.examples.examples_entry_id_sense_senses_entry_id_position_fkey",
+        "e|fk|public.examples.examples_entry_id_sense_senses_entry_id_position_fkey",
+        "n|con|public.examples.examples_entry_id_sense_senses_entry_id_position_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.examples",
+        "n|sch|public",
+        "n|tbl|public.senses",
+        "n|sch|public",
+        "n|col|public.examples.entry_id",
+        "n|col|public.examples.sense",
+        "n|col|public.senses.entry_id",
+        "n|col|public.senses.position",
+        "e|uniqueness|public.senses.entry_id.position"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "jobs"],
+      "writes": [
+        "s|fk|public.jobs.jobs_entry_id_entries_id_fkey",
+        "n|fk|public.jobs.jobs_entry_id_entries_id_fkey",
+        "e|fk|public.jobs.jobs_entry_id_entries_id_fkey",
+        "n|con|public.jobs.jobs_entry_id_entries_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.jobs",
+        "n|sch|public",
+        "n|tbl|public.entries",
+        "n|sch|public",
+        "n|col|public.jobs.entry_id",
+        "n|col|public.entries.id",
+        "e|uniqueness|public.entries.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "sense_nuance"],
+      "writes": [
+        "s|fk|public.sense_nuance.sense_nuance_entry_id_sense_senses_entry_id_position_fkey",
+        "n|fk|public.sense_nuance.sense_nuance_entry_id_sense_senses_entry_id_position_fkey",
+        "e|fk|public.sense_nuance.sense_nuance_entry_id_sense_senses_entry_id_position_fkey",
+        "n|con|public.sense_nuance.sense_nuance_entry_id_sense_senses_entry_id_position_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.sense_nuance",
+        "n|sch|public",
+        "n|tbl|public.senses",
+        "n|sch|public",
+        "n|col|public.sense_nuance.entry_id",
+        "n|col|public.sense_nuance.sense",
+        "n|col|public.senses.entry_id",
+        "n|col|public.senses.position",
+        "e|uniqueness|public.senses.entry_id.position"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "similar_words"],
+      "writes": [
+        "s|fk|public.similar_words.similar_words_similar_id_entries_id_fkey",
+        "n|fk|public.similar_words.similar_words_similar_id_entries_id_fkey",
+        "e|fk|public.similar_words.similar_words_similar_id_entries_id_fkey",
+        "n|con|public.similar_words.similar_words_similar_id_entries_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.similar_words",
+        "n|sch|public",
+        "n|tbl|public.entries",
+        "n|sch|public",
+        "n|col|public.similar_words.similar_id",
+        "n|col|public.entries.id",
+        "e|uniqueness|public.entries.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "similar_words"],
+      "writes": [
+        "s|fk|public.similar_words.similar_words_entry_id_sense_senses_entry_id_position_fkey",
+        "n|fk|public.similar_words.similar_words_entry_id_sense_senses_entry_id_position_fkey",
+        "e|fk|public.similar_words.similar_words_entry_id_sense_senses_entry_id_position_fkey",
+        "n|con|public.similar_words.similar_words_entry_id_sense_senses_entry_id_position_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.similar_words",
+        "n|sch|public",
+        "n|tbl|public.senses",
+        "n|sch|public",
+        "n|col|public.similar_words.entry_id",
+        "n|col|public.similar_words.sense",
+        "n|col|public.senses.entry_id",
+        "n|col|public.senses.position",
+        "e|uniqueness|public.senses.entry_id.position"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "cards"],
+      "writes": [
+        "s|fk|public.cards.cards_note_id_notes_id_fkey",
+        "n|fk|public.cards.cards_note_id_notes_id_fkey",
+        "e|fk|public.cards.cards_note_id_notes_id_fkey",
+        "n|con|public.cards.cards_note_id_notes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.cards",
+        "n|sch|public",
+        "n|tbl|public.notes",
+        "n|sch|public",
+        "n|col|public.cards.note_id",
+        "n|col|public.notes.id",
+        "e|uniqueness|public.notes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "cards"],
+      "writes": [
+        "s|fk|public.cards.cards_user_id_users_id_fkey",
+        "n|fk|public.cards.cards_user_id_users_id_fkey",
+        "e|fk|public.cards.cards_user_id_users_id_fkey",
+        "n|con|public.cards.cards_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.cards",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.cards.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "coach_usage"],
+      "writes": [
+        "s|fk|public.coach_usage.coach_usage_user_id_users_id_fkey",
+        "n|fk|public.coach_usage.coach_usage_user_id_users_id_fkey",
+        "e|fk|public.coach_usage.coach_usage_user_id_users_id_fkey",
+        "n|con|public.coach_usage.coach_usage_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.coach_usage",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.coach_usage.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "notes"],
+      "writes": [
+        "s|fk|public.notes.notes_user_id_users_id_fkey",
+        "n|fk|public.notes.notes_user_id_users_id_fkey",
+        "e|fk|public.notes.notes_user_id_users_id_fkey",
+        "n|con|public.notes.notes_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.notes",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.notes.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "notes"],
+      "writes": [
+        "s|fk|public.notes.notes_entry_id_entries_id_fkey",
+        "n|fk|public.notes.notes_entry_id_entries_id_fkey",
+        "e|fk|public.notes.notes_entry_id_entries_id_fkey",
+        "n|con|public.notes.notes_entry_id_entries_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.notes",
+        "n|sch|public",
+        "n|tbl|public.entries",
+        "n|sch|public",
+        "n|col|public.notes.entry_id",
+        "n|col|public.entries.id",
+        "e|uniqueness|public.entries.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "review_logs"],
+      "writes": [
+        "s|fk|public.review_logs.review_logs_card_id_cards_id_fkey",
+        "n|fk|public.review_logs.review_logs_card_id_cards_id_fkey",
+        "e|fk|public.review_logs.review_logs_card_id_cards_id_fkey",
+        "n|con|public.review_logs.review_logs_card_id_cards_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.review_logs",
+        "n|sch|public",
+        "n|tbl|public.cards",
+        "n|sch|public",
+        "n|col|public.review_logs.card_id",
+        "n|col|public.cards.id",
+        "e|uniqueness|public.cards.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "review_logs"],
+      "writes": [
+        "s|fk|public.review_logs.review_logs_user_id_users_id_fkey",
+        "n|fk|public.review_logs.review_logs_user_id_users_id_fkey",
+        "e|fk|public.review_logs.review_logs_user_id_users_id_fkey",
+        "n|con|public.review_logs.review_logs_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.review_logs",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.review_logs.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    }
+  ],
+  "ddl": [
+    {
+      "schema": "public",
+      "name": "entries",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "forms",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "glosses",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "senses",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "tags",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "audio",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "audio_files",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "entry_audio",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "example_audio",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "examples",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "jobs",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "sense_nuance",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "similar_words",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "cards",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "coach_cache",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "coach_usage",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "notes",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "review_logs",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "users",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "form_kind",
+      "values": ["kanji", "kana"],
+      "entityType": "enums"
+    },
+    {
+      "schema": "public",
+      "name": "difference",
+      "values": [
+        "more_casual",
+        "more_formal",
+        "more_literary",
+        "more_colloquial",
+        "respectful",
+        "humble",
+        "more_specific",
+        "more_general",
+        "different_feeling",
+        "different_usage"
+      ],
+      "entityType": "enums"
+    },
+    {
+      "schema": "public",
+      "name": "formality",
+      "values": ["vulgar", "casual", "neutral", "polite", "formal"],
+      "entityType": "enums"
+    },
+    {
+      "schema": "public",
+      "name": "job_kind",
+      "values": ["nuance", "examples", "audio"],
+      "entityType": "enums"
+    },
+    {
+      "schema": "public",
+      "name": "job_status",
+      "values": ["queued", "running", "done", "failed"],
+      "entityType": "enums"
+    },
+    {
+      "schema": "public",
+      "name": "language",
+      "values": ["en", "ja"],
+      "entityType": "enums"
+    },
+    {
+      "schema": "public",
+      "name": "account_status",
+      "values": ["pending", "approved", "archived"],
+      "entityType": "enums"
+    },
+    {
+      "schema": "public",
+      "name": "card_queue",
+      "values": ["new", "learning", "review", "relearning"],
+      "entityType": "enums"
+    },
+    {
+      "schema": "public",
+      "name": "card_template",
+      "values": ["recognize", "produce"],
+      "entityType": "enums"
+    },
+    {
+      "schema": "public",
+      "name": "note_kind",
+      "values": ["word", "phrase"],
+      "entityType": "enums"
+    },
+    {
+      "schema": "public",
+      "name": "rating",
+      "values": ["again", "hard", "good", "easy"],
+      "entityType": "enums"
+    },
+    {
+      "schema": "public",
+      "name": "user_role",
+      "values": ["user", "admin"],
+      "entityType": "enums"
+    },
+    {
+      "schema": "public",
+      "table": "entries",
+      "name": "id",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "entries",
+      "name": "headword",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "entries",
+      "name": "reading",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "entries",
+      "name": "common",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "entries",
+      "name": "priority",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "forms",
+      "name": "entry_id",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "forms",
+      "name": "kind",
+      "type": "form_kind",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "forms",
+      "name": "position",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "forms",
+      "name": "text",
+      "type": "text COLLATE \"C\"",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "forms",
+      "name": "common",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "forms",
+      "name": "tags",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 1,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "forms",
+      "name": "priorities",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 1,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "forms",
+      "name": "restrictions",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 1,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "forms",
+      "name": "no_kanji",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "glosses",
+      "name": "id",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": {
+        "type": "always",
+        "name": "glosses_id_seq",
+        "increment": "1",
+        "startWith": "1",
+        "minValue": "1",
+        "maxValue": "2147483647",
+        "cache": 1,
+        "cycle": false
+      },
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "glosses",
+      "name": "entry_id",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "glosses",
+      "name": "sense",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "glosses",
+      "name": "position",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "glosses",
+      "name": "text",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "glosses",
+      "name": "type",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "glosses",
+      "name": "norm",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "glosses",
+      "name": "document",
+      "type": "tsvector",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": {
+        "as": "to_tsvector('english', \"glosses\".\"text\")",
+        "type": "stored"
+      },
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "senses",
+      "name": "entry_id",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "senses",
+      "name": "position",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "senses",
+      "name": "pos",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 1,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "senses",
+      "name": "misc",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 1,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "senses",
+      "name": "fields",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 1,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "senses",
+      "name": "dialects",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 1,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "senses",
+      "name": "info",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 1,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "senses",
+      "name": "stagk",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 1,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "senses",
+      "name": "stagr",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 1,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "senses",
+      "name": "xrefs",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 1,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "senses",
+      "name": "antonyms",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 1,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tags",
+      "name": "code",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tags",
+      "name": "label",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "audio",
+      "name": "key",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "audio",
+      "name": "text",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "audio",
+      "name": "language",
+      "type": "language",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "audio",
+      "name": "voice_id",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "audio",
+      "name": "model_id",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "audio",
+      "name": "characters",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "audio",
+      "name": "bytes",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "audio",
+      "name": "created_at",
+      "type": "timestamp(3) with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "audio_files",
+      "name": "key",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "audio_files",
+      "name": "data",
+      "type": "bytea",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "entry_audio",
+      "name": "entry_id",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "entry_audio",
+      "name": "audio_key",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "example_audio",
+      "name": "example_id",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "example_audio",
+      "name": "language",
+      "type": "language",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "example_audio",
+      "name": "audio_key",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "examples",
+      "name": "id",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": {
+        "type": "always",
+        "name": "examples_id_seq",
+        "increment": "1",
+        "startWith": "1",
+        "minValue": "1",
+        "maxValue": "2147483647",
+        "cache": 1,
+        "cycle": false
+      },
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "examples",
+      "name": "entry_id",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "examples",
+      "name": "sense",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "examples",
+      "name": "position",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "examples",
+      "name": "ja",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "examples",
+      "name": "furigana",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "examples",
+      "name": "en",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "examples",
+      "name": "formality",
+      "type": "formality",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "examples",
+      "name": "note",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "examples",
+      "name": "model",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "examples",
+      "name": "created_at",
+      "type": "timestamp(3) with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "jobs",
+      "name": "id",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": {
+        "type": "always",
+        "name": "jobs_id_seq",
+        "increment": "1",
+        "startWith": "1",
+        "minValue": "1",
+        "maxValue": "2147483647",
+        "cache": 1,
+        "cycle": false
+      },
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "jobs",
+      "name": "kind",
+      "type": "job_kind",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "jobs",
+      "name": "entry_id",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "jobs",
+      "name": "priority",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "jobs",
+      "name": "status",
+      "type": "job_status",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'queued'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "jobs",
+      "name": "attempts",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "jobs",
+      "name": "error",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "jobs",
+      "name": "run_after",
+      "type": "timestamp(3) with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "jobs",
+      "name": "created_at",
+      "type": "timestamp(3) with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "jobs",
+      "name": "updated_at",
+      "type": "timestamp(3) with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "sense_nuance",
+      "name": "entry_id",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "sense_nuance",
+      "name": "sense",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "sense_nuance",
+      "name": "nuance",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "sense_nuance",
+      "name": "answers",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "sense_nuance",
+      "name": "model",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "sense_nuance",
+      "name": "created_at",
+      "type": "timestamp(3) with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "similar_words",
+      "name": "entry_id",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "similar_words",
+      "name": "sense",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "similar_words",
+      "name": "similar_id",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "similar_words",
+      "name": "similarity",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "similar_words",
+      "name": "difference",
+      "type": "difference",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "similar_words",
+      "name": "confidence",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "gen_random_uuid()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "note_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "template",
+      "type": "card_template",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "queue",
+      "type": "card_queue",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'new'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "due",
+      "type": "timestamp(3) with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "interval",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "ease",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "step",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "reps",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "lapses",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "leech",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "last_review",
+      "type": "timestamp(3) with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "seed",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "position",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "created_at",
+      "type": "timestamp(3) with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "coach_cache",
+      "name": "key",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "coach_cache",
+      "name": "result",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "coach_cache",
+      "name": "created_at",
+      "type": "timestamp(3) with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "coach_usage",
+      "name": "id",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": {
+        "type": "always",
+        "name": "coach_usage_id_seq",
+        "increment": "1",
+        "startWith": "1",
+        "minValue": "1",
+        "maxValue": "2147483647",
+        "cache": 1,
+        "cycle": false
+      },
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "coach_usage",
+      "name": "user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "coach_usage",
+      "name": "kind",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "coach_usage",
+      "name": "created_at",
+      "type": "timestamp(3) with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "notes",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "gen_random_uuid()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "notes",
+      "name": "user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "notes",
+      "name": "kind",
+      "type": "note_kind",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "notes",
+      "name": "content",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "notes",
+      "name": "entry_id",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "notes",
+      "name": "sense",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "notes",
+      "name": "created_at",
+      "type": "timestamp(3) with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "review_logs",
+      "name": "id",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": {
+        "type": "always",
+        "name": "review_logs_id_seq",
+        "increment": "1",
+        "startWith": "1",
+        "minValue": "1",
+        "maxValue": "2147483647",
+        "cache": 1,
+        "cycle": false
+      },
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "review_logs",
+      "name": "card_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "review_logs",
+      "name": "user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "review_logs",
+      "name": "rating",
+      "type": "rating",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "review_logs",
+      "name": "queue_before",
+      "type": "card_queue",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "review_logs",
+      "name": "interval_before",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "review_logs",
+      "name": "interval",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "review_logs",
+      "name": "ease_before",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "review_logs",
+      "name": "ease",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "review_logs",
+      "name": "delay_ms",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "review_logs",
+      "name": "duration_ms",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "review_logs",
+      "name": "reviewed_at",
+      "type": "timestamp(3) with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "review_logs",
+      "name": "study_day",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "users",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "users",
+      "name": "status",
+      "type": "account_status",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'pending'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "users",
+      "name": "role",
+      "type": "user_role",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'user'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "users",
+      "name": "native_language",
+      "type": "language",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'en'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "users",
+      "name": "target_language",
+      "type": "language",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'ja'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "users",
+      "name": "onboarded_at",
+      "type": "timestamp(3) with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "users",
+      "name": "display_name",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "users",
+      "name": "timezone",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'UTC'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "users",
+      "name": "daily_new_limit",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "20",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "users",
+      "name": "daily_review_limit",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "200",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "users",
+      "name": "created_at",
+      "type": "timestamp(3) with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "entries",
+      "name": "entries_priority",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "priority",
+          "isExpression": false,
+          "asc": false,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "forms",
+      "name": "forms_text",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "text",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "glosses",
+      "name": "glosses_sense",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "entry_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "sense",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "glosses",
+      "name": "glosses_norm",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "norm",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "glosses",
+      "name": "glosses_document",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "document",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "gin",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "examples",
+      "name": "examples_sense",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "entry_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "sense",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "position",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "jobs",
+      "name": "jobs_pending",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "status",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "priority",
+          "isExpression": false,
+          "asc": false,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "run_after",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "cards_queue",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "queue",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "due",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "cards_note",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "note_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "coach_usage",
+      "name": "coach_usage_user",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "notes",
+      "name": "notes_user",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "notes",
+      "name": "notes_word",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "entry_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "sense",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"entry_id\" IS NOT NULL",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "review_logs",
+      "name": "review_logs_user_day",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "study_day",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "users",
+      "name": "users_status",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "status",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "forms",
+      "name": "forms_entry_id_entries_id_fkey",
+      "nameExplicit": false,
+      "columns": ["entry_id"],
+      "schemaTo": "public",
+      "tableTo": "entries",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "glosses",
+      "name": "glosses_entry_id_sense_senses_entry_id_position_fkey",
+      "nameExplicit": false,
+      "columns": ["entry_id", "sense"],
+      "schemaTo": "public",
+      "tableTo": "senses",
+      "columnsTo": ["entry_id", "position"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "senses",
+      "name": "senses_entry_id_entries_id_fkey",
+      "nameExplicit": false,
+      "columns": ["entry_id"],
+      "schemaTo": "public",
+      "tableTo": "entries",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "audio_files",
+      "name": "audio_files_key_audio_key_fkey",
+      "nameExplicit": false,
+      "columns": ["key"],
+      "schemaTo": "public",
+      "tableTo": "audio",
+      "columnsTo": ["key"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "entry_audio",
+      "name": "entry_audio_entry_id_entries_id_fkey",
+      "nameExplicit": false,
+      "columns": ["entry_id"],
+      "schemaTo": "public",
+      "tableTo": "entries",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "entry_audio",
+      "name": "entry_audio_audio_key_audio_key_fkey",
+      "nameExplicit": false,
+      "columns": ["audio_key"],
+      "schemaTo": "public",
+      "tableTo": "audio",
+      "columnsTo": ["key"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "example_audio",
+      "name": "example_audio_example_id_examples_id_fkey",
+      "nameExplicit": false,
+      "columns": ["example_id"],
+      "schemaTo": "public",
+      "tableTo": "examples",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "example_audio",
+      "name": "example_audio_audio_key_audio_key_fkey",
+      "nameExplicit": false,
+      "columns": ["audio_key"],
+      "schemaTo": "public",
+      "tableTo": "audio",
+      "columnsTo": ["key"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "examples",
+      "name": "examples_entry_id_sense_senses_entry_id_position_fkey",
+      "nameExplicit": false,
+      "columns": ["entry_id", "sense"],
+      "schemaTo": "public",
+      "tableTo": "senses",
+      "columnsTo": ["entry_id", "position"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "jobs",
+      "name": "jobs_entry_id_entries_id_fkey",
+      "nameExplicit": false,
+      "columns": ["entry_id"],
+      "schemaTo": "public",
+      "tableTo": "entries",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "sense_nuance",
+      "name": "sense_nuance_entry_id_sense_senses_entry_id_position_fkey",
+      "nameExplicit": false,
+      "columns": ["entry_id", "sense"],
+      "schemaTo": "public",
+      "tableTo": "senses",
+      "columnsTo": ["entry_id", "position"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "similar_words",
+      "name": "similar_words_similar_id_entries_id_fkey",
+      "nameExplicit": false,
+      "columns": ["similar_id"],
+      "schemaTo": "public",
+      "tableTo": "entries",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "similar_words",
+      "name": "similar_words_entry_id_sense_senses_entry_id_position_fkey",
+      "nameExplicit": false,
+      "columns": ["entry_id", "sense"],
+      "schemaTo": "public",
+      "tableTo": "senses",
+      "columnsTo": ["entry_id", "position"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "cards_note_id_notes_id_fkey",
+      "nameExplicit": false,
+      "columns": ["note_id"],
+      "schemaTo": "public",
+      "tableTo": "notes",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "cards_user_id_users_id_fkey",
+      "nameExplicit": false,
+      "columns": ["user_id"],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "coach_usage",
+      "name": "coach_usage_user_id_users_id_fkey",
+      "nameExplicit": false,
+      "columns": ["user_id"],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "notes",
+      "name": "notes_user_id_users_id_fkey",
+      "nameExplicit": false,
+      "columns": ["user_id"],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "notes",
+      "name": "notes_entry_id_entries_id_fkey",
+      "nameExplicit": false,
+      "columns": ["entry_id"],
+      "schemaTo": "public",
+      "tableTo": "entries",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "review_logs",
+      "name": "review_logs_card_id_cards_id_fkey",
+      "nameExplicit": false,
+      "columns": ["card_id"],
+      "schemaTo": "public",
+      "tableTo": "cards",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "review_logs",
+      "name": "review_logs_user_id_users_id_fkey",
+      "nameExplicit": false,
+      "columns": ["user_id"],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": ["id"],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "forms",
+      "name": "forms_pkey",
+      "columns": ["entry_id", "kind", "position"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "senses",
+      "name": "senses_pkey",
+      "columns": ["entry_id", "position"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "example_audio",
+      "name": "example_audio_pkey",
+      "columns": ["example_id", "language"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "sense_nuance",
+      "name": "sense_nuance_pkey",
+      "columns": ["entry_id", "sense"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "similar_words",
+      "name": "similar_words_pkey",
+      "columns": ["entry_id", "sense", "similar_id"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "entries",
+      "name": "entries_pkey",
+      "columns": ["id"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "glosses",
+      "name": "glosses_pkey",
+      "columns": ["id"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "tags",
+      "name": "tags_pkey",
+      "columns": ["code"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "audio",
+      "name": "audio_pkey",
+      "columns": ["key"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "audio_files",
+      "name": "audio_files_pkey",
+      "columns": ["key"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "entry_audio",
+      "name": "entry_audio_pkey",
+      "columns": ["entry_id"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "examples",
+      "name": "examples_pkey",
+      "columns": ["id"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "jobs",
+      "name": "jobs_pkey",
+      "columns": ["id"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "cards",
+      "name": "cards_pkey",
+      "columns": ["id"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "coach_cache",
+      "name": "coach_cache_pkey",
+      "columns": ["key"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "coach_usage",
+      "name": "coach_usage_pkey",
+      "columns": ["id"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "notes",
+      "name": "notes_pkey",
+      "columns": ["id"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "review_logs",
+      "name": "review_logs_pkey",
+      "columns": ["id"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "users",
+      "name": "users_pkey",
+      "columns": ["id"],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "jobs",
+      "name": "jobs_kind_entry",
+      "nameExplicit": true,
+      "columns": ["kind", "entry_id"],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    }
+  ]
+}

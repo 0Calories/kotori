@@ -1,75 +1,37 @@
-import { Context, Effect, Layer, Schema } from "effect"
-import { SqlClient } from "effect/sql"
-import { type EntryRecord, GlossRecord, normalizeGloss } from "./records.ts"
+import { and, asc, desc, eq, gte, inArray, max, min, ne, notExists, sql } from "drizzle-orm"
+import { alias } from "drizzle-orm/pg-core"
+import { Context, Effect, Layer } from "effect"
+import { Database } from "./Database.ts"
+import { type EntryRecord, normalizeGloss } from "./records.ts"
+import { chunks } from "./rows.ts"
+import { entries, entryAudio, examples, forms, glosses, jobKind, senseNuance, senses, tags } from "./schema/index.ts"
 
-const StringList = Schema.fromJsonString(Schema.Array(Schema.String))
+export interface FormMatch {
+  readonly entryId: number
+  readonly text: string
+  readonly kind: "kanji" | "kana"
+}
 
-const EntryRow = Schema.Struct({
-  id: Schema.Int,
-  headword: Schema.String,
-  reading: Schema.String,
-  common: Schema.Boolean,
-  priority: Schema.Int
-})
-
-const FormRow = Schema.Struct({
-  entryId: Schema.Int,
-  kind: Schema.Literals(["kanji", "kana"]),
-  text: Schema.String,
-  common: Schema.Boolean,
-  tags: StringList,
-  priorities: StringList,
-  restrictions: StringList,
-  noKanji: Schema.Boolean
-})
-
-const SenseRow = Schema.Struct({
-  entryId: Schema.Int,
-  glosses: Schema.fromJsonString(Schema.Array(GlossRecord)),
-  pos: StringList,
-  misc: StringList,
-  fields: StringList,
-  dialects: StringList,
-  info: StringList,
-  stagk: StringList,
-  stagr: StringList,
-  xrefs: StringList,
-  antonyms: StringList
-})
-
-const FormMatch = Schema.Struct({
-  entryId: Schema.Int,
-  text: Schema.String,
-  kind: Schema.Literals(["kanji", "kana"])
-})
-export type FormMatch = typeof FormMatch.Type
-
-const GlossMatch = Schema.Struct({
-  entryId: Schema.Int,
-  sense: Schema.Int,
-  position: Schema.Int,
-  text: Schema.String,
-  rank: Schema.Number,
+export interface GlossMatch {
+  readonly entryId: number
+  readonly sense: number
+  readonly position: number
+  readonly text: string
+  /** Ascending: more negative is a better match (negated `ts_rank`, 0 for exact matches). */
+  readonly rank: number
   /** How many glosses the matched sense has; a lone gloss is a more specific match. */
-  glossCount: Schema.Int,
-  misc: StringList
-})
-export type GlossMatch = typeof GlossMatch.Type
+  readonly glossCount: number
+  readonly misc: ReadonlyArray<string>
+}
 
-const Candidate = Schema.Struct({
-  entryId: Schema.Int,
-  sense: Schema.Int,
-  gloss: Schema.String
-})
-export type Candidate = typeof Candidate.Type
-
-const IdRow = Schema.Struct({ id: Schema.Int })
-const RankRow = Schema.Struct({ id: Schema.Int, common: Schema.Boolean, priority: Schema.Int })
-const CountRow = Schema.Struct({ n: Schema.Int })
-const TagRow = Schema.Struct({ code: Schema.String, label: Schema.String })
+export interface Candidate {
+  readonly entryId: number
+  readonly sense: number
+  readonly gloss: string
+}
 
 /** Enrichment an entry can be missing, used to find work for the worker. */
-export type EnrichmentKind = "nuance" | "examples" | "audio"
+export type EnrichmentKind = (typeof jobKind.enumValues)[number]
 
 export interface PriorityQuery {
   readonly limit: number
@@ -77,18 +39,10 @@ export interface PriorityQuery {
   readonly commonOnly?: boolean | undefined
 }
 
-const decodeRows = <S extends Schema.Constraint>(schema: S) => Schema.decodeUnknownEffect(Schema.Array(schema))
-
-const chunks = <A>(items: ReadonlyArray<A>, size: number): Array<ReadonlyArray<A>> => {
-  const out: Array<ReadonlyArray<A>> = []
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))
-  return out
-}
-
 export class DictionaryRepo extends Context.Service<
   DictionaryRepo,
   {
-    /** Inserts or replaces entries. The full-text index is a generated column, so imports need no rebuild. */
+    /** Inserts or replaces entries and their forms, senses and glosses. Enrichment survives for every sense the entry still has. */
     insertEntries(entries: ReadonlyArray<EntryRecord>): Effect.Effect<void>
     replaceTags(tags: ReadonlyArray<{ readonly code: string; readonly label: string }>): Effect.Effect<void>
     readonly tags: Effect.Effect<ReadonlyMap<string, string>>
@@ -115,131 +69,179 @@ export class DictionaryRepo extends Context.Service<
   static readonly layer = Layer.effect(
     DictionaryRepo,
     Effect.gen(function* () {
-      const sql = yield* SqlClient.SqlClient
+      const db = yield* Database
 
-      const insertEntries = Effect.fn("DictionaryRepo.insertEntries")(
-        function* (entries: ReadonlyArray<EntryRecord>) {
-          if (entries.length === 0) return
-          const ids = entries.map((entry) => entry.id)
-          yield* sql`DELETE FROM glosses WHERE entry_id IN ${sql.in(ids)}`
-          yield* sql`DELETE FROM forms WHERE entry_id IN ${sql.in(ids)}`
-          yield* sql`DELETE FROM senses WHERE entry_id IN ${sql.in(ids)}`
-          yield* sql`
-          INSERT INTO entries ${sql.insert(
-            entries.map((entry) => ({
-              id: entry.id,
-              headword: entry.headword,
-              reading: entry.reading,
-              common: entry.common,
-              priority: entry.priority
-            }))
-          )}
-          ON CONFLICT (id) DO UPDATE SET
-            headword = excluded.headword,
-            reading = excluded.reading,
-            common = excluded.common,
-            priority = excluded.priority
-        `
+      /** How many glosses the sense of a gloss row has. */
+      const glossCount = sql<number>`(
+        SELECT count(*) FROM ${glosses} AS g2
+        WHERE g2.entry_id = ${glosses.entryId} AND g2.sense = ${glosses.sense}
+      )`.mapWith(Number)
 
-          const forms = entries.flatMap((entry) => {
-            const position = { kanji: 0, kana: 0 }
-            return entry.forms.map((form) => ({
-              entryId: entry.id,
-              kind: form.kind,
-              position: position[form.kind]++,
-              text: form.text,
-              common: form.common,
-              tags: JSON.stringify(form.tags),
-              priorities: JSON.stringify(form.priorities),
-              restrictions: JSON.stringify(form.restrictions),
-              noKanji: form.noKanji
-            }))
-          })
-          for (const chunk of chunks(forms, 2000)) yield* sql`INSERT INTO forms ${sql.insert(chunk)}`
+      const insertEntries = Effect.fn("DictionaryRepo.insertEntries")(function* (records: ReadonlyArray<EntryRecord>) {
+        if (records.length === 0) return
+        const ids = records.map((entry) => entry.id)
+        yield* db.transaction((tx) =>
+          Effect.gen(function* () {
+            // Forms and glosses are replaced wholesale. Senses are upserted by position, since
+            // enrichment references them and would cascade away; only senses past an entry's
+            // new count are deleted.
+            yield* tx.delete(forms).where(inArray(forms.entryId, ids))
+            yield* tx.delete(glosses).where(inArray(glosses.entryId, ids))
+            const bySenseCount = new Map<number, Array<number>>()
+            for (const entry of records) {
+              const group = bySenseCount.get(entry.senses.length)
+              if (group) group.push(entry.id)
+              else bySenseCount.set(entry.senses.length, [entry.id])
+            }
+            for (const [count, group] of bySenseCount) {
+              yield* tx.delete(senses).where(and(inArray(senses.entryId, group), gte(senses.position, count)))
+            }
+            yield* tx
+              .insert(entries)
+              .values(
+                records.map((entry) => ({
+                  id: entry.id,
+                  headword: entry.headword,
+                  reading: entry.reading,
+                  common: entry.common,
+                  priority: entry.priority
+                }))
+              )
+              .onConflictDoUpdate({
+                target: entries.id,
+                set: {
+                  headword: sql`excluded.headword`,
+                  reading: sql`excluded.reading`,
+                  common: sql`excluded.common`,
+                  priority: sql`excluded.priority`
+                }
+              })
 
-          const senses = entries.flatMap((entry) =>
-            entry.senses.map((sense, position) => ({
-              entryId: entry.id,
-              position,
-              glosses: JSON.stringify(sense.glosses),
-              pos: JSON.stringify(sense.pos),
-              misc: JSON.stringify(sense.misc),
-              fields: JSON.stringify(sense.fields),
-              dialects: JSON.stringify(sense.dialects),
-              info: JSON.stringify(sense.info),
-              stagk: JSON.stringify(sense.stagk),
-              stagr: JSON.stringify(sense.stagr),
-              xrefs: JSON.stringify(sense.xrefs),
-              antonyms: JSON.stringify(sense.antonyms)
-            }))
-          )
-          for (const chunk of chunks(senses, 1500)) yield* sql`INSERT INTO senses ${sql.insert(chunk)}`
-
-          const glosses = entries.flatMap((entry) =>
-            entry.senses.flatMap((sense, senseIndex) =>
-              sense.glosses.map((gloss, position) => ({
+            const formRows = records.flatMap((entry) => {
+              const position = { kanji: 0, kana: 0 }
+              return entry.forms.map((form) => ({
                 entryId: entry.id,
-                sense: senseIndex,
+                kind: form.kind,
+                position: position[form.kind]++,
+                text: form.text,
+                common: form.common,
+                tags: [...form.tags],
+                priorities: [...form.priorities],
+                restrictions: [...form.restrictions],
+                noKanji: form.noKanji
+              }))
+            })
+            for (const chunk of chunks(formRows, 2000)) yield* tx.insert(forms).values([...chunk])
+
+            const senseRows = records.flatMap((entry) =>
+              entry.senses.map((sense, position) => ({
+                entryId: entry.id,
                 position,
-                text: gloss.text,
-                norm: normalizeGloss(gloss.text)
+                pos: [...sense.pos],
+                misc: [...sense.misc],
+                fields: [...sense.fields],
+                dialects: [...sense.dialects],
+                info: [...sense.info],
+                stagk: [...sense.stagk],
+                stagr: [...sense.stagr],
+                xrefs: [...sense.xrefs],
+                antonyms: [...sense.antonyms]
               }))
             )
-          )
-          for (const chunk of chunks(glosses, 4000)) yield* sql`INSERT INTO glosses ${sql.insert(chunk)}`
-        },
-        (effect) => sql.withTransaction(effect),
-        Effect.orDie
-      )
+            for (const chunk of chunks(senseRows, 1500)) {
+              yield* tx
+                .insert(senses)
+                .values([...chunk])
+                .onConflictDoUpdate({
+                  target: [senses.entryId, senses.position],
+                  set: {
+                    pos: sql`excluded.pos`,
+                    misc: sql`excluded.misc`,
+                    fields: sql`excluded.fields`,
+                    dialects: sql`excluded.dialects`,
+                    info: sql`excluded.info`,
+                    stagk: sql`excluded.stagk`,
+                    stagr: sql`excluded.stagr`,
+                    xrefs: sql`excluded.xrefs`,
+                    antonyms: sql`excluded.antonyms`
+                  }
+                })
+            }
 
-      const replaceTags = Effect.fn("DictionaryRepo.replaceTags")(
-        function* (tags: ReadonlyArray<{ readonly code: string; readonly label: string }>) {
-          yield* sql`DELETE FROM tags`
-          for (const chunk of chunks(tags, 1000)) {
-            yield* sql`INSERT INTO tags ${sql.insert(chunk.map((tag) => ({ code: tag.code, label: tag.label })))}`
-          }
-        },
-        (effect) => sql.withTransaction(effect),
-        Effect.orDie
-      )
+            const glossRows = records.flatMap((entry) =>
+              entry.senses.flatMap((sense, senseIndex) =>
+                sense.glosses.map((gloss, position) => ({
+                  entryId: entry.id,
+                  sense: senseIndex,
+                  position,
+                  text: gloss.text,
+                  type: gloss.type,
+                  norm: normalizeGloss(gloss.text)
+                }))
+              )
+            )
+            for (const chunk of chunks(glossRows, 3000)) yield* tx.insert(glosses).values([...chunk])
+          })
+        )
+      }, Effect.orDie)
 
-      const tags = sql`SELECT code, label FROM tags`.pipe(
-        Effect.flatMap(decodeRows(TagRow)),
-        Effect.map((rows) => new Map(rows.map((row) => [row.code, row.label]))),
-        Effect.orDie
-      )
+      const replaceTags = Effect.fn("DictionaryRepo.replaceTags")(function* (
+        rows: ReadonlyArray<{ readonly code: string; readonly label: string }>
+      ) {
+        yield* db.transaction((tx) =>
+          Effect.gen(function* () {
+            yield* tx.delete(tags)
+            for (const chunk of chunks(rows, 1000)) {
+              yield* tx.insert(tags).values(chunk.map((tag) => ({ code: tag.code, label: tag.label })))
+            }
+          })
+        )
+      }, Effect.orDie)
 
-      const count = sql`SELECT count(*) AS n FROM entries`.pipe(
-        Effect.flatMap(decodeRows(CountRow)),
-        Effect.map((rows) => rows[0]?.n ?? 0),
-        Effect.orDie
-      )
+      const tagMap = db
+        .select()
+        .from(tags)
+        .pipe(
+          Effect.map((rows) => new Map(rows.map((row) => [row.code, row.label]))),
+          Effect.orDie
+        )
+
+      const count = db.$count(entries).pipe(Effect.orDie)
 
       const getEntries = Effect.fn("DictionaryRepo.getEntries")(function* (ids: ReadonlyArray<number>) {
         if (ids.length === 0) return []
-        const entries = yield* sql`
-          SELECT id, headword, reading, common, priority FROM entries WHERE id IN ${sql.in(ids)}
-        `.pipe(Effect.flatMap(decodeRows(EntryRow)))
-        const forms = yield* sql`
-          SELECT entry_id, kind, text, common, tags, priorities, restrictions, no_kanji
-          FROM forms WHERE entry_id IN ${sql.in(ids)}
-          ORDER BY entry_id, kind DESC, position
-        `.pipe(Effect.flatMap(decodeRows(FormRow)))
-        const senses = yield* sql`
-          SELECT entry_id, glosses, pos, misc, fields, dialects, info, stagk, stagr, xrefs, antonyms
-          FROM senses WHERE entry_id IN ${sql.in(ids)}
-          ORDER BY entry_id, position
-        `.pipe(Effect.flatMap(decodeRows(SenseRow)))
-
-        const byId = new Map(entries.map((entry) => [entry.id, entry]))
+        const [entryRows, formRows, senseRows, glossRows] = yield* Effect.all([
+          db.select().from(entries).where(inArray(entries.id, ids)),
+          db
+            .select()
+            .from(forms)
+            .where(inArray(forms.entryId, ids))
+            .orderBy(forms.entryId, asc(forms.kind), forms.position),
+          db.select().from(senses).where(inArray(senses.entryId, ids)).orderBy(senses.entryId, senses.position),
+          db
+            .select({ entryId: glosses.entryId, sense: glosses.sense, text: glosses.text, type: glosses.type })
+            .from(glosses)
+            .where(inArray(glosses.entryId, ids))
+            .orderBy(glosses.entryId, glosses.sense, glosses.position)
+        ])
+        const byId = new Map(entryRows.map((entry) => [entry.id, entry]))
         return ids.flatMap((id): Array<EntryRecord> => {
           const entry = byId.get(id)
           if (entry === undefined) return []
           return [
             {
               ...entry,
-              forms: forms.filter((form) => form.entryId === id).map(({ entryId: _, ...form }) => form),
-              senses: senses.filter((sense) => sense.entryId === id).map(({ entryId: _, ...sense }) => sense)
+              forms: formRows
+                .filter((form) => form.entryId === id)
+                .map(({ entryId: _, position: __, ...form }) => form),
+              senses: senseRows
+                .filter((sense) => sense.entryId === id)
+                .map(({ entryId: _, position, ...sense }) => ({
+                  ...sense,
+                  glosses: glossRows
+                    .filter((gloss) => gloss.entryId === id && gloss.sense === position)
+                    .map((gloss) => ({ text: gloss.text, type: gloss.type }))
+                }))
             }
           ]
         })
@@ -247,49 +249,57 @@ export class DictionaryRepo extends Context.Service<
 
       const findForms = Effect.fn("DictionaryRepo.findForms")(function* (texts: ReadonlyArray<string>) {
         if (texts.length === 0) return []
-        return yield* sql`
-          SELECT entry_id, text, kind FROM forms WHERE text IN ${sql.in(texts)}
-        `.pipe(Effect.flatMap(decodeRows(FormMatch)))
+        return yield* db
+          .select({ entryId: forms.entryId, text: forms.text, kind: forms.kind })
+          .from(forms)
+          .where(inArray(forms.text, texts))
       }, Effect.orDie)
 
+      // A range scan on the bytewise-collated text, so the index serves it.
       const findFormPrefix = Effect.fn("DictionaryRepo.findFormPrefix")(function* (prefix: string, limit: number) {
-        const rows = yield* sql`
-          SELECT f.entry_id AS id
-          FROM forms f JOIN entries e ON e.id = f.entry_id
-          WHERE f.text >= ${prefix} AND f.text < ${prefix + "\u{10FFFF}"}
-          GROUP BY f.entry_id
-          ORDER BY bool_or(e.common) DESC, max(e.priority) DESC, min(length(f.text))
-          LIMIT ${limit}
-        `.pipe(Effect.flatMap(decodeRows(IdRow)))
+        const rows = yield* db
+          .select({ id: forms.entryId })
+          .from(forms)
+          .innerJoin(entries, eq(entries.id, forms.entryId))
+          .where(sql`${forms.text} >= ${prefix} AND ${forms.text} < ${prefix + "\u{10FFFF}"}`)
+          .groupBy(forms.entryId)
+          .orderBy(desc(sql`bool_or(${entries.common})`), desc(max(entries.priority)), min(sql`length(${forms.text})`))
+          .limit(limit)
         return rows.map((row) => row.id)
       }, Effect.orDie)
 
-      // `rank` is negated ts_rank so it keeps FTS5 bm25's shape: ascending order, more negative = better.
+      const glossMatch = {
+        entryId: glosses.entryId,
+        sense: glosses.sense,
+        position: glosses.position,
+        text: glosses.text,
+        glossCount,
+        misc: senses.misc
+      }
+
+      // `rank` is negated ts_rank so it keeps the old FTS5 bm25 shape: ascending, more negative = better.
       const searchGlosses = Effect.fn("DictionaryRepo.searchGlosses")(function* (query: string, limit: number) {
-        return yield* sql`
-          SELECT g.entry_id, g.sense, g.position, g.text, -ts_rank(g.ts, query) AS rank,
-            json_array_length(s.glosses::json) AS gloss_count, s.misc
-          FROM plainto_tsquery('english', ${query}) AS query
-          JOIN glosses g ON g.ts @@ query
-          JOIN senses s ON s.entry_id = g.entry_id AND s.position = g.sense
-          ORDER BY rank
-          LIMIT ${limit}
-        `.pipe(Effect.flatMap(decodeRows(GlossMatch)))
+        const tsquery = sql`plainto_tsquery('english', ${query})`
+        return yield* db
+          .select({ ...glossMatch, rank: sql<number>`-ts_rank(${glosses.document}, ${tsquery})`.mapWith(Number) })
+          .from(glosses)
+          .innerJoin(senses, and(eq(senses.entryId, glosses.entryId), eq(senses.position, glosses.sense)))
+          .where(sql`${glosses.document} @@ ${tsquery}`)
+          .orderBy(sql`-ts_rank(${glosses.document}, ${tsquery})`)
+          .limit(limit)
       }, Effect.orDie)
 
       const findGlossesExact = Effect.fn("DictionaryRepo.findGlossesExact")(function* (query: string, limit: number) {
         const norm = normalizeGloss(query)
         if (norm.length === 0) return []
-        return yield* sql`
-          SELECT g.entry_id, g.sense, g.position, g.text, 0 AS rank,
-            json_array_length(s.glosses::json) AS gloss_count, s.misc
-          FROM glosses g
-          JOIN entries e ON e.id = g.entry_id
-          JOIN senses s ON s.entry_id = g.entry_id AND s.position = g.sense
-          WHERE g.norm = ${norm}
-          ORDER BY e.common DESC, e.priority DESC
-          LIMIT ${limit}
-        `.pipe(Effect.flatMap(decodeRows(GlossMatch)))
+        return yield* db
+          .select({ ...glossMatch, rank: sql<number>`0`.mapWith(Number) })
+          .from(glosses)
+          .innerJoin(entries, eq(entries.id, glosses.entryId))
+          .innerJoin(senses, and(eq(senses.entryId, glosses.entryId), eq(senses.position, glosses.sense)))
+          .where(eq(glosses.norm, norm))
+          .orderBy(desc(entries.common), desc(entries.priority))
+          .limit(limit)
       }, Effect.orDie)
 
       const sharedGlossCandidates = Effect.fn("DictionaryRepo.sharedGlossCandidates")(function* (
@@ -297,55 +307,62 @@ export class DictionaryRepo extends Context.Service<
         sense: number,
         limit: number
       ) {
-        return yield* sql`
-            SELECT g2.entry_id, min(g2.sense) AS sense, min(g2.text) AS gloss
-            FROM glosses g1
-            JOIN glosses g2 ON g2.norm = g1.norm AND g2.entry_id != g1.entry_id
-            JOIN entries e ON e.id = g2.entry_id
-            WHERE g1.entry_id = ${entryId} AND g1.sense = ${sense} AND length(g1.norm) > 1
-            GROUP BY g2.entry_id
-            ORDER BY bool_or(e.common) DESC, max(e.priority) DESC
-            LIMIT ${limit}
-          `.pipe(Effect.flatMap(decodeRows(Candidate)))
+        const g1 = alias(glosses, "g1")
+        const g2 = alias(glosses, "g2")
+        return yield* db
+          .select({
+            entryId: g2.entryId,
+            sense: sql<number>`min(${g2.sense})`.mapWith(Number),
+            gloss: sql<string>`min(${g2.text})`.mapWith(String)
+          })
+          .from(g1)
+          .innerJoin(g2, and(eq(g2.norm, g1.norm), ne(g2.entryId, g1.entryId)))
+          .innerJoin(entries, eq(entries.id, g2.entryId))
+          .where(and(eq(g1.entryId, entryId), eq(g1.sense, sense), sql`length(${g1.norm}) > 1`))
+          .groupBy(g2.entryId)
+          .orderBy(desc(sql`bool_or(${entries.common})`), desc(max(entries.priority)))
+          .limit(limit)
       }, Effect.orDie)
 
       const ranks = Effect.fn("DictionaryRepo.ranks")(function* (ids: ReadonlyArray<number>) {
         if (ids.length === 0) return new Map<number, { common: boolean; priority: number }>()
-        const rows = yield* sql`SELECT id, common, priority FROM entries WHERE id IN ${sql.in(ids)}`.pipe(
-          Effect.flatMap(decodeRows(RankRow))
-        )
+        const rows = yield* db
+          .select({ id: entries.id, common: entries.common, priority: entries.priority })
+          .from(entries)
+          .where(inArray(entries.id, ids))
         return new Map(rows.map((row) => [row.id, { common: row.common, priority: row.priority }]))
       }, Effect.orDie)
 
-      const missingClause = (kind: EnrichmentKind) => {
+      const missing = (kind: EnrichmentKind) => {
         switch (kind) {
           case "nuance":
-            return sql`NOT EXISTS (SELECT 1 FROM sense_nuance n WHERE n.entry_id = e.id)`
+            return notExists(db.select().from(senseNuance).where(eq(senseNuance.entryId, entries.id)))
           case "examples":
-            return sql`NOT EXISTS (SELECT 1 FROM examples x WHERE x.entry_id = e.id)`
+            return notExists(db.select().from(examples).where(eq(examples.entryId, entries.id)))
           case "audio":
-            return sql`NOT EXISTS (SELECT 1 FROM entry_audio a WHERE a.entry_id = e.id)`
+            return notExists(db.select().from(entryAudio).where(eq(entryAudio.entryId, entries.id)))
         }
       }
 
       const entriesByPriority = Effect.fn("DictionaryRepo.entriesByPriority")(function* (query: PriorityQuery) {
-        const clauses = [
-          ...(query.commonOnly ? [sql`e.common`] : []),
-          ...(query.missing ? [missingClause(query.missing)] : [])
-        ]
-        const rows = yield* sql`
-          SELECT e.id FROM entries e
-          WHERE ${clauses.length > 0 ? sql.and(clauses) : sql.literal("TRUE")}
-          ORDER BY e.priority DESC, e.id
-          LIMIT ${query.limit}
-        `.pipe(Effect.flatMap(decodeRows(IdRow)))
+        const rows = yield* db
+          .select({ id: entries.id })
+          .from(entries)
+          .where(
+            and(
+              query.commonOnly ? eq(entries.common, true) : undefined,
+              query.missing ? missing(query.missing) : undefined
+            )
+          )
+          .orderBy(desc(entries.priority), entries.id)
+          .limit(query.limit)
         return rows.map((row) => row.id)
       }, Effect.orDie)
 
       return DictionaryRepo.of({
         insertEntries,
         replaceTags,
-        tags,
+        tags: tagMap,
         count,
         getEntries,
         findForms,

@@ -1,7 +1,7 @@
 import { NodeServices } from "@effect/platform-node"
 import { assert, layer } from "@effect/vitest"
 import { Claude, ClaudeError } from "@kotori/ai"
-import { DictionaryRepo, type EntryRecord, UsersRepo } from "@kotori/db"
+import { DictionaryRepo, type EntryRecord, StudyRepo, UsersRepo } from "@kotori/db"
 import { DatabaseMemory } from "@kotori/db/testing"
 import { Authorization, KotoriApi } from "@kotori/domain"
 import { MailerMemory } from "@kotori/email"
@@ -10,7 +10,6 @@ import { Pronouncer, TtsError } from "@kotori/tts"
 import { Effect, Layer, Option } from "effect"
 import { Headers, HttpClientRequest, HttpServer } from "effect/http"
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api"
-import { SqlClient } from "effect/sql"
 import { Auth, TestAuth } from "@kotori/auth"
 import { AuthorizationLive } from "../src/http/Authorization.ts"
 import { AllHandlers } from "../src/http/handlers.ts"
@@ -271,8 +270,6 @@ layer(TestLayer)("Kotori API", (it) => {
       const api = yield* client
       const auth = yield* Auth
       const users = yield* UsersRepo
-      const sql = yield* SqlClient.SqlClient
-
       yield* api.study.addNote({
         payload: {
           content: {
@@ -295,8 +292,7 @@ layer(TestLayer)("Kotori API", (it) => {
       assert.isTrue(Option.isNone(yield* auth.sessionFromCookies(Headers.fromInput({ cookie: user.cookie }))))
 
       assert.isTrue(Option.isNone(yield* users.byId(user.id)))
-      const notes = yield* sql<{ n: number }>`SELECT count(*) AS n FROM notes WHERE user_id = ${user.id}`
-      assert.strictEqual(notes[0]?.n, 0)
+      assert.strictEqual(yield* Effect.flatMap(StudyRepo, (study) => study.noteCount(user.id)), 0)
       const gone = yield* api.account.me().pipe(Effect.flip)
       assert.strictEqual(gone._tag, "Unauthorized")
 

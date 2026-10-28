@@ -18,6 +18,7 @@
     "@kotori/db": "workspace:*",
     "@kotori/domain": "workspace:*",
     "@kotori/email": "workspace:*",
+    "drizzle-orm": "catalog:",
     "effect": "catalog:",
     "jose": "catalog:"
   }

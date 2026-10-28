@@ -1,7 +1,10 @@
 /**
  * One-time local setup, safe to re-run: `.env` from `.env.example`, Postgres in Docker,
- * the JMDict dictionary, and the development account the app signs in as. Each step
- * skips what is already done. Run with `pnpm dev:setup`.
+ * the schema (`kotori migrate`), the JMDict dictionary, and the development account the app
+ * signs in as. Each step skips what is already done. Run with `pnpm dev:setup`.
+ *
+ * It never deletes data. A Docker volume from an older Postgres, or a database still on the
+ * schema from before the Drizzle rebuild, stops it with the command to start over instead.
  */
 import { type ChildProcess, spawn, spawnSync } from "node:child_process"
 import { copyFileSync, existsSync } from "node:fs"
@@ -17,10 +20,13 @@ function fail(message: string): never {
   process.exit(1)
 }
 
-const run = (command: string, args: ReadonlyArray<string>) => {
+const run = (command: string, args: ReadonlyArray<string>, failure?: string) => {
   const result = spawnSync(command, args, { cwd: workspaceRoot, stdio: "inherit" })
-  if (result.status !== 0) fail(`\`${[command, ...args].join(" ")}\` failed.`)
+  if (result.status !== 0) fail(failure ?? `\`${[command, ...args].join(" ")}\` failed.`)
 }
+
+/** How the 18+ Postgres images refuse a volume laid out by an older major (or mounted at `…/data`). */
+const OLD_VOLUME = "in 18+, these Docker images are configured to store database data"
 
 const reachable = async (url: string) => {
   try {
@@ -47,10 +53,27 @@ if (authUrl === undefined) {
 
 step("Postgres")
 if (LOCAL.has(databaseUrl.hostname)) {
-  run("docker", ["compose", "up", "--detach", "--wait"])
+  const up = spawnSync("docker", ["compose", "up", "--detach", "--wait"], { cwd: workspaceRoot, stdio: "inherit" })
+  if (up.status !== 0) {
+    const logs = spawnSync("docker", ["compose", "logs", "--no-color", "--no-log-prefix", "postgres"], {
+      cwd: workspaceRoot,
+      encoding: "utf8"
+    })
+    if (`${logs.stdout ?? ""}${logs.stderr ?? ""}`.includes(OLD_VOLUME)) {
+      fail(`Postgres 18 can't start on your existing Docker volume, which an older Postgres created.
+  The local database isn't upgraded: it starts over on the new schema. Delete it and run this again:
+
+    docker compose down -v   # deletes the local database, including the dev account, notes and reviews
+    pnpm dev:setup`)
+    }
+    fail("`docker compose up` failed. Is Docker running? The Postgres log is in `docker compose logs postgres`.")
+  }
 } else {
   console.log(`DATABASE_URL points at ${databaseUrl.hostname}; not starting the local one.`)
 }
+
+step("Schema")
+run("pnpm", ["--silent", "kotori", "migrate"], "The schema couldn't be applied; see above.")
 
 step("Dictionary")
 run("pnpm", ["--silent", "kotori", "seed", "--if-empty"])

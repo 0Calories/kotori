@@ -16,6 +16,11 @@ NODE_ENV = 'production'
 PORT = '8080'
 KOTORI_WEB_ORIGINS = 'https://kotori-azure.vercel.app'
 
+# Schema changes are applied once per deploy, before the new machines roll, against the
+# direct (unpooled) DATABASE_URL secret. The API and worker never migrate at startup.
+[deploy]
+release_command = 'node apps/worker/dist/main.js migrate'
+
 
 [processes]
 api = 'node apps/api/dist/main.js'

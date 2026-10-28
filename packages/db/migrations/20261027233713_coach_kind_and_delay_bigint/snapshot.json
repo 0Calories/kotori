@@ -1,0 +1,65 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "a38522a3-443d-49cc-9fe1-8b1db4e3fac1",
+  "prevIds": ["21255a03-ab25-4370-a794-3f0555c94803"],
+  "footprints": [
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "coach_kind"],
+      "writes": [
+        "s|enum|public.coach_kind",
+        "n|enum|public.coach_kind",
+        "e|enum|public.coach_kind",
+        "n|type|public.coach_kind"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "coach_usage", "kind"],
+      "writes": ["s|colprop|public.coach_usage.kind.type", "s|colprop|public.coach_usage.kind.default"],
+      "reads": [
+        "n|tbl|public.coach_usage",
+        "n|sch|public",
+        "n|col|public.coach_usage.kind",
+        "n|enum|public.coach_kind"
+      ],
+      "sqlHash": "0400a8a8de5cda7a"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "review_logs", "delay_ms"],
+      "writes": ["s|colprop|public.review_logs.delay_ms.type", "s|colprop|public.review_logs.delay_ms.default"],
+      "reads": ["n|tbl|public.review_logs", "n|sch|public", "n|col|public.review_logs.delay_ms"],
+      "sqlHash": "bfba59a4e6a7e030"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "coach_kind",
+        "values": ["naturalness", "how-to-say", "speak"],
+        "entityType": "enums"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"coach_usage\",\"kind\"]",
+      "set": {
+        "type": "coach_kind",
+        "typeSchema": "public"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"review_logs\",\"delay_ms\"]",
+      "set": {
+        "type": "bigint"
+      }
+    }
+  ]
+}

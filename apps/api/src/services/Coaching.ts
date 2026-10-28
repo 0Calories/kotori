@@ -1,5 +1,5 @@
 import { Coach, type ClaudeError, type HowToSayOutput, type NaturalnessOutput } from "@kotori/ai"
-import { CoachRepo } from "@kotori/db"
+import { type CoachKind, CoachRepo } from "@kotori/db"
 import {
   AiUnavailable,
   type HowToSayRequest,
@@ -54,7 +54,7 @@ export class Coaching extends Context.Service<
       const repo = yield* CoachRepo
       const hourlyLimit = yield* Config.Int("KOTORI_COACH_HOURLY_LIMIT").pipe(Config.withDefault(60))
 
-      const limit = Effect.fnUntraced(function* (user: Profile, kind: string, perHour: number) {
+      const limit = Effect.fnUntraced(function* (user: Profile, kind: CoachKind, perHour: number) {
         const now = yield* Clock.currentTimeMillis
         if ((yield* repo.usageSince(user.id, now - HOUR)) >= perHour) {
           return yield* new RateLimited({
@@ -68,7 +68,7 @@ export class Coaching extends Context.Service<
       /** Serves identical requests from the cache; only fresh answers count toward rate limits. */
       const cached = <A, I>(
         schema: Schema.Codec<A, I>,
-        kind: string,
+        kind: CoachKind,
         user: Profile,
         request: unknown,
         compute: Effect.Effect<A, AiUnavailable | RateLimited>
@@ -80,12 +80,12 @@ export class Coaching extends Context.Service<
           const now = yield* Clock.currentTimeMillis
           const hit = yield* repo.cached(key, now - CACHE_TTL)
           if (Option.isSome(hit)) {
-            const decoded = Schema.decodeUnknownOption(Schema.fromJsonString(schema))(hit.value)
+            const decoded = Schema.decodeUnknownOption(schema)(hit.value)
             if (Option.isSome(decoded)) return decoded.value
           }
           yield* limit(user, kind, hourlyLimit)
           const result = yield* compute
-          const encoded = Schema.encodeUnknownOption(Schema.fromJsonString(schema))(result)
+          const encoded = Schema.encodeUnknownOption(schema)(result)
           if (Option.isSome(encoded)) yield* repo.store(key, encoded.value, now)
           return result
         })

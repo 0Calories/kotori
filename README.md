@@ -30,7 +30,7 @@ apps/
   local-auth/ Development stand-in for Neon's Managed Better Auth
 packages/
   domain/     Schemas and the HttpApi contract shared by the API and the app (typed client)
-  db/         Postgres layer (@effect/sql-pg), migrations, repositories, full-text search
+  db/         Drizzle schema (the data model), generated migrations, repositories, full-text search
   jmdict/     Downloads and parses EDRDG's JMdict_e, imports it
   japanese/   Romaji ↔ kana, script detection, Yomichan-style deinflection
   nuance/     Jev questions, state building and interpretation for nuance + similar words
@@ -69,7 +69,9 @@ Tests need no database, server or API keys: repositories run on an in-process Po
 pnpm dev:setup
 ```
 
-This creates `.env` from `.env.example`, starts Postgres in Docker (`compose.yaml`), downloads JMDict (~10 MB) and imports its ~219k entries (~30 s), and creates the development account `dev@kotori.test` (password `kotori-dev-account`), already confirmed, approved and learning Japanese. Each step skips what is already done, so it is safe to re-run. `pnpm seed` re-imports the dictionary; `docker compose down -v` deletes the database so you can start over.
+This creates `.env` from `.env.example`, starts Postgres 18 in Docker (`compose.yaml`), applies the schema (`pnpm kotori migrate`), downloads JMDict (~10 MB) and imports its ~219k entries (~30 s), and creates the development account `dev@kotori.test` (password `kotori-dev-account`), already confirmed, approved and learning Japanese. Each step skips what is already done, so it is safe to re-run. `pnpm seed` re-imports the dictionary, updating entries in place so enrichment is kept; `docker compose down -v` deletes the database so you can start over.
+
+If your local database predates the Postgres 18 and Drizzle schema change, `pnpm dev:setup` stops and asks you to run `docker compose down -v` once. The old database can't be upgraded in place, and setup never deletes it for you.
 
 **4. Run the backend and the app**
 

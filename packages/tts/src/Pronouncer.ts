@@ -56,7 +56,7 @@ export class Pronouncer extends Context.Service<
         }
 
         const bytes = yield* tts.synthesize(normalized, language)
-        yield* store.put(key, bytes)
+        // The clip's row first: `audio_files` references it.
         yield* repo.saveAudio({
           key,
           text: normalized,
@@ -67,6 +67,7 @@ export class Pronouncer extends Context.Service<
           bytes: bytes.byteLength,
           createdAt: now
         })
+        yield* store.put(key, bytes)
         return key
       })
 

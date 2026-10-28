@@ -1,7 +1,8 @@
+import { authSessions, authUsers, Database } from "@kotori/db"
+import { asc, eq, sql } from "drizzle-orm"
 import { Config, Context, Duration, Effect, Layer, Option, Schema } from "effect"
 import { Headers, HttpServerRequest, HttpServerResponse } from "effect/http"
 import * as Cookies from "effect/http/Cookies"
-import { SqlClient } from "effect/sql"
 import {
   createLocalJWKSet,
   createRemoteJWKSet,
@@ -170,7 +171,7 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
     Auth,
     Effect.gen(function* () {
       const baseUrl = (yield* Config.String("NEON_AUTH_BASE_URL")).replace(/\/$/, "")
-      const sql = yield* SqlClient.SqlClient
+      const db = yield* Database
       // Managed JWTs name the auth endpoint's origin as issuer and audience.
       const origin = new URL(baseUrl).origin
       const jwks = createRemoteJWKSet(new URL(`${baseUrl}/.well-known/jwks.json`))
@@ -233,8 +234,8 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
       )
 
       const hasSession = (userId: string) =>
-        sql`SELECT 1 AS live FROM neon_auth.session WHERE "userId" = ${userId}::uuid LIMIT 1`.pipe(
-          Effect.map((rows) => rows.length > 0),
+        db.$count(authSessions, eq(authSessions.userId, userId)).pipe(
+          Effect.map((n) => n > 0),
           Effect.orDie
         )
 
@@ -265,27 +266,28 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
         )
       )
 
-      const list = sql`
-        SELECT id, email, "emailVerified" AS email_verified, name, "createdAt" AS created_at
-        FROM neon_auth."user" ORDER BY "createdAt"
-      `.pipe(
-        Effect.map((rows) => rows.map(decodeUser)),
-        Effect.orDie
-      )
+      const list = db
+        .select()
+        .from(authUsers)
+        .orderBy(asc(authUsers.createdAt))
+        .pipe(
+          Effect.map((rows) => rows.map(decodeUser)),
+          Effect.orDie
+        )
 
       const userByEmail = Effect.fn("Auth.userByEmail")(function* (email: string) {
-        const rows = yield* sql`
-          SELECT id, email, "emailVerified" AS email_verified, name, "createdAt" AS created_at
-          FROM neon_auth."user" WHERE lower(email) = ${email.trim().toLowerCase()}
-        `
+        const rows = yield* db
+          .select()
+          .from(authUsers)
+          .where(eq(sql`lower(${authUsers.email})`, email.trim().toLowerCase()))
         return Option.fromNullishOr(rows[0]).pipe(Option.map(decodeUser))
       }, Effect.orDie)
 
       const revokeSessions = (userId: string) =>
-        sql`DELETE FROM neon_auth.session WHERE "userId" = ${userId}::uuid`.pipe(Effect.asVoid, Effect.orDie)
+        db.delete(authSessions).where(eq(authSessions.userId, userId)).pipe(Effect.asVoid, Effect.orDie)
 
       const deleteUser = (userId: string) =>
-        sql`DELETE FROM neon_auth."user" WHERE id = ${userId}::uuid`.pipe(Effect.asVoid, Effect.orDie)
+        db.delete(authUsers).where(eq(authUsers.id, userId)).pipe(Effect.asVoid, Effect.orDie)
 
       const signUp = Effect.fn("Auth.signUp")(function* (input: {
         readonly email: string
@@ -310,10 +312,11 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
       })
 
       const setEmailVerified = (userId: string) =>
-        sql`UPDATE neon_auth."user" SET "emailVerified" = true WHERE id = ${userId}::uuid`.pipe(
-          Effect.asVoid,
-          Effect.orDie
-        )
+        db
+          .update(authUsers)
+          .set({ emailVerified: true })
+          .where(eq(authUsers.id, userId))
+          .pipe(Effect.asVoid, Effect.orDie)
 
       return Auth.of({
         forward,
