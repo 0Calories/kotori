@@ -1,7 +1,7 @@
 # Voice casting for pronunciation audio
 
-> Agreed direction, 2026-10-28. Design only; nothing here has landed yet. Implement in the
-> order under "Implementation order". The monorepo rearchitecture
+> Agreed direction, 2026-10-28. Steps 1–5 under "Implementation order" have landed; steps
+> 6–8 (app, `kotori audio` CLI, casting the voices) remain. The monorepo rearchitecture
 > (`monorepo-rearchitecture.md`) moves `tts`, `nuance` and `ai` under `packages/ai` and the
 > Pronouncer under `apps/backend/src/features/audio/`; this document uses today's paths and
 > notes the target location where it matters.

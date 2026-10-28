@@ -7,7 +7,7 @@
 ## State of the branch
 
 Steps 1–5 of `docs/voice-casting.md` are implemented and committed on
-`hfi/a194c488-0c52-44f2-a353-1bc41c88b3d9/oak` (commits `881f213..728622b`). Backend is
+`voice-casting` (commits `881f213^..728622b`, plus review fixes). Backend is
 complete: tag vocabulary and casts (`packages/tts/src/voices.ts`), pure selector
 (`casting.ts`: `briefFor` → `rank` → `tied`), Claude writes casting signals per example,
 Jev tiebreaker (`packages/nuance/src/casting.ts`, `castVoice`), and the Pronouncer casts
@@ -59,9 +59,10 @@ New command group, spec in `docs/voice-casting.md` section 8. Implementation not
 
 - Every voice except `ja-kyoko` and `en-sarah` has `providerId: null` in
   `packages/tts/src/voices.ts`. Casting = audition on ElevenLabs, paste the id, done; the
-  selector skips uncast voices (`rank` filters `providerId !== null`) and `rank` falls back
-  to standard-variety voices when a wanted variety has no cast voice, so partial casting is
-  safe at every point.
+  selector skips uncast voices (`rank` filters `providerId !== null`) and
+  `Pronouncer.decide` re-ranks with `variety: null` when a wanted variety has no cast voice
+  (`rank` itself returns `[]` then — the CLI must reuse `decide`, not call `rank` directly),
+  so partial casting is safe at every point.
 - Audition flow once step 7 exists: `kotori audio regen --example N --provider-voice <id>`.
 - Kansai quality is the flagged risk; see "Open points" in the design doc.
 
