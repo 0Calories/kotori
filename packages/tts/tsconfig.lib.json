@@ -12,6 +12,9 @@
     },
     {
       "path": "../domain/tsconfig.lib.json"
+    },
+    {
+      "path": "../nuance/tsconfig.lib.json"
     }
   ]
 }

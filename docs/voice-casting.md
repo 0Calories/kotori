@@ -130,8 +130,9 @@ English:
 | en-elder-f | feminine, older, american, neutral, polite, narration, gentle | |
 
 The cast lives in code, not env vars. `KOTORI_VOICE_JA` / `KOTORI_VOICE_EN` are removed;
-`.env.example` and `docs/operations.md` are updated. A `KOTORI_VOICE_CAST` JSON override
-can come later if a deployment needs a different cast.
+`.env.example` and `docs/operations.md` are updated. The cast is read through the
+`VoiceCasts` context reference (default: the checked-in casts), so tests — and later a
+config override — can swap it without touching the Pronouncer.
 
 ### 2. Sentence metadata from Claude
 
@@ -294,9 +295,9 @@ hearing a word from more than one speaker is better for learners than one canoni
 
 - `speak(text, language, voice: Voice)` builds the key from `voice.providerId`, checks the
   cache and budget, synthesises and saves `voiceId` and `voice`.
-- `speakDefault(text, language)` keeps Coaching's `/speak` working: it uses the first
-  `headword` voice of the language. Coaching can pass a `CastingBrief` later if it wants cast
-  phrases.
+- `speak`'s voice parameter is optional: without one, the language's first `headword` voice
+  reads the text, which keeps Coaching's `/speak` working unchanged. Coaching can pass a
+  `CastingBrief` later if it wants cast phrases.
 - `enrichEntry` loads senses (`misc`, `dialects`, `fields`), nuance via `nuanceFor`, and
   examples with the new columns, once per entry. For each example it computes the brief,
   ranks each configured language, calls Jev on ties, voices and links with

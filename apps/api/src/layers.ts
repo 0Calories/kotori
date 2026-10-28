@@ -16,7 +16,7 @@ const ProvidersLive = Layer.mergeAll(
   Claude.layer,
   Jev.layer,
   MailerLive,
-  Pronouncer.layer.pipe(Layer.provideMerge(Layer.mergeAll(ElevenLabs.layer, AudioStore.layer)))
+  Pronouncer.layer.pipe(Layer.provideMerge(Layer.mergeAll(ElevenLabs.layer, AudioStore.layer, Jev.layer)))
 )
 
 /** Application services on top of the repositories and providers. */

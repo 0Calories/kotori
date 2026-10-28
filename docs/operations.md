@@ -27,7 +27,7 @@ Set with `fly secrets set` unless marked plain (plain values live in `[env]` of 
 | `KOTORI_WEB_ORIGINS` | api | Comma-separated origins of the hosted web app (`https://app.kotori.app`), plain. The only browser origins allowed to call the API, with credentials, so the web app's session cookie reaches `/api/auth/*`. Outside production, local dev servers (`http://localhost:*`, private-network IPs) are allowed too. Native apps send no Origin and don't need it. |
 | `ANTHROPIC_API_KEY` | api, worker | Optional. Coach features (api), example sentences (worker). |
 | `TYPESAFE_API_KEY` | worker | Optional. Nuance via Jev. |
-| `ELEVENLABS_API_KEY` | api, worker | Optional. Pronunciation audio; `KOTORI_AUDIO_MONTHLY_CHARS` caps spend. |
+| `ELEVENLABS_API_KEY` | api, worker | Optional. Pronunciation audio; `KOTORI_AUDIO_MONTHLY_CHARS` caps spend. Voices come from the cast in `packages/tts/src/voices.ts` (see `docs/voice-casting.md`); `KOTORI_HEADWORD_VOICES` caps clips per headword. |
 
 Every optional provider degrades gracefully: `/health` reports which features are on, and the API queues enrichment only for configured providers. `.env.example` has the full list with defaults.
 
