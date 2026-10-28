@@ -16,9 +16,9 @@ export interface AudioSummary {
 }
 
 /** The curated voices in use; defaults to the checked-in casts, overridden in tests. */
-export class VoiceCasts extends Context.Reference<VoiceCasts>()("@kotori/tts/VoiceCasts", {
-  defaultValue: (): Casts => CASTS
-}) {}
+export const VoiceCasts = Context.Reference<Casts>("@kotori/tts/VoiceCasts", {
+  defaultValue: () => CASTS
+})
 
 /** The chosen reader of one clip, and how the choice was made. */
 export interface CastingDecision {
