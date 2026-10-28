@@ -30,7 +30,7 @@ apps/
   local-auth/ Development stand-in for Neon's Managed Better Auth
 packages/
   domain/     Schemas and the HttpApi contract shared by the API and the app (typed client)
-  db/         Postgres layer (@effect/sql-pg), migrations, repositories, full-text search
+  db/         Drizzle schema (the data model), generated migrations, repositories, full-text search
   jmdict/     Downloads and parses EDRDG's JMdict_e, imports it
   japanese/   Romaji ↔ kana, script detection, Yomichan-style deinflection
   nuance/     Jev questions, state building and interpretation for nuance + similar words

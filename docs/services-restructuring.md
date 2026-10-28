@@ -1,7 +1,8 @@
 # Restructuring: a `services` package as the application layer
 
-> Working document, agreed in outline on 2026-10-27 and parked until the Drizzle rebuild
-> (docs/data-model-rebuild.md) has cut over. Pick it up from "Steps" below.
+> Working document, agreed in outline on 2026-10-27. The Drizzle rebuild it waited on has
+> cut over (its plan, `docs/data-model-rebuild.md`, is in the history of PR #22). Pick it up
+> from "Steps" below.
 
 ## Goal
 
