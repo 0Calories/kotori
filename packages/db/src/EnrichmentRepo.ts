@@ -1,5 +1,5 @@
 import type { Difference, Formality, Language, Nuance } from "@kotori/domain"
-import { asc, desc, eq, gte, inArray, sql, sum } from "drizzle-orm"
+import { asc, desc, eq, gte, inArray, sum } from "drizzle-orm"
 import { Context, Effect, Layer, Option } from "effect"
 import { Database } from "./Database.ts"
 import { at, millis } from "./rows.ts"
