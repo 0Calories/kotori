@@ -301,9 +301,6 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.3(effect@4.0.3)(redis@6.3.0)
-      '@kotori/ai':
-        specifier: workspace:*
-        version: link:../../packages/ai
       '@kotori/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -313,24 +310,31 @@ importers:
       '@kotori/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@kotori/email':
+      '@kotori/services':
         specifier: workspace:*
-        version: link:../../packages/email
-      '@kotori/japanese':
-        specifier: workspace:*
-        version: link:../../packages/japanese
-      '@kotori/nuance':
-        specifier: workspace:*
-        version: link:../../packages/nuance
-      '@kotori/srs':
-        specifier: workspace:*
-        version: link:../../packages/srs
-      '@kotori/tts':
-        specifier: workspace:*
-        version: link:../../packages/tts
+        version: link:../../packages/services
       effect:
         specifier: 'catalog:'
         version: 4.0.3
+    devDependencies:
+      '@kotori/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
+      '@kotori/email':
+        specifier: workspace:*
+        version: link:../../packages/email
+      '@kotori/jmdict':
+        specifier: workspace:*
+        version: link:../../packages/jmdict
+      '@kotori/nuance':
+        specifier: workspace:*
+        version: link:../../packages/nuance
+      '@kotori/tts':
+        specifier: workspace:*
+        version: link:../../packages/tts
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 1.0.0-rc.5(@effect/sql-pg@4.0.3(effect@4.0.3))(@effect/sql-pglite@4.0.3(effect@4.0.3))(@electric-sql/pglite@0.5.11)(@types/pg@8.23.1)(effect@4.0.3)(pg@8.23.1)(zod@4.6.7)
 
   apps/app:
     dependencies:
@@ -465,42 +469,37 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.3(effect@4.0.3)(redis@6.3.0)
-      '@kotori/ai':
-        specifier: workspace:*
-        version: link:../../packages/ai
-      '@kotori/auth':
-        specifier: workspace:*
-        version: link:../../packages/auth
       '@kotori/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@kotori/domain':
-        specifier: workspace:*
-        version: link:../../packages/domain
-      '@kotori/email':
-        specifier: workspace:*
-        version: link:../../packages/email
       '@kotori/jmdict':
         specifier: workspace:*
         version: link:../../packages/jmdict
+      '@kotori/services':
+        specifier: workspace:*
+        version: link:../../packages/services
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.3
+    devDependencies:
+      '@kotori/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@kotori/nuance':
         specifier: workspace:*
         version: link:../../packages/nuance
       '@kotori/tts':
         specifier: workspace:*
         version: link:../../packages/tts
-      effect:
+      drizzle-orm:
         specifier: 'catalog:'
-        version: 4.0.3
+        version: 1.0.0-rc.5(@effect/sql-pg@4.0.3(effect@4.0.3))(@effect/sql-pglite@4.0.3(effect@4.0.3))(@electric-sql/pglite@0.5.11)(@types/pg@8.23.1)(effect@4.0.3)(pg@8.23.1)(zod@4.6.7)
 
   packages/ai:
     dependencies:
       '@anthropic-ai/sdk':
         specifier: 'catalog:'
         version: 0.133.0(zod@4.6.7)
-      '@kotori/db':
-        specifier: workspace:*
-        version: link:../db
       '@kotori/domain':
         specifier: workspace:*
         version: link:../domain
@@ -510,18 +509,6 @@ importers:
 
   packages/auth:
     dependencies:
-      '@kotori/db':
-        specifier: workspace:*
-        version: link:../db
-      '@kotori/domain':
-        specifier: workspace:*
-        version: link:../domain
-      '@kotori/email':
-        specifier: workspace:*
-        version: link:../email
-      drizzle-orm:
-        specifier: 'catalog:'
-        version: 1.0.0-rc.5(@effect/sql-pg@4.0.3(effect@4.0.3))(@effect/sql-pglite@4.0.3(effect@4.0.3))(@electric-sql/pglite@0.5.11)(@types/pg@8.23.1)(effect@4.0.3)(pg@8.23.1)(zod@4.6.7)
       effect:
         specifier: 'catalog:'
         version: 4.0.3
@@ -578,24 +565,21 @@ importers:
 
   packages/jmdict:
     dependencies:
-      '@kotori/db':
-        specifier: workspace:*
-        version: link:../db
       effect:
         specifier: 'catalog:'
         version: 4.0.3
 
   packages/nuance:
     dependencies:
-      '@kotori/db':
-        specifier: workspace:*
-        version: link:../db
       '@kotori/domain':
         specifier: workspace:*
         version: link:../domain
       '@kotori/japanese':
         specifier: workspace:*
         version: link:../japanese
+      '@kotori/jmdict':
+        specifier: workspace:*
+        version: link:../jmdict
       '@typesafe-ai/sdk':
         specifier: 'catalog:'
         version: 0.6.0
@@ -603,16 +587,38 @@ importers:
         specifier: 'catalog:'
         version: 4.0.3
 
-  packages/srs: {}
-
-  packages/tts:
+  packages/services:
     dependencies:
+      '@kotori/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@kotori/auth':
+        specifier: workspace:*
+        version: link:../auth
       '@kotori/db':
         specifier: workspace:*
         version: link:../db
       '@kotori/domain':
         specifier: workspace:*
         version: link:../domain
+      '@kotori/email':
+        specifier: workspace:*
+        version: link:../email
+      '@kotori/japanese':
+        specifier: workspace:*
+        version: link:../japanese
+      '@kotori/jmdict':
+        specifier: workspace:*
+        version: link:../jmdict
+      '@kotori/nuance':
+        specifier: workspace:*
+        version: link:../nuance
+      '@kotori/srs':
+        specifier: workspace:*
+        version: link:../srs
+      '@kotori/tts':
+        specifier: workspace:*
+        version: link:../tts
       drizzle-orm:
         specifier: 'catalog:'
         version: 1.0.0-rc.5(@effect/sql-pg@4.0.3(effect@4.0.3))(@effect/sql-pglite@4.0.3(effect@4.0.3))(@electric-sql/pglite@0.5.11)(@types/pg@8.23.1)(effect@4.0.3)(pg@8.23.1)(zod@4.6.7)
@@ -620,9 +626,20 @@ importers:
         specifier: 'catalog:'
         version: 4.0.3
     devDependencies:
-      '@effect/platform-node':
+      jose:
         specifier: 'catalog:'
-        version: 4.0.3(effect@4.0.3)(redis@6.3.0)
+        version: 6.2.12
+
+  packages/srs: {}
+
+  packages/tts:
+    dependencies:
+      '@kotori/domain':
+        specifier: workspace:*
+        version: link:../domain
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.3
 
 packages:
 

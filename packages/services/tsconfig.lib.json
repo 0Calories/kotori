@@ -1,0 +1,41 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "types": ["node"]
+  },
+  "include": ["src"],
+  "references": [
+    {
+      "path": "../ai/tsconfig.lib.json"
+    },
+    {
+      "path": "../auth/tsconfig.lib.json"
+    },
+    {
+      "path": "../db/tsconfig.lib.json"
+    },
+    {
+      "path": "../domain/tsconfig.lib.json"
+    },
+    {
+      "path": "../email/tsconfig.lib.json"
+    },
+    {
+      "path": "../japanese/tsconfig.lib.json"
+    },
+    {
+      "path": "../jmdict/tsconfig.lib.json"
+    },
+    {
+      "path": "../nuance/tsconfig.lib.json"
+    },
+    {
+      "path": "../srs/tsconfig.lib.json"
+    },
+    {
+      "path": "../tts/tsconfig.lib.json"
+    }
+  ]
+}

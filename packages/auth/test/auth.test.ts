@@ -1,17 +1,13 @@
 import { assert, layer } from "@effect/vitest"
-import { UsersRepo } from "@kotori/db"
-import { DatabaseMemory } from "@kotori/db/testing"
-import { Mailbox, MailerMemory } from "@kotori/email"
 import { ConfigProvider, Effect, Layer, Option } from "effect"
 import { TestClock } from "effect/testing"
 import { Headers, HttpServerRequest, HttpServerResponse } from "effect/http"
-import { SqlClient } from "effect/sql"
 import { exportJWK, generateKeyPair, type JWK, SignJWT } from "jose"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import type { AddressInfo } from "node:net"
 import { Auth } from "../src/Auth.ts"
 import { signWebhook } from "../src/WebhookSignature.ts"
-import { AuthWebhooks } from "../src/Webhooks.ts"
+import { verifyWebhook } from "../src/Webhooks.ts"
 
 const BASE_PATH = "/neondb/auth"
 
@@ -82,7 +78,7 @@ const AuthAgainstUpstream = Layer.unwrap(
     const config = ConfigProvider.fromUnknown({ NEON_AUTH_BASE_URL: `http://127.0.0.1:${port}${BASE_PATH}` })
     return Auth.layer.pipe(Layer.provide(ConfigProvider.layer(config)))
   })
-).pipe(Layer.provideMerge(DatabaseMemory))
+)
 
 /** Proxies a request through `Auth.forward` and returns what the client would receive. */
 const forward = (path: string, init?: RequestInit) =>
@@ -138,13 +134,13 @@ layer(AuthAgainstUpstream)("Auth sessions and tokens", (it) => {
     Effect.gen(function* () {
       const auth = yield* Auth
       // A malformed token is rejected before any key is needed.
-      assert.isTrue(Option.isNone(yield* auth.verifyToken("not-a-jwt")))
+      assert.isTrue(Option.isNone(yield* auth.verifyToken("not-a-jwt", () => Effect.succeed(true))))
       // A well-formed one needs the JWKS, which answers 503 here.
       const { privateKey } = yield* Effect.promise(() => generateKeyPair("EdDSA", { crv: "Ed25519" }))
       const token = yield* Effect.promise(() =>
         new SignJWT({}).setProtectedHeader({ alg: "EdDSA", kid: "k1" }).setSubject(signedInUser.id).sign(privateKey)
       )
-      const down = yield* auth.verifyToken(token).pipe(Effect.flip)
+      const down = yield* auth.verifyToken(token, () => Effect.succeed(true)).pipe(Effect.flip)
       assert.strictEqual(down._tag, "AuthUpstreamError")
     })
   )
@@ -154,11 +150,9 @@ layer(AuthAgainstUpstream)("Auth tokens and sessions", (it) => {
   it.effect("accepts a valid token only while its user still has a session", () =>
     Effect.gen(function* () {
       const auth = yield* Auth
-      const sql = yield* SqlClient.SqlClient
-      // A stand-in for the slice of Managed Auth's schema that the check reads.
-      yield* sql`CREATE SCHEMA neon_auth`
-      yield* sql`CREATE TABLE neon_auth.session (id TEXT PRIMARY KEY, "userId" UUID NOT NULL)`
-      yield* sql`INSERT INTO neon_auth.session (id, "userId") VALUES ('s1', ${signedInUser.id}::uuid)`
+      // Sessions live in `neon_auth`; the caller says whether the user still has one.
+      const sessions = new Set([signedInUser.id])
+      const hasSession = (userId: string) => Effect.sync(() => sessions.has(userId))
 
       const { privateKey, publicKey } = yield* Effect.promise(() => generateKeyPair("EdDSA", { crv: "Ed25519" }))
       keySet = { keys: [{ ...(yield* Effect.promise(() => exportJWK(publicKey))), kid: "k1", alg: "EdDSA" }] }
@@ -177,10 +171,10 @@ layer(AuthAgainstUpstream)("Auth tokens and sessions", (it) => {
           .sign(privateKey)
       )
 
-      assert.strictEqual(Option.getOrThrow(yield* auth.verifyToken(token)).id, signedInUser.id)
+      assert.strictEqual(Option.getOrThrow(yield* auth.verifyToken(token, hasSession)).id, signedInUser.id)
       // `kotori revoke` and account deletion both remove the sessions.
-      yield* auth.revokeSessions(signedInUser.id)
-      assert.isTrue(Option.isNone(yield* auth.verifyToken(token)))
+      sessions.clear()
+      assert.isTrue(Option.isNone(yield* auth.verifyToken(token, hasSession)))
     })
   )
 })
@@ -188,11 +182,6 @@ layer(AuthAgainstUpstream)("Auth tokens and sessions", (it) => {
 /** Managed Auth's webhook signing key, as its key set would publish it. */
 const webhookKeys = await generateKeyPair("EdDSA", { crv: "Ed25519" })
 const webhookJwk: JWK = { ...(await exportJWK(webhookKeys.publicKey)), kid: "wh1", alg: "EdDSA", use: "sig" }
-
-const WebhooksAgainstUpstream = AuthWebhooks.layer.pipe(
-  Layer.provideMerge(Layer.mergeAll(UsersRepo.layer, MailerMemory)),
-  Layer.provideMerge(AuthAgainstUpstream)
-)
 
 const learner = { id: "00000000-0000-4000-8000-0000000000aa", email: "learner@example.com", name: "Learner" }
 
@@ -214,75 +203,41 @@ const signed = (body: string, options?: { readonly ageMs?: number; readonly key?
     signWebhook(options?.key ?? webhookKeys.privateKey, "wh1", body, Date.now() - (options?.ageMs ?? 0))
   )
 
-const receive = (headers: Record<string, string>, body: string) =>
-  Effect.flatMap(AuthWebhooks, (webhooks) =>
-    webhooks.receive(Headers.fromInput(headers), new TextEncoder().encode(body))
-  )
+const verify = (headers: Record<string, string>, body: string) =>
+  verifyWebhook(Headers.fromInput(headers), new TextEncoder().encode(body))
 
-layer(WebhooksAgainstUpstream)("Managed Auth webhooks", (it) => {
-  it.effect("emails the code, in English until the learner has picked a language", () =>
+layer(AuthAgainstUpstream)("Managed Auth webhooks", (it) => {
+  it.effect("reads the code or link to email, and who it's for, from a verified event", () =>
     Effect.gen(function* () {
       keySet = { keys: [webhookJwk] }
-      const mailbox = yield* Mailbox
-      yield* mailbox.clear
       const body = otp("email-verification", "482913")
-      assert.strictEqual(yield* receive(yield* signed(body), body), "sent")
-
-      const [email] = yield* mailbox.messages
-      assert.strictEqual(email?.to, "learner@example.com")
-      assert.include(email?.subject, "confirm your email")
-      assert.include(email?.text, "Hi Learner,")
-      assert.include(email?.text, "482913")
-    })
-  )
-
-  it.effect("writes in the learner's language once they've onboarded, and sends links too", () =>
-    Effect.gen(function* () {
-      keySet = { keys: [webhookJwk] }
-      const mailbox = yield* Mailbox
-      yield* mailbox.clear
-      const users = yield* UsersRepo
-      yield* users.ensure({
-        id: learner.id,
-        status: "pending",
-        role: "user",
-        nativeLanguage: "ja",
-        targetLanguage: "en",
-        onboardedAt: Date.now(),
-        displayName: null,
-        timezone: "Asia/Tokyo",
-        dailyNewLimit: 20,
-        dailyReviewLimit: 200,
-        createdAt: Date.now()
+      assert.deepStrictEqual(Option.getOrThrow(yield* verify(yield* signed(body), body)), {
+        eventId: JSON.parse(body).event_id,
+        purpose: "email-verification",
+        secret: { code: "482913" },
+        to: "learner@example.com",
+        userId: learner.id,
+        name: "Learner"
       })
 
-      const code = otp("forget-password", "777111")
-      yield* receive(yield* signed(code), code)
       const link = event("send.magic_link", {
         link_type: "forget-password",
         link_url: "https://auth.test/reset-password/tok?callbackURL=%2F",
         token: "tok"
       })
-      yield* receive(yield* signed(link), link)
-
-      const [byCode, byLink] = yield* mailbox.messages
-      assert.include(byCode?.subject, "パスワードの再設定")
-      assert.include(byCode?.text, "777111")
-      assert.include(byLink?.text, "https://auth.test/reset-password/tok?callbackURL=%2F")
-      assert.include(byLink?.html, 'href="https://auth.test/reset-password/tok?callbackURL=%2F"')
-      yield* users.delete(learner.id)
+      const reset = Option.getOrThrow(yield* verify(yield* signed(link), link))
+      assert.strictEqual(reset.purpose, "forget-password")
+      assert.deepStrictEqual(reset.secret, { url: "https://auth.test/reset-password/tok?callbackURL=%2F" })
     })
   )
 
-  it.effect("refuses anything it can't verify, and sends nothing", () =>
+  it.effect("refuses anything it can't verify", () =>
     Effect.gen(function* () {
       keySet = { keys: [webhookJwk] }
-      const mailbox = yield* Mailbox
-      yield* mailbox.clear
       const body = otp("email-verification")
       const good = yield* signed(body)
       const rejected = (headers: Record<string, string>, payload = body) =>
-        receive(headers, payload).pipe(
+        verify(headers, payload).pipe(
           Effect.flip,
           Effect.map((error) => (error._tag === "WebhookRejected" ? error.reason : `not rejected: ${error._tag}`))
         )
@@ -307,41 +262,29 @@ layer(WebhooksAgainstUpstream)("Managed Auth webhooks", (it) => {
       // Correctly signed, but replayed after Neon's five-minute window (the test clock starts at 0).
       yield* TestClock.setTime(Date.now())
       assert.strictEqual(yield* rejected(yield* signed(body, { ageMs: 6 * 60_000 })), "timestamp too old")
-
-      assert.deepStrictEqual(yield* mailbox.messages, [])
     })
   )
 
-  it.effect("ignores other events, doesn't send one event twice, and won't send SMS codes", () =>
+  it.effect("passes over other events and won't deliver SMS codes", () =>
     Effect.gen(function* () {
       keySet = { keys: [webhookJwk] }
-      const mailbox = yield* Mailbox
-      yield* mailbox.clear
       const created = event("user.created", { auth_provider: "credential" })
-      assert.strictEqual(yield* receive(yield* signed(created), created), "ignored")
-
-      // Neon retries with the same event id when it didn't see the first answer.
-      const body = otp("email-verification")
-      assert.strictEqual(yield* receive(yield* signed(body), body), "sent")
-      assert.strictEqual(yield* receive(yield* signed(body), body), "duplicate")
-      assert.strictEqual((yield* mailbox.messages).length, 1)
+      assert.isTrue(Option.isNone(yield* verify(yield* signed(created), created)))
 
       const sms = event("send.otp", { otp_code: "1", otp_type: "sign-in", delivery_preference: "sms" })
-      const error = yield* receive(yield* signed(sms), sms).pipe(Effect.flip)
+      const error = yield* verify(yield* signed(sms), sms).pipe(Effect.flip)
       assert.strictEqual(error._tag, "WebhookUnusable")
     })
   )
 })
 
-layer(WebhooksAgainstUpstream)("Managed Auth webhooks during an outage", (it) => {
-  it.effect("fails, and sends nothing, when the key set can't be fetched", () =>
+layer(AuthAgainstUpstream)("Managed Auth webhooks during an outage", (it) => {
+  it.effect("fails when the key set can't be fetched", () =>
     Effect.gen(function* () {
       keySet = null
-      const mailbox = yield* Mailbox
       const body = otp("email-verification")
-      const error = yield* receive(yield* signed(body), body).pipe(Effect.flip)
+      const error = yield* verify(yield* signed(body), body).pipe(Effect.flip)
       assert.strictEqual(error._tag, "AuthUpstreamError")
-      assert.deepStrictEqual(yield* mailbox.messages, [])
     })
   )
 })

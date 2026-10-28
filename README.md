@@ -24,23 +24,26 @@ An [Nx](https://nx.dev) workspace using pnpm. Back end and data layer are TypeSc
 
 ```
 apps/
-  api/        HTTP API (Effect HttpApi): dictionary, coach, study, audio
-  worker/     CLI + job worker: seed JMDict, enrich with Jev / Claude / ElevenLabs
+  api/        HTTP API (Effect HttpApi): routing, auth middleware, CORS; calls the services
+  worker/     CLI + job loop: seed JMDict, enrich with Jev / Claude / ElevenLabs, manage sign-ups
   app/        Expo (Router) app for iOS, Android and web
   local-auth/ Development stand-in for Neon's Managed Better Auth
 packages/
+  services/   Kotori's use cases (accounts, dictionary, enrichment, study, coaching): the only code that queries the database
   domain/     Schemas and the HttpApi contract shared by the API and the app (typed client)
-  db/         Drizzle schema (the data model), generated migrations, repositories, full-text search
-  jmdict/     Downloads and parses EDRDG's JMdict_e, imports it
+  db/         Drizzle schema (the data model), generated migrations, the Database service
+  jmdict/     Downloads, reads and parses EDRDG's JMdict_e
   japanese/   Romaji ↔ kana, script detection, Yomichan-style deinflection
-  nuance/     Jev questions, state building and interpretation for nuance + similar words
+  nuance/     Jev client; questions, state building and interpretation for nuance + similar words
   ai/         Claude service, coach prompts, example-sentence writer
-  tts/        ElevenLabs client, content-addressed audio store, monthly budget guard
+  auth/       Managed Better Auth client: proxy, sessions, JWT and webhook verification
+  email/      Resend mailer and the email templates
+  tts/        ElevenLabs text-to-speech client
   srs/        Anki's SM-2 scheduler (v3), pure and fully tested
 tools/        Local setup script; renders the mascot into app icons
 ```
 
-`nx graph` shows how they fit together.
+Dependencies point one way: the apps call `services`, which alone reads and writes the database (through `db`) and calls the providers (`ai`, `auth`, `email`, `jmdict`, `nuance`, `tts`), which never touch it. The one shortcut is the API proxying `/api/auth/*` straight through `auth`. `nx graph` shows how they fit together.
 
 ## Getting started
 
@@ -61,7 +64,7 @@ Development runs from source, so the build is only needed to check what producti
 pnpm test
 ```
 
-Tests need no database, server or API keys: repositories run on an in-process Postgres ([PGlite](https://pglite.dev)) and auth on an in-memory fake.
+Tests need no database, server or API keys: the services run on an in-process Postgres ([PGlite](https://pglite.dev)), with fakes for the AI providers and for Managed Auth.
 
 **3. Set up the database**
 
@@ -150,7 +153,7 @@ Packages are TypeScript project references. Each one has a `tsconfig.lib.json` (
 
 CI (`.github/workflows/ci.yml`) runs `nx sync:check`, format and lint checks, then `nx affected -t typecheck test build`; a push to `main` deploys the API and worker to Fly.io once the checks pass, and the web app is built and served by Vercel from `vercel.json` (see `docs/operations.md`; what is still to be done by hand is in `docs/deploy.md`). Dependency versions shared across packages live in the `catalog:` of `pnpm-workspace.yaml`. TypeScript 7 is installed as `@typescript/native` (the `tsc` you run) alongside TypeScript 6 as `typescript` (the compiler API that Nx and editors still need; `tsc6`). Oxlint's type-aware rules run on `oxlint-tsgolint`, which embeds its own TypeScript 7.
 
-Tests cover the SM-2 scheduler against Anki's behaviour, deinflection, JMDict parsing, repositories on an in-process Postgres ([PGlite](https://pglite.dev), no server needed), the Jev and ElevenLabs pipelines with fakes, structured-output schemas, and the HTTP API end to end through Effect's in-memory `HttpApiTest` client.
+Tests cover the SM-2 scheduler against Anki's behaviour, deinflection, JMDict parsing, every service's use cases on an in-process Postgres ([PGlite](https://pglite.dev), no server needed) with the Jev, Claude and ElevenLabs providers faked, structured-output schemas, and the HTTP API end to end through Effect's in-memory `HttpApiTest` client.
 
 ## Data and credits
 

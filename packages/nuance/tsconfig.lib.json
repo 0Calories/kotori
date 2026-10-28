@@ -8,13 +8,13 @@
   "include": ["src"],
   "references": [
     {
-      "path": "../db/tsconfig.lib.json"
-    },
-    {
       "path": "../domain/tsconfig.lib.json"
     },
     {
       "path": "../japanese/tsconfig.lib.json"
+    },
+    {
+      "path": "../jmdict/tsconfig.lib.json"
     }
   ]
 }

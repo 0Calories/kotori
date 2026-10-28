@@ -1,6 +1,7 @@
 import { NodeHttpClient, NodeHttpServer, NodeRuntime, NodeServices } from "@effect/platform-node"
 import { loadDotEnv } from "@kotori/db"
 import { KotoriApi } from "@kotori/domain"
+import { ServicesLive } from "@kotori/services"
 import { Config, Effect, Layer, Logger } from "effect"
 import { HttpRouter } from "effect/http"
 import { HttpApiBuilder, HttpApiScalar } from "effect/http-api"
@@ -11,7 +12,6 @@ import { CorsLive } from "./http/cors.ts"
 import { AllHandlers } from "./http/handlers.ts"
 import { AuthRoute } from "./http/neon-auth.ts"
 import { WebhooksRoute } from "./http/webhooks.ts"
-import { AppLive } from "./layers.ts"
 
 loadDotEnv()
 
@@ -45,7 +45,7 @@ const ServerLive = Layer.unwrap(
 const LoggerLive = process.env.NODE_ENV === "production" ? Logger.layer([Logger.consoleJson]) : Layer.empty
 
 Layer.launch(ServerLive).pipe(
-  Effect.provide(AppLive),
+  Effect.provide(ServicesLive),
   Effect.provide(NodeHttpClient.layerUndici),
   Effect.provide(NodeServices.layer),
   Effect.provide(LoggerLive),

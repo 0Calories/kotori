@@ -36,6 +36,9 @@
       "path": "./packages/srs"
     },
     {
+      "path": "./packages/services"
+    },
+    {
       "path": "./packages/tts"
     },
     {

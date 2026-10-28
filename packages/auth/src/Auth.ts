@@ -1,22 +1,14 @@
-import { authSessions, authUsers, Database } from "@kotori/db"
-import { asc, eq, sql } from "drizzle-orm"
 import { Config, Context, Duration, Effect, Layer, Option, Schema } from "effect"
 import { Headers, HttpServerRequest, HttpServerResponse } from "effect/http"
 import * as Cookies from "effect/http/Cookies"
-import {
-  createLocalJWKSet,
-  createRemoteJWKSet,
-  errors as JoseErrors,
-  exportJWK,
-  generateKeyPair,
-  type JWTVerifyGetKey,
-  jwtVerify,
-  SignJWT
-} from "jose"
-import { KeyObject } from "node:crypto"
-import { ed25519Key, signWebhook } from "./WebhookSignature.ts"
+import { createRemoteJWKSet, errors as JoseErrors, type JWTVerifyGetKey, jwtVerify } from "jose"
+import type { KeyObject } from "node:crypto"
+import { ed25519Key } from "./WebhookSignature.ts"
 
-/** A Managed Better Auth user as Kotori reads it. Approval status and role live on the learner profile. */
+/**
+ * A Managed Better Auth user as Kotori reads it: from the session or token here, from
+ * `neon_auth` in `@kotori/services`. Approval status and role live on the learner profile.
+ */
 export interface AuthUser {
   readonly id: string
   readonly email: string
@@ -33,13 +25,13 @@ export interface Forwarded {
   readonly setCookies: ReadonlyArray<string>
 }
 
-// `createdAt` arrives as an ISO string from the auth server's JSON and as a Date from the SQL driver.
+// `createdAt` arrives as an ISO string in the auth server's JSON.
 const RawUser = Schema.Struct({
   id: Schema.String,
   email: Schema.String,
   emailVerified: Schema.Boolean,
   name: Schema.String,
-  createdAt: Schema.Union([Schema.Date, Schema.DateFromString])
+  createdAt: Schema.DateFromString
 })
 const decodeUser = (raw: unknown): AuthUser => Schema.decodeUnknownSync(RawUser)(raw)
 
@@ -98,23 +90,21 @@ export interface AuthService {
   sessionFromCookies(headers: Headers.Headers): Effect.Effect<Option.Option<AuthUser>, AuthUpstreamError>
   /**
    * The user a managed JWT (from `GET /token`) was issued to, if the token verifies against
-   * the JWKS and the user still has a session: deleting the account or revoking its sessions
-   * ends access at once, not when the token expires. Fails, rather than answering none, when
-   * the key set can't be fetched.
+   * the JWKS and `hasSession` says the user still has a session: deleting the account or
+   * revoking its sessions ends access at once, not when the token expires. Sessions live in
+   * `neon_auth`, so the check is the caller's. Fails, rather than answering none, when the
+   * key set can't be fetched.
    */
-  verifyToken(token: string): Effect.Effect<Option.Option<AuthUser>, AuthUpstreamError>
+  verifyToken<R>(
+    token: string,
+    hasSession: (userId: string) => Effect.Effect<boolean, never, R>
+  ): Effect.Effect<Option.Option<AuthUser>, AuthUpstreamError, R>
   /**
    * The Ed25519 key Managed Auth signed a webhook with (`X-Neon-Signature-Kid`), from the
    * same key set as the JWTs, refetched when the id is unknown. None for an unknown id
    * or a key that isn't Ed25519; fails when the key set can't be fetched.
    */
   webhookKey(kid: string): Effect.Effect<Option.Option<KeyObject>, AuthUpstreamError>
-  /**
-   * Deletes the identity: the `neon_auth` user row, whose sessions and accounts cascade.
-   * Managed Auth doesn't enable Better Auth's own `/delete-user`, and identity lives in
-   * Kotori's database anyway, so this is a plain SQL delete.
-   */
-  deleteUser(userId: string): Effect.Effect<void>
   /**
    * Creates an account with a password, as the sign-up screen does. Used by the CLI to
    * make the local development account; learners always go through the app.
@@ -124,16 +114,6 @@ export interface AuthService {
     readonly password: string
     readonly name: string
   }): Effect.Effect<AuthUser, AuthUpstreamError>
-  /**
-   * Marks the address confirmed without a code, for the development account. The real
-   * path is the learner entering the code Managed Auth's webhook emailed them.
-   */
-  setEmailVerified(userId: string): Effect.Effect<void>
-  /** Every user in sign-up order. */
-  readonly users: Effect.Effect<ReadonlyArray<AuthUser>>
-  userByEmail(email: string): Effect.Effect<Option.Option<AuthUser>>
-  /** Signs the user out everywhere. */
-  revokeSessions(userId: string): Effect.Effect<void>
 }
 
 /** The origin a request reached us at, honouring the proxy headers Fly (and most hosts) set. */
@@ -162,16 +142,15 @@ const upstreamFailed = HttpServerResponse.text(
 
 /**
  * Neon's Managed Better Auth, reached at `NEON_AUTH_BASE_URL`. The service runs
- * upstream; identity lands in the `neon_auth` schema of Kotori's own database,
- * which is where reads (and session revocation) go. Everything a learner does
- * (sign up, sign in, verify, reset, delete) flows through `forward`.
+ * upstream; identity lands in the `neon_auth` schema of Kotori's own database, which
+ * `@kotori/services` reads and writes. Everything a learner does (sign up, sign in,
+ * verify, reset) flows through `forward`.
  */
 export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Auth") {
   static readonly layer = Layer.effect(
     Auth,
     Effect.gen(function* () {
       const baseUrl = (yield* Config.String("NEON_AUTH_BASE_URL")).replace(/\/$/, "")
-      const db = yield* Database
       // Managed JWTs name the auth endpoint's origin as issuer and audience.
       const origin = new URL(baseUrl).origin
       const jwks = createRemoteJWKSet(new URL(`${baseUrl}/.well-known/jwks.json`))
@@ -228,18 +207,12 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
             try: () => decodeSession(JSON.parse(new TextDecoder().decode(response.body))),
             catch: (error) => new AuthUpstreamError({ message: `Unreadable /get-session response: ${String(error)}` })
           })
-          return session === null ? Option.none<AuthUser>() : Option.some(decodeUser(session.user))
+          return session === null ? Option.none<AuthUser>() : Option.some<AuthUser>(session.user)
         },
         Effect.tapError((error) => Effect.logWarning("Could not resolve the session", error))
       )
 
-      const hasSession = (userId: string) =>
-        db.$count(authSessions, eq(authSessions.userId, userId)).pipe(
-          Effect.map((n) => n > 0),
-          Effect.orDie
-        )
-
-      const verifyToken = makeVerifyToken(jwks, origin, hasSession)
+      const verifyToken = makeVerifyToken(jwks, origin)
 
       // Looked up by id alone, as Neon's verification steps do, through jose's cache: a
       // stale set is refreshed, and an unknown id refetches it at most every 30 s.
@@ -266,29 +239,6 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
         )
       )
 
-      const list = db
-        .select()
-        .from(authUsers)
-        .orderBy(asc(authUsers.createdAt))
-        .pipe(
-          Effect.map((rows) => rows.map(decodeUser)),
-          Effect.orDie
-        )
-
-      const userByEmail = Effect.fn("Auth.userByEmail")(function* (email: string) {
-        const rows = yield* db
-          .select()
-          .from(authUsers)
-          .where(eq(sql`lower(${authUsers.email})`, email.trim().toLowerCase()))
-        return Option.fromNullishOr(rows[0]).pipe(Option.map(decodeUser))
-      }, Effect.orDie)
-
-      const revokeSessions = (userId: string) =>
-        db.delete(authSessions).where(eq(authSessions.userId, userId)).pipe(Effect.asVoid, Effect.orDie)
-
-      const deleteUser = (userId: string) =>
-        db.delete(authUsers).where(eq(authUsers.id, userId)).pipe(Effect.asVoid, Effect.orDie)
-
       const signUp = Effect.fn("Auth.signUp")(function* (input: {
         readonly email: string
         readonly password: string
@@ -311,67 +261,7 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/auth/Aut
         })
       })
 
-      const setEmailVerified = (userId: string) =>
-        db
-          .update(authUsers)
-          .set({ emailVerified: true })
-          .where(eq(authUsers.id, userId))
-          .pipe(Effect.asVoid, Effect.orDie)
-
-      return Auth.of({
-        forward,
-        sessionFromCookies,
-        verifyToken,
-        webhookKey,
-        deleteUser,
-        signUp,
-        setEmailVerified,
-        users: list,
-        userByEmail,
-        revokeSessions
-      })
-    })
-  )
-
-  /** An in-memory stand-in for tests; sign up through `TestAuth`. */
-  static readonly layerMemory = Layer.effect(
-    Auth,
-    Effect.gen(function* () {
-      const store = yield* TestAuth
-
-      const sessionFromCookies = (headers: Headers.Headers) =>
-        store.reachable()
-          ? Effect.sync(() => store.userForCookie(headers["cookie"]))
-          : Effect.fail(new AuthUpstreamError({ message: "The test auth server is down" }))
-      const verifyToken = makeVerifyToken(store.jwks, store.issuer, (userId) =>
-        Effect.sync(() => store.hasSession(userId))
-      )
-
-      return Auth.of({
-        forward: () => Effect.die("Auth.forward is not available in tests"),
-        sessionFromCookies,
-        verifyToken,
-        webhookKey: (kid) =>
-          store.reachable()
-            ? Effect.succeed(store.webhookKey(kid))
-            : Effect.fail(new AuthUpstreamError({ message: "The test auth server is down" })),
-        deleteUser: (userId) => Effect.sync(() => store.remove(userId)),
-        // The fake store has no passwords; the name and address are all the CLI needs back.
-        signUp: ({ email, name }) =>
-          store.signUp(email, name).pipe(
-            Effect.map(({ id }) => ({
-              id,
-              email: email.toLowerCase(),
-              emailVerified: false,
-              name,
-              createdAt: new Date()
-            }))
-          ),
-        setEmailVerified: (userId) => Effect.sync(() => store.setEmailVerified(userId)),
-        users: Effect.sync(() => store.all()),
-        userByEmail: (email) => Effect.sync(() => store.byEmail(email)),
-        revokeSessions: (userId) => Effect.sync(() => store.revoke(userId))
-      })
+      return Auth.of({ forward, sessionFromCookies, verifyToken, webhookKey, signUp })
     })
   )
 }
@@ -393,14 +283,14 @@ const distinguishOutages =
     }
   }
 
-const makeVerifyToken = (
-  jwks: JWTVerifyGetKey,
-  issuer: string,
-  hasSession: (userId: string) => Effect.Effect<boolean>
-) => {
+/**
+ * `AuthService.verifyToken` over a key set and the issuer (and audience) managed JWTs
+ * name: the auth endpoint's origin upstream, a fake's in tests.
+ */
+export const makeVerifyToken = (jwks: JWTVerifyGetKey, issuer: string): AuthService["verifyToken"] => {
   const keys = distinguishOutages(jwks)
   return Effect.fn("Auth.verifyToken")(
-    function* (token: string) {
+    function* <R>(token: string, hasSession: (userId: string) => Effect.Effect<boolean, never, R>) {
       const verified = yield* Effect.tryPromise({
         try: () => jwtVerify(token, keys, { issuer, audience: issuer, algorithms: ["EdDSA"] }),
         catch: (error) => error
@@ -427,120 +317,5 @@ const makeVerifyToken = (
       return user
     },
     Effect.tapError((error) => Effect.logWarning("Could not verify the token", error))
-  )
-}
-
-interface TestSignUp {
-  readonly id: string
-  /** A `cookie` header value the memory layer recognises. */
-  readonly cookie: string
-}
-
-/**
- * The fake auth server behind `Auth.layerMemory`: an in-memory user store, cookie
- * sessions, and real EdDSA tokens so the JWT path is exercised end to end.
- */
-export class TestAuth extends Context.Service<
-  TestAuth,
-  {
-    readonly issuer: string
-    readonly jwks: JWTVerifyGetKey
-    signUp(email: string, name: string): Effect.Effect<TestSignUp>
-    /** A short-lived JWT for the session, like `GET /token`. */
-    token(cookie: string): Effect.Effect<string>
-    /** Confirms the address, as `Auth.setEmailVerified` does upstream. */
-    setEmailVerified(userId: string): void
-    /** Headers that sign `body` as a Managed Auth webhook, sent `ageMs` ago. */
-    signWebhook(body: string, options?: { readonly ageMs?: number }): Effect.Effect<Record<string, string>>
-    webhookKey(kid: string): Option.Option<KeyObject>
-    userForCookie(cookie: string | undefined): Option.Option<AuthUser>
-    hasSession(userId: string): boolean
-    /** Simulates an outage: session checks and key-set fetches fail until switched back on. */
-    setReachable(reachable: boolean): void
-    reachable(): boolean
-    byEmail(email: string): Option.Option<AuthUser>
-    all(): ReadonlyArray<AuthUser>
-    revoke(userId: string): void
-    remove(userId: string): void
-  }
->()("@kotori/auth/TestAuth") {
-  static readonly layer = Layer.effect(
-    TestAuth,
-    Effect.gen(function* () {
-      const issuer = "https://auth.test.invalid"
-      const { privateKey, publicKey } = yield* Effect.promise(() => generateKeyPair("EdDSA", { crv: "Ed25519" }))
-      const jwk = yield* Effect.promise(() => exportJWK(publicKey))
-      const local = createLocalJWKSet({ keys: [{ ...jwk, kid: "test", alg: "EdDSA" }] })
-      let reachable = true
-      const jwks: JWTVerifyGetKey = (header, token) =>
-        reachable ? local(header, token) : Promise.reject(new TypeError("fetch failed"))
-
-      const users = new Map<string, AuthUser>()
-      const sessions = new Map<string, string>()
-      let counter = 0
-
-      const tokenFromCookie = (cookie: string | undefined) =>
-        cookie?.match(/(?:^|;\s*)kotori_test_session=([^;]+)/)?.[1]
-      const userForCookie = (cookie: string | undefined) =>
-        Option.fromNullishOr(tokenFromCookie(cookie))
-          .pipe(Option.flatMap((token) => Option.fromNullishOr(sessions.get(token))))
-          .pipe(Option.flatMap((id) => Option.fromNullishOr(users.get(id))))
-
-      return TestAuth.of({
-        issuer,
-        jwks,
-        signUp: (email, name) =>
-          Effect.sync(() => {
-            counter++
-            const id = `00000000-0000-4000-8000-${String(counter).padStart(12, "0")}`
-            users.set(id, { id, email: email.toLowerCase(), emailVerified: false, name, createdAt: new Date() })
-            const token = `session-${counter}`
-            sessions.set(token, id)
-            return { id, cookie: `kotori_test_session=${token}` }
-          }),
-        token: (cookie) =>
-          Effect.gen(function* () {
-            const user = Option.getOrThrow(userForCookie(cookie))
-            return yield* Effect.promise(() =>
-              new SignJWT({
-                email: user.email,
-                emailVerified: user.emailVerified,
-                name: user.name,
-                createdAt: user.createdAt.toISOString()
-              })
-                .setProtectedHeader({ alg: "EdDSA", kid: "test" })
-                .setSubject(user.id)
-                .setIssuer(issuer)
-                .setAudience(issuer)
-                .setIssuedAt()
-                .setExpirationTime("15m")
-                .sign(privateKey)
-            )
-          }),
-        signWebhook: (body, options) =>
-          Effect.promise(() => signWebhook(privateKey, "test", body, Date.now() - (options?.ageMs ?? 0))),
-        webhookKey: (kid) => (kid === "test" ? Option.some(KeyObject.from(publicKey)) : Option.none()),
-        userForCookie,
-        hasSession: (userId) => [...sessions.values()].includes(userId),
-        setEmailVerified: (userId) => {
-          const user = users.get(userId)
-          if (user !== undefined) users.set(userId, { ...user, emailVerified: true })
-        },
-        setReachable: (value) => {
-          reachable = value
-        },
-        reachable: () => reachable,
-        byEmail: (email) =>
-          Option.fromNullishOr([...users.values()].find((u) => u.email === email.trim().toLowerCase())),
-        all: () => [...users.values()],
-        revoke: (userId) => {
-          for (const [token, id] of sessions) if (id === userId) sessions.delete(token)
-        },
-        remove: (userId) => {
-          users.delete(userId)
-          for (const [token, id] of sessions) if (id === userId) sessions.delete(token)
-        }
-      })
-    })
   )
 }

@@ -1,4 +1,4 @@
-import { AuthWebhooks } from "@kotori/auth"
+import { Accounts } from "@kotori/services"
 import { ByteSize, Effect } from "effect"
 import { HttpIncomingMessage, HttpRouter, HttpServerResponse } from "effect/http"
 
@@ -15,9 +15,8 @@ const status = (code: number) => HttpServerResponse.empty({ status: code })
  */
 export const WebhooksRoute = HttpRouter.add("POST", "/webhooks/neon-auth", (request) =>
   Effect.gen(function* () {
-    const webhooks = yield* AuthWebhooks
     const body = new Uint8Array(yield* request.arrayBuffer)
-    yield* webhooks.receive(request.headers, body)
+    yield* Accounts.deliverAuthEmail(request.headers, body)
     return status(204)
   }).pipe(
     Effect.provideService(HttpIncomingMessage.MaxBodySize, MAX_BODY),

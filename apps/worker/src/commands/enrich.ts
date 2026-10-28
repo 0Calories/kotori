@@ -1,7 +1,6 @@
-import { DictionaryRepo } from "@kotori/db"
+import { Enrichment } from "@kotori/services"
 import { Console, Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
-import { Enrichers } from "../Enrichers.ts"
 
 export const enrich = Command.make(
   "enrich",
@@ -21,15 +20,12 @@ export const enrich = Command.make(
     )
   },
   Effect.fn(function* ({ kind, entry, limit, concurrency, commonOnly }) {
-    const enrichers = yield* Enrichers
-    if (!(yield* enrichers.available).includes(kind)) {
+    if (!(yield* Enrichment.available).includes(kind)) {
       return yield* Console.error(`No provider is configured for ${kind}. See .env.example.`)
     }
 
     // Most frequent words first, skipping anything already enriched, so runs can be resumed.
-    const ids = Option.isSome(entry)
-      ? [entry.value]
-      : yield* (yield* DictionaryRepo).entriesByPriority({ limit, missing: kind, commonOnly })
+    const ids = Option.isSome(entry) ? [entry.value] : yield* Enrichment.backlog(kind, { limit, commonOnly })
     yield* Console.log(`Enriching ${ids.length} entries with ${kind}…`)
 
     let done = 0
@@ -37,7 +33,7 @@ export const enrich = Command.make(
     yield* Effect.forEach(
       ids,
       (id) =>
-        enrichers.run(kind, id).pipe(
+        Enrichment.run(kind, id).pipe(
           Effect.tap((summary) => Effect.logInfo(`${id}: ${summary}`)),
           Effect.tap(() => Effect.sync(() => done++)),
           Effect.catchCause((cause) =>

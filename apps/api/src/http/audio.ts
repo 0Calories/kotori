@@ -1,4 +1,4 @@
-import { AudioStore, isAudioKey } from "@kotori/tts"
+import { Enrichment } from "@kotori/services"
 import { Effect, Option } from "effect"
 import { HttpRouter, HttpServerResponse } from "effect/http"
 
@@ -9,8 +9,8 @@ export const AudioRoute = HttpRouter.add(
   Effect.gen(function* () {
     const { file = "" } = yield* HttpRouter.params
     const key = file.replace(/\.mp3$/, "")
-    if (!isAudioKey(key)) return HttpServerResponse.empty({ status: 404 })
-    const bytes = yield* (yield* AudioStore).read(key)
+    if (!Enrichment.isAudioKey(key)) return HttpServerResponse.empty({ status: 404 })
+    const bytes = yield* Enrichment.clip(key)
     return Option.match(bytes, {
       onNone: () => HttpServerResponse.empty({ status: 404 }),
       onSome: (body) =>

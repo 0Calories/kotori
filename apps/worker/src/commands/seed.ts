@@ -1,5 +1,6 @@
-import { DictionaryRepo } from "@kotori/db"
+import { resolveFromRoot } from "@kotori/db"
 import { JMDict } from "@kotori/jmdict"
+import { Dictionary } from "@kotori/services"
 import { Console, Effect, Option } from "effect"
 import { Command, Flag } from "effect/cli"
 
@@ -21,15 +22,16 @@ export const seed = Command.make(
     )
   },
   Effect.fn(function* ({ file, limit, commonOnly, ifEmpty }) {
-    const dictionary = yield* DictionaryRepo
     if (ifEmpty) {
-      const existing = yield* dictionary.count
+      const existing = yield* Dictionary.count
       if (existing > 0) return yield* Console.log(`The dictionary already has ${existing.toLocaleString()} entries.`)
     }
-    const path = Option.isSome(file) ? file.value : yield* JMDict.download("data/jmdict")
+    const path = Option.isSome(file)
+      ? resolveFromRoot(file.value)
+      : yield* JMDict.download(resolveFromRoot("data/jmdict"))
     const started = Date.now()
-    const result = yield* JMDict.importFile({ file: path, limit: Option.getOrUndefined(limit), commonOnly })
-    const total = yield* dictionary.count
+    const result = yield* Dictionary.importFile({ file: path, limit: Option.getOrUndefined(limit), commonOnly })
+    const total = yield* Dictionary.count
     yield* Console.log(
       `Imported ${result.entries.toLocaleString()} entries in ${((Date.now() - started) / 1000).toFixed(1)}s ` +
         `(${total.toLocaleString()} in the dictionary).`

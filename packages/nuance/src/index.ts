@@ -1,6 +1,6 @@
 export * from "./interpret.ts"
 export * from "./Jev.ts"
-export * from "./NuanceEnricher.ts"
+export * from "./judge.ts"
 export * from "./questions.ts"
 export * from "./state.ts"
 export * from "./sentence.ts"

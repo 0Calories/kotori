@@ -1,12 +1,10 @@
-import { type Account, Approvals, Auth } from "@kotori/auth"
-import { UsersRepo } from "@kotori/db"
-import type { Language } from "@kotori/domain"
-import { Clock, Console, Effect, Option } from "effect"
+import { Accounts } from "@kotori/services"
+import { Console, Effect } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
 const email = Argument.String("email").pipe(Argument.withDescription("The learner's email address"))
 
-const line = (user: Account) =>
+const line = (user: Accounts.Account) =>
   [
     user.email.padEnd(32),
     user.status.padEnd(9),
@@ -16,7 +14,7 @@ const line = (user: Account) =>
     user.name
   ].join("  ")
 
-const table = (users: ReadonlyArray<Account>, empty: string) =>
+const table = (users: ReadonlyArray<Accounts.Account>, empty: string) =>
   users.length === 0 ? Console.log(empty) : Effect.forEach(users, (user) => Console.log(line(user)), { discard: true })
 
 const notFound = (email: string) => Console.error(`No account with the email ${email}.`)
@@ -26,8 +24,7 @@ export const requests = Command.make(
   "requests",
   { all: Flag.Boolean("all").pipe(Flag.withDescription("Include archived requests"), Flag.withDefault(false)) },
   Effect.fn(function* ({ all }) {
-    const approvals = yield* Approvals
-    yield* table(yield* approvals.requests({ all }), all ? "No pending or archived requests." : "No pending requests.")
+    yield* table(yield* Accounts.requests({ all }), all ? "No pending or archived requests." : "No pending requests.")
   })
 ).pipe(Command.withDescription("List sign-ups waiting for approval"))
 
@@ -35,8 +32,7 @@ export const approve = Command.make(
   "approve",
   { email },
   Effect.fn(function* ({ email }) {
-    const approvals = yield* Approvals
-    yield* approvals.approve(email).pipe(
+    yield* Accounts.approve(email).pipe(
       Effect.flatMap((user) => Console.log(`Approved ${user.email}; they've been emailed.`)),
       Effect.catchTag("NoSuchUser", () => notFound(email))
     )
@@ -47,8 +43,7 @@ export const archive = Command.make(
   "archive",
   { email },
   Effect.fn(function* ({ email }) {
-    const approvals = yield* Approvals
-    yield* approvals.archive(email).pipe(
+    yield* Accounts.archive(email).pipe(
       Effect.flatMap((user) =>
         Console.log(`Archived ${user.email}. Nothing was sent; approve later with \`kotori approve\`.`)
       ),
@@ -61,8 +56,7 @@ export const users = Command.make(
   "users",
   {},
   Effect.fn(function* () {
-    const approvals = yield* Approvals
-    yield* table(yield* approvals.users(), "No accounts yet.")
+    yield* table(yield* Accounts.accounts, "No accounts yet.")
   })
 ).pipe(Command.withDescription("List every account"))
 
@@ -76,8 +70,7 @@ export const adminCommand = Command.make(
     )
   },
   Effect.fn(function* ({ email, remove }) {
-    const approvals = yield* Approvals
-    yield* approvals.setRole(email, remove ? "user" : "admin").pipe(
+    yield* Accounts.setRole(email, remove ? "user" : "admin").pipe(
       Effect.flatMap((user) => Console.log(`${user.email} is now ${remove ? "a learner" : "an admin"}.`)),
       Effect.catchTag("NoSuchUser", () => notFound(email))
     )
@@ -88,8 +81,7 @@ export const revoke = Command.make(
   "revoke",
   { email },
   Effect.fn(function* ({ email }) {
-    const approvals = yield* Approvals
-    yield* approvals.revoke(email).pipe(
+    yield* Accounts.revoke(email).pipe(
       Effect.flatMap((user) => Console.log(`Signed ${user.email} out everywhere.`)),
       Effect.catchTag("NoSuchUser", () => notFound(email))
     )
@@ -128,35 +120,8 @@ export const devAccount = Command.make(
     if (language !== "en" && language !== "ja") {
       return yield* Console.error(`--language must be en or ja, not ${language}.`)
     }
-    const nativeLanguage: Language = language
-    const targetLanguage: Language = language === "en" ? "ja" : "en"
-
-    const auth = yield* Auth
-    const users = yield* UsersRepo
-    const existing = yield* auth.userByEmail(email)
-    const user = Option.isSome(existing) ? existing.value : yield* auth.signUp({ email, password, name: "Dev Learner" })
-    yield* Console.log(Option.isSome(existing) ? `Reusing ${user.email}.` : `Created ${user.email}.`)
-
-    // Confirmed, approved and past the language picker, so the app opens onto the tabs.
-    // `ensure` then `update`, so an account left over from an earlier run is reset too.
-    yield* auth.setEmailVerified(user.id)
-    const now = yield* Clock.currentTimeMillis
-    const role = admin ? "admin" : "user"
-    yield* users.ensure({
-      id: user.id,
-      status: "approved",
-      role,
-      nativeLanguage,
-      targetLanguage,
-      onboardedAt: now,
-      displayName: user.name.trim() || null,
-      timezone: "UTC",
-      dailyNewLimit: 20,
-      dailyReviewLimit: 200,
-      createdAt: now
-    })
-    yield* users.update(user.id, { status: "approved", role, nativeLanguage, targetLanguage, onboardedAt: now })
-
+    const { user, created } = yield* Accounts.ensureDevAccount({ email, password, nativeLanguage: language, admin })
+    yield* Console.log(created ? `Created ${user.email}.` : `Reusing ${user.email}.`)
     yield* Console.log(
       `Ready: ${email} / ${password} — confirmed, approved${admin ? ", admin" : ""}, learning ` +
         `${language === "en" ? "Japanese" : "English"}. The app signs in as this account in development.`

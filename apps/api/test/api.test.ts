@@ -1,30 +1,39 @@
 import { NodeServices } from "@effect/platform-node"
 import { assert, layer } from "@effect/vitest"
-import { Claude, ClaudeError } from "@kotori/ai"
-import { DictionaryRepo, type EntryRecord, StudyRepo, UsersRepo } from "@kotori/db"
+import { Claude, ClaudeError, Coach, ExampleWriter } from "@kotori/ai"
+import { Auth } from "@kotori/auth"
+import { Database } from "@kotori/db"
+import { notes, users } from "@kotori/db/schema"
 import { DatabaseMemory } from "@kotori/db/testing"
 import { Authorization, KotoriApi } from "@kotori/domain"
 import { MailerMemory } from "@kotori/email"
+import type { EntryRecord } from "@kotori/jmdict"
 import { Jev, JevError } from "@kotori/nuance"
-import { Pronouncer, TtsError } from "@kotori/tts"
+import { Accounts, Dictionary, makeServices } from "@kotori/services"
+import { AuthMemory, TestAuth } from "@kotori/services/testing"
+import { ElevenLabs, TtsError } from "@kotori/tts"
+import { eq } from "drizzle-orm"
 import { Effect, Layer, Option } from "effect"
 import { Headers, HttpClientRequest, HttpServer } from "effect/http"
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api"
-import { Auth, TestAuth } from "@kotori/auth"
 import { AuthorizationLive } from "../src/http/Authorization.ts"
 import { AllHandlers } from "../src/http/handlers.ts"
-import { makeApp } from "../src/layers.ts"
 
-// No AI providers are configured in tests: the app must degrade gracefully. Mail is captured.
+// No AI providers are configured in tests: the app must degrade gracefully. Mail is captured,
+// and Managed Auth is a fake keeping its users and sessions in the test database.
 const OfflineProviders = Layer.mergeAll(
   MailerMemory,
-  Layer.succeed(
-    Claude,
-    Claude.of({
-      model: "test",
-      available: Effect.succeed(false),
-      generate: () => Effect.fail(new ClaudeError({ reason: "unconfigured", message: "not configured" }))
-    })
+  Layer.mergeAll(Coach.layer, ExampleWriter.layer).pipe(
+    Layer.provideMerge(
+      Layer.succeed(
+        Claude,
+        Claude.of({
+          model: "test",
+          available: Effect.succeed(false),
+          generate: () => Effect.fail(new ClaudeError({ reason: "unconfigured", message: "not configured" }))
+        })
+      )
+    )
   ),
   Layer.succeed(
     Jev,
@@ -35,21 +44,23 @@ const OfflineProviders = Layer.mergeAll(
     })
   ),
   Layer.succeed(
-    Pronouncer,
-    Pronouncer.of({
+    ElevenLabs,
+    ElevenLabs.of({
       configured: false,
-      speak: () => Effect.fail(new TtsError({ reason: "unconfigured", message: "not configured" })),
-      enrichEntry: () => Effect.succeed({ clips: 0, characters: 0 })
+      model: "test",
+      voiceFor: () => "test",
+      synthesize: () => Effect.fail(new TtsError({ reason: "unconfigured", message: "not configured" }))
     })
-  )
-)
+  ),
+  AuthMemory
+).pipe(Layer.provideMerge(TestAuth.layer))
 
-// One fake auth server, shared by the app (through Auth.layerMemory) and the tests (to sign up):
-// Effect memoizes a layer by reference within a build, so both see the same store.
-const TestAuthLive = TestAuth.layer
-const App = makeApp(OfflineProviders, DatabaseMemory, Auth.layerMemory.pipe(Layer.provide(TestAuthLive)))
+const App = makeServices(OfflineProviders, DatabaseMemory)
 const Handlers = AllHandlers.pipe(Layer.provideMerge(AuthorizationLive), Layer.provideMerge(App))
-const TestLayer = Layer.mergeAll(Handlers, TestAuthLive, HttpServer.layerServices, NodeServices.layer)
+const TestLayer = Layer.mergeAll(Handlers, HttpServer.layerServices, NodeServices.layer)
+
+const profileExists = (id: string) =>
+  Effect.flatMap(Database, (db) => db.$count(users, eq(users.id, id))).pipe(Effect.map((n) => n > 0))
 
 // The session cookie (web) or managed JWT (app) forwarded with every request.
 let cookie: string | null = null
@@ -78,7 +89,7 @@ const signedIn = (email: string) =>
     bearer = null
     // The profile row appears on first contact; approval is Kotori's own state.
     yield* api.account.me()
-    yield* Effect.flatMap(UsersRepo, (users) => users.update(user.id, { status: "approved" }))
+    yield* Accounts.approve(email)
     return user
   })
 
@@ -118,7 +129,6 @@ layer(TestLayer)("Kotori API", (it) => {
   it.effect("signs up, waits for approval, then gets access", () =>
     Effect.gen(function* () {
       const api = yield* client
-      const users = yield* UsersRepo
       const testAuth = yield* TestAuth
 
       cookie = null
@@ -144,11 +154,11 @@ layer(TestLayer)("Kotori API", (it) => {
       assert.strictEqual(gatedStudy._tag, "PendingApproval")
 
       // Archiving changes nothing for the learner.
-      yield* users.update(user.id, { status: "archived" })
+      yield* Accounts.archive("pending@example.com")
       assert.strictEqual((yield* api.account.me()).status, "archived")
       assert.strictEqual((yield* api.study.notes().pipe(Effect.flip))._tag, "PendingApproval")
 
-      yield* users.update(user.id, { status: "approved" })
+      yield* Accounts.approve("pending@example.com")
       assert.deepStrictEqual(yield* api.study.notes(), [])
 
       // The app authenticates with a managed JWT instead of the cookie.
@@ -186,8 +196,7 @@ layer(TestLayer)("Kotori API", (it) => {
   it.effect("searches in English, Japanese, romaji and conjugated forms", () =>
     Effect.gen(function* () {
       yield* signedIn("search@example.com")
-      const repo = yield* DictionaryRepo
-      yield* repo.insertEntries([
+      yield* Dictionary.insertEntries([
         entry(1, "食べる", "たべる", ["to eat"], ["v1", "vt"]),
         entry(2, "書く", "かく", ["to write"], ["v5k", "vt"]),
         entry(3, "猫", "ねこ", ["cat"], ["n"])
@@ -269,7 +278,7 @@ layer(TestLayer)("Kotori API", (it) => {
       const user = yield* signedIn("leaving@example.com")
       const api = yield* client
       const auth = yield* Auth
-      const users = yield* UsersRepo
+      const db = yield* Database
       yield* api.study.addNote({
         payload: {
           content: {
@@ -283,7 +292,7 @@ layer(TestLayer)("Kotori API", (it) => {
           }
         }
       })
-      assert.isTrue(Option.isSome(yield* users.byId(user.id)))
+      assert.isTrue(yield* profileExists(user.id))
 
       const token = yield* Effect.flatMap(TestAuth, (testAuth) => testAuth.token(user.cookie))
 
@@ -291,8 +300,8 @@ layer(TestLayer)("Kotori API", (it) => {
       yield* api.account.delete()
       assert.isTrue(Option.isNone(yield* auth.sessionFromCookies(Headers.fromInput({ cookie: user.cookie }))))
 
-      assert.isTrue(Option.isNone(yield* users.byId(user.id)))
-      assert.strictEqual(yield* Effect.flatMap(StudyRepo, (study) => study.noteCount(user.id)), 0)
+      assert.isFalse(yield* profileExists(user.id))
+      assert.strictEqual(yield* db.$count(notes, eq(notes.userId, user.id)), 0)
       const gone = yield* api.account.me().pipe(Effect.flip)
       assert.strictEqual(gone._tag, "Unauthorized")
 
@@ -300,7 +309,7 @@ layer(TestLayer)("Kotori API", (it) => {
       cookie = null
       bearer = token
       assert.strictEqual((yield* api.account.me().pipe(Effect.flip))._tag, "Unauthorized")
-      assert.isTrue(Option.isNone(yield* users.byId(user.id)))
+      assert.isFalse(yield* profileExists(user.id))
       bearer = null
     }).pipe(Effect.provide(Session))
   )

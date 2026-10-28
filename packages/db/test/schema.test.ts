@@ -5,8 +5,8 @@ import { Database } from "../src/Database.ts"
 import { entries, forms, glosses, senses } from "../src/schema/index.ts"
 import { DatabaseMemory } from "../src/testing.ts"
 
-// The schema's Postgres-level behaviour, on PGlite: the parts a repository can't
-// express and so can't test on its own. Generated full-text column, bytewise
+// The schema's Postgres-level behaviour, on PGlite: the parts a query can't
+// express and so a service can't test on its own. Generated full-text column, bytewise
 // collation for the prefix scan, cascades, and relational reads.
 
 // The layer is shared by the tests in this file, so each starts from an empty dictionary.

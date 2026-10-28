@@ -10,6 +10,15 @@
   "references": [
     {
       "path": "./tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/ai/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/nuance/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/tts/tsconfig.lib.json"
     }
   ]
 }
