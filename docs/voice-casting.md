@@ -239,21 +239,20 @@ tightened if the ratio is high.
 
 ```ts
 // packages/nuance/src/casting.ts
-const castingQuestion = (candidates: ReadonlyArray<Voice>): ChoiceQuestion => ({
-  type: "choice",
-  instructions:
-    "Which voice should read `sentence` aloud (translation in `meaning`) so it sounds like the person who would really say it? Consider who is speaking, to whom, and how.",
-  choices: candidates.map((voice) => ({ value: voice.id, what: voice.description }))
-})
+export interface VoiceCandidate { id: string; description: string }  // no dependency on the voice domain
 
-export const castVoice = (jev, input: { sentence: string; meaning: string; candidates }) =>
-  jev.ask({ sentence, meaning }, { voice: castingQuestion(candidates) })
-    .pipe(Effect.map(({ answers }) => ({ voiceId: answers.voice.value, confidence: answers.voice.confidence })))
+export const castVoice = (
+  jev: Jev["Service"],
+  input: { sentence: string; meaning: string; candidates: ReadonlyArray<VoiceCandidate> }
+): Effect.Effect<{ voiceId: string; confidence: number }, JevError>
+// One choice question: "Which voice should read `sentence` aloud (translation in `meaning`)
+// so it sounds like the person who would really say it?" — one criterion per candidate,
+// keyed by voice id, described by the cast's description line.
 ```
 
 Fallbacks, in order: Jev not configured → highest-scored voice, then cast order. Jev
-error → warning and the same fallback; an audio job never fails over a tiebreak. Below a
-confidence floor (0.4) → still take Jev's answer, but log it, so weak calls are visible in
+error → warning and the same fallback; an audio job never fails over a tiebreak. Below `CAST_CONFIDENCE_FLOOR`
+(0.4) → still take Jev's answer, but log it, so weak calls are visible in
 the regen workflow.
 
 ### 5. Headwords: several voices
