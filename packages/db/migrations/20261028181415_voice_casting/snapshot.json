@@ -1,0 +1,318 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "58548d01-cac3-4c4c-8e0c-36e880a58f2c",
+  "prevIds": ["a38522a3-443d-49cc-9fe1-8b1db4e3fac1"],
+  "footprints": [
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "cast_by"],
+      "writes": ["s|enum|public.cast_by", "n|enum|public.cast_by", "e|enum|public.cast_by", "n|type|public.cast_by"],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "sentence_medium"],
+      "writes": [
+        "s|enum|public.sentence_medium",
+        "n|enum|public.sentence_medium",
+        "e|enum|public.sentence_medium",
+        "n|type|public.sentence_medium"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "sentence_tone"],
+      "writes": [
+        "s|enum|public.sentence_tone",
+        "n|enum|public.sentence_tone",
+        "e|enum|public.sentence_tone",
+        "n|type|public.sentence_tone"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "speaker_age"],
+      "writes": [
+        "s|enum|public.speaker_age",
+        "n|enum|public.speaker_age",
+        "e|enum|public.speaker_age",
+        "n|type|public.speaker_age"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "speaker_gender"],
+      "writes": [
+        "s|enum|public.speaker_gender",
+        "n|enum|public.speaker_gender",
+        "e|enum|public.speaker_gender",
+        "n|type|public.speaker_gender"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "audio", "voice"],
+      "writes": ["s|col|public.audio.voice", "n|col|public.audio.voice", "e|col|public.audio.voice"],
+      "reads": ["n|tbl|public.audio", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "example_audio", "cast_by"],
+      "writes": [
+        "s|col|public.example_audio.cast_by",
+        "n|col|public.example_audio.cast_by",
+        "e|col|public.example_audio.cast_by"
+      ],
+      "reads": ["n|tbl|public.example_audio", "n|sch|public", "n|enum|public.cast_by"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "example_audio", "score"],
+      "writes": [
+        "s|col|public.example_audio.score",
+        "n|col|public.example_audio.score",
+        "e|col|public.example_audio.score"
+      ],
+      "reads": ["n|tbl|public.example_audio", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "examples", "speaker_gender"],
+      "writes": [
+        "s|col|public.examples.speaker_gender",
+        "n|col|public.examples.speaker_gender",
+        "e|col|public.examples.speaker_gender"
+      ],
+      "reads": ["n|tbl|public.examples", "n|sch|public", "n|enum|public.speaker_gender"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "examples", "speaker_age"],
+      "writes": [
+        "s|col|public.examples.speaker_age",
+        "n|col|public.examples.speaker_age",
+        "e|col|public.examples.speaker_age"
+      ],
+      "reads": ["n|tbl|public.examples", "n|sch|public", "n|enum|public.speaker_age"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "examples", "medium"],
+      "writes": ["s|col|public.examples.medium", "n|col|public.examples.medium", "e|col|public.examples.medium"],
+      "reads": ["n|tbl|public.examples", "n|sch|public", "n|enum|public.sentence_medium"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "examples", "variety"],
+      "writes": ["s|col|public.examples.variety", "n|col|public.examples.variety", "e|col|public.examples.variety"],
+      "reads": ["n|tbl|public.examples", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "examples", "tone"],
+      "writes": ["s|col|public.examples.tone", "n|col|public.examples.tone", "e|col|public.examples.tone"],
+      "reads": ["n|tbl|public.examples", "n|sch|public", "n|enum|public.sentence_tone"]
+    },
+    {
+      "statementType": "alter_pk",
+      "statementTarget": ["table", "public", "entry_audio"],
+      "writes": ["s|pk|public.entry_audio"],
+      "reads": [
+        "n|tbl|public.entry_audio",
+        "n|sch|public",
+        "n|col|public.entry_audio.entry_id",
+        "n|col|public.entry_audio.audio_key"
+      ],
+      "sharedWrites": ["e|uniqueness|public.entry_audio.entry_id"],
+      "sqlHash": "ea575cd32088e04f"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "cast_by",
+        "values": ["rules", "jev", "manual"],
+        "entityType": "enums"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "sentence_medium",
+        "values": ["conversation", "announcement", "narration"],
+        "entityType": "enums"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "sentence_tone",
+        "values": ["neutral", "cheerful", "serious", "gentle", "rough"],
+        "entityType": "enums"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "speaker_age",
+        "values": ["child", "youth", "adult", "middle-aged", "older", "unspecified"],
+        "entityType": "enums"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "speaker_gender",
+        "values": ["masculine", "feminine", "unspecified"],
+        "entityType": "enums"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "audio",
+        "name": "voice",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "example_audio",
+        "name": "cast_by",
+        "type": "cast_by",
+        "typeSchema": "public",
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "example_audio",
+        "name": "score",
+        "type": "double precision",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "examples",
+        "name": "speaker_gender",
+        "type": "speaker_gender",
+        "typeSchema": "public",
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "examples",
+        "name": "speaker_age",
+        "type": "speaker_age",
+        "typeSchema": "public",
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "examples",
+        "name": "medium",
+        "type": "sentence_medium",
+        "typeSchema": "public",
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "examples",
+        "name": "variety",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "examples",
+        "name": "tone",
+        "type": "sentence_tone",
+        "typeSchema": "public",
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "pks\u0000[\"public\",\"entry_audio\",\"entry_audio_pkey\"]",
+      "set": {
+        "columns": ["entry_id", "audio_key"]
+      }
+    }
+  ]
+}

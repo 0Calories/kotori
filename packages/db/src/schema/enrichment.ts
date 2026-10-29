@@ -1,4 +1,14 @@
-import type { Difference, Formality, Language, Nuance } from "@kotori/domain"
+import type {
+  CastBy,
+  Difference,
+  Formality,
+  Language,
+  Nuance,
+  SentenceMedium,
+  SentenceTone,
+  SpeakerAge,
+  SpeakerGender
+} from "@kotori/domain"
 import {
   bytea,
   doublePrecision,
@@ -19,6 +29,12 @@ import { entries, senses } from "./dictionary.ts"
 
 export const language = pgEnum("language", ["en", "ja"])
 export const formality = pgEnum("formality", ["vulgar", "casual", "neutral", "polite", "formal"])
+export const speakerGender = pgEnum("speaker_gender", ["masculine", "feminine", "unspecified"])
+export const speakerAge = pgEnum("speaker_age", ["child", "youth", "adult", "middle-aged", "older", "unspecified"])
+export const sentenceMedium = pgEnum("sentence_medium", ["conversation", "announcement", "narration"])
+export const sentenceTone = pgEnum("sentence_tone", ["neutral", "cheerful", "serious", "gentle", "rough"])
+/** How a clip's voice was chosen; see docs/voice-casting.md. */
+export const castBy = pgEnum("cast_by", ["rules", "jev", "manual"])
 export const difference = pgEnum("difference", [
   "more_casual",
   "more_formal",
@@ -81,6 +97,13 @@ export const examples = table(
     en: text().notNull(),
     formality: formality().$type<Formality>().notNull(),
     note: text(),
+    // Casting signals, judged by the writer; null on sentences written before voice casting.
+    speakerGender: speakerGender().$type<SpeakerGender>(),
+    speakerAge: speakerAge().$type<SpeakerAge>(),
+    medium: sentenceMedium().$type<SentenceMedium>(),
+    /** Regional variety label such as "kansai" or "british"; null for the language's default. */
+    variety: text(),
+    tone: sentenceTone().$type<SentenceTone>(),
     model: text().notNull(),
     createdAt: createdAt()
   },
@@ -100,7 +123,10 @@ export const audio = table("audio", {
   key: text().primaryKey(),
   text: text().notNull(),
   language: language().$type<Language>().notNull(),
+  /** The provider's voice id, part of the key. */
   voiceId: text().notNull(),
+  /** The Kotori cast voice ("ja-kyoko"); null for clips made before casting or with an uncast provider voice. */
+  voice: text(),
   modelId: text().notNull(),
   /** Characters billed by the provider, for the monthly budget. */
   characters: integer().notNull(),
@@ -116,15 +142,19 @@ export const audioFiles = table("audio_files", {
   data: bytea().notNull()
 })
 
-/** The pronunciation of an entry's headword. */
-export const entryAudio = table("entry_audio", {
-  entryId: integer()
-    .primaryKey()
-    .references(() => entries.id, { onDelete: "cascade" }),
-  audioKey: text()
-    .notNull()
-    .references(() => audio.key)
-})
+/** The pronunciations of an entry's headword, one clip per dictionary voice. */
+export const entryAudio = table(
+  "entry_audio",
+  {
+    entryId: integer()
+      .notNull()
+      .references(() => entries.id, { onDelete: "cascade" }),
+    audioKey: text()
+      .notNull()
+      .references(() => audio.key)
+  },
+  (t) => [primaryKey({ columns: [t.entryId, t.audioKey] })]
+)
 
 /** An example sentence spoken, in Japanese and optionally in English. */
 export const exampleAudio = table(
@@ -136,7 +166,10 @@ export const exampleAudio = table(
     language: language().$type<Language>().notNull(),
     audioKey: text()
       .notNull()
-      .references(() => audio.key)
+      .references(() => audio.key),
+    /** How the voice was chosen, and its casting score, for debugging and `kotori audio regen --dry-run`. */
+    castBy: castBy().$type<CastBy>(),
+    score: doublePrecision()
   },
   (t) => [primaryKey({ columns: [t.exampleId, t.language] })]
 )

@@ -63,6 +63,10 @@ const FakeClaude = Layer.succeed(
                 furigana: "パンを{食|た}べる。",
                 en: "I eat bread.",
                 formality: "neutral",
+                speaker: { gender: "unspecified", age: "unspecified" },
+                medium: "conversation",
+                variety: null,
+                tone: "neutral",
                 note: null
               }
             ]
@@ -78,7 +82,6 @@ const FakeElevenLabs = Layer.succeed(
   ElevenLabs.of({
     configured: true,
     model: "tts-test",
-    voiceFor: (language) => `voice-${language}`,
     synthesize: (text) => Effect.sync(() => (spoken.push(text), new TextEncoder().encode(`mp3:${text}`)))
   })
 )
@@ -88,7 +91,7 @@ const TestLayer = Enrichers.layer.pipe(
     Layer.mergeAll(
       NuanceEnricher.layer.pipe(Layer.provideMerge(FakeJev)),
       ExampleWriter.layer.pipe(Layer.provideMerge(FakeClaude)),
-      Pronouncer.layer.pipe(Layer.provideMerge(Layer.mergeAll(FakeElevenLabs, AudioStore.layer)))
+      Pronouncer.layer.pipe(Layer.provideMerge(Layer.mergeAll(FakeElevenLabs, AudioStore.layer, FakeJev)))
     )
   ),
   Layer.provideMerge(Repositories),

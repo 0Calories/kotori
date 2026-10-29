@@ -442,14 +442,51 @@ layer(TestLayer)("EnrichmentRepo", (it) => {
       const [first] = yield* enrichment.examplesFor([taberu])
       assert.strictEqual(first?.position, 0)
 
+      // Examples written before voice casting carry no casting signals.
+      assert.strictEqual(first?.speakerGender, null)
+      assert.strictEqual(first?.variety, null)
+
       const clip = { key: "a".repeat(64), text: "食べる", language: "ja" as const, voiceId: "v", modelId: "m" }
-      yield* enrichment.saveAudio({ ...clip, characters: 3, bytes: 10, createdAt: 1000 })
+      yield* enrichment.saveAudio({ ...clip, voice: "ja-kyoko", characters: 3, bytes: 10, createdAt: 1000 })
       yield* enrichment.linkEntryAudio(taberu, clip.key)
-      yield* enrichment.linkExampleAudio(first!.id, "ja", clip.key)
-      assert.strictEqual((yield* enrichment.entryAudio([taberu])).get(taberu), clip.key)
+      yield* enrichment.linkExampleAudio(first!.id, "ja", clip.key, { castBy: "rules", score: 4 })
+      assert.deepStrictEqual((yield* enrichment.entryAudio([taberu])).get(taberu), [
+        { key: clip.key, voice: "ja-kyoko" }
+      ])
       assert.strictEqual((yield* enrichment.exampleAudio([first!.id])).get(`${first!.id}:ja`), clip.key)
       assert.strictEqual(yield* enrichment.audioCharactersSince(500), 3)
       assert.strictEqual(yield* enrichment.audioCharactersSince(1500), 0)
+
+      // A headword has one clip per dictionary voice; relinking the same clip is a no-op.
+      const second = { ...clip, key: "b".repeat(64), voiceId: "w" }
+      yield* enrichment.saveAudio({ ...second, voice: null, characters: 3, bytes: 10, createdAt: 1200 })
+      yield* enrichment.linkEntryAudio(taberu, second.key)
+      yield* enrichment.linkEntryAudio(taberu, clip.key)
+      assert.deepStrictEqual(
+        ((yield* enrichment.entryAudio([taberu])).get(taberu) ?? []).map((row) => row.key),
+        [clip.key, second.key]
+      )
+
+      // Casting signals round-trip when the writer provides them.
+      yield* enrichment.saveExamples(
+        taberu,
+        [
+          {
+            sense: 0,
+            formality: "casual",
+            ...example,
+            speakerGender: "feminine",
+            speakerAge: "youth",
+            medium: "conversation",
+            variety: "kansai",
+            tone: "cheerful"
+          }
+        ],
+        1500
+      )
+      const [cast] = yield* enrichment.examplesFor([taberu])
+      assert.strictEqual(cast?.speakerGender, "feminine")
+      assert.strictEqual(cast?.variety, "kansai")
 
       // Re-enriching replaces the examples; their audio links go with them.
       yield* enrichment.saveExamples(taberu, [{ sense: 1, formality: "polite", ...example }], 2000)

@@ -48,8 +48,9 @@ export class Enrichers extends Context.Service<
             index,
             glosses: sense.glosses.map((gloss) => gloss.text),
             partsOfSpeech: sense.pos.map(label),
+            dialects: sense.dialects.map(label),
             notes: [
-              ...[...sense.misc, ...sense.fields, ...sense.dialects].map(label),
+              ...[...sense.misc, ...sense.fields].map(label),
               ...sense.info,
               ...(nuance ? [`register: ${nuance.formality.value}, ${nuance.medium.value}`] : [])
             ]
