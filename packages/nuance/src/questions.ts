@@ -9,6 +9,11 @@ import type { ChoiceQuestion, NoulQuestion, ScoreQuestion } from "@typesafe-ai/s
 export const FORMALITY_LEVELS = ["vulgar", "casual", "neutral", "polite", "formal"] as const
 export const MEDIUM_LEVELS = ["spoken", "both", "written"] as const
 
+// Jev reads a delicate subject as a stiff, written register: without this, everyday
+// words such as 勃起 and 妊娠 came out as bookish as 鑑みる.
+const SUBJECT_NOT_REGISTER =
+  "Judge the word, not its subject: everyday words for bodily, medical or sexual things are everyday vocabulary."
+
 const formality: ScoreQuestion = {
   type: "score",
   instructions:
@@ -39,16 +44,15 @@ const formality: ScoreQuestion = {
 
 const medium: ScoreQuestion = {
   type: "score",
-  instructions:
-    "Where is the Japanese word `word`, with the meaning in `meaning`, typically used: in conversation or in writing? Judge the word, not its subject: everyday words for medical, bodily or sexual topics are said aloud as often as they are written.",
+  instructions: `Where is the Japanese word \`word\`, with the meaning in \`meaning\`, typically used: in conversation or in writing? ${SUBJECT_NOT_REGISTER}`,
   criteria: [
     {
       what: "Mostly spoken: conversational words that look out of place in formal writing",
       examples: ["うん", "ちゃんと", "すごく", "やっぱり"]
     },
     {
-      what: "Equally common in conversation and in writing",
-      examples: ["歩く", "時間", "大切", "友達", "妊娠", "下痢"]
+      what: "Equally common in conversation and in writing, including everyday words for health, the body and sex",
+      examples: ["歩く", "時間", "友達", "妊娠"]
     },
     {
       what: "Mostly written: literary, journalistic, academic, legal or technical prose; sounds stiff or bookish aloud",
@@ -129,15 +133,14 @@ const rudeToSuperiors: NoulQuestion = {
 }
 
 // Asked whether a word "sounds stiff between friends", Jev answers whether the subject
-// is awkward to raise, so everyday words like 妊娠 and 勃起 came out as stiff as 鑑みる.
-// Asking about the kind of vocabulary, with the topic caveat, separates the two.
+// is awkward to raise. Asking what kind of vocabulary it is keeps keigo and bookish
+// words stiff without catching everyday words for delicate things.
 const stiffWithFriends: NoulQuestion = {
   type: "noul",
-  instructions:
-    "Is the Japanese word `word` (meaning `meaning`) found mostly in formal, official, academic or medical language rather than in the everyday speech of ordinary people? Judge the word, not its subject: everyday words for medical, bodily or sexual things belong to everyday speech.",
+  instructions: `Is the Japanese word \`word\` (meaning \`meaning\`) keigo, or found mostly in formal, official, academic or clinical language, rather than in the everyday speech of ordinary people? Judge the Japanese word, not the English gloss. ${SUBJECT_NOT_REGISTER}`,
   criteria: {
-    true: "Mostly formal, official, academic or medical language, e.g. 鑑みる, 召し上がる, 誠に, 拝見する, 性交, 排便",
-    false: "Everyday speech, e.g. 行く, 好き, 時間, やっぱり, 妊娠, 下痢, セックス"
+    true: "Yes: keigo, or formal, official, academic or clinical language, e.g. 召し上がる, ございます, 鑑みる, 誠に, 性交",
+    false: "No: everyday speech, e.g. 行く, 時間, 妊娠, セックス"
   }
 }
 

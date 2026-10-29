@@ -76,7 +76,7 @@ For each sense listed, write the requested number of sentences that:
 - use the headword in exactly that sense, conjugated naturally where needed;
 - sound like real Japanese: natural collocations and omissions, nothing stiff or textbook-like;
 - vary the situation and register (for example one casual conversation and one polite or written line), while matching the word's own nuance — never put slang into a speech or ceremonial words into banter;
-- treat a field note (medicine, physiology, law…) as the word's subject, not its register: for everyday words about the body, sex or health, include the casual or joking talk between friends that natives really use them in, not only clinical or textbook lines;
+- when the notes name a field (medicine, physiology, law…), still show the word as natives really use it: the field is its subject, not its register, so an everyday word about the body or sex also appears in casual talk between friends, including the jokes and teasing natives use it in, while grave subjects such as serious illness, miscarriage or death stay respectful;
 - stay short and concrete, ideally under 25 characters;
 - when the sense lists a dialect, are written entirely in that dialect (its grammar, particles and vocabulary, not just the headword), as a native speaker of the region would say them.
 
