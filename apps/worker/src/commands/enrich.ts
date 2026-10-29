@@ -18,18 +18,25 @@ export const enrich = Command.make(
     commonOnly: Flag.Boolean("common-only").pipe(
       Flag.withDescription("Only entries JMDict marks as common"),
       Flag.withDefault(true)
+    ),
+    redo: Flag.Boolean("redo").pipe(
+      Flag.withDescription("Regenerate entries that already have this enrichment instead of filling gaps"),
+      Flag.withDefault(false)
     )
   },
-  Effect.fn(function* ({ kind, entry, limit, concurrency, commonOnly }) {
+  Effect.fn(function* ({ kind, entry, limit, concurrency, commonOnly, redo }) {
     const enrichers = yield* Enrichers
     if (!(yield* enrichers.available).includes(kind)) {
       return yield* Console.error(`No provider is configured for ${kind}. See .env.example.`)
     }
 
-    // Most frequent words first, skipping anything already enriched, so runs can be resumed.
+    // Most frequent words first, skipping anything already enriched, so runs can be resumed;
+    // --redo instead picks only what is already enriched.
     const ids = Option.isSome(entry)
       ? [entry.value]
-      : yield* (yield* DictionaryRepo).entriesByPriority({ limit, missing: kind, commonOnly })
+      : yield* (yield* DictionaryRepo).entriesByPriority(
+          redo ? { limit, enriched: kind, commonOnly } : { limit, missing: kind, commonOnly }
+        )
     yield* Console.log(`Enriching ${ids.length} entries with ${kind}…`)
 
     let done = 0
