@@ -58,6 +58,8 @@ export const senseNuance = table(
     /** The raw answer distributions, so thresholds and labels can be re-derived without paying for inference again. */
     answers: jsonb().notNull(),
     model: text().notNull(),
+    /** Which question set produced the answers (QUESTIONS_VERSION); old rows are refreshed on view. */
+    questionsVersion: integer().notNull().default(1),
     createdAt: createdAt()
   },
   (t) => [

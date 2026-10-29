@@ -9,17 +9,28 @@ import type {
   SpeakerAge,
   SpeakerGender
 } from "@kotori/domain"
-import { and, asc, desc, eq, gte, inArray, sum } from "drizzle-orm"
+import { and, asc, desc, eq, gte, inArray, lt, sum } from "drizzle-orm"
 import { Context, Effect, Layer, Option } from "effect"
 import { Database } from "./Database.ts"
 import { at, millis } from "./rows.ts"
-import { audio, entryAudio, exampleAudio, examples, senseNotes, senseNuance, similarWords } from "./schema/index.ts"
+import {
+  audio,
+  entries,
+  entryAudio,
+  exampleAudio,
+  examples,
+  senseNotes,
+  senseNuance,
+  similarWords
+} from "./schema/index.ts"
 
 export interface NuanceRow {
   readonly entryId: number
   readonly sense: number
   readonly nuance: Nuance
   readonly model: string
+  /** Which question set produced the stored answers. */
+  readonly questionsVersion: number
 }
 
 export interface NuanceInput {
@@ -28,6 +39,7 @@ export interface NuanceInput {
   /** The raw model answers, kept so labels can be re-derived later. */
   readonly answers: unknown
   readonly model: string
+  readonly questionsVersion: number
 }
 
 export interface SimilarRow {
@@ -130,6 +142,8 @@ export class EnrichmentRepo extends Context.Service<
     ): Effect.Effect<ReadonlyArray<{ readonly sense: number; readonly answers: unknown }>>
     /** Rewrites the interpreted nuance, leaving the answers, model and timestamp untouched. */
     updateNuance(entryId: number, sense: number, nuance: Nuance): Effect.Effect<void>
+    /** Entries whose stored nuance predates `version`, most frequent first, for the backfill. */
+    outdatedNuanceEntryIds(version: number, commonOnly: boolean, limit: number): Effect.Effect<ReadonlyArray<number>>
     saveSimilar(entryId: number, rows: ReadonlyArray<SimilarRow>): Effect.Effect<void>
     similarFor(entryId: number): Effect.Effect<ReadonlyArray<SimilarRow>>
     saveExamples(entryId: number, rows: ReadonlyArray<ExampleInput>, now: number): Effect.Effect<void>
@@ -170,6 +184,7 @@ export class EnrichmentRepo extends Context.Service<
                 nuance: row.nuance,
                 answers: row.answers,
                 model: row.model,
+                questionsVersion: row.questionsVersion,
                 createdAt: at(now)
               }))
             )
@@ -184,7 +199,8 @@ export class EnrichmentRepo extends Context.Service<
             entryId: senseNuance.entryId,
             sense: senseNuance.sense,
             nuance: senseNuance.nuance,
-            model: senseNuance.model
+            model: senseNuance.model,
+            questionsVersion: senseNuance.questionsVersion
           })
           .from(senseNuance)
           .where(inArray(senseNuance.entryId, entryIds))
@@ -212,6 +228,25 @@ export class EnrichmentRepo extends Context.Service<
           .set({ nuance })
           .where(and(eq(senseNuance.entryId, entryId), eq(senseNuance.sense, sense)))
           .pipe(Effect.asVoid, Effect.orDie)
+
+      const outdatedNuanceEntryIds = Effect.fn("EnrichmentRepo.outdatedNuanceEntryIds")(function* (
+        version: number,
+        commonOnly: boolean,
+        limit: number
+      ) {
+        const rows = yield* db
+          .selectDistinct({ entryId: senseNuance.entryId, priority: entries.priority })
+          .from(senseNuance)
+          .innerJoin(entries, eq(entries.id, senseNuance.entryId))
+          .where(
+            commonOnly
+              ? and(lt(senseNuance.questionsVersion, version), eq(entries.common, true))
+              : lt(senseNuance.questionsVersion, version)
+          )
+          .orderBy(desc(entries.priority), asc(senseNuance.entryId))
+          .limit(limit)
+        return rows.map((row) => row.entryId)
+      }, Effect.orDie)
 
       const saveSimilar = Effect.fn("EnrichmentRepo.saveSimilar")(function* (
         entryId: number,
@@ -380,6 +415,7 @@ export class EnrichmentRepo extends Context.Service<
         nuanceEntryIds,
         nuanceAnswersFor,
         updateNuance,
+        outdatedNuanceEntryIds,
         saveSimilar,
         similarFor,
         saveExamples,

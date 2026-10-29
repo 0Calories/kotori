@@ -424,9 +424,17 @@ layer(TestLayer)("EnrichmentRepo", (it) => {
         connotation: judgment,
         cautions: { rudeToSuperiors: 0.1, stiffWithFriends: 0.1, slang: 0.05 }
       }
-      yield* enrichment.saveNuance(taberu, [{ sense: 0, nuance, answers: { raw: true }, model: "jev-1" }], 1000)
+      yield* enrichment.saveNuance(
+        taberu,
+        [{ sense: 0, nuance, answers: { raw: true }, model: "jev-1", questionsVersion: 1 }],
+        1000
+      )
       assert.deepStrictEqual((yield* enrichment.nuanceFor([taberu]))[0]?.nuance, nuance)
       assert.deepStrictEqual(yield* dictionary.entriesByPriority({ limit: 1, missing: "nuance" }), [1269130])
+
+      // Rows judged by an older question set are found for the backfill, newest set finds none.
+      assert.deepStrictEqual(yield* enrichment.outdatedNuanceEntryIds(2, false, 10), [taberu])
+      assert.deepStrictEqual(yield* enrichment.outdatedNuanceEntryIds(1, false, 10), [])
 
       yield* enrichment.saveSimilar(taberu, [
         { sense: 0, similarId: 1269130, similarity: 0.8, difference: "more_casual", confidence: 0.7 }

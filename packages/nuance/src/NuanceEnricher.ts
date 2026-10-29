@@ -3,7 +3,7 @@ import type { Question } from "@typesafe-ai/sdk"
 import { Clock, Context, Effect, Layer, Schema } from "effect"
 import { interpretCandidates, interpretSense, type SenseAnswers } from "./interpret.ts"
 import { Jev, type JevError } from "./Jev.ts"
-import { candidateQuestions, senseQuestions } from "./questions.ts"
+import { candidateQuestions, QUESTIONS_VERSION, senseQuestions } from "./questions.ts"
 import { type CandidateState, senseState } from "./state.ts"
 
 /** Senses beyond these rarely matter to learners and are left unclassified. */
@@ -86,7 +86,8 @@ export class NuanceEnricher extends Context.Service<
           sense: index,
           nuance: interpretSense(result.answers as unknown as SenseAnswers, misc),
           answers: result.answers,
-          model: result.model
+          model: result.model,
+          questionsVersion: QUESTIONS_VERSION
         }))
         const similar = judged.flatMap(({ index, candidates, result }) =>
           interpretCandidates(

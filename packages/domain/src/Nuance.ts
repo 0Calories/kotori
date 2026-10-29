@@ -45,6 +45,15 @@ const scale = <S extends Schema.Top>(value: S) =>
     source: JudgmentSource
   })
 
+/**
+ * Whether a casual↔formal scale is the right model for the word at all:
+ * scaled words move along it, fixed words sit at one obvious register
+ * (insults, ceremonial words), split words live in two worlds at once
+ * (clinical in one, crude or joking in the other).
+ */
+export const RegisterShape = Schema.Literals(["scaled", "fixed", "split"])
+export type RegisterShape = typeof RegisterShape.Type
+
 export const Nuance = Schema.Struct({
   formality: scale(Formality),
   medium: scale(Medium),
@@ -53,6 +62,8 @@ export const Nuance = Schema.Struct({
   age: judgment(AgeGroup),
   currency: judgment(Currency),
   connotation: judgment(Connotation),
+  /** Absent on judgments stored before questions version 2. */
+  registerShape: Schema.optional(judgment(RegisterShape)),
   /** Probabilities of common pitfalls for learners. */
   cautions: Schema.Struct({
     rudeToSuperiors: Schema.Number,

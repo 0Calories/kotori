@@ -1,0 +1,37 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "35fa4630-92ef-414d-b3db-2fd5db67dc26",
+  "prevIds": ["995b51de-dd34-4d72-89b5-10bf26d5e2c1"],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "sense_nuance", "questions_version"],
+      "writes": [
+        "s|col|public.sense_nuance.questions_version",
+        "n|col|public.sense_nuance.questions_version",
+        "e|col|public.sense_nuance.questions_version"
+      ],
+      "reads": ["n|tbl|public.sense_nuance", "n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sense_nuance",
+        "name": "questions_version",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "1",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

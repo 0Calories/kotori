@@ -33,6 +33,15 @@ describe("interpretSense", () => {
     assert.strictEqual(nuance.medium.value, "both")
   })
 
+  it("maps the register shape, leaving it absent on answers recorded before it existed", () => {
+    const shaped = interpretSense({ ...answers, registerShape: choice("split", 0.8) }, [])
+    assert.strictEqual(shaped.registerShape?.value, "split")
+    assert.strictEqual(interpretSense(answers, []).registerShape, undefined)
+    const forced = interpretSense({ ...answers, registerShape: choice("scaled", 0.8) }, ["derog"])
+    assert.strictEqual(forced.registerShape?.value, "fixed")
+    assert.strictEqual(forced.registerShape?.source, "jmdict")
+  })
+
   it("derives the stiff-between-friends caution from the register judgments", () => {
     assert.strictEqual(interpretSense(answers, []).cautions.stiffWithFriends, 0)
     const formal = interpretSense({ ...answers, formality: score(4, 0.9) }, [])

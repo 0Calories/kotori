@@ -8,7 +8,8 @@ import type {
   JudgmentSource,
   Keigo,
   Medium,
-  Nuance
+  Nuance,
+  RegisterShape
 } from "@kotori/domain"
 import type { ChoiceResponse, NoulResponse, ScoreResponse, SystemOneResult } from "@typesafe-ai/sdk"
 import { FORMALITY_LEVELS, MEDIUM_LEVELS, type SenseQuestions } from "./questions.ts"
@@ -72,6 +73,12 @@ const CONNOTATION_TAGS: ReadonlyArray<readonly [string, Connotation]> = [
   ["vulg", "negative"]
 ]
 const SLANG_TAGS = ["sl", "net-sl", "m-sl"]
+/** Tags whose words sit at one obvious register, so a slider is the wrong model. */
+const FIXED_SHAPE_TAGS: ReadonlyArray<readonly [string, RegisterShape]> = [
+  ["vulg", "fixed"],
+  ["X", "fixed"],
+  ["derog", "fixed"]
+]
 
 const scale = <L extends string>(levels: ReadonlyArray<L>, answer: ScoreResponse, tagged: L | undefined) => {
   const last = levels.length - 1
@@ -115,6 +122,9 @@ export const interpretSense = (answers: SenseAnswers, misc: ReadonlyArray<string
   const formality = scale(FORMALITY_LEVELS, answers.formality, firstTag(misc, FORMALITY_TAGS))
   const medium = scale(MEDIUM_LEVELS, answers.medium, firstTag(misc, MEDIUM_TAGS))
   const keigo = choice<Keigo>(answers.keigo, firstTag(misc, KEIGO_TAGS))
+  // Answers recorded before questions version 2 have no registerShape; the field stays
+  // absent and the app falls back to its pre-shape heuristics for those rows.
+  const shape = answers.registerShape as ChoiceResponse | undefined
   return {
     formality,
     medium,
@@ -123,6 +133,7 @@ export const interpretSense = (answers: SenseAnswers, misc: ReadonlyArray<string
     age: choice<AgeGroup>(answers.age, firstTag(misc, AGE_TAGS)),
     currency: choice<Currency>(answers.currency, firstTag(misc, CURRENCY_TAGS)),
     connotation: choice<Connotation>(answers.connotation, firstTag(misc, CONNOTATION_TAGS)),
+    ...(shape === undefined ? {} : { registerShape: choice<RegisterShape>(shape, firstTag(misc, FIXED_SHAPE_TAGS)) }),
     cautions: {
       rudeToSuperiors: answers.rudeToSuperiors.noul,
       stiffWithFriends: stiffBetweenFriends(formality, medium, keigo),

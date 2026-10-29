@@ -6,6 +6,16 @@ import type { ChoiceQuestion, NoulQuestion, ScoreQuestion } from "@typesafe-ai/s
  * built in `state.ts` by backticked path. Code combines the answers.
  */
 
+/**
+ * Bumped whenever a question is added, removed or reworded, so stored judgments say
+ * which questions produced them. Old rows stay valid; the API re-queues outdated
+ * entries when they are viewed, and `kotori enrich nuance --outdated` backfills.
+ * History: 1 — the launch set; 2 — registerShape added, stiffWithFriends dropped
+ * (derived in interpret.ts) and rudeToSuperiors told to ignore obviousness
+ * (docs/nuance-rework.md).
+ */
+export const QUESTIONS_VERSION = 2
+
 export const FORMALITY_LEVELS = ["vulgar", "casual", "neutral", "polite", "formal"] as const
 export const MEDIUM_LEVELS = ["spoken", "both", "written"] as const
 
@@ -120,30 +130,38 @@ const connotation: ChoiceQuestion = {
 }
 
 // Jev reads literally: without the conjugation caveat it judges the bare dictionary
-// form ("食べる？" to a boss), so ordinary verbs come out as rude.
+// form ("食べる？" to a boss), so ordinary verbs come out as rude. The judgment records
+// the fact even when it is obvious; whether to show the caution is display policy.
 const rudeToSuperiors: NoulQuestion = {
   type: "noul",
   instructions:
-    "Someone talking to their boss or a customer uses the Japanese word `word` (meaning `meaning`), conjugated politely with です/ます wherever that applies. Is choosing this word still rude, crude or overly familiar?",
+    "Someone talking to their boss or a customer uses the Japanese word `word` (meaning `meaning`), conjugated politely with です/ます wherever that applies. Is choosing this word still rude, crude or overly familiar? Answer yes even when that is obvious from the meaning (insults, vulgar words): record the fact, not whether it needs saying.",
   criteria: {
-    true: "Yes: the word itself is rough, slangy or overly familiar, so it sounds rude even with です/ます, e.g. 食う, めっちゃ, うまい (for 'tasty'), ご苦労様 (said to a superior)",
+    true: "Yes: the word itself is rough, slangy or overly familiar, so it sounds rude even with です/ます, e.g. 食う, めっちゃ, うまい (for 'tasty'), ご苦労様 (said to a superior), 馬鹿, てめえ",
     false:
       "No: with です/ます it is acceptable with a boss or customer, even if a more honorific word exists, e.g. 行く → 行きます, 見る → 見ます, 大きい → 大きいです"
   }
 }
 
-// Asked whether a word "sounds stiff between friends", Jev answers whether the subject
-// is awkward to raise. Asking what kind of vocabulary it is keeps keigo and bookish
-// words stiff without catching everyday words for delicate things.
-// Still asked for the recorded answers only: the displayed caution is now derived from
-// the formality, medium and keigo judgments (interpret.ts); the question itself goes
-// away with the Phase B question bump (docs/nuance-rework.md).
-const stiffWithFriends: NoulQuestion = {
-  type: "noul",
-  instructions: `Is the Japanese word \`word\` (meaning \`meaning\`) keigo, or found mostly in formal, official, academic or clinical language, rather than in the everyday speech of ordinary people? Judge the Japanese word, not the English gloss. ${SUBJECT_NOT_REGISTER}`,
+// "Sounds stiff between friends" used to be its own question here; Jev kept judging
+// whether the subject was awkward instead of the register, so the caution is now
+// derived from the formality, medium and keigo judgments in interpret.ts.
+
+/**
+ * Whether the casual↔formal scale is the right model for the word at all. Words judged
+ * "fixed" or "split" get a chip instead of a slider: a slider implies a choice of
+ * setting that these words don't have.
+ */
+const registerShape: ChoiceQuestion = {
+  type: "choice",
+  instructions: `Does the Japanese word \`word\`, with the meaning in \`meaning\`, genuinely vary along a casual-to-formal scale, or is its register fixed or split? ${SUBJECT_NOT_REGISTER}`,
   criteria: {
-    true: "Yes: keigo, or formal, official, academic or clinical language, e.g. 召し上がる, ございます, 鑑みる, 誠に, 性交",
-    false: "No: everyday speech, e.g. 行く, 時間, 妊娠, セックス"
+    scaled:
+      "Ordinary vocabulary whose politeness depends on how it is used; it fits somewhere on a casual-to-formal scale, e.g. 歩く, 時間, めっちゃ, お手洗い",
+    fixed:
+      "Its register is invariant and obvious from what it means: insults, crude words, and ceremonial or ritual wording that never leaves its setting, e.g. てめえ, ぶっ殺す, ご逝去",
+    split:
+      "It lives in two registers at once with little in between: clinical, technical or official in one world, crude or joking in everyday talk, e.g. 勃起, 浣腸"
   }
 }
 
@@ -165,8 +183,8 @@ export const senseQuestions = {
   age,
   currency,
   connotation,
+  registerShape,
   rudeToSuperiors,
-  stiffWithFriends,
   slang
 }
 

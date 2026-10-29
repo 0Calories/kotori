@@ -172,6 +172,8 @@ const en = {
     connotation: { neutral: "", positive: "Positive", negative: "Negative" },
     showScales: "Show the nuance scales",
     hideScales: "Hide the nuance scales",
+    /** For words whose register is bimodal: clinical in one world, crude in the other. */
+    contextSplit: "Clinical or crude — depends on context",
     cautionRude: "Can sound rude to your boss or customers",
     cautionStiff: "Sounds stiff between friends",
     cautionSlang: "Slang",
@@ -510,6 +512,7 @@ const ja: Strings = {
     connotation: { neutral: "", positive: "ポジティブ", negative: "ネガティブ" },
     showScales: "ニュアンスの目盛りを表示",
     hideScales: "ニュアンスの目盛りを隠す",
+    contextSplit: "場面で印象が大きく変わる",
     cautionRude: "目上の人には失礼に聞こえることも",
     cautionStiff: "友達同士だと堅く聞こえる",
     cautionSlang: "スラング",

@@ -1,0 +1,1 @@
+ALTER TABLE "sense_nuance" ADD COLUMN "questions_version" integer DEFAULT 1 NOT NULL;

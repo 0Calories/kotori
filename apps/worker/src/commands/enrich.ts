@@ -1,5 +1,5 @@
 import { DictionaryRepo, EnrichmentRepo } from "@kotori/db"
-import { NuanceEnricher } from "@kotori/nuance"
+import { NuanceEnricher, QUESTIONS_VERSION } from "@kotori/nuance"
 import { Console, Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { Enrichers } from "../Enrichers.ts"
@@ -20,6 +20,12 @@ export const enrich = Command.make(
       Flag.withDescription("Only entries JMDict marks as common"),
       Flag.withDefault(true)
     ),
+    outdated: Flag.Boolean("outdated").pipe(
+      Flag.withDescription(
+        "Nuance only: re-judge entries whose stored nuance predates the current question set, instead of entries missing it"
+      ),
+      Flag.withDefault(false)
+    ),
     reinterpret: Flag.Boolean("reinterpret").pipe(
       Flag.withDescription(
         "Nuance only: re-derive every stored judgment from its saved answers, without calling Jev. Ignores --limit and --common-only; honours --entry."
@@ -27,7 +33,7 @@ export const enrich = Command.make(
       Flag.withDefault(false)
     )
   },
-  Effect.fn(function* ({ kind, entry, limit, concurrency, commonOnly, reinterpret }) {
+  Effect.fn(function* ({ kind, entry, limit, concurrency, commonOnly, outdated, reinterpret }) {
     if (reinterpret) {
       if (kind !== "nuance") return yield* Console.error("--reinterpret only applies to nuance.")
       const nuance = yield* NuanceEnricher
@@ -54,11 +60,15 @@ export const enrich = Command.make(
       return yield* Console.error(`No provider is configured for ${kind}. See .env.example.`)
     }
 
+    if (outdated && kind !== "nuance") return yield* Console.error("--outdated only applies to nuance.")
+
     // Most frequent words first, skipping anything already enriched, so runs can be resumed.
     const ids = Option.isSome(entry)
       ? [entry.value]
-      : yield* (yield* DictionaryRepo).entriesByPriority({ limit, missing: kind, commonOnly })
-    yield* Console.log(`Enriching ${ids.length} entries with ${kind}…`)
+      : outdated
+        ? yield* (yield* EnrichmentRepo).outdatedNuanceEntryIds(QUESTIONS_VERSION, commonOnly, limit)
+        : yield* (yield* DictionaryRepo).entriesByPriority({ limit, missing: kind, commonOnly })
+    yield* Console.log(`Enriching ${ids.length} entries with ${kind}${outdated ? " (outdated)" : ""}…`)
 
     let done = 0
     let failed = 0

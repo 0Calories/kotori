@@ -30,7 +30,7 @@ import {
   romajiToKana,
   romanize
 } from "@kotori/japanese"
-import { Jev } from "@kotori/nuance"
+import { Jev, QUESTIONS_VERSION } from "@kotori/nuance"
 import { CASTS, Pronouncer } from "@kotori/tts"
 import { Clock, Context, Effect, Layer, Option } from "effect"
 
@@ -281,7 +281,10 @@ export class Dictionary extends Context.Service<
         ready ? "ready" : !available || job === "failed" ? "unavailable" : "queued"
 
       const enrichmentFor = Effect.fnUntraced(function* (entry: EntryRecord, enqueue: boolean) {
-        const hasNuance = (yield* enrichment.nuanceFor([entry.id])).length > 0
+        const nuanceRows = yield* enrichment.nuanceFor([entry.id])
+        const hasNuance = nuanceRows.length > 0
+        // Old rows stay valid and shown, but a viewed entry gets fresh judgments queued.
+        const nuanceOutdated = nuanceRows.some((row) => row.questionsVersion < QUESTIONS_VERSION)
         const examples = yield* enrichment.examplesFor([entry.id])
         const hasExamples = examples.length > 0
         const clips = yield* enrichment.exampleAudio(examples.map((example) => example.id))
@@ -295,7 +298,7 @@ export class Dictionary extends Context.Service<
         const now = yield* Clock.currentTimeMillis
 
         if (enqueue) {
-          if (!hasNuance && jev.configured) yield* jobs.enqueue("nuance", entry.id, ON_DEMAND, now)
+          if ((!hasNuance || nuanceOutdated) && jev.configured) yield* jobs.enqueue("nuance", entry.id, ON_DEMAND, now)
           if (!hasExamples && coachAvailable) yield* jobs.enqueue("examples", entry.id, ON_DEMAND, now)
           // The worker re-runs audio once example sentences exist, so they get voiced too. A finished
           // job can still leave gaps (English voiced after the entry was), so it runs again to fill

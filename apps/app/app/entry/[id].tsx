@@ -33,17 +33,26 @@ const MEDIUM_ORDER: ReadonlyArray<Medium> = ["spoken", "both", "written"]
 const snapped = <L extends string>(order: ReadonlyArray<L>, value: L) =>
   Math.max(order.indexOf(value), 0) / (order.length - 1)
 
+/** The confidently judged register shape; absent or unsure means "treat as scaled". */
+const shapeOf = (nuance: Nuance) =>
+  nuance.registerShape && nuance.registerShape.confidence >= CONFIDENT ? nuance.registerShape.value : "scaled"
+
 /**
- * How the word's register is shown: a slider per scale, except that a word judged to sit
- * at a scale's far end becomes a plain chip — a slider implies a middle it doesn't have.
+ * How the word's register is shown: a slider per scale, except where a slider is the
+ * wrong model — a word at a scale's far end, a fixed-register word (insults, ceremonial
+ * wording) or a split one (clinical in one world, crude in the other) becomes chips.
  * Low-confidence judgments are left out entirely.
  */
 const registerDisplay = (t: Strings, nuance: Nuance): { rows: Array<ScaleRow>; chips: Array<string> } => {
+  const shape = shapeOf(nuance)
+  // A split register has no honest slider position and no single label: one chip says it all.
+  if (shape === "split") return { rows: [], chips: [t.nuance.contextSplit] }
   const rows: Array<ScaleRow> = []
   const chips: Array<string> = []
   if (nuance.formality.confidence >= CONFIDENT) {
     const value = nuance.formality.value
     if (value === "vulgar" || value === "formal") chips.push(t.nuance.edge[value])
+    else if (shape === "fixed") chips.push(t.nuance.scale[value])
     else {
       rows.push({
         left: t.nuance.poles.casual,
@@ -57,7 +66,7 @@ const registerDisplay = (t: Strings, nuance: Nuance): { rows: Array<ScaleRow>; c
   if (nuance.medium.confidence >= CONFIDENT) {
     const value = nuance.medium.value
     if (value === "spoken" || value === "written") chips.push(t.nuance.edge[value])
-    else {
+    else if (shape !== "fixed") {
       rows.push({
         left: t.nuance.poles.spoken,
         right: t.nuance.poles.written,
@@ -88,11 +97,12 @@ const nuanceNotes = (t: Strings, nuance: Nuance) => {
       ? t.nuance.connotation[nuance.connotation.value]
       : null
   ].filter((tag): tag is string => tag !== null && tag.length > 0)
-  // Vulgar words and dictionary-tagged insults announce themselves; the rudeness caution
-  // earns its place on words that look safe but misfire upward (了解, ご苦労様) — including
-  // harmless slang, which is why slang alone doesn't suppress it.
+  // Vulgar, fixed-register and dictionary-tagged insult words announce themselves; the
+  // rudeness caution earns its place on words that look safe but misfire upward (了解,
+  // ご苦労様) — including harmless slang, which is why slang alone doesn't suppress it.
   const obviouslyRude =
     (nuance.formality.value === "vulgar" && nuance.formality.confidence >= CONFIDENT) ||
+    shapeOf(nuance) === "fixed" ||
     (nuance.connotation.value === "negative" && nuance.connotation.source === "jmdict")
   const cautions: Array<{ readonly label: string; readonly icon: IconName }> = [
     ...(nuance.cautions.rudeToSuperiors >= 0.6 && !obviouslyRude
