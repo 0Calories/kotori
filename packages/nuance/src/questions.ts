@@ -9,6 +9,11 @@ import type { ChoiceQuestion, NoulQuestion, ScoreQuestion } from "@typesafe-ai/s
 export const FORMALITY_LEVELS = ["vulgar", "casual", "neutral", "polite", "formal"] as const
 export const MEDIUM_LEVELS = ["spoken", "both", "written"] as const
 
+// Jev reads a delicate subject as a stiff, written register: without this, everyday
+// words such as 勃起 and 妊娠 came out as bookish as 鑑みる.
+const SUBJECT_NOT_REGISTER =
+  "Judge the word, not its subject: everyday words for bodily, medical or sexual things are everyday vocabulary."
+
 const formality: ScoreQuestion = {
   type: "score",
   instructions:
@@ -39,16 +44,15 @@ const formality: ScoreQuestion = {
 
 const medium: ScoreQuestion = {
   type: "score",
-  instructions:
-    "Where is the Japanese word `word`, with the meaning in `meaning`, typically used: in conversation or in writing?",
+  instructions: `Where is the Japanese word \`word\`, with the meaning in \`meaning\`, typically used: in conversation or in writing? ${SUBJECT_NOT_REGISTER}`,
   criteria: [
     {
       what: "Mostly spoken: conversational words that look out of place in formal writing",
       examples: ["うん", "ちゃんと", "すごく", "やっぱり"]
     },
     {
-      what: "Equally common in conversation and in writing",
-      examples: ["歩く", "時間", "大切", "友達"]
+      what: "Equally common in conversation and in writing, including everyday words for health, the body and sex",
+      examples: ["歩く", "時間", "友達", "妊娠"]
     },
     {
       what: "Mostly written: literary, journalistic, academic, legal or technical prose; sounds stiff or bookish aloud",
@@ -128,13 +132,15 @@ const rudeToSuperiors: NoulQuestion = {
   }
 }
 
+// Asked whether a word "sounds stiff between friends", Jev answers whether the subject
+// is awkward to raise. Asking what kind of vocabulary it is keeps keigo and bookish
+// words stiff without catching everyday words for delicate things.
 const stiffWithFriends: NoulQuestion = {
   type: "noul",
-  instructions:
-    "Would the Japanese word `word`, with the meaning in `meaning`, sound stiff, bookish or overly formal in a relaxed chat between close friends? Judge the Japanese word, not the English gloss.",
+  instructions: `Is the Japanese word \`word\` (meaning \`meaning\`) keigo, or found mostly in formal, official, academic or clinical language, rather than in the everyday speech of ordinary people? Judge the Japanese word, not the English gloss. ${SUBJECT_NOT_REGISTER}`,
   criteria: {
-    true: "Yes: friends would find the word stiff, formal or bookish, e.g. 鑑みる, 召し上がる, 誠に, 拝見する",
-    false: "No: friends use it naturally, e.g. 行く, 好き, 時間, やっぱり"
+    true: "Yes: keigo, or formal, official, academic or clinical language, e.g. 召し上がる, ございます, 鑑みる, 誠に, 性交",
+    false: "No: everyday speech, e.g. 行く, 時間, 妊娠, セックス"
   }
 }
 
