@@ -8,6 +8,9 @@ web-build/
 .env
 .env.local
 
+# Vercel CLI link state, pulled environment and build output (`nx run @kotori/app:deploy`)
+.vercel
+
 # Neon CLI link state (org/project/branch ids)
 .neon
 coverage/

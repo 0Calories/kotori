@@ -51,6 +51,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "vercel": "catalog:",
     "vitest": "catalog:"
   },
   "nx": {
@@ -72,6 +73,22 @@
         "outputs": [
           "{projectRoot}/dist"
         ]
+      },
+      "deploy": {
+        "executor": "nx:run-commands",
+        "inputs": [
+          "production",
+          "^production",
+          "{workspaceRoot}/vercel.json"
+        ],
+        "options": {
+          "commands": [
+            "vercel pull --yes --environment=production",
+            "vercel build --prod",
+            "vercel deploy --prebuilt --prod"
+          ],
+          "parallel": false
+        }
       }
     }
   }

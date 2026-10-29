@@ -43,20 +43,42 @@ jobs:
           NX_DAEMON: "false"
 
   deploy:
-    name: Deploy to Fly.io
+    name: Deploy affected apps
     needs: checks
-    # Enable by setting the repository variable FLY_DEPLOY=true once the Fly app exists
-    # (`fly launch`) and FLY_API_TOKEN holds a deploy token scoped to it.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.FLY_DEPLOY == 'true'
+    # `nx affected -t deploy` against the last successful run on main: the Fly app
+    # (`@kotori/api:deploy`, API and worker) and the web app (`@kotori/app:deploy`, Vercel).
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     environment: production
     concurrency:
       group: deploy-production
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v5
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The checks job's builds, which the deploy tasks depend on.
+      - uses: actions/cache/restore@v4
+        with:
+          path: .nx/cache
+          key: nx-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            nx-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+      - uses: nrwl/nx-set-shas@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@1.5
+        with:
+          version: 0.5.0
+      - run: pnpm nx affected -t deploy
         env:
+          NX_DAEMON: "false"
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
