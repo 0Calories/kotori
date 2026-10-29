@@ -1,4 +1,4 @@
-import { and, count, eq, gte } from "drizzle-orm"
+import { and, count, eq, gte, inArray } from "drizzle-orm"
 import { Context, Effect, Layer, Option } from "effect"
 import { Database } from "./Database.ts"
 import { at } from "./rows.ts"
@@ -15,7 +15,8 @@ export class CoachRepo extends Context.Service<
     cached(key: string, notBefore: number): Effect.Effect<Option.Option<unknown>>
     store(key: string, result: unknown, now: number): Effect.Effect<void>
     recordUsage(userId: string, kind: CoachKind, now: number): Effect.Effect<void>
-    usageSince(userId: string, since: number): Effect.Effect<number>
+    /** Requests of the given kinds since `since`; coaching and audio are limited separately. */
+    usageSince(userId: string, since: number, kinds: ReadonlyArray<CoachKind>): Effect.Effect<number>
   }
 >()("@kotori/db/CoachRepo") {
   static readonly layer = Layer.effect(
@@ -46,11 +47,17 @@ export class CoachRepo extends Context.Service<
           .values({ userId, kind, createdAt: at(now) })
           .pipe(Effect.asVoid, Effect.orDie)
 
-      const usageSince = (userId: string, since: number) =>
+      const usageSince = (userId: string, since: number, kinds: ReadonlyArray<CoachKind>) =>
         db
           .select({ n: count() })
           .from(coachUsage)
-          .where(and(eq(coachUsage.userId, userId), gte(coachUsage.createdAt, at(since))))
+          .where(
+            and(
+              eq(coachUsage.userId, userId),
+              gte(coachUsage.createdAt, at(since)),
+              inArray(coachUsage.kind, [...kinds])
+            )
+          )
           .pipe(
             Effect.map((rows) => rows[0]?.n ?? 0),
             Effect.orDie

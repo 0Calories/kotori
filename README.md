@@ -111,7 +111,7 @@ Runs skip entries that are already done, so they can be repeated or interrupted 
 
 **Examples** use Claude structured outputs validated with Effect Schema. Furigana is written inline as `{漢字|かんじ}` and checked against the sentence before it's shown.
 
-**Audio** is cached by content hash (voice, model, text), so each clip is generated once. `KOTORI_AUDIO_MONTHLY_CHARS` (default 50,000) caps spend; headwords are voiced from their kana reading to avoid kanji misreadings.
+**Audio** is cached by content hash (voice, model, text), so each clip is generated once. `KOTORI_AUDIO_MONTHLY_CHARS` (default 50,000) caps spend; headwords are voiced from their kana reading to avoid kanji misreadings. Example sentences are voiced in Japanese and, for Japanese speakers learning English, in English (`KOTORI_AUDIO_LANGUAGES=ja` leaves English out); English runs two to three times the characters of the Japanese. Re-running audio only voices what is missing, so existing clips keep their voices.
 
 Claude requests opt into server-side refusal fallbacks (`fallbacks: "default"`), so a safety-classifier decline is retried on Anthropic's recommended fallback model instead of failing.
 

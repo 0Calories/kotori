@@ -37,6 +37,11 @@ export class JobsRepo extends Context.Service<
     enqueue(kind: JobKind, entryId: number, priority: number, now: number): Effect.Effect<void>
     /** Queues a job to run again even if it already finished (e.g. audio once examples exist). */
     requeue(kind: JobKind, entryId: number, priority: number, now: number): Effect.Effect<void>
+    /**
+     * Queues a finished job again only if it finished before `finishedBefore`, so a gap the job
+     * can't fill is retried at most once per interval.
+     */
+    refill(kind: JobKind, entryId: number, finishedBefore: number, priority: number, now: number): Effect.Effect<void>
     /** Atomically takes the most urgent runnable job of the given kinds. */
     claim(kinds: ReadonlyArray<JobKind>, now: number): Effect.Effect<Option.Option<Job>>
     complete(id: number, now: number): Effect.Effect<void>
@@ -100,6 +105,20 @@ export class JobsRepo extends Context.Service<
               updatedAt: sql`excluded.updated_at`
             }
           })
+          .pipe(Effect.asVoid, Effect.orDie)
+
+      const refill = (kind: JobKind, entryId: number, finishedBefore: number, priority: number, now: number) =>
+        db
+          .update(jobs)
+          .set({ status: "queued", priority, attempts: 0, runAfter: at(now), updatedAt: at(now) })
+          .where(
+            and(
+              eq(jobs.kind, kind),
+              eq(jobs.entryId, entryId),
+              eq(jobs.status, "done"),
+              lt(jobs.updatedAt, at(finishedBefore))
+            )
+          )
           .pipe(Effect.asVoid, Effect.orDie)
 
       const claim = Effect.fn("JobsRepo.claim")(function* (kinds: ReadonlyArray<JobKind>, now: number) {
@@ -166,7 +185,7 @@ export class JobsRepo extends Context.Service<
         .groupBy(jobs.kind, jobs.status)
         .pipe(Effect.orDie)
 
-      return JobsRepo.of({ enqueue, requeue, claim, complete, fail, release, statusFor, requeueStale, counts })
+      return JobsRepo.of({ enqueue, requeue, refill, claim, complete, fail, release, statusFor, requeueStale, counts })
     })
   )
 }

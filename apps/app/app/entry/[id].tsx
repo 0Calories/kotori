@@ -1,4 +1,4 @@
-import type { Example, Nuance, Sense, SimilarWord } from "@kotori/domain"
+import type { Nuance, Sense, SimilarWord } from "@kotori/domain"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { Platform, Share, View } from "react-native"
@@ -8,7 +8,7 @@ import { AudioButton } from "../../src/components/AudioButton.tsx"
 import { Button, IconButton } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
 import { Chip } from "../../src/components/Chip.tsx"
-import { Furigana } from "../../src/components/Furigana.tsx"
+import { ExampleRow } from "../../src/components/ExampleRow.tsx"
 import { Icon, type IconName } from "../../src/components/Icon.tsx"
 import { Mascot } from "../../src/components/Mascot.tsx"
 import { NuanceScales } from "../../src/components/NuanceScales.tsx"
@@ -18,6 +18,8 @@ import { Snow } from "../../src/components/Snow.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { posLabel, type Strings } from "../../src/i18n/strings.ts"
+import { spokenGloss } from "../../src/lib/english.ts"
+import { wordNote } from "../../src/lib/notes.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { theme } from "../../src/theme/tokens.ts"
 
@@ -94,57 +96,6 @@ const NuanceCard = ({ nuance }: { readonly nuance: Nuance }) => {
   )
 }
 
-const ExampleRow = ({ example, mark }: { readonly example: Example; readonly mark: string | undefined }) => {
-  const { profile } = useSession()
-  // Japanese speakers are learning the English side, so it leads and is the one spoken.
-  const english = profile?.targetLanguage === "en"
-  return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-        backgroundColor: theme.color.surfaceMuted,
-        borderRadius: theme.radius.sm,
-        paddingVertical: 8,
-        paddingLeft: 12,
-        paddingRight: 8
-      }}
-    >
-      <View style={{ flex: 1, gap: 2 }}>
-        {english ? (
-          <>
-            <Text variant="strong" selectable>
-              {example.en}
-            </Text>
-            <Text jp variant="small" color="textMuted">
-              {example.ja}
-            </Text>
-          </>
-        ) : (
-          <>
-            <Furigana
-              text={example.ja}
-              furigana={example.furigana}
-              size={16}
-              marks={mark ? [{ text: mark, kind: "highlight" }] : []}
-            />
-            <Text variant="small" color="textMuted">
-              {example.en}
-            </Text>
-          </>
-        )}
-        {example.note ? (
-          <Text variant="caption" color="textFaint">
-            {example.note}
-          </Text>
-        ) : null}
-      </View>
-      <AudioButton url={english ? example.translationAudioUrl : example.audioUrl} />
-    </View>
-  )
-}
-
 const SenseCard = ({
   sense,
   number,
@@ -166,9 +117,10 @@ const SenseCard = ({
   readonly onSave: () => void
   readonly saving: boolean
 }) => {
-  const { t } = useSession()
+  const { t, profile } = useSession()
   const router = useRouter()
   const [first, second, ...rest] = sense.glosses
+  const english = profile?.targetLanguage === "en"
   const pos = [...new Set(sense.partsOfSpeech.map((tag) => posLabel(t, tag.code) ?? tag.label))].filter(
     (label) => label !== partOfSpeech
   )
@@ -204,7 +156,9 @@ const SenseCard = ({
             </Text>
             {rest.length > 0 ? <Text color="textMuted">{rest.join("; ")}</Text> : null}
           </View>
-          <View style={{ marginTop: -9, marginRight: -8 }}>
+          <View style={{ flexDirection: "row", marginTop: -9, marginRight: -8 }}>
+            {/* Japanese speakers are here for the English, so they can hear it. */}
+            {english && first ? <AudioButton speak={{ text: spokenGloss(first), language: "en" }} size={40} /> : null}
             <IconButton
               icon="bookmark"
               filled={saved}
@@ -311,7 +265,7 @@ const headwordSize = (headword: string) => {
 }
 
 export default function EntryScreen() {
-  const { t } = useSession()
+  const { t, profile } = useSession()
   const router = useRouter()
   const { id } = useLocalSearchParams<{ id: string }>()
   const entry = useEntry(Number(id))
@@ -343,25 +297,19 @@ export default function EntryScreen() {
       note.content.kind === "word" && note.content.entryId === data.id ? [note.content.senseIndex] : []
     )
   )
-  const save = (sense: Sense) => {
-    const example = sense.examples[0]
-    const nuance = sense.nuance
+  const save = (sense: Sense) =>
     addNote.mutate({
-      content: {
-        kind: "word",
+      content: wordNote(t, {
         entryId: data.id,
-        senseIndex: sense.index,
+        sense: sense.index,
         headword: data.headword,
         reading: data.reading,
-        meaning: sense.glosses.slice(0, 3).join("; "),
-        hint: nuance && nuance.formality.value !== "neutral" ? t.nuance.scale[nuance.formality.value] : null,
-        example: example
-          ? { ja: example.ja, furigana: example.furigana, en: example.en, audioUrl: example.audioUrl }
-          : null,
+        glosses: sense.glosses,
+        formality: sense.nuance?.formality.value ?? null,
+        example: sense.examples[0],
         audioUrl: data.audioUrl
-      }
+      })
     })
-  }
   const share = () =>
     Share.share({
       message: `${data.headword}${data.reading === data.headword ? "" : `（${data.reading}）`} ${data.senses[0]?.glosses.slice(0, 3).join("; ") ?? ""}`
@@ -379,6 +327,8 @@ export default function EntryScreen() {
   const partOfSpeech = firstPos ? (posLabel(t, firstPos.code) ?? firstPos.label) : null
   const forms = [data.headword, ...data.forms.map((form) => form.text), data.reading]
   const size = headwordSize(data.headword)
+  // The headword is spoken for learners of Japanese; Japanese speakers hear the English in each meaning.
+  const headwordAudio = profile?.targetLanguage === "en" ? null : data.audioUrl
   // Words with nothing from Kotori yet get a plain header, with the part of speech among the details.
   const plain = !byAi && !waiting
   const meta = [
@@ -463,9 +413,9 @@ export default function EntryScreen() {
             {t.entry.forms}: {others.map((form) => form.text).join("・")}
           </Text>
         ) : null}
-        {plain && !data.audioUrl ? null : (
+        {plain && !headwordAudio ? null : (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14, minHeight: 44 }}>
-            {data.audioUrl ? <AudioButton url={data.audioUrl} label={t.common.listen} /> : null}
+            {headwordAudio ? <AudioButton url={headwordAudio} label={t.common.listen} /> : null}
             <View style={{ flex: 1 }} />
             {partOfSpeech && !plain ? (
               <Text variant="caption" size={13.5} color="textMuted">

@@ -38,6 +38,7 @@ const OfflineProviders = Layer.mergeAll(
     Pronouncer,
     Pronouncer.of({
       configured: false,
+      exampleLanguages: ["ja", "en"],
       speak: () => Effect.fail(new TtsError({ reason: "unconfigured", message: "not configured" })),
       enrichEntry: () => Effect.succeed({ clips: 0, characters: 0 })
     })
@@ -197,6 +198,7 @@ layer(TestLayer)("Kotori API", (it) => {
       const english = yield* api.dictionary.search({ query: { q: "eat" } })
       assert.strictEqual(english.mode, "english")
       assert.strictEqual(english.entries[0]?.headword, "食べる")
+      assert.isTrue(english.englishWord)
 
       const conjugated = yield* api.dictionary.search({ query: { q: "書きました" } })
       assert.strictEqual(conjugated.entries[0]?.headword, "書く")

@@ -89,5 +89,6 @@ For each sentence give:
 - "variety": the regional variety the sentence is written in, as one lowercase word such as "kansai", "tohoku" or "kyushu"; null for standard Japanese;
 - "tone": the dominant feel of the delivery — neutral, cheerful, serious, gentle, rough, or humorous for a joke, gag, pun or comic exaggeration;
 - "note": one short English note on usage or nuance when it teaches something (a collocation, why this register, a common mistake); otherwise null.
+- "noteJa": one short note in Japanese for Japanese speakers learning English, about the English sentence: a collocation, a nuance Japanese speakers miss, or a mistake they commonly make with it; otherwise null. It is not a translation of "note".
 
 Return the sense numbers exactly as given.`

@@ -67,6 +67,7 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
         <Stack.Protected guard={status === "ready"}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="entry/[id]" />
+          <Stack.Screen name="english/[term]" />
           <Stack.Screen name="saved" />
           <Stack.Screen name="settings" options={{ presentation: "modal" }} />
           <Stack.Screen name="review/session" options={{ presentation: "fullScreenModal", gestureEnabled: false }} />

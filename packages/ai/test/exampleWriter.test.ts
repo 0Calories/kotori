@@ -31,6 +31,7 @@ const written = (overrides: Partial<(typeof ExamplesOutput.Type)["senses"][numbe
   variety: "Kansai-ben",
   tone: "rough" as const,
   note: null,
+  noteJa: null,
   ...overrides
 })
 

@@ -62,6 +62,8 @@ export const Example = Schema.Struct({
   en: Schema.String,
   formality: Formality,
   note: Schema.NullOr(Schema.String),
+  /** A note on the English sentence for Japanese speakers, in Japanese. */
+  noteJa: Schema.NullOr(Schema.String),
   /** The Japanese sentence, spoken. */
   audioUrl: Schema.NullOr(Schema.String),
   /** The English translation, spoken. */
@@ -144,6 +146,39 @@ export const SearchResult = Schema.Struct({
   mode: SearchMode,
   /** The kana reading searched for, when the query was romaji. */
   reading: Schema.NullOr(Schema.String),
+  /** Whether the query is itself a meaning of some word, so it can be looked up as an English word. */
+  englishWord: Schema.Boolean,
   entries: Schema.Array(EntrySummary)
 })
 export type SearchResult = typeof SearchResult.Type
+
+/** One Japanese word that means an English word or phrase, in one of its senses. */
+export const EnglishMeaning = Schema.Struct({
+  entryId: EntryId,
+  sense: Schema.Int,
+  headword: Schema.String,
+  reading: Schema.String,
+  common: Schema.Boolean,
+  /** Every English gloss of the sense, the looked-up one among them. */
+  glosses: Schema.Array(Schema.String),
+  /** Which of `glosses` is the looked-up word. */
+  matched: Schema.Int,
+  partOfSpeech: Schema.NullOr(Schema.String),
+  formality: Schema.NullOr(Formality),
+  examples: Schema.Array(Example)
+})
+export type EnglishMeaning = typeof EnglishMeaning.Type
+
+/**
+ * An English word or phrase as Japanese speakers look it up: the Japanese words that
+ * mean it, most likely first. Built by reading JMDict backwards.
+ */
+export const EnglishEntry = Schema.Struct({
+  term: Schema.String,
+  meanings: Schema.Array(EnglishMeaning),
+  /** Whether anything for the leading meanings (nuance, examples, audio) is still on its way. */
+  waiting: Schema.Boolean,
+  /** Whether example sentences for the leading meanings are still being written. */
+  writing: Schema.Boolean
+})
+export type EnglishEntry = typeof EnglishEntry.Type

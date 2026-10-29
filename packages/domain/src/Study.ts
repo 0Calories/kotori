@@ -22,7 +22,9 @@ export const SavedExample = Schema.Struct({
   ja: Schema.String,
   furigana: Schema.String,
   en: Schema.String,
-  audioUrl: Schema.NullOr(Schema.String)
+  audioUrl: Schema.NullOr(Schema.String),
+  /** The English sentence, spoken; absent on notes saved before English was voiced. */
+  translationAudioUrl: Schema.optional(Schema.NullOr(Schema.String))
 })
 export type SavedExample = typeof SavedExample.Type
 
