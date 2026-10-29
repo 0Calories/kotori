@@ -66,12 +66,18 @@ export class Enrichers extends Context.Service<
           senses,
           perSense: senses.length > 2 ? 2 : 3
         })
+        const now = yield* Clock.currentTimeMillis
         yield* enrichment.saveExamples(
           entryId,
-          written.map((example) => ({ ...example, model: writer.model })),
-          yield* Clock.currentTimeMillis
+          written.examples.map((example) => ({ ...example, model: writer.model })),
+          now
         )
-        return `${written.length} examples`
+        yield* enrichment.saveSenseNotes(
+          entryId,
+          written.notes.map((note) => ({ ...note, model: writer.model })),
+          now
+        )
+        return `${written.examples.length} examples, ${written.notes.filter((note) => note.note ?? note.noteJa).length} notes`
       })
 
       const run = (kind: JobKind, entryId: number): Effect.Effect<string, unknown> => {

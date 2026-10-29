@@ -84,6 +84,25 @@ export const similarWords = table(
   ]
 )
 
+/** Claude's usage note per sense, written alongside its example sentences. */
+export const senseNotes = table(
+  "sense_notes",
+  {
+    entryId: integer().notNull(),
+    sense: integer().notNull(),
+    /** For learners of Japanese, in English; null when the glosses say it all. */
+    note: text(),
+    /** On the sense's English side, for Japanese speakers learning English, in Japanese. */
+    noteJa: text(),
+    model: text().notNull(),
+    createdAt: createdAt()
+  },
+  (t) => [
+    primaryKey({ columns: [t.entryId, t.sense] }),
+    foreignKey({ columns: [t.entryId, t.sense], foreignColumns: [senses.entryId, senses.position] }).onDelete("cascade")
+  ]
+)
+
 export const examples = table(
   "examples",
   {

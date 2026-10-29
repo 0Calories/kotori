@@ -13,7 +13,7 @@ import { asc, desc, eq, gte, inArray, sum } from "drizzle-orm"
 import { Context, Effect, Layer, Option } from "effect"
 import { Database } from "./Database.ts"
 import { at, millis } from "./rows.ts"
-import { audio, entryAudio, exampleAudio, examples, senseNuance, similarWords } from "./schema/index.ts"
+import { audio, entryAudio, exampleAudio, examples, senseNotes, senseNuance, similarWords } from "./schema/index.ts"
 
 export interface NuanceRow {
   readonly entryId: number
@@ -36,6 +36,23 @@ export interface SimilarRow {
   readonly similarity: number
   readonly difference: Difference
   readonly confidence: number
+}
+
+/** The usage note for one sense, in both learner directions. */
+export interface SenseNoteRow {
+  readonly entryId: number
+  readonly sense: number
+  /** For learners of Japanese, in English; null when the glosses say it all. */
+  readonly note: string | null
+  /** For Japanese speakers learning English, in Japanese. */
+  readonly noteJa: string | null
+}
+
+export interface SenseNoteInput {
+  readonly sense: number
+  readonly note: string | null
+  readonly noteJa: string | null
+  readonly model: string
 }
 
 /** Who would say the sentence and how; null on sentences written before voice casting. */
@@ -109,6 +126,8 @@ export class EnrichmentRepo extends Context.Service<
     similarFor(entryId: number): Effect.Effect<ReadonlyArray<SimilarRow>>
     saveExamples(entryId: number, rows: ReadonlyArray<ExampleInput>, now: number): Effect.Effect<void>
     examplesFor(entryIds: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<ExampleRow>>
+    saveSenseNotes(entryId: number, rows: ReadonlyArray<SenseNoteInput>, now: number): Effect.Effect<void>
+    senseNotesFor(entryIds: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<SenseNoteRow>>
     findAudio(key: string): Effect.Effect<Option.Option<AudioRow>>
     saveAudio(row: AudioRow): Effect.Effect<void>
     /** Adds a headword clip to the entry; an entry has one clip per dictionary voice. */
@@ -238,6 +257,33 @@ export class EnrichmentRepo extends Context.Service<
           .orderBy(examples.entryId, examples.sense, examples.position)
       }, Effect.orDie)
 
+      const saveSenseNotes = Effect.fn("EnrichmentRepo.saveSenseNotes")(function* (
+        entryId: number,
+        rows: ReadonlyArray<SenseNoteInput>,
+        now: number
+      ) {
+        yield* db.transaction((tx) =>
+          Effect.gen(function* () {
+            yield* tx.delete(senseNotes).where(eq(senseNotes.entryId, entryId))
+            if (rows.length === 0) return
+            yield* tx.insert(senseNotes).values(rows.map((row) => ({ entryId, createdAt: at(now), ...row })))
+          })
+        )
+      }, Effect.orDie)
+
+      const senseNotesFor = Effect.fn("EnrichmentRepo.senseNotesFor")(function* (entryIds: ReadonlyArray<number>) {
+        if (entryIds.length === 0) return []
+        return yield* db
+          .select({
+            entryId: senseNotes.entryId,
+            sense: senseNotes.sense,
+            note: senseNotes.note,
+            noteJa: senseNotes.noteJa
+          })
+          .from(senseNotes)
+          .where(inArray(senseNotes.entryId, entryIds))
+      }, Effect.orDie)
+
       const findAudio = Effect.fn("EnrichmentRepo.findAudio")(function* (key: string) {
         const rows = yield* db.select().from(audio).where(eq(audio.key, key))
         return Option.fromNullishOr(rows[0]).pipe(
@@ -304,6 +350,8 @@ export class EnrichmentRepo extends Context.Service<
         similarFor,
         saveExamples,
         examplesFor,
+        saveSenseNotes,
+        senseNotesFor,
         findAudio,
         saveAudio,
         linkEntryAudio,

@@ -84,6 +84,10 @@ export const Sense = Schema.Struct({
   related: Schema.Array(CrossReference),
   antonyms: Schema.Array(CrossReference),
   nuance: Schema.NullOr(Nuance),
+  /** Kotori's usage note on this sense for learners of Japanese, in English. */
+  note: Schema.NullOr(Schema.String),
+  /** The note on this sense's English side for Japanese speakers learning English, in Japanese. */
+  noteJa: Schema.NullOr(Schema.String),
   similar: Schema.Array(SimilarWord),
   examples: Schema.Array(Example)
 })

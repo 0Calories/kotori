@@ -7,6 +7,10 @@ export const ExamplesOutput = Schema.Struct({
   senses: Schema.Array(
     Schema.Struct({
       sense: Schema.Int,
+      /** The sense's usage note for learners of Japanese, in English; null when the glosses say it all. */
+      note: Schema.NullOr(Schema.String),
+      /** The note on the sense's English side for Japanese speakers learning English, in Japanese. */
+      noteJa: Schema.NullOr(Schema.String),
       examples: Schema.Array(
         Schema.Struct({
           ja: Schema.String,
@@ -42,6 +46,13 @@ export interface ExampleRequest {
   readonly otherForms: ReadonlyArray<string>
   readonly senses: ReadonlyArray<ExampleSense>
   readonly perSense: number
+}
+
+/** The usage note for one sense, in both learner directions. */
+export interface WrittenSenseNote {
+  readonly sense: number
+  readonly note: string | null
+  readonly noteJa: string | null
 }
 
 export interface WrittenExample {
@@ -93,11 +104,17 @@ const normalizeVariety = (label: string | null): string | null => {
   return normalized === "" || normalized === "standard" || normalized === "null" ? null : normalized
 }
 
+export interface WrittenExamples {
+  /** One usage note per sense; the examples only annotate what is specific to a sentence. */
+  readonly notes: ReadonlyArray<WrittenSenseNote>
+  readonly examples: ReadonlyArray<WrittenExample>
+}
+
 export class ExampleWriter extends Context.Service<
   ExampleWriter,
   {
     readonly model: string
-    write(request: ExampleRequest): Effect.Effect<ReadonlyArray<WrittenExample>, ClaudeError>
+    write(request: ExampleRequest): Effect.Effect<WrittenExamples, ClaudeError>
   }
 >()("@kotori/ai/ExampleWriter") {
   static readonly layer = Layer.effect(
@@ -113,9 +130,10 @@ export class ExampleWriter extends Context.Service<
           prompt: describeRequest(request),
           effort: "low"
         })
-        return output.senses
-          .filter((group) => known.has(group.sense))
-          .flatMap((group) =>
+        const groups = output.senses.filter((group) => known.has(group.sense))
+        return {
+          notes: groups.map((group) => ({ sense: group.sense, note: group.note, noteJa: group.noteJa })),
+          examples: groups.flatMap((group) =>
             group.examples.map((example) => ({
               sense: group.sense,
               // The furigana is the authoritative copy: it must spell the sentence out exactly.
@@ -132,6 +150,7 @@ export class ExampleWriter extends Context.Service<
               noteJa: example.noteJa
             }))
           )
+        }
       })
 
       return ExampleWriter.of({ model: claude.model, write })

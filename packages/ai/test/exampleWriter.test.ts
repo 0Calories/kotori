@@ -57,7 +57,7 @@ const write = (output: typeof ExamplesOutput.Type) => {
   const claude = fakeClaude(output)
   return Effect.flatMap(ExampleWriter, (writer) => writer.write(request))
     .pipe(Effect.provide(ExampleWriter.layer.pipe(Layer.provide(claude.layer))), Effect.runPromise)
-    .then((examples) => ({ examples, asked: claude.asked }))
+    .then(({ examples, notes }) => ({ examples, notes, asked: claude.asked }))
 }
 
 describe("examples prompt", () => {
@@ -78,7 +78,7 @@ describe("examples prompt", () => {
 
 describe("ExampleWriter.write", () => {
   it("flattens the speaker and normalises the variety label", async () => {
-    const { examples } = await write({ senses: [{ sense: 0, examples: [written()] }] })
+    const { examples } = await write({ senses: [{ sense: 0, note: null, noteJa: null, examples: [written()] }] })
     expect(examples).toHaveLength(1)
     expect(examples[0]).toMatchObject({
       sense: 0,
@@ -99,8 +99,20 @@ describe("ExampleWriter.write", () => {
     ["standard", null],
     [null, null]
   ])("maps the variety label %j to %j", async (label, expected) => {
-    const { examples } = await write({ senses: [{ sense: 1, examples: [written({ variety: label })] }] })
+    const { examples } = await write({
+      senses: [{ sense: 1, note: null, noteJa: null, examples: [written({ variety: label })] }]
+    })
     expect(examples[0]?.variety).toBe(expected)
+  })
+
+  it("keeps the usage note of each known sense", async () => {
+    const { notes } = await write({
+      senses: [
+        { sense: 0, note: "Kansai speech.", noteJa: "口語です。", examples: [written()] },
+        { sense: 9, note: "Not a listed sense.", noteJa: null, examples: [] }
+      ]
+    })
+    expect(notes).toEqual([{ sense: 0, note: "Kansai speech.", noteJa: "口語です。" }])
   })
 
   it("sends the system prompt and the described request", async () => {

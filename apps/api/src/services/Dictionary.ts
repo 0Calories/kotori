@@ -324,6 +324,7 @@ export class Dictionary extends Context.Service<
         const tag = (code: string): Tag => ({ code, label: tags.get(code) ?? code })
 
         const nuance = new Map((yield* enrichment.nuanceFor([entry.id])).map((row) => [row.sense, row.nuance]))
+        const notes = new Map((yield* enrichment.senseNotesFor([entry.id])).map((row) => [row.sense, row]))
         const examples = yield* enrichment.examplesFor([entry.id])
         const exampleAudio = yield* enrichment.exampleAudio(examples.map((example) => example.id))
         const entryClips = (yield* enrichment.entryAudio([entry.id])).get(entry.id) ?? []
@@ -362,6 +363,8 @@ export class Dictionary extends Context.Service<
           related: sense.xrefs.map(resolve),
           antonyms: sense.antonyms.map(resolve),
           nuance: nuance.get(index) ?? null,
+          note: notes.get(index)?.note ?? null,
+          noteJa: notes.get(index)?.noteJa ?? null,
           similar: similarRows
             .filter((row) => row.sense === index)
             .flatMap((row): Array<SimilarWord> => {

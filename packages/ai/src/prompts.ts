@@ -80,6 +80,10 @@ For each sense listed, write the requested number of sentences that:
 - stay short and concrete, ideally under 25 characters;
 - when the sense lists a dialect, are written entirely in that dialect (its grammar, particles and vocabulary, not just the headword), as a native speaker of the region would say them.
 
+For each sense also give one usage note per learner direction. These notes carry the teaching; sentence notes below are only for the rare sentence-specific point:
+- "note": one or two short English sentences for learners of Japanese on how natives use the word in this sense — its register, who says it and where, a pitfall, or how it differs from a word learners would confuse it with. Teach what the glosses alone can't; when they already say it all, null.
+- "noteJa": one or two short sentences in Japanese for Japanese speakers learning English, about the sense's English side: how its natural English equivalents are used, a nuance Japanese speakers miss, or a mistake they commonly make. It is not a translation of "note"; null when there is nothing worth teaching.
+
 For each sentence give:
 - "ja": the sentence as normally written;
 - "furigana": the same sentence with a reading for every word containing kanji, written as {漢字|かんじ} (never annotate kana-only words);
@@ -89,7 +93,7 @@ For each sentence give:
 - "medium": conversation (someone talking to someone), announcement (news, notices, public address, business mail read aloud) or narration (prose, proverbs, descriptions);
 - "variety": the regional variety the sentence is written in, as one lowercase word such as "kansai", "tohoku" or "kyushu"; null for standard Japanese;
 - "tone": the dominant feel of the delivery — neutral, cheerful, serious, gentle, rough, or humorous for a joke, gag, pun or comic exaggeration;
-- "note": one short English note on usage or nuance when it teaches something (a collocation, why this register, a common mistake); otherwise null.
-- "noteJa": one short note in Japanese for Japanese speakers learning English, about the English sentence: a collocation, a nuance Japanese speakers miss, or a mistake they commonly make with it; otherwise null. It is not a translation of "note".
+- "note": null unless this particular sentence needs explaining — a collocation in it, why this register fits this situation, a twist in the translation. One short English sentence that never repeats the sense note;
+- "noteJa": the same, in Japanese for Japanese speakers learning English, about this English sentence; null unless the sentence itself teaches something. It is not a translation of "note".
 
 Return the sense numbers exactly as given.`
