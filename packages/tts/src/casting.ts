@@ -1,4 +1,4 @@
-import type { Formality, Language, Nuance } from "@kotori/domain"
+import type { Formality, Language, Nuance, SentenceTone } from "@kotori/domain"
 import {
   CASTS,
   DEFAULT_VARIETY,
@@ -29,6 +29,8 @@ export interface CastingBrief {
   readonly medium: VoiceMedium | null
   readonly slang: boolean
   readonly archaic: boolean
+  /** A joke or comic line: comic voices may read it whatever its variety. */
+  readonly humorous: boolean
 }
 
 /** The sentence columns casting reads; the speaker columns are null on examples written before casting. */
@@ -39,6 +41,7 @@ export interface SentenceSignals {
   readonly medium?: VoiceMedium | null
   /** Regional variety label written by Claude ("kansai", "british"...); null for the default. */
   readonly variety?: string | null
+  readonly tone?: SentenceTone | null
 }
 
 export interface SenseSignals {
@@ -128,7 +131,8 @@ export const briefFor = ({ nuance, sense, sentence }: CastingInput): CastingBrie
       sense.misc.includes("dated") ||
       (nuance !== null &&
         nuance.currency.confidence >= NUANCE_CONFIDENCE &&
-        (nuance.currency.value === "archaic" || nuance.currency.value === "dated"))
+        (nuance.currency.value === "archaic" || nuance.currency.value === "dated")),
+    humorous: sentence.tone === "humorous"
   }
 }
 
@@ -144,6 +148,8 @@ const AGE_MISMATCH = -1
 const MEDIUM_MATCH = 2
 const SLANG_FIT = 1
 const ARCHAIC_FIT = 1
+/** Enough to beat a same-gender voice that matches age exactly, so a comic line goes to a comic voice. */
+const COMIC_FIT = 3
 const FORMALITY_LISTED = 1
 /** Voices within this of the top score are considered tied and go to Jev. */
 export const TIE_WINDOW = 1
@@ -165,7 +171,8 @@ export interface RankedVoice<L extends Language = Language> {
 
 /**
  * The cast voices of `language` that may read the sentence, best fit first.
- * Variety is a hard filter; the register filter is relaxed rather than return
+ * Variety is a hard filter, except that a humorous brief also admits comic
+ * voices of any variety; the register filter is relaxed rather than return
  * nobody, so there is always at least one candidate when the language is cast.
  */
 export const rank = <L extends Language>(
@@ -174,7 +181,10 @@ export const rank = <L extends Language>(
   casts: Casts = CASTS
 ): ReadonlyArray<RankedVoice<L>> => {
   const variety = brief.variety ?? DEFAULT_VARIETY[language]
-  const spoken = casts[language].filter((voice) => voice.providerId !== null && voice.tags.variety === variety)
+  const comic = (voice: Voice<L>) => brief.humorous && voice.tags.tone.includes("comic")
+  const spoken = casts[language].filter(
+    (voice) => voice.providerId !== null && (voice.tags.variety === variety || comic(voice))
+  )
   const inRegister = spoken.filter((voice) => voice.tags.formality.includes(brief.formality))
   const candidates = inRegister.length > 0 ? inRegister : spoken
 
@@ -196,6 +206,7 @@ export const rank = <L extends Language>(
       }
       // Older only: a narration bonus here would double-count the medium match.
       if (brief.archaic && voice.tags.age === "older") score += ARCHAIC_FIT
+      if (comic(voice)) score += COMIC_FIT
       if (voice.tags.formality.includes(brief.formality)) score += FORMALITY_LISTED
       return { voice, score }
     })

@@ -8,8 +8,8 @@ import type { Formality, Language } from "@kotori/domain"
 export const VOICE_GENDERS = ["masculine", "feminine", "androgynous"] as const
 export const VOICE_AGES = ["child", "youth", "adult", "middle-aged", "older"] as const
 export const VOICE_MEDIUMS = ["conversation", "announcement", "narration"] as const
-/** Stored for later voice-settings work; scoring ignores tone for now. */
-export const VOICE_TONES = ["warm", "bright", "calm", "serious", "rough", "gentle"] as const
+/** Scoring reads only "comic", for humorous sentences; the rest is stored for later voice-settings work. */
+export const VOICE_TONES = ["warm", "bright", "calm", "serious", "rough", "gentle", "comic"] as const
 
 /**
  * Regional variety of the language, in the linguist's sense: it covers both
@@ -81,7 +81,7 @@ export const JAPANESE_CAST: ReadonlyArray<Voice<"ja">> = [
   {
     id: "ja-announcer",
     language: "ja",
-    providerId: null,
+    providerId: "3JDquces8E8bkmvbh6Bc", // Otani
     name: "Announcer",
     tags: {
       gender: "masculine",
@@ -97,7 +97,7 @@ export const JAPANESE_CAST: ReadonlyArray<Voice<"ja">> = [
   {
     id: "ja-polite-f",
     language: "ja",
-    providerId: null,
+    providerId: "qbfQuoRJv1T3ei3qV4bc", // Kazuha
     name: "Polite woman",
     tags: {
       gender: "feminine",
@@ -113,7 +113,7 @@ export const JAPANESE_CAST: ReadonlyArray<Voice<"ja">> = [
   {
     id: "ja-casual-f",
     language: "ja",
-    providerId: null,
+    providerId: "DpPUi15aFdxHd3pJG2EF", // Miki
     name: "Casual young woman",
     tags: {
       gender: "feminine",
@@ -129,7 +129,23 @@ export const JAPANESE_CAST: ReadonlyArray<Voice<"ja">> = [
   {
     id: "ja-casual-m",
     language: "ja",
-    providerId: null,
+    providerId: "8zFFBbtAT2eoznLuzUMT", // Ryu
+    name: "Casual man",
+    tags: {
+      gender: "masculine",
+      age: "adult",
+      variety: "standard",
+      formality: ["casual", "neutral"],
+      medium: ["conversation"],
+      tone: ["calm"],
+      headword: false
+    },
+    description: "A calm adult man in everyday conversation; relaxed, friendly masculine speech."
+  },
+  {
+    id: "ja-casual-m2",
+    language: "ja",
+    providerId: "TlxVR97quVHvTxE8Qkcm", // Samurai
     name: "Casual young man",
     tags: {
       gender: "masculine",
@@ -137,15 +153,15 @@ export const JAPANESE_CAST: ReadonlyArray<Voice<"ja">> = [
       variety: "standard",
       formality: ["vulgar", "casual", "neutral"],
       medium: ["conversation"],
-      tone: ["rough"],
+      tone: ["calm"],
       headword: false
     },
-    description: "An energetic young man talking with friends; rough masculine speech (ぜ, ぞ, おれ)."
+    description: "A young man talking with friends; relaxed, slangy masculine speech (ぜ, ぞ, おれ)."
   },
   {
     id: "ja-casual-f2",
     language: "ja",
-    providerId: null,
+    providerId: "a0MsDWokG5Xsuji8g8er", // Haru
     name: "Casual woman",
     tags: {
       gender: "feminine",
@@ -161,7 +177,7 @@ export const JAPANESE_CAST: ReadonlyArray<Voice<"ja">> = [
   {
     id: "ja-kansai-m",
     language: "ja",
-    providerId: null,
+    providerId: "OixLI492Bx532sSKQRim", // Goro, a native Osaka speaker
     name: "Kansai man",
     tags: {
       gender: "masculine",
@@ -169,10 +185,11 @@ export const JAPANESE_CAST: ReadonlyArray<Voice<"ja">> = [
       variety: "kansai",
       formality: ["casual", "neutral", "polite"],
       medium: ["conversation"],
-      tone: ["bright"],
+      tone: ["bright", "comic"],
       headword: false
     },
-    description: "An adult man speaking natural Kansai-ben; for sentences written in the Kansai dialect."
+    description:
+      "A funny adult man speaking natural Kansai-ben; for sentences in the Kansai dialect and for jokes and comic lines."
   },
   {
     id: "ja-elder-m",
@@ -212,7 +229,7 @@ export const ENGLISH_CAST: ReadonlyArray<Voice<"en">> = [
   {
     id: "en-announcer",
     language: "en",
-    providerId: null,
+    providerId: "9ZbFvrGBxO3uSmsw6wdI", // Walter, news anchor
     name: "Announcer",
     tags: {
       gender: "masculine",
@@ -228,7 +245,7 @@ export const ENGLISH_CAST: ReadonlyArray<Voice<"en">> = [
   {
     id: "en-casual-f",
     language: "en",
-    providerId: null,
+    providerId: "cgSgspJ2msm6clMCkdW9", // Jessica
     name: "Casual young woman",
     tags: {
       gender: "feminine",
@@ -244,7 +261,7 @@ export const ENGLISH_CAST: ReadonlyArray<Voice<"en">> = [
   {
     id: "en-casual-m",
     language: "en",
-    providerId: null,
+    providerId: "bIHbv24MWmeRgasZH58o", // Will
     name: "Casual young man",
     tags: {
       gender: "masculine",
@@ -260,7 +277,7 @@ export const ENGLISH_CAST: ReadonlyArray<Voice<"en">> = [
   {
     id: "en-british-m",
     language: "en",
-    providerId: null,
+    providerId: "JBFqnCBsd6RMkjVDRZzb", // George
     name: "British narrator",
     tags: {
       gender: "masculine",
@@ -276,7 +293,7 @@ export const ENGLISH_CAST: ReadonlyArray<Voice<"en">> = [
   {
     id: "en-elder-f",
     language: "en",
-    providerId: null,
+    providerId: "wGcFBfKz5yUQqhqr0mVy", // Maria Moody
     name: "Elder narrator",
     tags: {
       gender: "feminine",

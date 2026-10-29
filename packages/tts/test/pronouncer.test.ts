@@ -49,10 +49,10 @@ const FakeJev = Layer.succeed(
   })
 )
 
-/** The real casts with every voice given a provider id, so casting has a full lineup. */
+/** The real casts with fake provider ids, so tests don't depend on which voices are cast. */
 const FullCasts = Layer.succeed(VoiceCasts, {
-  ja: JAPANESE_CAST.map((voice) => ({ ...voice, providerId: voice.providerId ?? `fake-${voice.id}` })),
-  en: ENGLISH_CAST.map((voice) => ({ ...voice, providerId: voice.providerId ?? `fake-${voice.id}` }))
+  ja: JAPANESE_CAST.map((voice) => ({ ...voice, providerId: `fake-${voice.id}` })),
+  en: ENGLISH_CAST.map((voice) => ({ ...voice, providerId: `fake-${voice.id}` }))
 })
 
 const TestLayer = Pronouncer.layer.pipe(
@@ -114,7 +114,7 @@ layer(TestLayer)("Pronouncer", (it) => {
       const key = yield* pronouncer.speak("たべる", "ja")
       assert.isTrue(isAudioKey(key))
       assert.strictEqual(yield* pronouncer.speak(" たべる ", "ja"), key)
-      assert.deepStrictEqual(calls, [{ text: "たべる", voiceId: "4lOQ7A2l7HPuG7UIHiKA" }])
+      assert.deepStrictEqual(calls, [{ text: "たべる", voiceId: "fake-ja-kyoko" }])
 
       // Another voice speaking the same text is a new clip, not a cache hit.
       const elder = JAPANESE_CAST.find((voice) => voice.id === "ja-elder-m")!

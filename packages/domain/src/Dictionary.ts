@@ -45,8 +45,8 @@ export type SpeakerAge = typeof SpeakerAge.Type
 export const SentenceMedium = Schema.Literals(["conversation", "announcement", "narration"])
 export type SentenceMedium = typeof SentenceMedium.Type
 
-/** The dominant feel of the delivery; stored for voice settings, not used for casting yet. */
-export const SentenceTone = Schema.Literals(["neutral", "cheerful", "serious", "gentle", "rough"])
+/** The dominant feel of the delivery; "humorous" sends a sentence to a comic voice, the rest is stored for voice settings. */
+export const SentenceTone = Schema.Literals(["neutral", "cheerful", "serious", "gentle", "rough", "humorous"])
 export type SentenceTone = typeof SentenceTone.Type
 
 /** How a clip's voice was chosen: scoring alone, Jev breaking a tie, or a person via the CLI. */

@@ -153,8 +153,10 @@ Prompt additions:
 - "medium": conversation (someone talking to someone), announcement (news, notices, public
   address, business mail read aloud) or narration (prose, proverbs, descriptions).
 - "variety": the regional variety the sentence is written in, or null for the default one.
-- "tone": the dominant feel of the delivery. Stored for later voice settings, not used for
-  selection yet.
+- "tone": the dominant feel of the delivery. Only "humorous" steers selection: it admits
+  voices tagged `comic` whatever their variety and gives them +3 (enough to beat an exact
+  gender-and-age match, not a gender mismatch), so the comic Kansai voice reads jokes in
+  standard Japanese too. The other tones are stored for later voice settings.
 - **Dialect rule:** the request lists a sense's JMDict dialect tags (Kansai-ben, Osaka-ben,
   Tohoku-ben...) on their own `dialect:` line, apart from the other notes, and the prompt
   says to write every example for that sense *in* that dialect, not in the standard
@@ -385,7 +387,7 @@ the learner pin or reroll a voice, which is why `voice` is stored and returned.
   sentences stay labelled; adding a voice later is a data change.
 - A `child` voice is deferred until `status` shows how often `chn` and
   `speakerAge = child` occur.
-- `tone` is stored but unused. Mapping it to ElevenLabs `voice_settings` or v3 audio tags
+- Apart from humour, `tone` is stored but unused. Mapping it to ElevenLabs `voice_settings` or v3 audio tags
   changes the cache key, so it should land as its own decision.
 - Scoring weights are a first guess. Expect to tune them from `--dry-run` output over the
   first few hundred entries.

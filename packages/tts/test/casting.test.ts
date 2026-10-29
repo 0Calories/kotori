@@ -3,10 +3,16 @@ import { describe, expect, it } from "vitest"
 import { briefFor, CASTS, castVoices, ENGLISH_CAST, headwordVoices, JAPANESE_CAST, rank, tied } from "../src/index.ts"
 import type { Casts, CastingBrief, CastingInput, SenseSignals, SentenceSignals } from "../src/index.ts"
 
-/** The casts as if every voice were already auditioned and cast. */
+/** The real casts with fake provider ids, so tests don't depend on which voices are cast. */
 const FULL_CASTS: Casts = {
-  ja: JAPANESE_CAST.map((voice) => ({ ...voice, providerId: voice.providerId ?? `fake-${voice.id}` })),
-  en: ENGLISH_CAST.map((voice) => ({ ...voice, providerId: voice.providerId ?? `fake-${voice.id}` }))
+  ja: JAPANESE_CAST.map((voice) => ({ ...voice, providerId: `fake-${voice.id}` })),
+  en: ENGLISH_CAST.map((voice) => ({ ...voice, providerId: `fake-${voice.id}` }))
+}
+
+/** Only the two original dictionary voices cast, as before the rest of the cast was chosen. */
+const DICTIONARY_ONLY: Casts = {
+  ja: FULL_CASTS.ja.map((voice) => (voice.id === "ja-kyoko" ? voice : { ...voice, providerId: null })),
+  en: FULL_CASTS.en.map((voice) => (voice.id === "en-sarah" ? voice : { ...voice, providerId: null }))
 }
 
 const sense = (overrides: Partial<SenseSignals> = {}): SenseSignals => ({
@@ -132,7 +138,7 @@ describe("rank", () => {
 
   it("picks a casual young voice for vulgar banter, honouring the speaker's gender", () => {
     expect(topVoice(briefFor(input({ formality: "vulgar", speakerGender: "masculine", speakerAge: "youth" })))).toBe(
-      "ja-casual-m"
+      "ja-casual-m2"
     )
     expect(topVoice(briefFor(input({ formality: "vulgar", speakerGender: "feminine", speakerAge: "youth" })))).toBe(
       "ja-casual-f"
@@ -142,6 +148,20 @@ describe("rank", () => {
   it("picks the elder narrator for an archaic proverb", () => {
     const brief = briefFor(input({ formality: "neutral", medium: "narration" }, { misc: ["arch"] }))
     expect(topVoice(brief)).toBe("ja-elder-m")
+  })
+
+  it("sends a humorous standard-Japanese line to the comic Kansai voice", () => {
+    const brief = briefFor(input({ formality: "casual", tone: "humorous", speakerGender: "masculine" }))
+    expect(brief.variety).toBeNull()
+    expect(topVoice(brief)).toBe("ja-kansai-m")
+    // Without the joke, the variety filter keeps the Kansai voice out entirely.
+    const plain = rank(briefFor(input({ formality: "casual", speakerGender: "masculine" })), "ja", FULL_CASTS)
+    expect(plain.map(({ voice }) => voice.id)).not.toContain("ja-kansai-m")
+  })
+
+  it("keeps gender ahead of humour: a woman's joke stays with a woman's voice", () => {
+    const brief = briefFor(input({ formality: "casual", tone: "humorous", speakerGender: "feminine" }))
+    expect(rank(brief, "ja", FULL_CASTS)[0]!.voice.tags.gender).toBe("feminine")
   })
 
   it("gives no adult voice an adjacency bonus for a child speaker", () => {
@@ -155,7 +175,7 @@ describe("rank", () => {
     const child = scores("child")
     const unspecified = scores(null)
     // Youth sits next to child by age, but a child line read by a youth still mismatches.
-    expect(child.get("ja-casual-m")).toBe(unspecified.get("ja-casual-m")! - 1)
+    expect(child.get("ja-casual-m2")).toBe(unspecified.get("ja-casual-m2")! - 1)
   })
 
   it("matches feminine misc words to feminine voices", () => {
@@ -172,14 +192,14 @@ describe("rank", () => {
 
   it("casts both languages from one brief onto matching speakers", () => {
     const brief = briefFor(input({ formality: "casual", speakerGender: "masculine", speakerAge: "youth" }))
-    expect(topVoice(brief, "ja")).toBe("ja-casual-m")
+    expect(topVoice(brief, "ja")).toBe("ja-casual-m2")
     expect(topVoice(brief, "en")).toBe("en-casual-m")
   })
 
   it("only considers cast voices", () => {
-    // In the real casts only Kyoko and Sarah have provider ids yet.
-    expect(rank(briefFor(input({ formality: "casual" })), "ja").map(({ voice }) => voice.id)).toEqual(["ja-kyoko"])
-    expect(rank(briefFor(input({ formality: "casual" })), "en").map(({ voice }) => voice.id)).toEqual(["en-sarah"])
+    const casual = briefFor(input({ formality: "casual" }))
+    expect(rank(casual, "ja", DICTIONARY_ONLY).map(({ voice }) => voice.id)).toEqual(["ja-kyoko"])
+    expect(rank(casual, "en", DICTIONARY_ONLY).map(({ voice }) => voice.id)).toEqual(["en-sarah"])
   })
 
   it("prefers a voice that lists the register over one let in by the relaxed filter", () => {
@@ -207,8 +227,8 @@ describe("tied", () => {
 
 describe("casts", () => {
   it("castVoices returns only cast voices of the language", () => {
-    expect(castVoices("ja").map((voice) => voice.id)).toEqual(["ja-kyoko"])
-    expect(castVoices("en").map((voice) => voice.id)).toEqual(["en-sarah"])
+    expect(castVoices("ja", DICTIONARY_ONLY).map((voice) => voice.id)).toEqual(["ja-kyoko"])
+    expect(castVoices("en", DICTIONARY_ONLY).map((voice) => voice.id)).toEqual(["en-sarah"])
     expect(castVoices("ja", FULL_CASTS).length).toBeGreaterThan(1)
   })
 
@@ -226,5 +246,12 @@ describe("casts", () => {
         expect(voice.tags.formality.length).toBeGreaterThan(0)
       }
     }
+  })
+
+  it("never casts one provider voice in two roles", () => {
+    const providerIds = [...CASTS.ja, ...CASTS.en].flatMap((voice) =>
+      voice.providerId === null ? [] : [voice.providerId]
+    )
+    expect(new Set(providerIds).size).toBe(providerIds.length)
   })
 })

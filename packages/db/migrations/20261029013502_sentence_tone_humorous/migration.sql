@@ -1,0 +1,1 @@
+ALTER TYPE "sentence_tone" ADD VALUE 'humorous';
