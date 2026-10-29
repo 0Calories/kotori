@@ -88,6 +88,11 @@ const Faces = ({
             ) : (
               <AudioButton url={content.audioUrl} size={44} />
             )}
+            {content.note ? (
+              <Text variant="small" color="textMuted" align="center">
+                {content.note}
+              </Text>
+            ) : null}
             {content.example ? (
               <View
                 style={{

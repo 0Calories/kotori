@@ -432,6 +432,7 @@ export class Dictionary extends Context.Service<
         const formality = new Map(
           (yield* enrichment.nuanceFor(ids)).map((row) => [`${row.entryId}:${row.sense}`, row.nuance.formality.value])
         )
+        const notes = new Map((yield* enrichment.senseNotesFor(ids)).map((row) => [`${row.entryId}:${row.sense}`, row]))
         const examples = yield* enrichment.examplesFor(ids)
         const clips = yield* enrichment.exampleAudio(examples.map((example) => example.id))
 
@@ -460,6 +461,8 @@ export class Dictionary extends Context.Service<
               matched: match.position,
               partOfSpeech: sense.pos[0] ?? record.senses[0]?.pos[0] ?? null,
               formality: formality.get(`${record.id}:${match.sense}`) ?? null,
+              note: notes.get(`${record.id}:${match.sense}`)?.note ?? null,
+              noteJa: notes.get(`${record.id}:${match.sense}`)?.noteJa ?? null,
               examples: examples
                 .filter((example) => example.entryId === record.id && example.sense === match.sense)
                 .map((example) => toExample(example, clips))

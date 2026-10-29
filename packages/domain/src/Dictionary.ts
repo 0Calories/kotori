@@ -169,6 +169,10 @@ export const EnglishMeaning = Schema.Struct({
   matched: Schema.Int,
   partOfSpeech: Schema.NullOr(Schema.String),
   formality: Schema.NullOr(Formality),
+  /** Kotori's usage note on the sense for learners of Japanese, in English. */
+  note: Schema.NullOr(Schema.String),
+  /** The note on the sense's English side for Japanese speakers, in Japanese. */
+  noteJa: Schema.NullOr(Schema.String),
   examples: Schema.Array(Example)
 })
 export type EnglishMeaning = typeof EnglishMeaning.Type

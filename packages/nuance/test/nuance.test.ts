@@ -33,6 +33,18 @@ describe("interpretSense", () => {
     assert.strictEqual(nuance.medium.value, "both")
   })
 
+  it("derives the stiff-between-friends caution from the register judgments", () => {
+    assert.strictEqual(interpretSense(answers, []).cautions.stiffWithFriends, 0)
+    const formal = interpretSense({ ...answers, formality: score(4, 0.9) }, [])
+    assert.closeTo(formal.cautions.stiffWithFriends, 0.9, 1e-9)
+    const written = interpretSense({ ...answers, medium: score(2, 0.8) }, [])
+    assert.closeTo(written.cautions.stiffWithFriends, 0.8, 1e-9)
+    const humble = interpretSense({ ...answers, keigo: choice("kenjougo", 0.7) }, [])
+    assert.closeTo(humble.cautions.stiffWithFriends, 0.7, 1e-9)
+    // A JMDict honorific tag is authoritative, so the caution is certain.
+    assert.strictEqual(interpretSense(answers, ["hon"]).cautions.stiffWithFriends, 1)
+  })
+
   it("lets JMDict's usage tags override Jev", () => {
     const nuance = interpretSense(answers, ["hon"])
     assert.deepStrictEqual(nuance.formality, { value: "formal", position: 1, confidence: 1, source: "jmdict" })
@@ -139,6 +151,28 @@ layer(TestLayer)("NuanceEnricher", (it) => {
         similar.map((row) => [row.similarId, row.difference]),
         [[2, "more_casual"]]
       )
+    })
+  )
+
+  it.effect("reinterprets stored answers without calling Jev", () =>
+    Effect.gen(function* () {
+      const dictionary = yield* DictionaryRepo
+      yield* dictionary.insertEntries([entry(4, "走る", "はしる", [sense(["to run"])])])
+      const enricher = yield* NuanceEnricher
+      yield* enricher.enrich(4)
+
+      const repo = yield* EnrichmentRepo
+      const [judged] = yield* repo.nuanceFor([4])
+      // Corrupt the interpretation; a reinterpretation must rebuild it from the stored answers.
+      yield* repo.updateNuance(4, 0, {
+        ...judged!.nuance,
+        formality: { value: "vulgar", position: 0, confidence: 1, source: "jev" }
+      })
+
+      const summary = yield* enricher.reinterpret(4)
+      assert.strictEqual(summary.senses, 1)
+      const [restored] = yield* repo.nuanceFor([4])
+      assert.deepStrictEqual(restored!.nuance, judged!.nuance)
     })
   )
 })

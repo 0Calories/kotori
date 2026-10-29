@@ -9,7 +9,7 @@ import type {
   SpeakerAge,
   SpeakerGender
 } from "@kotori/domain"
-import { asc, desc, eq, gte, inArray, sum } from "drizzle-orm"
+import { and, asc, desc, eq, gte, inArray, sum } from "drizzle-orm"
 import { Context, Effect, Layer, Option } from "effect"
 import { Database } from "./Database.ts"
 import { at, millis } from "./rows.ts"
@@ -122,6 +122,14 @@ export class EnrichmentRepo extends Context.Service<
   {
     saveNuance(entryId: number, rows: ReadonlyArray<NuanceInput>, now: number): Effect.Effect<void>
     nuanceFor(entryIds: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<NuanceRow>>
+    /** Every entry holding stored nuance, for reinterpretation sweeps. */
+    nuanceEntryIds(): Effect.Effect<ReadonlyArray<number>>
+    /** The raw Jev answers per sense, so nuance can be re-derived without inference. */
+    nuanceAnswersFor(
+      entryId: number
+    ): Effect.Effect<ReadonlyArray<{ readonly sense: number; readonly answers: unknown }>>
+    /** Rewrites the interpreted nuance, leaving the answers, model and timestamp untouched. */
+    updateNuance(entryId: number, sense: number, nuance: Nuance): Effect.Effect<void>
     saveSimilar(entryId: number, rows: ReadonlyArray<SimilarRow>): Effect.Effect<void>
     similarFor(entryId: number): Effect.Effect<ReadonlyArray<SimilarRow>>
     saveExamples(entryId: number, rows: ReadonlyArray<ExampleInput>, now: number): Effect.Effect<void>
@@ -181,6 +189,29 @@ export class EnrichmentRepo extends Context.Service<
           .from(senseNuance)
           .where(inArray(senseNuance.entryId, entryIds))
       }, Effect.orDie)
+
+      const nuanceEntryIds = Effect.fn("EnrichmentRepo.nuanceEntryIds")(function* () {
+        const rows = yield* db
+          .selectDistinct({ entryId: senseNuance.entryId })
+          .from(senseNuance)
+          .orderBy(asc(senseNuance.entryId))
+        return rows.map((row) => row.entryId)
+      }, Effect.orDie)
+
+      const nuanceAnswersFor = Effect.fn("EnrichmentRepo.nuanceAnswersFor")(function* (entryId: number) {
+        return yield* db
+          .select({ sense: senseNuance.sense, answers: senseNuance.answers })
+          .from(senseNuance)
+          .where(eq(senseNuance.entryId, entryId))
+          .orderBy(asc(senseNuance.sense))
+      }, Effect.orDie)
+
+      const updateNuance = (entryId: number, sense: number, nuance: Nuance) =>
+        db
+          .update(senseNuance)
+          .set({ nuance })
+          .where(and(eq(senseNuance.entryId, entryId), eq(senseNuance.sense, sense)))
+          .pipe(Effect.asVoid, Effect.orDie)
 
       const saveSimilar = Effect.fn("EnrichmentRepo.saveSimilar")(function* (
         entryId: number,
@@ -346,6 +377,9 @@ export class EnrichmentRepo extends Context.Service<
       return EnrichmentRepo.of({
         saveNuance,
         nuanceFor,
+        nuanceEntryIds,
+        nuanceAnswersFor,
+        updateNuance,
         saveSimilar,
         similarFor,
         saveExamples,

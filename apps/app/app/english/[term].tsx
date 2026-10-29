@@ -110,6 +110,12 @@ const MeaningCard = ({
             ) : null}
           </View>
         ) : null}
+        {/* The audience here is Japanese natives, so the sense note is the Japanese one. */}
+        {meaning.noteJa ? (
+          <Text jp variant="small" color="textMuted">
+            {meaning.noteJa}
+          </Text>
+        ) : null}
         {meaning.examples.map((example) => (
           <ExampleRow key={example.id} example={example} />
         ))}
@@ -158,6 +164,8 @@ export default function EnglishScreen() {
         reading: meaning.reading,
         glosses: meaning.glosses,
         formality: meaning.formality,
+        medium: null,
+        note: meaning.noteJa,
         example: meaning.examples[0],
         audioUrl: null
       })

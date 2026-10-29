@@ -135,6 +135,9 @@ const rudeToSuperiors: NoulQuestion = {
 // Asked whether a word "sounds stiff between friends", Jev answers whether the subject
 // is awkward to raise. Asking what kind of vocabulary it is keeps keigo and bookish
 // words stiff without catching everyday words for delicate things.
+// Still asked for the recorded answers only: the displayed caution is now derived from
+// the formality, medium and keigo judgments (interpret.ts); the question itself goes
+// away with the Phase B question bump (docs/nuance-rework.md).
 const stiffWithFriends: NoulQuestion = {
   type: "noul",
   instructions: `Is the Japanese word \`word\` (meaning \`meaning\`) keigo, or found mostly in formal, official, academic or clinical language, rather than in the everyday speech of ordinary people? Judge the Japanese word, not the English gloss. ${SUBJECT_NOT_REGISTER}`,

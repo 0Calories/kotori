@@ -35,8 +35,10 @@ export const WordNote = Schema.Struct({
   headword: Schema.String,
   reading: Schema.String,
   meaning: Schema.String,
-  /** A short nuance hint shown on production cards, e.g. "casual, spoken". */
+  /** A short nuance hint shown on production cards, e.g. "Casual · Speech". */
   hint: Schema.NullOr(Schema.String),
+  /** The sense's usage note, shown on the card back; absent on notes saved before it existed. */
+  note: Schema.optional(Schema.NullOr(Schema.String)),
   example: Schema.NullOr(SavedExample),
   audioUrl: Schema.NullOr(Schema.String)
 })

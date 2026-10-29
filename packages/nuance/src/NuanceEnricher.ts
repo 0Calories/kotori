@@ -25,6 +25,8 @@ export class NuanceEnricher extends Context.Service<
   {
     readonly model: string
     enrich(entryId: number): Effect.Effect<NuanceSummary, JevError | EntryNotFound>
+    /** Re-derives an entry's nuance from its stored answers and tags, without inference. */
+    reinterpret(entryId: number): Effect.Effect<{ readonly senses: number }, EntryNotFound>
   }
 >()("@kotori/nuance/NuanceEnricher") {
   static readonly layer = Layer.effect(
@@ -102,7 +104,24 @@ export class NuanceEnricher extends Context.Service<
         }
       })
 
-      return NuanceEnricher.of({ model: jev.model, enrich })
+      const reinterpret = Effect.fn("NuanceEnricher.reinterpret")(function* (entryId: number) {
+        const [entry] = yield* dictionary.getEntries([entryId])
+        if (entry === undefined) return yield* new EntryNotFound({ entryId })
+        const rows = yield* enrichment.nuanceAnswersFor(entryId)
+        yield* Effect.forEach(
+          rows,
+          (row) =>
+            enrichment.updateNuance(
+              entryId,
+              row.sense,
+              interpretSense(row.answers as SenseAnswers, entry.senses[row.sense]?.misc ?? [])
+            ),
+          { discard: true }
+        )
+        return { senses: rows.length }
+      })
+
+      return NuanceEnricher.of({ model: jev.model, enrich, reinterpret })
     })
   )
 }

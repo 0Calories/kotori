@@ -92,21 +92,44 @@ const choice = <L extends string>(answer: ChoiceResponse, tagged: L | undefined)
     ? { value: tagged, confidence: 1, source: "jmdict" as JudgmentSource }
     : { value: answer.choice as L, confidence: answer.confidence, source: "jev" as JudgmentSource }
 
+/**
+ * "Sounds stiff between friends" is a function of the register judgments, not a question
+ * of its own: asked directly, Jev kept judging whether the *topic* was awkward to raise
+ * rather than the register (see the history on `stiffWithFriends` in questions.ts). A word
+ * is stiff among friends when it is formal, respectful or humble keigo, or lives in
+ * written language; the probability is the confidence of whichever judgment says so.
+ */
+const stiffBetweenFriends = (
+  formality: Nuance["formality"],
+  medium: Nuance["medium"],
+  keigo: Nuance["keigo"]
+): number =>
+  Math.max(
+    formality.value === "formal" ? formality.confidence : 0,
+    keigo.value === "sonkeigo" || keigo.value === "kenjougo" ? keigo.confidence : 0,
+    medium.value === "written" ? medium.confidence : 0
+  )
+
 /** Combines Jev's answers for a sense with its JMDict tags into the nuance shown to learners. */
-export const interpretSense = (answers: SenseAnswers, misc: ReadonlyArray<string>): Nuance => ({
-  formality: scale(FORMALITY_LEVELS, answers.formality, firstTag(misc, FORMALITY_TAGS)),
-  medium: scale(MEDIUM_LEVELS, answers.medium, firstTag(misc, MEDIUM_TAGS)),
-  keigo: choice<Keigo>(answers.keigo, firstTag(misc, KEIGO_TAGS)),
-  gender: choice<Gender>(answers.gender, firstTag(misc, GENDER_TAGS)),
-  age: choice<AgeGroup>(answers.age, firstTag(misc, AGE_TAGS)),
-  currency: choice<Currency>(answers.currency, firstTag(misc, CURRENCY_TAGS)),
-  connotation: choice<Connotation>(answers.connotation, firstTag(misc, CONNOTATION_TAGS)),
-  cautions: {
-    rudeToSuperiors: answers.rudeToSuperiors.noul,
-    stiffWithFriends: answers.stiffWithFriends.noul,
-    slang: misc.some((tag) => SLANG_TAGS.includes(tag)) ? 1 : answers.slang.noul
+export const interpretSense = (answers: SenseAnswers, misc: ReadonlyArray<string>): Nuance => {
+  const formality = scale(FORMALITY_LEVELS, answers.formality, firstTag(misc, FORMALITY_TAGS))
+  const medium = scale(MEDIUM_LEVELS, answers.medium, firstTag(misc, MEDIUM_TAGS))
+  const keigo = choice<Keigo>(answers.keigo, firstTag(misc, KEIGO_TAGS))
+  return {
+    formality,
+    medium,
+    keigo,
+    gender: choice<Gender>(answers.gender, firstTag(misc, GENDER_TAGS)),
+    age: choice<AgeGroup>(answers.age, firstTag(misc, AGE_TAGS)),
+    currency: choice<Currency>(answers.currency, firstTag(misc, CURRENCY_TAGS)),
+    connotation: choice<Connotation>(answers.connotation, firstTag(misc, CONNOTATION_TAGS)),
+    cautions: {
+      rudeToSuperiors: answers.rudeToSuperiors.noul,
+      stiffWithFriends: stiffBetweenFriends(formality, medium, keigo),
+      slang: misc.some((tag) => SLANG_TAGS.includes(tag)) ? 1 : answers.slang.noul
+    }
   }
-})
+}
 
 export interface SimilarJudgment {
   readonly similarId: number

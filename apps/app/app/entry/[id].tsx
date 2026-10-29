@@ -128,6 +128,30 @@ const NuanceNotes = ({
   )
 }
 
+/** The register in words — "Casual · Speech" — expandable to the labelled scales. */
+const RegisterBlock = ({ nuance }: { readonly nuance: Nuance }) => {
+  const { t } = useSession()
+  const [expanded, setExpanded] = useState(false)
+  const rows = registerDisplay(t, nuance).rows
+  if (rows.length === 0) return null
+  return (
+    <View style={{ gap: 12 }}>
+      <PressableScale
+        onPress={() => setExpanded(!expanded)}
+        accessibilityRole="button"
+        accessibilityLabel={expanded ? t.nuance.hideScales : t.nuance.showScales}
+        style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+      >
+        <Text variant="small" weight="semibold" color="textMuted" style={{ flex: 1 }}>
+          {rows.map((row) => row.value).join(" · ")}
+        </Text>
+        <Icon name={expanded ? "expand_less" : "expand_more"} size={20} color={theme.color.textMuted} />
+      </PressableScale>
+      {expanded ? <NuanceScales rows={rows} labelled /> : null}
+    </View>
+  )
+}
+
 /** Where the word sits between casual and formal, and between speech and writing. */
 const NuanceCard = ({ nuance }: { readonly nuance: Nuance }) => {
   const { t } = useSession()
@@ -136,8 +160,8 @@ const NuanceCard = ({ nuance }: { readonly nuance: Nuance }) => {
   if (rows.length + chips.length + tags.length + cautions.length === 0) return null
   return (
     <Animated.View entering={FadeInDown.delay(60).duration(350)}>
-      <Card style={{ gap: 14, paddingHorizontal: 18, paddingBottom: 12 }}>
-        {rows.length > 0 ? <NuanceScales rows={rows} labelled /> : null}
+      <Card style={{ gap: 12, paddingHorizontal: 18, paddingVertical: 14 }}>
+        <RegisterBlock nuance={nuance} />
         <NuanceNotes nuance={nuance} register={chips} />
       </Card>
     </Animated.View>
@@ -177,7 +201,7 @@ const SenseCard = ({
   )
   const open = (id: number) => router.push({ pathname: "/entry/[id]", params: { id: String(id) } })
   const tags = [...sense.misc, ...sense.fields, ...sense.dialects]
-  const register = showScales && sense.nuance ? registerDisplay(t, sense.nuance) : { rows: [], chips: [] }
+  const registerChips = showScales && sense.nuance ? registerDisplay(t, sense.nuance).chips : []
   // Japanese speakers get the note about the English side; everyone else the note about the Japanese.
   const usage = english ? sense.noteJa : sense.note
 
@@ -242,12 +266,8 @@ const SenseCard = ({
             {t.entry.appliesTo(sense.appliesTo.join("、"))}
           </Text>
         ) : null}
-        {register.rows.length > 0 ? (
-          <View style={{ paddingVertical: 4, paddingRight: 4 }}>
-            <NuanceScales rows={register.rows} labelled />
-          </View>
-        ) : null}
-        {showNuance && sense.nuance ? <NuanceNotes nuance={sense.nuance} register={register.chips} /> : null}
+        {showScales && sense.nuance ? <RegisterBlock nuance={sense.nuance} /> : null}
+        {showNuance && sense.nuance ? <NuanceNotes nuance={sense.nuance} register={registerChips} /> : null}
         {usage ? (
           <Text variant="small" color="textMuted">
             {usage}
@@ -361,19 +381,24 @@ export default function EntryScreen() {
       note.content.kind === "word" && note.content.entryId === data.id ? [note.content.senseIndex] : []
     )
   )
-  const save = (sense: Sense) =>
-    addNote.mutate({
+  const save = (sense: Sense) => {
+    const formality = sense.nuance && sense.nuance.formality.confidence >= CONFIDENT ? sense.nuance.formality : null
+    const medium = sense.nuance && sense.nuance.medium.confidence >= CONFIDENT ? sense.nuance.medium : null
+    return addNote.mutate({
       content: wordNote(t, {
         entryId: data.id,
         sense: sense.index,
         headword: data.headword,
         reading: data.reading,
         glosses: sense.glosses,
-        formality: sense.nuance?.formality.value ?? null,
+        formality: formality?.value ?? null,
+        medium: medium?.value ?? null,
+        note: (profile?.targetLanguage === "en" ? sense.noteJa : sense.note) ?? null,
         example: sense.examples[0],
         audioUrl: data.audioUrl
       })
     })
+  }
   const share = () =>
     Share.share({
       message: `${data.headword}${data.reading === data.headword ? "" : `（${data.reading}）`} ${data.senses[0]?.glosses.slice(0, 3).join("; ") ?? ""}`

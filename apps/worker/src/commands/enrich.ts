@@ -1,4 +1,5 @@
-import { DictionaryRepo } from "@kotori/db"
+import { DictionaryRepo, EnrichmentRepo } from "@kotori/db"
+import { NuanceEnricher } from "@kotori/nuance"
 import { Console, Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { Enrichers } from "../Enrichers.ts"
@@ -18,9 +19,36 @@ export const enrich = Command.make(
     commonOnly: Flag.Boolean("common-only").pipe(
       Flag.withDescription("Only entries JMDict marks as common"),
       Flag.withDefault(true)
+    ),
+    reinterpret: Flag.Boolean("reinterpret").pipe(
+      Flag.withDescription(
+        "Nuance only: re-derive every stored judgment from its saved answers, without calling Jev. Ignores --limit and --common-only; honours --entry."
+      ),
+      Flag.withDefault(false)
     )
   },
-  Effect.fn(function* ({ kind, entry, limit, concurrency, commonOnly }) {
+  Effect.fn(function* ({ kind, entry, limit, concurrency, commonOnly, reinterpret }) {
+    if (reinterpret) {
+      if (kind !== "nuance") return yield* Console.error("--reinterpret only applies to nuance.")
+      const nuance = yield* NuanceEnricher
+      const ids = Option.isSome(entry) ? [entry.value] : yield* (yield* EnrichmentRepo).nuanceEntryIds()
+      yield* Console.log(`Reinterpreting stored nuance for ${ids.length} entries…`)
+      let senses = 0
+      let failed = 0
+      yield* Effect.forEach(
+        ids,
+        (id) =>
+          nuance.reinterpret(id).pipe(
+            Effect.tap((summary) => Effect.sync(() => (senses += summary.senses))),
+            Effect.catchCause((cause) =>
+              Effect.logWarning(`${id} failed`, cause).pipe(Effect.tap(() => Effect.sync(() => failed++)))
+            )
+          ),
+        { concurrency, discard: true }
+      )
+      return yield* Console.log(`Done: ${senses} senses reinterpreted, ${failed} entries failed.`)
+    }
+
     const enrichers = yield* Enrichers
     if (!(yield* enrichers.available).includes(kind)) {
       return yield* Console.error(`No provider is configured for ${kind}. See .env.example.`)
