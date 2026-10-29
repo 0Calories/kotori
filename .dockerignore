@@ -7,6 +7,7 @@ node_modules
 **/*.tsbuildinfo
 .nx
 .expo
+.vercel
 data
 .env
 .env.*

@@ -37,6 +37,7 @@ catalog:
   "@neon/config": ^1.9.3
   knip: ^6.42.1
   typescript: npm:@typescript/typescript6@~6.0.2
+  vercel: ^65.5.0
 
 allowBuilds:
   "@resvg/resvg-js": true

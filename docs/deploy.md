@@ -41,13 +41,13 @@ In order. Each step is independent of the ones after it unless it says otherwise
    fly ssh console --process-group worker -C "node apps/worker/dist/main.js admin you@example.com"
    ```
 
-6. **Deploy from CI.** The Fly deploy job currently skips. Create a deploy token and set it as the repository secret `FLY_API_TOKEN`, then the repository variable `FLY_DEPLOY=true`:
+6. **Give CI its deploy credentials.** The deploy job runs on every push to `main` and fails without these. Create a Fly deploy token and set it as the repository secret `FLY_API_TOKEN`:
 
    ```sh
    fly tokens create deploy -x 8760h
    ```
 
-   `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` are set as repository variables but no workflow reads them; Vercel deploys through its own Git integration. Remove them, or keep them for a CI-driven Vercel deploy if that is the plan.
+   Create a Vercel access token scoped to the team (Account Settings → Tokens) and set it as the repository secret `VERCEL_TOKEN`. `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` are already repository variables. The `FLY_DEPLOY` variable is no longer read.
 
 7. **Decide about Vercel previews.** Each preview deployment gets its own origin, which the allowlist rejects, so previews load but cannot sign in or call the API. Either leave them that way, turn preview builds off in the project's Git settings, or wait for preview backends (`operations.md`, Follow-ups).
 

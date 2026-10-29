@@ -3,5 +3,6 @@
   "tags": ["-lintignore"],
   "workspaces": {
     ".": {}
-  }
+  },
+  "ignoreBinaries": ["flyctl"]
 }

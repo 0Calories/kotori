@@ -21,5 +21,32 @@
     "@kotori/srs": "workspace:*",
     "@kotori/tts": "workspace:*",
     "effect": "catalog:"
+  },
+  "nx": {
+    "targets": {
+      "deploy": {
+        "dependsOn": [
+          "build",
+          {
+            "projects": [
+              "@kotori/worker"
+            ],
+            "target": "build"
+          }
+        ],
+        "inputs": [
+          "production",
+          {
+            "dependentTasksOutputFiles": "**/*",
+            "transitive": true
+          },
+          "{workspaceRoot}/packages/db/migrations/**/*",
+          "{workspaceRoot}/Dockerfile",
+          "{workspaceRoot}/.dockerignore",
+          "{workspaceRoot}/fly.toml"
+        ],
+        "command": "flyctl deploy --remote-only"
+      }
+    }
   }
 }
