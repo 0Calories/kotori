@@ -138,7 +138,7 @@ describe("rank", () => {
 
   it("picks a casual young voice for vulgar banter, honouring the speaker's gender", () => {
     expect(topVoice(briefFor(input({ formality: "vulgar", speakerGender: "masculine", speakerAge: "youth" })))).toBe(
-      "ja-casual-m"
+      "ja-casual-m2"
     )
     expect(topVoice(briefFor(input({ formality: "vulgar", speakerGender: "feminine", speakerAge: "youth" })))).toBe(
       "ja-casual-f"
@@ -148,6 +148,20 @@ describe("rank", () => {
   it("picks the elder narrator for an archaic proverb", () => {
     const brief = briefFor(input({ formality: "neutral", medium: "narration" }, { misc: ["arch"] }))
     expect(topVoice(brief)).toBe("ja-elder-m")
+  })
+
+  it("sends a humorous standard-Japanese line to the comic Kansai voice", () => {
+    const brief = briefFor(input({ formality: "casual", tone: "humorous", speakerGender: "masculine" }))
+    expect(brief.variety).toBeNull()
+    expect(topVoice(brief)).toBe("ja-kansai-m")
+    // Without the joke, the variety filter keeps the Kansai voice out entirely.
+    const plain = rank(briefFor(input({ formality: "casual", speakerGender: "masculine" })), "ja", FULL_CASTS)
+    expect(plain.map(({ voice }) => voice.id)).not.toContain("ja-kansai-m")
+  })
+
+  it("keeps gender ahead of humour: a woman's joke stays with a woman's voice", () => {
+    const brief = briefFor(input({ formality: "casual", tone: "humorous", speakerGender: "feminine" }))
+    expect(rank(brief, "ja", FULL_CASTS)[0]!.voice.tags.gender).toBe("feminine")
   })
 
   it("gives no adult voice an adjacency bonus for a child speaker", () => {
@@ -161,7 +175,7 @@ describe("rank", () => {
     const child = scores("child")
     const unspecified = scores(null)
     // Youth sits next to child by age, but a child line read by a youth still mismatches.
-    expect(child.get("ja-casual-m")).toBe(unspecified.get("ja-casual-m")! - 1)
+    expect(child.get("ja-casual-m2")).toBe(unspecified.get("ja-casual-m2")! - 1)
   })
 
   it("matches feminine misc words to feminine voices", () => {
@@ -178,7 +192,7 @@ describe("rank", () => {
 
   it("casts both languages from one brief onto matching speakers", () => {
     const brief = briefFor(input({ formality: "casual", speakerGender: "masculine", speakerAge: "youth" }))
-    expect(topVoice(brief, "ja")).toBe("ja-casual-m")
+    expect(topVoice(brief, "ja")).toBe("ja-casual-m2")
     expect(topVoice(brief, "en")).toBe("en-casual-m")
   })
 

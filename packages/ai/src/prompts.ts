@@ -87,7 +87,7 @@ For each sentence give:
 - "speaker": who would plausibly say this line — "gender" masculine, feminine or unspecified, and "age" child, youth, adult, middle-aged, older or unspecified. Judge from the wording (sentence-final particles, pronouns, vocabulary, situation); use unspecified when nothing in the sentence suggests otherwise;
 - "medium": conversation (someone talking to someone), announcement (news, notices, public address, business mail read aloud) or narration (prose, proverbs, descriptions);
 - "variety": the regional variety the sentence is written in, as one lowercase word such as "kansai", "tohoku" or "kyushu"; null for standard Japanese;
-- "tone": the dominant feel of the delivery — neutral, cheerful, serious, gentle or rough;
+- "tone": the dominant feel of the delivery — neutral, cheerful, serious, gentle, rough, or humorous for a joke, gag, pun or comic exaggeration;
 - "note": one short English note on usage or nuance when it teaches something (a collocation, why this register, a common mistake); otherwise null.
 
 Return the sense numbers exactly as given.`

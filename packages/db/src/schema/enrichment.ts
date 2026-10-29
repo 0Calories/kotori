@@ -32,7 +32,7 @@ export const formality = pgEnum("formality", ["vulgar", "casual", "neutral", "po
 export const speakerGender = pgEnum("speaker_gender", ["masculine", "feminine", "unspecified"])
 export const speakerAge = pgEnum("speaker_age", ["child", "youth", "adult", "middle-aged", "older", "unspecified"])
 export const sentenceMedium = pgEnum("sentence_medium", ["conversation", "announcement", "narration"])
-export const sentenceTone = pgEnum("sentence_tone", ["neutral", "cheerful", "serious", "gentle", "rough"])
+export const sentenceTone = pgEnum("sentence_tone", ["neutral", "cheerful", "serious", "gentle", "rough", "humorous"])
 /** How a clip's voice was chosen; see docs/voice-casting.md. */
 export const castBy = pgEnum("cast_by", ["rules", "jev", "manual"])
 export const difference = pgEnum("difference", [
