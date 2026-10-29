@@ -112,7 +112,8 @@ export const parseEjdict = (lines: Iterable<string>) => {
         )
         continue
       }
-      const form = formOf(trimmed)
+      // Usage labels may come first: "《古・詩》blessの過去・過去分詞".
+      const form = formOf(trimmed.replace(/《[^《》]*》/g, ""))
       if (form !== null) {
         formsOf.push({ text: headword, ...form })
         continue

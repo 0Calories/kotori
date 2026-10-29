@@ -155,6 +155,12 @@ layer(TestLayer)("Dictionary", (it) => {
         }),
         word(100000002, "eatery", [sense(["食堂"], ["n"])], { common: false, priority: 10 }),
         word(100000003, "team", [sense(["チーム"], ["n"]), sense(["チームを組む"], ["v"])]),
+        // An acronym spelled the same, inflected like a word: another word altogether.
+        word(100000004, "START", [sense(["戦略兵器削減交渉"], ["n"], ["abbr"])], {
+          priority: 95,
+          inflections: [["STARTed", ["past"]]]
+        }),
+        word(100000005, "start", [sense(["始める"], ["v"])], { priority: 60 }),
         // A Japanese word glossed "eat" is in the other dictionary and never comes up.
         entry(1358280, "食べる", "たべる", [sense(["to eat"], ["v1"])])
       ])
@@ -178,6 +184,12 @@ layer(TestLayer)("Dictionary", (it) => {
       assert.deepStrictEqual(
         ate.entries.map((summary) => [summary.headword, summary.inflection]),
         [["eat", ["past"]]]
+      )
+      // "started" is start's past before it is the acronym's, however common the acronym.
+      const started = yield* dictionary.search("started", "en", 10)
+      assert.deepStrictEqual(
+        started.entries.map((summary) => summary.headword),
+        ["start", "START"]
       )
       // Words whose sources list no forms are reached by the regular rules.
       const teams = yield* dictionary.search("teams", "en", 10)

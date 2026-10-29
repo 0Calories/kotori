@@ -1,14 +1,15 @@
-import { assert, layer } from "@effect/vitest"
+import { afterAll, assert, layer } from "@effect/vitest"
 import { DictionaryRepo, Repositories } from "@kotori/db"
 import { DatabaseMemory } from "@kotori/db/testing"
-import { Effect, FileSystem, Layer } from "effect"
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs"
+import { Effect, Layer } from "effect"
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Eiwa } from "../src/index.ts"
 
 // The importer streams its sources from disk, so the fixtures are real files.
 const directory = mkdtempSync(join(tmpdir(), "eiwa-"))
+afterAll(() => rmSync(directory, { recursive: true, force: true }))
 const file = (name: string, lines: ReadonlyArray<string>) => {
   const path = join(directory, name)
   writeFileSync(path, lines.join("\n"))
@@ -40,9 +41,7 @@ const files = (withWalk: boolean) => ({
 })
 const jmdictFile = file("JMdict.xml", [jmdict])
 
-// Only the JMDict file is read through Effect's file system.
-const Files = FileSystem.layerNoop({ readFile: (path) => Effect.sync(() => new Uint8Array(readFileSync(path))) })
-const TestLayer = Layer.mergeAll(Repositories, Files).pipe(Layer.provideMerge(DatabaseMemory))
+const TestLayer = Repositories.pipe(Layer.provideMerge(DatabaseMemory))
 
 layer(TestLayer)("Eiwa.importFiles", (it) => {
   it.effect("loads each word from the first source that has it, next to JMDict's", () =>

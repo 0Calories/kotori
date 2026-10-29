@@ -68,6 +68,8 @@ const RARE = new Set(["arch", "obs", "obsc", "rare", "hist", "vulg", "X", "derog
 
 interface Candidate {
   readonly japanese: string
+  /** Whether JMDict marks the Japanese word common. */
+  readonly common: boolean
   readonly pos: ReadonlyArray<string>
   readonly score: number
 }
@@ -113,7 +115,7 @@ export const jmdictReader = (known: KnownEnglish) => {
           (sense.misc.some((tag) => RARE.has(tag)) ? 25 : 0)
         const list = candidates.get(term) ?? []
         candidates.set(term, list)
-        list.push({ japanese: entry.headword, pos: partOfSpeech(sense.pos), score })
+        list.push({ japanese: entry.headword, common: entry.common, pos: partOfSpeech(sense.pos), score })
       })
     })
   }
@@ -133,7 +135,10 @@ export const jmdictReader = (known: KnownEnglish) => {
           ...emptySense(),
           glosses: [{ text: candidate.japanese, type: null }],
           pos: [...candidate.pos]
-        }))
+        })),
+        // A common Japanese word for it vouches for the count, and names are rarely hyphenated
+        // ("ex-wife"). Otherwise the count may be a name's: 韓国海苔 is glossed "kim".
+        mayBeName: !headword.includes("-") && !list.some((candidate) => candidate.common)
       }
     })
 

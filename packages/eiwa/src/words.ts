@@ -29,6 +29,11 @@ export interface Word {
   readonly inflections: ReadonlyArray<InflectedForm>
   readonly senses: ReadonlyArray<SenseRecord>
   readonly references?: ReadonlyArray<References>
+  /**
+   * The subtitles may count a name spelled the same way ("kim", "erica"), so the count
+   * can't say the word is common.
+   */
+  readonly mayBeName?: boolean
 }
 
 /**
@@ -69,16 +74,29 @@ export const inflectionsNamed = (text: string): Array<Inflection> => {
   return tags
 }
 
-/** "beの過去分詞形", "eatの直説法現在第三人称単数形", "win の過去・過去分詞": a form of another word, not a meaning. */
-const FORM_OF =
-  /^([A-Za-z][A-Za-z' -]*?)\s*の\s*([^/]*?(?:過去|分詞|三人称|複数|比較級|最上級|現在形|動名詞)[^/]*?)。?$/
+/** The word a gloss names at its start, bare or quoted: beの…, "ask" の…, 「look」の…, 'tisの…. */
+const BASE = /^["“「]?([A-Za-z'][A-Za-z' .-]*?)["”」]?\s*の\s*/
 
-/** The word a gloss says this one is a form of, and which form, or null for a gloss that is a meaning. */
+/** "beの過去分詞形", "\"ask\" の過去形・過去分詞形", "win の過去・過去分詞": an inflection of another word. */
+const INFLECTION_OF = new RegExp(
+  `${BASE.source}([^/]*?(?:過去|分詞|三人称|複数|比較級|最上級|現在形|動名詞)[^/]*?)。?$`
+)
+
+/** "Atumの異綴", "cinqueの旧綴り", "judgmentの異綴、米国でも時折みられる": another spelling of the word. */
+const SPELLING_OF = new RegExp(`${BASE.source}(?:異綴り?|別綴り|旧綴り|異形|別表記|綴り誤り)(?:[、。].*)?$`)
+
+/**
+ * The word a gloss says this one is a form of, and which inflections it is (none for another
+ * spelling), or null for a gloss that is a meaning.
+ */
 export const formOf = (gloss: string): { readonly base: string; readonly tags: ReadonlyArray<Inflection> } | null => {
-  const match = FORM_OF.exec(gloss.trim())
-  if (match === null) return null
-  const tags = inflectionsNamed(match[2]!)
-  return tags.length === 0 ? null : { base: match[1]!.trim(), tags }
+  const text = gloss.trim()
+  const spelling = SPELLING_OF.exec(text)
+  if (spelling !== null) return { base: spelling[1]!.trim(), tags: [] }
+  const inflection = INFLECTION_OF.exec(text)
+  if (inflection === null) return null
+  const tags = inflectionsNamed(inflection[2]!)
+  return tags.length === 0 ? null : { base: inflection[1]!.trim(), tags }
 }
 
 /** Words made only of English letters, digits and the punctuation inside English words and phrases. */

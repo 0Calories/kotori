@@ -1,5 +1,5 @@
-import { Language } from "@kotori/domain"
 import { Schema } from "effect"
+import { formKind, language } from "./schema/dictionary.ts"
 
 /** Dictionary data as stored, close to JMDict's own structure; English entries share it. */
 export const GlossRecord = Schema.Struct({
@@ -10,7 +10,7 @@ export type GlossRecord = typeof GlossRecord.Type
 
 export const FormRecord = Schema.Struct({
   /** Japanese words are written in kanji and kana; English ones have spellings and inflections. */
-  kind: Schema.Literals(["kanji", "kana", "spelling", "inflection"]),
+  kind: Schema.Literals(formKind.enumValues),
   text: Schema.String,
   common: Schema.Boolean,
   /** ke_inf / re_inf tag codes (e.g. "rK" rarely-used kanji, "sk" search-only); what an inflection is ("past"). */
@@ -40,7 +40,7 @@ export type SenseRecord = typeof SenseRecord.Type
 export const EntryRecord = Schema.Struct({
   id: Schema.Int,
   /** The headword's language, and so which language the glosses are in: the other one. */
-  language: Language,
+  language: Schema.Literals(language.enumValues),
   headword: Schema.String,
   reading: Schema.String,
   common: Schema.Boolean,

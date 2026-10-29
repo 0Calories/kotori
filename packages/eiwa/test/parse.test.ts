@@ -7,6 +7,7 @@ import { uninflect } from "../src/inflect.ts"
 import { wordsFromJmdict } from "../src/jmdict.ts"
 import { splitDefinition } from "../src/text.ts"
 import { cleanIpa, parseWiktionary } from "../src/wiktionary.ts"
+import { emptySense, formOf } from "../src/words.ts"
 
 // Lines as Wiktextract writes them for Japanese Wiktionary, trimmed to the fields read.
 const line = (entry: object) => JSON.stringify({ lang_code: "en", lang: "英語", ...entry })
@@ -63,13 +64,26 @@ const wiktionary = [
   }),
   line({ word: "tired", pos: "adj", senses: [{ glosses: ["疲れた。"] }], forms: [{ form: "more tired" }] }),
   line({ word: "tire", pos: "verb", senses: [{ glosses: ["疲れる。"] }] }),
-  // Pages for inflections, saying so only in the definition.
+  // Pages for inflections and other spellings, saying so only in the definition, as Wiktionary
+  // writes it: bare, quoted, or after a label.
   line({ word: "ate", pos: "verb", senses: [{ glosses: ["eatの過去形"] }] }),
   line({
     word: "eaten",
     pos: "verb",
     senses: [{ glosses: ["eatの過去分詞"] }, { glosses: ["（特に複合語で）食べられる"] }]
   }),
+  line({ word: "asked", pos: "verb", senses: [{ glosses: ['"ask" の過去形・過去分詞形。'] }] }),
+  line({ word: "gotten", pos: "verb", senses: [{ glosses: ["(米) getの過去分詞"] }] }),
+  line({ word: "judgement", pos: "noun", senses: [{ glosses: ["judgmentの異綴、米国でも時折みられる"] }] }),
+  // Senses Wiktionary lists oldest first.
+  line({
+    word: "sad",
+    pos: "adj",
+    senses: [{ glosses: ["満足した。"], tags: ["obsolete"] }, { glosses: ["悲しい。"] }]
+  }),
+  // Lines that aren't JSON, or aren't shaped like an entry, are skipped.
+  '{"word": "broken", "lang_code": "en", ',
+  line({ word: "mistyped", pos: "verb", senses: "走る。" }),
   line({
     word: "hello",
     pos: "intj",
@@ -163,12 +177,21 @@ describe("parseWiktionary", () => {
     expect(formsOf).toEqual([
       { text: "tired", base: "tire", tags: ["past", "past-participle"] },
       { text: "ate", base: "eat", tags: ["past"] },
-      { text: "eaten", base: "eat", tags: ["past-participle"] }
+      { text: "eaten", base: "eat", tags: ["past-participle"] },
+      { text: "asked", base: "ask", tags: ["past", "past-participle"] },
+      { text: "gotten", base: "get", tags: ["past-participle"] },
+      { text: "judgement", base: "judgment", tags: [] }
     ])
     expect(word("tired")?.senses.map((sense) => sense.glosses[0]?.text)).toEqual(["疲れた"])
     // "ate" is only eat's past, so it is no word of its own; "eaten" also has a meaning.
     expect(word("ate")).toBeUndefined()
+    expect(word("asked")).toBeUndefined()
     expect(word("eaten")?.senses.map((sense) => sense.glosses[0]?.text)).toEqual(["（特に複合語で）食べられる"])
+  })
+
+  it("skips lines that aren't entries", () => {
+    expect(word("broken")).toBeUndefined()
+    expect(word("mistyped")).toBeUndefined()
   })
 
   it("keeps everyday spellings and drops obsolete ones and non-English text", () => {
@@ -266,6 +289,23 @@ const jmdictEntry = (
   ]
 })
 
+describe("formOf", () => {
+  it.each([
+    ["eatの過去形", "eat", ["past"]],
+    ['"ask" の過去形・過去分詞形。', "ask", ["past", "past-participle"]],
+    ["「look」の複数形", "look", ["plural"]],
+    ["strange の比較級。", "strange", ["comparative"]],
+    ["cinqueの旧綴り。", "cinque", []],
+    ["'tisの異綴。", "'tis", []]
+  ])("%s is a form of %s", (gloss, base, tags) => {
+    expect(formOf(gloss)).toEqual({ base, tags })
+  })
+
+  it.each(["走る", "(俗) for の略記。", "doの二人称・単数・現在形"])("%s is a meaning", (gloss) => {
+    expect(formOf(gloss)).toBeNull()
+  })
+})
+
 describe("wordsFromJmdict", () => {
   const known = {
     words: new Set(["hang", "eat", "team"]),
@@ -274,7 +314,10 @@ describe("wordsFromJmdict", () => {
     frequency: new Map([
       ["selfie", 900],
       ["teams", 500],
-      ["kata", 300]
+      ["kata", 300],
+      ["website", 800],
+      ["kim", 5000],
+      ["ex-wife", 600]
     ])
   }
   const words = wordsFromJmdict(
@@ -286,18 +329,33 @@ describe("wordsFromJmdict", () => {
       jmdictEntry(5, "秋晴れ", "あきばれ", ["clear autumnal weather"]),
       jmdictEntry(6, "型", "かた", ["kata"]),
       jmdictEntry(7, "ディズニー", "ディズニー", ["Disney"]),
-      jmdictEntry(8, "組", "くみ", ["teams"])
+      jmdictEntry(8, "組", "くみ", ["teams"]),
+      jmdictEntry(9, "ウェブサイト", "ウェブサイト", ["website"]),
+      jmdictEntry(10, "韓国海苔", "かんこくのり", ["gim", "kim"], false),
+      jmdictEntry(11, "元妻", "もとつま", ["ex-wife"], false)
     ],
     known
   )
+  const word = (headword: string) => words.find((candidate) => candidate.headword === headword)
 
   it("reads attested words and phrases backwards, the likeliest Japanese word first", () => {
     expect(words.map((word) => [word.headword, word.senses.map((sense) => sense.glosses[0]?.text)])).toEqual([
       ["hang out", ["遊ぶ", "たむろする"]],
       ["selfie", ["自撮り"]],
-      ["eat out", ["外食"]]
+      ["eat out", ["外食"]],
+      ["website", ["ウェブサイト"]],
+      ["kim", ["韓国海苔"]],
+      ["ex-wife", ["元妻"]]
     ])
     expect(words[0]?.senses[0]?.pos).toEqual(["v"])
+  })
+
+  it("trusts a word's count only when a common Japanese word glosses it, or it is hyphenated", () => {
+    expect(word("website")?.mayBeName).toBe(false)
+    expect(word("ex-wife")?.mayBeName).toBe(false)
+    // The subtitles count Kim, the name.
+    expect(word("kim")?.mayBeName).toBe(true)
+    expect(word("selfie")?.mayBeName).toBe(true)
   })
 })
 
@@ -365,5 +423,39 @@ describe("toEntries", () => {
       ["inflection", "eaten"]
     ])
     expect(entries.find((entry) => entry.headword === "make sense")).toMatchObject({ common: false, priority: 0 })
+  })
+
+  it("lists rare, dated and obsolete senses last", () => {
+    const sad = toEntries(merged, frequency, new Map()).find((entry) => entry.headword === "sad")
+    expect(sad?.senses.map((sense) => [sense.glosses[0]?.text, sense.misc])).toEqual([
+      ["悲しい", []],
+      ["満足した", ["obs"]]
+    ])
+  })
+
+  it("marks a word common only when its count can be trusted", () => {
+    const counts = parseFrequency(["kim 5000", "website 800"])
+    const jmdictOnly = (headword: string, mayBeName: boolean) => ({
+      headword,
+      ipa: null,
+      spellings: [],
+      inflections: [],
+      senses: [{ ...emptySense(), glosses: [{ text: "ウェブサイト", type: null }] }],
+      mayBeName
+    })
+    const entries = toEntries(
+      mergeSources({
+        wiktionary: { words: [], formsOf: [] },
+        ejdict: { words: [], formsOf: [] },
+        jmdict: [jmdictOnly("kim", true), jmdictOnly("website", false)],
+        frequency: counts
+      }),
+      counts,
+      new Map()
+    )
+    expect(entries.map((entry) => [entry.headword, entry.common])).toEqual([
+      ["kim", false],
+      ["website", true]
+    ])
   })
 })

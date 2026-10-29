@@ -5,12 +5,23 @@ import { Context, Effect, Layer } from "effect"
 import { Database } from "./Database.ts"
 import { type EntryRecord, normalizeGloss, normalizeJapaneseGloss } from "./records.ts"
 import { chunks } from "./rows.ts"
-import { entries, entryAudio, examples, forms, glosses, jobKind, senseNuance, senses, tags } from "./schema/index.ts"
+import {
+  entries,
+  entryAudio,
+  examples,
+  formKind,
+  forms,
+  glosses,
+  jobKind,
+  senseNuance,
+  senses,
+  tags
+} from "./schema/index.ts"
 
 export interface FormMatch {
   readonly entryId: number
   readonly text: string
-  readonly kind: "kanji" | "kana" | "spelling" | "inflection"
+  readonly kind: (typeof formKind.enumValues)[number]
   /** For an inflection, what it is ("past", "plural"). */
   readonly tags: ReadonlyArray<string>
 }

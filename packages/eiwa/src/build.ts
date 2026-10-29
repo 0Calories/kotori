@@ -19,6 +19,7 @@ interface Built {
   readonly inflections: Map<string, Set<Inflection>>
   readonly senses: Word["senses"]
   readonly references: ReadonlyArray<References>
+  readonly mayBeName: boolean
 }
 
 const built = (word: Word, source: Source): Built => ({
@@ -28,7 +29,8 @@ const built = (word: Word, source: Source): Built => ({
   spellings: new Set(word.spellings.filter((spelling) => spelling !== word.headword)),
   inflections: new Map(word.inflections.map((form) => [form.text, new Set(form.tags)])),
   senses: word.senses,
-  references: word.references ?? []
+  references: word.references ?? [],
+  mayBeName: word.mayBeName ?? false
 })
 
 const addInflection = (word: Built, form: InflectedForm) => {
@@ -140,6 +142,18 @@ const placeReferences = (words: ReadonlyArray<Built>) => {
   }
 }
 
+/** Usage notes that make a sense one learners rarely need. */
+const LITTLE_USED = new Set(["arch", "obs", "rare", "dated", "hist"])
+
+/**
+ * Senses in the order JMDict gives them, commonest first: Wiktionary often lists the oldest
+ * first ("sad": 満足した, obsolete), so archaic, obsolete, rare and dated senses go last.
+ */
+const commonestFirst = (senses: ReadonlyArray<SenseRecord>) => {
+  const littleUsed = (sense: SenseRecord) => sense.misc.some((tag) => LITTLE_USED.has(tag))
+  return [...senses.filter((sense) => !littleUsed(sense)), ...senses.filter(littleUsed)]
+}
+
 const pronoun = (word: Built) => word.senses.some((sense) => sense.pos.includes("pn"))
 
 /**
@@ -194,8 +208,10 @@ export const toEntries = (
   for (const id of existing.values()) next = Math.max(next, id)
   next++
   const sensesOf = placeReferences(words)
-  return ranked.map(({ word, count }, rank) => {
-    const common = count > 0 && rank < COMMON_WORDS
+  let commonSoFar = 0
+  return ranked.map(({ word, count }) => {
+    const common = !word.mayBeName && count > 0 && commonSoFar < COMMON_WORDS
+    if (common) commonSoFar++
     const spellings = [...word.spellings].filter((spelling) => !word.inflections.has(spelling))
     return {
       id: existing.get(word.headword) ?? next++,
@@ -210,7 +226,7 @@ export const toEntries = (
         ...spellings.map((spelling) => form(spelling, "spelling", false, [])),
         ...[...word.inflections].map(([text, tags]) => form(text, "inflection", false, [...tags]))
       ],
-      senses: sensesOf(word)
+      senses: commonestFirst(sensesOf(word))
     }
   })
 }

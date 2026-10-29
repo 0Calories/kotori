@@ -118,8 +118,8 @@ const formScore = (
   rank: { readonly common: boolean; readonly priority: number } | undefined
 ) => base + (exactCase ? 20 : 0) + (rank?.common ? 50 : 0) + (rank?.priority ?? 0) / 10
 
-/** "EAT", "IT": letters in capitals, a word apart from the lowercase one spelled the same. */
-const isAcronym = (text: string) => text.length > 1 && text === text.toUpperCase() && text !== text.toLowerCase()
+/** "EAT", "IT", "STARTed": capitals in a row, so a word apart from the lowercase one spelled the same. */
+const isAcronym = (text: string) => /[A-Z]{2}/.test(text)
 
 /** JMDict's explanations, literal renderings and trademarks aren't English words to look up. */
 const BRIDGE_SKIPS = new Set(["expl", "lit", "tm"])
@@ -297,7 +297,8 @@ export class Dictionary extends Context.Service<
           }
         })
         const byRule = guessed
-          .filter((match) => match.kind === "spelling")
+          // "started" is start's past, not START's.
+          .filter((match) => match.kind === "spelling" && !isAcronym(match.text))
           .map((match): Hit => {
             const guess = guesses.find((candidate) => candidate.base === match.text.toLowerCase())
             return {

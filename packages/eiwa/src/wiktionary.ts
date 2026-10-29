@@ -1,4 +1,5 @@
 import type { GlossRecord, SenseRecord } from "@kotori/db"
+import { Option, Predicate, Schema } from "effect"
 import { splitDefinition, leadingAside } from "./text.ts"
 import { FIELDS, type Inflection, PARTS_OF_SPEECH, REGIONS, TRANSITIVITY, USAGE } from "./tags.ts"
 import {
@@ -22,29 +23,39 @@ import {
 export const WIKTIONARY_URL = "https://kaikki.org/jawiktionary/raw-wiktextract-data.jsonl.gz"
 
 // Only the fields read here; anything else in the extraction is ignored.
-interface RawForm {
-  readonly form?: string
-  readonly tags?: ReadonlyArray<string>
-}
-interface RawSense {
-  readonly glosses?: ReadonlyArray<string>
-  readonly tags?: ReadonlyArray<string>
-  readonly raw_tags?: ReadonlyArray<string>
-  readonly topics?: ReadonlyArray<string>
-  readonly form_of?: ReadonlyArray<{ readonly word?: string }>
-}
-interface RawEntry {
-  readonly word?: string
-  readonly lang_code?: string
-  readonly pos?: string
-  readonly senses?: ReadonlyArray<RawSense>
-  readonly forms?: ReadonlyArray<RawForm>
-  readonly sounds?: ReadonlyArray<{ readonly ipa?: string; readonly tags?: ReadonlyArray<string> }>
-  readonly synonyms?: ReadonlyArray<{ readonly word?: string }>
-  readonly antonyms?: ReadonlyArray<{ readonly word?: string }>
-  readonly derived?: unknown
-  readonly phrases?: ReadonlyArray<{ readonly word?: string }>
-}
+const Strings = Schema.optional(Schema.Array(Schema.String))
+const WordRef = Schema.Struct({ word: Schema.optional(Schema.String) })
+const WordRefs = Schema.optional(Schema.Array(WordRef))
+
+const RawForm = Schema.Struct({ form: Schema.optional(Schema.String), tags: Strings })
+type RawForm = typeof RawForm.Type
+
+const RawSense = Schema.Struct({
+  glosses: Strings,
+  tags: Strings,
+  raw_tags: Strings,
+  topics: Strings,
+  form_of: WordRefs
+})
+type RawSense = typeof RawSense.Type
+
+const RawEntry = Schema.Struct({
+  word: Schema.optional(Schema.String),
+  lang_code: Schema.optional(Schema.String),
+  pos: Schema.optional(Schema.String),
+  senses: Schema.optional(Schema.Array(RawSense)),
+  forms: Schema.optional(Schema.Array(RawForm)),
+  sounds: Schema.optional(Schema.Array(Schema.Struct({ ipa: Schema.optional(Schema.String), tags: Strings }))),
+  synonyms: WordRefs,
+  antonyms: WordRefs,
+  // Usually a list of words; some pages hold a table instead, as one string.
+  derived: Schema.optional(Schema.Union([Schema.Array(WordRef), Schema.String])),
+  phrases: WordRefs
+})
+type RawEntry = typeof RawEntry.Type
+
+/** A line of the extraction, or none for a line that isn't JSON or isn't shaped like an entry. */
+const decodeLine = Schema.decodeUnknownOption(Schema.fromJsonString(RawEntry))
 
 /** Whether a line of the extraction is about an English word, checked before paying to parse it. */
 const isEnglishLine = (line: string) => line.includes('"lang_code": "en"') || line.includes('"lang_code":"en"')
@@ -52,7 +63,7 @@ const isEnglishLine = (line: string) => line.includes('"lang_code": "en"') || li
 /** The most synonyms or antonyms kept as cross-references; the first are the closest. */
 const MAX_REFERENCES = 8
 
-const words = (list: ReadonlyArray<{ readonly word?: string }> | undefined) =>
+const words = (list: ReadonlyArray<typeof WordRef.Type> | undefined) =>
   (list ?? [])
     .map((item) => item.word?.trim() ?? "")
     .filter((word) => word.length > 0 && isEnglish(word))
@@ -113,22 +124,15 @@ const readSense = (
     const tags = inflectionsNamed((raw.glosses ?? []).join(" "))
     return { sense: null, formsOf: bases.filter((base) => base !== word).map((base) => ({ text: word, base, tags })) }
   }
-  // Pages for inflections often say so in the definition itself, untagged: "eatの過去形".
-  const formsOf: Array<FormOf> = []
-  const definitions = (raw.glosses ?? []).filter((definition) => {
-    const form = formOf(definition)
-    if (form !== null && form.base !== word) formsOf.push({ text: word, ...form })
-    return form === null
-  })
-
   const labels: Labels = { pos: pos === undefined ? [] : [pos], misc: [], fields: [], dialects: [] }
   classifyKnown(raw.tags ?? [], labels)
   classifyKnown(raw.raw_tags ?? [], labels)
   classifyKnown(raw.topics ?? [], labels)
 
+  const formsOf: Array<FormOf> = []
   const glosses: Array<GlossRecord> = []
   const info: Array<string> = []
-  for (const definition of definitions) {
+  for (const definition of raw.glosses ?? []) {
     let text = definition.trim()
     for (let lead = leadingAside(text); lead !== null; lead = leadingAside(text)) {
       // "(米話)" is two labels written together: 米 and 話.
@@ -137,6 +141,12 @@ const readSense = (
         .flatMap((label) => (/^[米英豪][話俗古]$/.test(label) ? label.split("") : [label]))
       if (!classify(named, labels)) break
       text = lead.rest
+    }
+    // Pages for inflections often say so in the definition itself, untagged: "(米) getの過去分詞".
+    const form = formOf(text)
+    if (form !== null) {
+      if (form.base !== word) formsOf.push({ text: word, ...form })
+      continue
     }
     const { glosses: split, notes } = splitDefinition(text)
     glosses.push(...split.map((gloss) => ({ text: gloss, type: null })))
@@ -238,13 +248,9 @@ const readIpa = (sounds: RawEntry["sounds"]): string | null => {
 
 /** Phrases Wiktionary lists under a word, which attest them as English even without an entry of their own. */
 const readPhrases = (entry: RawEntry): Array<string> => {
-  const derived = entry.derived
-  const listed = Array.isArray(derived)
-    ? derived.map((item: { readonly word?: string }) => item.word ?? "")
-    : // Some pages hold the list as a table: a header line, then one word per line.
-      typeof derived === "string"
-      ? derived.split("\n").slice(1)
-      : []
+  const derived = entry.derived ?? []
+  // A table is a header line, then one word per line.
+  const listed = Predicate.isString(derived) ? derived.split("\n").slice(1) : derived.map((item) => item.word ?? "")
   return [...listed, ...(entry.phrases ?? []).map((item) => item.word ?? "")]
     .map((phrase) => phrase.trim())
     .filter((phrase) => phrase.includes(" ") && isEnglish(phrase))
@@ -269,12 +275,9 @@ export const wiktionaryParser = () => {
 
   const add = (line: string) => {
     if (!isEnglishLine(line)) return
-    let entry: RawEntry
-    try {
-      entry = JSON.parse(line) as RawEntry
-    } catch {
-      return
-    }
+    const decoded = decodeLine(line)
+    if (Option.isNone(decoded)) return
+    const entry = decoded.value
     const word = entry.word?.trim() ?? ""
     if (entry.lang_code !== "en" || word.length === 0 || !isEnglish(word)) return
     for (const phrase of readPhrases(entry)) phrases.add(phrase.toLowerCase())
