@@ -81,7 +81,7 @@ export const JAPANESE_CAST: ReadonlyArray<Voice<"ja">> = [
   {
     id: "ja-announcer",
     language: "ja",
-    providerId: null,
+    providerId: "17ljzcHzSunXNkdixIEa", // Hirokoji, a former announcer
     name: "Announcer",
     tags: {
       gender: "masculine",
@@ -97,7 +97,7 @@ export const JAPANESE_CAST: ReadonlyArray<Voice<"ja">> = [
   {
     id: "ja-polite-f",
     language: "ja",
-    providerId: null,
+    providerId: "aRRpAlz9zwsfcqvwusHA", // Rie, customer care
     name: "Polite woman",
     tags: {
       gender: "feminine",
@@ -113,7 +113,7 @@ export const JAPANESE_CAST: ReadonlyArray<Voice<"ja">> = [
   {
     id: "ja-casual-f",
     language: "ja",
-    providerId: null,
+    providerId: "EkK6wL8GaH8IgBZTTDGJ", // Akari
     name: "Casual young woman",
     tags: {
       gender: "feminine",
@@ -129,7 +129,7 @@ export const JAPANESE_CAST: ReadonlyArray<Voice<"ja">> = [
   {
     id: "ja-casual-m",
     language: "ja",
-    providerId: null,
+    providerId: "WFLyIjdIbVuEXaAkU0Xb", // Ryunosuke
     name: "Casual young man",
     tags: {
       gender: "masculine",
@@ -145,7 +145,7 @@ export const JAPANESE_CAST: ReadonlyArray<Voice<"ja">> = [
   {
     id: "ja-casual-f2",
     language: "ja",
-    providerId: null,
+    providerId: "G3EZ8O36A0x9lmeOtr0f", // Kaori
     name: "Casual woman",
     tags: {
       gender: "feminine",
@@ -161,7 +161,7 @@ export const JAPANESE_CAST: ReadonlyArray<Voice<"ja">> = [
   {
     id: "ja-kansai-m",
     language: "ja",
-    providerId: null,
+    providerId: "OixLI492Bx532sSKQRim", // Goro, a native Osaka speaker
     name: "Kansai man",
     tags: {
       gender: "masculine",
@@ -177,7 +177,7 @@ export const JAPANESE_CAST: ReadonlyArray<Voice<"ja">> = [
   {
     id: "ja-elder-m",
     language: "ja",
-    providerId: null,
+    providerId: "JOcmGzB8OFjY8MhjHHEf", // Jun
     name: "Elder narrator",
     tags: {
       gender: "masculine",
@@ -212,7 +212,7 @@ export const ENGLISH_CAST: ReadonlyArray<Voice<"en">> = [
   {
     id: "en-announcer",
     language: "en",
-    providerId: null,
+    providerId: "9ZbFvrGBxO3uSmsw6wdI", // Walter, news anchor
     name: "Announcer",
     tags: {
       gender: "masculine",
@@ -228,7 +228,7 @@ export const ENGLISH_CAST: ReadonlyArray<Voice<"en">> = [
   {
     id: "en-casual-f",
     language: "en",
-    providerId: null,
+    providerId: "cgSgspJ2msm6clMCkdW9", // Jessica
     name: "Casual young woman",
     tags: {
       gender: "feminine",
@@ -244,7 +244,7 @@ export const ENGLISH_CAST: ReadonlyArray<Voice<"en">> = [
   {
     id: "en-casual-m",
     language: "en",
-    providerId: null,
+    providerId: "bIHbv24MWmeRgasZH58o", // Will
     name: "Casual young man",
     tags: {
       gender: "masculine",
@@ -260,7 +260,7 @@ export const ENGLISH_CAST: ReadonlyArray<Voice<"en">> = [
   {
     id: "en-british-m",
     language: "en",
-    providerId: null,
+    providerId: "JBFqnCBsd6RMkjVDRZzb", // George
     name: "British narrator",
     tags: {
       gender: "masculine",
@@ -276,7 +276,7 @@ export const ENGLISH_CAST: ReadonlyArray<Voice<"en">> = [
   {
     id: "en-elder-f",
     language: "en",
-    providerId: null,
+    providerId: "wGcFBfKz5yUQqhqr0mVy", // Maria Moody
     name: "Elder narrator",
     tags: {
       gender: "feminine",

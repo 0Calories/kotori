@@ -57,9 +57,10 @@ New command group, spec in `docs/voice-casting.md` section 8. Implementation not
 
 ## Remaining: step 8 — cast the voices
 
-- Every voice except `ja-kyoko` and `en-sarah` has `providerId: null` in
-  `packages/tts/src/voices.ts`. Casting = audition on ElevenLabs, paste the id, done; the
-  selector skips uncast voices (`rank` filters `providerId !== null`) and
+- Every voice in `packages/tts/src/voices.ts` has an initial ElevenLabs library voice, picked
+  from library metadata (labels, descriptions, usage) without listening. They still need
+  auditioning; recasting = paste a new id. Setting a `providerId` back to `null` uncasts a
+  role safely: the selector skips uncast voices (`rank` filters `providerId !== null`) and
   `Pronouncer.decide` re-ranks with `variety: null` when a wanted variety has no cast voice
   (`rank` itself returns `[]` then — the CLI must reuse `decide`, not call `rank` directly),
   so partial casting is safe at every point.

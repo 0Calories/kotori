@@ -3,10 +3,16 @@ import { describe, expect, it } from "vitest"
 import { briefFor, CASTS, castVoices, ENGLISH_CAST, headwordVoices, JAPANESE_CAST, rank, tied } from "../src/index.ts"
 import type { Casts, CastingBrief, CastingInput, SenseSignals, SentenceSignals } from "../src/index.ts"
 
-/** The casts as if every voice were already auditioned and cast. */
+/** The real casts with fake provider ids, so tests don't depend on which voices are cast. */
 const FULL_CASTS: Casts = {
-  ja: JAPANESE_CAST.map((voice) => ({ ...voice, providerId: voice.providerId ?? `fake-${voice.id}` })),
-  en: ENGLISH_CAST.map((voice) => ({ ...voice, providerId: voice.providerId ?? `fake-${voice.id}` }))
+  ja: JAPANESE_CAST.map((voice) => ({ ...voice, providerId: `fake-${voice.id}` })),
+  en: ENGLISH_CAST.map((voice) => ({ ...voice, providerId: `fake-${voice.id}` }))
+}
+
+/** Only the two original dictionary voices cast, as before the rest of the cast was chosen. */
+const DICTIONARY_ONLY: Casts = {
+  ja: FULL_CASTS.ja.map((voice) => (voice.id === "ja-kyoko" ? voice : { ...voice, providerId: null })),
+  en: FULL_CASTS.en.map((voice) => (voice.id === "en-sarah" ? voice : { ...voice, providerId: null }))
 }
 
 const sense = (overrides: Partial<SenseSignals> = {}): SenseSignals => ({
@@ -177,9 +183,9 @@ describe("rank", () => {
   })
 
   it("only considers cast voices", () => {
-    // In the real casts only Kyoko and Sarah have provider ids yet.
-    expect(rank(briefFor(input({ formality: "casual" })), "ja").map(({ voice }) => voice.id)).toEqual(["ja-kyoko"])
-    expect(rank(briefFor(input({ formality: "casual" })), "en").map(({ voice }) => voice.id)).toEqual(["en-sarah"])
+    const casual = briefFor(input({ formality: "casual" }))
+    expect(rank(casual, "ja", DICTIONARY_ONLY).map(({ voice }) => voice.id)).toEqual(["ja-kyoko"])
+    expect(rank(casual, "en", DICTIONARY_ONLY).map(({ voice }) => voice.id)).toEqual(["en-sarah"])
   })
 
   it("prefers a voice that lists the register over one let in by the relaxed filter", () => {
@@ -207,8 +213,8 @@ describe("tied", () => {
 
 describe("casts", () => {
   it("castVoices returns only cast voices of the language", () => {
-    expect(castVoices("ja").map((voice) => voice.id)).toEqual(["ja-kyoko"])
-    expect(castVoices("en").map((voice) => voice.id)).toEqual(["en-sarah"])
+    expect(castVoices("ja", DICTIONARY_ONLY).map((voice) => voice.id)).toEqual(["ja-kyoko"])
+    expect(castVoices("en", DICTIONARY_ONLY).map((voice) => voice.id)).toEqual(["en-sarah"])
     expect(castVoices("ja", FULL_CASTS).length).toBeGreaterThan(1)
   })
 
@@ -226,5 +232,12 @@ describe("casts", () => {
         expect(voice.tags.formality.length).toBeGreaterThan(0)
       }
     }
+  })
+
+  it("never casts one provider voice in two roles", () => {
+    const providerIds = [...CASTS.ja, ...CASTS.en].flatMap((voice) =>
+      voice.providerId === null ? [] : [voice.providerId]
+    )
+    expect(new Set(providerIds).size).toBe(providerIds.length)
   })
 })

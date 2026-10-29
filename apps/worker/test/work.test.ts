@@ -170,8 +170,9 @@ layer(TestLayer)("kotori work", (it) => {
       assert.strictEqual(example?.furigana, "パンを{食|た}べる。")
       assert.strictEqual(example?.model, "claude-test")
 
-      // The audio job was queued by the examples job: headword and sentence are both voiced.
-      assert.deepStrictEqual(spoken, ["たべる", "パンを食べる。"])
+      // The audio job was queued by the examples job: headword and sentence are both voiced,
+      // the headword once per dictionary voice (Kyoko, the announcer, the elder narrator).
+      assert.deepStrictEqual(spoken, ["たべる", "たべる", "たべる", "パンを食べる。"])
       assert.isTrue((yield* enrichment.entryAudio([taberu])).has(taberu))
       assert.isTrue((yield* enrichment.exampleAudio([example!.id])).has(`${example!.id}:ja`))
       assert.deepStrictEqual(
