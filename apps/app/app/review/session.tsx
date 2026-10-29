@@ -17,6 +17,7 @@ import { Mascot } from "../../src/components/Mascot.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
+import { spokenGloss } from "../../src/lib/english.ts"
 import { registerTone } from "../../src/lib/tones.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { theme } from "../../src/theme/tokens.ts"
@@ -81,7 +82,12 @@ const Faces = ({
           >
             <View style={{ height: 1, alignSelf: "stretch", backgroundColor: theme.color.border }} />
             {back}
-            <AudioButton url={content.audioUrl} size={44} />
+            {/* Learners hear the side they're learning: the headword, or for Japanese speakers its English. */}
+            {target === "en" ? (
+              <AudioButton speak={{ text: spokenGloss(content.meaning.split("; ")[0]!), language: "en" }} size={44} />
+            ) : (
+              <AudioButton url={content.audioUrl} size={44} />
+            )}
             {content.example ? (
               <View
                 style={{
@@ -94,12 +100,19 @@ const Faces = ({
               >
                 <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-end" }}>
                   <View style={{ flex: 1 }}>
-                    <Furigana text={content.example.ja} furigana={content.example.furigana} size={17} />
+                    {target === "en" ? (
+                      <Text variant="strong">{content.example.en}</Text>
+                    ) : (
+                      <Furigana text={content.example.ja} furigana={content.example.furigana} size={17} />
+                    )}
                   </View>
-                  <AudioButton url={content.example.audioUrl} size={32} />
+                  <AudioButton
+                    url={target === "en" ? (content.example.translationAudioUrl ?? null) : content.example.audioUrl}
+                    size={32}
+                  />
                 </View>
-                <Text variant="small" color="textMuted">
-                  {content.example.en}
+                <Text jp={target === "en"} variant="small" color="textMuted">
+                  {target === "en" ? content.example.ja : content.example.en}
                 </Text>
               </View>
             ) : null}

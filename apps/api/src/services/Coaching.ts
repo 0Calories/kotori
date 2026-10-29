@@ -18,6 +18,9 @@ import { createHash } from "node:crypto"
 import { audioUrl, Dictionary } from "./Dictionary.ts"
 
 const HOUR = 60 * 60 * 1000
+
+/** The requests that count towards the coaching limit; spoken audio is limited on its own. */
+const COACHING: ReadonlyArray<CoachKind> = ["naturalness", "how-to-say"]
 const CACHE_TTL = 30 * 24 * HOUR
 
 const fromClaude = (error: ClaudeError): AiUnavailable | RateLimited => {
@@ -56,7 +59,7 @@ export class Coaching extends Context.Service<
 
       const limit = Effect.fnUntraced(function* (user: Profile, kind: CoachKind, perHour: number) {
         const now = yield* Clock.currentTimeMillis
-        if ((yield* repo.usageSince(user.id, now - HOUR)) >= perHour) {
+        if ((yield* repo.usageSince(user.id, now - HOUR, COACHING)) >= perHour) {
           return yield* new RateLimited({
             message: "You've hit this hour's limit. Take a breather!",
             retryAfterSeconds: 600
@@ -141,7 +144,8 @@ export class Coaching extends Context.Service<
           return yield* new AiUnavailable({ message: "Audio isn't set up on this server (missing ElevenLabs key)." })
         }
         const now = yield* Clock.currentTimeMillis
-        if ((yield* repo.usageSince(user.id, now - HOUR)) >= hourlyLimit * 3) {
+        // Audio has its own allowance: Japanese speakers hear most English on demand.
+        if ((yield* repo.usageSince(user.id, now - HOUR, ["speak"])) >= hourlyLimit * 3) {
           return yield* new RateLimited({ message: "Too many audio requests this hour.", retryAfterSeconds: 600 })
         }
         const key = yield* pronouncer

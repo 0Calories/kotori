@@ -6,6 +6,7 @@ import { EntryId } from "@kotori/domain"
 import { Jev, JevError } from "@kotori/nuance"
 import { Pronouncer, TtsError } from "@kotori/tts"
 import { Effect, Layer, Option } from "effect"
+import { TestClock } from "effect/testing"
 import { Dictionary } from "../src/services/Dictionary.ts"
 
 // The dictionary service on PGlite with audio configured, so it queues audio jobs; nothing is synthesised.
@@ -131,10 +132,16 @@ layer(TestLayer)("Dictionary", (it) => {
         ]
       )
       assert.deepStrictEqual(awkward.meanings[1]?.glosses, ["awkward", "unskillful"])
+      assert.deepStrictEqual(
+        awkward.meanings.map((meaning) => meaning.glosses[meaning.matched]),
+        ["awkward", "awkward", "awkward"]
+      )
       assert.strictEqual(awkward.meanings[0]?.examples[0]?.en, "There was an awkward silence.")
       assert.strictEqual(awkward.meanings[0]?.examples[0]?.noteJa, "「awkward」は人間関係の気まずさにも使える。")
-      // Audio is configured, so looking the word up queued it for the leading meanings.
+      // Audio is configured, so looking the word up queued it for the leading meanings. Claude
+      // isn't, so no examples are being written.
       assert.isTrue(awkward.waiting)
+      assert.isFalse(awkward.writing)
       assert.strictEqual((yield* (yield* JobsRepo).statusFor(10)).get("audio"), "queued")
 
       const search = yield* dictionary.search("awkward", 10)
@@ -146,11 +153,14 @@ layer(TestLayer)("Dictionary", (it) => {
     })
   )
 
-  it.effect("voices examples again when a finished audio job left the English unvoiced", () =>
+  it.effect("voices examples again when a finished audio job left the English unvoiced, at most hourly", () =>
     Effect.gen(function* () {
       const repo = yield* DictionaryRepo
       const enrichment = yield* EnrichmentRepo
       const jobs = yield* JobsRepo
+      const dictionary = yield* Dictionary
+      const audioStatus = Effect.map(dictionary.requestEnrichment(EntryId.make(20)), (s) => Option.getOrThrow(s).audio)
+      const hour = 60 * 60 * 1000
       yield* repo.insertEntries([entry(20, "食べる", "たべる", [sense(["to eat"], ["v1"])])])
       yield* enrichment.saveExamples(20, [example(0, "パンを食べる。", "I eat bread.")], 0)
       const [written] = yield* enrichment.examplesFor([20])
@@ -163,16 +173,28 @@ layer(TestLayer)("Dictionary", (it) => {
       yield* jobs.enqueue("audio", 20, 0, 0)
       yield* finishAudioJobs(1)
 
-      const dictionary = yield* Dictionary
-      const status = yield* dictionary.requestEnrichment(EntryId.make(20))
-      assert.strictEqual(Option.getOrThrow(status).audio, "queued")
+      // Looking at it later queues the job again to fill the gap.
+      yield* TestClock.setTime(2 * hour)
+      assert.strictEqual(yield* audioStatus, "queued")
       assert.strictEqual((yield* jobs.statusFor(20)).get("audio"), "queued")
 
-      // Once English is voiced too, the entry's audio is ready and nothing is queued again.
+      // The worker runs but can't fill it: the entry isn't queued again on every look,
+      // and its audio stops counting as on its way, so the app stops polling.
+      yield* finishAudioJobs(2 * hour)
+      yield* TestClock.setTime(2 * hour + 3000)
+      assert.strictEqual(yield* audioStatus, "ready")
+      assert.strictEqual((yield* jobs.statusFor(20)).get("audio"), "done")
+
+      // An hour on, it gets one more try.
+      yield* TestClock.setTime(3 * hour + 1)
+      assert.strictEqual(yield* audioStatus, "queued")
+
+      // Once English is voiced too, the entry's audio is complete and nothing is queued again.
       yield* enrichment.saveAudio(clip("sentence-en", "I eat bread.", "en"))
       yield* enrichment.linkExampleAudio(written!.id, "en", "sentence-en")
-      yield* finishAudioJobs(3)
-      assert.strictEqual(Option.getOrThrow(yield* dictionary.requestEnrichment(EntryId.make(20))).audio, "ready")
+      yield* finishAudioJobs(3 * hour + 2)
+      yield* TestClock.setTime(10 * hour)
+      assert.strictEqual(yield* audioStatus, "ready")
       assert.strictEqual((yield* jobs.statusFor(20)).get("audio"), "done")
     })
   )

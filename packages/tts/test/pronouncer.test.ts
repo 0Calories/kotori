@@ -216,6 +216,59 @@ layer(TestLayer)("Pronouncer", (it) => {
     })
   )
 
+  it.effect("voices only what is missing, leaving earlier clips and their voices alone", () =>
+    Effect.gen(function* () {
+      const dictionary = yield* DictionaryRepo
+      const enrichment = yield* EnrichmentRepo
+      yield* dictionary.insertEntries([entry(5, [{}])])
+      yield* enrichment.saveExamples(
+        5,
+        [{ ...example, sense: 0, ja: "めっちゃうまい。", en: "This is so good.", formality: "casual" as const }],
+        1000
+      )
+      const [row] = yield* enrichment.examplesFor([5])
+      // Voiced before casting and before English was: one uncast headword clip, the Japanese sentence.
+      const old = (key: string, text: string) => ({
+        key,
+        text,
+        language: "ja" as const,
+        voiceId: "kyoko-before-casting",
+        voice: null,
+        modelId: "old-model",
+        characters: text.length,
+        bytes: 1,
+        createdAt: 0
+      })
+      yield* enrichment.saveAudio(old("old-headword", "たべる"))
+      yield* enrichment.saveAudio(old("old-sentence", "めっちゃうまい。"))
+      yield* enrichment.linkEntryAudio(5, "old-headword")
+      yield* enrichment.linkExampleAudio(row!.id, "ja", "old-sentence")
+
+      calls.length = 0
+      const pronouncer = yield* Pronouncer
+      const summary = yield* pronouncer.enrichEntry(5)
+      assert.deepStrictEqual(
+        calls.map((call) => call.text),
+        ["This is so good."]
+      )
+      assert.strictEqual(summary.clips, 1)
+      const linked = yield* enrichment.exampleAudio([row!.id])
+      assert.strictEqual(linked.get(`${row!.id}:ja`), "old-sentence")
+      assert.isTrue(linked.has(`${row!.id}:en`))
+      assert.deepStrictEqual(
+        ((yield* enrichment.entryAudio([5])).get(5) ?? []).map((clip) => clip.key),
+        ["old-headword"]
+      )
+
+      // Nothing left to voice: no synthesis and no Jev tiebreak.
+      calls.length = 0
+      votes.length = 0
+      assert.deepStrictEqual(yield* pronouncer.enrichEntry(5), { clips: 0, characters: 0 })
+      assert.strictEqual(calls.length, 0)
+      assert.strictEqual(votes.length, 0)
+    })
+  )
+
   it.effect("refuses to exceed the monthly character budget", () =>
     Effect.gen(function* () {
       const error = yield* (yield* Pronouncer).speak("あ".repeat(6000), "ja").pipe(Effect.flip)

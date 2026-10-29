@@ -16,13 +16,10 @@ import { Snow } from "../../src/components/Snow.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { posLabel } from "../../src/i18n/strings.ts"
-import { spokenGloss } from "../../src/lib/english.ts"
+import { wordNote } from "../../src/lib/notes.ts"
 import { formalityTone } from "../../src/lib/tones.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { theme } from "../../src/theme/tokens.ts"
-
-/** Glosses compared loosely, so "(to be) awkward" counts as the looked-up "awkward". */
-const sameGloss = (a: string, b: string) => spokenGloss(a).toLowerCase() === spokenGloss(b).toLowerCase()
 
 /** A term as large as fits: 52pt for a short word, smaller for a phrase. */
 const termSize = (term: string) => (term.length <= 8 ? 52 : Math.max(30, Math.floor(420 / term.length)))
@@ -30,14 +27,12 @@ const termSize = (term: string) => (term.length <= 8 ? 52 : Math.max(30, Math.fl
 /** One Japanese word that means the English term: the word, its other English glosses, and examples. */
 const MeaningCard = ({
   meaning,
-  term,
   number,
   saved,
   saving,
   onSave
 }: {
   readonly meaning: EnglishMeaning
-  readonly term: string
   readonly number: number
   readonly saved: boolean
   readonly saving: boolean
@@ -46,7 +41,7 @@ const MeaningCard = ({
   const { t } = useSession()
   const router = useRouter()
   const pos = posLabel(t, meaning.partOfSpeech)
-  const also = meaning.glosses.filter((gloss) => !sameGloss(gloss, term))
+  const also = meaning.glosses.filter((_, index) => index !== meaning.matched)
   const open = () => router.push({ pathname: "/entry/[id]", params: { id: String(meaning.entryId) } })
 
   return (
@@ -148,30 +143,25 @@ export default function EnglishScreen() {
     )
   }
 
-  const { term, meanings, waiting } = english.data
+  const { term, meanings, writing } = english.data
   const saved = new Set(
     (notes.data ?? []).flatMap((note) =>
       note.content.kind === "word" ? [`${note.content.entryId}:${note.content.senseIndex}`] : []
     )
   )
-  const save = (meaning: EnglishMeaning) => {
-    const example = meaning.examples[0]
+  const save = (meaning: EnglishMeaning) =>
     addNote.mutate({
-      content: {
-        kind: "word",
+      content: wordNote(t, {
         entryId: meaning.entryId,
-        senseIndex: meaning.sense,
+        sense: meaning.sense,
         headword: meaning.headword,
         reading: meaning.reading,
-        meaning: meaning.glosses.slice(0, 3).join("; "),
-        hint: meaning.formality && meaning.formality !== "neutral" ? t.nuance.scale[meaning.formality] : null,
-        example: example
-          ? { ja: example.ja, furigana: example.furigana, en: example.en, audioUrl: example.audioUrl }
-          : null,
+        glosses: meaning.glosses,
+        formality: meaning.formality,
+        example: meaning.examples[0],
         audioUrl: null
-      }
+      })
     })
-  }
   const size = termSize(term)
 
   return (
@@ -205,7 +195,7 @@ export default function EnglishScreen() {
         </View>
       </Animated.View>
 
-      {waiting ? (
+      {writing ? (
         <Animated.View entering={FadeIn}>
           <Card tone="primary" style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
             <Mascot size={52} mood="thinking" />
@@ -230,7 +220,6 @@ export default function EnglishScreen() {
             >
               <MeaningCard
                 meaning={meaning}
-                term={term}
                 number={index + 1}
                 saved={saved.has(`${meaning.entryId}:${meaning.sense}`)}
                 saving={addNote.isPending}

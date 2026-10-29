@@ -19,6 +19,7 @@ import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { posLabel, type Strings } from "../../src/i18n/strings.ts"
 import { spokenGloss } from "../../src/lib/english.ts"
+import { wordNote } from "../../src/lib/notes.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { theme } from "../../src/theme/tokens.ts"
 
@@ -296,25 +297,19 @@ export default function EntryScreen() {
       note.content.kind === "word" && note.content.entryId === data.id ? [note.content.senseIndex] : []
     )
   )
-  const save = (sense: Sense) => {
-    const example = sense.examples[0]
-    const nuance = sense.nuance
+  const save = (sense: Sense) =>
     addNote.mutate({
-      content: {
-        kind: "word",
+      content: wordNote(t, {
         entryId: data.id,
-        senseIndex: sense.index,
+        sense: sense.index,
         headword: data.headword,
         reading: data.reading,
-        meaning: sense.glosses.slice(0, 3).join("; "),
-        hint: nuance && nuance.formality.value !== "neutral" ? t.nuance.scale[nuance.formality.value] : null,
-        example: example
-          ? { ja: example.ja, furigana: example.furigana, en: example.en, audioUrl: example.audioUrl }
-          : null,
+        glosses: sense.glosses,
+        formality: sense.nuance?.formality.value ?? null,
+        example: sense.examples[0],
         audioUrl: data.audioUrl
-      }
+      })
     })
-  }
   const share = () =>
     Share.share({
       message: `${data.headword}${data.reading === data.headword ? "" : `（${data.reading}）`} ${data.senses[0]?.glosses.slice(0, 3).join("; ") ?? ""}`

@@ -161,6 +161,8 @@ export const EnglishMeaning = Schema.Struct({
   common: Schema.Boolean,
   /** Every English gloss of the sense, the looked-up one among them. */
   glosses: Schema.Array(Schema.String),
+  /** Which of `glosses` is the looked-up word. */
+  matched: Schema.Int,
   partOfSpeech: Schema.NullOr(Schema.String),
   formality: Schema.NullOr(Formality),
   examples: Schema.Array(Example)
@@ -174,7 +176,9 @@ export type EnglishMeaning = typeof EnglishMeaning.Type
 export const EnglishEntry = Schema.Struct({
   term: Schema.String,
   meanings: Schema.Array(EnglishMeaning),
-  /** Whether example sentences for the leading meanings are still being written or voiced. */
-  waiting: Schema.Boolean
+  /** Whether anything for the leading meanings (nuance, examples, audio) is still on its way. */
+  waiting: Schema.Boolean,
+  /** Whether example sentences for the leading meanings are still being written. */
+  writing: Schema.Boolean
 })
 export type EnglishEntry = typeof EnglishEntry.Type

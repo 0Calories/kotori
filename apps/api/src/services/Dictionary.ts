@@ -39,9 +39,12 @@ export const audioUrl = (key: string) => `/audio/${key}.mp3`
 /** Priority for work requested by someone looking at an entry, above any batch backfill. */
 const ON_DEMAND = 1_000
 
-/** Japanese words listed for an English word, and how many of the first get example sentences on demand. */
+/** Japanese words listed for an English word, and how many of the first are enriched on demand. */
 const ENGLISH_MEANINGS = 12
 const ENGLISH_ENRICHED = 3
+
+/** How long a finished audio job that left gaps waits before it is tried again. */
+const REFILL_AFTER = 60 * 60 * 1000
 
 interface Hit {
   readonly entryId: number
@@ -295,12 +298,15 @@ export class Dictionary extends Context.Service<
           if (!hasNuance && jev.configured) yield* jobs.enqueue("nuance", entry.id, ON_DEMAND, now)
           if (!hasExamples && coachAvailable) yield* jobs.enqueue("examples", entry.id, ON_DEMAND, now)
           // The worker re-runs audio once example sentences exist, so they get voiced too. A finished
-          // job can still leave gaps (English voiced after the entry was), so it runs again to fill them.
+          // job can still leave gaps (English voiced after the entry was), so it runs again to fill
+          // them, but at most once an hour, in case the gap is one the worker can't fill.
           if (!hasAudio && pronouncer.configured) {
-            const finished = (yield* jobs.statusFor(entry.id)).get("audio") === "done"
-            yield* finished
-              ? jobs.requeue("audio", entry.id, ON_DEMAND, now)
-              : jobs.enqueue("audio", entry.id, ON_DEMAND, now)
+            // Enqueueing a finished job would touch it, putting its next try off with every look.
+            if ((yield* jobs.statusFor(entry.id)).get("audio") === "done") {
+              yield* jobs.refill("audio", entry.id, now - REFILL_AFTER, ON_DEMAND, now)
+            } else {
+              yield* jobs.enqueue("audio", entry.id, ON_DEMAND, now)
+            }
           }
         }
 
@@ -308,7 +314,8 @@ export class Dictionary extends Context.Service<
         return {
           nuance: status(hasNuance, jev.configured, job.get("nuance")),
           examples: status(hasExamples, coachAvailable, job.get("examples")),
-          audio: status(hasAudio, pronouncer.configured, job.get("audio"))
+          // A finished job has voiced what it can; whatever is still missing isn't on its way.
+          audio: status(hasAudio || job.get("audio") === "done", pronouncer.configured, job.get("audio"))
         }
       })
 
@@ -426,11 +433,13 @@ export class Dictionary extends Context.Service<
         const clips = yield* enrichment.exampleAudio(examples.map((example) => example.id))
 
         let waiting = false
+        let writing = false
         for (const id of ids.slice(0, ENGLISH_ENRICHED)) {
           const record = records.get(id)
           if (record === undefined) continue
           const status = yield* enrichmentFor(record, true)
           if (Object.values(status).includes("queued")) waiting = true
+          if (status.examples === "queued") writing = true
         }
 
         const meanings = top.flatMap(({ match }): Array<EnglishMeaning> => {
@@ -445,6 +454,7 @@ export class Dictionary extends Context.Service<
               reading: record.reading,
               common: record.common,
               glosses: sense.glosses.map((gloss) => gloss.text),
+              matched: match.position,
               partOfSpeech: sense.pos[0] ?? record.senses[0]?.pos[0] ?? null,
               formality: formality.get(`${record.id}:${match.sense}`) ?? null,
               examples: examples
@@ -453,7 +463,7 @@ export class Dictionary extends Context.Service<
             }
           ]
         })
-        return { term, meanings, waiting }
+        return { term, meanings, waiting, writing }
       })
 
       const requestEnrichment = Effect.fn("Dictionary.requestEnrichment")(function* (id: EntryId) {

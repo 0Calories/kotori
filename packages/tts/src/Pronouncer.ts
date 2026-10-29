@@ -38,7 +38,11 @@ export class Pronouncer extends Context.Service<
      * spoken it yet. Without a voice, the language's first dictionary voice reads it.
      */
     speak(text: string, language: Language, voice?: Voice): Effect.Effect<string, TtsError>
-    /** Audio for an entry's headword and example sentences, voices chosen per sentence. */
+    /**
+     * Audio for an entry's headword and example sentences, voices chosen per sentence. Only
+     * what is missing is voiced: existing clips are left as they are, so re-running fills gaps
+     * (a newly voiced language, a run cut short) without re-casting or paying twice.
+     */
     enrichEntry(entryId: number): Effect.Effect<AudioSummary, TtsError>
   }
 >()("@kotori/tts/Pronouncer") {
@@ -173,17 +177,24 @@ export class Pronouncer extends Context.Service<
 
         // The kana reading pins down the pronunciation; kanji alone can be ambiguous (生, 今日…).
         // Every dictionary voice reads it, so learners hear the word from more than one speaker.
+        // Clips made before casting (no voice) count as done, so old entries aren't voiced again.
+        const voiced = (yield* repo.entryAudio([entryId])).get(entryId) ?? []
+        const uncast = voiced.some((clip) => clip.voice === null)
         for (const voice of headwordVoices("ja", casts).slice(0, Math.max(headwordCap, 1))) {
+          if (uncast || voiced.some((clip) => clip.voice === voice.id)) continue
           yield* repo.linkEntryAudio(entryId, yield* speak(entry.reading, "ja", voice))
           track(entry.reading)
         }
 
         const nuance = new Map((yield* repo.nuanceFor([entryId])).map((row) => [row.sense, row.nuance]))
         const examples = yield* repo.examplesFor([entryId])
+        const linked = yield* repo.exampleAudio(examples.map((example) => example.id))
         yield* Effect.forEach(
           examples,
           (example) =>
             Effect.gen(function* () {
+              const missing = exampleLanguages.filter((language) => !linked.has(`${example.id}:${language}`))
+              if (missing.length === 0) return
               const sense = entry.senses[example.sense]
               const brief = briefFor({
                 sentence: example,
@@ -194,7 +205,7 @@ export class Pronouncer extends Context.Service<
                 },
                 nuance: nuance.get(example.sense) ?? null
               })
-              for (const language of exampleLanguages) {
+              for (const language of missing) {
                 const decision = yield* decide(example, brief, language)
                 if (Option.isNone(decision)) continue
                 const text = language === "ja" ? example.ja : example.en
