@@ -37,7 +37,7 @@ The platform's secret store is one layer; assume it can fail. Use **separate API
 
 ## Day two
 
-- **Sign-ups**: `fly ssh console --process-group worker -C "node apps/worker/dist/main.js requests|approve|archive|users|admin|revoke …"` — the same `kotori` CLI as locally (`pnpm kotori …`), against production. Or run it from a laptop with `DATABASE_URL` set; Neon doesn't care where the client is.
+- **Sign-ups**: `fly ssh console --process-group worker -C "node apps/worker/dist/main.js requests|approve|archive|users|admin|revoke …"` — the same `kotori` CLI as locally (`pnpm kotori …`), against production. Or run it from a laptop with `DATABASE_URL` set, plus `KOTORI_ALLOW_REMOTE_DB` set to its host: outside `NODE_ENV=production` the CLI refuses any database not on the machine without it. Neon doesn't care where the client is.
 - **Enrichment coverage and queue**: `… status`. Backfill in bulk with `… enrich --help`.
 - **Logs**: `fly logs` (add `--process-group api`); JSON lines, one per request with method, path, status and span duration. Metrics and a Grafana dashboard come with the app.
 - **Deploys**: every push to `main` that passes CI runs `flyctl deploy --remote-only` (see CI and deploys); `fly deploy` from a laptop does the same. Strategy is rolling. With one machine per group, the worker stops before its replacement starts, so two workers never process the queue at once during a deploy. On SIGTERM the worker puts its in-flight enrichment back in the queue (the attempt doesn't count) and exits, and the replacement picks it up; a job left `running` by a worker that crashed or was SIGKILLed is requeued once it is 10 minutes old (`requeueStale`, checked every minute). The API drains in-flight requests for up to 20 s; `kill_timeout = 60` is the ceiling for both. If the database is unreachable the worker backs off (1 s doubling to 1 min) rather than exiting, so an outage doesn't use up Fly's restart retries. The API is briefly unavailable during a one-machine deploy.
@@ -75,7 +75,7 @@ neon neon-auth config webhook get          # enabled, the URL, both events
 
 To check it, trigger a code (request a verification email from the app) and watch `fly logs --process-group api` for `Sent the email-verification email`; a `Managed Auth webhook not delivered` warning names the reason. `neon neon-auth config webhook update --no-enabled` returns delivery to Managed Auth's own emails.
 
-Local development: by default `pnpm dev` runs `apps/local-auth`, a stand-in for Managed Auth on the Docker Postgres from `compose.yaml` (see the README). To test against Managed Auth itself, `neon checkout <branch>` writes that branch's `DATABASE_URL`, `NEON_AUTH_BASE_URL` and `NEON_AUTH_JWKS_URL` into `.env.local` (loaded after `.env`), and the stand-in stays off.
+Local development: by default `pnpm dev` runs `apps/local-auth`, a stand-in for Managed Auth on the Docker Postgres from `compose.yaml` (see the README). To test against Managed Auth itself, `neon checkout <branch>` writes that branch's `DATABASE_URL`, `NEON_AUTH_BASE_URL` and `NEON_AUTH_JWKS_URL` into `.env.local` (loaded after `.env`), and the stand-in stays off. Set `KOTORI_ALLOW_REMOTE_DB` to the branch's host too, or the API, worker and CLI refuse it: development won't touch a database off the machine unless that names it.
 
 ## CI and deploys
 

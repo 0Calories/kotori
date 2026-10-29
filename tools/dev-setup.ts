@@ -9,6 +9,7 @@
 import { type ChildProcess, spawn, spawnSync } from "node:child_process"
 import { copyFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
+import { remoteDatabaseRefusal } from "../packages/db/src/DatabaseUrl.ts"
 import { loadDotEnv, workspaceRoot } from "../packages/db/src/Paths.ts"
 
 const LOCAL = new Set(["localhost", "127.0.0.1"])
@@ -45,14 +46,18 @@ if (existsSync(envFile)) {
   console.log("Created .env from .env.example. Add API keys there to turn on the AI features.")
 }
 loadDotEnv()
-const databaseUrl = new URL(process.env["DATABASE_URL"] ?? "postgres://kotori:kotori@localhost:5432/kotori")
+const databaseUrl = process.env["DATABASE_URL"] ?? "postgres://kotori:kotori@localhost:5432/kotori"
+// Before anything touches it: migrating and seeding a remote database is opt-in.
+const refusal = remoteDatabaseRefusal(databaseUrl, process.env)
+if (refusal !== undefined) fail(refusal)
+const databaseHost = new URL(databaseUrl).hostname
 const authUrl = process.env["NEON_AUTH_BASE_URL"]?.replace(/\/$/, "")
 if (authUrl === undefined) {
   fail("NEON_AUTH_BASE_URL is not set. Copy the line from .env.example into your .env.")
 }
 
 step("Postgres")
-if (LOCAL.has(databaseUrl.hostname)) {
+if (LOCAL.has(databaseHost)) {
   const up = spawnSync("docker", ["compose", "up", "--detach", "--wait"], { cwd: workspaceRoot, stdio: "inherit" })
   if (up.status !== 0) {
     const logs = spawnSync("docker", ["compose", "logs", "--no-color", "--no-log-prefix", "postgres"], {
@@ -69,7 +74,7 @@ if (LOCAL.has(databaseUrl.hostname)) {
     fail("`docker compose up` failed. Is Docker running? The Postgres log is in `docker compose logs postgres`.")
   }
 } else {
-  console.log(`DATABASE_URL points at ${databaseUrl.hostname}; not starting the local one.`)
+  console.log(`DATABASE_URL points at ${databaseHost} (KOTORI_ALLOW_REMOTE_DB); not starting the local one.`)
 }
 
 step("Schema")
