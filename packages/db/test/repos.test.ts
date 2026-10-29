@@ -425,6 +425,7 @@ layer(TestLayer)("EnrichmentRepo", (it) => {
       yield* enrichment.saveNuance(taberu, [{ sense: 0, nuance, answers: { raw: true }, model: "jev-1" }], 1000)
       assert.deepStrictEqual((yield* enrichment.nuanceFor([taberu]))[0]?.nuance, nuance)
       assert.deepStrictEqual(yield* dictionary.entriesByPriority({ limit: 1, missing: "nuance" }), [1269130])
+      assert.deepStrictEqual(yield* dictionary.entriesByPriority({ limit: 10, enriched: "nuance" }), [taberu])
 
       yield* enrichment.saveSimilar(taberu, [
         { sense: 0, similarId: 1269130, similarity: 0.8, difference: "more_casual", confidence: 0.7 }

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, max, min, ne, notExists, sql } from "drizzle-orm"
+import { and, asc, desc, eq, exists, gte, inArray, max, min, ne, notExists, sql } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import { Context, Effect, Layer } from "effect"
 import { Database } from "./Database.ts"
@@ -36,6 +36,8 @@ export type EnrichmentKind = (typeof jobKind.enumValues)[number]
 export interface PriorityQuery {
   readonly limit: number
   readonly missing?: EnrichmentKind | undefined
+  /** Only entries that already have this enrichment, for regenerating it. */
+  readonly enriched?: EnrichmentKind | undefined
   readonly commonOnly?: boolean | undefined
 }
 
@@ -333,14 +335,14 @@ export class DictionaryRepo extends Context.Service<
         return new Map(rows.map((row) => [row.id, { common: row.common, priority: row.priority }]))
       }, Effect.orDie)
 
-      const missing = (kind: EnrichmentKind) => {
+      const enrichmentOf = (kind: EnrichmentKind) => {
         switch (kind) {
           case "nuance":
-            return notExists(db.select().from(senseNuance).where(eq(senseNuance.entryId, entries.id)))
+            return db.select().from(senseNuance).where(eq(senseNuance.entryId, entries.id))
           case "examples":
-            return notExists(db.select().from(examples).where(eq(examples.entryId, entries.id)))
+            return db.select().from(examples).where(eq(examples.entryId, entries.id))
           case "audio":
-            return notExists(db.select().from(entryAudio).where(eq(entryAudio.entryId, entries.id)))
+            return db.select().from(entryAudio).where(eq(entryAudio.entryId, entries.id))
         }
       }
 
@@ -351,7 +353,8 @@ export class DictionaryRepo extends Context.Service<
           .where(
             and(
               query.commonOnly ? eq(entries.common, true) : undefined,
-              query.missing ? missing(query.missing) : undefined
+              query.missing ? notExists(enrichmentOf(query.missing)) : undefined,
+              query.enriched ? exists(enrichmentOf(query.enriched)) : undefined
             )
           )
           .orderBy(desc(entries.priority), entries.id)
