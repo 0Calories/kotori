@@ -1,9 +1,23 @@
-import type { AgeGroup, Connotation, Currency, Formality, Gender, Keigo, Medium, RegisterShape } from "@kotori/domain"
+import type {
+  AgeGroup,
+  Connotation,
+  Currency,
+  EnglishCurrency,
+  EnglishRegister,
+  EnglishStrength,
+  EnglishVariety,
+  Formality,
+  Gender,
+  Keigo,
+  LoanVerdict,
+  Medium,
+  RegisterShape
+} from "@kotori/domain"
 import { romanize } from "@kotori/japanese"
 
 /**
  * The golden set: words with known-correct judgments, seeded from failures caught in
- * production and padded with ordinary words as controls. `kotori eval nuance`
+ * production and padded with ordinary words as controls. `kotori eval nuance|english`
  * runs the current questions against it and reports per-question accuracy, so prompt
  * changes are measured here instead of spot-checked. Scale expectations list every
  * acceptable label (adjacent labels are often both defensible); boolean expectations
@@ -205,4 +219,84 @@ export const goldenState = (sense: GoldenSense) => ({
   part_of_speech: sense.partOfSpeech ?? [],
   dictionary_notes: sense.notes ?? [],
   other_meanings: []
+})
+
+// --- The English side ------------------------------------------------------------
+
+export interface GoldenEnglishExpectation {
+  readonly variety?: EnglishVariety
+  readonly strength?: EnglishStrength
+  readonly currency?: EnglishCurrency
+  readonly register?: EnglishRegister
+  readonly loan?: LoanVerdict
+}
+
+export interface GoldenEnglish {
+  readonly word: string
+  readonly meaning: string
+  /** The Japanese word it translates, for the state's contrast field. */
+  readonly japanese: string
+  readonly reading: string
+  readonly expect: GoldenEnglishExpectation
+}
+
+const e = (
+  word: string,
+  meaning: string,
+  japanese: string,
+  reading: string,
+  expect: GoldenEnglishExpectation
+): GoldenEnglish => ({ word, meaning, japanese, reading, expect })
+
+export const GOLDEN_ENGLISH: ReadonlyArray<GoldenEnglish> = [
+  // --- Loanword false friends: the スタイル problem; precision here is the feature --
+  e("style", "style; manner", "様式", "ようしき", { loan: "diverges" }),
+  e("mansion", "mansion; stately home", "大邸宅", "だいていたく", { loan: "diverges" }),
+  e("tension", "tension; strain", "緊張", "きんちょう", { loan: "diverges" }),
+  e("naive", "naive; credulous", "世間知らず", "せけんしらず", { loan: "diverges" }),
+  e("smart", "intelligent; clever", "賢い", "かしこい", { loan: "diverges" }),
+  e("cunning", "cunning; sly", "ずるい", "ずるい", { loan: "diverges" }),
+  e("claim", "to claim; to assert", "主張する", "しゅちょうする", { loan: "diverges" }),
+  e("talent", "talent; gift", "才能", "さいのう", { loan: "diverges" }),
+  e("juice", "juice (squeezed from fruit)", "果汁", "かじゅう", { loan: "diverges" }),
+  e("bike", "bicycle", "自転車", "じてんしゃ", { loan: "diverges" }),
+  e("seal", "seal (animal); to seal", "封", "ふう", { loan: "diverges" }),
+  // --- Loans that match: instant comprehension, shown quietly -----------------------
+  e("table", "table (furniture)", "机", "つくえ", { loan: "matches" }),
+  e("coffee", "coffee", "珈琲", "コーヒー", { loan: "matches" }),
+  e("camera", "camera", "写真機", "しゃしんき", { loan: "matches" }),
+  e("computer", "computer", "計算機", "けいさんき", { loan: "matches" }),
+  e("door", "door", "扉", "とびら", { loan: "matches" }),
+  e("hotel", "hotel", "宿", "やど", { loan: "matches" }),
+  // --- No common loan ----------------------------------------------------------------
+  e("walk", "to walk", "歩く", "あるく", { loan: "no_loan" }),
+  e("borrow", "to borrow", "借りる", "かりる", { loan: "no_loan" }),
+  e("shallow", "shallow", "浅い", "あさい", { loan: "no_loan" }),
+  // --- Strength tiers -----------------------------------------------------------------
+  e("fuck", "to have sex; damn it", "くそ", "くそ", { strength: "strong" }),
+  e("shit", "feces; damn", "くそ", "くそ", { strength: "strong" }),
+  e("damn", "damn; darn", "ちくしょう", "ちくしょう", { strength: "mild" }),
+  e("crap", "junk; nonsense", "がらくた", "がらくた", { strength: "mild" }),
+  e("eat", "to eat", "食べる", "たべる", { strength: "none" }),
+  // --- Currency and register -----------------------------------------------------------
+  e("whom", "whom (object of a verb)", "誰を", "だれを", { currency: "dated", register: "formal" }),
+  e("How do you do?", "how do you do (greeting)", "初めまして", "はじめまして", { currency: "textbook" }),
+  e("wanna", "want to (colloquial)", "〜したい", "したい", { register: "casual", currency: "current" }),
+  e("purchase", "to purchase; to buy", "購入する", "こうにゅうする", { register: "formal" }),
+  e("commence", "to commence; to begin", "開始する", "かいしする", { register: "formal" }),
+  e("kids", "children", "子供", "こども", { register: "casual" }),
+  // --- Regional variety ----------------------------------------------------------------
+  e("lift", "elevator", "エレベーター", "エレベーター", { variety: "british" }),
+  e("flat", "apartment", "アパート", "アパート", { variety: "british" }),
+  e("fall", "autumn", "秋", "あき", { variety: "american" }),
+  e("soccer", "association football", "サッカー", "サッカー", { variety: "american" }),
+  e("lorry", "truck", "トラック", "トラック", { variety: "british" }),
+  e("candy", "sweets", "飴", "あめ", { variety: "american" })
+]
+
+/** The state `kotori eval english` sends for a golden English word, mirroring `englishState`. */
+export const goldenEnglishState = (item: GoldenEnglish) => ({
+  word: item.word,
+  japanese_word: `${item.japanese} (${item.reading})`,
+  meaning: item.meaning
 })

@@ -1,7 +1,14 @@
 import { DictionaryRepo, EnrichmentRepo, type EntryRecord } from "@kotori/db"
 import type { Question } from "@typesafe-ai/sdk"
 import { Clock, Context, Effect, Layer, Schema } from "effect"
-import { interpretCandidates, interpretSense, type SenseAnswers } from "./interpret.ts"
+import { englishQuestions, englishState } from "./english.ts"
+import {
+  type EnglishAnswers,
+  interpretCandidates,
+  interpretEnglish,
+  interpretSense,
+  type SenseAnswers
+} from "./interpret.ts"
 import { Jev, type JevError } from "./Jev.ts"
 import { candidateQuestions, QUESTIONS_VERSION, senseQuestions } from "./questions.ts"
 import { type CandidateState, senseState } from "./state.ts"
@@ -76,7 +83,9 @@ export class NuanceEnricher extends Context.Service<
               const questions: Record<string, Question> = { ...senseQuestions }
               candidates.forEach((_, i) => Object.assign(questions, candidateQuestions(i)))
               const result = yield* jev.ask(senseState(entry, index, tags, candidates), questions)
-              return { index, misc: sense.misc, candidates, result }
+              // The English side of the sense, judged separately on its own dimensions.
+              const english = yield* jev.ask(englishState(entry, index), englishQuestions)
+              return { index, misc: sense.misc, candidates, result, english }
             }),
           { concurrency: 3 }
         )
@@ -89,6 +98,13 @@ export class NuanceEnricher extends Context.Service<
           model: result.model,
           questionsVersion: QUESTIONS_VERSION
         }))
+        const english = judged.map(({ index, english: judgment }) => ({
+          sense: index,
+          nuance: interpretEnglish(judgment.answers),
+          answers: judgment.answers,
+          model: judgment.model,
+          questionsVersion: QUESTIONS_VERSION
+        }))
         const similar = judged.flatMap(({ index, candidates, result }) =>
           interpretCandidates(
             result.answers,
@@ -97,11 +113,15 @@ export class NuanceEnricher extends Context.Service<
         )
 
         yield* enrichment.saveNuance(entryId, nuance, now)
+        yield* enrichment.saveEnglishNuance(entryId, english, now)
         yield* enrichment.saveSimilar(entryId, similar)
         return {
           senses: nuance.length,
           similar: similar.length,
-          inputTokens: judged.reduce((sum, { result }) => sum + result.usage.input_tokens, 0)
+          inputTokens: judged.reduce(
+            (sum, { result, english: en }) => sum + result.usage.input_tokens + en.usage.input_tokens,
+            0
+          )
         }
       })
 
@@ -117,6 +137,12 @@ export class NuanceEnricher extends Context.Service<
               row.sense,
               interpretSense(row.answers as SenseAnswers, entry.senses[row.sense]?.misc ?? [])
             ),
+          { discard: true }
+        )
+        const english = yield* enrichment.englishAnswersFor(entryId)
+        yield* Effect.forEach(
+          english,
+          (row) => enrichment.updateEnglishNuance(entryId, row.sense, interpretEnglish(row.answers as EnglishAnswers)),
           { discard: true }
         )
         return { senses: rows.length }

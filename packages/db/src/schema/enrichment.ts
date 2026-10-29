@@ -1,6 +1,7 @@
 import type {
   CastBy,
   Difference,
+  EnglishJudgments,
   Formality,
   Language,
   Nuance,
@@ -60,6 +61,27 @@ export const senseNuance = table(
     model: text().notNull(),
     /** Which question set produced the answers (QUESTIONS_VERSION); old rows are refreshed on view. */
     questionsVersion: integer().notNull().default(1),
+    createdAt: createdAt()
+  },
+  (t) => [
+    primaryKey({ columns: [t.entryId, t.sense] }),
+    foreignKey({ columns: [t.entryId, t.sense], foreignColumns: [senses.entryId, senses.position] }).onDelete("cascade")
+  ]
+)
+
+/** Jev's judgments of a sense's English side, for Japanese natives learning English. */
+export const englishNuance = table(
+  "english_nuance",
+  {
+    entryId: integer().notNull(),
+    sense: integer().notNull(),
+    nuance: jsonb().$type<EnglishJudgments>().notNull(),
+    answers: jsonb().notNull(),
+    /** The katakana loanword and its trap sentence, written by Claude when the loan verdict diverges. */
+    loanWord: text(),
+    loanTrap: text(),
+    model: text().notNull(),
+    questionsVersion: integer().notNull(),
     createdAt: createdAt()
   },
   (t) => [

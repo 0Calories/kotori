@@ -135,8 +135,9 @@ layer(TestLayer)("NuanceEnricher", (it) => {
       ])
       yield* dictionary.replaceTags([{ code: "v1", label: "Ichidan verb" }])
 
+      // Each sense is judged twice: the Japanese questions and the English-side ones.
       const summary = yield* (yield* NuanceEnricher).enrich(1)
-      assert.deepStrictEqual(summary, { senses: 2, similar: 1, inputTokens: 200 })
+      assert.deepStrictEqual(summary, { senses: 2, similar: 1, inputTokens: 400 })
 
       const firstState = states[0] as {
         word: string

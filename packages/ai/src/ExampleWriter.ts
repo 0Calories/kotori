@@ -11,6 +11,9 @@ export const ExamplesOutput = Schema.Struct({
       note: Schema.NullOr(Schema.String),
       /** The note on the sense's English side for Japanese speakers learning English, in Japanese. */
       noteJa: Schema.NullOr(Schema.String),
+      /** The katakana loanword and its trap sentence; null unless the request marks the sense. */
+      loanWord: Schema.NullOr(Schema.String),
+      loanTrap: Schema.NullOr(Schema.String),
       examples: Schema.Array(
         Schema.Struct({
           ja: Schema.String,
@@ -38,6 +41,8 @@ export interface ExampleSense {
   readonly notes: ReadonlyArray<string>
   /** Dialect labels from JMDict (e.g. "Kansai-ben"); the sentences are written in that dialect. */
   readonly dialects: ReadonlyArray<string>
+  /** Jev judged a katakana loan of this sense's English to diverge; Claude names it and the trap. */
+  readonly loanDiverges?: boolean
 }
 
 export interface ExampleRequest {
@@ -48,11 +53,13 @@ export interface ExampleRequest {
   readonly perSense: number
 }
 
-/** The usage note for one sense, in both learner directions. */
+/** The usage note for one sense, in both learner directions, plus the loanword trap when asked for. */
 export interface WrittenSenseNote {
   readonly sense: number
   readonly note: string | null
   readonly noteJa: string | null
+  readonly loanWord: string | null
+  readonly loanTrap: string | null
 }
 
 export interface WrittenExample {
@@ -84,7 +91,8 @@ export const describeRequest = (request: ExampleRequest) =>
         `${sense.index}. ${sense.glosses.join("; ")}`,
         sense.partsOfSpeech.length > 0 ? `   part of speech: ${sense.partsOfSpeech.join(", ")}` : null,
         sense.dialects.length > 0 ? `   dialect: ${sense.dialects.join(", ")} (write every sentence in it)` : null,
-        sense.notes.length > 0 ? `   notes: ${sense.notes.join("; ")}` : null
+        sense.notes.length > 0 ? `   notes: ${sense.notes.join("; ")}` : null,
+        sense.loanDiverges ? "   katakana loan diverges: give loanWord and loanTrap" : null
       ]
         .filter((line) => line !== null)
         .join("\n")
@@ -132,7 +140,13 @@ export class ExampleWriter extends Context.Service<
         })
         const groups = output.senses.filter((group) => known.has(group.sense))
         return {
-          notes: groups.map((group) => ({ sense: group.sense, note: group.note, noteJa: group.noteJa })),
+          notes: groups.map((group) => ({
+            sense: group.sense,
+            note: group.note ?? null,
+            noteJa: group.noteJa ?? null,
+            loanWord: group.loanWord ?? null,
+            loanTrap: group.loanTrap ?? null
+          })),
           examples: groups.flatMap((group) =>
             group.examples.map((example) => ({
               sense: group.sense,

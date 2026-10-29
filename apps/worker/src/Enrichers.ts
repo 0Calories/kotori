@@ -41,9 +41,12 @@ export class Enrichers extends Context.Service<
         const tags = yield* dictionary.tags
         const label = (code: string) => tags.get(code) ?? code
         const judged = new Map((yield* enrichment.nuanceFor([entryId])).map((row) => [row.sense, row.nuance]))
+        const english = new Map((yield* enrichment.englishNuanceFor([entryId])).map((row) => [row.sense, row]))
 
         const senses = entry.senses.slice(0, EXAMPLE_SENSES).map((sense, index) => {
           const nuance = judged.get(index)
+          // Only a confident divergence verdict earns the loanword prose request.
+          const loan = english.get(index)?.nuance.loan
           return {
             index,
             glosses: sense.glosses.map((gloss) => gloss.text),
@@ -53,7 +56,8 @@ export class Enrichers extends Context.Service<
               ...[...sense.misc, ...sense.fields].map(label),
               ...sense.info,
               ...(nuance ? [`register: ${nuance.formality.value}, ${nuance.medium.value}`] : [])
-            ]
+            ],
+            loanDiverges: loan !== undefined && loan.value === "diverges" && loan.confidence >= 0.55
           }
         })
         const written = yield* writer.write({
@@ -74,8 +78,13 @@ export class Enrichers extends Context.Service<
         )
         yield* enrichment.saveSenseNotes(
           entryId,
-          written.notes.map((note) => ({ ...note, model: writer.model })),
+          written.notes.map(({ sense, note, noteJa }) => ({ sense, note, noteJa, model: writer.model })),
           now
+        )
+        yield* Effect.forEach(
+          written.notes.filter((note) => note.loanWord !== null),
+          (note) => enrichment.saveLoanTrap(entryId, note.sense, note.loanWord!, note.loanTrap),
+          { discard: true }
         )
         return `${written.examples.length} examples, ${written.notes.filter((note) => note.note ?? note.noteJa).length} notes`
       })

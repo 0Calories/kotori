@@ -3,18 +3,26 @@ import type {
   Connotation,
   Currency,
   Difference,
+  EnglishCurrency,
+  EnglishJudgments,
+  EnglishRegister,
+  EnglishStrength,
+  EnglishVariety,
   Formality,
   Gender,
   JudgmentSource,
   Keigo,
+  LoanVerdict,
   Medium,
   Nuance,
   RegisterShape
 } from "@kotori/domain"
 import type { ChoiceResponse, NoulResponse, ScoreResponse, SystemOneResult } from "@typesafe-ai/sdk"
+import type { EnglishQuestions } from "./english.ts"
 import { FORMALITY_LEVELS, MEDIUM_LEVELS, type SenseQuestions } from "./questions.ts"
 
 export type SenseAnswers = SystemOneResult<SenseQuestions>["answers"]
+export type EnglishAnswers = SystemOneResult<EnglishQuestions>["answers"]
 
 /**
  * JMDict's editors tag many senses with usage notes (hon, col, male, arch…).
@@ -141,6 +149,15 @@ export const interpretSense = (answers: SenseAnswers, misc: ReadonlyArray<string
     }
   }
 }
+
+/** The English-side judgments as stored; Claude's loanword prose is added separately. */
+export const interpretEnglish = (answers: EnglishAnswers): EnglishJudgments => ({
+  variety: choice<EnglishVariety>(answers.variety, undefined),
+  strength: choice<EnglishStrength>(answers.strength, undefined),
+  currency: choice<EnglishCurrency>(answers.currency, undefined),
+  register: choice<EnglishRegister>(answers.register, undefined),
+  loan: choice<LoanVerdict>(answers.loan, undefined)
+})
 
 export interface SimilarJudgment {
   readonly similarId: number

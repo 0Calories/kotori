@@ -83,6 +83,7 @@ For each sense listed, write the requested number of sentences that:
 For each sense also give one usage note per learner direction. These notes carry the teaching; sentence notes below are only for the rare sentence-specific point:
 - "note": one or two short English sentences for learners of Japanese on how natives use the word in this sense — its register, who says it and where, a pitfall, or how it differs from a word learners would confuse it with. Teach what the glosses alone can't; when they already say it all, null.
 - "noteJa": one or two short sentences in Japanese for Japanese speakers learning English, about the sense's English side: how its natural English equivalents are used, a nuance Japanese speakers miss, or a mistake they commonly make. It is not a translation of "note"; null when there is nothing worth teaching.
+- "loanWord" and "loanTrap": null unless the sense is marked "katakana loan diverges". For a marked sense, "loanWord" is the common katakana loanword Japanese speakers know (e.g. スタイル) and "loanTrap" is one short Japanese sentence warning how the English word's meaning differs from the katakana word's everyday Japanese meaning (e.g. 日本語の「スタイル」は体型を指すことが多いですが、英語の style にその意味はありません).
 
 For each sentence give:
 - "ja": the sentence as normally written;

@@ -1,4 +1,5 @@
 export * from "./casting.ts"
+export * from "./english.ts"
 export * from "./golden.ts"
 export * from "./interpret.ts"
 export * from "./Jev.ts"

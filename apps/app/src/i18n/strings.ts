@@ -174,6 +174,14 @@ const en = {
     hideScales: "Hide the nuance scales",
     /** For words whose register is bimodal: clinical in one world, crude in the other. */
     contextSplit: "Clinical or crude — depends on context",
+    english: {
+      variety: { universal: "", american: "American English", british: "British English" },
+      strength: { none: "", mild: "Mildly coarse", strong: "Strong language", avoid: "Offensive — never use" },
+      currency: { current: "", dated: "Dated English", textbook: "Textbook English" },
+      register: { casual: "Casual", neutral: "", formal: "Formal" },
+      loanMatches: "Same meaning as the katakana word",
+      loanDiverges: (loan: string | null) => (loan ? `Not the katakana 「${loan}」` : "Differs from the katakana word")
+    },
     cautionRude: "Can sound rude to your boss or customers",
     cautionStiff: "Sounds stiff between friends",
     cautionSlang: "Slang",
@@ -513,6 +521,14 @@ const ja: Strings = {
     showScales: "ニュアンスの目盛りを表示",
     hideScales: "ニュアンスの目盛りを隠す",
     contextSplit: "場面で印象が大きく変わる",
+    english: {
+      variety: { universal: "", american: "アメリカ英語", british: "イギリス英語" },
+      strength: { none: "", mild: "ややくだけた言葉", strong: "強い言葉・注意", avoid: "侮蔑語・使わない" },
+      currency: { current: "", dated: "古風な英語", textbook: "教科書英語・不自然なことも" },
+      register: { casual: "カジュアル", neutral: "", formal: "フォーマル" },
+      loanMatches: "カタカナ語と同じ意味",
+      loanDiverges: (loan: string | null) => (loan ? `カタカナ語「${loan}」とは意味が違う` : "カタカナ語とは意味が違う")
+    },
     cautionRude: "目上の人には失礼に聞こえることも",
     cautionStiff: "友達同士だと堅く聞こえる",
     cautionSlang: "スラング",

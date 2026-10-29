@@ -57,6 +57,10 @@ const FakeClaude = Layer.succeed(
         senses: [
           {
             sense: 0,
+            note: "An everyday verb.",
+            noteJa: "eat は日常語です。",
+            loanWord: null,
+            loanTrap: null,
             examples: [
               {
                 ja: "パンを食べる。",

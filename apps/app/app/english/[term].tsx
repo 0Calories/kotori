@@ -7,6 +7,7 @@ import { AudioButton } from "../../src/components/AudioButton.tsx"
 import { IconButton } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
 import { Chip } from "../../src/components/Chip.tsx"
+import { EnglishNuanceNotes } from "../../src/components/EnglishNuanceNotes.tsx"
 import { ExampleRow } from "../../src/components/ExampleRow.tsx"
 import { Icon } from "../../src/components/Icon.tsx"
 import { Mascot } from "../../src/components/Mascot.tsx"
@@ -110,6 +111,7 @@ const MeaningCard = ({
             ) : null}
           </View>
         ) : null}
+        {meaning.english ? <EnglishNuanceNotes english={meaning.english} /> : null}
         {/* The audience here is Japanese natives, so the sense note is the Japanese one. */}
         {meaning.noteJa ? (
           <Text jp variant="small" color="textMuted">

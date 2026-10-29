@@ -436,6 +436,29 @@ layer(TestLayer)("EnrichmentRepo", (it) => {
       assert.deepStrictEqual(yield* enrichment.outdatedNuanceEntryIds(2, false, 10), [taberu])
       assert.deepStrictEqual(yield* enrichment.outdatedNuanceEntryIds(1, false, 10), [])
 
+      // English-side judgments upsert, and Claude's loanword prose survives a re-judge.
+      const englishJudged = {
+        variety: { ...judgment, value: "universal" as const },
+        strength: { ...judgment, value: "none" as const },
+        currency: { ...judgment, value: "current" as const },
+        register: { ...judgment, value: "casual" as const },
+        loan: { ...judgment, value: "diverges" as const }
+      }
+      const englishInput = {
+        sense: 0,
+        nuance: englishJudged,
+        answers: { raw: true },
+        model: "jev-1",
+        questionsVersion: 2
+      }
+      yield* enrichment.saveEnglishNuance(taberu, [englishInput], 1000)
+      yield* enrichment.saveLoanTrap(taberu, 0, "スタイル", "意味が違う")
+      yield* enrichment.saveEnglishNuance(taberu, [englishInput], 2000)
+      const [english] = yield* enrichment.englishNuanceFor([taberu])
+      assert.strictEqual(english?.loanWord, "スタイル")
+      assert.strictEqual(english?.loanTrap, "意味が違う")
+      assert.deepStrictEqual(english?.nuance, englishJudged)
+
       yield* enrichment.saveSimilar(taberu, [
         { sense: 0, similarId: 1269130, similarity: 0.8, difference: "more_casual", confidence: 0.7 }
       ])

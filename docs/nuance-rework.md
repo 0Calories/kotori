@@ -1,8 +1,11 @@
 # Nuance enrichment rework
 
-> Agreed direction, 2026-10-29. The "Shipped" section has landed on this branch; Phases A,
-> B and C are agreed but unbuilt. The open questions in the first draft were resolved by
-> Ash on 2026-10-29; the resolutions are folded into the text below.
+> Agreed direction, 2026-10-29. Phases A, B and C are all built on this branch. What remains
+> operational: run `kotori migrate`, run `kotori eval nuance|english --record …` to baseline
+> the golden set and iterate question wording if accuracy disappoints, then the combined
+> backfill (`kotori enrich nuance --outdated` and `kotori enrich nuance --reinterpret` for
+> interpretation-only changes). The open questions in the first draft were resolved by Ash
+> on 2026-10-29; the resolutions are folded into the text below.
 
 ## Goal
 

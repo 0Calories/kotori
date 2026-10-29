@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema"
-import { Difference, Formality, Nuance } from "./Nuance.ts"
+import { Difference, EnglishNuance, Formality, Nuance } from "./Nuance.ts"
 
 /** JMDict's `ent_seq`. */
 export const EntryId = Schema.Int.pipe(Schema.brand("EntryId"))
@@ -84,6 +84,8 @@ export const Sense = Schema.Struct({
   related: Schema.Array(CrossReference),
   antonyms: Schema.Array(CrossReference),
   nuance: Schema.NullOr(Nuance),
+  /** The nuance of this sense's English side, for Japanese natives learning English. */
+  english: Schema.NullOr(EnglishNuance),
   /** Kotori's usage note on this sense for learners of Japanese, in English. */
   note: Schema.NullOr(Schema.String),
   /** The note on this sense's English side for Japanese speakers learning English, in Japanese. */
@@ -169,6 +171,8 @@ export const EnglishMeaning = Schema.Struct({
   matched: Schema.Int,
   partOfSpeech: Schema.NullOr(Schema.String),
   formality: Schema.NullOr(Formality),
+  /** The nuance of the sense's English side, for the Japanese natives this page serves. */
+  english: Schema.NullOr(EnglishNuance),
   /** Kotori's usage note on the sense for learners of Japanese, in English. */
   note: Schema.NullOr(Schema.String),
   /** The note on the sense's English side for Japanese speakers, in Japanese. */

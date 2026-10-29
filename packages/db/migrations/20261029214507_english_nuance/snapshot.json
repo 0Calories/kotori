@@ -1,0 +1,225 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "978b575a-8150-4a4d-99e5-18883f41f423",
+  "prevIds": ["35fa4630-92ef-414d-b3db-2fd5db67dc26"],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "english_nuance"],
+      "writes": [
+        "s|tbl|public.english_nuance",
+        "n|tbl|public.english_nuance",
+        "e|tbl|public.english_nuance",
+        "n|rel|public.english_nuance",
+        "n|type|public.english_nuance",
+        "n|rel|public.english_nuance_pkey"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "english_nuance"],
+      "writes": [
+        "s|fk|public.english_nuance.english_nuance_entry_id_sense_senses_entry_id_position_fkey",
+        "n|fk|public.english_nuance.english_nuance_entry_id_sense_senses_entry_id_position_fkey",
+        "e|fk|public.english_nuance.english_nuance_entry_id_sense_senses_entry_id_position_fkey",
+        "n|con|public.english_nuance.english_nuance_entry_id_sense_senses_entry_id_position_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.english_nuance",
+        "n|sch|public",
+        "n|tbl|public.senses",
+        "n|sch|public",
+        "n|col|public.english_nuance.entry_id",
+        "n|col|public.english_nuance.sense",
+        "n|col|public.senses.entry_id",
+        "n|col|public.senses.position",
+        "e|uniqueness|public.senses.entry_id.position"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "english_nuance",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "english_nuance",
+        "name": "entry_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "english_nuance",
+        "name": "sense",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "english_nuance",
+        "name": "nuance",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "english_nuance",
+        "name": "answers",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "english_nuance",
+        "name": "loan_word",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "english_nuance",
+        "name": "loan_trap",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "english_nuance",
+        "name": "model",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "english_nuance",
+        "name": "questions_version",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "english_nuance",
+        "name": "created_at",
+        "type": "timestamp(3) with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "english_nuance",
+        "name": "english_nuance_entry_id_sense_senses_entry_id_position_fkey",
+        "nameExplicit": false,
+        "columns": ["entry_id", "sense"],
+        "schemaTo": "public",
+        "tableTo": "senses",
+        "columnsTo": ["entry_id", "position"],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "english_nuance",
+        "name": "english_nuance_pkey",
+        "columns": ["entry_id", "sense"],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    }
+  ]
+}

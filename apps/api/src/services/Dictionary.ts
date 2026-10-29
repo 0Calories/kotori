@@ -1,6 +1,7 @@
 import { Claude } from "@kotori/ai"
 import {
   DictionaryRepo,
+  type EnglishNuanceRow,
   EnrichmentRepo,
   type EntryRecord,
   type ExampleRow,
@@ -11,6 +12,7 @@ import {
 import {
   type EnglishEntry,
   type EnglishMeaning,
+  type EnglishNuance,
   type Enrichment,
   type EnrichmentStatus,
   type Entry,
@@ -111,6 +113,9 @@ const glossScore = (
   Math.min(10, -match.rank) +
   (rank?.common ? 30 : 0) +
   (rank?.priority ?? 0) / 5
+
+const toEnglishNuance = (row: EnglishNuanceRow | undefined): EnglishNuance | null =>
+  row === undefined ? null : { ...row.nuance, loanWord: row.loanWord, loanTrap: row.loanTrap }
 
 const toExample = (example: ExampleRow, clips: ReadonlyMap<string, string>): Example => {
   const ja = clips.get(`${example.id}:ja`)
@@ -327,6 +332,7 @@ export class Dictionary extends Context.Service<
         const tag = (code: string): Tag => ({ code, label: tags.get(code) ?? code })
 
         const nuance = new Map((yield* enrichment.nuanceFor([entry.id])).map((row) => [row.sense, row.nuance]))
+        const english = new Map((yield* enrichment.englishNuanceFor([entry.id])).map((row) => [row.sense, row]))
         const notes = new Map((yield* enrichment.senseNotesFor([entry.id])).map((row) => [row.sense, row]))
         const examples = yield* enrichment.examplesFor([entry.id])
         const exampleAudio = yield* enrichment.exampleAudio(examples.map((example) => example.id))
@@ -366,6 +372,7 @@ export class Dictionary extends Context.Service<
           related: sense.xrefs.map(resolve),
           antonyms: sense.antonyms.map(resolve),
           nuance: nuance.get(index) ?? null,
+          english: toEnglishNuance(english.get(index)),
           note: notes.get(index)?.note ?? null,
           noteJa: notes.get(index)?.noteJa ?? null,
           similar: similarRows
@@ -436,6 +443,9 @@ export class Dictionary extends Context.Service<
           (yield* enrichment.nuanceFor(ids)).map((row) => [`${row.entryId}:${row.sense}`, row.nuance.formality.value])
         )
         const notes = new Map((yield* enrichment.senseNotesFor(ids)).map((row) => [`${row.entryId}:${row.sense}`, row]))
+        const englishRows = new Map(
+          (yield* enrichment.englishNuanceFor(ids)).map((row) => [`${row.entryId}:${row.sense}`, row])
+        )
         const examples = yield* enrichment.examplesFor(ids)
         const clips = yield* enrichment.exampleAudio(examples.map((example) => example.id))
 
@@ -464,6 +474,7 @@ export class Dictionary extends Context.Service<
               matched: match.position,
               partOfSpeech: sense.pos[0] ?? record.senses[0]?.pos[0] ?? null,
               formality: formality.get(`${record.id}:${match.sense}`) ?? null,
+              english: toEnglishNuance(englishRows.get(`${record.id}:${match.sense}`)),
               note: notes.get(`${record.id}:${match.sense}`)?.note ?? null,
               noteJa: notes.get(`${record.id}:${match.sense}`)?.noteJa ?? null,
               examples: examples

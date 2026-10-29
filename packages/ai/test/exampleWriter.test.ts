@@ -76,9 +76,15 @@ describe("examples prompt", () => {
   })
 })
 
+const group = (
+  sense: number,
+  examples: Array<ReturnType<typeof written>>,
+  extra: Partial<Record<string, unknown>> = {}
+) => ({ sense, note: null, noteJa: null, loanWord: null, loanTrap: null, examples, ...extra }) as never
+
 describe("ExampleWriter.write", () => {
   it("flattens the speaker and normalises the variety label", async () => {
-    const { examples } = await write({ senses: [{ sense: 0, note: null, noteJa: null, examples: [written()] }] })
+    const { examples } = await write({ senses: [group(0, [written()])] })
     expect(examples).toHaveLength(1)
     expect(examples[0]).toMatchObject({
       sense: 0,
@@ -100,19 +106,31 @@ describe("ExampleWriter.write", () => {
     [null, null]
   ])("maps the variety label %j to %j", async (label, expected) => {
     const { examples } = await write({
-      senses: [{ sense: 1, note: null, noteJa: null, examples: [written({ variety: label })] }]
+      senses: [group(1, [written({ variety: label })])]
     })
     expect(examples[0]?.variety).toBe(expected)
   })
 
-  it("keeps the usage note of each known sense", async () => {
+  it("keeps the usage note and loanword trap of each known sense", async () => {
     const { notes } = await write({
       senses: [
-        { sense: 0, note: "Kansai speech.", noteJa: "口語です。", examples: [written()] },
-        { sense: 9, note: "Not a listed sense.", noteJa: null, examples: [] }
+        group(0, [written()], { note: "Kansai speech.", noteJa: "口語です。" }),
+        group(1, [], { loanWord: "スタイル", loanTrap: "意味が違う" }),
+        group(9, [], { note: "Not a listed sense." })
       ]
     })
-    expect(notes).toEqual([{ sense: 0, note: "Kansai speech.", noteJa: "口語です。" }])
+    expect(notes).toEqual([
+      { sense: 0, note: "Kansai speech.", noteJa: "口語です。", loanWord: null, loanTrap: null },
+      { sense: 1, note: null, noteJa: null, loanWord: "スタイル", loanTrap: "意味が違う" }
+    ])
+  })
+
+  it("marks diverging loans in the request", () => {
+    const prompt = describeRequest({
+      ...request,
+      senses: [{ ...request.senses[1]!, loanDiverges: true }]
+    })
+    expect(prompt).toContain("katakana loan diverges")
   })
 
   it("sends the system prompt and the described request", async () => {

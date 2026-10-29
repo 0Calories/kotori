@@ -8,6 +8,7 @@ import { AudioButton } from "../../src/components/AudioButton.tsx"
 import { Button, IconButton } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
 import { Chip } from "../../src/components/Chip.tsx"
+import { EnglishNuanceNotes } from "../../src/components/EnglishNuanceNotes.tsx"
 import { ExampleRow } from "../../src/components/ExampleRow.tsx"
 import { Icon, type IconName } from "../../src/components/Icon.tsx"
 import { Mascot } from "../../src/components/Mascot.tsx"
@@ -278,6 +279,8 @@ const SenseCard = ({
         ) : null}
         {showScales && sense.nuance ? <RegisterBlock nuance={sense.nuance} /> : null}
         {showNuance && sense.nuance ? <NuanceNotes nuance={sense.nuance} register={registerChips} /> : null}
+        {/* Japanese natives get the English side's chips and the loanword warning. */}
+        {english && sense.english ? <EnglishNuanceNotes english={sense.english} /> : null}
         {usage ? (
           <Text variant="small" color="textMuted">
             {usage}

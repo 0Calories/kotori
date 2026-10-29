@@ -1,4 +1,16 @@
-import { GOLDEN_SENSES, goldenState, interpretSense, Jev, type SenseAnswers, senseQuestions } from "@kotori/nuance"
+import {
+  type EnglishAnswers,
+  englishQuestions,
+  GOLDEN_ENGLISH,
+  GOLDEN_SENSES,
+  goldenEnglishState,
+  goldenState,
+  interpretEnglish,
+  interpretSense,
+  Jev,
+  type SenseAnswers,
+  senseQuestions
+} from "@kotori/nuance"
 import { Console, Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { readFile, writeFile } from "node:fs/promises"
@@ -59,7 +71,9 @@ const report = (tallies: Map<string, Tally>, misses: Array<string>) =>
 export const evaluate = Command.make(
   "eval",
   {
-    kind: Argument.Literals("kind", ["nuance"]).pipe(Argument.withDescription("The question set to measure")),
+    kind: Argument.Literals("kind", ["nuance", "english"]).pipe(
+      Argument.withDescription("nuance (the Japanese questions) or english (the English-side questions)")
+    ),
     record: Flag.String("record").pipe(
       Flag.withDescription("Write the raw answers to this JSON file, for offline reinterpretation"),
       Flag.optional
@@ -89,7 +103,6 @@ export const evaluate = Command.make(
     const recorded: Record<string, unknown> = {}
 
     if (kind === "nuance") {
-      // The argument exists so the Phase C English-side eval can slot in beside this one.
       yield* Console.log(`Judging ${GOLDEN_SENSES.length} golden senses with ${jev.model}…`)
       yield* Effect.forEach(
         GOLDEN_SENSES,
@@ -139,6 +152,33 @@ export const evaluate = Command.make(
               caution("stiffWithFriends", nuance.cautions.stiffWithFriends, expect.stiffWithFriends)
             }
             if (expect.slang !== undefined) caution("slang", nuance.cautions.slang, expect.slang)
+          }),
+        { concurrency, discard: true }
+      )
+    } else {
+      yield* Console.log(`Judging ${GOLDEN_ENGLISH.length} golden English words with ${jev.model}…`)
+      yield* Effect.forEach(
+        GOLDEN_ENGLISH,
+        (golden) =>
+          Effect.gen(function* () {
+            const key = `${golden.word}:${golden.meaning}`
+            const answers = yield* answersFor(key, goldenEnglishState(golden), englishQuestions)
+            if (answers === undefined) return
+            recorded[key] = answers
+            const english = interpretEnglish(answers as EnglishAnswers)
+            for (const dimension of ["variety", "strength", "currency", "register", "loan"] as const) {
+              const want = golden.expect[dimension]
+              if (want === undefined) continue
+              const got = english[dimension]
+              tally(
+                tallies,
+                dimension,
+                got.value === want,
+                got.confidence,
+                misses,
+                `${golden.word} ${dimension}: got ${got.value}, wanted ${want}`
+              )
+            }
           }),
         { concurrency, discard: true }
       )

@@ -11,8 +11,8 @@ import type { ChoiceQuestion, NoulQuestion, ScoreQuestion } from "@typesafe-ai/s
  * which questions produced them. Old rows stay valid; the API re-queues outdated
  * entries when they are viewed, and `kotori enrich nuance --outdated` backfills.
  * History: 1 — the launch set; 2 — registerShape added, stiffWithFriends dropped
- * (derived in interpret.ts) and rudeToSuperiors told to ignore obviousness
- * (docs/nuance-rework.md).
+ * (derived in interpret.ts), rudeToSuperiors told to ignore obviousness, and the
+ * English-side questions introduced (docs/nuance-rework.md).
  */
 export const QUESTIONS_VERSION = 2
 
