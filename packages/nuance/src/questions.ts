@@ -40,7 +40,7 @@ const formality: ScoreQuestion = {
 const medium: ScoreQuestion = {
   type: "score",
   instructions:
-    "Where is the Japanese word `word`, with the meaning in `meaning`, typically used: in conversation or in writing?",
+    "Where is the Japanese word `word`, with the meaning in `meaning`, typically used: in conversation or in writing? Judge the word, not its subject: everyday words for medical, bodily or sexual topics are said aloud as often as they are written.",
   criteria: [
     {
       what: "Mostly spoken: conversational words that look out of place in formal writing",
@@ -48,7 +48,7 @@ const medium: ScoreQuestion = {
     },
     {
       what: "Equally common in conversation and in writing",
-      examples: ["歩く", "時間", "大切", "友達"]
+      examples: ["歩く", "時間", "大切", "友達", "妊娠", "下痢"]
     },
     {
       what: "Mostly written: literary, journalistic, academic, legal or technical prose; sounds stiff or bookish aloud",
@@ -128,13 +128,16 @@ const rudeToSuperiors: NoulQuestion = {
   }
 }
 
+// Asked whether a word "sounds stiff between friends", Jev answers whether the subject
+// is awkward to raise, so everyday words like 妊娠 and 勃起 came out as stiff as 鑑みる.
+// Asking about the kind of vocabulary, with the topic caveat, separates the two.
 const stiffWithFriends: NoulQuestion = {
   type: "noul",
   instructions:
-    "Would the Japanese word `word`, with the meaning in `meaning`, sound stiff, bookish or overly formal in a relaxed chat between close friends? Judge the Japanese word, not the English gloss.",
+    "Is the Japanese word `word` (meaning `meaning`) found mostly in formal, official, academic or medical language rather than in the everyday speech of ordinary people? Judge the word, not its subject: everyday words for medical, bodily or sexual things belong to everyday speech.",
   criteria: {
-    true: "Yes: friends would find the word stiff, formal or bookish, e.g. 鑑みる, 召し上がる, 誠に, 拝見する",
-    false: "No: friends use it naturally, e.g. 行く, 好き, 時間, やっぱり"
+    true: "Mostly formal, official, academic or medical language, e.g. 鑑みる, 召し上がる, 誠に, 拝見する, 性交, 排便",
+    false: "Everyday speech, e.g. 行く, 好き, 時間, やっぱり, 妊娠, 下痢, セックス"
   }
 }
 
