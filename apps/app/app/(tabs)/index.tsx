@@ -107,6 +107,42 @@ const ResultRow = ({
   )
 }
 
+/**
+ * For Japanese speakers, an English query that is itself a meaning in the dictionary
+ * opens as an English word, with the Japanese words for it as its meanings.
+ */
+const EnglishWordCard = ({
+  term,
+  headwords,
+  onPress
+}: {
+  readonly term: string
+  readonly headwords: ReadonlyArray<string>
+  readonly onPress: () => void
+}) => {
+  const { t } = useSession()
+  return (
+    <PressableScale onPress={onPress} scaleTo={0.985} accessibilityRole="link" accessibilityLabel={term}>
+      <Card tone="primary" style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text variant="caption" color="textMuted">
+            {t.english.label}
+          </Text>
+          <Text variant="title" size={26} style={{ lineHeight: 32 }}>
+            {term}
+          </Text>
+          {headwords.length > 0 ? (
+            <Text mincho size={16} color="textMuted" numberOfLines={1}>
+              {headwords.join("・")}
+            </Text>
+          ) : null}
+        </View>
+        <Icon name="chevron_right" size={22} color={theme.color.textMuted} />
+      </Card>
+    </PressableScale>
+  )
+}
+
 const ReviewTeaser = () => {
   const { t } = useSession()
   const router = useRouter()
@@ -150,6 +186,10 @@ export default function LookUpScreen() {
   const open = (entry: EntrySummary) => {
     remember(debounced)
     router.push({ pathname: "/entry/[id]", params: { id: String(entry.id) } })
+  }
+  const openEnglish = (term: string) => {
+    remember(term)
+    router.push({ pathname: "/english/[term]", params: { term } })
   }
 
   const results = search.data
@@ -315,6 +355,15 @@ export default function LookUpScreen() {
             </Text>
           ) : null}
           {search.isError ? <ErrorState error={search.error} onRetry={() => search.refetch()} /> : null}
+          {target === "en" && results?.englishWord ? (
+            <Animated.View entering={FadeIn.duration(200)}>
+              <EnglishWordCard
+                term={results.query}
+                headwords={results.entries.slice(0, 3).map((entry) => entry.headword)}
+                onPress={() => openEnglish(results.query)}
+              />
+            </Animated.View>
+          ) : null}
           {results && results.entries.length === 0 && !search.isFetching ? (
             <MascotMessage mood="oops" body={t.dictionary.noResults} size={90} />
           ) : null}

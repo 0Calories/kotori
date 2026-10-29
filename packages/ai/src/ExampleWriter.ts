@@ -18,7 +18,8 @@ export const ExamplesOutput = Schema.Struct({
           /** Regional variety as a lowercase label ("kansai"); null for the standard language. */
           variety: Schema.NullOr(Schema.String),
           tone: SentenceTone,
-          note: Schema.NullOr(Schema.String)
+          note: Schema.NullOr(Schema.String),
+          noteJa: Schema.NullOr(Schema.String)
         })
       )
     })
@@ -56,6 +57,8 @@ export interface WrittenExample {
   readonly variety: string | null
   readonly tone: SentenceTone
   readonly note: string | null
+  /** For Japanese speakers learning English, in Japanese. */
+  readonly noteJa: string | null
 }
 
 /** The user turn: the headword and each sense with the hints that shape its sentences. */
@@ -125,7 +128,8 @@ export class ExampleWriter extends Context.Service<
               medium: example.medium,
               variety: normalizeVariety(example.variety),
               tone: example.tone,
-              note: example.note
+              note: example.note,
+              noteJa: example.noteJa
             }))
           )
       })

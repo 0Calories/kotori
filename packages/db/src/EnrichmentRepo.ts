@@ -58,6 +58,8 @@ export interface ExampleRow extends CastingSignals {
   readonly en: string
   readonly formality: Formality
   readonly note: string | null
+  /** The note for Japanese speakers, in Japanese; null on sentences written before it existed. */
+  readonly noteJa: string | null
   readonly model: string
 }
 
@@ -68,6 +70,7 @@ export interface ExampleInput extends Partial<CastingSignals> {
   readonly en: string
   readonly formality: Formality
   readonly note: string | null
+  readonly noteJa?: string | null
   readonly model: string
 }
 
@@ -222,6 +225,7 @@ export class EnrichmentRepo extends Context.Service<
             en: examples.en,
             formality: examples.formality,
             note: examples.note,
+            noteJa: examples.noteJa,
             speakerGender: examples.speakerGender,
             speakerAge: examples.speakerAge,
             medium: examples.medium,

@@ -132,6 +132,15 @@ const en = {
       `Nuance, example sentences and audio are added to the most common words first. ${word} isn’t one of them yet.`,
     ask: "Ask for this word"
   },
+  english: {
+    label: "English",
+    meanings: "In Japanese",
+    intro: (term: string) => `Japanese words that mean “${term}”, the most likely first.`,
+    also: "Also",
+    open: "See the Japanese word",
+    none: "No Japanese word in the dictionary has this meaning. Try a simpler form of it.",
+    writing: "Kotori is writing example sentences…"
+  },
   nuance: {
     formality: "Formality",
     medium: "Used in",
@@ -469,6 +478,15 @@ const ja: Strings = {
     dictionaryOnlyBody: (word: string) =>
       `ニュアンス、例文、音声は、よく使われる単語から順に追加しています。${word} はまだ対象外です。`,
     ask: "この単語をリクエスト"
+  },
+  english: {
+    label: "英単語",
+    meanings: "日本語での意味",
+    intro: (term: string) => `「${term}」にあたる日本語です。よく使われる意味から順に並べています。`,
+    also: "ほかの英訳",
+    open: "日本語の項目を見る",
+    none: "この意味を持つ日本語は辞書に見つかりませんでした。もっと基本的な形で試してみてください。",
+    writing: "例文を作成しています…"
   },
   nuance: {
     formality: "丁寧さ",

@@ -15,6 +15,7 @@ export const keys = {
   health: ["health"] as const,
   search: (q: string) => ["search", q] as const,
   entry: (id: number) => ["entry", id] as const,
+  english: (term: string) => ["english", term] as const,
   notes: ["notes"] as const,
   queue: ["queue"] as const,
   stats: ["stats"] as const
@@ -41,6 +42,15 @@ export const useEntry = (id: number) =>
       const enrichment = query.state.data?.enrichment
       return enrichment && Object.values(enrichment).includes("queued") ? 3000 : false
     }
+  })
+
+/** An English word for Japanese speakers, checked again while its examples are being written. */
+export const useEnglish = (term: string) =>
+  useQuery({
+    queryKey: keys.english(term),
+    queryFn: () => call((api) => api.dictionary.english({ query: { term } })),
+    enabled: term.trim().length > 0,
+    refetchInterval: (query) => (query.state.data?.waiting ? 3000 : false)
   })
 
 export const useNotes = () => useQuery({ queryKey: keys.notes, queryFn: () => call((api) => api.study.notes()) })

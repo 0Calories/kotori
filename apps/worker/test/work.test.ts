@@ -171,10 +171,13 @@ layer(TestLayer)("kotori work", (it) => {
       assert.strictEqual(example?.model, "claude-test")
 
       // The audio job was queued by the examples job: headword and sentence are both voiced,
-      // the headword once per cast dictionary voice (Kyoko and the announcer).
-      assert.deepStrictEqual(spoken, ["たべる", "たべる", "パンを食べる。"])
+      // the headword once per cast dictionary voice (Kyoko and the announcer), the sentence in
+      // Japanese and, for Japanese speakers learning English, in English.
+      assert.deepStrictEqual(spoken, ["たべる", "たべる", "パンを食べる。", "I eat bread."])
       assert.isTrue((yield* enrichment.entryAudio([taberu])).has(taberu))
-      assert.isTrue((yield* enrichment.exampleAudio([example!.id])).has(`${example!.id}:ja`))
+      const clips = yield* enrichment.exampleAudio([example!.id])
+      assert.isTrue(clips.has(`${example!.id}:ja`))
+      assert.isTrue(clips.has(`${example!.id}:en`))
       assert.deepStrictEqual(
         [...(yield* jobs.statusFor(taberu))].sort(([a], [b]) => a.localeCompare(b)),
         [

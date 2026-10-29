@@ -1,0 +1,33 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "7c7078cf-4e07-46a6-a254-6169bfa7be69",
+  "prevIds": ["8018f895-cba8-4672-9a0f-93594dbe1f15"],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "examples", "note_ja"],
+      "writes": ["s|col|public.examples.note_ja", "n|col|public.examples.note_ja", "e|col|public.examples.note_ja"],
+      "reads": ["n|tbl|public.examples", "n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "examples",
+        "name": "note_ja",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

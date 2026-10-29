@@ -97,6 +97,8 @@ export const examples = table(
     en: text().notNull(),
     formality: formality().$type<Formality>().notNull(),
     note: text(),
+    /** The usage note for Japanese speakers learning English, in Japanese; null on sentences written before it. */
+    noteJa: text(),
     // Casting signals, judged by the writer; null on sentences written before voice casting.
     speakerGender: speakerGender().$type<SpeakerGender>(),
     speakerAge: speakerAge().$type<SpeakerAge>(),

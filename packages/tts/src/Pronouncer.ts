@@ -31,6 +31,8 @@ export class Pronouncer extends Context.Service<
   Pronouncer,
   {
     readonly configured: boolean
+    /** The languages example sentences are voiced in. */
+    readonly exampleLanguages: ReadonlyArray<Language>
     /**
      * Returns the audio key for `text`, synthesising it only if this voice hasn't
      * spoken it yet. Without a voice, the language's first dictionary voice reads it.
@@ -51,11 +53,14 @@ export class Pronouncer extends Context.Service<
       const casts = yield* VoiceCasts
       const budget = yield* Config.Int("KOTORI_AUDIO_MONTHLY_CHARS").pipe(Config.withDefault(50_000))
       const headwordCap = yield* Config.Int("KOTORI_HEADWORD_VOICES").pipe(Config.withDefault(3))
-      // Japanese is always voiced; KOTORI_AUDIO_LANGUAGES only opts English in.
-      const voicedEnglish = (yield* Config.String("KOTORI_AUDIO_LANGUAGES").pipe(Config.withDefault("ja")))
+      // Japanese is always voiced. English is too, for Japanese speakers learning it, unless
+      // KOTORI_AUDIO_LANGUAGES=ja opts it out. A language nobody is cast in can't be voiced.
+      const voicedEnglish = (yield* Config.String("KOTORI_AUDIO_LANGUAGES").pipe(Config.withDefault("ja,en")))
         .split(",")
         .some((language) => language.trim() === "en")
-      const exampleLanguages: ReadonlyArray<Language> = voicedEnglish ? ["ja", "en"] : ["ja"]
+      const exampleLanguages = (voicedEnglish ? (["ja", "en"] as const) : (["ja"] as const)).filter((language) =>
+        casts[language].some((voice) => voice.providerId !== null)
+      )
 
       const defaultVoice = (language: Language): Effect.Effect<Voice, TtsError> => {
         const voice = headwordVoices(language, casts)[0]
@@ -204,7 +209,7 @@ export class Pronouncer extends Context.Service<
         return { clips, characters }
       })
 
-      return Pronouncer.of({ configured: tts.configured, speak, enrichEntry })
+      return Pronouncer.of({ configured: tts.configured, exampleLanguages, speak, enrichEntry })
     })
   )
 }
