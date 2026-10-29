@@ -135,16 +135,18 @@ layer(TestLayer)("NuanceEnricher", (it) => {
       ])
       yield* dictionary.replaceTags([{ code: "v1", label: "Ichidan verb" }])
 
-      // Each sense is judged twice: the Japanese questions and the English-side ones.
+      // One request per sense carries the Japanese, English-side and candidate questions.
       const summary = yield* (yield* NuanceEnricher).enrich(1)
-      assert.deepStrictEqual(summary, { senses: 2, similar: 1, inputTokens: 400 })
+      assert.deepStrictEqual(summary, { senses: 2, similar: 1, inputTokens: 200 })
 
       const firstState = states[0] as {
         word: string
+        english_word: string
         part_of_speech: Array<string>
         candidates: Array<{ word: string }>
       }
       assert.strictEqual(firstState.word, "食べる")
+      assert.strictEqual(firstState.english_word, "to eat")
       assert.deepStrictEqual(firstState.part_of_speech, ["Ichidan verb"])
       assert.deepStrictEqual(
         firstState.candidates.map((c) => c.word),
@@ -155,6 +157,11 @@ layer(TestLayer)("NuanceEnricher", (it) => {
       const saved = yield* repo.nuanceFor([1])
       assert.strictEqual(saved.length, 2)
       assert.strictEqual(saved[0]?.nuance.formality.value, "neutral")
+
+      // The English-side judgments ride the same request and land in their own table.
+      const english = yield* repo.englishNuanceFor([1])
+      assert.strictEqual(english.length, 2)
+      assert.strictEqual(english[0]?.nuance.loan.value, "no_loan")
 
       const similar = yield* repo.similarFor(1)
       assert.deepStrictEqual(

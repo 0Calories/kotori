@@ -1,4 +1,3 @@
-import type { EntryRecord } from "@kotori/db"
 import type { ChoiceQuestion } from "@typesafe-ai/sdk"
 
 /**
@@ -7,27 +6,18 @@ import type { ChoiceQuestion } from "@typesafe-ai/sdk"
  * formality slider measured the Japanese way doesn't transfer, and the traps
  * Japanese learners actually fall into (profanity strength, textbook-isms,
  * drifted katakana loanwords) have no Japanese counterpart.
+ *
+ * These are asked in the same systemOne request as the Japanese questions —
+ * TypeSafe evaluates every question in parallel, so extra questions are nearly
+ * free, and one request per sense beats asking again later. They refer to the
+ * sense state's `english_word` (the primary gloss); names carry an `english_`
+ * prefix so they can't collide with the Japanese questions.
  */
-
-/** What Jev is shown: the English word as one meaning of a Japanese headword. */
-export const englishState = (entry: EntryRecord, senseIndex: number) => {
-  const sense = entry.senses[senseIndex]!
-  const [first, ...rest] = sense.glosses.map((gloss) => gloss.text)
-  return {
-    word: first ?? "",
-    ...(rest.length > 0 ? { also_means: rest.slice(0, 3) } : {}),
-    japanese_word: `${entry.headword} (${entry.reading})`,
-    meaning: sense.glosses
-      .slice(0, 3)
-      .map((gloss) => gloss.text)
-      .join("; ")
-  }
-}
 
 const variety: ChoiceQuestion = {
   type: "choice",
   instructions:
-    "Is the English word or phrase `word` (a translation of the Japanese word `japanese_word`) tied to a regional variety of English?",
+    "Is the English word or phrase `english_word` (how dictionaries translate the Japanese word `word`) tied to a regional variety of English?",
   criteria: {
     universal: "Used across varieties of English without marking the speaker",
     american: 'Chiefly American English; British speakers say something else, e.g. "fall" (autumn), "candy", "soccer"',
@@ -38,7 +28,7 @@ const variety: ChoiceQuestion = {
 const strength: ChoiceQuestion = {
   type: "choice",
   instructions:
-    "How offensive is the English word or phrase `word` when used with the meaning in `meaning`? Judge the word itself, not its subject.",
+    "How offensive is the English word or phrase `english_word` when used with the meaning in `meaning`? Judge the word itself, not its subject.",
   criteria: {
     none: "Not offensive: ordinary vocabulary, even about delicate subjects",
     mild: 'Mildly coarse: fine among friends, avoided in careful speech, e.g. "damn", "crap", "screw up"',
@@ -50,7 +40,7 @@ const strength: ChoiceQuestion = {
 const currency: ChoiceQuestion = {
   type: "choice",
   instructions:
-    "How current does the English word or phrase `word`, with the meaning in `meaning`, sound to native speakers today?",
+    "How current does the English word or phrase `english_word`, with the meaning in `meaning`, sound to native speakers today?",
   criteria: {
     current: "Ordinary present-day English",
     dated: 'Understood but old-fashioned; natives rarely say it now, e.g. "whom" in speech, "groovy"',
@@ -61,7 +51,7 @@ const currency: ChoiceQuestion = {
 
 const register: ChoiceQuestion = {
   type: "choice",
-  instructions: "What register does the English word or phrase `word`, with the meaning in `meaning`, carry?",
+  instructions: "What register does the English word or phrase `english_word`, with the meaning in `meaning`, carry?",
   criteria: {
     casual: 'Conversational or slangy; out of place in formal writing, e.g. "wanna", "kids", "guy"',
     neutral: "Fits almost any situation",
@@ -75,7 +65,7 @@ const register: ChoiceQuestion = {
 const loan: ChoiceQuestion = {
   type: "choice",
   instructions:
-    "Japanese borrows many English words as katakana loanwords. Consider the common katakana loanword derived from the English word `word`, if Japanese speakers use one. Does its everyday Japanese meaning match the English word's meaning in `meaning`?",
+    "Japanese borrows many English words as katakana loanwords. Consider the common katakana loanword derived from the English word `english_word`, if Japanese speakers use one. Does its everyday Japanese meaning match the English word's meaning in `meaning`?",
   criteria: {
     no_loan: "There is no common katakana loanword of this English word in everyday Japanese",
     matches: "A common loan exists and means essentially the same, e.g. テーブル for 'table', コーヒー for 'coffee'",
@@ -85,11 +75,15 @@ const loan: ChoiceQuestion = {
 }
 
 export const englishQuestions = {
-  variety,
-  strength,
-  currency,
-  register,
-  loan
+  english_variety: variety,
+  english_strength: strength,
+  english_currency: currency,
+  english_register: register,
+  english_loan: loan
 }
 
 export type EnglishQuestions = typeof englishQuestions
+
+/** The `english_*` answers alone, so english_nuance rows stay self-contained. */
+export const englishAnswersOf = (answers: Record<string, unknown>): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(answers).filter(([name]) => name.startsWith("english_")))

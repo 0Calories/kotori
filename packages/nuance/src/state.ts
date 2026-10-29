@@ -31,6 +31,8 @@ export const senseState = (
     reading: `${entry.reading} (${romanize(entry.reading)})`,
     ...(otherForms.length > 0 ? { other_forms: otherForms } : {}),
     meaning: sense.glosses.map((gloss) => gloss.text).join("; "),
+    /** The primary gloss, judged by the English-side questions in the same request. */
+    english_word: sense.glosses[0]?.text ?? "",
     part_of_speech: sense.pos.map(label),
     dictionary_notes: [...sense.misc, ...sense.fields, ...sense.dialects].map(label).concat(sense.info),
     other_meanings: entry.senses

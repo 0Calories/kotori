@@ -143,12 +143,15 @@ English), with English-specific dimensions:
 - Ordinary collocation notes stay prose in `noteJa` (A4 gives them their surface).
 
 **C2. How it runs.** *Resolved: Jev* (typed, calibrated, consistent with the JA side;
-Claude writes prose only). A second `systemOne` call inside the existing nuance job with an
-English-focused state (gloss, sense context, the Japanese word for contrast), stored in a
-new `english_nuance` table keyed `(entryId, sense)` mirroring `sense_nuance` (answers
-jsonb, model, questionsVersion). Shown on `english/[term].tsx` and on entry senses when
-the learner's target is English. Enrichment status stays a single `nuance` kind — the job
-produces both directions.
+Claude writes prose only). The English-side questions (prefixed `english_*`) ride the
+**same** `systemOne` request as the Japanese ones — TypeSafe evaluates every question in
+parallel, so extra questions barely cost latency or money, and asking one we might not
+need beats skipping it and asking later. The sense state carries `english_word` (the
+primary gloss) for them to judge. Results are stored in a new `english_nuance` table keyed
+`(entryId, sense)` mirroring `sense_nuance` (the `english_*` answer subset, model,
+questionsVersion). Shown on `english/[term].tsx` and on entry senses when the learner's
+target is English. Enrichment status stays a single `nuance` kind — the job produces both
+directions.
 
 **C3. Loanword false friends (和製英語 and drifted katakana loans) — first-class.**
 Corrected scope from the first draft: these are not generic collocation traps but the

@@ -294,9 +294,10 @@ export const GOLDEN_ENGLISH: ReadonlyArray<GoldenEnglish> = [
   e("candy", "sweets", "飴", "あめ", { variety: "american" })
 ]
 
-/** The state `kotori eval english` sends for a golden English word, mirroring `englishState`. */
+/** The state `kotori eval english` sends for a golden English word, mirroring the sense state. */
 export const goldenEnglishState = (item: GoldenEnglish) => ({
-  word: item.word,
-  japanese_word: `${item.japanese} (${item.reading})`,
-  meaning: item.meaning
+  word: item.japanese,
+  reading: item.reading,
+  meaning: item.meaning,
+  english_word: item.word
 })

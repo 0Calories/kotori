@@ -1,7 +1,7 @@
 import { DictionaryRepo, EnrichmentRepo, type EntryRecord } from "@kotori/db"
 import type { Question } from "@typesafe-ai/sdk"
 import { Clock, Context, Effect, Layer, Schema } from "effect"
-import { englishQuestions, englishState } from "./english.ts"
+import { englishAnswersOf, englishQuestions } from "./english.ts"
 import {
   type EnglishAnswers,
   interpretCandidates,
@@ -80,12 +80,13 @@ export class NuanceEnricher extends Context.Service<
           (sense, index) =>
             Effect.gen(function* () {
               const candidates = index < SIMILAR_SENSES ? yield* candidatesFor(entry, index) : []
-              const questions: Record<string, Question> = { ...senseQuestions }
+              // One request per sense: the Japanese questions, the English-side ones and the
+              // candidate comparisons together. TypeSafe evaluates questions in parallel, so
+              // asking everything at once is barely slower or dearer than asking anything.
+              const questions: Record<string, Question> = { ...senseQuestions, ...englishQuestions }
               candidates.forEach((_, i) => Object.assign(questions, candidateQuestions(i)))
               const result = yield* jev.ask(senseState(entry, index, tags, candidates), questions)
-              // The English side of the sense, judged separately on its own dimensions.
-              const english = yield* jev.ask(englishState(entry, index), englishQuestions)
-              return { index, misc: sense.misc, candidates, result, english }
+              return { index, misc: sense.misc, candidates, result }
             }),
           { concurrency: 3 }
         )
@@ -98,11 +99,11 @@ export class NuanceEnricher extends Context.Service<
           model: result.model,
           questionsVersion: QUESTIONS_VERSION
         }))
-        const english = judged.map(({ index, english: judgment }) => ({
+        const english = judged.map(({ index, result }) => ({
           sense: index,
-          nuance: interpretEnglish(judgment.answers),
-          answers: judgment.answers,
-          model: judgment.model,
+          nuance: interpretEnglish(result.answers as unknown as EnglishAnswers),
+          answers: englishAnswersOf(result.answers),
+          model: result.model,
           questionsVersion: QUESTIONS_VERSION
         }))
         const similar = judged.flatMap(({ index, candidates, result }) =>
@@ -118,10 +119,7 @@ export class NuanceEnricher extends Context.Service<
         return {
           senses: nuance.length,
           similar: similar.length,
-          inputTokens: judged.reduce(
-            (sum, { result, english: en }) => sum + result.usage.input_tokens + en.usage.input_tokens,
-            0
-          )
+          inputTokens: judged.reduce((sum, { result }) => sum + result.usage.input_tokens, 0)
         }
       })
 

@@ -152,11 +152,11 @@ export const interpretSense = (answers: SenseAnswers, misc: ReadonlyArray<string
 
 /** The English-side judgments as stored; Claude's loanword prose is added separately. */
 export const interpretEnglish = (answers: EnglishAnswers): EnglishJudgments => ({
-  variety: choice<EnglishVariety>(answers.variety, undefined),
-  strength: choice<EnglishStrength>(answers.strength, undefined),
-  currency: choice<EnglishCurrency>(answers.currency, undefined),
-  register: choice<EnglishRegister>(answers.register, undefined),
-  loan: choice<LoanVerdict>(answers.loan, undefined)
+  variety: choice<EnglishVariety>(answers.english_variety, undefined),
+  strength: choice<EnglishStrength>(answers.english_strength, undefined),
+  currency: choice<EnglishCurrency>(answers.english_currency, undefined),
+  register: choice<EnglishRegister>(answers.english_register, undefined),
+  loan: choice<LoanVerdict>(answers.english_loan, undefined)
 })
 
 export interface SimilarJudgment {
