@@ -1,4 +1,4 @@
-import { loadDotEnv } from "@kotori/db"
+import { loadDotEnv, remoteDatabaseRefusal } from "@kotori/db"
 import { betterAuth, type BetterAuthOptions } from "better-auth"
 import { getMigrations } from "better-auth/db/migration"
 import { toNodeHandler } from "better-auth/node"
@@ -51,8 +51,13 @@ if (base.protocol !== "http:" || !["localhost", "127.0.0.1"].includes(base.hostn
   process.exit(0)
 }
 
+const databaseUrl = process.env["DATABASE_URL"] ?? "postgres://kotori:kotori@localhost:5432/kotori"
+// It creates the `neon_auth` tables on start, so the same guard as the API and the worker.
+const refusal = remoteDatabaseRefusal(databaseUrl, process.env)
+if (refusal !== undefined) fail(refusal)
+
 const pool = new pg.Pool({
-  connectionString: process.env["DATABASE_URL"] ?? "postgres://kotori:kotori@localhost:5432/kotori",
+  connectionString: databaseUrl,
   options: "-c search_path=neon_auth"
 })
 

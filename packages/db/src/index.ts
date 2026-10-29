@@ -1,5 +1,6 @@
 export * from "./CoachRepo.ts"
 export * from "./Database.ts"
+export * from "./DatabaseUrl.ts"
 export * from "./DictionaryRepo.ts"
 export * from "./EnrichmentRepo.ts"
 export * from "./JobsRepo.ts"

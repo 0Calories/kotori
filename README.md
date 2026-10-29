@@ -73,6 +73,8 @@ This creates `.env` from `.env.example`, starts Postgres 18 in Docker (`compose.
 
 If your local database predates the Postgres 18 and Drizzle schema change, `pnpm dev:setup` stops and asks you to run `docker compose down -v` once. The old database can't be upgraded in place, and setup never deletes it for you.
 
+Development only touches a database on this machine. If `DATABASE_URL` (from your environment, `.env` or `.env.local`) points anywhere else, `pnpm dev:setup`, `pnpm dev` and every `pnpm kotori` command stop before connecting and say which host they found, because it could be production. To use a Neon dev branch or another remote database on purpose, set `KOTORI_ALLOW_REMOTE_DB` to that host, for one command (`KOTORI_ALLOW_REMOTE_DB=<host> pnpm dev:setup`) or in `.env`. It allows that host only, so it never carries over to a different database. Production (`NODE_ENV=production`) isn't checked.
+
 **4. Run the backend and the app**
 
 ```sh
@@ -130,7 +132,7 @@ pnpm kotori revoke user@example.com    # signs them out of every device
 
 For local work none of that is needed: `pnpm kotori dev-account` (run by `pnpm dev:setup`) creates an account already confirmed, approved and past the language picker, and in development the app signs in as it on launch. The command is idempotent, so run it again on a new database. Set `EXPO_PUBLIC_DEV_SIGN_IN=off` to use the real screens instead. Neither half reaches a release build, where `__DEV__` is false and the command refuses to run.
 
-Locally, `apps/local-auth` stands in for Managed Auth: Better Auth set up the way Neon runs it (the `neon_auth` schema, Email OTP, EdDSA JWTs and their key set), so the API and the CLI run unchanged against `NEON_AUTH_BASE_URL=http://localhost:4001/neondb/auth`. Verification and password-reset codes are printed in its log. It refuses to run in production and isn't part of the deployed image. To work against a Neon branch instead, `neon checkout <branch>` writes the branch's `DATABASE_URL` and `NEON_AUTH_BASE_URL` into `.env.local`, which overrides `.env`; the local auth server then stays off.
+Locally, `apps/local-auth` stands in for Managed Auth: Better Auth set up the way Neon runs it (the `neon_auth` schema, Email OTP, EdDSA JWTs and their key set), so the API and the CLI run unchanged against `NEON_AUTH_BASE_URL=http://localhost:4001/neondb/auth`. Verification and password-reset codes are printed in its log. It refuses to run in production and isn't part of the deployed image. To work against a Neon branch instead, `neon checkout <branch>` writes the branch's `DATABASE_URL` and `NEON_AUTH_BASE_URL` into `.env.local`, which overrides `.env`; the local auth server then stays off. Allow the branch's host with `KOTORI_ALLOW_REMOTE_DB` (see "Set up the database" above).
 
 Kotori sends its own email through [Resend](https://resend.com) when `RESEND_API_KEY` is set; otherwise messages are printed to the log, which is enough for local development. That covers the approval email and, once Managed Auth's webhook points at the API (`POST /webhooks/neon-auth`, signature-checked; see `docs/operations.md`), the verification and password-reset codes, all in the learner's language.
 

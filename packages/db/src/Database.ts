@@ -3,6 +3,7 @@ import * as PgDrizzle from "drizzle-orm/effect-postgres"
 import { makePgArray, type PgCodecs, type PgQueryResultHKT } from "drizzle-orm/pg-core"
 import type { PgEffectDatabase } from "drizzle-orm/pg-core/effect"
 import { Config, Context, Effect, Layer, Redacted } from "effect"
+import { RemoteDatabaseError, remoteDatabaseRefusal } from "./DatabaseUrl.ts"
 import { relations } from "./schema/relations.ts"
 
 /**
@@ -37,12 +38,18 @@ export class Database extends Context.Service<Database, DatabaseShape>()("@kotor
   static readonly layer = Layer.effect(Database, PgDrizzle.makeWithDefaults({ relations, codecs: pgCodecs }))
 }
 
-/** The Postgres client at `DATABASE_URL` (default `postgres://kotori:kotori@localhost:5432/kotori`). */
+/**
+ * The Postgres client at `DATABASE_URL` (default `postgres://kotori:kotori@localhost:5432/kotori`).
+ * Outside production it fails with `RemoteDatabaseError`, before connecting, unless the
+ * database is local or explicitly allowed (`remoteDatabaseRefusal`).
+ */
 const PgLive = Layer.unwrap(
   Effect.gen(function* () {
     const url = yield* Config.Redacted("DATABASE_URL").pipe(
       Config.withDefault(Redacted.make("postgres://kotori:kotori@localhost:5432/kotori"))
     )
+    const refusal = remoteDatabaseRefusal(Redacted.value(url), process.env)
+    if (refusal !== undefined) return yield* new RemoteDatabaseError({ message: refusal })
     return PgClient.layer({ url })
   })
 )
