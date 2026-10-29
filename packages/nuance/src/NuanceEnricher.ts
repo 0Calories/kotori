@@ -3,7 +3,7 @@ import type { Question } from "@typesafe-ai/sdk"
 import { Clock, Context, Effect, Layer, Schema } from "effect"
 import { interpretCandidates, interpretSense, type SenseAnswers } from "./interpret.ts"
 import { Jev, type JevError } from "./Jev.ts"
-import { candidateQuestions, senseQuestions } from "./questions.ts"
+import { candidateQuestions, englishSenseQuestions, senseQuestions } from "./questions.ts"
 import { type CandidateState, senseState } from "./state.ts"
 
 /** Senses beyond these rarely matter to learners and are left unclassified. */
@@ -34,11 +34,14 @@ export class NuanceEnricher extends Context.Service<
       const dictionary = yield* DictionaryRepo
       const enrichment = yield* EnrichmentRepo
 
-      /** JMDict "see also" references first (curated), then words sharing an exact gloss. */
+      /**
+       * The dictionary's own cross-references first (JMDict's "see also", Wiktionary's synonyms),
+       * then words in the same dictionary sharing an exact gloss.
+       */
       const candidatesFor = Effect.fnUntraced(function* (entry: EntryRecord, senseIndex: number) {
         const sense = entry.senses[senseIndex]!
         const xrefTexts = sense.xrefs.map((xref) => xref.split("・")[0]!).filter((text) => text.length > 0)
-        const xrefMatches = yield* dictionary.findForms(xrefTexts)
+        const xrefMatches = yield* dictionary.findForms(xrefTexts, entry.language)
         const shared = yield* dictionary.sharedGlossCandidates(entry.id, senseIndex, MAX_CANDIDATES)
 
         const ids = [...new Set([...xrefMatches.map((match) => match.entryId), ...shared.map((c) => c.entryId)])]
@@ -71,8 +74,10 @@ export class NuanceEnricher extends Context.Service<
           (sense, index) =>
             Effect.gen(function* () {
               const candidates = index < SIMILAR_SENSES ? yield* candidatesFor(entry, index) : []
-              const questions: Record<string, Question> = { ...senseQuestions }
-              candidates.forEach((_, i) => Object.assign(questions, candidateQuestions(i)))
+              const questions: Record<string, Question> = {
+                ...(entry.language === "ja" ? senseQuestions : englishSenseQuestions)
+              }
+              candidates.forEach((_, i) => Object.assign(questions, candidateQuestions(i, entry.language)))
               const result = yield* jev.ask(senseState(entry, index, tags, candidates), questions)
               return { index, misc: sense.misc, candidates, result }
             }),

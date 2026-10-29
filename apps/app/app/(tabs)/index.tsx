@@ -8,6 +8,7 @@ import { useQueue, useSearch, useStats } from "../../src/api/queries.ts"
 import { Button } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
 import { Chip } from "../../src/components/Chip.tsx"
+import { Headword } from "../../src/components/Headword.tsx"
 import { Icon } from "../../src/components/Icon.tsx"
 import { Mascot } from "../../src/components/Mascot.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
@@ -73,17 +74,17 @@ const ResultRow = ({
     >
       <View style={{ flex: 1, gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-          <Text mincho size={24} style={{ lineHeight: 30 }}>
+          <Headword language={entry.language} size={entry.language === "ja" ? 24 : 21} style={{ lineHeight: 30 }}>
             {entry.headword}
-          </Text>
-          {entry.reading !== entry.headword ? (
-            <Text jp variant="small" color="textMuted">
+          </Headword>
+          {entry.reading.length > 0 && entry.reading !== entry.headword ? (
+            <Text jp={entry.language === "ja"} variant="small" color="textMuted">
               {entry.reading}
             </Text>
           ) : null}
         </View>
         <Text color="textMuted" numberOfLines={2}>
-          {entry.meanings.join("; ")}
+          {entry.meanings.join(entry.language === "ja" ? "; " : "、")}
         </Text>
         {entry.inflection.length > 0 || entry.common || pos || (entry.formality && entry.formality !== "neutral") ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
@@ -103,42 +104,6 @@ const ResultRow = ({
         ) : null}
       </View>
       <Icon name="chevron_right" size={22} color={theme.color.textMuted} />
-    </PressableScale>
-  )
-}
-
-/**
- * For Japanese speakers, an English query that is itself a meaning in the dictionary
- * opens as an English word, with the Japanese words for it as its meanings.
- */
-const EnglishWordCard = ({
-  term,
-  headwords,
-  onPress
-}: {
-  readonly term: string
-  readonly headwords: ReadonlyArray<string>
-  readonly onPress: () => void
-}) => {
-  const { t } = useSession()
-  return (
-    <PressableScale onPress={onPress} scaleTo={0.985} accessibilityRole="link" accessibilityLabel={term}>
-      <Card tone="primary" style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <View style={{ flex: 1, gap: 4 }}>
-          <Text variant="caption" color="textMuted">
-            {t.english.label}
-          </Text>
-          <Text variant="title" size={26} style={{ lineHeight: 32 }}>
-            {term}
-          </Text>
-          {headwords.length > 0 ? (
-            <Text mincho size={16} color="textMuted" numberOfLines={1}>
-              {headwords.join("・")}
-            </Text>
-          ) : null}
-        </View>
-        <Icon name="chevron_right" size={22} color={theme.color.textMuted} />
-      </Card>
     </PressableScale>
   )
 }
@@ -176,20 +141,16 @@ export default function LookUpScreen() {
   const [query, setQuery] = useState("")
   const [recent, setRecent] = usePreference<ReadonlyArray<string>>("recent-searches", [])
   const debounced = useDebounced(query.trim(), 220)
-  const search = useSearch(debounced)
-  const searching = query.trim().length > 0
   const native = profile?.nativeLanguage ?? "en"
   const target = profile?.targetLanguage ?? "ja"
+  const search = useSearch(debounced, target)
+  const searching = query.trim().length > 0
 
   const remember = (term: string) => setRecent([term, ...recent.filter((r) => r !== term)].slice(0, 8))
 
   const open = (entry: EntrySummary) => {
     remember(debounced)
     router.push({ pathname: "/entry/[id]", params: { id: String(entry.id) } })
-  }
-  const openEnglish = (term: string) => {
-    remember(term)
-    router.push({ pathname: "/english/[term]", params: { term } })
   }
 
   const results = search.data
@@ -355,15 +316,6 @@ export default function LookUpScreen() {
             </Text>
           ) : null}
           {search.isError ? <ErrorState error={search.error} onRetry={() => search.refetch()} /> : null}
-          {target === "en" && results?.englishWord ? (
-            <Animated.View entering={FadeIn.duration(200)}>
-              <EnglishWordCard
-                term={results.query}
-                headwords={results.entries.slice(0, 3).map((entry) => entry.headword)}
-                onPress={() => openEnglish(results.query)}
-              />
-            </Animated.View>
-          ) : null}
           {results && results.entries.length === 0 && !search.isFetching ? (
             <MascotMessage mood="oops" body={t.dictionary.noResults} size={90} />
           ) : null}

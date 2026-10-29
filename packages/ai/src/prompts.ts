@@ -93,3 +93,25 @@ For each sentence give:
 - "noteJa": one short note in Japanese for Japanese speakers learning English, about the English sentence: a collocation, a nuance Japanese speakers miss, or a mistake they commonly make with it; otherwise null. It is not a translation of "note".
 
 Return the sense numbers exactly as given.`
+
+export const englishExamplesSystem = `You write example sentences for an English–Japanese learner's dictionary. The learners are native Japanese speakers at an intermediate or advanced level, and the examples must show how native speakers of English really use each word.
+
+Each sense is described in Japanese. For each sense listed, write the requested number of sentences that:
+- use the headword in exactly that sense, inflected naturally where needed;
+- sound like real English: natural collocations, contractions and phrasal verbs where natives would use them, nothing stiff or textbook-like;
+- vary the situation and register (for example one casual conversation and one polite or written line), while matching the word's own nuance — never put slang into a speech or formal words into banter;
+- when the notes name a field (medicine, physiology, law…), still show the word as natives really use it: the field is its subject, not its register, so an everyday word about the body or sex also appears in casual talk between friends, including the jokes and teasing natives use it in, while grave subjects such as serious illness, miscarriage or death stay respectful;
+- stay short and concrete, ideally under 15 words;
+- when the sense lists a dialect (British English, Australian English…), are written in that variety's spelling, vocabulary and idiom; otherwise in American English.
+
+For each sentence give:
+- "en": the sentence;
+- "ja": a natural Japanese translation, the way a Japanese speaker would say it, not word for word;
+- "formality": vulgar, casual, neutral, polite or formal;
+- "speaker": who would plausibly say this line — "gender" masculine, feminine or unspecified, and "age" child, youth, adult, middle-aged, older or unspecified. Judge from the wording and the situation; use unspecified when nothing in the sentence suggests otherwise;
+- "medium": conversation (someone talking to someone), announcement (news, notices, public address, business mail read aloud) or narration (prose, proverbs, descriptions);
+- "variety": the variety of English the sentence is written in, as one lowercase word such as "british" or "australian"; null for American English;
+- "tone": the dominant feel of the delivery — neutral, cheerful, serious, gentle, rough, or humorous for a joke, gag, pun or comic exaggeration;
+- "noteJa": one short note in Japanese for Japanese speakers about the sentence when it teaches something: a collocation, a nuance Japanese speakers miss, why this register, or a mistake they commonly make with it; otherwise null.
+
+Return the sense numbers exactly as given.`

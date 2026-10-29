@@ -316,6 +316,9 @@ importers:
       '@kotori/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@kotori/eiwa':
+        specifier: workspace:*
+        version: link:../../packages/eiwa
       '@kotori/email':
         specifier: workspace:*
         version: link:../../packages/email
@@ -483,6 +486,9 @@ importers:
       '@kotori/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@kotori/eiwa':
+        specifier: workspace:*
+        version: link:../../packages/eiwa
       '@kotori/email':
         specifier: workspace:*
         version: link:../../packages/email
@@ -559,6 +565,21 @@ importers:
 
   packages/domain:
     dependencies:
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.3
+
+  packages/eiwa:
+    dependencies:
+      '@kotori/db':
+        specifier: workspace:*
+        version: link:../db
+      '@kotori/japanese':
+        specifier: workspace:*
+        version: link:../japanese
+      '@kotori/jmdict':
+        specifier: workspace:*
+        version: link:../jmdict
       effect:
         specifier: 'catalog:'
         version: 4.0.3

@@ -1,0 +1,23 @@
+{
+  "name": "@kotori/eiwa",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Builds the English–Japanese dictionary from Japanese Wiktionary, EJDict and JMDict, and imports it into the Kotori database",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@kotori/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@kotori/db": "workspace:*",
+    "@kotori/japanese": "workspace:*",
+    "@kotori/jmdict": "workspace:*",
+    "effect": "catalog:"
+  }
+}

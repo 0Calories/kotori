@@ -53,7 +53,7 @@ export const importFile = Effect.fn("JMDict.importFile")(function* (options: Imp
   })
 
   const tags = parseTags(xml)
-  yield* repo.replaceTags(tags)
+  yield* repo.saveTags(tags)
   yield* Effect.logInfo(`Loaded ${tags.length} JMDict tags`)
 
   const batchSize = options.batchSize ?? 500

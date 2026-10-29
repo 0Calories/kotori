@@ -1,7 +1,8 @@
 /**
  * One-time local setup, safe to re-run: `.env` from `.env.example`, Postgres in Docker,
- * the schema (`kotori migrate`), the JMDict dictionary, and the development account the app
- * signs in as. Each step skips what is already done. Run with `pnpm dev:setup`.
+ * the schema (`kotori migrate`), the dictionaries (JMDict, and the English one for Japanese
+ * speakers), and the development account the app signs in as. Each step skips what is already
+ * done. Run with `pnpm dev:setup`.
  *
  * It never deletes data. A Docker volume from an older Postgres, or a database still on the
  * schema from before the Drizzle rebuild, stops it with the command to start over instead.
@@ -75,7 +76,7 @@ if (LOCAL.has(databaseUrl.hostname)) {
 step("Schema")
 run("pnpm", ["--silent", "kotori", "migrate"], "The schema couldn't be applied; see above.")
 
-step("Dictionary")
+step("Dictionaries")
 run("pnpm", ["--silent", "kotori", "seed", "--if-empty"])
 
 step("Development account")

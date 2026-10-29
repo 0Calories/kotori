@@ -1,15 +1,18 @@
+import type { Language } from "@kotori/domain"
 import { and, asc, desc, eq, gte, inArray, max, min, ne, notExists, sql } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import { Context, Effect, Layer } from "effect"
 import { Database } from "./Database.ts"
-import { type EntryRecord, normalizeGloss } from "./records.ts"
+import { type EntryRecord, normalizeGloss, normalizeJapaneseGloss } from "./records.ts"
 import { chunks } from "./rows.ts"
 import { entries, entryAudio, examples, forms, glosses, jobKind, senseNuance, senses, tags } from "./schema/index.ts"
 
 export interface FormMatch {
   readonly entryId: number
   readonly text: string
-  readonly kind: "kanji" | "kana"
+  readonly kind: "kanji" | "kana" | "spelling" | "inflection"
+  /** For an inflection, what it is ("past", "plural"). */
+  readonly tags: ReadonlyArray<string>
 }
 
 export interface GlossMatch {
@@ -37,6 +40,8 @@ export interface PriorityQuery {
   readonly limit: number
   readonly missing?: EnrichmentKind | undefined
   readonly commonOnly?: boolean | undefined
+  /** Only entries with headwords in this language; both dictionaries when absent. */
+  readonly language?: Language | undefined
 }
 
 export class DictionaryRepo extends Context.Service<
@@ -44,19 +49,31 @@ export class DictionaryRepo extends Context.Service<
   {
     /** Inserts or replaces entries and their forms, senses and glosses. Enrichment survives for every sense the entry still has. */
     insertEntries(entries: ReadonlyArray<EntryRecord>): Effect.Effect<void>
-    replaceTags(tags: ReadonlyArray<{ readonly code: string; readonly label: string }>): Effect.Effect<void>
+    /** Deletes entries and everything hanging off them: forms, senses, enrichment and jobs. */
+    deleteEntries(ids: ReadonlyArray<number>): Effect.Effect<void>
+    /** Adds tag labels, replacing those of codes already known; codes the other dictionary uses are kept. */
+    saveTags(tags: ReadonlyArray<{ readonly code: string; readonly label: string }>): Effect.Effect<void>
     readonly tags: Effect.Effect<ReadonlyMap<string, string>>
+    /** Entries in both dictionaries. */
     readonly count: Effect.Effect<number>
+    /** Entries whose headwords are in `language`. */
+    countOf(language: Language): Effect.Effect<number>
+    /** Every headword in one dictionary with its entry id, so a re-import keeps ids stable. */
+    headwordIds(language: Language): Effect.Effect<ReadonlyMap<string, number>>
     getEntries(ids: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<EntryRecord>>
-    /** Entries with a form exactly equal to one of `texts`. */
-    findForms(texts: ReadonlyArray<string>): Effect.Effect<ReadonlyArray<FormMatch>>
-    /** Entry ids with a form starting with `prefix`, most common first. */
-    findFormPrefix(prefix: string, limit: number): Effect.Effect<ReadonlyArray<number>>
-    /** Full-text search over English glosses; every word of the plain-text query must match. */
+    /** Entries in one dictionary with a form equal to one of `texts`; English ignores case. */
+    findForms(texts: ReadonlyArray<string>, language?: Language): Effect.Effect<ReadonlyArray<FormMatch>>
+    /** Entry ids with a form starting with `prefix`, most common first; English ignores case and inflections. */
+    findFormPrefix(prefix: string, limit: number, language?: Language): Effect.Effect<ReadonlyArray<number>>
+    /** Full-text search over the English glosses of Japanese words; every word of the plain-text query must match. */
     searchGlosses(query: string, limit: number): Effect.Effect<ReadonlyArray<GlossMatch>>
-    /** Glosses whose normalised text equals `normalizeGloss(query)`. */
+    /** English glosses of Japanese words whose normalised text equals `normalizeGloss(query)`. */
     findGlossesExact(query: string, limit: number): Effect.Effect<ReadonlyArray<GlossMatch>>
-    /** Other entries sharing an exact gloss with the given sense: candidates for "similar words". */
+    /** Japanese glosses of English words whose normalised text is one of `norms` (see `normalizeJapaneseGloss`). */
+    findJapaneseGlosses(norms: ReadonlyArray<string>, limit: number): Effect.Effect<ReadonlyArray<GlossMatch>>
+    /** Japanese glosses of English words containing `text`, for queries no gloss matches exactly. */
+    searchJapaneseGlosses(text: string, limit: number): Effect.Effect<ReadonlyArray<GlossMatch>>
+    /** Other entries in the same dictionary sharing an exact gloss with the given sense: candidates for "similar words". */
     sharedGlossCandidates(entryId: number, sense: number, limit: number): Effect.Effect<ReadonlyArray<Candidate>>
     /** Commonness and frequency of entries, for ranking without loading them. */
     ranks(
@@ -101,6 +118,7 @@ export class DictionaryRepo extends Context.Service<
               .values(
                 records.map((entry) => ({
                   id: entry.id,
+                  language: entry.language,
                   headword: entry.headword,
                   reading: entry.reading,
                   common: entry.common,
@@ -110,6 +128,7 @@ export class DictionaryRepo extends Context.Service<
               .onConflictDoUpdate({
                 target: entries.id,
                 set: {
+                  language: sql`excluded.language`,
                   headword: sql`excluded.headword`,
                   reading: sql`excluded.reading`,
                   common: sql`excluded.common`,
@@ -118,7 +137,7 @@ export class DictionaryRepo extends Context.Service<
               })
 
             const formRows = records.flatMap((entry) => {
-              const position = { kanji: 0, kana: 0 }
+              const position = { kanji: 0, kana: 0, spelling: 0, inflection: 0 }
               return entry.forms.map((form) => ({
                 entryId: entry.id,
                 kind: form.kind,
@@ -176,7 +195,8 @@ export class DictionaryRepo extends Context.Service<
                   position,
                   text: gloss.text,
                   type: gloss.type,
-                  norm: normalizeGloss(gloss.text)
+                  // Glosses are in the other language from the headword.
+                  norm: entry.language === "ja" ? normalizeGloss(gloss.text) : normalizeJapaneseGloss(gloss.text)
                 }))
               )
             )
@@ -185,17 +205,22 @@ export class DictionaryRepo extends Context.Service<
         )
       }, Effect.orDie)
 
-      const replaceTags = Effect.fn("DictionaryRepo.replaceTags")(function* (
+      const deleteEntries = Effect.fn("DictionaryRepo.deleteEntries")(function* (ids: ReadonlyArray<number>) {
+        for (const chunk of chunks(ids, 5000)) yield* db.delete(entries).where(inArray(entries.id, [...chunk]))
+      }, Effect.orDie)
+
+      const saveTags = Effect.fn("DictionaryRepo.saveTags")(function* (
         rows: ReadonlyArray<{ readonly code: string; readonly label: string }>
       ) {
-        yield* db.transaction((tx) =>
-          Effect.gen(function* () {
-            yield* tx.delete(tags)
-            for (const chunk of chunks(rows, 1000)) {
-              yield* tx.insert(tags).values(chunk.map((tag) => ({ code: tag.code, label: tag.label })))
-            }
-          })
-        )
+        // One row per code, or the upsert would touch a row twice; the first label wins.
+        const labels = new Map<string, string>()
+        for (const tag of rows) if (!labels.has(tag.code)) labels.set(tag.code, tag.label)
+        for (const chunk of chunks([...labels], 1000)) {
+          yield* db
+            .insert(tags)
+            .values(chunk.map(([code, label]) => ({ code, label })))
+            .onConflictDoUpdate({ target: tags.code, set: { label: sql`excluded.label` } })
+        }
       }, Effect.orDie)
 
       const tagMap = db
@@ -207,6 +232,16 @@ export class DictionaryRepo extends Context.Service<
         )
 
       const count = db.$count(entries).pipe(Effect.orDie)
+
+      const countOf = (language: Language) => db.$count(entries, eq(entries.language, language)).pipe(Effect.orDie)
+
+      const headwordIds = Effect.fn("DictionaryRepo.headwordIds")(function* (language: Language) {
+        const rows = yield* db
+          .select({ id: entries.id, headword: entries.headword })
+          .from(entries)
+          .where(eq(entries.language, language))
+        return new Map(rows.map((row) => [row.headword, row.id]))
+      }, Effect.orDie)
 
       const getEntries = Effect.fn("DictionaryRepo.getEntries")(function* (ids: ReadonlyArray<number>) {
         if (ids.length === 0) return []
@@ -247,21 +282,49 @@ export class DictionaryRepo extends Context.Service<
         })
       }, Effect.orDie)
 
-      const findForms = Effect.fn("DictionaryRepo.findForms")(function* (texts: ReadonlyArray<string>) {
+      /** `lower(text)`, which `forms_folded` indexes, so English matches whatever the case. */
+      const folded = sql<string>`lower(${forms.text})`
+
+      const findForms = Effect.fn("DictionaryRepo.findForms")(function* (
+        texts: ReadonlyArray<string>,
+        language: Language = "ja"
+      ) {
         if (texts.length === 0) return []
         return yield* db
-          .select({ entryId: forms.entryId, text: forms.text, kind: forms.kind })
+          .select({ entryId: forms.entryId, text: forms.text, kind: forms.kind, tags: forms.tags })
           .from(forms)
-          .where(inArray(forms.text, texts))
+          .innerJoin(entries, eq(entries.id, forms.entryId))
+          .where(
+            and(
+              eq(entries.language, language),
+              language === "ja"
+                ? inArray(forms.text, texts)
+                : inArray(
+                    folded,
+                    texts.map((text) => text.toLowerCase())
+                  )
+            )
+          )
       }, Effect.orDie)
 
-      // A range scan on the bytewise-collated text, so the index serves it.
-      const findFormPrefix = Effect.fn("DictionaryRepo.findFormPrefix")(function* (prefix: string, limit: number) {
+      // A range scan on bytewise-collated text, so the index serves it.
+      const findFormPrefix = Effect.fn("DictionaryRepo.findFormPrefix")(function* (
+        prefix: string,
+        limit: number,
+        language: Language = "ja"
+      ) {
+        const [text, start] = language === "ja" ? [forms.text, prefix] : [folded, prefix.toLowerCase()]
         const rows = yield* db
           .select({ id: forms.entryId })
           .from(forms)
           .innerJoin(entries, eq(entries.id, forms.entryId))
-          .where(sql`${forms.text} >= ${prefix} AND ${forms.text} < ${prefix + "\u{10FFFF}"}`)
+          .where(
+            and(
+              eq(entries.language, language),
+              ne(forms.kind, "inflection"),
+              sql`${text} >= ${start} AND ${text} < ${start + "\u{10FFFF}"}`
+            )
+          )
           .groupBy(forms.entryId)
           .orderBy(desc(sql`bool_or(${entries.common})`), desc(max(entries.priority)), min(sql`length(${forms.text})`))
           .limit(limit)
@@ -283,22 +346,53 @@ export class DictionaryRepo extends Context.Service<
         return yield* db
           .select({ ...glossMatch, rank: sql<number>`-ts_rank(${glosses.document}, ${tsquery})`.mapWith(Number) })
           .from(glosses)
+          .innerJoin(entries, eq(entries.id, glosses.entryId))
           .innerJoin(senses, and(eq(senses.entryId, glosses.entryId), eq(senses.position, glosses.sense)))
-          .where(sql`${glosses.document} @@ ${tsquery}`)
+          .where(and(eq(entries.language, "ja"), sql`${glosses.document} @@ ${tsquery}`))
           .orderBy(sql`-ts_rank(${glosses.document}, ${tsquery})`)
           .limit(limit)
       }, Effect.orDie)
 
-      const findGlossesExact = Effect.fn("DictionaryRepo.findGlossesExact")(function* (query: string, limit: number) {
-        const norm = normalizeGloss(query)
-        if (norm.length === 0) return []
-        return yield* db
+      const glossesWithNorm = (norms: ReadonlyArray<string>, language: Language, limit: number) =>
+        db
           .select({ ...glossMatch, rank: sql<number>`0`.mapWith(Number) })
           .from(glosses)
           .innerJoin(entries, eq(entries.id, glosses.entryId))
           .innerJoin(senses, and(eq(senses.entryId, glosses.entryId), eq(senses.position, glosses.sense)))
-          .where(eq(glosses.norm, norm))
+          .where(and(eq(entries.language, language), inArray(glosses.norm, norms)))
           .orderBy(desc(entries.common), desc(entries.priority))
+          .limit(limit)
+
+      const findGlossesExact = Effect.fn("DictionaryRepo.findGlossesExact")(function* (query: string, limit: number) {
+        const norm = normalizeGloss(query)
+        if (norm.length === 0) return []
+        return yield* glossesWithNorm([norm], "ja", limit)
+      }, Effect.orDie)
+
+      const findJapaneseGlosses = Effect.fn("DictionaryRepo.findJapaneseGlosses")(function* (
+        norms: ReadonlyArray<string>,
+        limit: number
+      ) {
+        const wanted = norms.filter((norm) => norm.length > 0)
+        if (wanted.length === 0) return []
+        return yield* glossesWithNorm(wanted, "en", limit)
+      }, Effect.orDie)
+
+      // Japanese has no word boundaries for full-text search, so this scans; the English dictionary's
+      // glosses are few enough. Shorter glosses first: the query is more of what they say.
+      const searchJapaneseGlosses = Effect.fn("DictionaryRepo.searchJapaneseGlosses")(function* (
+        text: string,
+        limit: number
+      ) {
+        if (text.length === 0) return []
+        const pattern = `%${text.replace(/[\\%_]/g, (char) => `\\${char}`)}%`
+        return yield* db
+          .select({ ...glossMatch, rank: sql<number>`-1.0 / length(${glosses.norm})`.mapWith(Number) })
+          .from(glosses)
+          .innerJoin(entries, eq(entries.id, glosses.entryId))
+          .innerJoin(senses, and(eq(senses.entryId, glosses.entryId), eq(senses.position, glosses.sense)))
+          .where(and(eq(entries.language, "en"), sql`${glosses.norm} LIKE ${pattern}`))
+          .orderBy(desc(entries.common), desc(entries.priority), sql`length(${glosses.norm})`)
           .limit(limit)
       }, Effect.orDie)
 
@@ -309,6 +403,7 @@ export class DictionaryRepo extends Context.Service<
       ) {
         const g1 = alias(glosses, "g1")
         const g2 = alias(glosses, "g2")
+        const e1 = alias(entries, "e1")
         return yield* db
           .select({
             entryId: g2.entryId,
@@ -316,8 +411,9 @@ export class DictionaryRepo extends Context.Service<
             gloss: sql<string>`min(${g2.text})`.mapWith(String)
           })
           .from(g1)
+          .innerJoin(e1, eq(e1.id, g1.entryId))
           .innerJoin(g2, and(eq(g2.norm, g1.norm), ne(g2.entryId, g1.entryId)))
-          .innerJoin(entries, eq(entries.id, g2.entryId))
+          .innerJoin(entries, and(eq(entries.id, g2.entryId), eq(entries.language, e1.language)))
           .where(and(eq(g1.entryId, entryId), eq(g1.sense, sense), sql`length(${g1.norm}) > 1`))
           .groupBy(g2.entryId)
           .orderBy(desc(sql`bool_or(${entries.common})`), desc(max(entries.priority)))
@@ -350,6 +446,7 @@ export class DictionaryRepo extends Context.Service<
           .from(entries)
           .where(
             and(
+              query.language ? eq(entries.language, query.language) : undefined,
               query.commonOnly ? eq(entries.common, true) : undefined,
               query.missing ? missing(query.missing) : undefined
             )
@@ -361,14 +458,19 @@ export class DictionaryRepo extends Context.Service<
 
       return DictionaryRepo.of({
         insertEntries,
-        replaceTags,
+        deleteEntries,
+        saveTags,
         tags: tagMap,
         count,
+        countOf,
+        headwordIds,
         getEntries,
         findForms,
         findFormPrefix,
         searchGlosses,
         findGlossesExact,
+        findJapaneseGlosses,
+        searchJapaneseGlosses,
         sharedGlossCandidates,
         ranks,
         entriesByPriority

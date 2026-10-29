@@ -1,4 +1,4 @@
-import type { Nuance, Sense, SimilarWord } from "@kotori/domain"
+import type { Language, Nuance, Sense, SimilarWord } from "@kotori/domain"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { Platform, Share, View } from "react-native"
@@ -9,6 +9,7 @@ import { Button, IconButton } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
 import { Chip } from "../../src/components/Chip.tsx"
 import { ExampleRow } from "../../src/components/ExampleRow.tsx"
+import { Headword } from "../../src/components/Headword.tsx"
 import { Icon, type IconName } from "../../src/components/Icon.tsx"
 import { Mascot } from "../../src/components/Mascot.tsx"
 import { NuanceScales } from "../../src/components/NuanceScales.tsx"
@@ -17,8 +18,8 @@ import { Header, Screen, Section } from "../../src/components/Screen.tsx"
 import { Snow } from "../../src/components/Snow.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
-import { posLabel, type Strings } from "../../src/i18n/strings.ts"
-import { spokenGloss } from "../../src/lib/english.ts"
+import { posLabel, type Strings, tagLabel } from "../../src/i18n/strings.ts"
+import { findForm } from "../../src/lib/forms.ts"
 import { wordNote } from "../../src/lib/notes.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { theme } from "../../src/theme/tokens.ts"
@@ -96,9 +97,13 @@ const NuanceCard = ({ nuance }: { readonly nuance: Nuance }) => {
   )
 }
 
+/** Glosses run together as their language lists them: "to eat; to dine", "食べる、食事をする". */
+const glossSeparator = (language: Language) => (language === "ja" ? "; " : "、")
+
 const SenseCard = ({
   sense,
   number,
+  language,
   forms,
   partOfSpeech,
   showNuance,
@@ -108,7 +113,9 @@ const SenseCard = ({
 }: {
   readonly sense: Sense
   readonly number: number
-  /** Ways the headword is written, to find and mark it in examples. */
+  /** The headword's language; the glosses are in the other one. */
+  readonly language: Language
+  /** Ways the headword is written or inflected, to find and mark it in examples. */
   readonly forms: ReadonlyArray<string>
   /** Already shown in the hero; repeated only when this sense differs. */
   readonly partOfSpeech: string | null
@@ -117,10 +124,10 @@ const SenseCard = ({
   readonly onSave: () => void
   readonly saving: boolean
 }) => {
-  const { t, profile } = useSession()
+  const { t } = useSession()
   const router = useRouter()
   const [first, second, ...rest] = sense.glosses
-  const english = profile?.targetLanguage === "en"
+  const separator = glossSeparator(language)
   const pos = [...new Set(sense.partsOfSpeech.map((tag) => posLabel(t, tag.code) ?? tag.label))].filter(
     (label) => label !== partOfSpeech
   )
@@ -152,13 +159,11 @@ const SenseCard = ({
         <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
           <View style={{ flex: 1, gap: 4, paddingTop: 1 }}>
             <Text variant="heading" selectable>
-              {second ? `${first}; ${second}` : first}
+              {second ? `${first}${separator}${second}` : first}
             </Text>
-            {rest.length > 0 ? <Text color="textMuted">{rest.join("; ")}</Text> : null}
+            {rest.length > 0 ? <Text color="textMuted">{rest.join(separator)}</Text> : null}
           </View>
-          <View style={{ flexDirection: "row", marginTop: -9, marginRight: -8 }}>
-            {/* Japanese speakers are here for the English, so they can hear it. */}
-            {english && first ? <AudioButton speak={{ text: spokenGloss(first), language: "en" }} size={40} /> : null}
+          <View style={{ marginTop: -9, marginRight: -8 }}>
             <IconButton
               icon="bookmark"
               filled={saved}
@@ -174,7 +179,7 @@ const SenseCard = ({
               <Chip key={label} label={label} />
             ))}
             {tags.map((tag) => (
-              <Chip key={tag.code} label={tag.label} />
+              <Chip key={tag.code} label={tagLabel(t, tag)} />
             ))}
           </View>
         ) : null}
@@ -190,7 +195,12 @@ const SenseCard = ({
         ) : null}
         {showNuance && sense.nuance ? <NuanceNotes nuance={sense.nuance} /> : null}
         {sense.examples.map((example) => (
-          <ExampleRow key={example.id} example={example} mark={forms.find((form) => example.ja.includes(form))} />
+          <ExampleRow
+            key={example.id}
+            example={example}
+            language={language}
+            mark={findForm(language === "ja" ? example.ja : example.en, forms, language)}
+          />
         ))}
         {sense.related.length + sense.antonyms.length > 0 ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
@@ -212,7 +222,14 @@ const SenseCard = ({
 }
 
 /** Words close to this one, each with how it differs. */
-const SimilarList = ({ words }: { readonly words: ReadonlyArray<SimilarWord> }) => {
+const SimilarList = ({
+  words,
+  language
+}: {
+  readonly words: ReadonlyArray<SimilarWord>
+  /** Similar words come from the same dictionary as the entry. */
+  readonly language: Language
+}) => {
   const { t } = useSession()
   const router = useRouter()
   return (
@@ -235,11 +252,11 @@ const SimilarList = ({ words }: { readonly words: ReadonlyArray<SimilarWord> }) 
         >
           <View style={{ flex: 1, gap: 4 }}>
             <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
-              <Text mincho size={23} style={{ lineHeight: 28 }}>
+              <Headword language={language} size={language === "ja" ? 23 : 20} style={{ lineHeight: 28 }}>
                 {word.headword}
-              </Text>
-              {word.reading !== word.headword ? (
-                <Text jp variant="caption" color="textMuted">
+              </Headword>
+              {word.reading.length > 0 && word.reading !== word.headword ? (
+                <Text jp={language === "ja"} variant="caption" color="textMuted">
                   {word.reading}
                 </Text>
               ) : null}
@@ -258,14 +275,15 @@ const SimilarList = ({ words }: { readonly words: ReadonlyArray<SimilarWord> }) 
   )
 }
 
-/** A headword as large as fits: 64pt for short words, smaller for long ones. */
-const headwordSize = (headword: string) => {
+/** A headword as large as fits: 64pt for short Japanese words and 52pt for short English ones, smaller for long ones. */
+const headwordSize = (headword: string, language: Language) => {
   const length = Array.from(headword).length
+  if (language === "en") return length <= 8 ? 52 : Math.max(30, Math.floor(420 / length))
   return length <= 4 ? 64 : Math.max(36, Math.floor(280 / length))
 }
 
 export default function EntryScreen() {
-  const { t, profile } = useSession()
+  const { t } = useSession()
   const router = useRouter()
   const { id } = useLocalSearchParams<{ id: string }>()
   const entry = useEntry(Number(id))
@@ -292,6 +310,7 @@ export default function EntryScreen() {
   }
 
   const data = entry.data
+  const language = data.language
   const savedSenses = new Set(
     (notes.data ?? []).flatMap((note) =>
       note.content.kind === "word" && note.content.entryId === data.id ? [note.content.senseIndex] : []
@@ -301,6 +320,7 @@ export default function EntryScreen() {
     addNote.mutate({
       content: wordNote(t, {
         entryId: data.id,
+        language,
         sense: sense.index,
         headword: data.headword,
         reading: data.reading,
@@ -310,12 +330,19 @@ export default function EntryScreen() {
         audioUrl: data.audioUrl
       })
     })
+  const reading = data.reading.length > 0 && data.reading !== data.headword ? data.reading : null
   const share = () =>
     Share.share({
-      message: `${data.headword}${data.reading === data.headword ? "" : `（${data.reading}）`} ${data.senses[0]?.glosses.slice(0, 3).join("; ") ?? ""}`
+      message: `${data.headword}${reading === null ? "" : language === "ja" ? `（${reading}）` : ` ${reading}`} ${
+        data.senses[0]?.glosses.slice(0, 3).join(glossSeparator(language)) ?? ""
+      }`
     }).catch(() => {})
 
-  const others = data.forms.filter((form) => form.text !== data.headword && form.text !== data.reading)
+  // Other spellings ("colour", 喰べる), and for English words their inflections ("ate", "eaten").
+  const others = data.forms.filter(
+    (form) => form.kind !== "inflection" && form.text !== data.headword && form.text !== data.reading
+  )
+  const inflections = data.forms.filter((form) => form.kind === "inflection")
   const senses = showAll ? data.senses : data.senses.slice(0, 3)
   const waiting = data.enrichment.examples === "queued" || data.enrichment.nuance === "queued"
   const featured = data.senses.find((sense) => sense.nuance !== null)
@@ -325,17 +352,14 @@ export default function EntryScreen() {
   const byAi = data.senses.some((sense) => sense.nuance || sense.examples.length > 0 || sense.similar.length > 0)
   const firstPos = data.senses[0]?.partsOfSpeech[0]
   const partOfSpeech = firstPos ? (posLabel(t, firstPos.code) ?? firstPos.label) : null
-  const forms = [data.headword, ...data.forms.map((form) => form.text), data.reading]
-  const size = headwordSize(data.headword)
-  // The headword is spoken for learners of Japanese; Japanese speakers hear the English in each meaning.
-  const headwordAudio = profile?.targetLanguage === "en" ? null : data.audioUrl
+  const forms = [data.headword, ...data.forms.map((form) => form.text), ...(language === "ja" ? [data.reading] : [])]
+  const size = headwordSize(data.headword, language)
+  const headwordAudio = data.audioUrl
   // Words with nothing from Kotori yet get a plain header, with the part of speech among the details.
   const plain = !byAi && !waiting
-  const meta = [
-    data.reading === data.headword ? null : data.reading,
-    data.common ? t.dictionary.common : null,
-    plain ? partOfSpeech : null
-  ].filter((part): part is string => part !== null)
+  const meta = [reading, data.common ? t.dictionary.common : null, plain ? partOfSpeech : null].filter(
+    (part): part is string => part !== null
+  )
 
   return (
     <Screen
@@ -346,9 +370,9 @@ export default function EntryScreen() {
           onBack={back}
           title={
             scrolled ? (
-              <Text mincho size={22} numberOfLines={1}>
+              <Headword language={language} size={language === "ja" ? 22 : 20} numberOfLines={1}>
                 {data.headword}
-              </Text>
+              </Headword>
             ) : undefined
           }
           actions={
@@ -389,15 +413,21 @@ export default function EntryScreen() {
         }
       >
         {plain ? null : <Snow />}
-        <Text
-          mincho
+        <Headword
+          language={language}
           size={size}
-          style={plain ? { lineHeight: size } : { lineHeight: Math.round(size * 1.1), letterSpacing: size * 0.02 }}
+          style={
+            language === "en"
+              ? { lineHeight: Math.round(size * 1.15) }
+              : plain
+                ? { lineHeight: size }
+                : { lineHeight: Math.round(size * 1.1), letterSpacing: size * 0.02 }
+          }
           selectable
           accessibilityRole="header"
         >
           {data.headword}
-        </Text>
+        </Headword>
         {meta.length > 0 ? (
           <Text
             variant="caption"
@@ -410,7 +440,12 @@ export default function EntryScreen() {
         ) : null}
         {others.length > 0 ? (
           <Text variant="caption" color="textMuted" style={{ marginTop: 2 }}>
-            {t.entry.forms}: {others.map((form) => form.text).join("・")}
+            {t.entry.forms}: {others.map((form) => form.text).join(language === "ja" ? "・" : ", ")}
+          </Text>
+        ) : null}
+        {inflections.length > 0 ? (
+          <Text variant="caption" color="textMuted" style={{ marginTop: 2 }}>
+            {t.entry.inflections}: {inflections.map((form) => form.text).join(", ")}
           </Text>
         ) : null}
         {plain && !headwordAudio ? null : (
@@ -471,6 +506,7 @@ export default function EntryScreen() {
             <SenseCard
               sense={sense}
               number={index + 1}
+              language={language}
               forms={forms}
               partOfSpeech={partOfSpeech}
               showNuance={sense !== featured}
@@ -538,7 +574,7 @@ export default function EntryScreen() {
           <Text variant="small" color="textMuted" style={{ paddingHorizontal: 6, marginTop: -4 }}>
             {t.entry.similarIntro(data.headword)}
           </Text>
-          <SimilarList words={similar} />
+          <SimilarList words={similar} language={language} />
         </Section>
       ) : null}
     </Screen>

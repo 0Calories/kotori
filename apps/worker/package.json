@@ -2,7 +2,7 @@
   "name": "@kotori/worker",
   "version": "0.1.0",
   "private": true,
-  "description": "Kotori's data pipeline: seeds JMDict and enriches entries with Jev, Claude and ElevenLabs",
+  "description": "Kotori's data pipeline: seeds JMDict and the English dictionary, and enriches entries with Jev, Claude and ElevenLabs",
   "bin": {
     "kotori": "./dist/main.js"
   },
@@ -19,6 +19,7 @@
     "@kotori/auth": "workspace:*",
     "@kotori/db": "workspace:*",
     "@kotori/domain": "workspace:*",
+    "@kotori/eiwa": "workspace:*",
     "@kotori/email": "workspace:*",
     "@kotori/jmdict": "workspace:*",
     "@kotori/nuance": "workspace:*",

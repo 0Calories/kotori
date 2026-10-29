@@ -1,0 +1,129 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "1141a127-a802-4c64-82a1-af7ffb0d12e2",
+  "prevIds": ["7c7078cf-4e07-46a6-a254-6169bfa7be69"],
+  "footprints": [
+    {
+      "statementType": "alter_enum",
+      "statementTarget": ["enum", "public", "form_kind"],
+      "writes": ["s|enum|public.form_kind"],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "entries", "language"],
+      "writes": ["s|col|public.entries.language", "n|col|public.entries.language", "e|col|public.entries.language"],
+      "reads": ["n|tbl|public.entries", "n|sch|public", "n|enum|public.language"]
+    },
+    {
+      "statementType": "recreate_index",
+      "statementTarget": ["index", "public", "entries", "entries_priority"],
+      "writes": [
+        "s|idx|public.entries_priority",
+        "n|idx|public.entries_priority",
+        "e|idx|public.entries_priority",
+        "n|rel|public.entries_priority"
+      ],
+      "reads": [
+        "n|tbl|public.entries",
+        "n|sch|public",
+        "n|col|public.entries.language",
+        "n|col|public.entries.priority",
+        "n|col|public.entries.id"
+      ],
+      "sharedWrites": [],
+      "sqlHash": "d8614e26bfd1b6b3"
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "forms", "forms_folded"],
+      "writes": [
+        "s|idx|public.forms_folded",
+        "n|idx|public.forms_folded",
+        "e|idx|public.forms_folded",
+        "n|rel|public.forms_folded"
+      ],
+      "reads": ["n|tbl|public.forms", "n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "entries",
+        "name": "language",
+        "type": "language",
+        "typeSchema": "public",
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'ja'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "forms",
+        "name": "forms_folded",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "lower(\"text\")",
+            "isExpression": true,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "enums\u0000[\"public\",\"form_kind\"]",
+      "set": {
+        "values": ["kanji", "kana", "spelling", "inflection"]
+      }
+    },
+    {
+      "op": "alter",
+      "key": "indexes\u0000[\"public\",\"entries_priority\"]",
+      "set": {
+        "columns": [
+          {
+            "value": "language",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "priority",
+            "isExpression": false,
+            "asc": false,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -38,7 +38,6 @@ const OfflineProviders = Layer.mergeAll(
     Pronouncer,
     Pronouncer.of({
       configured: false,
-      exampleLanguages: ["ja", "en"],
       speak: () => Effect.fail(new TtsError({ reason: "unconfigured", message: "not configured" })),
       enrichEntry: () => Effect.succeed({ clips: 0, characters: 0 })
     })
@@ -104,6 +103,7 @@ const entry = (
   pos: Array<string>
 ): EntryRecord => ({
   id,
+  language: "ja",
   headword,
   reading,
   common: true,
@@ -198,7 +198,6 @@ layer(TestLayer)("Kotori API", (it) => {
       const english = yield* api.dictionary.search({ query: { q: "eat" } })
       assert.strictEqual(english.mode, "english")
       assert.strictEqual(english.entries[0]?.headword, "食べる")
-      assert.isTrue(english.englishWord)
 
       const conjugated = yield* api.dictionary.search({ query: { q: "書きました" } })
       assert.strictEqual(conjugated.entries[0]?.headword, "書く")
@@ -219,6 +218,24 @@ layer(TestLayer)("Kotori API", (it) => {
 
       const missing = yield* api.dictionary.entry({ params: { id: 999 as never } }).pipe(Effect.flip)
       assert.strictEqual(missing._tag, "NotFound")
+
+      // Japanese speakers learning English search the English dictionary the same way round.
+      yield* repo.insertEntries([
+        {
+          ...entry(100000001, "eat", "/iːt/", ["～を食べる"], ["v"]),
+          language: "en",
+          forms: [
+            { kind: "spelling", text: "eat", common: true, tags: [], priorities: [], restrictions: [], noKanji: false }
+          ]
+        }
+      ])
+      yield* api.account.update({ payload: { nativeLanguage: "ja" } })
+      const word = yield* api.dictionary.search({ query: { q: "eat" } })
+      assert.deepStrictEqual(
+        word.entries.map((summary) => [summary.headword, summary.language]),
+        [["eat", "en"]]
+      )
+      assert.strictEqual((yield* api.dictionary.search({ query: { q: "食べる" } })).entries[0]?.headword, "eat")
     }).pipe(Effect.provide(Session))
   )
 

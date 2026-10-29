@@ -3,7 +3,14 @@ import { DictionaryRepo, EnrichmentRepo, type EntryRecord, Repositories } from "
 import { DatabaseMemory } from "@kotori/db/testing"
 import type { Question, Questions } from "@typesafe-ai/sdk"
 import { Effect, Layer } from "effect"
-import { interpretSense, Jev, NuanceEnricher, type SenseAnswers, senseQuestions } from "../src/index.ts"
+import {
+  englishSenseQuestions,
+  interpretSense,
+  Jev,
+  NuanceEnricher,
+  type SenseAnswers,
+  senseQuestions
+} from "../src/index.ts"
 
 const score = (value: number, confidence = 0.9) =>
   ({ type: "score", score: value, confidence, legend: {}, probabilities: {} }) as const
@@ -41,6 +48,11 @@ describe("interpretSense", () => {
     assert.strictEqual(interpretSense(answers, ["male", "col"]).gender.value, "masculine")
     assert.strictEqual(interpretSense(answers, ["sl"]).cautions.slang, 1)
   })
+
+  it("leaves English words without keigo", () => {
+    const { keigo: _, ...english } = answers
+    assert.strictEqual(interpretSense(english, []).keigo.value, "none")
+  })
 })
 
 const fakeAnswer = (name: string, question: Question) => {
@@ -55,6 +67,7 @@ const fakeAnswer = (name: string, question: Question) => {
 }
 
 const states: Array<unknown> = []
+const asked: Array<Questions> = []
 
 const FakeJev = Layer.succeed(
   Jev,
@@ -63,6 +76,7 @@ const FakeJev = Layer.succeed(
     model: "jev-test",
     ask: (state: unknown, questions: Questions) => {
       states.push(state)
+      asked.push(questions)
       return Effect.succeed({
         model: "jev-test",
         answers: Object.fromEntries(Object.entries(questions).map(([name, q]) => [name, fakeAnswer(name, q)])),
@@ -87,6 +101,7 @@ const sense = (glosses: Array<string>, misc: Array<string> = []) => ({
 
 const entry = (id: number, headword: string, reading: string, senses: EntryRecord["senses"]): EntryRecord => ({
   id,
+  language: "ja",
   headword,
   reading,
   common: true,
@@ -112,7 +127,7 @@ layer(TestLayer)("NuanceEnricher", (it) => {
         entry(2, "食う", "くう", [sense(["to eat"], ["male"])]),
         entry(3, "召し上がる", "めしあがる", [sense(["to eat", "to drink"], ["hon"])])
       ])
-      yield* dictionary.replaceTags([{ code: "v1", label: "Ichidan verb" }])
+      yield* dictionary.saveTags([{ code: "v1", label: "Ichidan verb" }])
 
       const summary = yield* (yield* NuanceEnricher).enrich(1)
       assert.deepStrictEqual(summary, { senses: 2, similar: 1, inputTokens: 200 })
@@ -141,12 +156,64 @@ layer(TestLayer)("NuanceEnricher", (it) => {
       )
     })
   )
+
+  it.effect("judges English words in English terms, against other English words", () =>
+    Effect.gen(function* () {
+      const dictionary = yield* DictionaryRepo
+      const english = (id: number, headword: string, glosses: Array<string>, xrefs: Array<string> = []) => ({
+        ...entry(id, headword, "", [{ ...sense(glosses), pos: ["v"], xrefs }]),
+        language: "en" as const,
+        reading: id === 100000001 ? "/iːt/" : "",
+        forms: [
+          {
+            kind: "spelling" as const,
+            text: headword,
+            common: true,
+            tags: [],
+            priorities: [],
+            restrictions: [],
+            noKanji: false
+          }
+        ]
+      })
+      yield* dictionary.insertEntries([
+        english(100000001, "eat", ["食べる", "食事をする"], ["consume"]),
+        english(100000002, "dine", ["食事をする"]),
+        english(100000003, "consume", ["消費する"])
+      ])
+      states.length = 0
+      asked.length = 0
+
+      yield* (yield* NuanceEnricher).enrich(100000001)
+      const state = states[0] as { word: string; reading: string; candidates: Array<{ word: string }> }
+      assert.strictEqual(state.word, "eat")
+      assert.strictEqual(state.reading, "/iːt/")
+      // Its Wiktionary synonym first, then the word sharing a gloss (食事をする).
+      assert.deepStrictEqual(
+        state.candidates.map((c) => c.word),
+        ["consume", "dine"]
+      )
+      const questions = asked[0]!
+      assert.notProperty(questions, "keigo")
+      assert.notProperty((questions["difference_0"] as { criteria: object }).criteria, "respectful")
+
+      const [nuance] = yield* (yield* EnrichmentRepo).nuanceFor([100000001])
+      assert.strictEqual(nuance?.nuance.keigo.value, "none")
+    })
+  )
 })
 
 describe("questions", () => {
   it("ask one narrow judgment each, referring to the state by path", () => {
-    for (const question of Object.values(senseQuestions)) {
+    for (const question of [...Object.values(senseQuestions), ...Object.values(englishSenseQuestions)]) {
       assert.include(JSON.stringify(question.instructions), "`word`")
+    }
+  })
+
+  it("ask about English words in English terms", () => {
+    for (const question of Object.values(englishSenseQuestions)) {
+      assert.include(JSON.stringify(question.instructions), "English")
+      assert.notInclude(JSON.stringify(question), "Japanese word")
     }
   })
 })

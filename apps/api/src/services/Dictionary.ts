@@ -4,24 +4,26 @@ import {
   EnrichmentRepo,
   type EntryRecord,
   type ExampleRow,
+  type FormMatch,
   type GlossMatch,
   JobsRepo,
-  normalizeGloss
+  normalizeGloss,
+  normalizeJapaneseGloss
 } from "@kotori/db"
 import {
-  type EnglishEntry,
-  type EnglishMeaning,
   type Enrichment,
   type EnrichmentStatus,
   type Entry,
   EntryId,
   type EntrySummary,
   type Example,
+  type Language,
   type SearchResult,
   type Sense,
   type SimilarWord,
   type Tag
 } from "@kotori/domain"
+import { uninflect } from "@kotori/eiwa"
 import {
   deinflect,
   hasJapanese,
@@ -38,10 +40,6 @@ export const audioUrl = (key: string) => `/audio/${key}.mp3`
 
 /** Priority for work requested by someone looking at an entry, above any batch backfill. */
 const ON_DEMAND = 1_000
-
-/** Japanese words listed for an English word, and how many of the first are enriched on demand. */
-const ENGLISH_MEANINGS = 12
-const ENGLISH_ENRICHED = 3
 
 /** How long a finished audio job that left gaps waits before it is tried again. */
 const REFILL_AFTER = 60 * 60 * 1000
@@ -65,7 +63,7 @@ const unique = <A>(items: Iterable<A>) => [...new Set(items)]
 
 const SENSE_BONUS = [40, 25, 15, 10, 5]
 
-/** Usage tags that make a word a less likely answer to a plain English query. */
+/** Usage tags that make a word a less likely answer to a plain query. */
 const TAG_PENALTY: Record<string, number> = {
   arch: 30,
   obs: 30,
@@ -95,15 +93,16 @@ const ftsExpression = (query: string) => {
   return words.length === 0 ? null : words.map((word) => `"${word}"`).join(" ")
 }
 
-/** How well a gloss answers an English query; also orders the Japanese words for an English word. */
+/** How well a gloss answers a query in the glosses' language, normalised as that language is. */
 const glossScore = (
   match: GlossMatch,
   isExact: boolean,
   norm: string,
+  normalize: (text: string) => string,
   rank: { readonly common: boolean; readonly priority: number } | undefined
 ) =>
   (isExact ? 100 : 30) +
-  (!isExact && normalizeGloss(match.text).startsWith(norm) ? 15 : 0) +
+  (!isExact && normalize(match.text).startsWith(norm) ? 15 : 0) +
   (SENSE_BONUS[match.sense] ?? 0) -
   3 * match.position -
   4 * Math.min(match.glossCount - 1, 5) -
@@ -111,6 +110,23 @@ const glossScore = (
   Math.min(10, -match.rank) +
   (rank?.common ? 30 : 0) +
   (rank?.priority ?? 0) / 5
+
+/** A word's own form, written as searched, scores a little above the same form in another case or entry. */
+const formScore = (
+  base: number,
+  exactCase: boolean,
+  rank: { readonly common: boolean; readonly priority: number } | undefined
+) => base + (exactCase ? 20 : 0) + (rank?.common ? 50 : 0) + (rank?.priority ?? 0) / 10
+
+/** "EAT", "IT": letters in capitals, a word apart from the lowercase one spelled the same. */
+const isAcronym = (text: string) => text.length > 1 && text === text.toUpperCase() && text !== text.toLowerCase()
+
+/** JMDict's explanations, literal renderings and trademarks aren't English words to look up. */
+const BRIDGE_SKIPS = new Set(["expl", "lit", "tm"])
+/** The Japanese words whose glosses lead to English words, and how many of their senses and glosses. */
+const BRIDGE_WORDS = 5
+const BRIDGE_SENSES = 2
+const BRIDGE_GLOSSES = 4
 
 const toExample = (example: ExampleRow, clips: ReadonlyMap<string, string>): Example => {
   const ja = clips.get(`${example.id}:ja`)
@@ -134,18 +150,33 @@ const firstGlosses = (entry: EntryRecord, count: number) => {
   return meanings.length < count && second !== undefined ? [...meanings, second] : meanings
 }
 
+/** Glosses run together as each language lists them: "to eat; to dine", "食べる、食事をする". */
+const joinGlosses = (entry: EntryRecord, glosses: ReadonlyArray<string>) =>
+  glosses.join(entry.language === "ja" ? "; " : "、")
+
+/**
+ * Which of a guessed "-s" form's meanings applies: a noun's plural or a verb's third person.
+ * EJDict marks few parts of speech, and an unmarked sense is most often a noun's.
+ */
+const guessedInflection = (tags: ReadonlyArray<string>, entry: EntryRecord | undefined) => {
+  if (!(tags.includes("plural") && tags.includes("third-person"))) return tags
+  const senses = entry?.senses ?? []
+  if (senses.some((sense) => sense.pos.includes("n") || sense.pos.length === 0)) return ["plural"]
+  return senses.some((sense) => sense.pos.includes("v")) ? ["third-person"] : []
+}
+
 export class Dictionary extends Context.Service<
   Dictionary,
   {
-    search(query: string, limit: number): Effect.Effect<SearchResult>
-    /** The Japanese words meaning an English word, queueing examples for the leading ones. */
-    english(term: string): Effect.Effect<EnglishEntry>
+    /** Searches the dictionary of `language`: Japanese words for learners of Japanese, English ones for learners of English. */
+    search(query: string, language: Language, limit: number): Effect.Effect<SearchResult>
     entry(id: EntryId): Effect.Effect<Option.Option<Entry>>
     /** Queues whatever enrichment an entry is missing, returning its status. */
     requestEnrichment(id: EntryId): Effect.Effect<Option.Option<Enrichment>>
-    /** Entry ids for words, for linking coach vocabulary to the dictionary. */
+    /** Entry ids for words in `language`, for linking coach vocabulary to the dictionary. */
     lookupWords(
-      words: ReadonlyArray<{ readonly word: string; readonly reading: string }>
+      words: ReadonlyArray<{ readonly word: string; readonly reading: string }>,
+      language: Language
     ): Effect.Effect<ReadonlyArray<EntryId | null>>
   }
 >()("@kotori/api/Dictionary") {
@@ -160,7 +191,7 @@ export class Dictionary extends Context.Service<
       const pronouncer = yield* Pronouncer
 
       // ---------------------------------------------------------------------
-      // Search
+      // Search: Japanese words
       // ---------------------------------------------------------------------
 
       const japaneseHits = Effect.fnUntraced(function* (query: string) {
@@ -196,7 +227,8 @@ export class Dictionary extends Context.Service<
         return keepBest([...exact, ...prefix])
       })
 
-      const englishHits = Effect.fnUntraced(function* (query: string) {
+      /** Japanese words whose English glosses match an English query. */
+      const englishGlossHits = Effect.fnUntraced(function* (query: string) {
         const expression = ftsExpression(query)
         const exact = yield* repo.findGlossesExact(query, 300)
         const fuzzy = expression === null ? [] : yield* repo.searchGlosses(expression, 600)
@@ -204,12 +236,152 @@ export class Dictionary extends Context.Service<
         const ranks = yield* repo.ranks(unique([...exact, ...fuzzy].map((match) => match.entryId)))
         const score = (match: GlossMatch, isExact: boolean): Hit => ({
           entryId: match.entryId,
-          score: glossScore(match, isExact, norm, ranks.get(match.entryId)),
+          score: glossScore(match, isExact, norm, normalizeGloss, ranks.get(match.entryId)),
           inflection: []
         })
+        return keepBest([...exact.map((m) => score(m, true)), ...fuzzy.map((m) => score(m, false))])
+      })
+
+      const searchJapanese = Effect.fnUntraced(function* (query: string) {
+        if (hasJapanese(query)) return { mode: "japanese" as const, reading: null, hits: yield* japaneseHits(query) }
+
+        const english = yield* englishGlossHits(query)
+        const kana = romajiToKana(query)
+        const romaji = kana === null ? [] : (yield* japaneseHits(kana)).filter((hit) => hit.score >= 700)
+        const englishIsStrong = (english[0]?.score ?? 0) >= 150
+        const preferRomaji = romaji.length > 0 && !englishIsStrong
+        const hits = preferRomaji
+          ? keepBest([...romaji, ...english.map((h) => ({ ...h, score: h.score - 1000 }))])
+          : [...english, ...romaji.filter((hit) => !english.some((e) => e.entryId === hit.entryId))]
         return {
-          hits: keepBest([...exact.map((m) => score(m, true)), ...fuzzy.map((m) => score(m, false))]),
-          exact: exact.length > 0
+          mode: preferRomaji ? ("romaji" as const) : ("english" as const),
+          reading: preferRomaji ? kana : null,
+          hits
+        }
+      })
+
+      // ---------------------------------------------------------------------
+      // Search: English words, the same way round for Japanese speakers
+      // ---------------------------------------------------------------------
+
+      /**
+       * English words by their spelling, the way Japanese words are found by their forms:
+       * as written, through their inflections ("ate" finds eat, marked past), and by prefix.
+       * Words whose sources list no inflections are reached by the regular rules ("teams").
+       */
+      const englishWordHits = Effect.fnUntraced(function* (query: string) {
+        const guesses = uninflect(query)
+        const [matches, guessed] = yield* Effect.all([
+          repo.findForms([query], "en"),
+          guesses.length === 0
+            ? Effect.succeed([])
+            : repo.findForms(
+                guesses.map((guess) => guess.base),
+                "en"
+              )
+        ])
+        const prefixIds = yield* repo.findFormPrefix(query, 40, "en")
+        const ranks = yield* repo.ranks(unique([...matches, ...guessed].map((m) => m.entryId).concat(prefixIds)))
+        const guessedEntries = new Map(
+          (yield* repo.getEntries(unique(guessed.map((match) => match.entryId)))).map((entry) => [entry.id, entry])
+        )
+
+        const exact = matches.map((match): Hit => {
+          const inflected = match.kind === "inflection"
+          // An acronym spelled like the word looked up ("EAT" for "eat") is another word altogether.
+          const acronym = match.text !== query && isAcronym(match.text)
+          return {
+            entryId: match.entryId,
+            score: formScore(acronym ? 350 : inflected ? 800 : 1000, match.text === query, ranks.get(match.entryId)),
+            inflection: inflected ? match.tags : []
+          }
+        })
+        const byRule = guessed
+          .filter((match) => match.kind === "spelling")
+          .map((match): Hit => {
+            const guess = guesses.find((candidate) => candidate.base === match.text.toLowerCase())
+            return {
+              entryId: match.entryId,
+              score: formScore(750, false, ranks.get(match.entryId)),
+              inflection: guessedInflection(guess?.tags ?? [], guessedEntries.get(match.entryId))
+            }
+          })
+        const prefix = prefixIds.map((entryId, index): Hit => ({
+          entryId,
+          score: 400 - index + (ranks.get(entryId)?.common ? 50 : 0),
+          inflection: []
+        }))
+        return keepBest([...exact, ...byRule, ...prefix])
+      })
+
+      /**
+       * English words for a Japanese query, the way Japanese words are found for an English
+       * one: by their Japanese glosses, as typed or in dictionary form (食べなかった → 食べる),
+       * and through JMDict, whose English glosses for the Japanese word name English words
+       * (たべる → 食べる → "to eat" → eat). Glosses that only contain the query come last.
+       */
+      const japaneseGlossHits = Effect.fnUntraced(function* (query: string) {
+        const variants = unique([query, katakanaToHiragana(query)])
+        const terms = unique(variants.flatMap((variant) => deinflect(variant).map((candidate) => candidate.term)))
+        // Adjectival nouns are glossed as they modify a noun: きれい → きれいな.
+        const norms = unique(terms.flatMap((term) => [normalizeJapaneseGloss(term), `${term}な`, `${term}の`]))
+        const norm = normalizeJapaneseGloss(query)
+        const exact = yield* repo.findJapaneseGlosses(norms, 300)
+        const fuzzy = exact.length >= 20 ? [] : yield* repo.searchJapaneseGlosses(norm, 200)
+
+        // The Japanese words the query is, and the English words their glosses name.
+        const japanese = (yield* japaneseHits(query)).filter((hit) => hit.score >= 700).slice(0, BRIDGE_WORDS)
+        const records = yield* repo.getEntries(japanese.map((hit) => hit.entryId))
+        const named = records.flatMap((record, order) =>
+          record.senses.slice(0, BRIDGE_SENSES).flatMap((sense, senseIndex) =>
+            sense.glosses
+              .slice(0, BRIDGE_GLOSSES)
+              .filter((gloss) => gloss.type === null || !BRIDGE_SKIPS.has(gloss.type))
+              .map((gloss, position) => ({
+                term: normalizeGloss(gloss.text),
+                weight: 90 - 10 * senseIndex - 3 * position - 5 * order - tagPenalty(sense.misc)
+              }))
+          )
+        )
+        const bridged: ReadonlyArray<FormMatch> =
+          named.length === 0 ? [] : yield* repo.findForms(unique(named.map((name) => name.term)), "en")
+
+        const ranks = yield* repo.ranks(unique([...exact, ...fuzzy, ...bridged].map((match) => match.entryId)))
+        const score = (match: GlossMatch, isExact: boolean): Hit => ({
+          entryId: match.entryId,
+          score: glossScore(match, isExact, norm, normalizeJapaneseGloss, ranks.get(match.entryId)),
+          inflection: []
+        })
+        const viaJmdict = bridged
+          // JMDict's "to eat" names eat, not the acronym EAT.
+          .filter((match) => match.kind === "spelling" && !isAcronym(match.text))
+          .map((match): Hit => {
+            const rank = ranks.get(match.entryId)
+            const weight = Math.max(
+              ...named.filter((name) => name.term === match.text.toLowerCase()).map((name) => name.weight)
+            )
+            return {
+              entryId: match.entryId,
+              score: weight + (rank?.common ? 30 : 0) + (rank?.priority ?? 0) / 5,
+              inflection: []
+            }
+          })
+        return keepBest([...exact.map((m) => score(m, true)), ...viaJmdict, ...fuzzy.map((m) => score(m, false))])
+      })
+
+      const searchEnglish = Effect.fnUntraced(function* (query: string) {
+        if (hasJapanese(query))
+          return { mode: "japanese" as const, reading: null, hits: yield* japaneseGlossHits(query) }
+
+        const english = yield* englishWordHits(query)
+        // Romaji for a Japanese word is read as such only when it isn't an English word: "kirei", not "sake".
+        const kana = (english[0]?.score ?? 0) >= 700 ? null : romajiToKana(query)
+        const romaji = kana === null ? [] : (yield* japaneseGlossHits(kana)).filter((hit) => hit.score >= 90)
+        if (kana === null || romaji.length === 0) return { mode: "english" as const, reading: null, hits: english }
+        return {
+          mode: "romaji" as const,
+          reading: kana,
+          hits: keepBest([...romaji, ...english.map((hit) => ({ ...hit, score: hit.score - 1000 }))])
         }
       })
 
@@ -226,9 +398,10 @@ export class Dictionary extends Context.Service<
           return [
             {
               id: EntryId.make(entry.id),
+              language: entry.language,
               headword: entry.headword,
               reading: entry.reading,
-              romaji: romanize(entry.reading),
+              romaji: entry.language === "ja" ? romanize(entry.reading) : "",
               common: entry.common,
               meanings: firstGlosses(entry, 3),
               partOfSpeech: entry.senses[0]?.pos[0] ?? null,
@@ -239,38 +412,11 @@ export class Dictionary extends Context.Service<
         })
       })
 
-      const search = Effect.fn("Dictionary.search")(function* (raw: string, limit: number) {
+      const search = Effect.fn("Dictionary.search")(function* (raw: string, language: Language, limit: number) {
         const query = raw.normalize("NFKC").trim()
-        if (query.length === 0) {
-          return { query, mode: "english" as const, reading: null, englishWord: false, entries: [] }
-        }
-
-        if (hasJapanese(query)) {
-          const hits = yield* japaneseHits(query)
-          return {
-            query,
-            mode: "japanese" as const,
-            reading: null,
-            englishWord: false,
-            entries: yield* summaries(hits.slice(0, limit))
-          }
-        }
-
-        const { hits: english, exact } = yield* englishHits(query)
-        const kana = romajiToKana(query)
-        const romaji = kana === null ? [] : (yield* japaneseHits(kana)).filter((hit) => hit.score >= 700)
-        const englishIsStrong = (english[0]?.score ?? 0) >= 150
-        const preferRomaji = romaji.length > 0 && !englishIsStrong
-        const ordered = preferRomaji
-          ? keepBest([...romaji, ...english.map((h) => ({ ...h, score: h.score - 1000 }))])
-          : [...english, ...romaji.filter((hit) => !english.some((e) => e.entryId === hit.entryId))]
-        return {
-          query,
-          mode: preferRomaji ? ("romaji" as const) : ("english" as const),
-          reading: preferRomaji ? kana : null,
-          englishWord: exact && !preferRomaji,
-          entries: yield* summaries(ordered.slice(0, limit))
-        }
+        if (query.length === 0) return { query, mode: "english" as const, reading: null, entries: [] }
+        const { mode, reading, hits } = language === "ja" ? yield* searchJapanese(query) : yield* searchEnglish(query)
+        return { query, mode, reading, entries: yield* summaries(hits.slice(0, limit)) }
       })
 
       // ---------------------------------------------------------------------
@@ -285,12 +431,10 @@ export class Dictionary extends Context.Service<
         const examples = yield* enrichment.examplesFor([entry.id])
         const hasExamples = examples.length > 0
         const clips = yield* enrichment.exampleAudio(examples.map((example) => example.id))
-        // Ready once the headword and every example are voiced in each language the worker voices.
+        // Ready once the headword and every example are voiced in the entry's language.
         const hasAudio =
           (yield* enrichment.entryAudio([entry.id])).size > 0 &&
-          examples.every((example) =>
-            pronouncer.exampleLanguages.every((language) => clips.has(`${example.id}:${language}`))
-          )
+          examples.every((example) => clips.has(`${example.id}:${entry.language}`))
         const coachAvailable = yield* claude.available
         const now = yield* Clock.currentTimeMillis
 
@@ -298,7 +442,7 @@ export class Dictionary extends Context.Service<
           if (!hasNuance && jev.configured) yield* jobs.enqueue("nuance", entry.id, ON_DEMAND, now)
           if (!hasExamples && coachAvailable) yield* jobs.enqueue("examples", entry.id, ON_DEMAND, now)
           // The worker re-runs audio once example sentences exist, so they get voiced too. A finished
-          // job can still leave gaps (English voiced after the entry was), so it runs again to fill
+          // job can still leave gaps (sentences written after it ran), so it runs again to fill
           // them, but at most once an hour, in case the gap is one the worker can't fill.
           if (!hasAudio && pronouncer.configured) {
             // Enqueueing a finished job would touch it, putting its next try off with every look.
@@ -328,7 +472,7 @@ export class Dictionary extends Context.Service<
         const exampleAudio = yield* enrichment.exampleAudio(examples.map((example) => example.id))
         const entryClips = (yield* enrichment.entryAudio([entry.id])).get(entry.id) ?? []
         const voiceName = (voice: string | null) =>
-          voice === null ? null : (CASTS.ja.find((candidate) => candidate.id === voice)?.name ?? null)
+          voice === null ? null : (CASTS[entry.language].find((candidate) => candidate.id === voice)?.name ?? null)
 
         const similarRows = yield* enrichment.similarFor(entry.id)
         const similarIds = unique(similarRows.map((row) => row.similarId))
@@ -339,11 +483,16 @@ export class Dictionary extends Context.Service<
             .map((row) => [row.entryId, row.nuance.formality.value] as const)
         )
 
+        // Cross-references point within the entry's own dictionary: JMDict's are "text・reading・sense",
+        // an English word's are its synonyms and antonyms, matched whatever their case.
         const xrefTexts = unique(entry.senses.flatMap((s) => [...s.xrefs, ...s.antonyms]).map((x) => x.split("・")[0]!))
-        const xrefMatches = yield* repo.findForms(xrefTexts)
+        const xrefMatches = yield* repo.findForms(xrefTexts, entry.language)
+        const fold = (text: string) => (entry.language === "en" ? text.toLowerCase() : text)
         const resolve = (xref: string) => {
           const [text = xref, reading] = xref.split("・")
-          const match = xrefMatches.find((m) => m.text === text)
+          const match =
+            xrefMatches.find((m) => m.text === text && m.kind !== "inflection") ??
+            xrefMatches.find((m) => fold(m.text) === fold(text))
           return {
             text: reading !== undefined && !/^\d+$/.test(reading) ? `${text}（${reading}）` : text,
             entryId: match ? EntryId.make(match.entryId) : null
@@ -372,7 +521,7 @@ export class Dictionary extends Context.Service<
                   entryId: EntryId.make(similar.id),
                   headword: similar.headword,
                   reading: similar.reading,
-                  meaning: firstGlosses(similar, 2).join("; "),
+                  meaning: joinGlosses(similar, firstGlosses(similar, 2)),
                   difference: row.difference,
                   confidence: row.confidence,
                   formality: similarFormality.get(similar.id) ?? null
@@ -386,9 +535,10 @@ export class Dictionary extends Context.Service<
 
         return {
           id: EntryId.make(entry.id),
+          language: entry.language,
           headword: entry.headword,
           reading: entry.reading,
-          romaji: romanize(entry.reading),
+          romaji: entry.language === "ja" ? romanize(entry.reading) : "",
           common: entry.common,
           forms: entry.forms
             .filter((form) => !form.tags.includes("sK") && !form.tags.includes("sk"))
@@ -409,82 +559,29 @@ export class Dictionary extends Context.Service<
         return record === undefined ? Option.none() : Option.some(yield* assemble(record))
       })
 
-      const english = Effect.fn("Dictionary.english")(function* (raw: string) {
-        const term = raw.normalize("NFKC").trim()
-        const norm = normalizeGloss(term)
-        const matches = yield* repo.findGlossesExact(term, 300)
-        const ranks = yield* repo.ranks(unique(matches.map((match) => match.entryId)))
-
-        // Each word once, by the sense that matches best.
-        const best = new Map<number, { readonly match: GlossMatch; readonly score: number }>()
-        for (const match of matches) {
-          const score = glossScore(match, true, norm, ranks.get(match.entryId))
-          const current = best.get(match.entryId)
-          if (current === undefined || score > current.score) best.set(match.entryId, { match, score })
-        }
-        const top = [...best.values()].sort((a, b) => b.score - a.score).slice(0, ENGLISH_MEANINGS)
-        const ids = top.map(({ match }) => match.entryId)
-
-        const records = new Map((yield* repo.getEntries(ids)).map((record) => [record.id, record]))
-        const formality = new Map(
-          (yield* enrichment.nuanceFor(ids)).map((row) => [`${row.entryId}:${row.sense}`, row.nuance.formality.value])
-        )
-        const examples = yield* enrichment.examplesFor(ids)
-        const clips = yield* enrichment.exampleAudio(examples.map((example) => example.id))
-
-        let waiting = false
-        let writing = false
-        for (const id of ids.slice(0, ENGLISH_ENRICHED)) {
-          const record = records.get(id)
-          if (record === undefined) continue
-          const status = yield* enrichmentFor(record, true)
-          if (Object.values(status).includes("queued")) waiting = true
-          if (status.examples === "queued") writing = true
-        }
-
-        const meanings = top.flatMap(({ match }): Array<EnglishMeaning> => {
-          const record = records.get(match.entryId)
-          const sense = record?.senses[match.sense]
-          if (record === undefined || sense === undefined) return []
-          return [
-            {
-              entryId: EntryId.make(record.id),
-              sense: match.sense,
-              headword: record.headword,
-              reading: record.reading,
-              common: record.common,
-              glosses: sense.glosses.map((gloss) => gloss.text),
-              matched: match.position,
-              partOfSpeech: sense.pos[0] ?? record.senses[0]?.pos[0] ?? null,
-              formality: formality.get(`${record.id}:${match.sense}`) ?? null,
-              examples: examples
-                .filter((example) => example.entryId === record.id && example.sense === match.sense)
-                .map((example) => toExample(example, clips))
-            }
-          ]
-        })
-        return { term, meanings, waiting, writing }
-      })
-
       const requestEnrichment = Effect.fn("Dictionary.requestEnrichment")(function* (id: EntryId) {
         const [record] = yield* repo.getEntries([id])
         return record === undefined ? Option.none() : Option.some(yield* enrichmentFor(record, true))
       })
 
       const lookupWords = Effect.fn("Dictionary.lookupWords")(function* (
-        words: ReadonlyArray<{ readonly word: string; readonly reading: string }>
+        words: ReadonlyArray<{ readonly word: string; readonly reading: string }>,
+        language: Language
       ) {
-        const matches = yield* repo.findForms(unique(words.flatMap((w) => [w.word, w.reading])))
+        const matches = yield* repo.findForms(unique(words.flatMap((w) => [w.word, w.reading])), language)
         const ranks = yield* repo.ranks(unique(matches.map((m) => m.entryId)))
+        const fold = (text: string) => (language === "en" ? text.toLowerCase() : text)
         return words.map(({ word, reading }) => {
-          const candidates = matches.filter((m) => m.text === word || m.text === reading)
-          // Prefer an entry matching both spelling and reading, then the most frequent.
+          const candidates = matches.filter((m) => fold(m.text) === fold(word) || fold(m.text) === fold(reading))
+          // Prefer an entry matching both spelling and reading (English words are their own reading),
+          // then the word as written rather than an inflection of another, then the most frequent.
           const best = candidates
             .map((m) => ({
               id: m.entryId,
               score:
                 (candidates.filter((c) => c.entryId === m.entryId).length > 1 ? 1000 : 0) +
                 (m.text === word ? 100 : 0) +
+                (m.kind === "inflection" ? -50 : 0) +
                 (ranks.get(m.entryId)?.priority ?? 0)
             }))
             .sort((a, b) => b.score - a.score)[0]
@@ -492,7 +589,7 @@ export class Dictionary extends Context.Service<
         })
       })
 
-      return Dictionary.of({ search, english, entry, requestEnrichment, lookupWords })
+      return Dictionary.of({ search, entry, requestEnrichment, lookupWords })
     })
   )
 }

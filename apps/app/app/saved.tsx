@@ -7,6 +7,7 @@ import { useNotes, useRemoveNote } from "../src/api/queries.ts"
 import { IconButton } from "../src/components/Button.tsx"
 import { Card } from "../src/components/Card.tsx"
 import { Chip } from "../src/components/Chip.tsx"
+import { Headword } from "../src/components/Headword.tsx"
 import { PressableScale } from "../src/components/PressableScale.tsx"
 import { Header, Screen } from "../src/components/Screen.tsx"
 import { Segmented } from "../src/components/Segmented.tsx"
@@ -34,9 +35,13 @@ const NoteRow = ({ note }: { readonly note: Note }) => {
         <Card style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <View style={{ flex: 1, gap: 4 }}>
             {content.kind === "word" ? (
-              <Text mincho size={24} style={{ lineHeight: 30 }}>
+              <Headword
+                language={content.language ?? "ja"}
+                size={content.language === "en" ? 21 : 24}
+                style={{ lineHeight: 30 }}
+              >
                 {content.headword}
-              </Text>
+              </Headword>
             ) : (
               <Text variant="heading">{content.text}</Text>
             )}

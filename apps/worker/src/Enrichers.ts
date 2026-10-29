@@ -57,6 +57,7 @@ export class Enrichers extends Context.Service<
           }
         })
         const written = yield* writer.write({
+          language: entry.language,
           headword: entry.headword,
           reading: entry.reading,
           otherForms: entry.forms

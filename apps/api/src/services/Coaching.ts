@@ -126,11 +126,8 @@ export class Coaching extends Context.Service<
             const output: HowToSayOutput = yield* coach
               .howToSay(request, learner(user))
               .pipe(Effect.mapError(fromClaude))
-            // Link Japanese vocabulary to dictionary entries so learners can open and save them.
-            const entryIds =
-              user.targetLanguage === "ja"
-                ? yield* dictionary.lookupWords(output.keyWords)
-                : output.keyWords.map(() => null)
+            // Link the vocabulary to dictionary entries so learners can open and save them.
+            const entryIds = yield* dictionary.lookupWords(output.keyWords, user.targetLanguage)
             return {
               ...output,
               keyWords: output.keyWords.map((word, index) => ({ ...word, entryId: entryIds[index] ?? null }))

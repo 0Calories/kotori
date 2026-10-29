@@ -28,7 +28,6 @@ const Providers = Layer.mergeAll(
     Pronouncer,
     Pronouncer.of({
       configured: true,
-      exampleLanguages: ["ja", "en"],
       speak: () => Effect.fail(new TtsError({ reason: "unconfigured", message: "not in tests" })),
       enrichEntry: () => Effect.succeed({ clips: 0, characters: 0 })
     })
@@ -62,6 +61,7 @@ const entry = (
   common = true
 ): EntryRecord => ({
   id,
+  language: "ja",
   headword,
   reading,
   common,
@@ -69,6 +69,39 @@ const entry = (
   forms: [
     { kind: "kanji", text: headword, common, tags: [], priorities: [], restrictions: [], noKanji: false },
     { kind: "kana", text: reading, common, tags: [], priorities: [], restrictions: [], noKanji: false }
+  ],
+  senses
+})
+
+/** An English word, with Japanese glosses, its inflections and other spellings. */
+const word = (
+  id: number,
+  headword: string,
+  senses: EntryRecord["senses"],
+  options: {
+    readonly reading?: string
+    readonly common?: boolean
+    readonly priority?: number
+    readonly inflections?: ReadonlyArray<readonly [string, ReadonlyArray<string>]>
+  } = {}
+): EntryRecord => ({
+  id,
+  language: "en",
+  headword,
+  reading: options.reading ?? "",
+  common: options.common ?? true,
+  priority: options.priority ?? 50,
+  forms: [
+    { kind: "spelling", text: headword, common: true, tags: [], priorities: [], restrictions: [], noKanji: false },
+    ...(options.inflections ?? []).map(([text, tags]) => ({
+      kind: "inflection" as const,
+      text,
+      common: false,
+      tags: [...tags],
+      priorities: [],
+      restrictions: [],
+      noKanji: false
+    }))
   ],
   senses
 })
@@ -108,52 +141,165 @@ const finishAudioJobs = (now: number) =>
   })
 
 layer(TestLayer)("Dictionary", (it) => {
-  it.effect("looks up an English word as the Japanese words that mean it, most likely first", () =>
+  it.effect("searches English words for Japanese speakers by spelling, inflection and prefix", () =>
+    Effect.gen(function* () {
+      const repo = yield* DictionaryRepo
+      yield* repo.insertEntries([
+        word(100000001, "eat", [sense(["～を食べる。"], ["v", "vt"]), sense(["食事をする"], ["v", "vi"])], {
+          reading: "/iːt/",
+          priority: 90,
+          inflections: [
+            ["ate", ["past"]],
+            ["eaten", ["past-participle"]]
+          ]
+        }),
+        word(100000002, "eatery", [sense(["食堂"], ["n"])], { common: false, priority: 10 }),
+        word(100000003, "team", [sense(["チーム"], ["n"]), sense(["チームを組む"], ["v"])]),
+        // A Japanese word glossed "eat" is in the other dictionary and never comes up.
+        entry(1358280, "食べる", "たべる", [sense(["to eat"], ["v1"])])
+      ])
+      const dictionary = yield* Dictionary
+
+      const eat = yield* dictionary.search("eat", "en", 10)
+      assert.strictEqual(eat.mode, "english")
+      assert.deepStrictEqual(
+        eat.entries.map((summary) => [summary.headword, summary.language]),
+        [
+          ["eat", "en"],
+          ["eatery", "en"]
+        ]
+      )
+      assert.deepStrictEqual(eat.entries[0]?.meanings, ["～を食べる。", "食事をする"])
+      assert.strictEqual(eat.entries[0]?.reading, "/iːt/")
+      assert.strictEqual(eat.entries[0]?.romaji, "")
+
+      // Inflections lead to their word, marked with what they are, the way 食べなかった leads to 食べる.
+      const ate = yield* dictionary.search("Ate", "en", 10)
+      assert.deepStrictEqual(
+        ate.entries.map((summary) => [summary.headword, summary.inflection]),
+        [["eat", ["past"]]]
+      )
+      // Words whose sources list no forms are reached by the regular rules.
+      const teams = yield* dictionary.search("teams", "en", 10)
+      assert.deepStrictEqual(
+        teams.entries.map((summary) => [summary.headword, summary.inflection]),
+        [["team", ["plural"]]]
+      )
+    })
+  )
+
+  it.effect("finds English words for a Japanese query by their glosses and through JMDict", () =>
+    Effect.gen(function* () {
+      const repo = yield* DictionaryRepo
+      yield* repo.insertEntries([
+        entry(1155020, "気まずい", "きまずい", [sense(["unpleasant", "awkward", "embarrassing"], ["adj-i"])]),
+        entry(1009310, "猫", "ねこ", [sense(["cat"], ["n"])]),
+        word(100000010, "awkward", [sense(["ぎこちない"], ["adj"])], { priority: 60 }),
+        word(100000011, "unpleasant", [sense(["不愉快な"], ["adj"])], { priority: 40 }),
+        word(100000012, "cat", [sense(["猫"], ["n"])], { priority: 70 }),
+        word(100000013, "pretty", [sense(["きれいな"], ["adj"]), sense(["かなり"], ["adv"])], { priority: 80 }),
+        word(100000014, "uncomfortable", [sense(["気まずい思いをした"], ["adj"])], { common: false, priority: 5 })
+      ])
+      const dictionary = yield* Dictionary
+
+      // 気まずい is no English word's gloss, but JMDict glosses it "unpleasant" and "awkward",
+      // which come first, the more used ahead; a gloss that only contains it comes after.
+      const kimazui = yield* dictionary.search("気まずい", "en", 10)
+      assert.strictEqual(kimazui.mode, "japanese")
+      assert.deepStrictEqual(
+        kimazui.entries.map((summary) => summary.headword),
+        ["awkward", "unpleasant", "uncomfortable"]
+      )
+
+      // Kana reaches cat through 猫's JMDict entry; an adjectival noun finds its "な" gloss.
+      assert.strictEqual((yield* dictionary.search("ねこ", "en", 10)).entries[0]?.headword, "cat")
+      assert.strictEqual((yield* dictionary.search("きれい", "en", 10)).entries[0]?.headword, "pretty")
+
+      // Rōmaji that isn't an English word is read as Japanese.
+      const neko = yield* dictionary.search("neko", "en", 10)
+      assert.deepStrictEqual([neko.mode, neko.reading, neko.entries[0]?.headword], ["romaji", "ねこ", "cat"])
+    })
+  )
+
+  it.effect("keeps learners of Japanese in the Japanese dictionary", () =>
+    Effect.gen(function* () {
+      const dictionary = yield* Dictionary
+      const eat = yield* dictionary.search("eat", "ja", 10)
+      assert.deepStrictEqual(
+        eat.entries.map((summary) => [summary.headword, summary.language]),
+        [["食べる", "ja"]]
+      )
+      assert.notInclude(
+        (yield* dictionary.search("猫", "ja", 10)).entries.map((summary) => summary.headword),
+        "cat"
+      )
+    })
+  )
+
+  it.effect("assembles an English word as an entry, voiced and cross-referenced in English", () =>
     Effect.gen(function* () {
       const repo = yield* DictionaryRepo
       const enrichment = yield* EnrichmentRepo
       yield* repo.insertEntries([
-        entry(10, "気まずい", "きまずい", [sense(["awkward", "uncomfortable"], ["adj-i"])]),
-        entry(11, "不器用", "ぶきよう", [sense(["clumsy"], ["adj-na"]), sense(["awkward", "unskillful"], ["adj-na"])]),
-        entry(12, "ぎこちない", "ぎこちない", [sense(["awkward", "stiff"], ["adj-i"])], false),
-        entry(13, "気まぐれ", "きまぐれ", [sense(["whim"], ["n"])])
+        word(100000020, "dine", [sense(["食事をする"], ["v"])]),
+        word(
+          100000021,
+          "consume",
+          [{ ...sense(["消費する"], ["v", "vt"], ["form"]), xrefs: ["Dine"], dialects: ["en-GB"] }],
+          { reading: "/kənˈsjuːm/", inflections: [["consumed", ["past", "past-participle"]]] }
+        )
       ])
-      yield* enrichment.saveExamples(10, [example(0, "気まずい沈黙が続いた。", "There was an awkward silence.")], 0)
+      yield* repo.saveTags([{ code: "form", label: "formal or literary term" }])
+      yield* enrichment.saveExamples(100000021, [example(0, "電気を使いすぎる。", "We consume too much power.")], 0)
+      const [written] = yield* enrichment.examplesFor([100000021])
+      yield* enrichment.saveAudio(clip("consume", "consume", "en"))
+      yield* enrichment.linkEntryAudio(100000021, "consume")
+      yield* enrichment.saveAudio(clip("sentence-en", "We consume too much power.", "en"))
+      yield* enrichment.linkExampleAudio(written!.id, "en", "sentence-en")
 
-      const dictionary = yield* Dictionary
-      const awkward = yield* dictionary.english("  awkward ")
-      assert.strictEqual(awkward.term, "awkward")
+      const consume = Option.getOrThrow(yield* (yield* Dictionary).entry(EntryId.make(100000021)))
+      assert.strictEqual(consume.language, "en")
+      assert.strictEqual(consume.reading, "/kənˈsjuːm/")
+      assert.strictEqual(consume.romaji, "")
       assert.deepStrictEqual(
-        awkward.meanings.map((meaning) => [meaning.headword, meaning.sense]),
+        consume.forms.map((form) => [form.kind, form.text, form.tags.map((tag) => tag.code)]),
         [
-          ["気まずい", 0],
-          ["不器用", 1],
-          ["ぎこちない", 0]
+          ["spelling", "consume", []],
+          ["inflection", "consumed", ["past", "past-participle"]]
         ]
       )
-      assert.deepStrictEqual(awkward.meanings[1]?.glosses, ["awkward", "unskillful"])
-      assert.deepStrictEqual(
-        awkward.meanings.map((meaning) => meaning.glosses[meaning.matched]),
-        ["awkward", "awkward", "awkward"]
-      )
-      assert.strictEqual(awkward.meanings[0]?.examples[0]?.en, "There was an awkward silence.")
-      assert.strictEqual(awkward.meanings[0]?.examples[0]?.noteJa, "「awkward」は人間関係の気まずさにも使える。")
-      // Audio is configured, so looking the word up queued it for the leading meanings. Claude
-      // isn't, so no examples are being written.
-      assert.isTrue(awkward.waiting)
-      assert.isFalse(awkward.writing)
-      assert.strictEqual((yield* (yield* JobsRepo).statusFor(10)).get("audio"), "queued")
-
-      const search = yield* dictionary.search("awkward", 10)
-      assert.isTrue(search.englishWord)
-      assert.isFalse((yield* dictionary.search("awk", 10)).englishWord)
-      assert.isFalse((yield* dictionary.search("気まずい", 10)).englishWord)
-
-      assert.deepStrictEqual((yield* dictionary.english("nothing like it")).meanings, [])
+      assert.deepStrictEqual(consume.senses[0]?.glosses, ["消費する"])
+      assert.deepStrictEqual(consume.senses[0]?.misc, [{ code: "form", label: "formal or literary term" }])
+      // Its synonym links to the English word, whatever the case it was written in.
+      assert.deepStrictEqual(consume.senses[0]?.related, [{ text: "Dine", entryId: EntryId.make(100000020) }])
+      assert.strictEqual(consume.audioUrl, "/audio/consume.mp3")
+      assert.strictEqual(consume.senses[0]?.examples[0]?.translationAudioUrl, "/audio/sentence-en.mp3")
+      // Voiced in English, which is all an English word needs: its audio is complete.
+      assert.strictEqual(consume.enrichment.audio, "ready")
     })
   )
 
-  it.effect("voices examples again when a finished audio job left the English unvoiced, at most hourly", () =>
+  it.effect("links coach vocabulary to words in the learner's target language", () =>
+    Effect.gen(function* () {
+      const dictionary = yield* Dictionary
+      assert.deepStrictEqual(
+        yield* dictionary.lookupWords(
+          [
+            { word: "Dine", reading: "Dine" },
+            { word: "consumed", reading: "consumed" },
+            { word: "nonexistent", reading: "nonexistent" }
+          ],
+          "en"
+        ),
+        [EntryId.make(100000020), EntryId.make(100000021), null]
+      )
+      assert.deepStrictEqual(yield* dictionary.lookupWords([{ word: "猫", reading: "ねこ" }], "ja"), [
+        EntryId.make(1009310)
+      ])
+    })
+  )
+
+  it.effect("voices examples again when a finished audio job left one unvoiced, at most hourly", () =>
     Effect.gen(function* () {
       const repo = yield* DictionaryRepo
       const enrichment = yield* EnrichmentRepo
@@ -162,16 +308,14 @@ layer(TestLayer)("Dictionary", (it) => {
       const audioStatus = Effect.map(dictionary.requestEnrichment(EntryId.make(20)), (s) => Option.getOrThrow(s).audio)
       const hour = 60 * 60 * 1000
       yield* repo.insertEntries([entry(20, "食べる", "たべる", [sense(["to eat"], ["v1"])])])
-      yield* enrichment.saveExamples(20, [example(0, "パンを食べる。", "I eat bread.")], 0)
-      const [written] = yield* enrichment.examplesFor([20])
 
-      // Voiced before English was: the headword and the Japanese sentence only.
+      // Voiced before its examples were written: the headword only.
       yield* enrichment.saveAudio(clip("headword", "たべる", "ja"))
-      yield* enrichment.saveAudio(clip("sentence-ja", "パンを食べる。", "ja"))
       yield* enrichment.linkEntryAudio(20, "headword")
-      yield* enrichment.linkExampleAudio(written!.id, "ja", "sentence-ja")
       yield* jobs.enqueue("audio", 20, 0, 0)
       yield* finishAudioJobs(1)
+      yield* enrichment.saveExamples(20, [example(0, "パンを食べる。", "I eat bread.")], 1)
+      const [written] = yield* enrichment.examplesFor([20])
 
       // Looking at it later queues the job again to fill the gap.
       yield* TestClock.setTime(2 * hour)
@@ -189,9 +333,9 @@ layer(TestLayer)("Dictionary", (it) => {
       yield* TestClock.setTime(3 * hour + 1)
       assert.strictEqual(yield* audioStatus, "queued")
 
-      // Once English is voiced too, the entry's audio is complete and nothing is queued again.
-      yield* enrichment.saveAudio(clip("sentence-en", "I eat bread.", "en"))
-      yield* enrichment.linkExampleAudio(written!.id, "en", "sentence-en")
+      // Once the sentence is voiced in Japanese, the entry's audio is complete and nothing is queued again.
+      yield* enrichment.saveAudio(clip("sentence-ja", "パンを食べる。", "ja"))
+      yield* enrichment.linkExampleAudio(written!.id, "ja", "sentence-ja")
       yield* finishAudioJobs(3 * hour + 2)
       yield* TestClock.setTime(10 * hour)
       assert.strictEqual(yield* audioStatus, "ready")

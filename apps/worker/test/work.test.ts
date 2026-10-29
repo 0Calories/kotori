@@ -113,6 +113,7 @@ const sense = (glosses: Array<string>) => ({
 
 const entry = (id: number, headword: string, reading: string, senses: Array<Array<string>>): EntryRecord => ({
   id,
+  language: "ja",
   headword,
   reading,
   common: true,
@@ -172,12 +173,11 @@ layer(TestLayer)("kotori work", (it) => {
 
       // The audio job was queued by the examples job: headword and sentence are both voiced,
       // the headword once per cast dictionary voice (Kyoko and the announcer), the sentence in
-      // Japanese and, for Japanese speakers learning English, in English.
-      assert.deepStrictEqual(spoken, ["たべる", "たべる", "パンを食べる。", "I eat bread."])
+      // Japanese, which is what its learners are learning.
+      assert.deepStrictEqual(spoken, ["たべる", "たべる", "パンを食べる。"])
       assert.isTrue((yield* enrichment.entryAudio([taberu])).has(taberu))
       const clips = yield* enrichment.exampleAudio([example!.id])
-      assert.isTrue(clips.has(`${example!.id}:ja`))
-      assert.isTrue(clips.has(`${example!.id}:en`))
+      assert.deepStrictEqual([...clips.keys()], [`${example!.id}:ja`])
       assert.deepStrictEqual(
         [...(yield* jobs.statusFor(taberu))].sort(([a], [b]) => a.localeCompare(b)),
         [

@@ -1,3 +1,4 @@
+import type { Language } from "@kotori/domain"
 import type { ChoiceQuestion, NoulQuestion, ScoreQuestion } from "@typesafe-ai/sdk"
 
 /**
@@ -169,6 +170,142 @@ export const senseQuestions = {
 
 export type SenseQuestions = typeof senseQuestions
 
+// English words, for Japanese speakers learning them. The same judgments without keigo,
+// which English doesn't have; the meaning Jev reads is the Japanese gloss, so each question
+// says which language is which.
+
+const englishFormality: ScoreQuestion = {
+  type: "score",
+  instructions:
+    "How formal does the English word `word` sound when a native speaker uses it with the meaning in `meaning` (written in Japanese)? Judge the English word, not the Japanese gloss.",
+  criteria: [
+    {
+      what: "Vulgar or crude: rude, insulting or coarse; it would offend strangers or superiors",
+      examples: ["piss off", "crap", "bullshit"]
+    },
+    {
+      what: "Casual: relaxed or slangy, for friends and family; too familiar for a boss or a stranger",
+      examples: ["gonna", "yeah", "kid", "awesome"]
+    },
+    {
+      what: "Neutral: plain everyday wording that fits almost any situation",
+      examples: ["walk", "school", "big", "time"]
+    },
+    {
+      what: "Polite: courteous wording suited to strangers, customers or superiors",
+      examples: ["pardon", "would you mind", "restroom"]
+    },
+    {
+      what: "Formal: business, official or ceremonial wording for speeches, letters and official settings",
+      examples: ["commence", "hereby", "deceased", "inquire"]
+    }
+  ]
+}
+
+const englishMedium: ScoreQuestion = {
+  type: "score",
+  instructions: `Where is the English word \`word\`, with the meaning in \`meaning\` (written in Japanese), typically used: in conversation or in writing? ${SUBJECT_NOT_REGISTER}`,
+  criteria: [
+    {
+      what: "Mostly spoken: conversational words that look out of place in formal writing",
+      examples: ["yeah", "gonna", "kind of", "stuff"]
+    },
+    {
+      what: "Equally common in conversation and in writing, including everyday words for health, the body and sex",
+      examples: ["walk", "time", "friend", "pregnant"]
+    },
+    {
+      what: "Mostly written: literary, journalistic, academic, legal or technical prose; sounds stiff or bookish aloud",
+      examples: ["thus", "hereby", "aforementioned", "notwithstanding"]
+    }
+  ]
+}
+
+const englishGender: ChoiceQuestion = {
+  type: "choice",
+  instructions:
+    "Do English speakers associate the word `word`, with the meaning in `meaning` (written in Japanese), with a particular gender?",
+  criteria: {
+    neutral: "Used naturally by speakers of any gender",
+    masculine: "Sounds typically masculine; mostly used by men or boys, e.g. dude, bro, my man",
+    feminine:
+      "Sounds typically feminine; mostly used by women or girls, e.g. hun, adorbs, girlfriend (for a female friend)"
+  }
+}
+
+const englishAge: ChoiceQuestion = {
+  type: "choice",
+  instructions:
+    "Is the English word `word`, with the meaning in `meaning` (written in Japanese), typical of a particular age group of speakers?",
+  criteria: {
+    any: "Used by people of all ages, including formal and business words that working adults of every age use, e.g. regarding, appreciate",
+    children: "Childish or baby talk, used by or to small children, e.g. tummy, doggy, potty",
+    youth: "Youth or internet slang, used mostly by teenagers and young adults, e.g. lit, sus, no cap, slay",
+    older: "Mainly used by older people; sounds old-fashioned coming from someone young, e.g. groovy, swell, icebox"
+  }
+}
+
+const englishCurrency: ChoiceQuestion = {
+  type: "choice",
+  instructions:
+    "How current does the English word `word`, with the meaning in `meaning` (written in Japanese), feel in present-day English?",
+  criteria: {
+    current: "In ordinary use today, including formal, written and business words, e.g. regarding, appreciate, hereby",
+    trendy: "A recent coinage or buzzword, e.g. rizz, doomscrolling",
+    dated: "Understood, but sounds old-fashioned in today's speech and writing, e.g. groovy, swell, icebox",
+    archaic:
+      "Archaic or obsolete: found in old texts or historical settings, not modern use, e.g. thou, whence, betwixt"
+  }
+}
+
+const englishConnotation: ChoiceQuestion = {
+  type: "choice",
+  instructions:
+    "Beyond its literal meaning in `meaning` (written in Japanese), what feeling does the English word `word` carry?",
+  criteria: connotation.criteria
+}
+
+const englishRudeToSuperiors: NoulQuestion = {
+  type: "noul",
+  instructions:
+    "Someone talking to their boss or a customer uses the English word `word` (meaning `meaning`, written in Japanese). Is choosing this word rude, crude or overly familiar?",
+  criteria: {
+    true: "Yes: the word itself is rough, slangy or overly familiar, so it sounds rude or too casual with a boss or customer, e.g. yeah, gonna, dude, crap",
+    false: "No: it is acceptable with a boss or customer, even if a more formal word exists, e.g. yes, get, big, thanks"
+  }
+}
+
+const englishStiffWithFriends: NoulQuestion = {
+  type: "noul",
+  instructions: `Is the English word \`word\` (meaning \`meaning\`, written in Japanese) found mostly in formal, official, academic or clinical language, rather than in the everyday speech of ordinary people? Judge the English word, not the Japanese gloss. ${SUBJECT_NOT_REGISTER}`,
+  criteria: {
+    true: "Yes: formal, official, academic or clinical language, e.g. commence, endeavor, hereby, utilize, sexual intercourse",
+    false: "No: everyday speech, e.g. start, try, use, pregnant, sex"
+  }
+}
+
+const englishSlang: NoulQuestion = {
+  type: "noul",
+  instructions:
+    "Is the English word `word`, with the meaning in `meaning` (written in Japanese), slang (including youth or internet slang)?",
+  criteria: {
+    true: "Yes: it is slang, e.g. lit, sus, bucks (for dollars), dope (for great)",
+    false: "No: it is standard vocabulary, even if casual, e.g. kid, guy, awesome, pretty (for quite)"
+  }
+}
+
+export const englishSenseQuestions = {
+  formality: englishFormality,
+  medium: englishMedium,
+  gender: englishGender,
+  age: englishAge,
+  currency: englishCurrency,
+  connotation: englishConnotation,
+  rudeToSuperiors: englishRudeToSuperiors,
+  stiffWithFriends: englishStiffWithFriends,
+  slang: englishSlang
+}
+
 /** Ways a similar word can differ from the word being looked up. */
 export const DIFFERENCES = {
   more_casual: "It is more casual or rough",
@@ -183,8 +320,11 @@ export const DIFFERENCES = {
   different_usage: "It is used in different situations or word combinations"
 } as const
 
+/** English has no keigo, so an English word's similar words can't differ by it. */
+const { respectful: _, humble: __, ...ENGLISH_DIFFERENCES } = DIFFERENCES
+
 /** Two questions per candidate: is it a near-synonym, and how does it differ. */
-export const candidateQuestions = (index: number) => ({
+export const candidateQuestions = (index: number, language: Language = "ja") => ({
   [`similar_${index}`]: {
     type: "noul",
     instructions: `Can \`candidates[${index}].word\` express the same meaning as \`word\` (as described in \`meaning\`) in at least some sentences?`,
@@ -196,6 +336,6 @@ export const candidateQuestions = (index: number) => ({
   [`difference_${index}`]: {
     type: "choice",
     instructions: `Compared with \`word\`, what is the main difference when a native speaker chooses \`candidates[${index}].word\` instead?`,
-    criteria: DIFFERENCES
+    criteria: language === "ja" ? DIFFERENCES : ENGLISH_DIFFERENCES
   } satisfies ChoiceQuestion
 })

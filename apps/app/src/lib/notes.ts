@@ -1,11 +1,13 @@
-import type { EntryId, Example, Formality, NoteContent } from "@kotori/domain"
+import type { EntryId, Example, Formality, Language, NoteContent } from "@kotori/domain"
 import type { Strings } from "../i18n/strings.ts"
 
-/** A dictionary word saved for review, from the entry page or an English word's page alike. */
+/** A dictionary word saved for review, from its entry page. */
 export const wordNote = (
   t: Strings,
   word: {
     readonly entryId: EntryId
+    /** The headword's language: the one being learned. */
+    readonly language: Language
     readonly sense: number
     readonly headword: string
     readonly reading: string
@@ -19,9 +21,10 @@ export const wordNote = (
   kind: "word",
   entryId: word.entryId,
   senseIndex: word.sense,
+  language: word.language,
   headword: word.headword,
   reading: word.reading,
-  meaning: word.glosses.slice(0, 3).join("; "),
+  meaning: word.glosses.slice(0, 3).join(word.language === "ja" ? "; " : "、"),
   hint: word.formality && word.formality !== "neutral" ? t.nuance.scale[word.formality] : null,
   example: word.example
     ? {
