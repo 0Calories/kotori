@@ -94,7 +94,9 @@ export const entryRequest = (
     for (const [name, question] of Object.entries(own)) questions[`${sensePrefix(index)}${name}`] = question
   })
   if (entry.language === "en") {
-    loans.slice(0, MAX_LOANS).forEach((candidate, k) => Object.assign(questions, loanQuestions(k, candidate, tags)))
+    loans
+      .slice(0, MAX_LOANS)
+      .forEach((candidate, k) => Object.assign(questions, loanQuestions(k, entry, candidate, tags)))
   }
   return { state: entryState(entry), questions }
 }

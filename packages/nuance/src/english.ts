@@ -17,8 +17,8 @@ import { judgedSenses } from "./state.ts"
  * Japanese set's). History: 1 — the set English words launched with, one request per sense
  * (rows stored before question versions had a column are version 1); 3 — one request per
  * entry, each question carrying its sense's scope, as the Japanese set's version 3 does, with
- * registerShape, regional variety, profanity, textbook English and the katakana loan added
- * (docs/nuance-on-english-entries.md).
+ * registerShape, regional variety, profanity, textbook English and the katakana loan added, and
+ * stiffWithFriends derived instead of asked (docs/nuance-on-english-entries.md).
  */
 export const ENGLISH_QUESTIONS_VERSION = 3
 
@@ -144,14 +144,9 @@ const rudeToSuperiors: NoulQuestion = {
   }
 }
 
-const stiffWithFriends: NoulQuestion = {
-  type: "noul",
-  instructions: `Is the English word \`word\` (meaning \`meaning\`, written in Japanese) found mostly in formal, official, academic or clinical language, rather than in the everyday speech of ordinary people? Judge the English word, not the Japanese gloss. ${SUBJECT_NOT_REGISTER}`,
-  criteria: {
-    true: "Yes: formal, official, academic or clinical language, e.g. commence, endeavor, hereby, utilize, sexual intercourse",
-    false: "No: everyday speech, e.g. start, try, use, pregnant, sex"
-  }
-}
+// "Sounds stiff between friends" is derived from the register judgments, as on the Japanese
+// side: on the golden English words the derivation was right 11 times of 12, the question this
+// replaced (formal, official, academic or clinical language?) 10 of 12.
 
 const slang: NoulQuestion = {
   type: "noul",
@@ -214,7 +209,6 @@ export const englishSenseQuestions = {
   connotation,
   registerShape,
   rudeToSuperiors,
-  stiffWithFriends,
   slang,
   variety,
   profanity,
@@ -231,13 +225,19 @@ export type EnglishSenseQuestions = typeof englishSenseQuestions
 // whether the pair is a loan at all before the Choice about its meaning counts; where JMDict
 // names the English word as the loan's source, its word decides. Examples are kept out of
 // the golden set. The trap is a word's, not a sense's, so the loan is judged once per word.
+// On an English word the katakana word is often one of its Japanese translations (テーブル for
+// "table"), so "only another translation" can't be the "no": asked that way, Jev said no to
+// テーブル at 0.04. The false candidates the Noul is for are loans of other English words. Both
+// questions name the English word in their own instructions (`english_word`): with only the
+// state's `word`, beside its Japanese senses, Jev still put テーブル, ドア and スタイル below 0.2.
 const isLoan: NoulQuestion = {
   type: "noul",
-  instructions: "Is `katakana_word` the everyday katakana loanword of the English word `word`?",
+  instructions:
+    "Is `katakana_word` the everyday katakana loanword of the English word `english_word`: the word Japanese borrowed from it?",
   criteria: {
-    true: "Yes: Japanese speakers know `katakana_word` as the word borrowed from `word`, whatever it has come to mean in Japanese",
+    true: "Yes: Japanese speakers know `katakana_word` as the word borrowed from `english_word`, whatever it has come to mean in Japanese, e.g. ピアノ for 'piano'",
     false:
-      "No: it is borrowed from a different English word, or is only another translation of the same Japanese meaning"
+      "No: `katakana_word` is borrowed from a different English word, even where it translates `english_word`, e.g. トラック (from 'truck') for 'lorry'"
   }
 }
 
@@ -255,12 +255,12 @@ const LOAN_EVIDENCE =
 const loan: ChoiceQuestion = {
   type: "choice",
   instructions:
-    "Would a Japanese speaker who uses the English word `word` (its meanings are listed in `senses`, in Japanese) as they use `katakana_word` in everyday Japanese be understood? Weigh every common use of `katakana_word`, not only the ones it shares with `word`.",
+    "Would a Japanese speaker who uses the English word `english_word` (its meanings are listed in `senses`, in Japanese) as they use `katakana_word` in everyday Japanese be understood? Weigh every common use of `katakana_word`, not only the ones it shares with `english_word`.",
   criteria: {
     matches:
-      "Carrying it over works: what `katakana_word` commonly means is what `word` means, so English speakers understand it, e.g. ピアノ for 'piano', バス for 'bus'. Small differences in how often or where each is used don't count",
+      "Carrying it over works: what `katakana_word` commonly means is what `english_word` means, so English speakers understand it, e.g. ピアノ for 'piano', バス for 'bus'. Small differences in how often or where each is used don't count",
     diverges:
-      "Carrying it over misleads: a common use of `katakana_word` means something `word` doesn't, or carries a clearly different feeling, even where they share a meaning, e.g. トレーナー (a sweatshirt, as well as a trainer), サービス ('free of charge', as well as service), コンセント (a power socket, not 'consent')"
+      "Carrying it over misleads: a common use of `katakana_word` means something `english_word` doesn't, or carries a clearly different feeling, even where they share a meaning, e.g. トレーナー (a sweatshirt, as well as a trainer), サービス ('free of charge', as well as service), コンセント (a power socket, not 'consent')"
   }
 }
 
@@ -291,8 +291,13 @@ export const loanScope = (candidate: EntryRecord, tags: ReadonlyMap<string, stri
 })
 
 /** The two questions about the English word's `k`th katakana candidate, keyed `loanword_{k}` and `loan_{k}`. */
-export const loanQuestions = (k: number, candidate: EntryRecord, tags: ReadonlyMap<string, string>) => {
-  const katakana = loanScope(candidate, tags)
+export const loanQuestions = (
+  k: number,
+  english: EntryRecord,
+  candidate: EntryRecord,
+  tags: ReadonlyMap<string, string>
+) => {
+  const katakana = { english_word: english.headword, ...loanScope(candidate, tags) }
   return {
     [`loanword_${k}`]: { ...isLoan, instructions: { question: isLoan.instructions ?? null, ...katakana } },
     [`loan_${k}`]: {

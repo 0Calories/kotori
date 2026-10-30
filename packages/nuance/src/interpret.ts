@@ -33,7 +33,7 @@ export interface SenseAnswers {
   readonly connotation: ChoiceResponse
   readonly registerShape?: ChoiceResponse
   readonly rudeToSuperiors: NoulResponse
-  /** Asked about English words, and about Japanese ones before version 2; derived, not read. */
+  /** Asked before version 2 (Japanese) or 3 (English); derived from the register now, never read. */
   readonly stiffWithFriends?: NoulResponse
   readonly slang: NoulResponse
   readonly variety?: ChoiceResponse
