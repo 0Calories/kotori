@@ -114,11 +114,12 @@ export class NuanceEnricher extends Context.Service<
         const judged = senses.map((sense, index) => ({
           index,
           tags: senseTags(sense),
+          fields: sense.fields,
           answers: answersOfSense(result.answers, index)
         }))
-        const nuance = judged.map(({ index, tags: senseTagged, answers }) => ({
+        const nuance = judged.map(({ index, tags: senseTagged, fields, answers }) => ({
           sense: index,
-          nuance: interpretSense(answers as unknown as SenseAnswers, senseTagged),
+          nuance: interpretSense(answers as unknown as SenseAnswers, senseTagged, fields),
           answers,
           model: result.model,
           questionsVersion
@@ -161,7 +162,7 @@ export class NuanceEnricher extends Context.Service<
             return enrichment.updateNuance(
               entryId,
               row.sense,
-              interpretSense(row.answers as SenseAnswers, sense === undefined ? [] : senseTags(sense))
+              interpretSense(row.answers as SenseAnswers, sense === undefined ? [] : senseTags(sense), sense?.fields)
             )
           },
           { discard: true }

@@ -151,13 +151,16 @@ const level = <L extends string>(levels: ReadonlyArray<L>, answer: ScoreResponse
  * written language; the probability is the most Jev puts on any of those, and a dictionary
  * tag decides outright. English words have no keigo. Jev's `confidence` measures how peaked
  * an answer is, not how likely a label is: a word split between 尊敬語 and 謙譲語 is unsure
- * which keigo it is, but sure it is keigo.
+ * which keigo it is, but sure it is keigo. A sense the dictionary files under a field
+ * (physics, medicine…) is written because of its subject, not its register, so its medium
+ * doesn't count: "tension" in physics, 張力 and 電圧, was marked stiff between friends.
  */
 const stiffBetweenFriends = (
   answers: SenseAnswers,
   formality: Nuance["formality"],
   medium: Nuance["medium"],
-  keigo: Nuance["keigo"]
+  keigo: Nuance["keigo"],
+  technical: boolean
 ): number =>
   Math.max(
     formality.source === "jmdict"
@@ -168,17 +171,24 @@ const stiffBetweenFriends = (
       : (answers.keigo.probabilities["sonkeigo"] ?? 0) + (answers.keigo.probabilities["kenjougo"] ?? 0),
     medium.source === "jmdict"
       ? Number(medium.value === "written")
-      : (answers.medium.probabilities[MEDIUM_LEVELS.indexOf("written")] ?? 0)
+      : technical
+        ? 0
+        : (answers.medium.probabilities[MEDIUM_LEVELS.indexOf("written")] ?? 0)
   )
 
 /** English has no keigo; the dictionary is certain of it. */
 const NO_KEIGO = { value: "none", confidence: 1, source: "jmdict" } as const
 
 /**
- * Combines Jev's answers for a sense with its dictionary tags (`senseTags`) into the nuance shown
- * to learners. English words also get their regional variety, profanity and the textbook caution.
+ * Combines Jev's answers for a sense with its dictionary tags (`senseTags`) and fields (physics,
+ * medicine…) into the nuance shown to learners. English words also get their regional variety,
+ * profanity and the textbook caution.
  */
-export const interpretSense = (answers: SenseAnswers, tags: ReadonlyArray<string>): Nuance => {
+export const interpretSense = (
+  answers: SenseAnswers,
+  tags: ReadonlyArray<string>,
+  fields: ReadonlyArray<string> = []
+): Nuance => {
   const formality = scale(FORMALITY_LEVELS, answers.formality, firstTag(tags, FORMALITY_TAGS))
   const medium = scale(MEDIUM_LEVELS, answers.medium, firstTag(tags, MEDIUM_TAGS))
   const keigo = answers.keigo === undefined ? NO_KEIGO : choice<Keigo>(answers.keigo, firstTag(tags, KEIGO_TAGS))
@@ -196,7 +206,7 @@ export const interpretSense = (answers: SenseAnswers, tags: ReadonlyArray<string
     ...(shape === undefined ? {} : { registerShape: choice<RegisterShape>(shape, firstTag(tags, FIXED_SHAPE_TAGS)) }),
     cautions: {
       rudeToSuperiors: answers.rudeToSuperiors.noul,
-      stiffWithFriends: stiffBetweenFriends(answers, formality, medium, keigo),
+      stiffWithFriends: stiffBetweenFriends(answers, formality, medium, keigo, fields.length > 0),
       slang: tags.some((tag) => SLANG_TAGS.includes(tag)) ? 1 : answers.slang.noul,
       ...(answers.textbook === undefined ? {} : { textbook: answers.textbook.noul })
     },

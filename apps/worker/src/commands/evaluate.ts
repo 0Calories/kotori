@@ -319,7 +319,7 @@ export const evaluate = Command.make(
 
         const answered = reading.answers as unknown as SenseAnswers
         const sense = golden.entry.senses[golden.sense]
-        const shown = interpretSense(answered, sense === undefined ? [] : senseTags(sense))
+        const shown = interpretSense(answered, sense === undefined ? [] : senseTags(sense), sense?.fields)
         const raw = interpretSense(answered, [])
         const { expect, label } = golden
         const labelled = (dimension: LabelledDimension, want: ReadonlyArray<string>) => {

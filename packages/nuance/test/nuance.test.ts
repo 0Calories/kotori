@@ -67,6 +67,12 @@ describe("interpretSense", () => {
     // A JMDict tag decides outright, either way.
     assert.strictEqual(stiff({}, ["hon"]), 1)
     assert.strictEqual(stiff({ keigo: split }, ["pol"]), 0)
+    // A field's term is written because of its subject: "tension" in physics isn't stiff among friends.
+    const written = { medium: { ...score(1.9, 0.8), probabilities: { 1: 0.1, 2: 0.9 } } }
+    const physics = (formality = answers.formality) =>
+      interpretSense({ ...answers, ...written, formality }, [], ["physics"]).cautions.stiffWithFriends
+    assert.closeTo(physics(), 0, 1e-9)
+    assert.closeTo(physics({ ...score(3.8, 0.6), probabilities: { 3: 0.2, 4: 0.8 } }), 0.8, 1e-9)
   })
 
   it("lets JMDict's usage tags override Jev", () => {
