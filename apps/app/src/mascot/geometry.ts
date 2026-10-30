@@ -76,7 +76,7 @@ export const frontShapes = {
     { cx: 125.1, cy: 76.3, rx: 6.7, ry: 9.4 }
   ],
   /** Catchlight, offset from each eye's centre. */
-  catchlight: { dx: -2, dy: -3.8, r: 2.4 },
+  catchlight: { dx: 2, dy: -3.8, r: 2.4 },
   beak: "M100 75.6 C 97.1 75.6, 90.9 81.2, 90.4 83.1 C 90.2 84.2, 98 88.5, 100 88.5 C 102 88.5, 109.8 84.2, 109.6 83.1 C 109.1 81.2, 102.9 75.6, 100 75.6 Z"
 } as const
 
