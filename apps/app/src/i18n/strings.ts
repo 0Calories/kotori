@@ -285,6 +285,9 @@ const en = {
     dailyNew: "New cards per day",
     dailyReviews: "Reviews per day",
     furigana: "Show furigana",
+    theme: "Theme",
+    sora: "Sky",
+    wakatake: "Bamboo",
     about: "About",
     aboutBody:
       "Dictionary data from JMDict by the Electronic Dictionary Research and Development Group (CC BY-SA 4.0). Nuance judgments by TypeSafe's Jev. Coaching and example sentences by Claude. Voices by ElevenLabs.",
@@ -615,6 +618,9 @@ const ja: Strings = {
     dailyNew: "1日の新規カード",
     dailyReviews: "1日の復習上限",
     furigana: "ふりがなを表示",
+    theme: "テーマ",
+    sora: "空",
+    wakatake: "若竹",
     about: "このアプリについて",
     aboutBody:
       "辞書データ：JMDict（Electronic Dictionary Research and Development Group、CC BY-SA 4.0）。ニュアンス判定：TypeSafe Jev。添削と例文：Claude。音声：ElevenLabs。",

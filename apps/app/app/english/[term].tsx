@@ -19,7 +19,7 @@ import { posLabel } from "../../src/i18n/strings.ts"
 import { wordNote } from "../../src/lib/notes.ts"
 import { formalityTone } from "../../src/lib/tones.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
-import { theme } from "../../src/theme/tokens.ts"
+import { useTheme } from "../../src/theme/ThemeProvider.tsx"
 
 /** A term as large as fits: 52pt for a short word, smaller for a phrase. */
 const termSize = (term: string) => (term.length <= 8 ? 52 : Math.max(30, Math.floor(420 / term.length)))
@@ -38,6 +38,7 @@ const MeaningCard = ({
   readonly saving: boolean
   readonly onSave: () => void
 }) => {
+  const theme = useTheme()
   const { t } = useSession()
   const router = useRouter()
   const pos = posLabel(t, meaning.partOfSpeech)
@@ -120,6 +121,7 @@ const MeaningCard = ({
 
 /** An English word or phrase for Japanese speakers: said aloud, then the Japanese words that mean it. */
 export default function EnglishScreen() {
+  const theme = useTheme()
   const { t } = useSession()
   const router = useRouter()
   const { term: param } = useLocalSearchParams<{ term: string }>()

@@ -1,5 +1,5 @@
 import { ActivityIndicator, View } from "react-native"
-import { theme } from "../theme/tokens.ts"
+import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Icon, type IconName } from "./Icon.tsx"
 import { PressableScale } from "./PressableScale.tsx"
 import { Text } from "./Text.tsx"
@@ -7,7 +7,7 @@ import { Text } from "./Text.tsx"
 export interface ButtonProps {
   readonly label: string
   readonly onPress?: () => void
-  /** primary: wakatake with ink text. dark: ink, for the action that finishes a flow. */
+  /** primary: the palette's 500 with ink text. dark: ink, for the action that finishes a flow. */
   readonly variant?: "primary" | "dark" | "secondary" | "soft" | "ghost"
   readonly size?: "md" | "lg" | "sm"
   readonly icon?: IconName
@@ -28,7 +28,7 @@ export const Button = ({
   full,
   accessibilityHint
 }: ButtonProps) => {
-  const { color, radius } = theme
+  const { color, radius } = useTheme()
   const palette = {
     primary: { bg: color.primary, fg: color.onPrimary, ring: color.primary },
     dark: { bg: color.ink, fg: color.background, ring: color.ink },
@@ -106,7 +106,7 @@ export const IconButton = ({
   readonly active?: boolean
   readonly filled?: boolean
 }) => {
-  const { color } = theme
+  const { color } = useTheme()
   const background = active
     ? color.primaryDark
     : { plain: "transparent", muted: color.surfaceMuted, surface: color.surface, primary: color.primaryTint }[tone]
