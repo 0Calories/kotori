@@ -194,7 +194,9 @@ sense's questions carry that sense's scope in their instructions, and similar-wo
 compared per sense. An English word with katakana candidates gets a second request at the same
 time, `loanword_{k}` and `loan_{k}` per candidate, whose state is the word without its senses.
 Right after Jev, the nuance job has `LoanWriter` write the warning for a confidently diverging
-loan, once. `kotori enrich nuance --reinterpret` re-derives senses and loan verdicts without
+loan, once, from the word's judged senses (and any glossed with the loan itself) and the loan's
+JMDict meanings. If Claude is unavailable then, viewing the entry with Claude back queues the job
+again, at most every ten minutes, and it writes just the warning, without Jev. `kotori enrich nuance --reinterpret` re-derives senses and loan verdicts without
 inference, and `--outdated` re-judges entries behind their language's question set; both honour
 `--dictionary`.
 
