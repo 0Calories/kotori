@@ -56,8 +56,8 @@ const loans = Object.fromEntries(
     { glossesOnly: idsOf(glossesOnly, word), withSources: idsOf(withSources, word) }
   ])
 )
-const byId = new Map(all.map((entry) => [entry.id, entry]))
-for (const candidate of [...glossesOnly, ...withSources]) found.set(candidate.entryId, byId.get(candidate.entryId)!)
+const candidateIds = new Set([...glossesOnly, ...withSources].map((candidate) => candidate.entryId))
+for (const entry of all) if (candidateIds.has(entry.id)) found.set(entry.id, entry)
 
 const problems: Array<string> = []
 /** The entry, checked to be the word the golden set means and to have the sense as a judged one. */
