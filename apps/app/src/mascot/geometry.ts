@@ -1,44 +1,48 @@
 /**
- * Kotori, a shima enaga (シマエナガ): a round white snowball of a bird with bead
- * eyes, a tiny beak, dark wings with a rosy shoulder and a long tail. Geometry
- * lives here so the animated component and the icon renderer share it.
+ * Kotori, a shima enaga (シマエナガ). Geometry lives here so the animated
+ * component and the icon renderer share it.
  * Coordinates are in a 200×200 box.
  */
 export const palette = {
   ink: "#2B2622",
   white: "#FFFFFF",
-  cream: "#FBF7F2",
-  shade: "#EEE6DC",
-  outline: "#E3D9CD",
-  rose: "#DFA59B",
-  blush: "#F4AFA6",
-  sky: "#9CC5E8"
+  cream: "#F5F1E8",
+  shade: "#DFD1C4",
+  blush: "#F49D94",
+  sky: "#94C1E2"
 }
 
 export const shapes = {
-  tail: "M134 140 C 157 151, 176 167, 195 191 C 189 195, 181 194, 176 189 C 161 171, 146 160, 126 150 Z",
-  tailHighlight: "M139 147 C 158 157, 174 171, 188 188",
-  feet: "M80 166 l -4 11 M 80 166 l 3 11 M 104 166 l -3 11 M 104 166 l 4 11",
-  body: { cx: 94, cy: 104, rx: 72, ry: 65 },
-  tuft: "M76 44 q 6 -11 12 -2 q 6 -11 12 0",
-  wing: "M134 97 C 151 103, 159 124, 150 146 C 138 143, 130 129, 130 113 C 130 106, 131 100, 134 97 Z",
-  wingShoulder: "M134 100 C 142 103, 149 108, 152 116 C 145 116, 137 112, 132 106 Z",
-  wingEdge: "M146 135 C 143 139, 139 139, 135 135",
+  tail: "M166.7 139.9 C 170 142.1, 179.6 148, 180 152.1 C 180.3 155.8, 175.8 156.5, 171.9 156.8 C 170.4 158.1, 169.9 160.3, 165.8 159.7 C 163.4 159.4, 156.6 156.5, 157.3 154.7 L 152.9 147.5 Z",
+  /** Feet are round-capped strokes; the back one tucks behind the body. */
+  feet: { back: "M52.3 175 H 63.3", front: "M100.6 176.9 H 111.6", width: 6.8 },
+  tuft: [
+    { cx: 80.4, cy: 30, r: 8.1 },
+    { cx: 94.7, cy: 27.8, r: 8.1 },
+    { cx: 108.7, cy: 31.4, r: 8.1 }
+  ],
+  body: "M88.8 27 C 51 28.4, 34.3 48.6, 23.6 82.7 C 13.2 115.2, 9.7 147, 41.8 166.3 C 68.8 182.5, 110.3 178.3, 139.6 167.7 C 175.5 154.7, 169.2 113.8, 160.4 80.2 C 150.8 43.4, 126.4 25.5, 88.8 27 Z",
+  /** The shadowed underside. */
+  shade:
+    "M18.2 136.9 C 21.4 148.2, 28.5 158.3, 41.8 166.3 C 68.8 182.5, 110.3 178.3, 139.6 167.7 C 164.1 158.8, 168.9 136.9, 166.8 113.2 C 151.3 133, 123.6 162.2, 81.4 162.2 C 56.7 162.2, 32.9 156.3, 18.2 136.9 Z",
+  /** Drawn in translucent white so it pales the body and the shade alike. */
+  belly:
+    "M125 172.1 A 49.7 42.1 39.5 0 0 31.5 158.6 C 34.4 161.3, 37.8 163.9, 41.8 166.3 C 64.6 179.9, 97.7 179.1, 125 172.1 Z",
+  wing: "M153.7 80.6 C 133.9 77.4, 122.1 100.1, 135.2 120.8 C 146.1 138.1, 183.9 144.8, 183.7 127.5 C 183.6 113.9, 168.4 83, 153.7 80.6 Z",
   /** Wing raised for celebrations. */
-  wingUp: "M136 106 C 148 92, 166 84, 182 88 C 176 102, 160 115, 139 121 C 133 117, 132 111, 136 106 Z",
-  wingUpShoulder: "M138 106 C 145 98, 154 93, 162 91 C 157 99, 148 106, 137 111 Z",
+  wingUp:
+    "M128.6 78.8 C 127.2 98.8, 150.7 108.6, 170.2 93.8 C 186.5 81.4, 189.9 43.1, 172.7 44.8 C 159.1 46.1, 129.6 64, 128.6 78.8 Z",
   cheeks: [
-    { cx: 54, cy: 113, rx: 11, ry: 7 },
-    { cx: 115, cy: 113, rx: 10, ry: 7 }
+    { cx: 36.3, cy: 88.5, rx: 8.8, ry: 6.8 },
+    { cx: 109.8, cy: 88.6, rx: 8.8, ry: 6.8 }
   ],
   eyes: [
-    { cx: 67, cy: 99 },
-    { cx: 103, cy: 99 }
+    { cx: 48.6, cy: 76.6, rx: 6.7, ry: 9.4 },
+    { cx: 96.8, cy: 76.6, rx: 6.7, ry: 9.4 }
   ],
-  beak: "M80 109 L 90 109 L 85 116 Z"
+  /** Catchlight, offset from each eye's centre. */
+  catchlight: { dx: 2.1, dy: -4, r: 2.4 },
+  beak: "M70.6 75.8 C 68.6 75.7, 63.5 79.5, 61.6 82.9 C 60.8 84.3, 67.4 88.9, 70.6 88.8 C 73.3 88.6, 80.7 84.7, 79.8 82.8 C 78.1 79.3, 71.9 75.9, 70.6 75.8 Z"
 } as const
-
-/** Shift that centres the whole bird, tail included, in its 200×200 box. */
-export const centering = { x: -9, y: -14 }
 
 export type Mood = "curious" | "happy" | "thinking" | "sleepy" | "celebrate" | "oops"
