@@ -227,6 +227,20 @@ export interface LoanReading {
 }
 
 /**
+ * The verdict of a `loan_{k}` answer. Since English questions version 4 it is a Noul, the
+ * probability that carrying the katakana word over misleads, and its confidence |2p − 1|, the
+ * docs' measure for a Noul on a Choice's scale. Before, it was a two-option Choice, whose
+ * confidence is the same measure, so stored answers read as they always did.
+ */
+const loanVerdict = (answer: NoulResponse | ChoiceResponse | undefined) => {
+  if (answer === undefined) return undefined
+  if (answer.type === "choice") return { value: answer.choice as LoanVerdict, confidence: answer.confidence }
+  const value: LoanVerdict = answer.noul >= 0.5 ? "diverges" : "matches"
+  // Jev reports two decimals, and 2 × 0.7 − 1 is 0.3999…: rounded, p = 0.7 meets `LOAN_SHOWN`.
+  return { value, confidence: Math.round(Math.abs(2 * answer.noul - 1) * 1e6) / 1e6 }
+}
+
+/**
  * An English word's katakana loan, from Jev's answers about its candidates, in the order of their
  * `loanword_{k}` and `loan_{k}` questions: the likeliest to be its loanword (certainly one JMDict
  * names the English word as the source of, otherwise as likely as Jev judges it), with Jev's
@@ -250,14 +264,11 @@ export const interpretLoan = (
     )
   const verdict =
     likeliest !== undefined && likeliest.p >= loanIs
-      ? (answers[`loan_${likeliest.k}`] as ChoiceResponse | undefined)
+      ? loanVerdict(answers[`loan_${likeliest.k}`] as NoulResponse | ChoiceResponse | undefined)
       : undefined
   return likeliest === undefined || verdict === undefined
     ? { word: null, verdict: null }
-    : {
-        word: likeliest.word,
-        verdict: { value: verdict.choice as LoanVerdict, confidence: verdict.confidence, source: "jev" }
-      }
+    : { word: likeliest.word, verdict: { ...verdict, source: "jev" } }
 }
 
 export interface SimilarJudgment {

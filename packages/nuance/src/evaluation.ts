@@ -1,6 +1,6 @@
 import type { EntryRecord } from "@kotori/db"
 import type { ChoiceQuestion, ChoiceResponse, EntryType, Question } from "@typesafe-ai/sdk"
-import { entryRequest, sensePrefix } from "./request.ts"
+import { entryRequest, loanRequest, sensePrefix } from "./request.ts"
 import { candidateOf } from "./state.ts"
 
 /**
@@ -110,18 +110,14 @@ export const goldenPairRequest = (
   return { state, questions: withReversedChoices(pair), prefix }
 }
 
-/**
- * A golden loan: an English word's request as the nuance job sends it, with `candidates` as its
- * katakana loan candidates, cut to the loan questions.
- */
+/** A golden loan: an English word's loan request as the nuance job sends it, with `candidates` as its katakana candidates. */
 export const goldenLoanRequest = (
   entry: EntryRecord,
   candidates: ReadonlyArray<EntryRecord>,
   tags: ReadonlyMap<string, string>
 ): EvalRequest => {
-  const { state, questions } = entryRequest(entry, tags, [], candidates)
-  const loans = Object.fromEntries(Object.entries(questions).filter(([name]) => /^loan(word)?_\d+$/.test(name)))
-  return { state, questions: withReversedChoices(loans), prefix: "" }
+  const { state, questions } = loanRequest(entry, candidates, tags)
+  return { state, questions: withReversedChoices(questions), prefix: "" }
 }
 
 /**

@@ -113,9 +113,12 @@ export type Loanword = typeof Loanword.Type
 
 /**
  * How confident a loan verdict must be for the app to show it, as a warning or a "same meaning"
- * chip, and so for Claude to write its warning: the app's bar for every judgment.
+ * chip, and so for Claude to write its warning. The verdict is a Noul's probability p that
+ * carrying the katakana word over misleads, its confidence |2p − 1|, so this shows a warning at
+ * p ≥ 0.7 and a chip at p ≤ 0.3, the docs' starting points for a Noul's yes and no. The app's
+ * 0.55 for its other judgments would ask p ≥ 0.78 (docs/nuance-on-english-entries.md).
  */
-export const LOAN_SHOWN = 0.55
+export const LOAN_SHOWN = 0.4
 
 /** How a similar word differs from the one being looked at. */
 export const Difference = Schema.Literals([

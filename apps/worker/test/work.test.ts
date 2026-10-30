@@ -43,15 +43,19 @@ const FakeJev = Layer.succeed(
               probabilities: {}
             }
           case "choice": {
-            const choice = name.startsWith("difference_")
-              ? "more_casual"
-              : name.startsWith("loan_") && katakana === "スタイル"
-                ? "diverges"
-                : Object.keys(question.criteria ?? {})[0]!
+            const choice = name.startsWith("difference_") ? "more_casual" : Object.keys(question.criteria ?? {})[0]!
             return { type: "choice", choice, confidence: 0.8, probabilities: {} }
           }
           default:
-            return { type: "noul", noul: name === "similar_0" || name.startsWith("loanword_") ? 0.9 : 0.1 }
+            return {
+              type: "noul",
+              noul:
+                name === "similar_0" ||
+                name.startsWith("loanword_") ||
+                (name.startsWith("loan_") && katakana === "スタイル")
+                  ? 0.9
+                  : 0.1
+            }
         }
       }
       return Effect.succeed({

@@ -73,16 +73,13 @@ export const candidateQuestions = (
 export const sensePrefix = (sense: number) => `s${sense}_`
 
 /**
- * Every question about an entry in one request: each judged sense's questions and, for the
- * senses that have them, its similar-word candidates, keyed `s{sense}_{name}`; and, for an
- * English word, its katakana loan candidates, keyed `loanword_{k}` and `loan_{k}`, since a
- * drifted loan is the word's trap rather than one sense's.
+ * Every question about an entry's senses in one request: each judged sense's questions and, for
+ * the senses that have them, its similar-word candidates, keyed `s{sense}_{name}`.
  */
 export const entryRequest = (
   entry: EntryRecord,
   tags: ReadonlyMap<string, string>,
-  candidates: ReadonlyArray<ReadonlyArray<CandidateState> | undefined> = [],
-  loans: ReadonlyArray<EntryRecord> = []
+  candidates: ReadonlyArray<ReadonlyArray<CandidateState> | undefined> = []
 ): { readonly state: EntryType; readonly questions: Record<string, Question> } => {
   const questions: Record<string, Question> = {}
   judgedSenses(entry).forEach((_, index) => {
@@ -93,12 +90,29 @@ export const entryRequest = (
     )
     for (const [name, question] of Object.entries(own)) questions[`${sensePrefix(index)}${name}`] = question
   })
-  if (entry.language === "en") {
-    loans
-      .slice(0, MAX_LOANS)
-      .forEach((candidate, k) => Object.assign(questions, loanQuestions(k, entry, candidate, tags)))
-  }
   return { state: entryState(entry), questions }
+}
+
+/**
+ * An English word's katakana loan candidates, keyed `loanword_{k}` and `loan_{k}`: a drifted
+ * loan is the word's trap rather than one sense's. They get a request of their own, whose state
+ * is the English word without its senses, since every question sees the whole state: beside
+ * the senses' Japanese glosses, any one overlapping the katakana word's meaning (格好 beside
+ * スタイル's figure, オートバイ beside バイク) read as the two words meaning the same. Asked the
+ * same question without them, スタイル went from 0.69 to 0.86 and バイク from 0.41 to 0.90
+ * (docs/nuance-on-english-entries.md).
+ */
+export const loanRequest = (
+  entry: EntryRecord,
+  loans: ReadonlyArray<EntryRecord>,
+  tags: ReadonlyMap<string, string>
+): { readonly state: EntryType; readonly questions: Record<string, Question> } => {
+  const { senses: _, ...word } = entryState(entry)
+  const questions: Record<string, Question> = {}
+  loans
+    .slice(0, MAX_LOANS)
+    .forEach((candidate, k) => Object.assign(questions, loanQuestions(k, entry, candidate, tags)))
+  return { state: word, questions }
 }
 
 /** One sense's answers from an entry's request, named as stored: `formality`, …, `similar_0`. */

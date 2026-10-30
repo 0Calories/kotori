@@ -1,14 +1,17 @@
 import { assert, describe, it, layer } from "@effect/vitest"
 import { DictionaryRepo, EnrichmentRepo, type EntryRecord, Repositories } from "@kotori/db"
 import { DatabaseMemory } from "@kotori/db/testing"
+import { LOAN_SHOWN } from "@kotori/domain"
 import type { Question, Questions } from "@typesafe-ai/sdk"
 import { Effect, Layer, Option } from "effect"
 import {
+  ENGLISH_QUESTIONS_VERSION,
   englishSenseQuestions,
   entryRequest,
   interpretLoan,
   interpretSense,
   Jev,
+  loanRequest,
   NuanceEnricher,
   type SenseAnswers,
   senseQuestions,
@@ -130,6 +133,19 @@ describe("interpretLoan", () => {
     ])
     assert.strictEqual(loan.word, "マンション")
   })
+
+  it("reads whether a loan misleads as a Noul, its confidence the distance from a coin flip", () => {
+    const read = (p: number) => interpretLoan({ loanword_0: noul(0.9), loan_0: noul(p) }, asked).verdict
+    assert.strictEqual(read(0.85)?.value, "diverges")
+    assert.closeTo(read(0.85)!.confidence, 0.7, 1e-9)
+    assert.strictEqual(read(0.2)?.value, "matches")
+    assert.closeTo(read(0.2)!.confidence, 0.6, 1e-9)
+    assert.closeTo(read(0.5)!.confidence, 0, 1e-9)
+    // The thresholds hold at Jev's two decimals: 0.7 and 0.3 are shown.
+    assert.isAtLeast(read(0.7)!.confidence, LOAN_SHOWN)
+    assert.isAtLeast(read(0.3)!.confidence, LOAN_SHOWN)
+    assert.isBelow(read(0.69)!.confidence, LOAN_SHOWN)
+  })
 })
 
 /** Answers by the name a question is stored under: a request names them `s{sense}_{name}`. */
@@ -147,7 +163,14 @@ const fakeAnswer = (key: string, question: Question) => {
             : Object.keys(question.criteria)[0]!
       )
     case "noul":
-      return noul(name === "similar_0" || name === "loanword_0" ? 0.9 : name.startsWith("similar_") ? 0.2 : 0.1)
+      // A drifted loan: whatever the dictionary has as an English word's katakana candidate misleads.
+      return noul(
+        name === "similar_0" || name === "loanword_0" || name.startsWith("loan_")
+          ? 0.9
+          : name.startsWith("similar_")
+            ? 0.2
+            : 0.1
+      )
   }
 }
 
@@ -302,20 +325,22 @@ layer(TestLayer)("NuanceEnricher", (it) => {
       assert.strictEqual(nuance?.nuance.keigo.value, "none")
       assert.strictEqual(nuance?.nuance.variety?.value, "universal")
       assert.strictEqual(nuance?.nuance.profanity?.value, "none")
-      assert.strictEqual(nuance?.questionsVersion, 3)
+      assert.strictEqual(nuance?.questionsVersion, ENGLISH_QUESTIONS_VERSION)
 
-      // "style" has a katakana loan in JMDict: judged once for the word, in the same request.
+      // "style" has a katakana loan in JMDict: judged once for the word, in a request of its own
+      // beside the senses', whose state is the word without its Japanese senses.
       const summary = yield* enricher.enrich(100000004)
       assert.strictEqual(summary.loan, "スタイル")
-      const loanQuestions = requests[1]!.questions
-      assert.deepStrictEqual(
-        Object.keys(loanQuestions).filter((key) => key.startsWith("loan")),
-        ["loanword_0", "loan_0"]
-      )
-      const loanAsked = loanQuestions["loan_0"]!.instructions as Record<string, unknown>
+      assert.strictEqual(summary.inputTokens, 200)
+      const [senses, loans] = requests.slice(1)
+      assert.isUndefined(senses!.questions["loan_0"])
+      assert.deepStrictEqual(loans!.state, { word: "style" })
+      assert.deepStrictEqual(Object.keys(loans!.questions), ["loanword_0", "loan_0"])
+      const loanAsked = loans!.questions["loan_0"]!.instructions as Record<string, unknown>
       assert.strictEqual(loanAsked["katakana_word"], "スタイル")
       const [loan] = yield* repo.loanWordsFor([100000004])
       assert.deepStrictEqual([loan?.word, loan?.verdict?.value, loan?.trap], ["スタイル", "diverges", null])
+      assert.closeTo(loan!.verdict!.confidence, 0.8, 1e-9)
     })
   )
 
@@ -378,14 +403,12 @@ describe("questions", () => {
       ["s0_formality", "s1_formality"]
     )
     assert.deepStrictEqual(senseScope(taberu, 0, tags).dictionary_notes, ["colloquial"])
-    const loan = katakana(9100001, "スタイル", ["(one's) figure", "style"])
-    const englishRequest = entryRequest(style, tags, [], [loan])
+    const englishRequest = entryRequest(style, tags)
     for (const [request, set] of [
       [japanese, senseQuestions],
       [englishRequest, englishSenseQuestions]
     ] as const) {
       for (const [key, question] of Object.entries(request.questions)) {
-        if (/^loan(word)?_/.test(key)) continue
         const own = question.instructions as Record<string, unknown>
         const name = key.replace(/^s\d+_/, "")
         assert.strictEqual(own["question"], (set as Record<string, Question>)[name]?.instructions)
@@ -393,11 +416,11 @@ describe("questions", () => {
         for (const field of Object.keys(own)) assert.notProperty(request.state, field)
       }
     }
-    // An English word's loan candidates are asked about once, beside its senses' questions.
-    assert.deepStrictEqual(
-      Object.keys(englishRequest.questions).filter((key) => !key.startsWith("s0_")),
-      ["loanword_0", "loan_0"]
-    )
+    // An English word's loan candidates are asked about once, in a request without its senses.
+    const loans = loanRequest(style, [katakana(9100001, "スタイル", ["(one's) figure", "style"])], tags)
+    assert.deepStrictEqual(Object.keys(loans.questions), ["loanword_0", "loan_0"])
+    assert.notProperty(loans.state, "senses")
+    for (const question of Object.values(loans.questions)) assert.strictEqual(question.type, "noul")
   })
 })
 

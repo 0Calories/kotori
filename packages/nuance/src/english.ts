@@ -18,9 +18,11 @@ import { judgedSenses } from "./state.ts"
  * (rows stored before question versions had a column are version 1); 3 — one request per
  * entry, each question carrying its sense's scope, as the Japanese set's version 3 does, with
  * registerShape, regional variety, profanity, textbook English and the katakana loan added, and
- * stiffWithFriends derived instead of asked (docs/nuance-on-english-entries.md).
+ * stiffWithFriends derived instead of asked; 4 — the katakana loan asked in a request of its
+ * own, whose state leaves out the word's Japanese senses, and whether it misleads asked as a
+ * Noul instead of a Choice (docs/nuance-on-english-entries.md).
  */
-export const ENGLISH_QUESTIONS_VERSION = 3
+export const ENGLISH_QUESTIONS_VERSION = 4
 
 export const PROFANITY_LEVELS = ["none", "mild", "strong", "avoid"] as const
 
@@ -222,9 +224,12 @@ export type EnglishSenseQuestions = typeof englishSenseQuestions
 // words with the English word as a gloss, or as their lsource); Jev selects among them
 // instead of recalling a loan, which it isn't trained to do. A gloss match can be a false
 // candidate (トラック has the gloss "lorry", but is the loan of "truck"), so a Noul asks
-// whether the pair is a loan at all before the Choice about its meaning counts; where JMDict
+// whether the pair is a loan at all before the Noul about its meaning counts; where JMDict
 // names the English word as the loan's source, its word decides. Examples are kept out of
-// the golden set. The trap is a word's, not a sense's, so the loan is judged once per word.
+// the golden set. The trap is a word's, not a sense's, so the loan is judged once per word,
+// in a request of its own (`loanRequest`): beside the word's Japanese senses, Jev read any
+// sense overlapping the katakana word's meaning (格好 beside スタイル's figure, オートバイ beside
+// バイク, サインする beside サイン) as the two words meaning the same.
 // On an English word the katakana word is often one of its Japanese translations (テーブル for
 // "table"), so "only another translation" can't be the "no": asked that way, Jev said no to
 // テーブル at 0.04. The false candidates the Noul is for are loans of other English words. Both
@@ -252,15 +257,16 @@ const LOAN_EVIDENCE =
 // ジュース and ナイーブ matches, so the question weighs every common use of the katakana word.
 // Asked whether every use matched "with the same feeling", Jev found some difference in nearly
 // every loan, so it asks whether carrying the word over misleads, and small differences don't count.
-const loan: ChoiceQuestion = {
-  type: "choice",
+// Whether it misleads is one yes-or-no condition, so it is a Noul, read at the docs' 0.7 and 0.3
+// (`LOAN_SHOWN`); as a two-option Choice shown at confidence 0.55, a warning needed p ≥ 0.78.
+const loan: NoulQuestion = {
+  type: "noul",
   instructions:
-    "Would a Japanese speaker who uses the English word `english_word` (its meanings are listed in `senses`, in Japanese) as they use `katakana_word` in everyday Japanese be understood? Weigh every common use of `katakana_word`, not only the ones it shares with `english_word`.",
+    "Would a Japanese speaker who uses the English word `english_word` as they use `katakana_word` in everyday Japanese mislead English speakers? Weigh every common use of `katakana_word`, not only the ones it shares with `english_word`.",
   criteria: {
-    matches:
-      "Carrying it over works: what `katakana_word` commonly means is what `english_word` means, so English speakers understand it, e.g. ピアノ for 'piano', バス for 'bus'. Small differences in how often or where each is used don't count",
-    diverges:
-      "Carrying it over misleads: a common use of `katakana_word` means something `english_word` doesn't, or carries a clearly different feeling, even where they share a meaning, e.g. トレーナー (a sweatshirt, as well as a trainer), サービス ('free of charge', as well as service), コンセント (a power socket, not 'consent')"
+    true: "Yes: a common use of `katakana_word` means something `english_word` doesn't, or carries a clearly different feeling, even where they share a meaning, e.g. トレーナー (a sweatshirt, as well as a trainer), サービス ('free of charge', as well as service), コンセント (a power socket, not 'consent')",
+    false:
+      "No: what `katakana_word` commonly means is what `english_word` means, so English speakers understand it, e.g. ピアノ for 'piano', バス for 'bus'. Small differences in how often or where each is used don't count"
   }
 }
 
@@ -304,7 +310,7 @@ export const loanQuestions = (
       ...loan,
       instructions: { question: loan.instructions ?? null, ...katakana, evidence: LOAN_EVIDENCE }
     }
-  } satisfies Record<string, NoulQuestion | ChoiceQuestion>
+  } satisfies Record<string, NoulQuestion>
 }
 
 /** The loan answers of an English word's request, named as stored: `loanword_0`, `loan_0`, …. */
