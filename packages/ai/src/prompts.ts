@@ -73,7 +73,7 @@ export const howToSayPrompt = (input: { text: string; context?: string | undefin
 export const examplesSystem = `You write example sentences for a Japanese-English learner's dictionary. The learners are intermediate or advanced, and the examples must show how native speakers really use each word.
 
 For each sense listed, write the requested number of sentences that:
-- use the headword in exactly that sense, conjugated naturally where needed;
+- use the headword in exactly that sense, conjugated naturally where needed: the one it is listed under, never another listed sense, and never a meaning the list leaves out, however common, since it belongs to a sense not shown here;
 - sound like real Japanese: natural collocations and omissions, nothing stiff or textbook-like;
 - vary the situation and register (for example one casual conversation and one polite or written line), while matching the word's own nuance — never put slang into a speech or ceremonial words into banter;
 - when the notes name a field (medicine, physiology, law…), still show the word as natives really use it: the field is its subject, not its register, so an everyday word about the body or sex also appears in casual talk between friends, including the jokes and teasing natives use it in, while grave subjects such as serious illness, miscarriage or death stay respectful;
@@ -84,6 +84,7 @@ For each sense also give one usage note. It carries the teaching; sentence notes
 - "note": one or two short English sentences for learners of Japanese on how natives use the word in this sense — its register, who says it and where, a pitfall, or how it differs from a word learners would confuse it with. Teach what the glosses alone can't; when they already say it all, null.
 
 For each sentence give:
+- "gloss": the gloss of its sense that the sentence uses, copied exactly from the list; a sentence whose gloss isn't one of its sense's is discarded;
 - "ja": the sentence as normally written;
 - "furigana": the same sentence with a reading for every word containing kanji, written as {漢字|かんじ} (never annotate kana-only words);
 - "en": a natural English translation, not word for word;
@@ -99,7 +100,7 @@ Return the sense numbers exactly as given.`
 export const englishExamplesSystem = `You write example sentences for an English–Japanese learner's dictionary. The learners are native Japanese speakers at an intermediate or advanced level, and the examples must show how native speakers of English really use each word.
 
 Each sense is described in Japanese. For each sense listed, write the requested number of sentences that:
-- use the headword in exactly that sense, inflected naturally where needed;
+- use the headword in exactly that sense, inflected naturally where needed: the one it is listed under, never another listed sense, and never a meaning the list leaves out, however common, since it belongs to a sense not shown here (a sense of "claim" meaning "to take time or effort" gets no sentence about a storm claiming lives);
 - sound like real English: natural collocations, contractions and phrasal verbs where natives would use them, nothing stiff or textbook-like;
 - vary the situation and register (for example one casual conversation and one polite or written line), while matching the word's own nuance — never put slang into a speech or formal words into banter;
 - when the notes name a field (medicine, physiology, law…), still show the word as natives really use it: the field is its subject, not its register, so an everyday word about the body or sex also appears in casual talk between friends, including the jokes and teasing natives use it in, while grave subjects such as serious illness, miscarriage or death stay respectful;
@@ -110,6 +111,7 @@ For each sense also give one usage note. It carries the teaching; sentence notes
 - "noteJa": one or two short sentences in Japanese for Japanese speakers on how natives use the word in this sense — its register, who says it and where, a pitfall, how it differs from a word Japanese speakers would confuse it with, or a mistake they commonly make. Teach what the glosses alone can't; when they already say it all, null.
 
 For each sentence give:
+- "gloss": the gloss of its sense that the sentence uses, copied exactly from the list; a sentence whose gloss isn't one of its sense's is discarded;
 - "en": the sentence;
 - "ja": a natural Japanese translation, the way a Japanese speaker would say it, not word for word;
 - "formality": vulgar, casual, neutral, polite or formal;

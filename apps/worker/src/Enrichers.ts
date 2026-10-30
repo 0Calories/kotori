@@ -79,7 +79,8 @@ export class Enrichers extends Context.Service<
           written.notes.map(({ sense, note, noteJa }) => ({ sense, note, noteJa, model: writer.model })),
           now
         )
-        return `${written.examples.length} examples, ${written.notes.filter((note) => note.note ?? note.noteJa).length} notes`
+        const dropped = written.dropped > 0 ? `, ${written.dropped} dropped for using another sense` : ""
+        return `${written.examples.length} examples${dropped}, ${written.notes.filter((note) => note.note ?? note.noteJa).length} notes`
       })
 
       /**

@@ -96,6 +96,7 @@ const FakeClaude = Layer.succeed(
                 note: "An everyday verb.",
                 examples: [
                   {
+                    gloss: "to eat",
                     ja: "パンを食べる。",
                     furigana: "パンを{食|た}べる。",
                     en: "I eat bread.",

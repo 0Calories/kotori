@@ -31,6 +31,7 @@ const request: ExampleRequest = {
 }
 
 const written = (overrides: Partial<(typeof ExamplesOutput.Type)["senses"][number]["examples"][number]> = {}) => ({
+  gloss: "useless",
   ja: "それはあかんで",
   furigana: "それはあかんで",
   en: "That's no good.",
@@ -65,7 +66,7 @@ const write = (output: unknown, to: ExampleRequest = request) => {
   const claude = fakeClaude(output as typeof ExamplesOutput.Type)
   return Effect.flatMap(ExampleWriter, (writer) => writer.write(to))
     .pipe(Effect.provide(ExampleWriter.layer.pipe(Layer.provide(claude.layer))), Effect.runPromise)
-    .then(({ examples, notes }) => ({ examples, notes, asked: claude.asked }))
+    .then(({ examples, notes, dropped }) => ({ examples, notes, dropped, asked: claude.asked }))
 }
 
 describe("examples prompt", () => {
@@ -76,8 +77,10 @@ describe("examples prompt", () => {
     expect(examplesSystem).toMatch(/written entirely in that dialect/)
   })
 
-  it("asks a Japanese word's sentences for English notes only", () => {
+  it("asks a Japanese word's sentences for English notes only, and every sentence for its gloss", () => {
     expect(examplesSystem).not.toContain('"noteJa"')
+    expect(examplesSystem).toContain('"gloss"')
+    expect(englishExamplesSystem).toContain('"gloss"')
   })
 
   it("tells the writer which senses are dialect and keeps other notes separate", () => {
@@ -118,7 +121,7 @@ describe("ExampleWriter.write", () => {
     [null, null]
   ])("maps the variety label %j to %j", async (label, expected) => {
     const { examples } = await write({
-      senses: [group(1, [written({ variety: label })])]
+      senses: [group(1, [written({ variety: label, gloss: "must not" })])]
     })
     expect(examples[0]?.variety).toBe(expected)
   })
@@ -136,6 +139,22 @@ describe("ExampleWriter.write", () => {
       { sense: 0, note: "Kansai speech.", noteJa: null },
       { sense: 1, note: null, noteJa: null }
     ])
+  })
+
+  it("drops a sentence that uses another sense, or a meaning it wasn't given", async () => {
+    const { examples, dropped } = await write({
+      senses: [
+        group(0, [
+          written(),
+          // An aside the dictionary keeps, or a part of a gloss, still names it.
+          written({ gloss: "No good", ja: "あかんわ", furigana: "あかんわ" }),
+          written({ gloss: "must not", ja: "行ったらあかん", furigana: "行ったらあかん" }),
+          written({ gloss: "hopeless", ja: "もうあかん", furigana: "もうあかん" })
+        ])
+      ]
+    })
+    expect(examples.map((example) => example.ja)).toEqual(["それはあかんで", "あかんわ"])
+    expect(dropped).toBe(2)
   })
 
   it("sends the system prompt and the described request", async () => {
@@ -164,6 +183,7 @@ describe("ExampleWriter.write for English words", () => {
             noteJa: "人間関係の気まずさにも、動作のぎこちなさにも使える。",
             examples: [
               {
+                gloss: "気まずい",
                 en: "There was an awkward silence.",
                 ja: "気まずい沈黙が流れた。",
                 formality: "neutral",
