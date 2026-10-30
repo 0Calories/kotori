@@ -112,3 +112,18 @@ export const dictionaryTags = (t: Strings, sense: Sense) => {
   const judged = new Set(sense.nuance ? nuanceNotes(t, sense.nuance).tags : [])
   return [...sense.misc, ...sense.fields, ...sense.dialects].filter((tag) => !judged.has(tagLabel(t, tag)))
 }
+
+/**
+ * Where each sense's register is shown. One card up top speaks for the word, from its first
+ * judged sense, as a dictionary labels its headword; a sense whose register reads differently
+ * carries its own line, and senses that agree, shown or behind "more", don't repeat it.
+ */
+export const registers = (t: Strings, senses: ReadonlyArray<Sense>) => {
+  const featured = senses.find((sense) => sense.nuance !== null)
+  const lineOf = (nuance: Nuance) => JSON.stringify(registerDisplay(t, nuance))
+  const word = featured?.nuance ? lineOf(featured.nuance) : null
+  return {
+    featured,
+    ownLine: (sense: Sense) => sense !== featured && sense.nuance !== null && lineOf(sense.nuance) !== word
+  }
+}

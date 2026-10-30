@@ -21,7 +21,7 @@ import { Text } from "../../src/components/Text.tsx"
 import { posLabel, tagLabel } from "../../src/i18n/strings.ts"
 import { findForm } from "../../src/lib/forms.ts"
 import { wordNote } from "../../src/lib/notes.ts"
-import { CONFIDENT, dictionaryTags, nuanceNotes, registerDisplay } from "../../src/lib/nuance.ts"
+import { CONFIDENT, dictionaryTags, nuanceNotes, registerDisplay, registers } from "../../src/lib/nuance.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
 
@@ -146,7 +146,7 @@ const SenseCard = ({
   /** Already shown in the hero; repeated only when this sense differs. */
   readonly partOfSpeech: string | null
   readonly showNuance: boolean
-  /** When senses disagree on register, each carries its own scales instead of one card up top. */
+  /** The sense's register reads differently from the word's card up top, so it carries its own. */
   readonly showScales: boolean
   readonly saved: boolean
   readonly onSave: () => void
@@ -390,18 +390,7 @@ export default function EntryScreen() {
   const inflections = data.forms.filter((form) => form.kind === "inflection")
   const senses = showAll ? data.senses : data.senses.slice(0, 3)
   const waiting = data.enrichment.examples === "queued" || data.enrichment.nuance === "queued"
-  // One register card speaks for the word only while every confidently judged sense agrees;
-  // the moment senses differ on formality or medium, each sense carries its own scales.
-  const confidentLabels = (judge: (nuance: Nuance) => { readonly value: string; readonly confidence: number }) =>
-    new Set(
-      data.senses.flatMap((sense) => {
-        const judgment = sense.nuance ? judge(sense.nuance) : null
-        return judgment && judgment.confidence >= CONFIDENT ? [judgment.value] : []
-      })
-    )
-  const registerVaries =
-    confidentLabels((nuance) => nuance.formality).size > 1 || confidentLabels((nuance) => nuance.medium).size > 1
-  const featured = registerVaries ? undefined : data.senses.find((sense) => sense.nuance !== null)
+  const { featured, ownLine } = registers(t, data.senses)
   const similar = [
     ...new Map(data.senses.flatMap((sense) => sense.similar).map((word) => [word.entryId, word])).values()
   ]
@@ -564,7 +553,7 @@ export default function EntryScreen() {
               forms={forms}
               partOfSpeech={partOfSpeech}
               showNuance={sense !== featured}
-              showScales={registerVaries}
+              showScales={ownLine(sense)}
               saved={savedSenses.has(sense.index)}
               saving={addNote.isPending}
               onSave={() => save(sense)}

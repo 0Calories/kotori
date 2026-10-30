@@ -1,7 +1,7 @@
-import type { Nuance, Sense } from "@kotori/domain"
+import type { Medium, Nuance, Sense } from "@kotori/domain"
 import { assert, describe, it } from "vitest"
 import { strings } from "../src/i18n/strings.ts"
-import { dictionaryTags } from "../src/lib/nuance.ts"
+import { dictionaryTags, registers } from "../src/lib/nuance.ts"
 
 const t = strings.ja
 
@@ -57,5 +57,19 @@ describe("the entry page's nuance", () => {
       { code: "aviat", label: "aviation" },
       usOnly
     ])
+  })
+
+  it("gives a sense its own register line only where it reads differently from the word's", () => {
+    const written = (index: number) =>
+      sense(index, { nuance: nuance({ medium: { ...judged<Medium>("written"), position: 1 } }) })
+    // "style": three senses alike, and a fourth, behind "more", in written language.
+    const style = [sense(0), sense(1), sense(2), written(3)]
+    const { featured, ownLine } = registers(t, style)
+    assert.strictEqual(featured, style[0])
+    assert.deepStrictEqual(style.map(ownLine), [false, false, false, true])
+    // A word whose first sense isn't judged is spoken for by the first that is.
+    const later = [sense(0, { nuance: null }), written(1), sense(2)]
+    assert.strictEqual(registers(t, later).featured, later[1])
+    assert.deepStrictEqual(later.map(registers(t, later).ownLine), [false, false, true])
   })
 })
