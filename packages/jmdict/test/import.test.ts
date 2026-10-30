@@ -53,7 +53,8 @@ const nuance = (sense: number): NuanceInput => ({
     cautions: { rudeToSuperiors: 0.1, stiffWithFriends: 0.1, slang: 0.05 }
   },
   answers: {},
-  model: "jev-test"
+  model: "jev-test",
+  questionsVersion: 1
 })
 
 // Dictionary and enrichment are rebuildable, so moving to a new JMDict release is a reseed:

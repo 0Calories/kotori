@@ -92,7 +92,9 @@ const sense = (glosses: Array<string>, pos: Array<string>) => ({
   stagk: [],
   stagr: [],
   xrefs: [],
-  antonyms: []
+  antonyms: [],
+  sources: [],
+  wasei: false
 })
 
 const entry = (

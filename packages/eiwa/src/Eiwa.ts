@@ -149,6 +149,12 @@ const build = Effect.fnUntraced(function* (options: ImportOptions, existing: Rea
 })
 
 /**
+ * The English dictionary's entries as a fresh import would number them, built from its sources
+ * without a database: for tools that cut fixtures from it, such as the golden set's.
+ */
+export const buildEntries = (options: ImportOptions) => build(options, new Map())
+
+/**
  * Builds the English dictionary from its sources and loads it alongside JMDict. Re-importing
  * updates words in place, keeping their ids, so enrichment and saved words survive.
  */

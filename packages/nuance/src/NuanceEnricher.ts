@@ -1,30 +1,40 @@
 import { DictionaryRepo, EnrichmentRepo, type EntryRecord } from "@kotori/db"
-import type { Question } from "@typesafe-ai/sdk"
-import { Clock, Context, Effect, Layer, Schema } from "effect"
-import { interpretCandidates, interpretSense, type SenseAnswers } from "./interpret.ts"
+import { Clock, Context, Effect, Layer, Option, Schema } from "effect"
+import { answersOfLoans, MAX_LOANS } from "./english.ts"
+import {
+  type AskedLoan,
+  interpretCandidates,
+  interpretLoan,
+  interpretSense,
+  type SenseAnswers,
+  senseTags
+} from "./interpret.ts"
 import { Jev, type JevError } from "./Jev.ts"
-import { candidateQuestions, englishSenseQuestions, senseQuestions } from "./questions.ts"
-import { type CandidateState, senseState } from "./state.ts"
-
-/** Senses beyond these rarely matter to learners and are left unclassified. */
-const MAX_SENSES = 6
-/** Similar words are looked for on the main senses only. */
-const SIMILAR_SENSES = 3
-const MAX_CANDIDATES = 8
+import { answersOfSense, entryRequest, questionsVersionOf } from "./request.ts"
+import { candidateOf, judgedSenses, MAX_CANDIDATES, SIMILAR_SENSES } from "./state.ts"
 
 export class EntryNotFound extends Schema.TaggedError<EntryNotFound>()("EntryNotFound", { entryId: Schema.Int }) {}
 
 export interface NuanceSummary {
   readonly senses: number
   readonly similar: number
+  /** An English word's katakana loan, when Jev judged one of its candidates to be it. */
+  readonly loan: string | null
   readonly inputTokens: number
 }
+
+/** The katakana words asked about, kept with the loan answers so the verdict can be re-derived. */
+const StoredLoans = Schema.Struct({
+  candidates: Schema.Array(Schema.Struct({ word: Schema.String, by: Schema.Literals(["gloss", "source"]) }))
+})
 
 export class NuanceEnricher extends Context.Service<
   NuanceEnricher,
   {
     readonly model: string
     enrich(entryId: number): Effect.Effect<NuanceSummary, JevError | EntryNotFound>
+    /** Re-derives an entry's nuance and loan verdict from its stored answers and tags, without inference. */
+    reinterpret(entryId: number): Effect.Effect<{ readonly senses: number }, EntryNotFound>
   }
 >()("@kotori/nuance/NuanceEnricher") {
   static readonly layer = Layer.effect(
@@ -49,18 +59,21 @@ export class NuanceEnricher extends Context.Service<
           .slice(0, MAX_CANDIDATES)
         const entries = yield* dictionary.getEntries(ids)
 
-        return entries.map((candidate): CandidateState => {
-          const matchedSense = shared.find((c) => c.entryId === candidate.id)?.sense ?? 0
-          const glosses = candidate.senses[matchedSense]?.glosses ?? candidate.senses[0]?.glosses ?? []
-          return {
-            entryId: candidate.id,
-            word: candidate.headword,
-            reading: candidate.reading,
-            meaning: glosses
-              .slice(0, 3)
-              .map((gloss) => gloss.text)
-              .join("; ")
-          }
+        return entries.map((candidate) =>
+          candidateOf(candidate, shared.find((c) => c.entryId === candidate.id)?.sense ?? 0)
+        )
+      })
+
+      /** An English word's katakana loan candidates from JMDict, most frequent first. */
+      const loansFor = Effect.fnUntraced(function* (entry: EntryRecord) {
+        if (entry.language !== "en") return []
+        const found = yield* dictionary.loanCandidates([entry.headword], MAX_LOANS)
+        const entries = new Map(
+          (yield* dictionary.getEntries(found.map((candidate) => candidate.entryId))).map((e) => [e.id, e])
+        )
+        return found.flatMap((candidate) => {
+          const loan = entries.get(candidate.entryId)
+          return loan === undefined ? [] : [{ entry: loan, by: candidate.by }]
         })
       })
 
@@ -68,46 +81,99 @@ export class NuanceEnricher extends Context.Service<
         const [entry] = yield* dictionary.getEntries([entryId])
         if (entry === undefined) return yield* new EntryNotFound({ entryId })
         const tags = yield* dictionary.tags
+        const senses = judgedSenses(entry)
+        if (senses.length === 0) return { senses: 0, similar: 0, loan: null, inputTokens: 0 }
 
-        const judged = yield* Effect.forEach(
-          entry.senses.slice(0, MAX_SENSES),
-          (sense, index) =>
-            Effect.gen(function* () {
-              const candidates = index < SIMILAR_SENSES ? yield* candidatesFor(entry, index) : []
-              const questions: Record<string, Question> = {
-                ...(entry.language === "ja" ? senseQuestions : englishSenseQuestions)
-              }
-              candidates.forEach((_, i) => Object.assign(questions, candidateQuestions(i, entry.language)))
-              const result = yield* jev.ask(senseState(entry, index, tags, candidates), questions)
-              return { index, misc: sense.misc, candidates, result }
-            }),
-          { concurrency: 3 }
+        const candidates = yield* Effect.forEach(senses, (_, index) =>
+          index < SIMILAR_SENSES ? candidatesFor(entry, index) : Effect.succeed([])
         )
+        const loans = yield* loansFor(entry)
+        // One request for the whole entry: every sense's questions, each carrying its sense's
+        // scope, the candidate comparisons and an English word's loan. Questions run in parallel,
+        // so a learner waits one round trip instead of one per sense.
+        const request = entryRequest(
+          entry,
+          tags,
+          candidates,
+          loans.map((loan) => loan.entry)
+        )
+        const result = yield* jev.ask(request.state, request.questions)
 
         const now = yield* Clock.currentTimeMillis
-        const nuance = judged.map(({ index, misc, result }) => ({
-          sense: index,
-          nuance: interpretSense(result.answers as unknown as SenseAnswers, misc),
-          answers: result.answers,
-          model: result.model
+        const questionsVersion = questionsVersionOf(entry.language)
+        const judged = senses.map((sense, index) => ({
+          index,
+          tags: senseTags(sense),
+          answers: answersOfSense(result.answers, index)
         }))
-        const similar = judged.flatMap(({ index, candidates, result }) =>
+        const nuance = judged.map(({ index, tags: senseTagged, answers }) => ({
+          sense: index,
+          nuance: interpretSense(answers as unknown as SenseAnswers, senseTagged),
+          answers,
+          model: result.model,
+          questionsVersion
+        }))
+        const similar = judged.flatMap(({ index, answers }) =>
           interpretCandidates(
-            result.answers,
-            candidates.map((c) => c.entryId)
+            answers,
+            (candidates[index] ?? []).map((c) => c.entryId)
           ).map((j) => ({ sense: index, ...j }))
         )
+        const asked: ReadonlyArray<AskedLoan> = loans.map((loan) => ({ word: loan.entry.headword, by: loan.by }))
+        const loan = interpretLoan(result.answers, asked)
 
         yield* enrichment.saveNuance(entryId, nuance, now)
         yield* enrichment.saveSimilar(entryId, similar)
+        yield* enrichment.saveLoanWord(
+          entryId,
+          asked.length === 0
+            ? null
+            : {
+                ...loan,
+                answers: { ...answersOfLoans(result.answers), candidates: asked },
+                model: result.model,
+                questionsVersion
+              },
+          now
+        )
         return {
           senses: nuance.length,
           similar: similar.length,
-          inputTokens: judged.reduce((sum, { result }) => sum + result.usage.input_tokens, 0)
+          loan: loan.word,
+          inputTokens: result.usage.input_tokens
         }
       })
 
-      return NuanceEnricher.of({ model: jev.model, enrich })
+      const reinterpret = Effect.fn("NuanceEnricher.reinterpret")(function* (entryId: number) {
+        const [entry] = yield* dictionary.getEntries([entryId])
+        if (entry === undefined) return yield* new EntryNotFound({ entryId })
+        const rows = yield* enrichment.nuanceAnswersFor(entryId)
+        yield* Effect.forEach(
+          rows,
+          (row) => {
+            const sense = entry.senses[row.sense]
+            return enrichment.updateNuance(
+              entryId,
+              row.sense,
+              interpretSense(row.answers as SenseAnswers, sense === undefined ? [] : senseTags(sense))
+            )
+          },
+          { discard: true }
+        )
+        const loanAnswers = yield* enrichment.loanAnswersFor(entryId)
+        if (Option.isSome(loanAnswers)) {
+          const answers = loanAnswers.value as Readonly<Record<string, unknown>>
+          const asked = Option.match(Schema.decodeUnknownOption(StoredLoans)(answers), {
+            onNone: () => [],
+            onSome: (stored) => stored.candidates
+          })
+          const loan = interpretLoan(answers, asked)
+          yield* enrichment.updateLoanWord(entryId, loan.word, loan.verdict)
+        }
+        return { senses: rows.length }
+      })
+
+      return NuanceEnricher.of({ model: jev.model, enrich, reinterpret })
     })
   )
 }

@@ -97,6 +97,11 @@ const Faces = ({
             ) : (
               <AudioButton speak={{ text: spokenGloss(content.meaning.split("; ")[0]!), language: target }} size={44} />
             )}
+            {content.note ? (
+              <Text variant="small" color="textMuted" align="center">
+                {content.note}
+              </Text>
+            ) : null}
             {content.example ? (
               <View
                 style={{

@@ -1,4 +1,4 @@
-import { Claude, ExampleWriter } from "@kotori/ai"
+import { Claude, ExampleWriter, LoanWriter } from "@kotori/ai"
 import { DictionaryRepo, EnrichmentRepo, type JobKind } from "@kotori/db"
 import { Jev, NuanceEnricher } from "@kotori/nuance"
 import { Pronouncer } from "@kotori/tts"
@@ -6,6 +6,9 @@ import { Clock, Context, Effect, Layer } from "effect"
 
 /** Senses that get example sentences; later senses are rarely what learners look for. */
 const EXAMPLE_SENSES = 4
+
+/** Below this a loan verdict isn't shown, matching the app, so it earns no warning. */
+const LOAN_CONFIDENT = 0.55
 
 export class Enrichers extends Context.Service<
   Enrichers,
@@ -21,6 +24,7 @@ export class Enrichers extends Context.Service<
     Effect.gen(function* () {
       const nuance = yield* NuanceEnricher
       const writer = yield* ExampleWriter
+      const loanWriter = yield* LoanWriter
       const pronouncer = yield* Pronouncer
       const dictionary = yield* DictionaryRepo
       const enrichment = yield* EnrichmentRepo
@@ -67,20 +71,67 @@ export class Enrichers extends Context.Service<
           senses,
           perSense: senses.length > 2 ? 2 : 3
         })
+        const now = yield* Clock.currentTimeMillis
         yield* enrichment.saveExamples(
           entryId,
-          written.map((example) => ({ ...example, model: writer.model })),
-          yield* Clock.currentTimeMillis
+          written.examples.map((example) => ({ ...example, model: writer.model })),
+          now
         )
-        return `${written.length} examples`
+        yield* enrichment.saveSenseNotes(
+          entryId,
+          written.notes.map(({ sense, note, noteJa }) => ({ sense, note, noteJa, model: writer.model })),
+          now
+        )
+        return `${written.examples.length} examples, ${written.notes.filter((note) => note.note ?? note.noteJa).length} notes`
+      })
+
+      /**
+       * Claude writes the warning for an English word's katakana loan that Jev confidently judged
+       * to diverge, right after the verdict. A warning already written survives a re-judge that
+       * names the same loan, so it is paid for once.
+       */
+      const trap = Effect.fn("Enrichers.loanTrap")(function* (entryId: number) {
+        const [loan] = yield* enrichment.loanWordsFor([entryId])
+        if (
+          loan?.word == null ||
+          loan.trap !== null ||
+          loan.verdict?.value !== "diverges" ||
+          loan.verdict.confidence < LOAN_CONFIDENT ||
+          !(yield* claude.available)
+        ) {
+          return false
+        }
+        const [entry] = yield* dictionary.getEntries([entryId])
+        if (entry === undefined) return false
+        const written = yield* loanWriter.write({
+          headword: entry.headword,
+          reading: entry.reading,
+          meanings: entry.senses.slice(0, EXAMPLE_SENSES).map((sense) =>
+            sense.glosses
+              .slice(0, 3)
+              .map((gloss) => gloss.text)
+              .join("; ")
+          ),
+          loanWord: loan.word
+        })
+        if (written === null) return false
+        yield* enrichment.saveLoanTrap(entryId, loan.word, written)
+        return true
+      })
+
+      // A Claude failure fails the job after Jev's answers are saved; the retry asks Jev again,
+      // which costs a fraction of a cent and keeps the warning from being silently skipped.
+      const judge = Effect.fn("Enrichers.nuance")(function* (entryId: number) {
+        const summary = yield* nuance.enrich(entryId)
+        const warned = yield* trap(entryId)
+        const loan = summary.loan === null ? "" : `, loan ${summary.loan}${warned ? " (warning written)" : ""}`
+        return `${summary.senses} senses, ${summary.similar} similar words${loan}, ${summary.inputTokens} tokens`
       })
 
       const run = (kind: JobKind, entryId: number): Effect.Effect<string, unknown> => {
         switch (kind) {
           case "nuance":
-            return nuance
-              .enrich(entryId)
-              .pipe(Effect.map((s) => `${s.senses} senses, ${s.similar} similar words, ${s.inputTokens} tokens`))
+            return judge(entryId)
           case "examples":
             return examples(entryId)
           case "audio":

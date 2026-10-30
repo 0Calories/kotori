@@ -89,7 +89,9 @@ const entry = (id: number, senses: Array<{ dialects?: Array<string>; misc?: Arra
     stagk: [],
     stagr: [],
     xrefs: [],
-    antonyms: []
+    antonyms: [],
+    sources: [],
+    wasei: false
   }))
 })
 

@@ -1,4 +1,5 @@
 export * from "./Claude.ts"
 export * from "./Coach.ts"
 export * from "./ExampleWriter.ts"
+export * from "./LoanWriter.ts"
 export type { Learner } from "./prompts.ts"

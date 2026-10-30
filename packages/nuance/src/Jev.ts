@@ -20,7 +20,7 @@ export class Jev extends Context.Service<
     Jev,
     Effect.gen(function* () {
       // Pinned so stored confidences stay comparable; bump deliberately and re-run enrichment.
-      const model = yield* Config.String("KOTORI_JEV_MODEL").pipe(Config.withDefault("jev-1.13.0"))
+      const model = yield* Config.String("KOTORI_JEV_MODEL").pipe(Config.withDefault("jev-1.14.0"))
       const apiKey = yield* Config.Redacted("TYPESAFE_API_KEY").pipe(Config.option)
 
       if (Option.isNone(apiKey)) {

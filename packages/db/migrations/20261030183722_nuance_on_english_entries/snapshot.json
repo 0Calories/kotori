@@ -1,0 +1,443 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "b852ea03-5eb3-4d2c-a483-ea1b883b2274",
+  "prevIds": ["1141a127-a802-4c64-82a1-af7ffb0d12e2"],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "loan_words"],
+      "writes": [
+        "s|tbl|public.loan_words",
+        "n|tbl|public.loan_words",
+        "e|tbl|public.loan_words",
+        "n|rel|public.loan_words",
+        "n|type|public.loan_words",
+        "n|rel|public.loan_words_pkey"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "sense_notes"],
+      "writes": [
+        "s|tbl|public.sense_notes",
+        "n|tbl|public.sense_notes",
+        "e|tbl|public.sense_notes",
+        "n|rel|public.sense_notes",
+        "n|type|public.sense_notes",
+        "n|rel|public.sense_notes_pkey"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "senses", "sources"],
+      "writes": ["s|col|public.senses.sources", "n|col|public.senses.sources", "e|col|public.senses.sources"],
+      "reads": ["n|tbl|public.senses", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "senses", "wasei"],
+      "writes": ["s|col|public.senses.wasei", "n|col|public.senses.wasei", "e|col|public.senses.wasei"],
+      "reads": ["n|tbl|public.senses", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "sense_nuance", "questions_version"],
+      "writes": [
+        "s|col|public.sense_nuance.questions_version",
+        "n|col|public.sense_nuance.questions_version",
+        "e|col|public.sense_nuance.questions_version"
+      ],
+      "reads": ["n|tbl|public.sense_nuance", "n|sch|public"]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "loan_words"],
+      "writes": [
+        "s|fk|public.loan_words.loan_words_entry_id_entries_id_fkey",
+        "n|fk|public.loan_words.loan_words_entry_id_entries_id_fkey",
+        "e|fk|public.loan_words.loan_words_entry_id_entries_id_fkey",
+        "n|con|public.loan_words.loan_words_entry_id_entries_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.loan_words",
+        "n|sch|public",
+        "n|tbl|public.entries",
+        "n|sch|public",
+        "n|col|public.loan_words.entry_id",
+        "n|col|public.entries.id",
+        "e|uniqueness|public.entries.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "sense_notes"],
+      "writes": [
+        "s|fk|public.sense_notes.sense_notes_entry_id_sense_senses_entry_id_position_fkey",
+        "n|fk|public.sense_notes.sense_notes_entry_id_sense_senses_entry_id_position_fkey",
+        "e|fk|public.sense_notes.sense_notes_entry_id_sense_senses_entry_id_position_fkey",
+        "n|con|public.sense_notes.sense_notes_entry_id_sense_senses_entry_id_position_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.sense_notes",
+        "n|sch|public",
+        "n|tbl|public.senses",
+        "n|sch|public",
+        "n|col|public.sense_notes.entry_id",
+        "n|col|public.sense_notes.sense",
+        "n|col|public.senses.entry_id",
+        "n|col|public.senses.position",
+        "e|uniqueness|public.senses.entry_id.position"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "loan_words",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "sense_notes",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "senses",
+        "name": "sources",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 1,
+        "default": "'{}'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "senses",
+        "name": "wasei",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_words",
+        "name": "entry_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_words",
+        "name": "word",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_words",
+        "name": "verdict",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_words",
+        "name": "answers",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_words",
+        "name": "trap",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_words",
+        "name": "model",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_words",
+        "name": "questions_version",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_words",
+        "name": "created_at",
+        "type": "timestamp(3) with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sense_notes",
+        "name": "entry_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sense_notes",
+        "name": "sense",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sense_notes",
+        "name": "note",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sense_notes",
+        "name": "note_ja",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sense_notes",
+        "name": "model",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sense_notes",
+        "name": "created_at",
+        "type": "timestamp(3) with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sense_nuance",
+        "name": "questions_version",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "1",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_words",
+        "name": "loan_words_entry_id_entries_id_fkey",
+        "nameExplicit": false,
+        "columns": ["entry_id"],
+        "schemaTo": "public",
+        "tableTo": "entries",
+        "columnsTo": ["id"],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sense_notes",
+        "name": "sense_notes_entry_id_sense_senses_entry_id_position_fkey",
+        "nameExplicit": false,
+        "columns": ["entry_id", "sense"],
+        "schemaTo": "public",
+        "tableTo": "senses",
+        "columnsTo": ["entry_id", "position"],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "sense_notes",
+        "name": "sense_notes_pkey",
+        "columns": ["entry_id", "sense"],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_words",
+        "name": "loan_words_pkey",
+        "columns": ["entry_id"],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    }
+  ]
+}

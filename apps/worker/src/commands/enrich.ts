@@ -1,4 +1,5 @@
-import { DictionaryRepo } from "@kotori/db"
+import { DictionaryRepo, EnrichmentRepo } from "@kotori/db"
+import { ENGLISH_QUESTIONS_VERSION, NuanceEnricher, QUESTIONS_VERSION } from "@kotori/nuance"
 import { Console, Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { Enrichers } from "../Enrichers.ts"
@@ -22,24 +23,60 @@ export const enrich = Command.make(
     commonOnly: Flag.Boolean("common-only").pipe(
       Flag.withDescription("Only common entries: those JMDict marks, and the most used English words"),
       Flag.withDefault(true)
+    ),
+    outdated: Flag.Boolean("outdated").pipe(
+      Flag.withDescription(
+        "Nuance only: re-judge entries whose stored nuance predates their language's current question set, instead of entries missing it"
+      ),
+      Flag.withDefault(false)
+    ),
+    reinterpret: Flag.Boolean("reinterpret").pipe(
+      Flag.withDescription(
+        "Nuance only: re-derive every stored judgment, and English words' loan verdicts, from their saved answers, without calling Jev. Ignores --limit and --common-only; honours --entry and --dictionary."
+      ),
+      Flag.withDefault(false)
     )
   },
-  Effect.fn(function* ({ kind, entry, dictionary, limit, concurrency, commonOnly }) {
+  Effect.fn(function* ({ kind, entry, dictionary, limit, concurrency, commonOnly, outdated, reinterpret }) {
+    const language = dictionary === "all" ? undefined : dictionary === "jmdict" ? ("ja" as const) : ("en" as const)
+    if (reinterpret) {
+      if (kind !== "nuance") return yield* Console.error("--reinterpret only applies to nuance.")
+      const nuance = yield* NuanceEnricher
+      const ids = Option.isSome(entry) ? [entry.value] : yield* (yield* EnrichmentRepo).nuanceEntryIds(language)
+      yield* Console.log(`Reinterpreting stored nuance for ${ids.length} entries…`)
+      let senses = 0
+      let failed = 0
+      yield* Effect.forEach(
+        ids,
+        (id) =>
+          nuance.reinterpret(id).pipe(
+            Effect.tap((summary) => Effect.sync(() => (senses += summary.senses))),
+            Effect.catchCause((cause) =>
+              Effect.logWarning(`${id} failed`, cause).pipe(Effect.tap(() => Effect.sync(() => failed++)))
+            )
+          ),
+        { concurrency, discard: true }
+      )
+      return yield* Console.log(`Done: ${senses} senses reinterpreted, ${failed} entries failed.`)
+    }
+
     const enrichers = yield* Enrichers
     if (!(yield* enrichers.available).includes(kind)) {
       return yield* Console.error(`No provider is configured for ${kind}. See .env.example.`)
     }
 
+    if (outdated && kind !== "nuance") return yield* Console.error("--outdated only applies to nuance.")
+
     // Most frequent words first, skipping anything already enriched, so runs can be resumed.
     const ids = Option.isSome(entry)
       ? [entry.value]
-      : yield* (yield* DictionaryRepo).entriesByPriority({
-          limit,
-          missing: kind,
-          commonOnly,
-          language: dictionary === "all" ? undefined : dictionary === "jmdict" ? "ja" : "en"
-        })
-    yield* Console.log(`Enriching ${ids.length} entries with ${kind}…`)
+      : outdated
+        ? yield* (yield* EnrichmentRepo).outdatedNuanceEntryIds(
+            { ja: QUESTIONS_VERSION, en: ENGLISH_QUESTIONS_VERSION },
+            { commonOnly, limit, language }
+          )
+        : yield* (yield* DictionaryRepo).entriesByPriority({ limit, missing: kind, commonOnly, language })
+    yield* Console.log(`Enriching ${ids.length} entries with ${kind}${outdated ? " (outdated)" : ""}…`)
 
     let done = 0
     let failed = 0
