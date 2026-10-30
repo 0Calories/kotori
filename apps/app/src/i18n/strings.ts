@@ -286,8 +286,8 @@ const en = {
     dailyReviews: "Reviews per day",
     furigana: "Show furigana",
     theme: "Theme",
-    sora: "Sky",
-    wakatake: "Bamboo",
+    sora: "Sora",
+    wakatake: "Wakatake",
     about: "About",
     aboutBody:
       "Dictionary data from JMDict by the Electronic Dictionary Research and Development Group (CC BY-SA 4.0). Nuance judgments by TypeSafe's Jev. Coaching and example sentences by Claude. Voices by ElevenLabs.",
