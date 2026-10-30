@@ -1,10 +1,11 @@
 import { assert, describe, it, layer } from "@effect/vitest"
 import { DictionaryRepo, EnrichmentRepo, type EntryRecord, Repositories } from "@kotori/db"
 import { DatabaseMemory } from "@kotori/db/testing"
-import { LOAN_SHOWN } from "@kotori/domain"
+import { type LoanMeaning, loanShown } from "@kotori/domain"
 import type { Question, Questions } from "@typesafe-ai/sdk"
 import { Effect, Layer, Option } from "effect"
 import {
+  awaitsWarning,
   ENGLISH_QUESTIONS_VERSION,
   englishSenseQuestions,
   entryRequest,
@@ -23,6 +24,14 @@ const score = (value: number, confidence = 0.9) =>
 const choice = (value: string, confidence = 0.8) =>
   ({ type: "choice", choice: value, confidence, probabilities: {} }) as const
 const noul = (value: number) => ({ type: "noul", noul: value }) as const
+/** A loan's Choice, `p` on the meaning Jev picks. */
+const meaning = (value: LoanMeaning, p: number) =>
+  ({
+    type: "choice",
+    choice: value,
+    confidence: (3 * p - 1) / 2,
+    probabilities: { same: 0, divergent: 0, not_english: 0, [value]: p }
+  }) as const
 
 const answers = {
   formality: score(2.2),
@@ -113,44 +122,58 @@ describe("interpretLoan", () => {
 
   it("takes the likeliest candidate to be the loanword, with Jev's verdict on it", () => {
     const loan = interpretLoan(
-      { loanword_0: noul(0.85), loan_0: choice("diverges", 0.9), loanword_1: noul(0.1), loan_1: choice("matches") },
+      {
+        loanword_0: noul(0.85),
+        loan_0: meaning("divergent", 0.9),
+        loanword_1: noul(0.1),
+        loan_1: meaning("same", 0.8)
+      },
       asked
     )
     assert.deepStrictEqual(loan, {
       word: "スタイル",
-      verdict: { value: "diverges", confidence: 0.9, source: "jev" }
+      verdict: { value: "divergent", probability: 0.9, source: "jev" }
     })
   })
 
   it("finds no loan when no candidate is likely enough, or there are none", () => {
     const unlikely = {
       loanword_0: noul(0.5),
-      loan_0: choice("diverges"),
+      loan_0: meaning("divergent", 0.9),
       loanword_1: noul(0.2),
-      loan_1: choice("matches")
+      loan_1: meaning("same", 0.9)
     }
     assert.deepStrictEqual(interpretLoan(unlikely, asked), { word: null, verdict: null })
     assert.deepStrictEqual(interpretLoan({}, []), { word: null, verdict: null })
   })
 
   it("takes JMDict's word for a candidate it names the English word as the source of", () => {
-    const loan = interpretLoan({ loanword_0: noul(0.2), loan_0: choice("diverges", 0.7) }, [
+    const loan = interpretLoan({ loanword_0: noul(0.2), loan_0: meaning("divergent", 0.7) }, [
       { word: "マンション", by: "source" }
     ])
     assert.strictEqual(loan.word, "マンション")
   })
 
-  it("reads whether a loan misleads as a Noul, its confidence the distance from a coin flip", () => {
-    const read = (p: number) => interpretLoan({ loanword_0: noul(0.9), loan_0: noul(p) }, asked).verdict
-    assert.strictEqual(read(0.85)?.value, "diverges")
-    assert.closeTo(read(0.85)!.confidence, 0.7, 1e-9)
-    assert.strictEqual(read(0.2)?.value, "matches")
-    assert.closeTo(read(0.2)!.confidence, 0.6, 1e-9)
-    assert.closeTo(read(0.5)!.confidence, 0, 1e-9)
-    // The thresholds hold at Jev's two decimals: 0.7 and 0.3 are shown.
-    assert.isAtLeast(read(0.7)!.confidence, LOAN_SHOWN)
-    assert.isAtLeast(read(0.3)!.confidence, LOAN_SHOWN)
-    assert.isBelow(read(0.69)!.confidence, LOAN_SHOWN)
+  it("shows the meaning Jev picks at p ≥ 0.7, as a warning or a chip, and never one not from English", () => {
+    const read = (value: LoanMeaning, p: number) =>
+      interpretLoan({ loanword_0: noul(0.9), loan_0: meaning(value, p) }, asked).verdict!
+    // The probability of the meaning, not the Choice's confidence: 0.55 at p = 0.7.
+    assert.deepStrictEqual(read("divergent", 0.7), { value: "divergent", probability: 0.7, source: "jev" })
+    assert.strictEqual(loanShown(read("divergent", 0.7)), "warning")
+    assert.isNull(loanShown(read("divergent", 0.69)))
+    assert.strictEqual(loanShown(read("same", 0.7)), "chip")
+    assert.isNull(loanShown(read("same", 0.69)))
+    assert.isNull(loanShown(read("not_english", 0.95)))
+    // Claude writes a warning for what the app shows as one, once.
+    const stored = (verdict: ReturnType<typeof read>, trap: string | null = null) => ({
+      word: "スタイル",
+      verdict,
+      trap
+    })
+    assert.isTrue(awaitsWarning(stored(read("divergent", 0.7))))
+    assert.isFalse(awaitsWarning(stored(read("divergent", 0.7), "体型の意味です。")))
+    assert.isFalse(awaitsWarning(stored(read("divergent", 0.69))))
+    assert.isFalse(awaitsWarning(stored(read("same", 0.9))))
   })
 })
 
@@ -161,22 +184,12 @@ const fakeAnswer = (key: string, question: Question) => {
     case "score":
       return score(name === "formality" ? 2 : name === "profanity" ? 0 : 1)
     case "choice":
-      return choice(
-        name.startsWith("difference_")
-          ? "more_casual"
-          : name.startsWith("loan_")
-            ? "diverges"
-            : Object.keys(question.criteria)[0]!
-      )
+      // A drifted loan: whatever the dictionary has as an English word's katakana candidate diverges.
+      return name.startsWith("loan_")
+        ? meaning("divergent", 0.9)
+        : choice(name.startsWith("difference_") ? "more_casual" : Object.keys(question.criteria)[0]!)
     case "noul":
-      // A drifted loan: whatever the dictionary has as an English word's katakana candidate misleads.
-      return noul(
-        name === "similar_0" || name === "loanword_0" || name.startsWith("loan_")
-          ? 0.9
-          : name.startsWith("similar_")
-            ? 0.2
-            : 0.1
-      )
+      return noul(name === "similar_0" || name === "loanword_0" ? 0.9 : name.startsWith("similar_") ? 0.2 : 0.1)
   }
 }
 
@@ -345,8 +358,8 @@ layer(TestLayer)("NuanceEnricher", (it) => {
       const loanAsked = loans!.questions["loan_0"]!.instructions as Record<string, unknown>
       assert.strictEqual(loanAsked["katakana_word"], "スタイル")
       const [loan] = yield* repo.loanWordsFor([100000004])
-      assert.deepStrictEqual([loan?.word, loan?.verdict?.value, loan?.trap], ["スタイル", "diverges", null])
-      assert.closeTo(loan!.verdict!.confidence, 0.8, 1e-9)
+      assert.deepStrictEqual(loan?.verdict, { value: "divergent", probability: 0.9, source: "jev" })
+      assert.deepStrictEqual([loan?.word, loan?.trap], ["スタイル", null])
     })
   )
 
@@ -426,7 +439,10 @@ describe("questions", () => {
     const loans = loanRequest(style, [katakana(9100001, "スタイル", ["(one's) figure", "style"])], tags)
     assert.deepStrictEqual(Object.keys(loans.questions), ["loanword_0", "loan_0"])
     assert.notProperty(loans.state, "senses")
-    for (const question of Object.values(loans.questions)) assert.strictEqual(question.type, "noul")
+    assert.strictEqual(loans.questions["loanword_0"]?.type, "noul")
+    const meanings = loans.questions["loan_0"] as { readonly type: string; readonly criteria: object }
+    assert.strictEqual(meanings.type, "choice")
+    assert.deepStrictEqual(Object.keys(meanings.criteria), ["same", "divergent", "not_english"])
   })
 })
 

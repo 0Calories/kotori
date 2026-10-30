@@ -35,8 +35,8 @@ const FakeJev = Layer.succeed(
       if (jevDown) return Effect.fail(new JevError({ message: "Jev is down" }))
       jevRequests++
       // Whatever Jev's answer types require: the first option of every choice, a likely first
-      // candidate, and a drifted loan for スタイル, by the name a question is stored under
-      // (requests key a sense's `s{sense}_{name}`, and an English word's loans `loan_{k}`).
+      // candidate, and a drifted loan for スタイル and マンション, by the name a question is stored
+      // under (requests key a sense's `s{sense}_{name}`, and an English word's loans `loan_{k}`).
       const answer = (key: string, question: Asked) => {
         const name = key.replace(/^s\d+_/, "")
         const katakana = (question.instructions as { readonly katakana_word?: string } | null)?.katakana_word
@@ -50,18 +50,17 @@ const FakeJev = Layer.succeed(
               probabilities: {}
             }
           case "choice": {
+            if (name.startsWith("loan_")) {
+              const meaning = DRIFTED.has(katakana ?? "") ? "divergent" : "same"
+              return { type: "choice", choice: meaning, confidence: 0.85, probabilities: { [meaning]: 0.9 } }
+            }
             const choice = name.startsWith("difference_") ? "more_casual" : Object.keys(question.criteria ?? {})[0]!
             return { type: "choice", choice, confidence: 0.8, probabilities: {} }
           }
           default:
             return {
               type: "noul",
-              noul:
-                name === "similar_0" ||
-                name.startsWith("loanword_") ||
-                (name.startsWith("loan_") && DRIFTED.has(katakana ?? ""))
-                  ? 0.9
-                  : 0.1
+              noul: name === "similar_0" || name.startsWith("loanword_") ? 0.9 : 0.1
             }
         }
       }
@@ -270,7 +269,7 @@ layer(TestLayer)("kotori work", (it) => {
         rows.map((row) => [row.word, row.verdict?.value, row.trap])
       )
       // The dictionary has a katakana word for "style"; Jev judged that it drifted.
-      const warned = ["スタイル", "diverges", WARNING]
+      const warned = ["スタイル", "divergent", WARNING]
       assert.deepStrictEqual(yield* judged, [warned])
       assert.strictEqual((yield* enrichment.nuanceFor([styleEnglish])).length, 2)
       assert.strictEqual(loanRequests, 1)
@@ -327,19 +326,19 @@ layer(TestLayer)("kotori work", (it) => {
       claudeUp = false
       yield* jobs.enqueue("nuance", mansion, 100, 0)
       assert.strictEqual(yield* drain(step), 1)
-      assert.deepStrictEqual(yield* trap, ["diverges", null])
+      assert.deepStrictEqual(yield* trap, ["divergent", null])
       assert.strictEqual(jevRequests - before.jev, 2)
 
       // Queued again while Claude is still away, the job leaves it to a later try.
       yield* jobs.requeue("nuance", mansion, 100, 0)
       assert.strictEqual(yield* drain(step), 1)
-      assert.deepStrictEqual(yield* trap, ["diverges", null])
+      assert.deepStrictEqual(yield* trap, ["divergent", null])
 
       // Claude is back: the next run writes the warning, and doesn't ask Jev again.
       claudeUp = true
       yield* jobs.requeue("nuance", mansion, 100, 0)
       assert.strictEqual(yield* drain(step), 1)
-      assert.deepStrictEqual(yield* trap, ["diverges", WARNING])
+      assert.deepStrictEqual(yield* trap, ["divergent", WARNING])
       assert.strictEqual(jevRequests - before.jev, 2)
       assert.strictEqual(loanRequests - before.claude, 1)
       // Written from the senses that bear on the loan, the seventh among them, and the loan's own meanings.

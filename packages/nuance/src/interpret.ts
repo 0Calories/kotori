@@ -7,9 +7,9 @@ import {
   type Gender,
   type JudgmentSource,
   type Keigo,
-  LOAN_SHOWN,
+  type LoanMeaning,
+  loanShown,
   type LoanVerdict,
-  type Loanword,
   type Medium,
   type Nuance,
   type RegisterShape,
@@ -220,7 +220,7 @@ export const interpretSense = (
 
 /**
  * How likely a katakana candidate must be the English word's loanword for its verdict to count:
- * the docs' starting point for a yes. A false "diverges" costs trust in the very feature meant to
+ * the docs' starting point for a yes. A false warning costs trust in the very feature meant to
  * build it (docs/nuance-rework.md C3), so tune it on the eval before lowering it.
  */
 export const LOAN_IS = 0.7
@@ -233,7 +233,7 @@ export const awaitsWarning = (
   loan:
     | {
         readonly word: string | null
-        readonly verdict: Loanword["verdict"] | null
+        readonly verdict: LoanVerdict | null
         readonly trap: string | null
       }
     | undefined
@@ -241,8 +241,8 @@ export const awaitsWarning = (
   loan !== undefined &&
   loan.word !== null &&
   loan.trap === null &&
-  loan.verdict?.value === "diverges" &&
-  loan.verdict.confidence >= LOAN_SHOWN
+  loan.verdict !== null &&
+  loanShown(loan.verdict) === "warning"
 
 /** A katakana word asked about as an English word's loan, and how the dictionary ties them. */
 export interface AskedLoan {
@@ -253,22 +253,19 @@ export interface AskedLoan {
 /** An English word's katakana loan as judged; both null when no candidate is likely enough. */
 export interface LoanReading {
   readonly word: string | null
-  readonly verdict: Loanword["verdict"] | null
+  readonly verdict: LoanVerdict | null
 }
 
 /**
- * The verdict of a `loan_{k}` answer. Since English questions version 4 it is a Noul, the
- * probability that carrying the katakana word over misleads, and its confidence |2p − 1|, the
- * docs' measure for a Noul on a Choice's scale. Before, it was a two-option Choice, whose
- * confidence is the same measure, so stored answers read as they always did.
+ * The verdict of a `loan_{k}` Choice: the meaning Jev picked and its probability, which the
+ * display rule reads (`loanShown`), rather than the Choice's confidence, which says how peaked
+ * the answer is. Only the picked meaning can reach the 0.7 the app shows at, so the rule needs
+ * no other.
  */
-const loanVerdict = (answer: NoulResponse | ChoiceResponse | undefined) => {
-  if (answer === undefined) return undefined
-  if (answer.type === "choice") return { value: answer.choice as LoanVerdict, confidence: answer.confidence }
-  const value: LoanVerdict = answer.noul >= 0.5 ? "diverges" : "matches"
-  // Jev reports two decimals, and 2 × 0.7 − 1 is 0.3999…: rounded, p = 0.7 meets `LOAN_SHOWN`.
-  return { value, confidence: Math.round(Math.abs(2 * answer.noul - 1) * 1e6) / 1e6 }
-}
+const loanVerdict = (answer: ChoiceResponse): Omit<LoanVerdict, "source"> => ({
+  value: answer.choice as LoanMeaning,
+  probability: answer.probabilities[answer.choice] ?? 0
+})
 
 /**
  * An English word's katakana loan, from Jev's answers about its candidates, in the order of their
@@ -292,13 +289,13 @@ export const interpretLoan = (
       (best, candidate) => (best === undefined || candidate.p > best.p ? candidate : best),
       undefined
     )
-  const verdict =
+  const answer =
     likeliest !== undefined && likeliest.p >= loanIs
-      ? loanVerdict(answers[`loan_${likeliest.k}`] as NoulResponse | ChoiceResponse | undefined)
+      ? (answers[`loan_${likeliest.k}`] as ChoiceResponse | undefined)
       : undefined
-  return likeliest === undefined || verdict === undefined
+  return likeliest === undefined || answer === undefined
     ? { word: null, verdict: null }
-    : { word: likeliest.word, verdict: { ...verdict, source: "jev" } }
+    : { word: likeliest.word, verdict: { ...loanVerdict(answer), source: "jev" } }
 }
 
 export interface SimilarJudgment {

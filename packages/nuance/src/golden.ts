@@ -7,7 +7,7 @@ import type {
   Formality,
   Gender,
   Keigo,
-  LoanVerdict,
+  LoanMeaning,
   Medium,
   Profanity,
   RegisterShape,
@@ -392,7 +392,7 @@ export const GOLDEN_ENGLISH_PAIRS: ReadonlyArray<GoldenEnglishPair> = [
  */
 export interface GoldenLoan {
   readonly word: string
-  readonly loan: LoanVerdict | "no_loan"
+  readonly loan: LoanMeaning | "no_loan"
   readonly loanWord?: string
   /** Added after the loan questions were tuned and kept out of any tuning since; reported apart. */
   readonly heldOut?: true
@@ -411,30 +411,30 @@ const heldOut = (word: string, loan: GoldenLoan["loan"], loanWord?: string): Gol
 
 export const GOLDEN_LOANS: ReadonlyArray<GoldenLoan> = [
   // --- Drifted: the katakana word's everyday Japanese misleads ---------------------------
-  l("style", "diverges", "スタイル"),
-  l("mansion", "diverges", "マンション"),
-  l("tension", "diverges", "テンション"),
-  l("naive", "diverges", "ナイーブ"),
-  l("smart", "diverges", "スマート"),
-  l("cunning", "diverges", "カンニング"),
-  l("claim", "diverges", "クレーム"),
-  l("talent", "diverges", "タレント"),
-  l("juice", "diverges", "ジュース"),
-  l("bike", "diverges", "バイク"),
-  l("seal", "diverges", "シール"),
+  l("style", "divergent", "スタイル"),
+  l("mansion", "divergent", "マンション"),
+  l("tension", "divergent", "テンション"),
+  l("naive", "divergent", "ナイーブ"),
+  l("smart", "divergent", "スマート"),
+  l("cunning", "divergent", "カンニング"),
+  l("claim", "divergent", "クレーム"),
+  l("talent", "divergent", "タレント"),
+  l("juice", "divergent", "ジュース"),
+  l("bike", "divergent", "バイク"),
+  l("seal", "divergent", "シール"),
   // Shares "sign; indication", but サイン is first an autograph or signature.
-  l("sign", "diverges", "サイン"),
+  l("sign", "divergent", "サイン"),
   // --- Carried over as is: instant comprehension, shown quietly ----------------------------
-  l("table", "matches", "テーブル"),
-  l("coffee", "matches", "コーヒー"),
-  l("camera", "matches", "カメラ"),
-  l("computer", "matches", "コンピュータ"),
-  l("door", "matches", "ドア"),
-  l("hotel", "matches", "ホテル"),
+  l("table", "same", "テーブル"),
+  l("coffee", "same", "コーヒー"),
+  l("camera", "same", "カメラ"),
+  l("computer", "same", "コンピュータ"),
+  l("door", "same", "ドア"),
+  l("hotel", "same", "ホテル"),
   // Loans with several dictionary senses that English shares, against flagging every loan
   // whose dictionary entry runs past one sense.
-  l("ball", "matches", "ボール"),
-  l("test", "matches", "テスト"),
+  l("ball", "same", "ボール"),
+  l("test", "same", "テスト"),
   // --- No common loan --------------------------------------------------------------------
   l("walk", "no_loan"),
   l("borrow", "no_loan"),
@@ -444,31 +444,31 @@ export const GOLDEN_LOANS: ReadonlyArray<GoldenLoan> = [
   // what tuning on the words above can't; none is an example in any question's criteria. Each
   // is checked against JMDict's senses: a drifted loan's everyday meaning is one English
   // doesn't have. ベテラン is left out: JMDict's only sense, an experienced person, is English too.
-  heldOut("cooler", "diverges", "クーラー"), // an air conditioner
-  heldOut("handle", "diverges", "ハンドル"), // a steering wheel or handlebars
-  heldOut("pierce", "diverges", "ピアス"), // earrings; found by lsource only
-  heldOut("stove", "diverges", "ストーブ"), // a room heater
-  heldOut("Viking", "diverges", "バイキング"), // a buffet
-  heldOut("sharp", "diverges", "シャープ"), // the # sign, a mechanical pencil; shares "sharp"
-  heldOut("free", "diverges", "フリー"), // freelance; shares "free"
-  heldOut("reform", "diverges", "リフォーム"), // renovating a home; lsource only
-  heldOut("trump", "diverges", "トランプ"), // playing cards; lsource only
-  heldOut("loose", "diverges", "ルーズ"), // careless with time or money; lsource only
-  heldOut("front", "diverges", "フロント"), // a hotel's reception desk
-  heldOut("morning", "diverges", "モーニング"), // a café's breakfast set
-  heldOut("appeal", "diverges", "アピール"), // promoting oneself, showing off
-  heldOut("jug", "diverges", "ジョッキ"), // a beer mug; lsource only, ピッチャー by gloss
-  heldOut("range", "diverges", "レンジ"), // a microwave oven; スコープ is a false candidate
-  heldOut("game", "matches", "ゲーム"),
-  heldOut("lunch", "matches", "ランチ"), // also a set lunch: a small difference
-  heldOut("card", "matches", "カード"), // six senses, all English's
-  heldOut("team", "matches", "チーム"), // イレブン and クラブ are false candidates
-  heldOut("chance", "matches", "チャンス"),
-  heldOut("pen", "matches", "ペン"), // the English word's first sense is a pen for animals
-  heldOut("elevator", "matches", "エレベーター"),
-  heldOut("hint", "matches", "ヒント"),
-  heldOut("level", "matches", "レベル"), // ステージ is a false candidate, asked first
-  heldOut("member", "matches", "メンバー"),
+  heldOut("cooler", "divergent", "クーラー"), // an air conditioner
+  heldOut("handle", "divergent", "ハンドル"), // a steering wheel or handlebars
+  heldOut("pierce", "divergent", "ピアス"), // earrings; found by lsource only
+  heldOut("stove", "divergent", "ストーブ"), // a room heater
+  heldOut("Viking", "divergent", "バイキング"), // a buffet
+  heldOut("sharp", "divergent", "シャープ"), // the # sign, a mechanical pencil; shares "sharp"
+  heldOut("free", "divergent", "フリー"), // freelance; shares "free"
+  heldOut("reform", "divergent", "リフォーム"), // renovating a home; lsource only
+  heldOut("trump", "divergent", "トランプ"), // playing cards; lsource only
+  heldOut("loose", "divergent", "ルーズ"), // careless with time or money; lsource only
+  heldOut("front", "divergent", "フロント"), // a hotel's reception desk
+  heldOut("morning", "divergent", "モーニング"), // a café's breakfast set
+  heldOut("appeal", "divergent", "アピール"), // promoting oneself, showing off
+  heldOut("jug", "divergent", "ジョッキ"), // a beer mug; lsource only, ピッチャー by gloss
+  heldOut("range", "divergent", "レンジ"), // a microwave oven; スコープ is a false candidate
+  heldOut("game", "same", "ゲーム"),
+  heldOut("lunch", "same", "ランチ"), // also a set lunch: a small difference
+  heldOut("card", "same", "カード"), // six senses, all English's
+  heldOut("team", "same", "チーム"), // イレブン and クラブ are false candidates
+  heldOut("chance", "same", "チャンス"),
+  heldOut("pen", "same", "ペン"), // the English word's first sense is a pen for animals
+  heldOut("elevator", "same", "エレベーター"),
+  heldOut("hint", "same", "ヒント"),
+  heldOut("level", "same", "レベル"), // ステージ is a false candidate, asked first
+  heldOut("member", "same", "メンバー"),
   heldOut("launch", "no_loan") // オープニング is a false candidate
 ]
 

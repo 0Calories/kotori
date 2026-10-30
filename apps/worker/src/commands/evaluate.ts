@@ -1,6 +1,6 @@
 import type { EntryRecord } from "@kotori/db"
 import { normalizeGloss, resolveFromRoot } from "@kotori/db"
-import { LOAN_SHOWN } from "@kotori/domain"
+import { LOAN_SHOWN, loanShown } from "@kotori/domain"
 import {
   answersForCandidates,
   ENGLISH_QUESTIONS_VERSION,
@@ -198,6 +198,7 @@ interface NoulAnswer {
 interface ChoiceAnswer {
   readonly choice: string
   readonly confidence: number
+  readonly probabilities: Readonly<Record<string, number>>
 }
 
 /** A golden sense to judge, of either dictionary. */
@@ -481,15 +482,15 @@ export const evaluate = Command.make(
             const answers = union.length === 0 ? {} : yield* answersFor(`${golden.word}:loan`, request)
             if (answers === undefined) return
             const reading = readGolden(request, answers)
-            for (const check of reading.order) results.order(check.name.replace(/_\d+$/, ""), check)
+            // Held-out words are reported apart, so tuning on the others can't flatter them.
+            const set = golden.heldOut ? "held out: " : ""
+            for (const check of reading.order) results.order(`${set}${check.name.replace(/_\d+$/, "")}`, check)
             const asked = union.map((candidate) => candidate.entry.headword)
             const readFor = (list: typeof lists.now, loanIs?: number) => {
               const own = list.slice(0, MAX_LOANS).map(({ entry: { headword }, by }) => ({ word: headword, by }))
               const words = own.map((candidate) => candidate.word)
               return interpretLoan(answersForCandidates(reading.answers, asked, words), own, loanIs)
             }
-            // Held-out words are reported apart, so tuning on the others can't flatter them.
-            const set = golden.heldOut ? "held out: " : ""
             const wanted = `${golden.loan}${golden.loanWord ? ` (${golden.loanWord})` : ""}`
             const loan = (dimension: string, read: LoanReading) => {
               const got = read.verdict?.value ?? "no_loan"
@@ -497,7 +498,7 @@ export const evaluate = Command.make(
               results.judged(
                 `${set}${dimension}`,
                 false,
-                { correct: right, confidence: read.verdict?.confidence ?? null },
+                { correct: right, confidence: read.verdict?.probability ?? null },
                 `${golden.word} ${set}${dimension}: got ${got}${read.word ? ` (${read.word})` : ""}, wanted ${wanted}`
               )
             }
@@ -505,31 +506,43 @@ export const evaluate = Command.make(
             const reimported = readFor(lists.reimported)
             loan("loan, +lsource", reimported)
             loan("loan, +lsrc @0.5", readFor(lists.reimported, 0.5))
-            // What learners see once JMDict has lsource: a verdict confident enough for the app,
-            // as a warning on a drifted loan or a "same meaning" chip on one carried over as is.
-            const shown =
-              reimported.verdict !== null && reimported.verdict.confidence >= LOAN_SHOWN ? reimported.verdict : null
+            // What learners see once JMDict has lsource, by the app's rule: a warning on a drifted
+            // loan, a "same meaning" chip on one carried over as is, or nothing.
+            const verdict = reimported.verdict
+            const shown = verdict === null ? null : loanShown(verdict)
             const about = reimported.word === golden.loanWord
             const display = (dimension: string, applies: boolean, correct: boolean) => {
               if (!applies) return
               results.judged(
                 `${set}${dimension}`,
                 false,
-                { correct, confidence: shown?.confidence ?? null },
-                `${golden.word} ${set}${dimension}: shown ${shown === null ? "nothing" : `${shown.value} (${reimported.word}) at ${shown.confidence.toFixed(2)}`}, wanted ${wanted}`
+                { correct, confidence: shown === null ? null : (verdict?.probability ?? null) },
+                `${golden.word} ${set}${dimension}: shown ${shown === null || verdict === null ? "nothing" : `${shown} (${reimported.word}) at ${verdict.probability.toFixed(2)}`}, wanted ${wanted}`
               )
             }
-            const warned = shown?.value === "diverges"
-            const chipped = shown?.value === "matches"
-            display("warning shown", golden.loan === "diverges", warned && about)
-            display("no false warning", true, !warned || (golden.loan === "diverges" && about))
-            display("same-meaning chip", golden.loan === "matches", chipped && about)
-            display("no wrong chip", true, !chipped || (golden.loan === "matches" && about))
+            display("warning shown", golden.loan === "divergent", shown === "warning" && about)
+            display("no false warning", true, shown !== "warning" || (golden.loan === "divergent" && about))
+            display("same-meaning chip", golden.loan === "same", shown === "chip" && about)
+            display("no wrong chip", true, shown !== "chip" || (golden.loan === "same" && about))
+            // What "not English" takes from the true loan, which is always borrowed from English.
+            const meaning =
+              golden.loanWord === undefined
+                ? undefined
+                : (reading.answers[`loan_${asked.indexOf(golden.loanWord)}`] as ChoiceAnswer | undefined)
+            if (meaning !== undefined) {
+              const notEnglish = meaning.probabilities["not_english"] ?? 0
+              results.judged(
+                `${set}not English`,
+                false,
+                { correct: meaning.choice !== "not_english", confidence: notEnglish },
+                `${golden.word} ${set}not English: p=${notEnglish.toFixed(2)} for ${golden.loanWord}`
+              )
+            }
           }),
         { concurrency, discard: true }
       )
       yield* Console.log(
-        `A loan counts at p >= ${LOAN_IS} that the katakana word is the English word's loan; "glosses" are the candidates production finds until JMDict is re-imported with lsource. The app shows a loan verdict at confidence >= ${LOAN_SHOWN}.`
+        `A loan counts at p >= ${LOAN_IS} that the katakana word is the English word's loan; "glosses" are the candidates production finds until JMDict is re-imported with lsource. The app shows a warning at p(divergent) >= ${LOAN_SHOWN} and a "same meaning" chip at p(same) >= ${LOAN_SHOWN}; the conf columns of loan rows hold that p, and of "not English" the true loan's p(not_english).`
       )
     }
     yield* Console.log(`The enricher keeps a similar word at p >= ${SIMILAR_KEPT}.`)

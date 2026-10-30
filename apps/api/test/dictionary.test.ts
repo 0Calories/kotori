@@ -401,7 +401,7 @@ layer(testLayer(false))("Dictionary: what Kotori wrote on an English word", (it)
       assert.strictEqual((yield* shown).senses[0]?.noteJa, "建物や文章の「様式」に使う。")
       assert.isNull((yield* shown).loan)
 
-      const verdict = { value: "diverges" as const, confidence: 0.9, source: "jev" as const }
+      const verdict = { value: "divergent" as const, probability: 0.9, source: "jev" as const }
       yield* enrichment.saveLoanWord(
         100000040,
         { word: "スタイル", verdict, answers: {}, model: "test", questionsVersion: ENGLISH_QUESTIONS_VERSION },
@@ -557,7 +557,7 @@ layer(testLayer(true, true))("Dictionary with Jev and Claude", (it) => {
         0
       )
       // Judged while Claude was unavailable: a confident verdict, no warning.
-      const verdict = { value: "diverges" as const, confidence: 0.9, source: "jev" as const }
+      const verdict = { value: "divergent" as const, probability: 0.9, source: "jev" as const }
       yield* enrichment.saveLoanWord(
         100000060,
         { word: "マンション", verdict, answers: {}, model: "test", questionsVersion: ENGLISH_QUESTIONS_VERSION },
@@ -606,7 +606,7 @@ layer(testLayer(true))("Dictionary with Jev, and Claude unavailable", (it) => {
         ],
         0
       )
-      const verdict = { value: "diverges" as const, confidence: 0.9, source: "jev" as const }
+      const verdict = { value: "divergent" as const, probability: 0.9, source: "jev" as const }
       yield* enrichment.saveLoanWord(
         100000061,
         { word: "マンション", verdict, answers: {}, model: "test", questionsVersion: ENGLISH_QUESTIONS_VERSION },

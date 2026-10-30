@@ -94,31 +94,51 @@ export const Nuance = Schema.Struct({
 export type Nuance = typeof Nuance.Type
 
 /**
- * Whether a katakana loan means in everyday Japanese what its English word means
- * (コーヒー, coffee) or has drifted, so a Japanese speaker carrying it over is
- * misunderstood (スタイル is first someone's figure).
+ * Whether a katakana loan means in everyday Japanese what its English word means (コーヒー,
+ * coffee), has drifted, so a Japanese speaker carrying it over is misunderstood (スタイル is
+ * first someone's figure), or wasn't borrowed from English at all (パン, from Portuguese).
  */
-export const LoanVerdict = Schema.Literals(["matches", "diverges"])
+export const LoanMeaning = Schema.Literals(["same", "divergent", "not_english"])
+export type LoanMeaning = typeof LoanMeaning.Type
+
+/** Jev's verdict on a loan: its likeliest meaning, and how likely that is. */
+export const LoanVerdict = Schema.Struct({
+  value: LoanMeaning,
+  /** Jev's probability of `value`, not its confidence, which measures how peaked the answer is. */
+  probability: Schema.Number,
+  source: JudgmentSource
+})
 export type LoanVerdict = typeof LoanVerdict.Type
 
 /** The katakana loan of an English word, which Japanese speakers already think they know. */
 export const Loanword = Schema.Struct({
   /** The katakana word, as JMDict spells it. */
   word: Schema.String,
-  verdict: judgment(LoanVerdict),
-  /** Claude's one Japanese sentence on how the words differ, once the loan confidently diverges. */
+  verdict: LoanVerdict,
+  /** Claude's one Japanese sentence on how the words differ, once the loan is shown diverging. */
   trap: Schema.NullOr(Schema.String)
 })
 export type Loanword = typeof Loanword.Type
 
 /**
- * How confident a loan verdict must be for the app to show it, as a warning or a "same meaning"
- * chip, and so for Claude to write its warning. The verdict is a Noul's probability p that
- * carrying the katakana word over misleads, its confidence |2p − 1|, so this shows a warning at
- * p ≥ 0.7 and a chip at p ≤ 0.3, the docs' starting points for a Noul's yes and no. The app's
- * 0.55 for its other judgments would ask p ≥ 0.78 (docs/nuance-on-english-entries.md).
+ * How likely a loan's meaning must be for the app to show it: the docs' starting point for acting
+ * on an answer, and for a three-option Choice the app's 0.55 confidence for its other judgments.
  */
-export const LOAN_SHOWN = 0.4
+export const LOAN_SHOWN = 0.7
+
+/**
+ * What the app shows for a loan verdict, and so whether Claude writes its warning: a warning at
+ * p(divergent) ≥ 0.7, a "same meaning" chip at p(same) ≥ 0.7, and nothing for an unsure verdict
+ * or a loan Jev judges not English (docs/nuance-on-english-entries.md).
+ */
+export const loanShown = (verdict: LoanVerdict): "warning" | "chip" | null =>
+  verdict.probability < LOAN_SHOWN
+    ? null
+    : verdict.value === "divergent"
+      ? "warning"
+      : verdict.value === "same"
+        ? "chip"
+        : null
 
 /** How a similar word differs from the one being looked at. */
 export const Difference = Schema.Literals([

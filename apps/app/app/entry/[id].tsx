@@ -1,4 +1,4 @@
-import { type Language, LOAN_SHOWN, type Loanword, type Nuance, type Sense, type SimilarWord } from "@kotori/domain"
+import { type Language, loanShown, type Loanword, type Nuance, type Sense, type SimilarWord } from "@kotori/domain"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { Platform, Share, View } from "react-native"
@@ -96,12 +96,14 @@ const NuanceCard = ({ nuance }: { readonly nuance: Nuance }) => {
 /**
  * An English word's katakana loan, which Japanese speakers already think they know: a drifted
  * one (スタイル is first someone's figure) is the headline warning, with Claude's sentence on
- * how they differ; a matching one is quiet good news. Unsure verdicts aren't shown.
+ * how they differ; a matching one is quiet good news. Unsure verdicts, and loans Jev judges not
+ * English, aren't shown.
  */
 const LoanNote = ({ loan }: { readonly loan: Loanword }) => {
   const { t } = useSession()
-  if (loan.verdict.confidence < LOAN_SHOWN) return null
-  if (loan.verdict.value === "matches") {
+  const shown = loanShown(loan.verdict)
+  if (shown === null) return null
+  if (shown === "chip") {
     return (
       <View style={{ flexDirection: "row" }}>
         <Chip icon="check" label={t.nuance.english.loanMatches(loan.word)} />

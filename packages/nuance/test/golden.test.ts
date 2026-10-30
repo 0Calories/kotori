@@ -16,7 +16,8 @@ import {
   goldenSenseRequest,
   MAX_SENSES,
   readGolden,
-  REVERSED
+  REVERSED,
+  withReversedChoices
 } from "../src/index.ts"
 
 const fixture = Schema.decodeUnknownSync(Schema.fromJsonString(GoldenFixture))(
@@ -95,11 +96,13 @@ describe("golden requests", () => {
     const style = goldenEnglishEntry(entries.values(), "style")!
     const candidates = (fixture.loans["style"]?.glossesOnly ?? []).map(({ entryId }) => entries.get(entryId)!)
     const loans = goldenLoanRequest(style, candidates, tags)
-    assert.deepStrictEqual(loans, { ...loanRequest(style, candidates, tags), prefix: "" })
+    const production = loanRequest(style, candidates, tags)
+    assert.deepStrictEqual(loans, { ...production, questions: withReversedChoices(production.questions), prefix: "" })
     assert.deepStrictEqual(loans.state, { word: "style", reading: "/staɪl/" })
-    assert.deepStrictEqual(
-      Object.keys(loans.questions),
-      candidates.flatMap((_, k) => [`loanword_${k}`, `loan_${k}`])
-    )
+    // Whether the loan means the same is a Choice, so it is asked again with its options reversed.
+    assert.deepStrictEqual(Object.keys(loans.questions), [
+      ...candidates.flatMap((_, k) => [`loanword_${k}`, `loan_${k}`]),
+      ...candidates.map((_, k) => `loan_${k}${REVERSED}`)
+    ])
   })
 })
