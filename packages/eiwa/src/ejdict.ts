@@ -29,7 +29,27 @@ const MARKS: Readonly<Record<string, string>> = {
 /** "《米話》" is two labels written together: 米 and 話. */
 const labelsOf = (note: string) => (/^[米英豪][話俗古]$/.test(note) ? note.split("") : [note])
 
-const readSense = (meaning: string): SenseRecord | null => {
+/**
+ * A grammar note with the headword spelled out where EJDict writes "~". A note that is only the
+ * word's article or possessive, 《a~》 on "crap" (take a crap), says the word is used in that
+ * form, as English–Japanese dictionaries put it: 「a crap」の形で. Shown as "a~", it read as debris.
+ */
+const spelledOut = (note: string, headword: string) => {
+  if (!note.includes("~")) return note
+  const spelled = note
+    .replace(/~/g, ` ${headword} `)
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,;)])/g, "$1")
+    .replace(/\(\s+/g, "(")
+    .replace(/([a-z'])\(/gi, "$1 (")
+    // EJDict writes 《a~》 for "an" too: "an atom", though "a university", "a one-off".
+    .replace(/\ba (?=(?!one\b|eu)[aeio])/gi, "an ")
+    .trim()
+  const articles = /^(?:[\s,;()]|\b(?:a|an|the|one's|my|your|his|her|its|our|their)\b)*$/i
+  return articles.test(note.replace(/~/g, "")) ? `「${spelled}」の形で` : spelled
+}
+
+const readSense = (meaning: string, headword: string): SenseRecord | null => {
   const sense = {
     pos: new Set<string>(),
     misc: new Set<string>(),
@@ -56,7 +76,7 @@ const readSense = (meaning: string): SenseRecord | null => {
         else sense.dialects.add(REGIONS[label]!)
       }
     } else {
-      sense.info.push(note.replace(/[『』]/g, "").trim())
+      sense.info.push(spelledOut(note.replace(/[『』]/g, "").trim(), headword))
     }
     return ""
   })
@@ -118,7 +138,7 @@ export const parseEjdict = (lines: Iterable<string>) => {
         formsOf.push({ text: headword, ...form })
         continue
       }
-      const sense = readSense(trimmed)
+      const sense = readSense(trimmed, headword)
       if (sense !== null) senses.push(sense)
     }
 
