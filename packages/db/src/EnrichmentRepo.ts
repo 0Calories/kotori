@@ -48,7 +48,7 @@ export interface EnglishNuanceRow {
   readonly entryId: number
   readonly sense: number
   readonly nuance: EnglishJudgments
-  /** Claude's katakana loanword and trap sentence; null until the examples job writes them. */
+  /** Claude's katakana loanword and trap sentence; null until the nuance job writes them for a diverging loan. */
   readonly loanWord: string | null
   readonly loanTrap: string | null
   readonly questionsVersion: number

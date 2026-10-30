@@ -171,7 +171,10 @@ export const EnglishMeaning = Schema.Struct({
   matched: Schema.Int,
   partOfSpeech: Schema.NullOr(Schema.String),
   formality: Schema.NullOr(Formality),
-  /** The nuance of the sense's English side, for the Japanese natives this page serves. */
+  /**
+   * The nuance of the looked-up word, for the Japanese natives this page serves; null until
+   * judged, and when the word isn't the gloss Jev judged.
+   */
   english: Schema.NullOr(EnglishNuance),
   /** Kotori's usage note on the sense for learners of Japanese, in English. */
   note: Schema.NullOr(Schema.String),

@@ -83,7 +83,6 @@ For each sense listed, write the requested number of sentences that:
 For each sense also give one usage note per learner direction. These notes carry the teaching; sentence notes below are only for the rare sentence-specific point:
 - "note": one or two short English sentences for learners of Japanese on how natives use the word in this sense — its register, who says it and where, a pitfall, or how it differs from a word learners would confuse it with. Teach what the glosses alone can't; when they already say it all, null.
 - "noteJa": one or two short sentences in Japanese for Japanese speakers learning English, about the sense's English side: how its natural English equivalents are used, a nuance Japanese speakers miss, or a mistake they commonly make. It is not a translation of "note"; null when there is nothing worth teaching.
-- "loanWord" and "loanTrap": null unless the sense is marked "katakana loan diverges". For a marked sense, "loanWord" is the common katakana loanword Japanese speakers know (e.g. スタイル) and "loanTrap" is one short Japanese sentence warning how the English word's meaning differs from the katakana word's everyday Japanese meaning (e.g. 日本語の「スタイル」は体型を指すことが多いですが、英語の style にその意味はありません).
 
 For each sentence give:
 - "ja": the sentence as normally written;
@@ -96,5 +95,15 @@ For each sentence give:
 - "tone": the dominant feel of the delivery — neutral, cheerful, serious, gentle, rough, or humorous for a joke, gag, pun or comic exaggeration;
 - "note": null unless this particular sentence needs explaining — a collocation in it, why this register fits this situation, a twist in the translation. One short English sentence that never repeats the sense note;
 - "noteJa": the same, in Japanese for Japanese speakers learning English, about this English sentence; null unless the sentence itself teaches something. It is not a translation of "note".
+
+Return the sense numbers exactly as given.`
+
+export const loanSystem = `You write warnings for a Japanese-English learner's dictionary, for Japanese speakers learning English.
+
+Japanese borrows many English words as katakana loanwords, and some have drifted: their everyday Japanese meaning differs from the English word's. Each sense listed is a meaning of the headword, with the English word dictionaries translate it as, and a check found that this English word's common katakana loanword means something else in everyday Japanese.
+
+For each sense give:
+- "loanWord": the common katakana loanword Japanese speakers know (e.g. スタイル), or null if Japanese has no common loanword of this English word;
+- "loanTrap": one short Japanese sentence warning how the English word's meaning differs from the katakana word's everyday Japanese meaning (e.g. 日本語の「スタイル」は体型を指すことが多いですが、英語の style にその意味はありません); null when "loanWord" is null.
 
 Return the sense numbers exactly as given.`

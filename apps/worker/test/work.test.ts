@@ -1,5 +1,5 @@
 import { assert, layer } from "@effect/vitest"
-import { Claude, ExampleWriter } from "@kotori/ai"
+import { Claude, ExampleWriter, LoanOutput, LoanWriter } from "@kotori/ai"
 import { DictionaryRepo, EnrichmentRepo, type EntryRecord, JobsRepo, Repositories } from "@kotori/db"
 import { DatabaseMemory } from "@kotori/db/testing"
 import { Jev, JevError, NuanceEnricher } from "@kotori/nuance"
@@ -18,15 +18,21 @@ const FakeJev = Layer.succeed(
   Jev.of({
     configured: true,
     model: "jev-test",
-    ask: (_state, questions) => {
+    ask: (state, questions) => {
       if (jevDown) return Effect.fail(new JevError({ message: "Jev is down" }))
-      // Whatever Jev's answer types require: the first option of every choice, a likely first candidate.
+      // Whatever Jev's answer types require: the first option of every choice, a likely first
+      // candidate, and a drifted loan for スタイル.
+      const drifted = (state as { readonly word?: string }).word === "スタイル"
       const answer = (name: string, type: string, criteria: object) => {
         switch (type) {
           case "score":
             return { type, score: name === "formality" ? 2 : 1, confidence: 0.9, legend: {}, probabilities: {} }
           case "choice": {
-            const choice = name.startsWith("difference_") ? "more_casual" : Object.keys(criteria)[0]!
+            const choice = name.startsWith("difference_")
+              ? "more_casual"
+              : name === "english_loan" && drifted
+                ? "diverges"
+                : Object.keys(criteria)[0]!
             return { type, choice, confidence: 0.8, probabilities: {} }
           }
           default:
@@ -47,36 +53,43 @@ const FakeJev = Layer.succeed(
   })
 )
 
+let loanRequests = 0
+
 const FakeClaude = Layer.succeed(
   Claude,
   Claude.of({
     model: "claude-test",
     available: Effect.succeed(true),
-    generate: () =>
-      Effect.succeed({
-        senses: [
-          {
-            sense: 0,
-            note: "An everyday verb.",
-            noteJa: "eat は日常語です。",
-            loanWord: null,
-            loanTrap: null,
-            examples: [
+    generate: (options) =>
+      (options.schema as unknown) === LoanOutput
+        ? Effect.sync(() => {
+            loanRequests++
+            return {
+              senses: [{ sense: 0, loanWord: "スタイル", loanTrap: "日本語の「スタイル」は体型を指すことが多いです。" }]
+            } as never
+          })
+        : Effect.succeed({
+            senses: [
               {
-                ja: "パンを食べる。",
-                furigana: "パンを{食|た}べる。",
-                en: "I eat bread.",
-                formality: "neutral",
-                speaker: { gender: "unspecified", age: "unspecified" },
-                medium: "conversation",
-                variety: null,
-                tone: "neutral",
-                note: null
+                sense: 0,
+                note: "An everyday verb.",
+                noteJa: "eat は日常語です。",
+                examples: [
+                  {
+                    ja: "パンを食べる。",
+                    furigana: "パンを{食|た}べる。",
+                    en: "I eat bread.",
+                    formality: "neutral",
+                    speaker: { gender: "unspecified", age: "unspecified" },
+                    medium: "conversation",
+                    variety: null,
+                    tone: "neutral",
+                    note: null
+                  }
+                ]
               }
             ]
-          }
-        ]
-      } as never)
+          } as never)
   })
 )
 
@@ -94,7 +107,7 @@ const TestLayer = Enrichers.layer.pipe(
   Layer.provideMerge(
     Layer.mergeAll(
       NuanceEnricher.layer.pipe(Layer.provideMerge(FakeJev)),
-      ExampleWriter.layer.pipe(Layer.provideMerge(FakeClaude)),
+      Layer.mergeAll(ExampleWriter.layer, LoanWriter.layer).pipe(Layer.provideMerge(FakeClaude)),
       Pronouncer.layer.pipe(Layer.provideMerge(Layer.mergeAll(FakeElevenLabs, AudioStore.layer, FakeJev)))
     )
   ),
@@ -130,6 +143,7 @@ const entry = (id: number, headword: string, reading: string, senses: Array<Arra
 
 const taberu = 1358280
 const kuu = 1269130
+const style = 1069520
 
 /** Runs cycles until the queue has nothing runnable, returning how many jobs ran. */
 const drain = (step: Effect.Effect<boolean>) =>
@@ -190,6 +204,31 @@ layer(TestLayer)("kotori work", (it) => {
           ["nuance", "done"]
         ]
       )
+    })
+  )
+
+  it.effect("names a drifted katakana loan in the nuance job, once per sense", () =>
+    Effect.gen(function* () {
+      const dictionary = yield* DictionaryRepo
+      const enrichment = yield* EnrichmentRepo
+      const jobs = yield* JobsRepo
+      yield* dictionary.insertEntries([entry(style, "スタイル", "スタイル", [["(one's) figure", "physique"]])])
+      const step = yield* makeJobRunner(["nuance"])
+
+      // The nuance job alone writes the warning: it doesn't wait on the examples job.
+      yield* jobs.enqueue("nuance", style, 100, 0)
+      assert.strictEqual(yield* drain(step), 1)
+      const [judged] = yield* enrichment.englishNuanceFor([style])
+      assert.strictEqual(judged?.nuance.loan.value, "diverges")
+      assert.strictEqual(judged?.loanWord, "スタイル")
+      assert.strictEqual(judged?.loanTrap, "日本語の「スタイル」は体型を指すことが多いです。")
+      assert.strictEqual(loanRequests, 1)
+
+      // Judging the entry again keeps the warning instead of paying Claude for it twice.
+      yield* jobs.requeue("nuance", style, 100, 0)
+      assert.strictEqual(yield* drain(step), 1)
+      assert.strictEqual((yield* enrichment.englishNuanceFor([style]))[0]?.loanWord, "スタイル")
+      assert.strictEqual(loanRequests, 1)
     })
   )
 

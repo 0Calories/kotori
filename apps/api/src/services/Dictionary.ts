@@ -303,14 +303,23 @@ export class Dictionary extends Context.Service<
         const now = yield* Clock.currentTimeMillis
 
         if (enqueue) {
-          if ((!hasNuance || nuanceOutdated) && jev.configured) yield* jobs.enqueue("nuance", entry.id, ON_DEMAND, now)
+          const before = yield* jobs.statusFor(entry.id)
+          if (jev.configured) {
+            // Enqueueing a finished job is a no-op, so one that judged with an older question set
+            // is queued again; saving replaces every row of the entry, so it runs once per version.
+            if (nuanceOutdated && before.get("nuance") === "done") {
+              yield* jobs.requeue("nuance", entry.id, ON_DEMAND, now)
+            } else if (!hasNuance || nuanceOutdated) {
+              yield* jobs.enqueue("nuance", entry.id, ON_DEMAND, now)
+            }
+          }
           if (!hasExamples && coachAvailable) yield* jobs.enqueue("examples", entry.id, ON_DEMAND, now)
           // The worker re-runs audio once example sentences exist, so they get voiced too. A finished
           // job can still leave gaps (English voiced after the entry was), so it runs again to fill
           // them, but at most once an hour, in case the gap is one the worker can't fill.
           if (!hasAudio && pronouncer.configured) {
             // Enqueueing a finished job would touch it, putting its next try off with every look.
-            if ((yield* jobs.statusFor(entry.id)).get("audio") === "done") {
+            if (before.get("audio") === "done") {
               yield* jobs.refill("audio", entry.id, now - REFILL_AFTER, ON_DEMAND, now)
             } else {
               yield* jobs.enqueue("audio", entry.id, ON_DEMAND, now)
@@ -474,7 +483,8 @@ export class Dictionary extends Context.Service<
               matched: match.position,
               partOfSpeech: sense.pos[0] ?? record.senses[0]?.pos[0] ?? null,
               formality: formality.get(`${record.id}:${match.sense}`) ?? null,
-              english: toEnglishNuance(englishRows.get(`${record.id}:${match.sense}`)),
+              // Jev judges a sense's first gloss, so on any other the judgments describe another word.
+              english: match.position === 0 ? toEnglishNuance(englishRows.get(`${record.id}:${match.sense}`)) : null,
               note: notes.get(`${record.id}:${match.sense}`)?.note ?? null,
               noteJa: notes.get(`${record.id}:${match.sense}`)?.noteJa ?? null,
               examples: examples

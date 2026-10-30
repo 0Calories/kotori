@@ -142,6 +142,10 @@ English), with English-specific dimensions:
   slider, per the lesson of this whole exercise.
 - Ordinary collocation notes stay prose in `noteJa` (A4 gives them their surface).
 
+> **Superseded 2026-10-30:** the English-side judgments get their own job, run only when a
+> Japanese native views an entry, and are judged per gloss. See
+> `handoff-jev-entry-batching.md`.
+
 **C2. How it runs.** *Resolved: Jev* (typed, calibrated, consistent with the JA side;
 Claude writes prose only). The English-side questions (prefixed `english_*`) ride the
 **same** `systemOne` request as the Japanese ones — TypeSafe evaluates every question in
@@ -152,6 +156,10 @@ primary gloss) for them to judge. Results are stored in a new `english_nuance` t
 questionsVersion). Shown on `english/[term].tsx` and on entry senses when the learner's
 target is English. Enrichment status stays a single `nuance` kind — the job produces both
 directions.
+
+> **Superseded in part 2026-10-30:** the loan prose is no longer written by the examples
+> job. `LoanWriter` writes it right after the verdict, and the handoff has code find the
+> katakana candidates instead of Jev recalling them.
 
 **C3. Loanword false friends (和製英語 and drifted katakana loans) — first-class.**
 Corrected scope from the first draft: these are not generic collocation traps but the

@@ -42,16 +42,18 @@ describe("interpretSense", () => {
     assert.strictEqual(forced.registerShape?.source, "jmdict")
   })
 
-  it("derives the stiff-between-friends caution from the register judgments", () => {
-    assert.strictEqual(interpretSense(answers, []).cautions.stiffWithFriends, 0)
-    const formal = interpretSense({ ...answers, formality: score(4, 0.9) }, [])
-    assert.closeTo(formal.cautions.stiffWithFriends, 0.9, 1e-9)
-    const written = interpretSense({ ...answers, medium: score(2, 0.8) }, [])
-    assert.closeTo(written.cautions.stiffWithFriends, 0.8, 1e-9)
-    const humble = interpretSense({ ...answers, keigo: choice("kenjougo", 0.7) }, [])
-    assert.closeTo(humble.cautions.stiffWithFriends, 0.7, 1e-9)
-    // A JMDict honorific tag is authoritative, so the caution is certain.
-    assert.strictEqual(interpretSense(answers, ["hon"]).cautions.stiffWithFriends, 1)
+  it("derives the stiff-between-friends caution from how likely a stiff register is", () => {
+    const stiff = (overrides: Partial<Record<"formality" | "medium" | "keigo", unknown>>, misc: Array<string> = []) =>
+      interpretSense({ ...answers, ...overrides } as SenseAnswers, misc).cautions.stiffWithFriends
+    assert.strictEqual(stiff({}), 0)
+    assert.closeTo(stiff({ formality: { ...score(3.7, 0.5), probabilities: { 3: 0.3, 4: 0.7 } } }), 0.7, 1e-9)
+    assert.closeTo(stiff({ medium: { ...score(1.8, 0.6), probabilities: { 1: 0.2, 2: 0.8 } } }), 0.8, 1e-9)
+    // Unsure which keigo it is, but sure it is keigo: low confidence, high probability.
+    const split = { ...choice("sonkeigo", 0.3), probabilities: { sonkeigo: 0.5, kenjougo: 0.45, none: 0.05 } }
+    assert.closeTo(stiff({ keigo: split }), 0.95, 1e-9)
+    // A JMDict tag decides outright, either way.
+    assert.strictEqual(stiff({}, ["hon"]), 1)
+    assert.strictEqual(stiff({ keigo: split }, ["pol"]), 0)
   })
 
   it("lets JMDict's usage tags override Jev", () => {

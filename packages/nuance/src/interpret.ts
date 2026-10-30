@@ -112,17 +112,27 @@ const choice = <L extends string>(answer: ChoiceResponse, tagged: L | undefined)
  * of its own: asked directly, Jev kept judging whether the *topic* was awkward to raise
  * rather than the register (see the history on `stiffWithFriends` in questions.ts). A word
  * is stiff among friends when it is formal, respectful or humble keigo, or lives in
- * written language; the probability is the confidence of whichever judgment says so.
+ * written language; the probability is the most Jev puts on any of those, and a JMDict
+ * tag decides outright. Jev's `confidence` measures how peaked an answer is, not how
+ * likely a label is: a word split between 尊敬語 and 謙譲語 is unsure which keigo it is,
+ * but sure it is keigo.
  */
 const stiffBetweenFriends = (
+  answers: SenseAnswers,
   formality: Nuance["formality"],
   medium: Nuance["medium"],
   keigo: Nuance["keigo"]
 ): number =>
   Math.max(
-    formality.value === "formal" ? formality.confidence : 0,
-    keigo.value === "sonkeigo" || keigo.value === "kenjougo" ? keigo.confidence : 0,
-    medium.value === "written" ? medium.confidence : 0
+    formality.source === "jmdict"
+      ? Number(formality.value === "formal")
+      : (answers.formality.probabilities[FORMALITY_LEVELS.indexOf("formal")] ?? 0),
+    keigo.source === "jmdict"
+      ? Number(keigo.value === "sonkeigo" || keigo.value === "kenjougo")
+      : (answers.keigo.probabilities["sonkeigo"] ?? 0) + (answers.keigo.probabilities["kenjougo"] ?? 0),
+    medium.source === "jmdict"
+      ? Number(medium.value === "written")
+      : (answers.medium.probabilities[MEDIUM_LEVELS.indexOf("written")] ?? 0)
   )
 
 /** Combines Jev's answers for a sense with its JMDict tags into the nuance shown to learners. */
@@ -144,7 +154,7 @@ export const interpretSense = (answers: SenseAnswers, misc: ReadonlyArray<string
     ...(shape === undefined ? {} : { registerShape: choice<RegisterShape>(shape, firstTag(misc, FIXED_SHAPE_TAGS)) }),
     cautions: {
       rudeToSuperiors: answers.rudeToSuperiors.noul,
-      stiffWithFriends: stiffBetweenFriends(formality, medium, keigo),
+      stiffWithFriends: stiffBetweenFriends(answers, formality, medium, keigo),
       slang: misc.some((tag) => SLANG_TAGS.includes(tag)) ? 1 : answers.slang.noul
     }
   }
