@@ -32,7 +32,7 @@ import {
   romajiToKana,
   romanize
 } from "@kotori/japanese"
-import { Jev, MAX_SENSES, questionsVersionOf } from "@kotori/nuance"
+import { awaitsWarning, Jev, nuanceOutdated } from "@kotori/nuance"
 import { CASTS, Pronouncer } from "@kotori/tts"
 import { Clock, Context, Effect, Layer, Option } from "effect"
 
@@ -43,6 +43,8 @@ const ON_DEMAND = 1_000
 
 /** How long a finished audio job that left gaps waits before it is tried again. */
 const REFILL_AFTER = 60 * 60 * 1000
+/** How long after a nuance job a viewed entry's missing loan warning gets another try. */
+const WARNING_RETRY_AFTER = 10 * 60 * 1000
 
 interface Hit {
   readonly entryId: number
@@ -447,13 +449,10 @@ export class Dictionary extends Context.Service<
       const enrichmentFor = Effect.fnUntraced(function* (entry: EntryRecord, enqueue: boolean) {
         const nuanceRows = yield* enrichment.nuanceFor([entry.id])
         const hasNuance = nuanceRows.length > 0
-        // Old rows stay valid and shown, but a viewed entry gets fresh judgments queued: when they
-        // predate its question set, or when a re-import has ranked a sense nobody judged among
-        // the ones that are (judged rows follow their senses, so one may lead without any).
-        const judged = new Set(nuanceRows.map((row) => row.sense))
-        const nuanceOutdated =
-          nuanceRows.some((row) => row.questionsVersion < questionsVersionOf(entry.language)) ||
-          (hasNuance && entry.senses.slice(0, MAX_SENSES).some((_, index) => !judged.has(index)))
+        // Old rows stay valid and shown, but a viewed entry gets fresh judgments queued when they
+        // predate its question set, or a re-import has ranked an unjudged sense among them.
+        const outdated = nuanceOutdated(entry, nuanceRows)
+        const [loan] = yield* enrichment.loanWordsFor([entry.id])
         const examples = yield* enrichment.examplesFor([entry.id])
         const hasExamples = examples.length > 0
         const clips = yield* enrichment.exampleAudio(examples.map((example) => example.id))
@@ -469,10 +468,14 @@ export class Dictionary extends Context.Service<
           if (jev.configured) {
             // Enqueueing a finished job is a no-op, so one that judged with an older question set is
             // queued again; saving replaces every row of the entry, so it runs once per version.
-            if (nuanceOutdated && before.get("nuance") === "done") {
+            if (outdated && before.get("nuance") === "done") {
               yield* jobs.requeue("nuance", entry.id, ON_DEMAND, now)
-            } else if (!hasNuance || nuanceOutdated) {
+            } else if (!hasNuance || outdated) {
               yield* jobs.enqueue("nuance", entry.id, ON_DEMAND, now)
+            } else if (coachAvailable && awaitsWarning(loan) && before.get("nuance") === "done") {
+              // A drifted loan judged while Claude was unavailable has no warning: the job writes
+              // just that, without Jev. Not on every look, in case Claude still can't write it.
+              yield* jobs.refill("nuance", entry.id, now - WARNING_RETRY_AFTER, ON_DEMAND, now)
             }
           }
           if (!hasExamples && coachAvailable) yield* jobs.enqueue("examples", entry.id, ON_DEMAND, now)

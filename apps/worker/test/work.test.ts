@@ -12,6 +12,12 @@ import { makeJobRunner } from "../src/JobRunner.ts"
 // The worker's real enrichers and repositories on PGlite; only the paid providers are fakes.
 
 let jevDown = false
+let jevRequests = 0
+
+/** The katakana loans the fake judges to mislead. */
+const DRIFTED = new Set(["スタイル", "マンション"])
+/** The fake's warning, whatever the loan. */
+const WARNING = "日本語のカタカナ語の意味では通じません。"
 
 /** The parts of a Jev question the fake reads. */
 interface Asked {
@@ -27,6 +33,7 @@ const FakeJev = Layer.succeed(
     model: "jev-test",
     ask: (_state, questions) => {
       if (jevDown) return Effect.fail(new JevError({ message: "Jev is down" }))
+      jevRequests++
       // Whatever Jev's answer types require: the first option of every choice, a likely first
       // candidate, and a drifted loan for スタイル, by the name a question is stored under
       // (requests key a sense's `s{sense}_{name}`, and an English word's loans `loan_{k}`).
@@ -52,7 +59,7 @@ const FakeJev = Layer.succeed(
               noul:
                 name === "similar_0" ||
                 name.startsWith("loanword_") ||
-                (name.startsWith("loan_") && katakana === "スタイル")
+                (name.startsWith("loan_") && DRIFTED.has(katakana ?? ""))
                   ? 0.9
                   : 0.1
             }
@@ -68,17 +75,19 @@ const FakeJev = Layer.succeed(
 )
 
 let loanRequests = 0
+/** Whether the Claude probe succeeds: false as with no key, a bad one, or a probe that timed out. */
+let claudeUp = true
 
 const FakeClaude = Layer.succeed(
   Claude,
   Claude.of({
     model: "claude-test",
-    available: Effect.succeed(true),
+    available: Effect.sync(() => claudeUp),
     generate: (options) =>
       (options.schema as unknown) === LoanOutput
         ? Effect.sync(() => {
             loanRequests++
-            return { loanTrap: "日本語の「スタイル」は体型を指すことが多いです。" } as never
+            return { loanTrap: WARNING } as never
           })
         : Effect.succeed({
             senses: [
@@ -258,7 +267,7 @@ layer(TestLayer)("kotori work", (it) => {
         rows.map((row) => [row.word, row.verdict?.value, row.trap])
       )
       // The dictionary has a katakana word for "style"; Jev judged that it drifted.
-      const warned = ["スタイル", "diverges", "日本語の「スタイル」は体型を指すことが多いです。"]
+      const warned = ["スタイル", "diverges", WARNING]
       assert.deepStrictEqual(yield* judged, [warned])
       assert.strictEqual((yield* enrichment.nuanceFor([styleEnglish])).length, 2)
       assert.strictEqual(loanRequests, 1)
@@ -268,6 +277,55 @@ layer(TestLayer)("kotori work", (it) => {
       assert.strictEqual(yield* drain(step), 1)
       assert.deepStrictEqual(yield* judged, [warned])
       assert.strictEqual(loanRequests, 1)
+    })
+  )
+
+  it.effect("writes a loan warning skipped while Claude was unavailable once it is back, without Jev", () =>
+    Effect.gen(function* () {
+      const dictionary = yield* DictionaryRepo
+      const enrichment = yield* EnrichmentRepo
+      const jobs = yield* JobsRepo
+      const mansion = 100001700
+      yield* dictionary.insertEntries([
+        { ...entry(mansion, "mansion", "/ˈmænʃən/", [["大邸宅"]]), language: "en", forms: [] },
+        {
+          ...entry(1130040, "マンション", "マンション", [["condominium", "mansion"]]),
+          forms: [
+            {
+              kind: "kana",
+              text: "マンション",
+              common: true,
+              tags: [],
+              priorities: [],
+              restrictions: [],
+              noKanji: false
+            }
+          ]
+        }
+      ])
+      const step = yield* makeJobRunner(["nuance"])
+      const before = { jev: jevRequests, claude: loanRequests }
+      const trap = Effect.map(enrichment.loanWordsFor([mansion]), ([row]) => [row?.verdict?.value, row?.trap])
+
+      // Judged while the Claude probe fails: the verdict is saved, the warning skipped.
+      claudeUp = false
+      yield* jobs.enqueue("nuance", mansion, 100, 0)
+      assert.strictEqual(yield* drain(step), 1)
+      assert.deepStrictEqual(yield* trap, ["diverges", null])
+      assert.strictEqual(jevRequests - before.jev, 2)
+
+      // Queued again while Claude is still away, the job leaves it to a later try.
+      yield* jobs.requeue("nuance", mansion, 100, 0)
+      assert.strictEqual(yield* drain(step), 1)
+      assert.deepStrictEqual(yield* trap, ["diverges", null])
+
+      // Claude is back: the next run writes the warning, and doesn't ask Jev again.
+      claudeUp = true
+      yield* jobs.requeue("nuance", mansion, 100, 0)
+      assert.strictEqual(yield* drain(step), 1)
+      assert.deepStrictEqual(yield* trap, ["diverges", WARNING])
+      assert.strictEqual(jevRequests - before.jev, 2)
+      assert.strictEqual(loanRequests - before.claude, 1)
     })
   )
 

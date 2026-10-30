@@ -9,6 +9,22 @@ import { type CandidateState, candidateScope, entryState, judgedSenses, type Sen
 export const questionsVersionOf = (language: Language) =>
   language === "ja" ? QUESTIONS_VERSION : ENGLISH_QUESTIONS_VERSION
 
+/**
+ * Whether an entry's stored judgments are behind: some predate its language's question set, or a
+ * re-import has ranked a sense nobody judged among the judged ones (judged rows follow their
+ * senses, so one may lead without any). Viewing such an entry queues it to be judged again.
+ */
+export const nuanceOutdated = (
+  entry: EntryRecord,
+  rows: ReadonlyArray<{ readonly sense: number; readonly questionsVersion: number }>
+) => {
+  const judged = new Set(rows.map((row) => row.sense))
+  return (
+    rows.some((row) => row.questionsVersion < questionsVersionOf(entry.language)) ||
+    (rows.length > 0 && judgedSenses(entry).some((_, index) => !judged.has(index)))
+  )
+}
+
 /** Names the sense a question is about: every question sees all of `senses`. */
 const FOCUS: Record<Language, string> = {
   ja: "The word has the senses listed in `senses`. Judge only the sense whose meaning is `meaning`; `part_of_speech` and `dictionary_notes` are the dictionary's information on that sense.",

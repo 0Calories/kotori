@@ -1,7 +1,6 @@
 import { Claude, ExampleWriter, LoanWriter } from "@kotori/ai"
 import { DictionaryRepo, EnrichmentRepo, type JobKind } from "@kotori/db"
-import { LOAN_SHOWN } from "@kotori/domain"
-import { Jev, NuanceEnricher } from "@kotori/nuance"
+import { awaitsWarning, Jev, NuanceEnricher, nuanceOutdated } from "@kotori/nuance"
 import { Pronouncer } from "@kotori/tts"
 import { Clock, Context, Effect, Layer } from "effect"
 
@@ -90,15 +89,7 @@ export class Enrichers extends Context.Service<
        */
       const trap = Effect.fn("Enrichers.loanTrap")(function* (entryId: number) {
         const [loan] = yield* enrichment.loanWordsFor([entryId])
-        if (
-          loan?.word == null ||
-          loan.trap !== null ||
-          loan.verdict?.value !== "diverges" ||
-          loan.verdict.confidence < LOAN_SHOWN ||
-          !(yield* claude.available)
-        ) {
-          return false
-        }
+        if (loan?.word == null || !awaitsWarning(loan) || !(yield* claude.available)) return false
         const [entry] = yield* dictionary.getEntries([entryId])
         if (entry === undefined) return false
         const written = yield* loanWriter.write({
@@ -117,9 +108,25 @@ export class Enrichers extends Context.Service<
         return true
       })
 
+      /**
+       * Whether a nuance job has nothing left to do but the loan warning: the entry's judgments are
+       * current, and Claude was unavailable when its loan was judged (no key, a bad one, or a
+       * probe that timed out). The API queues such a job when the entry is viewed with Claude back.
+       */
+      const onlyWarningMissing = Effect.fnUntraced(function* (entryId: number) {
+        const [entry] = yield* dictionary.getEntries([entryId])
+        const rows = yield* enrichment.nuanceFor([entryId])
+        const [loan] = yield* enrichment.loanWordsFor([entryId])
+        return entry !== undefined && rows.length > 0 && !nuanceOutdated(entry, rows) && awaitsWarning(loan)
+      })
+
       // A Claude failure fails the job after Jev's answers are saved; the retry asks Jev again,
-      // which costs a fraction of a cent and keeps the warning from being silently skipped.
+      // which costs a fraction of a cent and keeps the warning from being silently skipped. A
+      // job queued for a missing warning alone writes it without asking Jev again.
       const judge = Effect.fn("Enrichers.nuance")(function* (entryId: number) {
+        if (yield* onlyWarningMissing(entryId)) {
+          return (yield* trap(entryId)) ? "loan warning written" : "loan warning still missing: Claude is unavailable"
+        }
         const summary = yield* nuance.enrich(entryId)
         const warned = yield* trap(entryId)
         const loan = summary.loan === null ? "" : `, loan ${summary.loan}${warned ? " (warning written)" : ""}`

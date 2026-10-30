@@ -1,18 +1,19 @@
-import type {
-  AgeGroup,
-  Connotation,
-  Currency,
-  Difference,
-  Formality,
-  Gender,
-  JudgmentSource,
-  Keigo,
-  Loanword,
-  LoanVerdict,
-  Medium,
-  Nuance,
-  RegisterShape,
-  Variety
+import {
+  type AgeGroup,
+  type Connotation,
+  type Currency,
+  type Difference,
+  type Formality,
+  type Gender,
+  type JudgmentSource,
+  type Keigo,
+  LOAN_SHOWN,
+  type LoanVerdict,
+  type Loanword,
+  type Medium,
+  type Nuance,
+  type RegisterShape,
+  type Variety
 } from "@kotori/domain"
 import type { ChoiceResponse, NoulResponse, ScoreResponse } from "@typesafe-ai/sdk"
 import { PROFANITY_LEVELS } from "./english.ts"
@@ -223,6 +224,25 @@ export const interpretSense = (
  * build it (docs/nuance-rework.md C3), so tune it on the eval before lowering it.
  */
 export const LOAN_IS = 0.7
+
+/**
+ * A stored loan the app shows as drifted whose warning Claude hasn't written: it was judged while
+ * Claude was unavailable (no key, a bad one, or a probe that timed out).
+ */
+export const awaitsWarning = (
+  loan:
+    | {
+        readonly word: string | null
+        readonly verdict: Loanword["verdict"] | null
+        readonly trap: string | null
+      }
+    | undefined
+): boolean =>
+  loan !== undefined &&
+  loan.word !== null &&
+  loan.trap === null &&
+  loan.verdict?.value === "diverges" &&
+  loan.verdict.confidence >= LOAN_SHOWN
 
 /** A katakana word asked about as an English word's loan, and how the dictionary ties them. */
 export interface AskedLoan {
