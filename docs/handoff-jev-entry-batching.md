@@ -540,10 +540,11 @@ Accuracy where Jev decides what is shown; flips with options reversed in bracket
   | "same as" chips shown, of 8 matching loans | 7 | 3 | 4 |
 
 - The first rewording ("every use matches, with the same feeling") found some difference in
-  nearly every loan. The kept one costs chips: テーブル, ホテル, テスト and ボール are judged
-  `matches` but below the display threshold. Getting them back means asking the old
-  per-meaning question beside this one for the chip, up to 3 more questions per gloss,
-  which takes the English worst case past the 64k limit unless loan questions are capped.
+  nearly every loan. The kept one costs chips: テーブル, ホテル and テスト are judged `matches`
+  but now fall below the display threshold, as ボール already did. Getting them back means
+  asking the old per-meaning question beside this one for the chip, up to 3 more questions
+  per gloss, which takes the English worst case past the 64k limit unless loan questions are
+  capped.
 - ナイーブ and カンニング are judged `diverges` but below the threshold (0.36 and 0.50), so
   neither gets a warning yet.
 
