@@ -12,8 +12,10 @@
     "anat": "anatomy",
     "arch": "archaic",
     "aux-v": "auxiliary verb",
+    "aviat": "aviation",
     "baseb": "baseball",
     "bot": "botany",
+    "cards": "card games",
     "chn": "children's language",
     "cloth": "clothing",
     "col": "colloquial",
@@ -36,16 +38,21 @@
     "exp": "expressions (phrases, clauses, etc.)",
     "fam": "familiar language",
     "fem": "female term or language",
+    "figskt": "figure skating",
     "food": "food, cooking",
     "form": "formal or literary term",
     "hist": "historical term",
     "hon": "honorific or respectful (sonkeigo) language",
     "hum": "humble (kenjougo) language",
     "int": "interjection (kandoushi)",
+    "internet": "Internet",
     "joc": "jocular, humorous term",
     "law": "law",
+    "logic": "logic",
     "male": "male term or language",
     "math": "mathematics",
+    "mil": "military",
+    "music": "music",
     "n": "noun (common) (futsuumeishi)",
     "n-pref": "noun, used as a prefix",
     "n-suf": "noun, used as a suffix",
@@ -60,6 +67,9 @@
     "prt": "particle",
     "rare": "rare term",
     "sl": "slang",
+    "sports": "sports",
+    "stat": "statistics",
+    "suf": "suffix",
     "sumo": "sumo",
     "uk": "word usually written using kana alone",
     "uncountable": "uncountable",
@@ -75,6 +85,7 @@
     "v5s": "Godan verb with 'su' ending",
     "v5u": "Godan verb with 'u' ending",
     "vi": "intransitive verb",
+    "vidg": "video games",
     "vs": "noun or participle which takes the aux. verb suru",
     "vt": "transitive verb",
     "vulg": "vulgar expression or word"
@@ -428,6 +439,135 @@
       ]
     },
     {
+      "id": 1017870,
+      "headword": "アピール",
+      "reading": "アピール",
+      "common": true,
+      "kana": ["アピール", "アッピール"],
+      "senses": [
+        {
+          "glosses": ["appeal (e.g. for peace)", "plea", "request"],
+          "pos": ["n", "vs", "vt"]
+        },
+        {
+          "glosses": ["appeal (of something)", "attractiveness", "allure"],
+          "pos": ["n", "vs", "vi"]
+        },
+        {
+          "glosses": ["appeal (to the referee)"],
+          "pos": ["n", "vs", "vt"],
+          "fields": ["sports"]
+        },
+        {
+          "glosses": [
+            "emphasizing",
+            "calling attention to",
+            "making a display of",
+            "showing off",
+            "playing up",
+            "touting",
+            "using as a selling point",
+            "pitch"
+          ],
+          "pos": ["n", "vs", "vt"]
+        }
+      ]
+    },
+    {
+      "id": 1022090,
+      "headword": "イレブン",
+      "reading": "イレブン",
+      "common": true,
+      "kana": ["イレブン", "イレヴン"],
+      "senses": [
+        {
+          "glosses": ["eleven"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["team (of eleven players; esp. in soccer)"],
+          "pos": ["n"],
+          "fields": ["sports"]
+        }
+      ]
+    },
+    {
+      "id": 1030630,
+      "headword": "エレベーター",
+      "reading": "エレベーター",
+      "common": true,
+      "kana": ["エレベーター", "エレベータ"],
+      "senses": [
+        {
+          "glosses": ["elevator", "lift"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["elevator"],
+          "pos": ["n"],
+          "fields": ["aviat"]
+        }
+      ]
+    },
+    {
+      "id": 1032960,
+      "headword": "オープニング",
+      "reading": "オープニング",
+      "common": true,
+      "kana": ["オープニング"],
+      "senses": [
+        {
+          "glosses": ["opening", "start", "launch"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["opening credits", "title sequence"],
+          "pos": ["n"],
+          "misc": ["abbr"]
+        },
+        {
+          "glosses": ["theme song (played during the opening credits of a TV show, etc.)"],
+          "pos": ["n"],
+          "misc": ["abbr"]
+        }
+      ]
+    },
+    {
+      "id": 1036400,
+      "headword": "カード",
+      "reading": "カード",
+      "common": true,
+      "kana": ["カード"],
+      "senses": [
+        {
+          "glosses": ["card (information, filing, etc.)"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["card (greetings, congratulations, etc.)"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["(Western) playing cards"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["credit card", "debit card"],
+          "pos": ["n"],
+          "misc": ["abbr"]
+        },
+        {
+          "glosses": ["card", "program", "matchup", "pairing"],
+          "pos": ["n"],
+          "fields": ["sports"]
+        },
+        {
+          "glosses": ["card (to play)", "(one's) hand", "bargaining chip", "leverage", "tactic"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
       "id": 1038350,
       "headword": "カメラ",
       "reading": "カメラ",
@@ -455,6 +595,49 @@
       ]
     },
     {
+      "id": 1043310,
+      "headword": "クーラー",
+      "reading": "クーラー",
+      "common": true,
+      "kana": ["クーラー"],
+      "senses": [
+        {
+          "glosses": ["air conditioner"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["cooler"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1044310,
+      "headword": "クラブ",
+      "reading": "クラブ",
+      "common": true,
+      "kana": ["クラブ"],
+      "senses": [
+        {
+          "glosses": ["nightclub"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["sports club", "team"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["(golf) club"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["clubs (suit)"],
+          "pos": ["n"],
+          "fields": ["cards"]
+        }
+      ]
+    },
+    {
       "id": 1045270,
       "headword": "クレーム",
       "reading": "クレーム",
@@ -467,6 +650,19 @@
         },
         {
           "glosses": ["(general) complaint", "objection"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1048400,
+      "headword": "ゲーム",
+      "reading": "ゲーム",
+      "common": true,
+      "kana": ["ゲーム"],
+      "senses": [
+        {
+          "glosses": ["game"],
           "pos": ["n"]
         }
       ]
@@ -548,6 +744,47 @@
       ]
     },
     {
+      "id": 1061280,
+      "headword": "シャープ",
+      "reading": "シャープ",
+      "common": true,
+      "kana": ["シャープ"],
+      "senses": [
+        {
+          "glosses": ["sharp (blade, image, mind, etc.)"],
+          "pos": ["adj-na"]
+        },
+        {
+          "glosses": ["sharp"],
+          "pos": ["n"],
+          "fields": ["music"]
+        },
+        {
+          "glosses": ["number sign", "hash sign", "pound sign"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["mechanical pencil"],
+          "pos": ["n"],
+          "misc": ["abbr"]
+        }
+      ]
+    },
+    {
+      "id": 1065240,
+      "headword": "ジャスト",
+      "reading": "ジャスト",
+      "common": true,
+      "kana": ["ジャスト"],
+      "senses": [
+        {
+          "glosses": ["just", "exactly", "precisely", "perfectly", "sharp"],
+          "pos": ["adv", "suf"],
+          "info": ["used with times, amounts of money, etc."]
+        }
+      ]
+    },
+    {
       "id": 1065950,
       "headword": "ジュース",
       "reading": "ジュース",
@@ -565,6 +802,43 @@
       ]
     },
     {
+      "id": 1066390,
+      "headword": "ジョッキ",
+      "reading": "ジョッキ",
+      "common": true,
+      "kana": ["ジョッキ"],
+      "senses": [
+        {
+          "glosses": ["beer mug", "stein", "tankard"],
+          "pos": ["n"],
+          "sources": ["jug"]
+        }
+      ]
+    },
+    {
+      "id": 1068990,
+      "headword": "スコープ",
+      "reading": "スコープ",
+      "common": true,
+      "kana": ["スコープ"],
+      "senses": [
+        {
+          "glosses": ["scope", "extent", "range"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["scope (i.e. an optical device)"],
+          "pos": ["n"],
+          "info": ["usu. in compounds"]
+        },
+        {
+          "glosses": ["scope (of a name binding)"],
+          "pos": ["n"],
+          "fields": ["comp"]
+        }
+      ]
+    },
+    {
       "id": 1069520,
       "headword": "スタイル",
       "reading": "スタイル",
@@ -577,6 +851,45 @@
         },
         {
           "glosses": ["style"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1070320,
+      "headword": "ステージ",
+      "reading": "ステージ",
+      "common": true,
+      "kana": ["ステージ"],
+      "senses": [
+        {
+          "glosses": ["stage (platform)"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["performance", "show"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["stage (phase)", "part"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["stage", "level"],
+          "pos": ["n"],
+          "fields": ["vidg"]
+        }
+      ]
+    },
+    {
+      "id": 1070790,
+      "headword": "ストーブ",
+      "reading": "ストーブ",
+      "common": true,
+      "kana": ["ストーブ", "ストーヴ"],
+      "senses": [
+        {
+          "glosses": ["(room) heater", "stove"],
           "pos": ["n"]
         }
       ]
@@ -700,6 +1013,32 @@
       ]
     },
     {
+      "id": 1077360,
+      "headword": "チーム",
+      "reading": "チーム",
+      "common": true,
+      "kana": ["チーム", "ティーム"],
+      "senses": [
+        {
+          "glosses": ["team"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1078040,
+      "headword": "チャンス",
+      "reading": "チャンス",
+      "common": true,
+      "kana": ["チャンス"],
+      "senses": [
+        {
+          "glosses": ["chance", "opportunity"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
       "id": 1078630,
       "headword": "テーブル",
       "reading": "テーブル",
@@ -796,6 +1135,20 @@
       ]
     },
     {
+      "id": 1086410,
+      "headword": "トランプ",
+      "reading": "トランプ",
+      "common": true,
+      "kana": ["トランプ", "トラムプ"],
+      "senses": [
+        {
+          "glosses": ["(Western) playing cards"],
+          "pos": ["n"],
+          "sources": ["trump"]
+        }
+      ]
+    },
+    {
       "id": 1087820,
       "headword": "ドア",
       "reading": "ドア",
@@ -845,6 +1198,54 @@
       ]
     },
     {
+      "id": 1096830,
+      "headword": "ハンドル",
+      "reading": "ハンドル",
+      "common": true,
+      "kana": ["ハンドル"],
+      "senses": [
+        {
+          "glosses": ["handle"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["steering wheel"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["handlebar", "handlebars"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["handle", "screen name", "username"],
+          "pos": ["n"],
+          "fields": ["internet"]
+        }
+      ]
+    },
+    {
+      "id": 1097800,
+      "headword": "バイキング",
+      "reading": "バイキング",
+      "common": true,
+      "kana": ["バイキング", "ヴァイキング"],
+      "senses": [
+        {
+          "glosses": ["Viking"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["smorgasbord", "buffet"],
+          "pos": ["n"],
+          "misc": ["abbr"]
+        },
+        {
+          "glosses": ["smorgasbord (of things)", "hodge-podge", "wide range of something"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
       "id": 1097810,
       "headword": "バイク",
       "reading": "バイク",
@@ -883,6 +1284,55 @@
       ]
     },
     {
+      "id": 1104300,
+      "headword": "ヒント",
+      "reading": "ヒント",
+      "common": true,
+      "kana": ["ヒント"],
+      "senses": [
+        {
+          "glosses": ["hint", "clue"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1106360,
+      "headword": "ピアス",
+      "reading": "ピアス",
+      "common": true,
+      "kana": ["ピアス"],
+      "senses": [
+        {
+          "glosses": ["earrings (for pierced ears)"],
+          "pos": ["n"],
+          "sources": ["pierce"]
+        },
+        {
+          "glosses": ["ear piercing", "body piercing"],
+          "pos": ["n", "vs"]
+        }
+      ]
+    },
+    {
+      "id": 1106780,
+      "headword": "ピッチャー",
+      "reading": "ピッチャー",
+      "common": true,
+      "kana": ["ピッチャー"],
+      "senses": [
+        {
+          "glosses": ["pitcher"],
+          "pos": ["n"],
+          "fields": ["baseb"]
+        },
+        {
+          "glosses": ["pitcher (container)", "jug"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
       "id": 1110460,
       "headword": "フォアボール",
       "reading": "フォアボール",
@@ -895,6 +1345,140 @@
           "fields": ["baseb"],
           "sources": ["four balls"],
           "wasei": true
+        }
+      ]
+    },
+    {
+      "id": 1111640,
+      "headword": "フリー",
+      "reading": "フリー",
+      "common": true,
+      "kana": ["フリー"],
+      "senses": [
+        {
+          "glosses": ["free (of restraint, controls, etc.)"],
+          "pos": ["adj-na", "n"]
+        },
+        {
+          "glosses": ["free (of charge)"],
+          "pos": ["adj-no", "n"]
+        },
+        {
+          "glosses": ["freelance", "independent"],
+          "pos": ["adj-no", "n"]
+        },
+        {
+          "glosses": ["freelancer"],
+          "pos": ["n"],
+          "misc": ["abbr"]
+        },
+        {
+          "glosses": ["one-size-fits-all"],
+          "pos": ["adj-no", "n"],
+          "misc": ["abbr"]
+        },
+        {
+          "glosses": ["free skating", "long program"],
+          "pos": ["n"],
+          "misc": ["abbr"],
+          "fields": ["figskt"]
+        }
+      ]
+    },
+    {
+      "id": 1111840,
+      "headword": "フリーダム",
+      "reading": "フリーダム",
+      "common": true,
+      "kana": ["フリーダム"],
+      "senses": [
+        {
+          "glosses": ["freedom"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["free", "open", "unrestricted", "unrestrained", "unobstructed"],
+          "pos": ["adj-na", "adj-no"]
+        }
+      ]
+    },
+    {
+      "id": 1112850,
+      "headword": "フロック",
+      "reading": "フロック",
+      "common": true,
+      "kana": ["フロック"],
+      "senses": [
+        {
+          "glosses": ["fluke", "chance", "unexpected event", "lucky shot (e.g. in billiards)"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1112990,
+      "headword": "フロント",
+      "reading": "フロント",
+      "common": true,
+      "kana": ["フロント"],
+      "senses": [
+        {
+          "glosses": ["front (aspect, weather, war-front, etc.)"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["reception (e.g. in a hotel)", "front desk"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["front office", "team management"],
+          "pos": ["n"],
+          "fields": ["sports"]
+        }
+      ]
+    },
+    {
+      "id": 1116400,
+      "headword": "プレイ",
+      "reading": "プレイ",
+      "common": true,
+      "kana": ["プレイ", "プレー"],
+      "senses": [
+        {
+          "glosses": ["play", "recreation"],
+          "pos": ["n", "vs", "vi"]
+        },
+        {
+          "glosses": ["playing (a sport)", "play", "game"],
+          "pos": ["n", "vs", "vi"],
+          "info": ["esp. プレー"]
+        },
+        {
+          "glosses": ["playing (a musical instrument)", "musical performance"],
+          "pos": ["n", "vs", "vi"]
+        },
+        {
+          "glosses": ["play (theatrical performance)"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["play ball", "starting a match"],
+          "pos": ["n"],
+          "misc": ["abbr"],
+          "fields": ["sports"]
+        }
+      ]
+    },
+    {
+      "id": 1121380,
+      "headword": "ペン",
+      "reading": "ペン",
+      "common": true,
+      "kana": ["ペン"],
+      "senses": [
+        {
+          "glosses": ["pen"],
+          "pos": ["n"]
         }
       ]
     },
@@ -1009,6 +1593,147 @@
           ],
           "pos": ["n"],
           "sources": ["mansion"]
+        }
+      ]
+    },
+    {
+      "id": 1134370,
+      "headword": "メンバー",
+      "reading": "メンバー",
+      "common": true,
+      "kana": ["メンバー", "メンバ"],
+      "senses": [
+        {
+          "glosses": ["member", "participant", "attendee", "lineup (sport)"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1134640,
+      "headword": "モーニング",
+      "reading": "モーニング",
+      "common": true,
+      "kana": ["モーニング"],
+      "senses": [
+        {
+          "glosses": ["morning"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["breakfast set (often a drink and toast)", "breakfast special", "special breakfast offer"],
+          "pos": ["n"],
+          "misc": ["abbr"]
+        },
+        {
+          "glosses": ["morning dress", "morning coat"],
+          "pos": ["n"],
+          "misc": ["abbr"]
+        }
+      ]
+    },
+    {
+      "id": 1140100,
+      "headword": "ランチ",
+      "reading": "ランチ",
+      "common": true,
+      "kana": ["ランチ"],
+      "senses": [
+        {
+          "glosses": ["lunch"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["(Western-style) single-plate lunch set", "plate lunch", "lunch set"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1142520,
+      "headword": "リフォーム",
+      "reading": "リフォーム",
+      "common": true,
+      "kana": ["リフォーム"],
+      "senses": [
+        {
+          "glosses": [
+            "renovation (e.g. a house)",
+            "redecoration",
+            "refurbishment",
+            "makeover",
+            "alteration (e.g. of clothes)",
+            "re-tailoring",
+            "repair (e.g. of shoes)"
+          ],
+          "pos": ["n", "vs", "vt"],
+          "sources": ["reform"]
+        }
+      ]
+    },
+    {
+      "id": 1143590,
+      "headword": "ルーズ",
+      "reading": "ルーズ",
+      "common": true,
+      "kana": ["ルーズ"],
+      "senses": [
+        {
+          "glosses": ["careless (with something, esp. time, money, promises, etc.)", "lax", "sloppy", "slack"],
+          "pos": ["adj-na"],
+          "info": ["oft. after に"],
+          "sources": ["loose"]
+        },
+        {
+          "glosses": ["loose-fitting", "relaxed-fit", "baggy"],
+          "pos": ["adj-na"]
+        },
+        {
+          "glosses": ["laid-back (e.g. beat, rhythm)", "easygoing (e.g. atmosphere)", "relaxed"],
+          "pos": ["adj-na"]
+        }
+      ]
+    },
+    {
+      "id": 1145910,
+      "headword": "レベル",
+      "reading": "レベル",
+      "common": true,
+      "kana": ["レベル", "レヴェル"],
+      "senses": [
+        {
+          "glosses": ["level", "standard", "grade", "class", "rank"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["level (amount or quantity)"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["level (plane)"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["level (instrument)", "spirit level", "surveyor's level"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1146110,
+      "headword": "レンジ",
+      "reading": "レンジ",
+      "common": true,
+      "kana": ["レンジ"],
+      "senses": [
+        {
+          "glosses": ["range", "stove", "cooker"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["microwave oven"],
+          "pos": ["n"],
+          "misc": ["abbr"]
         }
       ]
     },
@@ -3196,6 +3921,28 @@
       ]
     },
     {
+      "id": 100000279,
+      "language": "en",
+      "headword": "morning",
+      "reading": "/ˈmɔːnɪŋ/",
+      "common": true,
+      "spellings": ["morning"],
+      "senses": [
+        {
+          "glosses": ["午前", "午前0時から正午まで"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["朝", "夜明けから正午まで"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["おはよう", "good morning の簡略形"],
+          "pos": ["int"]
+        }
+      ]
+    },
+    {
       "id": 100000281,
       "language": "en",
       "headword": "hell",
@@ -3483,6 +4230,61 @@
       ]
     },
     {
+      "id": 100000409,
+      "language": "en",
+      "headword": "game",
+      "reading": "/ɡeɪm/",
+      "common": true,
+      "spellings": ["game", "gm"],
+      "senses": [
+        {
+          "glosses": ["ゲーム"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["獲物"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 100000415,
+      "language": "en",
+      "headword": "chance",
+      "reading": "/tʃɑːns/",
+      "common": true,
+      "spellings": ["chance"],
+      "senses": [
+        {
+          "glosses": ["チャンス", "機会", "好機"],
+          "pos": ["n"],
+          "misc": ["countable"]
+        },
+        {
+          "glosses": ["偶然", "運"],
+          "pos": ["n"],
+          "misc": ["uncountable"]
+        },
+        {
+          "glosses": ["可能性", "見込み"],
+          "pos": ["n"],
+          "misc": ["countable"]
+        },
+        {
+          "glosses": ["賭け"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["たからくじ"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["偶然～する"],
+          "pos": ["v"]
+        }
+      ]
+    },
+    {
       "id": 100000422,
       "language": "en",
       "headword": "whatever",
@@ -3579,6 +4381,106 @@
         {
           "glosses": ["に署名する", "サインする"],
           "pos": ["v", "vt"]
+        }
+      ]
+    },
+    {
+      "id": 100000504,
+      "language": "en",
+      "headword": "free",
+      "reading": "/fɹiː/",
+      "common": true,
+      "spellings": ["free"],
+      "senses": [
+        {
+          "glosses": ["無料の", "無償の"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["自由な", "自由に～できる"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["暇な"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["無料で"],
+          "pos": ["adv"]
+        },
+        {
+          "glosses": ["自由にする", "解放する"],
+          "pos": ["v"]
+        }
+      ]
+    },
+    {
+      "id": 100000523,
+      "language": "en",
+      "headword": "front",
+      "reading": "/fɹʌnt/",
+      "common": true,
+      "spellings": ["front"],
+      "senses": [
+        {
+          "glosses": ["前", "表", "前面", "前部", "前方"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["前の", "正面の"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["前線", "戦線", "戦地"],
+          "pos": ["n"],
+          "fields": ["mil"]
+        },
+        {
+          "glosses": ["前線"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["～に面する", "向く"],
+          "pos": ["v", "vt"]
+        },
+        {
+          "glosses": ["前舌の"],
+          "pos": ["adj"]
+        }
+      ]
+    },
+    {
+      "id": 100000531,
+      "language": "en",
+      "headword": "team",
+      "reading": "",
+      "common": true,
+      "spellings": ["team"],
+      "senses": [
+        {
+          "glosses": ["(スポーツの)チーム"],
+          "pos": []
+        },
+        {
+          "glosses": ["(共に仕事などをする)一団", "一組"],
+          "pos": []
+        },
+        {
+          "glosses": ["(荷車を引く2頭以上の牛馬などの)一組"],
+          "pos": []
+        },
+        {
+          "glosses": ["〈動物〉を一組にする"],
+          "pos": ["v", "vt"]
+        },
+        {
+          "glosses": ["…を一組の動物で運ぶ"],
+          "pos": ["v", "vt"]
+        },
+        {
+          "glosses": ["(…と)チームを作る", "チームを組む", "協力する"],
+          "pos": [],
+          "info": ["+up with+名"]
         }
       ]
     },
@@ -3826,6 +4728,74 @@
       ]
     },
     {
+      "id": 100000722,
+      "language": "en",
+      "headword": "card",
+      "reading": "/kɑːd/",
+      "common": true,
+      "spellings": ["card"],
+      "senses": [
+        {
+          "glosses": ["カード", "紙片状の物"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["トランプ"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["カルタ"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["カルテ"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["名刺"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["厚紙", "ボール紙"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 100000735,
+      "language": "en",
+      "headword": "handle",
+      "reading": "/ˈhæn.dl/",
+      "common": true,
+      "spellings": ["handle"],
+      "senses": [
+        {
+          "glosses": ["取っ手", "柄", "ハンドル"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["扱う", "操る"],
+          "pos": ["v", "vt"]
+        },
+        {
+          "glosses": ["（目標達成の）手段"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["きっかけ", "機会", "口実"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["掛け金の総額"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["（布地などの）手触り"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
       "id": 100000807,
       "language": "en",
       "headword": "hotel",
@@ -3972,6 +4942,24 @@
       ]
     },
     {
+      "id": 100000933,
+      "language": "en",
+      "headword": "lunch",
+      "reading": "/lʌnʧ/",
+      "common": true,
+      "spellings": ["lunch"],
+      "senses": [
+        {
+          "glosses": ["昼御飯", "昼食", "ランチ"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["昼食をとる"],
+          "pos": ["v"]
+        }
+      ]
+    },
+    {
       "id": 100000938,
       "language": "en",
       "headword": "cat",
@@ -4068,6 +5056,77 @@
         },
         {
           "glosses": ["多量の", "大量の"],
+          "pos": ["adj"]
+        }
+      ]
+    },
+    {
+      "id": 100001096,
+      "language": "en",
+      "headword": "member",
+      "reading": "/ˈmɛmbə/",
+      "common": true,
+      "spellings": ["member"],
+      "senses": [
+        {
+          "glosses": ["メンバー", "一員", "会員"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["元", "要素"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["一部"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["手足", "四肢"],
+          "pos": ["n"],
+          "fields": ["anat"]
+        },
+        {
+          "glosses": ["陰茎", "ペニス"],
+          "pos": ["n"],
+          "misc": ["euph"]
+        },
+        {
+          "glosses": ["（三段論法の）命題"],
+          "pos": ["n"],
+          "fields": ["logic"]
+        }
+      ]
+    },
+    {
+      "id": 100001132,
+      "language": "en",
+      "headword": "level",
+      "reading": "/ˈlɛv.əl/",
+      "common": true,
+      "spellings": ["level"],
+      "senses": [
+        {
+          "glosses": ["平らな", "水平な"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["水準", "レベル"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["水平", "水平面", "水平線"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["高さ", "高度"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["擦り切り1杯の"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["平静な"],
           "pos": ["adj"]
         }
       ]
@@ -4271,6 +5330,40 @@
       ]
     },
     {
+      "id": 100001757,
+      "language": "en",
+      "headword": "loose",
+      "reading": "/luːs/",
+      "common": true,
+      "spellings": ["loose"],
+      "senses": [
+        {
+          "glosses": ["緩い", "ぐらつく"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["解放する", "自由にする"],
+          "pos": ["v"]
+        },
+        {
+          "glosses": ["緩める", "解く"],
+          "pos": ["v"]
+        },
+        {
+          "glosses": ["放つ", "発射する"],
+          "pos": ["v"]
+        },
+        {
+          "glosses": ["結んでいない", "束ねていない"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["ゆったりした"],
+          "pos": ["adj"]
+        }
+      ]
+    },
+    {
       "id": 100001805,
       "language": "en",
       "headword": "nope",
@@ -4447,6 +5540,101 @@
       ]
     },
     {
+      "id": 100002151,
+      "language": "en",
+      "headword": "launch",
+      "reading": "/lɔːntʃ/, /lɑːntʃ/",
+      "common": true,
+      "spellings": ["launch"],
+      "senses": [
+        {
+          "glosses": ["発射する", "打ち上げる"],
+          "pos": ["v"]
+        },
+        {
+          "glosses": [
+            "始める",
+            "開始する",
+            "スタートさせる",
+            "着手する",
+            "やり出す",
+            "乗り出す",
+            "うって出る",
+            "起こす",
+            "踏み切る",
+            "仕掛ける",
+            "展開する",
+            "進める",
+            "推進する",
+            "軌道に乗せる",
+            "進出する",
+            "動かし始める",
+            "発足させる",
+            "設置する",
+            "旗揚げする",
+            "誕生させる",
+            "登場させる",
+            "開く",
+            "興す",
+            "導入する",
+            "加える",
+            "行う",
+            "実行する",
+            "実施する",
+            "取り組む",
+            "講じる",
+            "制定する",
+            "施行する",
+            "（交渉などに）入る",
+            "（手段などに）出る"
+          ],
+          "pos": ["v", "vt"]
+        },
+        {
+          "glosses": ["開始", "着手", "立ち上げ", "始動", "発足", "実行"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["発射", "打ち上げ", "発射台"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["（プログラムを）起動する", "立ち上げる", "（ウィンドウを）開く"],
+          "pos": ["v"]
+        },
+        {
+          "glosses": ["進水する", "水に浮かべる", "水面に降ろす"],
+          "pos": ["v"]
+        }
+      ]
+    },
+    {
+      "id": 100002256,
+      "language": "en",
+      "headword": "pen",
+      "reading": "/pɛn/",
+      "common": true,
+      "spellings": ["pen"],
+      "senses": [
+        {
+          "glosses": ["（家畜用の）囲い"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["（家畜を）囲う"],
+          "pos": ["v", "vt"]
+        },
+        {
+          "glosses": ["筆記具", "ペン"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["執筆する"],
+          "pos": ["v", "vt"]
+        }
+      ]
+    },
+    {
       "id": 100002273,
       "language": "en",
       "headword": "thou",
@@ -4479,6 +5667,98 @@
         },
         {
           "glosses": ["分泌液", "抽出液"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 100002277,
+      "language": "en",
+      "headword": "range",
+      "reading": "/ɹeɪndʒ/",
+      "common": true,
+      "spellings": ["range"],
+      "senses": [
+        {
+          "glosses": ["かまど", "レンジ"],
+          "pos": ["n"],
+          "fields": ["food"]
+        },
+        {
+          "glosses": ["射程", "距離"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["範囲", "幅", "領域"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["（分布の）範囲"],
+          "pos": ["n"],
+          "fields": ["stat"]
+        },
+        {
+          "glosses": ["山脈", "山並み"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["列", "並び"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 100002301,
+      "language": "en",
+      "headword": "sharp",
+      "reading": "/ʃɑɹp/",
+      "common": true,
+      "spellings": ["sharp"],
+      "senses": [
+        {
+          "glosses": ["(刃物が) 鋭い", "よく切れる"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["(感覚や知力が) 鋭い", "敏い"],
+          "pos": ["adj"],
+          "misc": ["col"]
+        },
+        {
+          "glosses": ["（変化などが）急な", "急激な"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["シャープの", "嬰音の", "半音高い"],
+          "pos": ["adj"],
+          "fields": ["music"]
+        },
+        {
+          "glosses": ["シャープ", "嬰音(記号:♯)"],
+          "pos": ["n"],
+          "fields": ["music"]
+        },
+        {
+          "glosses": ["（カーブが）急な"],
+          "pos": ["adj"]
+        }
+      ]
+    },
+    {
+      "id": 100002304,
+      "language": "en",
+      "headword": "elevator",
+      "reading": "/ˈɛləveɪtə/",
+      "common": true,
+      "spellings": ["elevator"],
+      "senses": [
+        {
+          "glosses": ["エレベーター"],
+          "pos": ["n"],
+          "dialects": ["en-US"]
+        },
+        {
+          "glosses": ["穀物用のサイロ（grain elevator）"],
           "pos": ["n"]
         }
       ]
@@ -4528,6 +5808,40 @@
           "glosses": ["育つ"],
           "pos": ["v"],
           "misc": ["form"]
+        }
+      ]
+    },
+    {
+      "id": 100002755,
+      "language": "en",
+      "headword": "appeal",
+      "reading": "/əˈpɪəl/",
+      "common": true,
+      "spellings": ["appeal"],
+      "senses": [
+        {
+          "glosses": ["懇願する"],
+          "pos": ["v"]
+        },
+        {
+          "glosses": ["抗議する"],
+          "pos": ["v"]
+        },
+        {
+          "glosses": ["控訴する"],
+          "pos": ["v"]
+        },
+        {
+          "glosses": ["訴える"],
+          "pos": ["v"]
+        },
+        {
+          "glosses": ["気に入る"],
+          "pos": ["v"]
+        },
+        {
+          "glosses": ["懇願"],
+          "pos": ["n"]
         }
       ]
     },
@@ -4601,6 +5915,32 @@
         {
           "glosses": ["ごちそうする"],
           "pos": ["v"]
+        }
+      ]
+    },
+    {
+      "id": 100003339,
+      "language": "en",
+      "headword": "pierce",
+      "reading": "",
+      "common": true,
+      "spellings": ["pierce"],
+      "senses": [
+        {
+          "glosses": ["突き通す", "貫通させる"],
+          "pos": ["v", "vt"]
+        },
+        {
+          "glosses": ["穴を開ける"],
+          "pos": ["v", "vt"]
+        },
+        {
+          "glosses": ["見抜く", "洞察する"],
+          "pos": ["v", "vt"]
+        },
+        {
+          "glosses": ["（寒さ・痛み・悲しみなどが）身に染みる"],
+          "pos": ["v", "vt"]
         }
       ]
     },
@@ -4689,6 +6029,40 @@
       ]
     },
     {
+      "id": 100004033,
+      "language": "en",
+      "headword": "hint",
+      "reading": "/hɪnt/",
+      "common": true,
+      "spellings": ["hint"],
+      "senses": [
+        {
+          "glosses": ["てがかり", "ヒント"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["兆候", "気配"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["暗示", "ほのめかし", "示唆"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["暗示する", "ほのめかす", "示唆する", "におわせる"],
+          "pos": ["v"]
+        },
+        {
+          "glosses": ["指示", "てびき", "秘訣", "こつ"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["少量", "すこし", "わずか"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
       "id": 100004415,
       "language": "en",
       "headword": "mansion",
@@ -4765,6 +6139,40 @@
       ]
     },
     {
+      "id": 100004765,
+      "language": "en",
+      "headword": "reform",
+      "reading": "/rɪ.ˈfɔrm/",
+      "common": true,
+      "spellings": ["reform"],
+      "senses": [
+        {
+          "glosses": ["改善", "改革", "刷新"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["改善する"],
+          "pos": ["v"]
+        },
+        {
+          "glosses": ["改心する"],
+          "pos": ["v"]
+        },
+        {
+          "glosses": ["改心させる"],
+          "pos": ["v"]
+        },
+        {
+          "glosses": ["矯正する"],
+          "pos": ["v"]
+        },
+        {
+          "glosses": ["矯正", "修正"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
       "id": 100004926,
       "language": "en",
       "headword": "trousers",
@@ -4776,6 +6184,102 @@
           "glosses": ["ズボン"],
           "pos": ["n"],
           "fields": ["cloth"]
+        }
+      ]
+    },
+    {
+      "id": 100005067,
+      "language": "en",
+      "headword": "cooler",
+      "reading": "/ˈkuːl.ə(ɹ)/",
+      "common": true,
+      "spellings": ["cooler"],
+      "senses": [
+        {
+          "glosses": ["冷却に使うもの"],
+          "pos": ["n"],
+          "misc": ["countable"]
+        },
+        {
+          "glosses": ["保冷容器"],
+          "pos": ["n"],
+          "misc": ["countable"]
+        },
+        {
+          "glosses": ["遺体安置所(morgue)で遺体を冷蔵するための装置"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["冷やしたミックス・ドリンク"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "dialects": ["en-US"]
+        },
+        {
+          "glosses": ["刑務所"],
+          "pos": ["n"],
+          "misc": ["sl"],
+          "dialects": ["en-US"]
+        },
+        {
+          "glosses": ["コールドデック"],
+          "pos": ["n"],
+          "misc": ["countable", "col"]
+        }
+      ]
+    },
+    {
+      "id": 100005343,
+      "language": "en",
+      "headword": "trump",
+      "reading": "/tɹʌmp/",
+      "common": true,
+      "spellings": ["trump"],
+      "senses": [
+        {
+          "glosses": ["切り札"],
+          "pos": ["n"],
+          "fields": ["cards"]
+        },
+        {
+          "glosses": ["奥の手"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["立派な人"],
+          "pos": ["n"],
+          "misc": ["col"]
+        },
+        {
+          "glosses": ["切り札を出す"],
+          "pos": ["v", "vt"],
+          "fields": ["cards"]
+        },
+        {
+          "glosses": ["奥の手で勝つ"],
+          "pos": ["v", "vt"]
+        },
+        {
+          "glosses": ["取って代わる"],
+          "pos": ["v", "vt"]
+        }
+      ]
+    },
+    {
+      "id": 100005446,
+      "language": "en",
+      "headword": "stove",
+      "reading": "",
+      "common": true,
+      "spellings": ["stove"],
+      "senses": [
+        {
+          "glosses": ["ストーブ", "暖炉"],
+          "pos": []
+        },
+        {
+          "glosses": ["料理用レンジ(cooker)"],
+          "pos": []
         }
       ]
     },
@@ -4891,6 +6395,39 @@
           "glosses": ["（主に）ガソリン"],
           "pos": ["n"],
           "dialects": ["en-NZ", "en-GB", "en-AU"]
+        }
+      ]
+    },
+    {
+      "id": 100005967,
+      "language": "en",
+      "headword": "Viking",
+      "reading": "",
+      "common": true,
+      "spellings": ["Viking"],
+      "senses": [
+        {
+          "glosses": ["(歴史) ヴァイキング"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["(転じて) 海賊"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["ノース人"],
+          "pos": ["n"],
+          "misc": ["col"]
+        },
+        {
+          "glosses": [
+            "(口語, 蔑称) スウェーデン人",
+            "ノルウェー人",
+            "デンマーク人",
+            "アイスランド人",
+            "フェロー諸島人"
+          ],
+          "pos": ["n"]
         }
       ]
     },
@@ -5130,6 +6667,45 @@
           "glosses": ["こぎれいにする"],
           "pos": ["v", "vt"],
           "misc": ["obs"]
+        }
+      ]
+    },
+    {
+      "id": 100009169,
+      "language": "en",
+      "headword": "jug",
+      "reading": "",
+      "common": true,
+      "spellings": ["jug"],
+      "senses": [
+        {
+          "glosses": ["(陶製・ガラス製などでコルク栓の付いた取っ手付きの細口の)水入れ", "かめ", "つぼ"],
+          "pos": []
+        },
+        {
+          "glosses": ["(取っ手付きの広口の)水差し(pitcher)"],
+          "pos": [],
+          "dialects": ["en-GB", "en-US"]
+        },
+        {
+          "glosses": ["水差し(かめ)一杯(の…)(jugful)"],
+          "pos": [],
+          "info": ["+of+名"]
+        },
+        {
+          "glosses": ["刑務所(prison)"],
+          "pos": [],
+          "misc": ["sl"],
+          "info": ["the ~"]
+        },
+        {
+          "glosses": ["〈肉など〉を陶製のつぼでとろ火で煮る"],
+          "pos": ["v", "vt"]
+        },
+        {
+          "glosses": ["…を刑務所に入る"],
+          "pos": ["v", "vt"],
+          "misc": ["sl"]
         }
       ]
     },
@@ -5619,6 +7195,426 @@
     "shallow": {
       "glossesOnly": [],
       "withSources": []
+    },
+    "cooler": {
+      "glossesOnly": [
+        {
+          "entryId": 1043310,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1043310,
+          "by": "gloss"
+        }
+      ]
+    },
+    "handle": {
+      "glossesOnly": [
+        {
+          "entryId": 1096830,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1096830,
+          "by": "gloss"
+        }
+      ]
+    },
+    "pierce": {
+      "glossesOnly": [],
+      "withSources": [
+        {
+          "entryId": 1106360,
+          "by": "source"
+        }
+      ]
+    },
+    "stove": {
+      "glossesOnly": [
+        {
+          "entryId": 1070790,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1146110,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1070790,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1146110,
+          "by": "gloss"
+        }
+      ]
+    },
+    "viking": {
+      "glossesOnly": [
+        {
+          "entryId": 1097800,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1097800,
+          "by": "gloss"
+        }
+      ]
+    },
+    "sharp": {
+      "glossesOnly": [
+        {
+          "entryId": 1061280,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1065240,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1061280,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1065240,
+          "by": "gloss"
+        }
+      ]
+    },
+    "free": {
+      "glossesOnly": [
+        {
+          "entryId": 1111640,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1111840,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1111640,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1111840,
+          "by": "gloss"
+        }
+      ]
+    },
+    "reform": {
+      "glossesOnly": [],
+      "withSources": [
+        {
+          "entryId": 1142520,
+          "by": "source"
+        }
+      ]
+    },
+    "trump": {
+      "glossesOnly": [],
+      "withSources": [
+        {
+          "entryId": 1086410,
+          "by": "source"
+        }
+      ]
+    },
+    "loose": {
+      "glossesOnly": [],
+      "withSources": [
+        {
+          "entryId": 1143590,
+          "by": "source"
+        }
+      ]
+    },
+    "front": {
+      "glossesOnly": [
+        {
+          "entryId": 1112990,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1112990,
+          "by": "gloss"
+        }
+      ]
+    },
+    "morning": {
+      "glossesOnly": [
+        {
+          "entryId": 1134640,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1134640,
+          "by": "gloss"
+        }
+      ]
+    },
+    "appeal": {
+      "glossesOnly": [
+        {
+          "entryId": 1017870,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1017870,
+          "by": "gloss"
+        }
+      ]
+    },
+    "jug": {
+      "glossesOnly": [
+        {
+          "entryId": 1106780,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1066390,
+          "by": "source"
+        },
+        {
+          "entryId": 1106780,
+          "by": "gloss"
+        }
+      ]
+    },
+    "range": {
+      "glossesOnly": [
+        {
+          "entryId": 1068990,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1146110,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1068990,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1146110,
+          "by": "gloss"
+        }
+      ]
+    },
+    "game": {
+      "glossesOnly": [
+        {
+          "entryId": 1048400,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1116400,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1048400,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1116400,
+          "by": "gloss"
+        }
+      ]
+    },
+    "lunch": {
+      "glossesOnly": [
+        {
+          "entryId": 1140100,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1140100,
+          "by": "gloss"
+        }
+      ]
+    },
+    "card": {
+      "glossesOnly": [
+        {
+          "entryId": 1036400,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1036400,
+          "by": "gloss"
+        }
+      ]
+    },
+    "team": {
+      "glossesOnly": [
+        {
+          "entryId": 1077360,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1022090,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1044310,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1077360,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1022090,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1044310,
+          "by": "gloss"
+        }
+      ]
+    },
+    "chance": {
+      "glossesOnly": [
+        {
+          "entryId": 1078040,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1112850,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1078040,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1112850,
+          "by": "gloss"
+        }
+      ]
+    },
+    "pen": {
+      "glossesOnly": [
+        {
+          "entryId": 1121380,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1121380,
+          "by": "gloss"
+        }
+      ]
+    },
+    "elevator": {
+      "glossesOnly": [
+        {
+          "entryId": 1030630,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1030630,
+          "by": "gloss"
+        }
+      ]
+    },
+    "hint": {
+      "glossesOnly": [
+        {
+          "entryId": 1104300,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1104300,
+          "by": "gloss"
+        }
+      ]
+    },
+    "level": {
+      "glossesOnly": [
+        {
+          "entryId": 1070320,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1145910,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1070320,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1145910,
+          "by": "gloss"
+        }
+      ]
+    },
+    "member": {
+      "glossesOnly": [
+        {
+          "entryId": 1134370,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1134370,
+          "by": "gloss"
+        }
+      ]
+    },
+    "launch": {
+      "glossesOnly": [
+        {
+          "entryId": 1032960,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1032960,
+          "by": "gloss"
+        }
+      ]
     }
   }
 }

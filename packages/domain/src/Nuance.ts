@@ -111,6 +111,12 @@ export const Loanword = Schema.Struct({
 })
 export type Loanword = typeof Loanword.Type
 
+/**
+ * How confident a loan verdict must be for the app to show it, as a warning or a "same meaning"
+ * chip, and so for Claude to write its warning: the app's bar for every judgment.
+ */
+export const LOAN_SHOWN = 0.55
+
 /** How a similar word differs from the one being looked at. */
 export const Difference = Schema.Literals([
   "more_casual",

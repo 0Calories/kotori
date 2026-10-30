@@ -1,14 +1,12 @@
 import { Claude, ExampleWriter, LoanWriter } from "@kotori/ai"
 import { DictionaryRepo, EnrichmentRepo, type JobKind } from "@kotori/db"
+import { LOAN_SHOWN } from "@kotori/domain"
 import { Jev, NuanceEnricher } from "@kotori/nuance"
 import { Pronouncer } from "@kotori/tts"
 import { Clock, Context, Effect, Layer } from "effect"
 
 /** Senses that get example sentences; later senses are rarely what learners look for. */
 const EXAMPLE_SENSES = 4
-
-/** Below this a loan verdict isn't shown, matching the app, so it earns no warning. */
-const LOAN_CONFIDENT = 0.55
 
 export class Enrichers extends Context.Service<
   Enrichers,
@@ -96,7 +94,7 @@ export class Enrichers extends Context.Service<
           loan?.word == null ||
           loan.trap !== null ||
           loan.verdict?.value !== "diverges" ||
-          loan.verdict.confidence < LOAN_CONFIDENT ||
+          loan.verdict.confidence < LOAN_SHOWN ||
           !(yield* claude.available)
         ) {
           return false

@@ -1,5 +1,6 @@
 import type { EntryRecord } from "@kotori/db"
 import { normalizeGloss, resolveFromRoot } from "@kotori/db"
+import { LOAN_SHOWN } from "@kotori/domain"
 import {
   answersForCandidates,
   ENGLISH_QUESTIONS_VERSION,
@@ -487,24 +488,48 @@ export const evaluate = Command.make(
               const words = own.map((candidate) => candidate.word)
               return interpretLoan(answersForCandidates(reading.answers, asked, words), own, loanIs)
             }
+            // Held-out words are reported apart, so tuning on the others can't flatter them.
+            const set = golden.heldOut ? "held out: " : ""
+            const wanted = `${golden.loan}${golden.loanWord ? ` (${golden.loanWord})` : ""}`
             const loan = (dimension: string, read: LoanReading) => {
               const got = read.verdict?.value ?? "no_loan"
               const right = got === golden.loan && (golden.loan === "no_loan" || read.word === golden.loanWord)
               results.judged(
-                dimension,
+                `${set}${dimension}`,
                 false,
                 { correct: right, confidence: read.verdict?.confidence ?? null },
-                `${golden.word} ${dimension}: got ${got}${read.word ? ` (${read.word})` : ""}, wanted ${golden.loan}${golden.loanWord ? ` (${golden.loanWord})` : ""}`
+                `${golden.word} ${set}${dimension}: got ${got}${read.word ? ` (${read.word})` : ""}, wanted ${wanted}`
               )
             }
             loan("loan, glosses", readFor(lists.now))
-            loan("loan, +lsource", readFor(lists.reimported))
+            const reimported = readFor(lists.reimported)
+            loan("loan, +lsource", reimported)
             loan("loan, +lsrc @0.5", readFor(lists.reimported, 0.5))
+            // What learners see once JMDict has lsource: a verdict confident enough for the app,
+            // as a warning on a drifted loan or a "same meaning" chip on one carried over as is.
+            const shown =
+              reimported.verdict !== null && reimported.verdict.confidence >= LOAN_SHOWN ? reimported.verdict : null
+            const about = reimported.word === golden.loanWord
+            const display = (dimension: string, applies: boolean, correct: boolean) => {
+              if (!applies) return
+              results.judged(
+                `${set}${dimension}`,
+                false,
+                { correct, confidence: shown?.confidence ?? null },
+                `${golden.word} ${set}${dimension}: shown ${shown === null ? "nothing" : `${shown.value} (${reimported.word}) at ${shown.confidence.toFixed(2)}`}, wanted ${wanted}`
+              )
+            }
+            const warned = shown?.value === "diverges"
+            const chipped = shown?.value === "matches"
+            display("warning shown", golden.loan === "diverges", warned && about)
+            display("no false warning", true, !warned || (golden.loan === "diverges" && about))
+            display("same-meaning chip", golden.loan === "matches", chipped && about)
+            display("no wrong chip", true, !chipped || (golden.loan === "matches" && about))
           }),
         { concurrency, discard: true }
       )
       yield* Console.log(
-        `A loan counts at p >= ${LOAN_IS} that the katakana word is the English word's loan; "glosses" are the candidates production finds until JMDict is re-imported with lsource.`
+        `A loan counts at p >= ${LOAN_IS} that the katakana word is the English word's loan; "glosses" are the candidates production finds until JMDict is re-imported with lsource. The app shows a loan verdict at confidence >= ${LOAN_SHOWN}.`
       )
     }
     yield* Console.log(`The enricher keeps a similar word at p >= ${SIMILAR_KEPT}.`)

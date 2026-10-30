@@ -394,12 +394,19 @@ export interface GoldenLoan {
   readonly word: string
   readonly loan: LoanVerdict | "no_loan"
   readonly loanWord?: string
+  /** Added after the loan questions were tuned and kept out of any tuning since; reported apart. */
+  readonly heldOut?: true
 }
 
 const l = (word: string, loan: GoldenLoan["loan"], loanWord?: string): GoldenLoan => ({
   word,
   loan,
   ...(loanWord === undefined ? {} : { loanWord })
+})
+
+const heldOut = (word: string, loan: GoldenLoan["loan"], loanWord?: string): GoldenLoan => ({
+  ...l(word, loan, loanWord),
+  heldOut: true
 })
 
 export const GOLDEN_LOANS: ReadonlyArray<GoldenLoan> = [
@@ -431,7 +438,38 @@ export const GOLDEN_LOANS: ReadonlyArray<GoldenLoan> = [
   // --- No common loan --------------------------------------------------------------------
   l("walk", "no_loan"),
   l("borrow", "no_loan"),
-  l("shallow", "no_loan")
+  l("shallow", "no_loan"),
+  // --- Held out ----------------------------------------------------------------------------
+  // Added before the loan questions were reworked and never used to tune them, so they measure
+  // what tuning on the words above can't; none is an example in any question's criteria. Each
+  // is checked against JMDict's senses: a drifted loan's everyday meaning is one English
+  // doesn't have. ベテラン is left out: JMDict's only sense, an experienced person, is English too.
+  heldOut("cooler", "diverges", "クーラー"), // an air conditioner
+  heldOut("handle", "diverges", "ハンドル"), // a steering wheel or handlebars
+  heldOut("pierce", "diverges", "ピアス"), // earrings; found by lsource only
+  heldOut("stove", "diverges", "ストーブ"), // a room heater
+  heldOut("Viking", "diverges", "バイキング"), // a buffet
+  heldOut("sharp", "diverges", "シャープ"), // the # sign, a mechanical pencil; shares "sharp"
+  heldOut("free", "diverges", "フリー"), // freelance; shares "free"
+  heldOut("reform", "diverges", "リフォーム"), // renovating a home; lsource only
+  heldOut("trump", "diverges", "トランプ"), // playing cards; lsource only
+  heldOut("loose", "diverges", "ルーズ"), // careless with time or money; lsource only
+  heldOut("front", "diverges", "フロント"), // a hotel's reception desk
+  heldOut("morning", "diverges", "モーニング"), // a café's breakfast set
+  heldOut("appeal", "diverges", "アピール"), // promoting oneself, showing off
+  heldOut("jug", "diverges", "ジョッキ"), // a beer mug; lsource only, ピッチャー by gloss
+  heldOut("range", "diverges", "レンジ"), // a microwave oven; スコープ is a false candidate
+  heldOut("game", "matches", "ゲーム"),
+  heldOut("lunch", "matches", "ランチ"), // also a set lunch: a small difference
+  heldOut("card", "matches", "カード"), // six senses, all English's
+  heldOut("team", "matches", "チーム"), // イレブン and クラブ are false candidates
+  heldOut("chance", "matches", "チャンス"),
+  heldOut("pen", "matches", "ペン"), // the English word's first sense is a pen for animals
+  heldOut("elevator", "matches", "エレベーター"),
+  heldOut("hint", "matches", "ヒント"),
+  heldOut("level", "matches", "レベル"), // ステージ is a false candidate, asked first
+  heldOut("member", "matches", "メンバー"),
+  heldOut("launch", "no_loan") // オープニング is a false candidate
 ]
 
 // --- The fixture -------------------------------------------------------------------

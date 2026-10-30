@@ -1,4 +1,13 @@
-import type { Formality, Language, Loanword, Medium, Nuance, Sense, SimilarWord } from "@kotori/domain"
+import {
+  type Formality,
+  type Language,
+  LOAN_SHOWN,
+  type Loanword,
+  type Medium,
+  type Nuance,
+  type Sense,
+  type SimilarWord
+} from "@kotori/domain"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { Platform, Share, View } from "react-native"
@@ -198,7 +207,7 @@ const NuanceCard = ({ nuance }: { readonly nuance: Nuance }) => {
  */
 const LoanNote = ({ loan }: { readonly loan: Loanword }) => {
   const { t } = useSession()
-  if (loan.verdict.confidence < CONFIDENT) return null
+  if (loan.verdict.confidence < LOAN_SHOWN) return null
   if (loan.verdict.value === "matches") {
     return (
       <View style={{ flexDirection: "row" }}>
