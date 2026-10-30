@@ -1,10 +1,14 @@
-import { frontShapes, type Mood, palette, shapes } from "./geometry.ts"
+import { confetti, frontShapes, type Mood, palette, shapes } from "./geometry.ts"
 import {
   type ClipName,
   clips,
   combine,
+  confettiFor,
   entrances,
+  extrasAt,
   type Part,
+  pieceAt,
+  pieceSvgTransform,
   type Pose,
   poseAt,
   settled,
@@ -78,11 +82,42 @@ export const mascotSvg = (options: { mood?: Mood; background?: string; padding?:
 const clipPose = (name: ClipName, mood: Mood, t: number) => (part: Part) =>
   entrances[mood] === name ? poseAt(name, part, t) : combine(settled(mood, part), poseAt(name, part, t))
 
-/** One frame of a clip, `t` ms in, on the sky. */
-export const frameSvg = (name: ClipName, mood: Mood, t: number) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-  <rect width="200" height="200" fill="${palette.sky}"/>
+/** The confetti a clip has thrown `t` ms in, as a Kotori `size` pixels square throws it; it goes behind Kotori. */
+const thrown = (name: ClipName, t: number, size: number) => {
+  const { count, grow } = confettiFor(size)
+  return (clips[name].confetti?.pieces ?? [])
+    .slice(0, count)
+    .map((piece, i) => {
+      const pose = pieceAt(name, i, t)
+      if (pose.opacity === 0) return ""
+      const bit = confetti.bits[piece.shape]
+      const color = palette[piece.color]
+      const paint =
+        bit.stroke === undefined
+          ? `fill="${color}"`
+          : `fill="none" stroke="${color}" stroke-width="${bit.stroke}" stroke-linecap="round"`
+      return `<g transform="${pieceSvgTransform(pose, grow)}" opacity="${pose.opacity}"><path d="${bit.d}" ${paint}/></g>`
+    })
+    .join("")
+}
+
+/** Celebrate's sparkles, over Kotori as in the app, showing as much as the mood's entrance lets them `t` ms into `name`. */
+const sparkles = (name: ClipName, mood: Mood, t: number) => {
+  if (mood !== "celebrate") return ""
+  const shown = entrances[mood] === name ? extrasAt(name, t) : extrasAt(entrances[mood] ?? null, Infinity)
+  return `<g fill="${palette.blush}" opacity="${shown}">${shapes.sparkles.map((d) => `<path d="${d}"/>`).join("")}</g>`
+}
+
+/** How far past the box a frame shows, for the hop and the confetti, which go beyond it. */
+const room = 40
+
+/** One frame of a clip, `t` ms in, on the sky, with confetti as a Kotori `size` pixels square throws it. */
+export const frameSvg = (name: ClipName, mood: Mood, t: number, size = 200) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-room} ${-room} ${200 + room * 2} ${200 + room * 2}" width="200" height="200">
+  <rect x="${-room}" y="${-room}" width="${200 + room * 2}" height="${200 + room * 2}" fill="${palette.sky}"/>
+  ${thrown(name, t, size)}
   ${drawing(mood, clipPose(name, mood, t))}
+  ${sparkles(name, mood, t)}
 </svg>`
 
 /**
@@ -91,13 +126,13 @@ export const frameSvg = (name: ClipName, mood: Mood, t: number) =>
  */
 export const framesSvg = (name: ClipName, mood: Mood, count = 12) => {
   const columns = 6
-  const cell = { width: 220, height: 270 }
+  const cell = { width: 200 + room * 2, height: 210 + room * 2 }
   const { duration } = clips[name]
   const frames = Array.from({ length: count }, (_, i) => {
     const t = Math.round((duration * i) / (count - 1))
-    const x = (i % columns) * cell.width + 10
-    const y = Math.floor(i / columns) * cell.height + 40
-    return `<g transform="translate(${x} ${y})">${drawing(mood, clipPose(name, mood, t))}<text x="100" y="222" text-anchor="middle" font-family="sans-serif" font-size="15" fill="${palette.ink}">${t} ms</text></g>`
+    const x = (i % columns) * cell.width + room
+    const y = Math.floor(i / columns) * cell.height + room
+    return `<g transform="translate(${x} ${y})">${thrown(name, t, 200)}${drawing(mood, clipPose(name, mood, t))}${sparkles(name, mood, t)}<text x="100" y="${200 + room - 10}" text-anchor="middle" font-family="sans-serif" font-size="15" fill="${palette.ink}">${t} ms</text></g>`
   })
   const width = columns * cell.width
   const height = Math.ceil(count / columns) * cell.height
