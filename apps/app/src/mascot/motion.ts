@@ -9,8 +9,9 @@ import { joints, type Mood } from "./geometry.ts"
  * can be checked as stills with `pnpm motion`.
  *
  * To add an animation, name it in `ClipName`, give it keys in `clips`, and
- * list it in `entrances` to play it when Kotori takes a mood. Every clip
- * starts from the drawing (the tests hold it to that), so nothing jumps.
+ * list it in `entrances` to play it when Kotori takes a mood. An entrance
+ * starts from the drawing (the tests hold it to that), so nothing jumps as the
+ * mood changes.
  *
  * Functions marked "worklet" also run on the UI thread, so keep them to plain
  * loops and property access: Babel may turn destructuring or `for…of` into
@@ -35,8 +36,11 @@ export type Pose = {
 /** The drawing as it is. */
 export const rest: Pose = { x: 0, y: 0, rotate: 0, scaleX: 1, scaleY: 1, opacity: 1 }
 
-/** How a value moves into a keyframe: `overshoot` goes about a tenth past it and settles back. */
-type Ease = "linear" | "in" | "out" | "inOut" | "overshoot"
+/**
+ * How a value moves into a keyframe: `overshoot` goes about a tenth past it
+ * and settles back, and `step` holds still until the key and jumps to it.
+ */
+type Ease = "linear" | "in" | "out" | "inOut" | "overshoot" | "step"
 
 /** A value at a time in ms, eased in from the key before (`inOut` unless given). */
 type Key = readonly [ms: number, value: number, ease?: Ease]
@@ -49,9 +53,9 @@ export type Clip = {
 export type ClipName = "celebrate" | "thinking" | "blink"
 
 export const clips: Record<ClipName, Clip> = {
-  /** Crouch, hop up stretched, land squashed, and wave; the wing stays up. */
+  /** Crouch, hop up stretched, land squashed, wave, and fold the wing back down. */
   celebrate: {
-    duration: 1240,
+    duration: 1620,
     tracks: {
       bird: {
         y: [
@@ -87,7 +91,9 @@ export const clips: Record<ClipName, Clip> = {
           [640, -72],
           [840, -95],
           [1040, -72],
-          [1240, -95]
+          [1240, -95],
+          [1500, 5],
+          [1620, 0]
         ]
       },
       tail: {
@@ -118,15 +124,14 @@ export const clips: Record<ClipName, Clip> = {
       }
     }
   },
-  /** Eyes squash shut and open again. */
+  /** Eyes shut for a moment: the open eyes vanish, and the shut ones show in their place. */
   blink: {
-    duration: 150,
+    duration: 140,
     tracks: {
       eyes: {
-        scaleY: [
-          [0, 1],
-          [70, 0.1, "in"],
-          [150, 1, "out"]
+        opacity: [
+          [0, 0],
+          [140, 1, "step"]
         ]
       }
     }
@@ -149,6 +154,8 @@ const ease = (curve: Ease, u: number) => {
       return u < 0.5 ? 4 * u * u * u : 1 - (2 - 2 * u) * (2 - 2 * u) * (2 - 2 * u) * 0.5
     case "overshoot":
       return 1 + 2.70158 * (u - 1) * (u - 1) * (u - 1) + 1.70158 * (u - 1) * (u - 1)
+    case "step":
+      return 0
   }
 }
 

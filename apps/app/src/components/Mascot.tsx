@@ -99,14 +99,17 @@ const play = (channel: Channel, name: ClipName | null, animate: boolean) => {
   if (animate && name !== null) channel.time.set(withTiming(duration, { duration, easing: Easing.linear }))
 }
 
-/** Moves the layer holding `part` to its pose in both channels at once. */
-const usePartStyle = (part: Part, size: number, entrance: Channel, idle: Channel) =>
+/**
+ * Moves the layer holding `part` to its pose in both channels at once. A
+ * `shut` layer goes where `part` goes but shows as it fades, as shut eyes do.
+ */
+const usePartStyle = (part: Part, size: number, entrance: Channel, idle: Channel, shut = false) =>
   useAnimatedStyle(() => {
     const pose = combine(
       poseAt(entrance.clip.get(), part, entrance.time.get()),
       poseAt(idle.clip.get(), part, idle.time.get())
     )
-    return { opacity: pose.opacity, transform: viewTransform(pose, part, size) }
+    return { opacity: shut ? 1 - pose.opacity : pose.opacity, transform: viewTransform(pose, part, size) }
   })
 
 /** A moving part on a canvas of its own, stacked over the parts drawn before it. */
@@ -167,6 +170,7 @@ export const Mascot = ({ size = 120, mood = "curious" }: { readonly size?: numbe
   const wing = usePartStyle("wing", size, entrance, idle)
   const face = usePartStyle("face", size, entrance, idle)
   const eyes = usePartStyle("eyes", size, entrance, idle)
+  const shutEyes = usePartStyle("eyes", size, entrance, idle, true)
 
   return (
     <View
@@ -204,6 +208,9 @@ export const Mascot = ({ size = 120, mood = "curious" }: { readonly size?: numbe
           </Svg>
           <Layer style={eyes} size={size}>
             <Eyes mood={mood} />
+          </Layer>
+          <Layer style={shutEyes} size={size}>
+            <Eyes mood="sleepy" />
           </Layer>
         </Animated.View>
       </Animated.View>

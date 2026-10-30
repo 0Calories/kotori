@@ -28,12 +28,19 @@ const drawing = (mood: Mood, pose: (part: Part) => Pose) => {
               `<ellipse cx="${e.cx}" cy="${e.cy}" rx="${e.rx}" ry="${e.ry}" fill="${palette.ink}"/><circle cx="${e.cx + catchlight.dx}" cy="${e.cy + catchlight.dy}" r="${catchlight.r}" fill="${palette.white}"/>`
           )
           .join("")
+  const shut = shapes.eyes
+    .map(
+      (e) =>
+        `<path d="M${e.cx - 7} ${e.cy + 1} Q ${e.cx} ${e.cy + 5} ${e.cx + 7} ${e.cy + 1}" fill="none" stroke="${palette.ink}" stroke-width="3.5" stroke-linecap="round"/>`
+    )
+    .join("")
   const foot = (d: string) =>
     `<path d="${d}" stroke="${palette.ink}" stroke-width="${shapes.feet.width}" stroke-linecap="round"/>`
   const part = (name: Part, content: string) => {
     const placed = pose(name)
     return `<g transform="${svgTransform(placed, name)}" opacity="${placed.opacity}">${content}</g>`
   }
+  const eyesPose = pose("eyes")
 
   return part(
     "bird",
@@ -49,7 +56,8 @@ const drawing = (mood: Mood, pose: (part: Part) => Pose) => {
     "face",
     `${shapes.cheeks.map((c) => `<ellipse cx="${c.cx}" cy="${c.cy}" rx="${c.rx}" ry="${c.ry}" fill="${palette.blush}"/>`).join("")}
   <path d="${shapes.beak}" fill="${palette.ink}"/>
-  ${part("eyes", eyes)}`
+  ${part("eyes", eyes)}
+  <g transform="${svgTransform(eyesPose, "eyes")}" opacity="${1 - eyesPose.opacity}">${shut}</g>`
   )}`
   )
 }

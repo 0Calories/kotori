@@ -53,8 +53,8 @@ const throughSvg = (transform: string, point: Point): Point => {
 }
 
 describe("Kotori's clips", () => {
-  it("start from the drawing, so no part jumps when one begins", () => {
-    for (const name of names) {
+  it("start each mood's entrance from the drawing, so no part jumps as the mood changes", () => {
+    for (const name of Object.values(entrances)) {
       for (const part of parts) assert.deepStrictEqual(poseAt(name, part, 0), rest, `${name}: ${part}`)
     }
   })
@@ -79,7 +79,13 @@ describe("Kotori's clips", () => {
     for (const name of Object.values(entrances)) assert.deepStrictEqual(poseAt(name, "bird", Infinity), rest, name)
   })
 
-  it("end a blink as it began, since it plays over everything else", () => {
+  it("fold the wing back down once Kotori has celebrated", () => {
+    for (const part of parts) assert.deepStrictEqual(poseAt("celebrate", part, Infinity), rest, part)
+  })
+
+  it("shut the eyes for the whole blink, then open them, since it plays over everything else", () => {
+    assert.strictEqual(poseAt("blink", "eyes", 0).opacity, 0)
+    assert.strictEqual(poseAt("blink", "eyes", clips.blink.duration - 1).opacity, 0)
     for (const part of parts) assert.deepStrictEqual(poseAt("blink", part, clips.blink.duration), rest, part)
   })
 

@@ -46,7 +46,8 @@ export const shapes = {
 /**
  * The parts that move, and the point each one turns and scales about. `bird`
  * is the whole of Kotori, standing where its feet meet the ground; `face`
- * carries the cheeks, beak and eyes, and `eyes` moves within it.
+ * carries the cheeks, beak and eyes, and `eyes` moves within it. As the eyes
+ * fade, shut eyes show in their place.
  */
 export const joints = {
   bird: { x: 92, y: 180 },
