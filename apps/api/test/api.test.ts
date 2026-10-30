@@ -93,7 +93,9 @@ const sense = (glosses: Array<string>, pos: Array<string>) => ({
   stagk: [],
   stagr: [],
   xrefs: [],
-  antonyms: []
+  antonyms: [],
+  sources: [],
+  wasei: false
 })
 
 const entry = (
@@ -213,6 +215,7 @@ layer(TestLayer)("Kotori API", (it) => {
       assert.deepStrictEqual(detail.senses[0]?.glosses, ["to eat"])
       assert.deepStrictEqual(detail.enrichment, {
         nuance: "unavailable",
+        english: "unavailable",
         examples: "unavailable",
         audio: "unavailable"
       })

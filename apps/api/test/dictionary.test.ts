@@ -3,7 +3,14 @@ import { Claude, ClaudeError } from "@kotori/ai"
 import { DictionaryRepo, EnrichmentRepo, type EntryRecord, type JobKind, JobsRepo, Repositories } from "@kotori/db"
 import { DatabaseMemory } from "@kotori/db/testing"
 import { type EnglishJudgments, EntryId } from "@kotori/domain"
-import { interpretSense, Jev, JevError, QUESTIONS_VERSION, type SenseAnswers } from "@kotori/nuance"
+import {
+  ENGLISH_QUESTIONS_VERSION,
+  interpretSense,
+  Jev,
+  JevError,
+  QUESTIONS_VERSION,
+  type SenseAnswers
+} from "@kotori/nuance"
 import { Pronouncer, TtsError } from "@kotori/tts"
 import { Effect, Layer, Option } from "effect"
 import { TestClock } from "effect/testing"
@@ -57,7 +64,9 @@ const sense = (glosses: Array<string>, pos: Array<string>, misc: Array<string> =
   stagk: [],
   stagr: [],
   xrefs: [],
-  antonyms: []
+  antonyms: [],
+  sources: [],
+  wasei: false
 })
 
 const entry = (
@@ -103,6 +112,10 @@ const clip = (key: string, text: string, language: "ja" | "en") => ({
 })
 
 const judged = <A extends string>(value: A) => ({ value, confidence: 0.9, source: "jev" as const })
+
+/** A learner of Japanese, and a Japanese native learning English, the one shown the English side. */
+const learner = { targetLanguage: "ja" } as const
+const japaneseNative = { targetLanguage: "en" } as const
 
 const englishJudgments: EnglishJudgments = {
   variety: judged("universal"),
@@ -184,26 +197,34 @@ layer(testLayer(false))("Dictionary", (it) => {
     })
   )
 
-  it.effect("shows English judgments only for the gloss Jev judged", () =>
+  it.effect("shows each English gloss its own judgments, on the English page and the entry", () =>
     Effect.gen(function* () {
       const repo = yield* DictionaryRepo
       const enrichment = yield* EnrichmentRepo
       const dictionary = yield* Dictionary
       yield* repo.insertEntries([entry(14, "純真", "じゅんしん", [sense(["pure", "naive", "innocent"], ["adj-na"])])])
-      yield* enrichment.saveEnglishNuance(
-        14,
-        [{ sense: 0, nuance: englishJudgments, answers: {}, model: "test", questionsVersion: QUESTIONS_VERSION }],
-        0
-      )
+      const judgedGloss = (gloss: number, variety: "universal" | "british") => ({
+        sense: 0,
+        gloss,
+        nuance: { ...englishJudgments, variety: judged(variety) },
+        answers: {},
+        loanWord: null,
+        model: "test",
+        questionsVersion: ENGLISH_QUESTIONS_VERSION
+      })
+      yield* enrichment.saveEnglishNuance(14, [judgedGloss(0, "universal"), judgedGloss(1, "british")], 0)
       const meaning = (term: string) =>
         Effect.map(dictionary.english(term), (found) => found.meanings.find((m) => m.entryId === EntryId.make(14)))
 
-      // The English-side questions judged "pure", the first gloss: on the "naive" page
-      // they would describe a different word.
+      // Each gloss was judged on its own: the "naive" page shows the judgments about "naive".
       assert.strictEqual((yield* meaning("pure"))?.english?.variety.value, "universal")
       const naive = yield* meaning("naive")
       assert.strictEqual(naive?.glosses[naive.matched], "naive")
-      assert.isNull(naive?.english)
+      assert.strictEqual(naive?.english?.variety.value, "british")
+      assert.isNull((yield* meaning("innocent"))?.english)
+      // The entry shows a sense the judgments about its first gloss, which its audio button speaks.
+      const shown = Option.getOrThrow(yield* dictionary.entry(EntryId.make(14), japaneseNative))
+      assert.strictEqual(shown.senses[0]?.english?.variety.value, "universal")
     })
   )
 
@@ -213,7 +234,10 @@ layer(testLayer(false))("Dictionary", (it) => {
       const enrichment = yield* EnrichmentRepo
       const jobs = yield* JobsRepo
       const dictionary = yield* Dictionary
-      const audioStatus = Effect.map(dictionary.requestEnrichment(EntryId.make(20)), (s) => Option.getOrThrow(s).audio)
+      const audioStatus = Effect.map(
+        dictionary.requestEnrichment(EntryId.make(20), learner),
+        (s) => Option.getOrThrow(s).audio
+      )
       const hour = 60 * 60 * 1000
       yield* repo.insertEntries([entry(20, "食べる", "たべる", [sense(["to eat"], ["v1"])])])
       yield* enrichment.saveExamples(20, [example(0, "パンを食べる。", "I eat bread.")], 0)
@@ -262,7 +286,7 @@ layer(testLayer(true))("Dictionary with Jev configured", (it) => {
       const jobs = yield* JobsRepo
       const dictionary = yield* Dictionary
       const nuanceStatus = Effect.map(
-        dictionary.requestEnrichment(EntryId.make(30)),
+        dictionary.requestEnrichment(EntryId.make(30), learner),
         (s) => Option.getOrThrow(s).nuance
       )
       const nuanceJob = Effect.map(jobs.statusFor(30), (status) => status.get("nuance"))
@@ -296,6 +320,54 @@ layer(testLayer(true))("Dictionary with Jev configured", (it) => {
       yield* finishJobs("nuance", 2)
       assert.strictEqual(yield* nuanceStatus, "ready")
       assert.strictEqual(yield* nuanceJob, "done")
+    })
+  )
+
+  it.effect("queues the English side for Japanese natives only, again once it predates the questions", () =>
+    Effect.gen(function* () {
+      const repo = yield* DictionaryRepo
+      const enrichment = yield* EnrichmentRepo
+      const jobs = yield* JobsRepo
+      const dictionary = yield* Dictionary
+      const englishStatus = (viewer: typeof learner | typeof japaneseNative) =>
+        Effect.map(dictionary.requestEnrichment(EntryId.make(31), viewer), (s) => Option.getOrThrow(s).english)
+      const englishJob = Effect.map(jobs.statusFor(31), (status) => status.get("english"))
+      const judge = (questionsVersion: number) =>
+        enrichment.saveEnglishNuance(
+          31,
+          [
+            {
+              sense: 0,
+              gloss: 0,
+              nuance: englishJudgments,
+              answers: {},
+              loanWord: null,
+              model: "test",
+              questionsVersion
+            }
+          ],
+          0
+        )
+      yield* repo.insertEntries([entry(31, "様式", "ようしき", [sense(["style", "form"], ["n"])])])
+
+      // A learner of Japanese isn't shown the English side, so nothing is queued or waited for.
+      assert.strictEqual(yield* englishStatus(learner), "unavailable")
+      assert.isUndefined(yield* englishJob)
+
+      // A Japanese native gets it judged.
+      assert.strictEqual(yield* englishStatus(japaneseNative), "queued")
+      assert.strictEqual(yield* englishJob, "queued")
+      yield* judge(ENGLISH_QUESTIONS_VERSION - 1)
+      yield* finishJobs("english", 1)
+      assert.strictEqual(yield* englishStatus(learner), "unavailable")
+
+      // Judged by an older English question set: shown, and queued again on the next look.
+      assert.strictEqual(yield* englishStatus(japaneseNative), "ready")
+      assert.strictEqual(yield* englishJob, "queued")
+      yield* judge(ENGLISH_QUESTIONS_VERSION)
+      yield* finishJobs("english", 2)
+      assert.strictEqual(yield* englishStatus(japaneseNative), "ready")
+      assert.strictEqual(yield* englishJob, "done")
     })
   )
 })

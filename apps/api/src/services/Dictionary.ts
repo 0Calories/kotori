@@ -19,6 +19,7 @@ import {
   EntryId,
   type EntrySummary,
   type Example,
+  type Language,
   type SearchResult,
   type Sense,
   type SimilarWord,
@@ -32,7 +33,7 @@ import {
   romajiToKana,
   romanize
 } from "@kotori/japanese"
-import { Jev, QUESTIONS_VERSION } from "@kotori/nuance"
+import { ENGLISH_QUESTIONS_VERSION, Jev, MAX_GLOSSES, QUESTIONS_VERSION } from "@kotori/nuance"
 import { CASTS, Pronouncer } from "@kotori/tts"
 import { Clock, Context, Effect, Layer, Option } from "effect"
 
@@ -47,6 +48,11 @@ const ENGLISH_ENRICHED = 3
 
 /** How long a finished audio job that left gaps waits before it is tried again. */
 const REFILL_AFTER = 60 * 60 * 1000
+
+/** Who is looking at an entry: its English side is judged only for Japanese natives learning English. */
+export interface Viewer {
+  readonly targetLanguage: Language
+}
 
 interface Hit {
   readonly entryId: number
@@ -145,9 +151,9 @@ export class Dictionary extends Context.Service<
     search(query: string, limit: number): Effect.Effect<SearchResult>
     /** The Japanese words meaning an English word, queueing examples for the leading ones. */
     english(term: string): Effect.Effect<EnglishEntry>
-    entry(id: EntryId): Effect.Effect<Option.Option<Entry>>
-    /** Queues whatever enrichment an entry is missing, returning its status. */
-    requestEnrichment(id: EntryId): Effect.Effect<Option.Option<Enrichment>>
+    entry(id: EntryId, viewer: Viewer): Effect.Effect<Option.Option<Entry>>
+    /** Queues whatever enrichment an entry is missing for this viewer, returning its status. */
+    requestEnrichment(id: EntryId, viewer: Viewer): Effect.Effect<Option.Option<Enrichment>>
     /** Entry ids for words, for linking coach vocabulary to the dictionary. */
     lookupWords(
       words: ReadonlyArray<{ readonly word: string; readonly reading: string }>
@@ -285,11 +291,19 @@ export class Dictionary extends Context.Service<
       const status = (ready: boolean, available: boolean, job: string | undefined): EnrichmentStatus =>
         ready ? "ready" : !available || job === "failed" ? "unavailable" : "queued"
 
-      const enrichmentFor = Effect.fnUntraced(function* (entry: EntryRecord, enqueue: boolean) {
+      /**
+       * What an entry has and what is on its way, queueing what is missing. `englishShown` is
+       * whether the viewer is shown the English side: everyone else gets `unavailable` for it, so
+       * the app doesn't wait for something it won't show.
+       */
+      const enrichmentFor = Effect.fnUntraced(function* (entry: EntryRecord, enqueue: boolean, englishShown: boolean) {
         const nuanceRows = yield* enrichment.nuanceFor([entry.id])
         const hasNuance = nuanceRows.length > 0
         // Old rows stay valid and shown, but a viewed entry gets fresh judgments queued.
         const nuanceOutdated = nuanceRows.some((row) => row.questionsVersion < QUESTIONS_VERSION)
+        const englishRows = englishShown ? yield* enrichment.englishNuanceFor([entry.id]) : []
+        const hasEnglish = englishRows.length > 0
+        const englishOutdated = englishRows.some((row) => row.questionsVersion < ENGLISH_QUESTIONS_VERSION)
         const examples = yield* enrichment.examplesFor([entry.id])
         const hasExamples = examples.length > 0
         const clips = yield* enrichment.exampleAudio(examples.map((example) => example.id))
@@ -304,14 +318,17 @@ export class Dictionary extends Context.Service<
 
         if (enqueue) {
           const before = yield* jobs.statusFor(entry.id)
+          // Enqueueing a finished job is a no-op, so one that judged with an older question set is
+          // queued again; saving replaces every row of the entry, so it runs once per version.
+          const judge = (kind: "nuance" | "english", judged: boolean, outdated: boolean) =>
+            outdated && before.get(kind) === "done"
+              ? jobs.requeue(kind, entry.id, ON_DEMAND, now)
+              : !judged || outdated
+                ? jobs.enqueue(kind, entry.id, ON_DEMAND, now)
+                : Effect.void
           if (jev.configured) {
-            // Enqueueing a finished job is a no-op, so one that judged with an older question set
-            // is queued again; saving replaces every row of the entry, so it runs once per version.
-            if (nuanceOutdated && before.get("nuance") === "done") {
-              yield* jobs.requeue("nuance", entry.id, ON_DEMAND, now)
-            } else if (!hasNuance || nuanceOutdated) {
-              yield* jobs.enqueue("nuance", entry.id, ON_DEMAND, now)
-            }
+            yield* judge("nuance", hasNuance, nuanceOutdated)
+            if (englishShown) yield* judge("english", hasEnglish, englishOutdated)
           }
           if (!hasExamples && coachAvailable) yield* jobs.enqueue("examples", entry.id, ON_DEMAND, now)
           // The worker re-runs audio once example sentences exist, so they get voiced too. A finished
@@ -330,18 +347,24 @@ export class Dictionary extends Context.Service<
         const job = yield* jobs.statusFor(entry.id)
         return {
           nuance: status(hasNuance, jev.configured, job.get("nuance")),
+          english: englishShown ? status(hasEnglish, jev.configured, job.get("english")) : "unavailable",
           examples: status(hasExamples, coachAvailable, job.get("examples")),
           // A finished job has voiced what it can; whatever is still missing isn't on its way.
           audio: status(hasAudio || job.get("audio") === "done", pronouncer.configured, job.get("audio"))
-        }
+        } satisfies Enrichment
       })
 
-      const assemble = Effect.fnUntraced(function* (entry: EntryRecord) {
+      const assemble = Effect.fnUntraced(function* (entry: EntryRecord, viewer: Viewer) {
         const tags = yield* repo.tags
         const tag = (code: string): Tag => ({ code, label: tags.get(code) ?? code })
 
         const nuance = new Map((yield* enrichment.nuanceFor([entry.id])).map((row) => [row.sense, row.nuance]))
-        const english = new Map((yield* enrichment.englishNuanceFor([entry.id])).map((row) => [row.sense, row]))
+        // The judgment of each sense's first gloss: the one its audio button speaks.
+        const english = new Map(
+          (yield* enrichment.englishNuanceFor([entry.id]))
+            .filter((row) => row.gloss === 0)
+            .map((row) => [row.sense, row])
+        )
         const notes = new Map((yield* enrichment.senseNotesFor([entry.id])).map((row) => [row.sense, row]))
         const examples = yield* enrichment.examplesFor([entry.id])
         const exampleAudio = yield* enrichment.exampleAudio(examples.map((example) => example.id))
@@ -422,13 +445,13 @@ export class Dictionary extends Context.Service<
             voice: clip.voice,
             voiceName: voiceName(clip.voice)
           })),
-          enrichment: yield* enrichmentFor(entry, true)
+          enrichment: yield* enrichmentFor(entry, true, viewer.targetLanguage === "en")
         } satisfies Entry
       })
 
-      const entry = Effect.fn("Dictionary.entry")(function* (id: EntryId) {
+      const entry = Effect.fn("Dictionary.entry")(function* (id: EntryId, viewer: Viewer) {
         const [record] = yield* repo.getEntries([id])
-        return record === undefined ? Option.none() : Option.some(yield* assemble(record))
+        return record === undefined ? Option.none() : Option.some(yield* assemble(record, viewer))
       })
 
       const english = Effect.fn("Dictionary.english")(function* (raw: string) {
@@ -453,7 +476,7 @@ export class Dictionary extends Context.Service<
         )
         const notes = new Map((yield* enrichment.senseNotesFor(ids)).map((row) => [`${row.entryId}:${row.sense}`, row]))
         const englishRows = new Map(
-          (yield* enrichment.englishNuanceFor(ids)).map((row) => [`${row.entryId}:${row.sense}`, row])
+          (yield* enrichment.englishNuanceFor(ids)).map((row) => [`${row.entryId}:${row.sense}:${row.gloss}`, row])
         )
         const examples = yield* enrichment.examplesFor(ids)
         const clips = yield* enrichment.exampleAudio(examples.map((example) => example.id))
@@ -463,7 +486,8 @@ export class Dictionary extends Context.Service<
         for (const id of ids.slice(0, ENGLISH_ENRICHED)) {
           const record = records.get(id)
           if (record === undefined) continue
-          const status = yield* enrichmentFor(record, true)
+          // Only Japanese natives learning English reach this page, so the English side is wanted.
+          const status = yield* enrichmentFor(record, true, true)
           if (Object.values(status).includes("queued")) waiting = true
           if (status.examples === "queued") writing = true
         }
@@ -483,8 +507,11 @@ export class Dictionary extends Context.Service<
               matched: match.position,
               partOfSpeech: sense.pos[0] ?? record.senses[0]?.pos[0] ?? null,
               formality: formality.get(`${record.id}:${match.sense}`) ?? null,
-              // Jev judges a sense's first gloss, so on any other the judgments describe another word.
-              english: match.position === 0 ? toEnglishNuance(englishRows.get(`${record.id}:${match.sense}`)) : null,
+              // The judgment of the looked-up word itself; glosses past the judged ones have none.
+              english:
+                match.position < MAX_GLOSSES
+                  ? toEnglishNuance(englishRows.get(`${record.id}:${match.sense}:${match.position}`))
+                  : null,
               note: notes.get(`${record.id}:${match.sense}`)?.note ?? null,
               noteJa: notes.get(`${record.id}:${match.sense}`)?.noteJa ?? null,
               examples: examples
@@ -496,9 +523,11 @@ export class Dictionary extends Context.Service<
         return { term, meanings, waiting, writing }
       })
 
-      const requestEnrichment = Effect.fn("Dictionary.requestEnrichment")(function* (id: EntryId) {
+      const requestEnrichment = Effect.fn("Dictionary.requestEnrichment")(function* (id: EntryId, viewer: Viewer) {
         const [record] = yield* repo.getEntries([id])
-        return record === undefined ? Option.none() : Option.some(yield* enrichmentFor(record, true))
+        return record === undefined
+          ? Option.none()
+          : Option.some(yield* enrichmentFor(record, true, viewer.targetLanguage === "en"))
       })
 
       const lookupWords = Effect.fn("Dictionary.lookupWords")(function* (

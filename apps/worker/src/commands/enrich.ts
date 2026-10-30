@@ -1,5 +1,5 @@
 import { DictionaryRepo, EnrichmentRepo } from "@kotori/db"
-import { NuanceEnricher, QUESTIONS_VERSION } from "@kotori/nuance"
+import { EnglishEnricher, NuanceEnricher, QUESTIONS_VERSION } from "@kotori/nuance"
 import { Console, Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { Enrichers } from "../Enrichers.ts"
@@ -28,7 +28,7 @@ export const enrich = Command.make(
     ),
     reinterpret: Flag.Boolean("reinterpret").pipe(
       Flag.withDescription(
-        "Nuance only: re-derive every stored judgment from its saved answers, without calling Jev. Ignores --limit and --common-only; honours --entry."
+        "Nuance only: re-derive every stored judgment, Japanese and English side, from its saved answers, without calling Jev. Ignores --limit and --common-only; honours --entry."
       ),
       Flag.withDefault(false)
     )
@@ -37,22 +37,34 @@ export const enrich = Command.make(
     if (reinterpret) {
       if (kind !== "nuance") return yield* Console.error("--reinterpret only applies to nuance.")
       const nuance = yield* NuanceEnricher
-      const ids = Option.isSome(entry) ? [entry.value] : yield* (yield* EnrichmentRepo).nuanceEntryIds()
+      const english = yield* EnglishEnricher
+      const repo = yield* EnrichmentRepo
+      const ids = Option.isSome(entry)
+        ? [entry.value]
+        : [...new Set([...(yield* repo.nuanceEntryIds()), ...(yield* repo.englishEntryIds())])]
       yield* Console.log(`Reinterpreting stored nuance for ${ids.length} entries…`)
       let senses = 0
+      let glosses = 0
       let failed = 0
       yield* Effect.forEach(
         ids,
         (id) =>
-          nuance.reinterpret(id).pipe(
-            Effect.tap((summary) => Effect.sync(() => (senses += summary.senses))),
+          Effect.all([nuance.reinterpret(id), english.reinterpret(id)]).pipe(
+            Effect.tap(([japanese, englishSide]) =>
+              Effect.sync(() => {
+                senses += japanese.senses
+                glosses += englishSide.glosses
+              })
+            ),
             Effect.catchCause((cause) =>
               Effect.logWarning(`${id} failed`, cause).pipe(Effect.tap(() => Effect.sync(() => failed++)))
             )
           ),
         { concurrency, discard: true }
       )
-      return yield* Console.log(`Done: ${senses} senses reinterpreted, ${failed} entries failed.`)
+      return yield* Console.log(
+        `Done: ${senses} senses and ${glosses} English glosses reinterpreted, ${failed} entries failed.`
+      )
     }
 
     const enrichers = yield* Enrichers

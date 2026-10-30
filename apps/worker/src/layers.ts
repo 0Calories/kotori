@@ -3,13 +3,13 @@ import { Claude, ExampleWriter, LoanWriter } from "@kotori/ai"
 import { Approvals, Auth } from "@kotori/auth"
 import { DatabaseLive, Repositories } from "@kotori/db"
 import { MailerLive } from "@kotori/email"
-import { Jev, NuanceEnricher } from "@kotori/nuance"
+import { EnglishEnricher, Jev, NuanceEnricher } from "@kotori/nuance"
 import { AudioStore, ElevenLabs, Pronouncer } from "@kotori/tts"
 import { Layer } from "effect"
 import { Enrichers } from "./Enrichers.ts"
 
 const Providers = Layer.mergeAll(
-  NuanceEnricher.layer.pipe(Layer.provideMerge(Jev.layer)),
+  Layer.mergeAll(NuanceEnricher.layer, EnglishEnricher.layer).pipe(Layer.provideMerge(Jev.layer)),
   Layer.mergeAll(ExampleWriter.layer, LoanWriter.layer).pipe(Layer.provideMerge(Claude.layer)),
   Pronouncer.layer.pipe(Layer.provideMerge(Layer.mergeAll(ElevenLabs.layer, AudioStore.layer, Jev.layer))),
   MailerLive

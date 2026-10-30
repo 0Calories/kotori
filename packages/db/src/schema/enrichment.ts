@@ -69,23 +69,27 @@ export const senseNuance = table(
   ]
 )
 
-/** Jev's judgments of a sense's English side, for Japanese natives learning English. */
+/** Jev's judgments of an English gloss of a sense, for Japanese natives learning English. */
 export const englishNuance = table(
   "english_nuance",
   {
     entryId: integer().notNull(),
     sense: integer().notNull(),
+    /** The gloss judged, by position in the sense; rows judged before glosses had their own were the first. */
+    gloss: integer().notNull().default(0),
     nuance: jsonb().$type<EnglishJudgments>().notNull(),
     answers: jsonb().notNull(),
-    /** The katakana loanword and its trap sentence, written by Claude when the loan verdict diverges. */
+    /** The katakana loan the verdict is about, as the dictionary spells it; null when Jev found none. */
     loanWord: text(),
+    /** Claude's one-sentence warning, written when the loan confidently diverges. */
     loanTrap: text(),
     model: text().notNull(),
+    /** Which English question set produced the answers (ENGLISH_QUESTIONS_VERSION). */
     questionsVersion: integer().notNull(),
     createdAt: createdAt()
   },
   (t) => [
-    primaryKey({ columns: [t.entryId, t.sense] }),
+    primaryKey({ columns: [t.entryId, t.sense, t.gloss] }),
     foreignKey({ columns: [t.entryId, t.sense], foreignColumns: [senses.entryId, senses.position] }).onDelete("cascade")
   ]
 )
@@ -219,7 +223,7 @@ export const exampleAudio = table(
   (t) => [primaryKey({ columns: [t.exampleId, t.language] })]
 )
 
-export const jobKind = pgEnum("job_kind", ["nuance", "examples", "audio"])
+export const jobKind = pgEnum("job_kind", ["nuance", "examples", "audio", "english"])
 export const jobStatus = pgEnum("job_status", ["queued", "running", "done", "failed"])
 
 /** Enrichment work queue, shared by the API (on-demand requests) and the worker. One job per kind and entry. */

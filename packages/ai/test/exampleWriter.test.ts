@@ -141,11 +141,11 @@ describe("ExampleWriter.write", () => {
 })
 
 const loanRequest: LoanRequest = {
-  headword: "スタイル",
-  reading: "すたいる",
-  senses: [
-    { index: 0, english: "(one's) figure", glosses: ["(one's) figure", "physique"] },
-    { index: 1, english: "style", glosses: ["style"] }
+  headword: "様式",
+  reading: "ようしき",
+  items: [
+    { english: "style", meaning: "style; form; pattern", loanWord: "スタイル" },
+    { english: "form", meaning: "style; form; pattern", loanWord: "フォーム" }
   ]
 }
 
@@ -157,28 +157,28 @@ const writeLoans = (output: typeof LoanOutput.Type, request = loanRequest) => {
 }
 
 describe("LoanWriter.write", () => {
-  it("names the English word Jev judged for each sense", async () => {
-    const { asked } = await writeLoans({ senses: [] })
+  it("names the English word, its meaning and the dictionary's katakana loan for each item", async () => {
+    const { asked } = await writeLoans({ loans: [] })
     expect(asked[0]?.system).toBe(loanSystem)
     expect(asked[0]?.prompt).toBe(describeLoans(loanRequest))
-    expect(asked[0]?.prompt).toContain("0. English word: (one's) figure\n   meaning: (one's) figure; physique")
+    expect(asked[0]?.prompt).toContain(
+      "0. English word: style\n   meaning here: style; form; pattern\n   katakana loanword: スタイル"
+    )
   })
 
-  it("keeps the loanwords Claude named for listed senses", async () => {
+  it("keeps the warnings Claude wrote for listed items", async () => {
     const { loans } = await writeLoans({
-      senses: [
-        { sense: 0, loanWord: "スタイル", loanTrap: "日本語の「スタイル」は体型を指すことが多いです。" },
-        { sense: 1, loanWord: null, loanTrap: null },
-        { sense: 9, loanWord: "フィギュア", loanTrap: "Not a listed sense." }
+      loans: [
+        { item: 0, loanTrap: "日本語の「スタイル」は体型を指すことが多いです。" },
+        { item: 1, loanTrap: "  " },
+        { item: 9, loanTrap: "Not a listed item." }
       ]
     })
-    expect(loans).toEqual([
-      { sense: 0, loanWord: "スタイル", loanTrap: "日本語の「スタイル」は体型を指すことが多いです。" }
-    ])
+    expect(loans).toEqual([{ item: 0, loanTrap: "日本語の「スタイル」は体型を指すことが多いです。" }])
   })
 
-  it("doesn't call Claude without a sense to write for", async () => {
-    const { loans, asked } = await writeLoans({ senses: [] }, { ...loanRequest, senses: [] })
+  it("doesn't call Claude without an item to write for", async () => {
+    const { loans, asked } = await writeLoans({ loans: [] }, { ...loanRequest, items: [] })
     expect(loans).toEqual([])
     expect(asked).toHaveLength(0)
   })

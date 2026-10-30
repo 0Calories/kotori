@@ -1,0 +1,3748 @@
+{
+  "about": "The JMDict entries the golden set names, cut from JMdict_e.gz (created 2026-10-27) by tools/golden-fixture.ts. Regenerate it; don't edit it.",
+  "tags": {
+    "Buddh": "Buddhism",
+    "abbr": "abbreviation",
+    "adj-i": "adjective (keiyoushi)",
+    "adj-na": "adjectival nouns or quasi-adjectives (keiyodoshi)",
+    "adj-no": "nouns which may take the genitive case particle 'no'",
+    "adv": "adverb (fukushi)",
+    "adv-to": "adverb taking the 'to' particle",
+    "arch": "archaic",
+    "aux-v": "auxiliary verb",
+    "aviat": "aviation",
+    "baseb": "baseball",
+    "boxing": "boxing",
+    "chn": "children's language",
+    "col": "colloquial",
+    "comp": "computing",
+    "conj": "conjunction",
+    "ctr": "counter",
+    "dated": "dated term",
+    "derog": "derogatory",
+    "exp": "expressions (phrases, clauses, etc.)",
+    "fam": "familiar language",
+    "fem": "female term or language",
+    "food": "food, cooking",
+    "hist": "historical term",
+    "hon": "honorific or respectful (sonkeigo) language",
+    "hum": "humble (kenjougo) language",
+    "int": "interjection (kandoushi)",
+    "ksb": "Kansai-ben",
+    "male": "male term or language",
+    "n": "noun (common) (futsuumeishi)",
+    "n-pref": "noun, used as a prefix",
+    "n-suf": "noun, used as a suffix",
+    "on-mim": "onomatopoeic or mimetic word",
+    "physics": "physics",
+    "physiol": "physiology",
+    "pn": "pronoun",
+    "poet": "poetical term",
+    "pol": "polite (teineigo) language",
+    "pref": "prefix",
+    "prt": "particle",
+    "rare": "rare term",
+    "sl": "slang",
+    "sports": "sports",
+    "sumo": "sumo",
+    "uk": "word usually written using kana alone",
+    "v1": "Ichidan verb",
+    "v4h": "Yodan verb with 'hu/fu' ending (archaic)",
+    "v5aru": "Godan verb - -aru special class",
+    "v5k": "Godan verb with 'ku' ending",
+    "v5k-s": "Godan verb - Iku/Yuku special class",
+    "v5m": "Godan verb with 'mu' ending",
+    "v5n": "Godan verb with 'nu' ending",
+    "v5r": "Godan verb with 'ru' ending",
+    "v5s": "Godan verb with 'su' ending",
+    "v5u": "Godan verb with 'u' ending",
+    "vi": "intransitive verb",
+    "vs": "noun or participle which takes the aux. verb suru",
+    "vt": "transitive verb",
+    "vulg": "vulgar expression or word"
+  },
+  "entries": [
+    {
+      "id": 1000940,
+      "headword": "居らっしゃる",
+      "reading": "いらっしゃる",
+      "common": true,
+      "kanji": ["居らっしゃる"],
+      "kana": ["いらっしゃる"],
+      "senses": [
+        {
+          "glosses": ["to come", "to go", "to be (somewhere)"],
+          "pos": ["v5aru", "vi"],
+          "misc": ["hon"]
+        },
+        {
+          "glosses": ["to be (doing)"],
+          "pos": ["v5aru", "aux-v"],
+          "misc": ["hon"],
+          "info": ["after a -te form, or the particle \"de\""]
+        }
+      ]
+    },
+    {
+      "id": 1001090,
+      "headword": "うん",
+      "reading": "うん",
+      "common": true,
+      "kana": ["うん", "ウン", "うむ", "ううむ", "う～ん", "うんっ", "ウ〜ン"],
+      "senses": [
+        {
+          "glosses": ["yes", "yeah", "uh huh"],
+          "pos": ["int"]
+        },
+        {
+          "glosses": ["hum", "hmmm", "well", "erm", "huh?"],
+          "pos": ["int"]
+        },
+        {
+          "glosses": ["oof"],
+          "pos": ["int"],
+          "info": ["moan or groan (of pain)"]
+        }
+      ]
+    },
+    {
+      "id": 1001100,
+      "headword": "うんこ",
+      "reading": "うんこ",
+      "common": true,
+      "kana": ["うんこ", "ウンコ"],
+      "senses": [
+        {
+          "glosses": ["poop", "poo", "faeces", "feces"],
+          "pos": ["n", "vs", "vi"],
+          "misc": ["chn"]
+        },
+        {
+          "glosses": ["crap", "trash", "garbage"],
+          "pos": ["n"],
+          "misc": ["sl"]
+        }
+      ]
+    },
+    {
+      "id": 1001370,
+      "headword": "おっぱい",
+      "reading": "おっぱい",
+      "common": true,
+      "kana": ["おっぱい", "オッパイ"],
+      "senses": [
+        {
+          "glosses": ["boobs", "boobies", "breasts", "tits"],
+          "pos": ["n"],
+          "misc": ["chn", "col"]
+        },
+        {
+          "glosses": ["breast milk"],
+          "pos": ["n"],
+          "misc": ["chn"]
+        }
+      ]
+    },
+    {
+      "id": 1002100,
+      "headword": "お手洗い",
+      "reading": "おてあらい",
+      "common": true,
+      "kanji": ["お手洗い", "御手洗", "御手洗い"],
+      "kana": ["おてあらい"],
+      "senses": [
+        {
+          "glosses": ["toilet", "restroom", "lavatory", "bathroom"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1002290,
+      "headword": "お前",
+      "reading": "おまえ",
+      "common": true,
+      "kanji": ["お前", "御前"],
+      "kana": ["おまえ", "おまい"],
+      "senses": [
+        {
+          "glosses": ["you"],
+          "pos": ["pn"],
+          "misc": ["fam", "male"],
+          "info": ["formerly honorific, now very informal"]
+        },
+        {
+          "glosses": ["before (a god, nobleman, etc.)", "in front of"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1002430,
+      "headword": "お茶",
+      "reading": "おちゃ",
+      "common": true,
+      "kanji": ["お茶", "御茶"],
+      "kana": ["おちゃ"],
+      "senses": [
+        {
+          "glosses": ["tea (esp. green or barley)"],
+          "pos": ["n"],
+          "misc": ["pol"]
+        },
+        {
+          "glosses": ["tea break", "teatime"],
+          "pos": ["n", "vs", "vi"]
+        },
+        {
+          "glosses": ["tea ceremony"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1002570,
+      "headword": "お疲れ様",
+      "reading": "おつかれさま",
+      "common": true,
+      "kanji": ["お疲れ様", "お疲れさま", "おつかれ様", "御疲れ様"],
+      "kana": ["おつかれさま"],
+      "senses": [
+        {
+          "glosses": ["thank you (for your hard work)", "good work"],
+          "pos": ["int"]
+        },
+        {
+          "glosses": ["see you", "goodbye", "goodnight"],
+          "pos": ["int"]
+        }
+      ]
+    },
+    {
+      "id": 1002610,
+      "headword": "お腹",
+      "reading": "おなか",
+      "common": true,
+      "kanji": ["お腹", "お中", "御腹", "御中"],
+      "kana": ["おなか"],
+      "senses": [
+        {
+          "glosses": ["belly", "abdomen", "stomach"],
+          "pos": ["n"],
+          "misc": ["pol"]
+        }
+      ]
+    },
+    {
+      "id": 1002800,
+      "headword": "かしら",
+      "reading": "かしら",
+      "common": true,
+      "kana": ["かしら", "かしらん"],
+      "senses": [
+        {
+          "glosses": ["I wonder", "do you think?", "I might", "how about"],
+          "pos": ["prt"],
+          "misc": ["fem"]
+        },
+        {
+          "glosses": ["some kind", "some stage", "somehow", "somewhere"],
+          "pos": ["prt"],
+          "info": ["indicates imprecision"]
+        }
+      ]
+    },
+    {
+      "id": 1005030,
+      "headword": "ご苦労様",
+      "reading": "ごくろうさま",
+      "common": true,
+      "kanji": ["ご苦労様", "ご苦労さま", "御苦労様", "御苦労さま"],
+      "kana": ["ごくろうさま", "ごくろーさま"],
+      "senses": [
+        {
+          "glosses": ["thank you (for your hard work)", "I appreciate your efforts"],
+          "pos": ["exp", "adj-na"],
+          "misc": ["pol"],
+          "info": ["usu. to one's subordinate"]
+        }
+      ]
+    },
+    {
+      "id": 1007720,
+      "headword": "ちゃんと",
+      "reading": "ちゃんと",
+      "common": true,
+      "kana": ["ちゃんと"],
+      "senses": [
+        {
+          "glosses": ["diligently", "seriously", "earnestly", "reliably", "steadily", "legitimately"],
+          "pos": ["adv", "vs"],
+          "misc": ["on-mim"]
+        },
+        {
+          "glosses": [
+            "perfectly",
+            "properly",
+            "exactly",
+            "orderly",
+            "punctually",
+            "regularly",
+            "safely",
+            "in good condition"
+          ],
+          "pos": ["adv", "vs"],
+          "misc": ["on-mim"]
+        },
+        {
+          "glosses": ["sufficiently", "satisfactorily"],
+          "pos": ["adv", "vs"],
+          "misc": ["on-mim"]
+        },
+        {
+          "glosses": ["quickly"],
+          "pos": ["adv", "vs"],
+          "misc": ["on-mim"]
+        }
+      ]
+    },
+    {
+      "id": 1008370,
+      "headword": "でかい",
+      "reading": "でかい",
+      "common": true,
+      "kana": [
+        "でかい",
+        "でっかい",
+        "デカイ",
+        "デカい",
+        "デッカい",
+        "でけえ",
+        "でっけえ",
+        "でけー",
+        "でっけー",
+        "でけぇ",
+        "でっけぇ"
+      ],
+      "senses": [
+        {
+          "glosses": ["huge", "big", "enormous"],
+          "pos": ["adj-i"],
+          "misc": ["col"]
+        }
+      ]
+    },
+    {
+      "id": 1012810,
+      "headword": "やっぱり",
+      "reading": "やっぱり",
+      "common": true,
+      "kanji": ["矢っ張り"],
+      "kana": ["やっぱり"],
+      "senses": [
+        {
+          "glosses": ["as expected", "sure enough", "just as one thought"],
+          "pos": ["adv"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": ["after all (is said and done)", "in the end", "as one would expect", "in any case"],
+          "pos": ["adv"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": ["too", "also", "as well", "likewise", "(not) either"],
+          "pos": ["adv"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": ["still", "as before"],
+          "pos": ["adv"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": ["all the same", "even so", "still", "nonetheless"],
+          "pos": ["adv"],
+          "misc": ["uk"]
+        }
+      ]
+    },
+    {
+      "id": 1012840,
+      "headword": "やばい",
+      "reading": "やばい",
+      "common": true,
+      "kana": ["やばい", "ヤバい", "ヤバイ"],
+      "senses": [
+        {
+          "glosses": ["dangerous", "risky"],
+          "pos": ["adj-i"],
+          "misc": ["col"]
+        },
+        {
+          "glosses": ["awful", "terrible", "crap"],
+          "pos": ["adj-i"],
+          "misc": ["sl"]
+        },
+        {
+          "glosses": ["terrific", "amazing", "cool"],
+          "pos": ["adj-i"],
+          "misc": ["sl"]
+        },
+        {
+          "glosses": ["crazy", "insane", "not normal", "unhinged", "extreme"],
+          "pos": ["adj-i"],
+          "misc": ["sl"]
+        }
+      ]
+    },
+    {
+      "id": 1030630,
+      "headword": "エレベーター",
+      "reading": "エレベーター",
+      "common": true,
+      "kana": ["エレベーター", "エレベータ"],
+      "senses": [
+        {
+          "glosses": ["elevator", "lift"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["elevator"],
+          "pos": ["n"],
+          "fields": ["aviat"]
+        }
+      ]
+    },
+    {
+      "id": 1038350,
+      "headword": "カメラ",
+      "reading": "カメラ",
+      "common": true,
+      "kana": ["カメラ", "キャメラ"],
+      "senses": [
+        {
+          "glosses": ["camera"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1039490,
+      "headword": "カンニング",
+      "reading": "カンニング",
+      "common": true,
+      "kana": ["カンニング"],
+      "senses": [
+        {
+          "glosses": ["cheating (on an examination)", "cribbing"],
+          "pos": ["n", "vs", "vi"],
+          "sources": ["cunning"]
+        }
+      ]
+    },
+    {
+      "id": 1039860,
+      "headword": "ガイ",
+      "reading": "ガイ",
+      "common": true,
+      "kana": ["ガイ"],
+      "senses": [
+        {
+          "glosses": ["guy"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1042080,
+      "headword": "キャンディ",
+      "reading": "キャンディ",
+      "common": true,
+      "kana": ["キャンディ", "キャンディー", "キャンデー"],
+      "senses": [
+        {
+          "glosses": ["candy", "sweets"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1045270,
+      "headword": "クレーム",
+      "reading": "クレーム",
+      "common": true,
+      "kana": ["クレーム", "クレイム"],
+      "senses": [
+        {
+          "glosses": ["claim (for compensation)", "customer complaint seeking compensation"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["(general) complaint", "objection"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1049180,
+      "headword": "コーヒー",
+      "reading": "コーヒー",
+      "common": true,
+      "kanji": ["珈琲"],
+      "kana": ["コーヒー"],
+      "senses": [
+        {
+          "glosses": ["coffee"],
+          "pos": ["n"],
+          "misc": ["uk"],
+          "sources": ["coffee"]
+        }
+      ]
+    },
+    {
+      "id": 1053350,
+      "headword": "コンピュータ",
+      "reading": "コンピュータ",
+      "common": true,
+      "kana": ["コンピュータ", "コンピューター"],
+      "senses": [
+        {
+          "glosses": ["computer"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1056700,
+      "headword": "サッカー",
+      "reading": "サッカー",
+      "common": true,
+      "kana": ["サッカー"],
+      "senses": [
+        {
+          "glosses": ["soccer", "(association) football"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1059670,
+      "headword": "シール",
+      "reading": "シール",
+      "common": true,
+      "kana": ["シール"],
+      "senses": [
+        {
+          "glosses": ["seal"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["sticker"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1060610,
+      "headword": "シック",
+      "reading": "シック",
+      "common": true,
+      "kana": ["シック"],
+      "senses": [
+        {
+          "glosses": ["chic", "stylish", "smart"],
+          "pos": ["adj-na"]
+        }
+      ]
+    },
+    {
+      "id": 1065950,
+      "headword": "ジュース",
+      "reading": "ジュース",
+      "common": true,
+      "kana": ["ジュース"],
+      "senses": [
+        {
+          "glosses": ["juice"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["soft drink (usu. fruit-based)", "sweetened drink"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1069520,
+      "headword": "スタイル",
+      "reading": "スタイル",
+      "common": true,
+      "kana": ["スタイル"],
+      "senses": [
+        {
+          "glosses": ["(one's) figure", "build", "physique", "shape"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["style"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1073570,
+      "headword": "スマート",
+      "reading": "スマート",
+      "common": true,
+      "kana": ["スマート"],
+      "senses": [
+        {
+          "glosses": ["smart (clothing, etc.)", "stylish"],
+          "pos": ["adj-na"]
+        },
+        {
+          "glosses": ["slim", "slender"],
+          "pos": ["adj-na"]
+        },
+        {
+          "glosses": ["skilful", "slick", "clever", "adroit"],
+          "pos": ["adj-na"]
+        }
+      ]
+    },
+    {
+      "id": 1074570,
+      "headword": "セックス",
+      "reading": "セックス",
+      "common": true,
+      "kana": ["セックス"],
+      "senses": [
+        {
+          "glosses": ["sex", "sexual intercourse"],
+          "pos": ["n", "vs", "vi"]
+        },
+        {
+          "glosses": ["(one's) sex", "gender"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1075940,
+      "headword": "タイプ",
+      "reading": "タイプ",
+      "common": true,
+      "kana": ["タイプ"],
+      "senses": [
+        {
+          "glosses": ["type", "kind", "sort", "style"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["type (of person)", "(ideal) type", "one's type"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["typewriter"],
+          "pos": ["n"],
+          "misc": ["abbr"]
+        },
+        {
+          "glosses": ["typing (on a typewriter)"],
+          "pos": ["n", "vs", "vt"]
+        }
+      ]
+    },
+    {
+      "id": 1076320,
+      "headword": "タッチ",
+      "reading": "タッチ",
+      "common": true,
+      "kana": ["タッチ"],
+      "senses": [
+        {
+          "glosses": ["touch", "touching"],
+          "pos": ["n", "vs", "vi"]
+        },
+        {
+          "glosses": ["being involved in"],
+          "pos": ["n", "vs", "vi"]
+        },
+        {
+          "glosses": ["touch (of a painter, pianist, etc.)", "style (of writing, drawing, etc.)", "feel"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["tag"],
+          "pos": ["n", "vs", "vi"],
+          "fields": ["baseb"]
+        },
+        {
+          "glosses": ["high five", "touching palms"],
+          "pos": ["n", "vs", "vi"],
+          "misc": ["chn"]
+        }
+      ]
+    },
+    {
+      "id": 1076460,
+      "headword": "タレント",
+      "reading": "タレント",
+      "common": true,
+      "kana": ["タレント"],
+      "senses": [
+        {
+          "glosses": ["(TV or radio) entertainer", "television personality", "radio personality"],
+          "pos": ["n"],
+          "sources": ["talent"]
+        },
+        {
+          "glosses": ["talent", "skill"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["talent (ancient unit of weight and currency)"],
+          "pos": ["n"],
+          "misc": ["hist"]
+        }
+      ]
+    },
+    {
+      "id": 1076980,
+      "headword": "ダウン",
+      "reading": "ダウン",
+      "common": true,
+      "kana": ["ダウン"],
+      "senses": [
+        {
+          "glosses": ["fall", "decrease", "drop", "going down"],
+          "pos": ["n", "vs", "vt", "vi"]
+        },
+        {
+          "glosses": ["knocking down", "flooring", "being knocked down", "being floored"],
+          "pos": ["n", "vs", "vt", "vi"],
+          "fields": ["boxing"]
+        },
+        {
+          "glosses": [
+            "being out of action (due to illness, exhaustion, etc.)",
+            "being down (e.g. with a cold)",
+            "being knocked out (from alcohol)",
+            "being out of it",
+            "collapsing"
+          ],
+          "pos": ["n", "vs", "vi"]
+        },
+        {
+          "glosses": ["going down (of a computer system, server, etc.)", "crashing"],
+          "pos": ["n", "vs", "vi"],
+          "fields": ["comp"]
+        },
+        {
+          "glosses": ["(number of) outs"],
+          "pos": ["n"],
+          "fields": ["baseb"]
+        },
+        {
+          "glosses": ["being down (in points, games, etc.)", "being behind", "trailing"],
+          "pos": ["n"],
+          "fields": ["sports"]
+        }
+      ]
+    },
+    {
+      "id": 1078630,
+      "headword": "テーブル",
+      "reading": "テーブル",
+      "common": true,
+      "kana": ["テーブル"],
+      "senses": [
+        {
+          "glosses": ["table"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1080970,
+      "headword": "テンション",
+      "reading": "テンション",
+      "common": true,
+      "kana": ["テンション"],
+      "senses": [
+        {
+          "glosses": ["spirits", "excitement", "energy level", "(good) mood"],
+          "pos": ["n"],
+          "misc": ["col"]
+        },
+        {
+          "glosses": ["tension"],
+          "pos": ["n"],
+          "fields": ["physics"]
+        },
+        {
+          "glosses": ["tension (mental strain)", "anxiety"],
+          "pos": ["n"],
+          "misc": ["rare"]
+        }
+      ]
+    },
+    {
+      "id": 1083820,
+      "headword": "デブ",
+      "reading": "デブ",
+      "common": true,
+      "kana": ["デブ", "でぶ"],
+      "senses": [
+        {
+          "glosses": ["fat", "chubby"],
+          "pos": ["adj-no", "adj-na", "n"],
+          "misc": ["col"],
+          "info": ["usu. derog."]
+        },
+        {
+          "glosses": ["fatso", "fatty", "fat person"],
+          "pos": ["n"],
+          "misc": ["col"]
+        }
+      ]
+    },
+    {
+      "id": 1084810,
+      "headword": "トイレ",
+      "reading": "トイレ",
+      "common": true,
+      "kana": ["トイレ"],
+      "senses": [
+        {
+          "glosses": ["toilet", "restroom", "bathroom", "lavatory"],
+          "pos": ["n"],
+          "misc": ["abbr"]
+        },
+        {
+          "glosses": ["going to the toilet", "relieving oneself"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1085760,
+      "headword": "トラック",
+      "reading": "トラック",
+      "common": true,
+      "kana": ["トラック"],
+      "senses": [
+        {
+          "glosses": ["truck", "lorry"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1087820,
+      "headword": "ドア",
+      "reading": "ドア",
+      "common": true,
+      "kana": ["ドア", "ドアー"],
+      "senses": [
+        {
+          "glosses": ["door"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1089660,
+      "headword": "ナイーブ",
+      "reading": "ナイーブ",
+      "common": true,
+      "kana": ["ナイーブ", "ナイーヴ"],
+      "senses": [
+        {
+          "glosses": ["innocent", "sensitive", "uncomplicated", "unpretentious", "straightforward"],
+          "pos": ["adj-na", "n"],
+          "sources": ["naive"]
+        }
+      ]
+    },
+    {
+      "id": 1095010,
+      "headword": "ハイカラ",
+      "reading": "ハイカラ",
+      "common": false,
+      "kana": ["ハイカラ", "ハイカラー"],
+      "senses": [
+        {
+          "glosses": ["stylish", "smart", "fashionable"],
+          "pos": ["adj-na", "adj-no", "n"],
+          "sources": ["high collar"]
+        },
+        {
+          "glosses": ["(hair) dressed in a Western style"],
+          "pos": ["adj-na", "n", "adj-no"]
+        },
+        {
+          "glosses": ["to dress in the latest Western fashion"],
+          "pos": ["vs"]
+        }
+      ]
+    },
+    {
+      "id": 1097810,
+      "headword": "バイク",
+      "reading": "バイク",
+      "common": true,
+      "kana": ["バイク"],
+      "senses": [
+        {
+          "glosses": ["motorcycle", "motorbike", "bike"],
+          "pos": ["n"],
+          "misc": ["abbr"]
+        },
+        {
+          "glosses": ["bicycle"],
+          "pos": ["n"],
+          "info": ["usu. in compounds"]
+        }
+      ]
+    },
+    {
+      "id": 1097870,
+      "headword": "バイト",
+      "reading": "バイト",
+      "common": true,
+      "kana": ["バイト"],
+      "senses": [
+        {
+          "glosses": ["part-time job", "side job"],
+          "pos": ["n", "vs", "vi"],
+          "misc": ["abbr"]
+        },
+        {
+          "glosses": ["part-time worker", "part-timer"],
+          "pos": ["n"],
+          "misc": ["abbr"]
+        }
+      ]
+    },
+    {
+      "id": 1110390,
+      "headword": "フォール",
+      "reading": "フォール",
+      "common": true,
+      "kana": ["フォール"],
+      "senses": [
+        {
+          "glosses": ["fall (esp. in wrestling)"],
+          "pos": ["n", "vs", "vt"]
+        }
+      ]
+    },
+    {
+      "id": 1110460,
+      "headword": "フォアボール",
+      "reading": "フォアボール",
+      "common": true,
+      "kana": ["フォアボール", "フォア・ボール"],
+      "senses": [
+        {
+          "glosses": ["base on balls", "walk", "pass"],
+          "pos": ["n"],
+          "fields": ["baseb"],
+          "sources": ["four balls"],
+          "wasei": true
+        }
+      ]
+    },
+    {
+      "id": 1122440,
+      "headword": "ホット",
+      "reading": "ホット",
+      "common": true,
+      "kana": ["ホット"],
+      "senses": [
+        {
+          "glosses": ["hot"],
+          "pos": ["adj-na", "n"]
+        },
+        {
+          "glosses": ["(hot) coffee"],
+          "pos": ["n"],
+          "misc": ["abbr"]
+        }
+      ]
+    },
+    {
+      "id": 1122650,
+      "headword": "ホテル",
+      "reading": "ホテル",
+      "common": true,
+      "kana": ["ホテル"],
+      "senses": [
+        {
+          "glosses": ["hotel"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1127680,
+      "headword": "まじ",
+      "reading": "まじ",
+      "common": false,
+      "kana": ["まじ", "マジ", "まぢ", "マヂ"],
+      "senses": [
+        {
+          "glosses": ["serious", "not joking", "straight"],
+          "pos": ["adj-na", "n"],
+          "misc": ["col", "abbr"]
+        }
+      ]
+    },
+    {
+      "id": 1130040,
+      "headword": "マンション",
+      "reading": "マンション",
+      "common": true,
+      "kana": ["マンション"],
+      "senses": [
+        {
+          "glosses": [
+            "condominium (usu. mid or high-rise)",
+            "apartment building",
+            "apartment house",
+            "block of flats",
+            "apartment",
+            "flat"
+          ],
+          "pos": ["n"],
+          "sources": ["mansion"]
+        }
+      ]
+    },
+    {
+      "id": 1142550,
+      "headword": "リフト",
+      "reading": "リフト",
+      "common": true,
+      "kana": ["リフト"],
+      "senses": [
+        {
+          "glosses": ["chairlift (e.g. at a ski resort)", "ski lift"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["(goods) lift"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["lift (in figure skating, ballet, etc.)"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1149310,
+      "headword": "ワンワン",
+      "reading": "ワンワン",
+      "common": false,
+      "kana": ["ワンワン", "わんわん"],
+      "senses": [
+        {
+          "glosses": ["bow-wow", "woof", "arf", "barking"],
+          "pos": ["adv-to", "adv"],
+          "misc": ["on-mim"]
+        },
+        {
+          "glosses": ["wah-wah", "bawling", "wailing"],
+          "pos": ["adv-to", "adv"],
+          "misc": ["on-mim"]
+        },
+        {
+          "glosses": ["clamouring", "clamoring", "echoing", "loudly"],
+          "pos": ["adv-to", "adv"],
+          "misc": ["on-mim"]
+        },
+        {
+          "glosses": ["dog", "doggy", "bow-wow"],
+          "pos": ["n"],
+          "misc": ["chn"]
+        }
+      ]
+    },
+    {
+      "id": 1153520,
+      "headword": "飴",
+      "reading": "あめ",
+      "common": true,
+      "kanji": ["飴"],
+      "kana": ["あめ"],
+      "senses": [
+        {
+          "glosses": ["(hard) candy", "toffee"],
+          "pos": ["n"],
+          "fields": ["food"]
+        },
+        {
+          "glosses": ["rice-sugar", "sugar made from the starch of rice, potatoes, etc."],
+          "pos": ["n"],
+          "fields": ["food"]
+        },
+        {
+          "glosses": ["amber", "yellowish-brown"],
+          "pos": ["n"],
+          "misc": ["abbr"]
+        }
+      ]
+    },
+    {
+      "id": 1159090,
+      "headword": "遺憾",
+      "reading": "いかん",
+      "common": true,
+      "kanji": ["遺憾"],
+      "kana": ["いかん"],
+      "senses": [
+        {
+          "glosses": ["regrettable", "unsatisfactory", "deplorable", "lamentable"],
+          "pos": ["adj-na", "n"]
+        }
+      ]
+    },
+    {
+      "id": 1169870,
+      "headword": "飲む",
+      "reading": "のむ",
+      "common": true,
+      "kanji": ["飲む", "呑む", "飮む", "吞む"],
+      "kana": ["のむ"],
+      "senses": [
+        {
+          "glosses": ["to drink", "to swallow", "to take (medicine)"],
+          "pos": ["v5m", "vt"],
+          "info": ["呑む refers to swallowing whole or gulping down"]
+        },
+        {
+          "glosses": ["to smoke (tobacco)"],
+          "pos": ["v5m", "vt"]
+        },
+        {
+          "glosses": ["to swallow up", "to engulf"],
+          "pos": ["v5m", "vt"],
+          "info": ["usu. in the passive"]
+        },
+        {
+          "glosses": [
+            "to suppress (one's anger, bitter feelings, etc.)",
+            "to keep down",
+            "to hold back",
+            "to swallow (one's tears)",
+            "to catch (one's breath)"
+          ],
+          "pos": ["v5m", "vt"]
+        },
+        {
+          "glosses": ["to accept (a demand, conditions, etc.)", "to agree to"],
+          "pos": ["v5m", "vt"]
+        },
+        {
+          "glosses": ["to make light of (someone)", "to think nothing of", "to overwhelm", "to overawe"],
+          "pos": ["v5m", "vt"]
+        }
+      ]
+    },
+    {
+      "id": 1198550,
+      "headword": "会社",
+      "reading": "かいしゃ",
+      "common": true,
+      "kanji": ["会社", "會社"],
+      "kana": ["かいしゃ"],
+      "senses": [
+        {
+          "glosses": ["company", "corporation", "firm"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["one's workplace"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1202760,
+      "headword": "開始",
+      "reading": "かいし",
+      "common": true,
+      "kanji": ["開始"],
+      "kana": ["かいし"],
+      "senses": [
+        {
+          "glosses": ["start", "commencement", "beginning", "initiation"],
+          "pos": ["n", "vs", "vt", "vi"]
+        }
+      ]
+    },
+    {
+      "id": 1206730,
+      "headword": "学校",
+      "reading": "がっこう",
+      "common": true,
+      "kanji": ["学校", "學校"],
+      "kana": ["がっこう"],
+      "senses": [
+        {
+          "glosses": ["school"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1213400,
+      "headword": "甘い",
+      "reading": "あまい",
+      "common": true,
+      "kanji": ["甘い"],
+      "kana": ["あまい"],
+      "senses": [
+        {
+          "glosses": ["sweet-tasting", "sweet", "sugary", "sugared"],
+          "pos": ["adj-i"]
+        },
+        {
+          "glosses": ["fragrant (smelling)", "sweet (music)"],
+          "pos": ["adj-i"]
+        },
+        {
+          "glosses": ["lightly salted", "light in salt", "not spicy"],
+          "pos": ["adj-i"]
+        },
+        {
+          "glosses": ["indulgent", "lenient", "soft (on)", "easy-going", "generous"],
+          "pos": ["adj-i"]
+        },
+        {
+          "glosses": ["naive", "overly optimistic", "simplistic"],
+          "pos": ["adj-i"]
+        },
+        {
+          "glosses": ["half-hearted", "not finished properly"],
+          "pos": ["adj-i"]
+        }
+      ]
+    },
+    {
+      "id": 1215170,
+      "headword": "鑑みる",
+      "reading": "かんがみる",
+      "common": false,
+      "kanji": ["鑑みる", "鑒みる"],
+      "kana": ["かんがみる"],
+      "senses": [
+        {
+          "glosses": ["to take into account", "to bear in mind", "to consider", "to learn from", "to take as a lesson"],
+          "pos": ["v1", "vt", "vi"]
+        }
+      ]
+    },
+    {
+      "id": 1224880,
+      "headword": "よろしい",
+      "reading": "よろしい",
+      "common": true,
+      "kanji": ["宜しい"],
+      "kana": ["よろしい"],
+      "senses": [
+        {
+          "glosses": ["good", "OK", "all right", "fine", "very well", "will do", "may", "can"],
+          "pos": ["adj-i"],
+          "misc": ["uk", "hon"]
+        }
+      ]
+    },
+    {
+      "id": 1228140,
+      "headword": "及び",
+      "reading": "および",
+      "common": true,
+      "kanji": ["及び", "及"],
+      "kana": ["および"],
+      "senses": [
+        {
+          "glosses": ["and", "as well as"],
+          "pos": ["conj"]
+        }
+      ]
+    },
+    {
+      "id": 1236740,
+      "headword": "恐縮",
+      "reading": "きょうしゅく",
+      "common": true,
+      "kanji": ["恐縮"],
+      "kana": ["きょうしゅく"],
+      "senses": [
+        {
+          "glosses": ["feeling (much) obliged", "being (very) grateful", "being thankful"],
+          "pos": ["n", "vs", "vi"]
+        },
+        {
+          "glosses": [
+            "feeling sorry (for troubling someone)",
+            "feeling ashamed (e.g. of an error)",
+            "feeling embarrassed (e.g. by someone's compliments, hospitality, etc.)"
+          ],
+          "pos": ["n", "vs", "vi"],
+          "info": ["oft. before a request, as ～ですが"]
+        },
+        {
+          "glosses": ["shrinking back in fear"],
+          "pos": ["n", "vs", "vi"],
+          "misc": ["arch"]
+        }
+      ]
+    },
+    {
+      "id": 1238840,
+      "headword": "おっしゃる",
+      "reading": "おっしゃる",
+      "common": true,
+      "kanji": ["仰る", "仰有る", "仰しゃる", "仰っしゃる"],
+      "kana": ["おっしゃる"],
+      "senses": [
+        {
+          "glosses": ["to say", "to speak", "to tell"],
+          "pos": ["v5aru", "vt"],
+          "misc": ["uk", "hon"]
+        },
+        {
+          "glosses": ["to be called"],
+          "pos": ["v5aru", "vt"],
+          "misc": ["uk", "hon"],
+          "info": ["as ...とおっしゃる after a person's name"]
+        }
+      ]
+    },
+    {
+      "id": 1241880,
+      "headword": "緊張",
+      "reading": "きんちょう",
+      "common": true,
+      "kanji": ["緊張"],
+      "kana": ["きんちょう"],
+      "senses": [
+        {
+          "glosses": ["tension", "strain", "nervousness", "stress"],
+          "pos": ["n", "vs", "vi"]
+        },
+        {
+          "glosses": ["tensions (between countries, groups, etc.)"],
+          "pos": ["n", "vs", "vi"]
+        },
+        {
+          "glosses": ["tonus", "muscle tone"],
+          "pos": ["n"],
+          "fields": ["physiol"]
+        }
+      ]
+    },
+    {
+      "id": 1243590,
+      "headword": "銀幕",
+      "reading": "ぎんまく",
+      "common": false,
+      "kanji": ["銀幕"],
+      "kana": ["ぎんまく"],
+      "senses": [
+        {
+          "glosses": ["(projection) screen"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["the silver screen", "the film world", "movies"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1258330,
+      "headword": "犬",
+      "reading": "いぬ",
+      "common": true,
+      "kanji": ["犬", "狗"],
+      "kana": ["いぬ", "イヌ"],
+      "senses": [
+        {
+          "glosses": ["dog (Canis (lupus) familiaris)", "canine"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["squealer", "rat", "snitch", "informer", "informant", "spy"],
+          "pos": ["n"],
+          "misc": ["derog", "uk"]
+        },
+        {
+          "glosses": ["loser", "asshole"],
+          "pos": ["n"],
+          "misc": ["derog"]
+        },
+        {
+          "glosses": ["counterfeit", "inferior", "useless", "wasteful"],
+          "pos": ["n-pref"]
+        }
+      ]
+    },
+    {
+      "id": 1259290,
+      "headword": "見る",
+      "reading": "みる",
+      "common": true,
+      "kanji": ["見る", "観る", "視る", "覧る"],
+      "kana": ["みる"],
+      "senses": [
+        {
+          "glosses": ["to see", "to look", "to watch", "to view", "to observe"],
+          "pos": ["v1", "vt"]
+        },
+        {
+          "glosses": ["to examine", "to look over", "to assess", "to check", "to judge"],
+          "pos": ["v1", "vt"]
+        },
+        {
+          "glosses": ["to look after", "to attend to", "to take care of", "to keep an eye on"],
+          "pos": ["v1", "vt"]
+        },
+        {
+          "glosses": ["to experience", "to meet with (misfortune, success, etc.)"],
+          "pos": ["v1", "vt"]
+        },
+        {
+          "glosses": ["to try ...", "to have a go at ...", "to give ... a try"],
+          "pos": ["aux-v", "v1"],
+          "misc": ["uk"],
+          "info": ["after the -te form of a verb"]
+        },
+        {
+          "glosses": ["to see (that) ...", "to find (that) ..."],
+          "pos": ["aux-v", "v1"],
+          "misc": ["uk"],
+          "info": ["as 〜てみると, 〜てみたら, 〜てみれば, etc."]
+        }
+      ]
+    },
+    {
+      "id": 1260260,
+      "headword": "賢い",
+      "reading": "かしこい",
+      "common": true,
+      "kanji": ["賢い", "畏い"],
+      "kana": ["かしこい"],
+      "senses": [
+        {
+          "glosses": ["wise", "clever", "smart"],
+          "pos": ["adj-i"]
+        },
+        {
+          "glosses": ["well-behaved (esp. children and pets)", "obedient", "good"],
+          "pos": ["adj-i"],
+          "misc": ["chn"],
+          "dialects": ["ksb"]
+        }
+      ]
+    },
+    {
+      "id": 1267130,
+      "headword": "ゆえに",
+      "reading": "ゆえに",
+      "common": true,
+      "kanji": ["故に"],
+      "kana": ["ゆえに"],
+      "senses": [
+        {
+          "glosses": ["therefore", "consequently"],
+          "pos": ["conj"],
+          "misc": ["uk"]
+        }
+      ]
+    },
+    {
+      "id": 1270590,
+      "headword": "ご飯",
+      "reading": "ごはん",
+      "common": true,
+      "kanji": ["ご飯", "御飯"],
+      "kana": ["ごはん"],
+      "senses": [
+        {
+          "glosses": ["cooked rice"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["meal"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1282440,
+      "headword": "購入",
+      "reading": "こうにゅう",
+      "common": true,
+      "kanji": ["購入"],
+      "kana": ["こうにゅう"],
+      "senses": [
+        {
+          "glosses": ["purchase", "buying"],
+          "pos": ["n", "vs", "vt"]
+        }
+      ]
+    },
+    {
+      "id": 1294630,
+      "headword": "才能",
+      "reading": "さいのう",
+      "common": true,
+      "kanji": ["才能"],
+      "kana": ["さいのう"],
+      "senses": [
+        {
+          "glosses": ["talent", "ability"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1302070,
+      "headword": "まいる",
+      "reading": "まいる",
+      "common": true,
+      "kanji": ["参る", "詣る"],
+      "kana": ["まいる"],
+      "senses": [
+        {
+          "glosses": ["to go", "to come"],
+          "pos": ["v5r", "vi"],
+          "misc": ["hum", "uk"],
+          "info": ["usu. as 参ります"]
+        },
+        {
+          "glosses": ["to lose", "to be defeated", "to give up", "to be beaten", "to yield"],
+          "pos": ["v5r", "vi"],
+          "info": ["oft. as まいった"]
+        },
+        {
+          "glosses": [
+            "to be stumped (by)",
+            "to be at a loss",
+            "to be nonplussed (by)",
+            "to be confused",
+            "to be bewildered"
+          ],
+          "pos": ["v5r", "vi"]
+        },
+        {
+          "glosses": ["to visit (a shrine, grave, etc.)", "to go to worship (at a temple)"],
+          "pos": ["v5r", "vi"]
+        },
+        {
+          "glosses": [
+            "to give in (of one's body)",
+            "to be exhausted (by)",
+            "to weaken",
+            "to collapse (e.g. in the heat)"
+          ],
+          "pos": ["v5r", "vi"]
+        },
+        {
+          "glosses": ["to have one's heart stolen (by)", "to be madly in love (with)", "to be infatuated (with)"],
+          "pos": ["v5r", "vi"],
+          "info": ["oft. as 参っている"]
+        }
+      ]
+    },
+    {
+      "id": 1305700,
+      "headword": "伺う",
+      "reading": "うかがう",
+      "common": true,
+      "kanji": ["伺う"],
+      "kana": ["うかがう"],
+      "senses": [
+        {
+          "glosses": ["to call on someone", "to call at a place", "to pay a visit", "to wait on someone"],
+          "pos": ["v5u", "vt"],
+          "misc": ["hum"]
+        },
+        {
+          "glosses": ["to ask", "to inquire"],
+          "pos": ["v5u", "vt"],
+          "misc": ["hum"]
+        },
+        {
+          "glosses": ["to hear", "to be told"],
+          "pos": ["v5u", "vt"],
+          "misc": ["hum"]
+        },
+        {
+          "glosses": ["to implore (a god for an oracle)", "to seek direction (from your superior)"],
+          "pos": ["v5u", "vt"]
+        },
+        {
+          "glosses": ["to speak to (a large crowd at a theatre, etc.)"],
+          "pos": ["v5u", "vi"],
+          "info": ["from 御機嫌を伺う"]
+        }
+      ]
+    },
+    {
+      "id": 1307550,
+      "headword": "始める",
+      "reading": "はじめる",
+      "common": true,
+      "kanji": ["始める", "創める"],
+      "kana": ["はじめる"],
+      "senses": [
+        {
+          "glosses": ["to start", "to begin", "to commence", "to initiate", "to originate"],
+          "pos": ["v1", "vt"]
+        },
+        {
+          "glosses": ["to start up (a business, society, etc.)", "to open (e.g. a store)", "to establish"],
+          "pos": ["v1", "vt"]
+        },
+        {
+          "glosses": ["to start ...", "to begin to ..."],
+          "pos": ["aux-v", "v1"],
+          "info": ["after the -masu stem of a verb"]
+        }
+      ]
+    },
+    {
+      "id": 1307870,
+      "headword": "子供たち",
+      "reading": "こどもたち",
+      "common": true,
+      "kanji": ["子供たち", "子どもたち", "子供達", "子ども達", "こども達"],
+      "kana": ["こどもたち"],
+      "senses": [
+        {
+          "glosses": ["children", "kids"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1310460,
+      "headword": "うまい",
+      "reading": "うまい",
+      "common": true,
+      "kanji": ["上手い", "美味い", "旨い", "巧い", "甘い", "美い"],
+      "kana": ["うまい"],
+      "senses": [
+        {
+          "glosses": [
+            "skillful",
+            "skilful",
+            "skilled",
+            "good",
+            "expert",
+            "clever (expression, trick, etc.)",
+            "apt",
+            "appropriate"
+          ],
+          "pos": ["adj-i"],
+          "misc": ["uk"],
+          "info": ["esp. 上手い, 巧い"]
+        },
+        {
+          "glosses": ["delicious", "tasty", "good", "nice"],
+          "pos": ["adj-i"],
+          "misc": ["uk"],
+          "info": ["esp. 旨い, 美味い, 甘い"]
+        },
+        {
+          "glosses": [
+            "good (deal, idea, etc.)",
+            "profitable",
+            "promising",
+            "lucky",
+            "fortunate",
+            "successful",
+            "satisfactory",
+            "splendid"
+          ],
+          "pos": ["adj-i"],
+          "misc": ["uk"],
+          "info": ["esp. 旨い"]
+        }
+      ]
+    },
+    {
+      "id": 1310730,
+      "headword": "死ぬ",
+      "reading": "しぬ",
+      "common": true,
+      "kanji": ["死ぬ"],
+      "kana": ["しぬ", "ﾀﾋぬ"],
+      "senses": [
+        {
+          "glosses": ["to die", "to pass away"],
+          "pos": ["v5n", "vi"]
+        },
+        {
+          "glosses": ["to lose spirit", "to lose vigor", "to look dead"],
+          "pos": ["v5n", "vi"]
+        },
+        {
+          "glosses": ["to cease", "to stop"],
+          "pos": ["v5n", "vi"]
+        }
+      ]
+    },
+    {
+      "id": 1311125,
+      "headword": "あたし",
+      "reading": "あたし",
+      "common": true,
+      "kanji": ["私"],
+      "kana": ["あたし", "あたくし", "アタシ"],
+      "senses": [
+        {
+          "glosses": ["I", "me"],
+          "pos": ["pn"],
+          "misc": ["fem", "uk"],
+          "info": ["あたくし is more polite"]
+        }
+      ]
+    },
+    {
+      "id": 1315920,
+      "headword": "時間",
+      "reading": "じかん",
+      "common": true,
+      "kanji": ["時間"],
+      "kana": ["じかん"],
+      "senses": [
+        {
+          "glosses": ["time"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["hour"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["period", "class", "lesson"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1318290,
+      "headword": "自転車",
+      "reading": "じてんしゃ",
+      "common": true,
+      "kanji": ["自転車"],
+      "kana": ["じてんしゃ", "じでんしゃ"],
+      "senses": [
+        {
+          "glosses": ["bicycle", "bike"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1318400,
+      "headword": "自動車",
+      "reading": "じどうしゃ",
+      "common": true,
+      "kanji": ["自動車"],
+      "kana": ["じどうしゃ"],
+      "senses": [
+        {
+          "glosses": ["car", "automobile", "motorcar", "motor vehicle", "auto"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1323560,
+      "headword": "借りる",
+      "reading": "かりる",
+      "common": true,
+      "kanji": ["借りる", "貸りる"],
+      "kana": ["かりる"],
+      "senses": [
+        {
+          "glosses": ["to borrow"],
+          "pos": ["v1", "vt"]
+        },
+        {
+          "glosses": ["to rent", "to hire"],
+          "pos": ["v1", "vt"]
+        },
+        {
+          "glosses": ["to make use of (another's help, wisdom, etc.)", "to obtain", "to receive"],
+          "pos": ["v1", "vt"]
+        },
+        {
+          "glosses": ["to use (for another purpose)", "to put to a different use"],
+          "pos": ["v1", "vt"]
+        }
+      ]
+    },
+    {
+      "id": 1325910,
+      "headword": "主張",
+      "reading": "しゅちょう",
+      "common": true,
+      "kanji": ["主張"],
+      "kana": ["しゅちょう"],
+      "senses": [
+        {
+          "glosses": ["claim", "insistence", "assertion", "advocacy", "emphasis", "contention", "opinion", "tenet"],
+          "pos": ["n", "vs", "vt"]
+        }
+      ]
+    },
+    {
+      "id": 1332650,
+      "headword": "秋",
+      "reading": "あき",
+      "common": true,
+      "kanji": ["秋"],
+      "kana": ["あき"],
+      "senses": [
+        {
+          "glosses": ["autumn", "fall"],
+          "pos": ["n", "adv"]
+        }
+      ]
+    },
+    {
+      "id": 1335520,
+      "headword": "汁",
+      "reading": "しる",
+      "common": true,
+      "kanji": ["汁", "液"],
+      "kana": ["しる", "つゆ"],
+      "senses": [
+        {
+          "glosses": ["juice", "sap"],
+          "pos": ["n", "n-suf"]
+        },
+        {
+          "glosses": ["soup", "broth"],
+          "pos": ["n", "n-suf"]
+        },
+        {
+          "glosses": ["(dipping) sauce"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1337190,
+      "headword": "宿",
+      "reading": "やど",
+      "common": true,
+      "kanji": ["宿"],
+      "kana": ["やど"],
+      "senses": [
+        {
+          "glosses": ["lodging", "inn", "hotel"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["house", "home", "dwelling"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["home of a servant's parents (or guarantor, etc.)"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1340820,
+      "headword": "述べる",
+      "reading": "のべる",
+      "common": true,
+      "kanji": ["述べる", "宣べる", "陳べる"],
+      "kana": ["のべる"],
+      "senses": [
+        {
+          "glosses": ["to state", "to express", "to say", "to tell", "to mention"],
+          "pos": ["v1", "vt"]
+        }
+      ]
+    },
+    {
+      "id": 1346370,
+      "headword": "召し上がる",
+      "reading": "めしあがる",
+      "common": true,
+      "kanji": ["召し上がる", "召しあがる", "召上がる", "召し上る"],
+      "kana": ["めしあがる"],
+      "senses": [
+        {
+          "glosses": ["to eat", "to drink"],
+          "pos": ["v5r", "vt"],
+          "misc": ["hon"]
+        }
+      ]
+    },
+    {
+      "id": 1358280,
+      "headword": "食べる",
+      "reading": "たべる",
+      "common": true,
+      "kanji": ["食べる", "喰べる"],
+      "kana": ["たべる"],
+      "senses": [
+        {
+          "glosses": ["to eat"],
+          "pos": ["v1", "vt"]
+        },
+        {
+          "glosses": ["to live on (e.g. a salary)", "to live off", "to subsist on"],
+          "pos": ["v1", "vt"]
+        }
+      ]
+    },
+    {
+      "id": 1363090,
+      "headword": "申す",
+      "reading": "もうす",
+      "common": true,
+      "kanji": ["申す"],
+      "kana": ["もうす"],
+      "senses": [
+        {
+          "glosses": ["to say", "to be called"],
+          "pos": ["v5s", "vt"],
+          "misc": ["hum"]
+        },
+        {
+          "glosses": ["to do"],
+          "pos": ["v5s", "vt"],
+          "misc": ["hum"],
+          "info": ["after a word beginning with お- or ご-"]
+        }
+      ]
+    },
+    {
+      "id": 1371260,
+      "headword": "水",
+      "reading": "みず",
+      "common": true,
+      "kanji": ["水"],
+      "kana": ["みず"],
+      "senses": [
+        {
+          "glosses": ["water (esp. cool or cold)"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["fluid (esp. in an animal tissue)", "liquid"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["flood", "floodwaters"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["water offered to wrestlers just prior to a bout"],
+          "pos": ["n"],
+          "fields": ["sumo"]
+        },
+        {
+          "glosses": ["break granted to wrestlers engaged in a prolonged bout"],
+          "pos": ["n"],
+          "fields": ["sumo"]
+        }
+      ]
+    },
+    {
+      "id": 1375330,
+      "headword": "性交",
+      "reading": "せいこう",
+      "common": true,
+      "kanji": ["性交"],
+      "kana": ["せいこう"],
+      "senses": [
+        {
+          "glosses": ["sexual intercourse", "sex", "coitus"],
+          "pos": ["n", "vs", "vi"]
+        }
+      ]
+    },
+    {
+      "id": 1379580,
+      "headword": "生理",
+      "reading": "せいり",
+      "common": true,
+      "kanji": ["生理"],
+      "kana": ["せいり"],
+      "senses": [
+        {
+          "glosses": ["physiology"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["one's period", "menstruation"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1381160,
+      "headword": "誠に",
+      "reading": "まことに",
+      "common": true,
+      "kanji": ["誠に", "真に", "寔に", "実に", "洵に"],
+      "kana": ["まことに"],
+      "senses": [
+        {
+          "glosses": ["really", "truly", "very", "extremely", "exceedingly", "sincerely"],
+          "pos": ["adv"]
+        }
+      ]
+    },
+    {
+      "id": 1381360,
+      "headword": "逝去",
+      "reading": "せいきょ",
+      "common": true,
+      "kanji": ["逝去"],
+      "kana": ["せいきょ"],
+      "senses": [
+        {
+          "glosses": ["death", "passing"],
+          "pos": ["n", "vs", "vi"],
+          "misc": ["hon"]
+        }
+      ]
+    },
+    {
+      "id": 1390800,
+      "headword": "浅い",
+      "reading": "あさい",
+      "common": true,
+      "kanji": ["浅い"],
+      "kana": ["あさい"],
+      "senses": [
+        {
+          "glosses": ["shallow", "superficial"],
+          "pos": ["adj-i"]
+        },
+        {
+          "glosses": ["slight (wound)", "light (sleep)", "pale (colour)", "inadequate (knowledge)"],
+          "pos": ["adj-i"]
+        },
+        {
+          "glosses": ["short (time)", "early", "young"],
+          "pos": ["adj-i"]
+        }
+      ]
+    },
+    {
+      "id": 1397300,
+      "headword": "素晴らしい",
+      "reading": "すばらしい",
+      "common": true,
+      "kanji": ["素晴らしい", "素晴しい", "素薔薇しい"],
+      "kana": ["すばらしい", "すんばらしい"],
+      "senses": [
+        {
+          "glosses": ["wonderful", "splendid", "magnificent", "amazing", "superb"],
+          "pos": ["adj-i"]
+        },
+        {
+          "glosses": ["exceeding", "incredible", "remarkable", "striking", "immense"],
+          "pos": ["adj-i"],
+          "info": ["adverbially as 素晴らしく"]
+        }
+      ]
+    },
+    {
+      "id": 1406140,
+      "headword": "存じる",
+      "reading": "ぞんじる",
+      "common": true,
+      "kanji": ["存じる"],
+      "kana": ["ぞんじる"],
+      "senses": [
+        {
+          "glosses": ["to know", "to be aware (of)", "to be acquainted (with)"],
+          "pos": ["v1", "vt"],
+          "misc": ["hum"]
+        },
+        {
+          "glosses": ["to think", "to consider", "to believe", "to feel"],
+          "pos": ["v1", "vt"],
+          "misc": ["hum"]
+        }
+      ]
+    },
+    {
+      "id": 1415580,
+      "headword": "卓",
+      "reading": "たく",
+      "common": true,
+      "kanji": ["卓"],
+      "kana": ["たく", "しょく"],
+      "senses": [
+        {
+          "glosses": ["table", "desk"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["counter for tables, desks, etc."],
+          "pos": ["ctr"]
+        },
+        {
+          "glosses": ["offering table before an altar (sometimes used in tea ceremony)"],
+          "pos": ["n"],
+          "fields": ["Buddh"]
+        },
+        {
+          "glosses": ["tabletop incense burner"],
+          "pos": ["n"],
+          "misc": ["abbr"]
+        }
+      ]
+    },
+    {
+      "id": 1422200,
+      "headword": "ちくしょう",
+      "reading": "ちくしょう",
+      "common": true,
+      "kanji": ["畜生"],
+      "kana": ["ちくしょう", "ちきしょう", "チクショー"],
+      "senses": [
+        {
+          "glosses": ["damn it", "damn", "son of a bitch", "for Christ's sake"],
+          "pos": ["int"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": ["beast", "animal"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["person reborn into the animal realm"],
+          "pos": ["n"],
+          "fields": ["Buddh"]
+        },
+        {
+          "glosses": ["brute", "bastard"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1445640,
+      "headword": "やつ",
+      "reading": "やつ",
+      "common": true,
+      "kanji": ["奴"],
+      "kana": ["やつ", "ヤツ"],
+      "senses": [
+        {
+          "glosses": ["fellow", "guy", "chap"],
+          "pos": ["n"],
+          "misc": ["uk"],
+          "info": ["derogatory or familiar"]
+        },
+        {
+          "glosses": ["thing", "object"],
+          "pos": ["n"],
+          "misc": ["col", "uk"]
+        },
+        {
+          "glosses": ["he", "she", "him", "her"],
+          "pos": ["pn"],
+          "info": ["derogatory or familiar"]
+        }
+      ]
+    },
+    {
+      "id": 1448970,
+      "headword": "当該",
+      "reading": "とうがい",
+      "common": false,
+      "kanji": ["当該"],
+      "kana": ["とうがい"],
+      "senses": [
+        {
+          "glosses": [
+            "appropriate (e.g. authorities)",
+            "concerned",
+            "relevant",
+            "said",
+            "aforementioned",
+            "competent",
+            "applicable",
+            "respective"
+          ],
+          "pos": ["adj-no"]
+        }
+      ]
+    },
+    {
+      "id": 1467350,
+      "headword": "妊娠",
+      "reading": "にんしん",
+      "common": true,
+      "kanji": ["妊娠"],
+      "kana": ["にんしん"],
+      "senses": [
+        {
+          "glosses": ["pregnancy", "conception", "gestation"],
+          "pos": ["n", "vs", "vi"]
+        }
+      ]
+    },
+    {
+      "id": 1467640,
+      "headword": "猫",
+      "reading": "ねこ",
+      "common": true,
+      "kanji": ["猫"],
+      "kana": ["ねこ", "ネコ"],
+      "senses": [
+        {
+          "glosses": ["cat (esp. the domestic cat, Felis catus)", "feline"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["shamisen"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["geisha"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["wheelbarrow"],
+          "pos": ["n"],
+          "misc": ["abbr"]
+        },
+        {
+          "glosses": ["clay bed-warmer"],
+          "pos": ["n"],
+          "misc": ["abbr"]
+        },
+        {
+          "glosses": ["bottom (submissive partner of a homosexual relationship)"],
+          "pos": ["n"],
+          "misc": ["uk", "sl"]
+        }
+      ]
+    },
+    {
+      "id": 1472270,
+      "headword": "拝見",
+      "reading": "はいけん",
+      "common": true,
+      "kanji": ["拝見", "拜見"],
+      "kana": ["はいけん"],
+      "senses": [
+        {
+          "glosses": ["seeing", "looking at"],
+          "pos": ["n", "vs", "vt"],
+          "misc": ["hum", "pol"]
+        }
+      ]
+    },
+    {
+      "id": 1473740,
+      "headword": "買う",
+      "reading": "かう",
+      "common": true,
+      "kanji": ["買う"],
+      "kana": ["かう"],
+      "senses": [
+        {
+          "glosses": ["to buy", "to purchase"],
+          "pos": ["v5u", "vt"]
+        },
+        {
+          "glosses": [
+            "to value (highly)",
+            "to think highly of",
+            "to have a high opinion of",
+            "to appreciate",
+            "to recognize"
+          ],
+          "pos": ["v5u", "vt"]
+        },
+        {
+          "glosses": [
+            "to incur (someone's anger, displeasure, etc.)",
+            "to elicit (e.g. sneers)",
+            "to invite (e.g. scorn)",
+            "to evoke",
+            "to arouse",
+            "to win (someone's favour)"
+          ],
+          "pos": ["v5u", "vt"]
+        },
+        {
+          "glosses": ["to accept", "to take on", "to take up"],
+          "pos": ["v5u", "vt"]
+        },
+        {
+          "glosses": ["to pay for (a prostitute, geisha, etc.)"],
+          "pos": ["v5u", "vt"]
+        }
+      ]
+    },
+    {
+      "id": 1482010,
+      "headword": "飯",
+      "reading": "めし",
+      "common": true,
+      "kanji": ["飯"],
+      "kana": ["めし"],
+      "senses": [
+        {
+          "glosses": ["cooked rice"],
+          "pos": ["n"],
+          "misc": ["male"]
+        },
+        {
+          "glosses": ["meal", "food"],
+          "pos": ["n"],
+          "misc": ["male"]
+        },
+        {
+          "glosses": ["one's living", "livelihood"],
+          "pos": ["n"],
+          "misc": ["male"]
+        }
+      ]
+    },
+    {
+      "id": 1483380,
+      "headword": "扉",
+      "reading": "とびら",
+      "common": true,
+      "kanji": ["扉", "闔"],
+      "kana": ["とびら"],
+      "senses": [
+        {
+          "glosses": ["door", "gate", "opening"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["title page"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1486650,
+      "headword": "おいしい",
+      "reading": "おいしい",
+      "common": true,
+      "kanji": ["美味しい", "旨味しい"],
+      "kana": ["おいしい", "オイシイ"],
+      "senses": [
+        {
+          "glosses": ["good(-tasting)", "nice", "delicious", "tasty"],
+          "pos": ["adj-i"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": [
+            "attractive (offer, opportunity, etc.)",
+            "appealing",
+            "convenient",
+            "favorable",
+            "desirable",
+            "profitable"
+          ],
+          "pos": ["adj-i"],
+          "misc": ["uk"]
+        }
+      ]
+    },
+    {
+      "id": 1499320,
+      "headword": "部屋",
+      "reading": "へや",
+      "common": true,
+      "kanji": ["部屋"],
+      "kana": ["へや"],
+      "senses": [
+        {
+          "glosses": ["room", "chamber"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["apartment", "flat", "pad"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["stable"],
+          "pos": ["n"],
+          "misc": ["abbr"],
+          "fields": ["sumo"]
+        }
+      ]
+    },
+    {
+      "id": 1499580,
+      "headword": "封",
+      "reading": "ふう",
+      "common": true,
+      "kanji": ["封"],
+      "kana": ["ふう"],
+      "senses": [
+        {
+          "glosses": ["seal"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1501110,
+      "headword": "腹",
+      "reading": "はら",
+      "common": true,
+      "kanji": ["腹", "肚"],
+      "kana": ["はら"],
+      "senses": [
+        {
+          "glosses": ["abdomen", "belly", "stomach"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["womb"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["one's mind", "one's real intentions", "one's true motive"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["courage", "nerve", "willpower"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["generosity", "magnanimity"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["feelings", "emotions"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1504900,
+      "headword": "くそ",
+      "reading": "くそ",
+      "common": true,
+      "kanji": ["糞", "屎"],
+      "kana": ["くそ", "クソ"],
+      "senses": [
+        {
+          "glosses": ["damn", "damn it", "shit", "crap"],
+          "pos": ["int"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": ["feces", "excrement", "dung"],
+          "pos": ["n"],
+          "misc": ["col", "uk"]
+        },
+        {
+          "glosses": ["damn", "damned", "blasted", "stupid"],
+          "pos": ["pref"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": ["very", "extremely", "really"],
+          "pos": ["pref"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": ["terrible", "awful", "shit", "crap"],
+          "pos": ["adj-na"],
+          "misc": ["col", "uk"]
+        },
+        {
+          "glosses": ["a lot"],
+          "pos": ["adv"],
+          "misc": ["sl", "uk"]
+        }
+      ]
+    },
+    {
+      "id": 1512580,
+      "headword": "便秘",
+      "reading": "べんぴ",
+      "common": true,
+      "kanji": ["便秘"],
+      "kana": ["べんぴ"],
+      "senses": [
+        {
+          "glosses": ["constipation"],
+          "pos": ["n", "vs", "vi"]
+        }
+      ]
+    },
+    {
+      "id": 1514320,
+      "headword": "歩く",
+      "reading": "あるく",
+      "common": true,
+      "kanji": ["歩く", "步く"],
+      "kana": ["あるく"],
+      "senses": [
+        {
+          "glosses": ["to walk"],
+          "pos": ["v5k", "vi"]
+        }
+      ]
+    },
+    {
+      "id": 1521400,
+      "headword": "僕",
+      "reading": "ぼく",
+      "common": true,
+      "kanji": ["僕"],
+      "kana": ["ぼく", "ボク"],
+      "senses": [
+        {
+          "glosses": ["I", "me"],
+          "pos": ["pn"],
+          "misc": ["male"]
+        },
+        {
+          "glosses": ["you"],
+          "pos": ["pn"],
+          "misc": ["col"],
+          "info": ["when addressing a young boy"]
+        },
+        {
+          "glosses": ["manservant"],
+          "pos": ["n"],
+          "misc": ["arch"]
+        }
+      ]
+    },
+    {
+      "id": 1521920,
+      "headword": "勃起",
+      "reading": "ぼっき",
+      "common": true,
+      "kanji": ["勃起"],
+      "kana": ["ぼっき"],
+      "senses": [
+        {
+          "glosses": ["erection (of the penis)", "becoming erect", "stiffening"],
+          "pos": ["n", "vs", "vi"],
+          "fields": ["physiol"]
+        },
+        {
+          "glosses": ["welling up (of an emotion)"],
+          "pos": ["n", "vs", "vi"]
+        }
+      ]
+    },
+    {
+      "id": 1540150,
+      "headword": "友人",
+      "reading": "ゆうじん",
+      "common": true,
+      "kanji": ["友人"],
+      "kana": ["ゆうじん"],
+      "senses": [
+        {
+          "glosses": ["friend"],
+          "pos": ["n"],
+          "info": ["more formal than 友達"]
+        }
+      ]
+    },
+    {
+      "id": 1540170,
+      "headword": "友達",
+      "reading": "ともだち",
+      "common": true,
+      "kanji": ["友達", "友だち"],
+      "kana": ["ともだち", "トモダチ"],
+      "senses": [
+        {
+          "glosses": ["friend", "companion"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1545830,
+      "headword": "様式",
+      "reading": "ようしき",
+      "common": true,
+      "kanji": ["様式"],
+      "kana": ["ようしき"],
+      "senses": [
+        {
+          "glosses": ["style", "form", "pattern"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1553310,
+      "headword": "了解",
+      "reading": "りょうかい",
+      "common": true,
+      "kanji": ["了解", "諒解", "領解", "領会"],
+      "kana": ["りょうかい"],
+      "senses": [
+        {
+          "glosses": ["comprehension", "consent", "understanding", "agreement"],
+          "pos": ["n", "vs", "vt"]
+        },
+        {
+          "glosses": ["OK", "roger"],
+          "pos": ["int"]
+        }
+      ]
+    },
+    {
+      "id": 1566420,
+      "headword": "はめる",
+      "reading": "はめる",
+      "common": true,
+      "kanji": ["嵌める", "填める", "篏める", "塡める"],
+      "kana": ["はめる", "ハメる"],
+      "senses": [
+        {
+          "glosses": ["to fit (e.g. a pane into a frame)", "to insert (e.g. a cork)", "to fasten (a button)"],
+          "pos": ["v1", "vt"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": [
+            "to put on (something that envelops; e.g. a ring, gloves)",
+            "to place (a hoop) around",
+            "to attach (e.g. a hose to a tap)"
+          ],
+          "pos": ["v1", "vt"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": [
+            "to pigeonhole (into a particular category)",
+            "to force (into a mold)",
+            "to place (restrictions) on"
+          ],
+          "pos": ["v1", "vt"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": ["to entrap", "to take (someone) in", "to set (someone) up", "to deceive"],
+          "pos": ["v1", "vt"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": ["to throw into"],
+          "pos": ["v1", "vt"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": ["to have sex", "to fuck"],
+          "pos": ["v1", "vt"],
+          "misc": ["uk", "col", "vulg"],
+          "info": ["usu. ハメる"]
+        }
+      ]
+    },
+    {
+      "id": 1568700,
+      "headword": "浣腸",
+      "reading": "かんちょう",
+      "common": false,
+      "kanji": ["浣腸", "灌腸", "かん腸", "潅腸"],
+      "kana": ["かんちょう", "カンチョウ"],
+      "senses": [
+        {
+          "glosses": ["enema"],
+          "pos": ["n", "vs", "vi"]
+        }
+      ]
+    },
+    {
+      "id": 1569240,
+      "headword": "ずるい",
+      "reading": "ずるい",
+      "common": true,
+      "kanji": ["狡い"],
+      "kana": ["ずるい", "こすい", "ズルイ", "ズルい"],
+      "senses": [
+        {
+          "glosses": ["sly", "cunning", "sneaky", "crafty", "unfair", "dishonest"],
+          "pos": ["adj-i"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": ["miserly", "mean", "stingy"],
+          "pos": ["adj-i"],
+          "misc": ["uk"]
+        }
+      ]
+    },
+    {
+      "id": 1576870,
+      "headword": "俺",
+      "reading": "おれ",
+      "common": true,
+      "kanji": ["俺", "己"],
+      "kana": ["おれ", "オレ", "おらあ", "おり"],
+      "senses": [
+        {
+          "glosses": ["I", "me"],
+          "pos": ["pn"],
+          "misc": ["male"],
+          "info": ["informal, rough, blunt"]
+        }
+      ]
+    },
+    {
+      "id": 1578850,
+      "headword": "行く",
+      "reading": "いく",
+      "common": true,
+      "kanji": ["行く", "往く"],
+      "kana": ["いく", "ゆく", "イク"],
+      "senses": [
+        {
+          "glosses": ["to go", "to move (towards)", "to head (towards)", "to leave (for)"],
+          "pos": ["v5k-s", "vi"]
+        },
+        {
+          "glosses": ["to move through", "to travel across", "to walk along (e.g. a road)"],
+          "pos": ["v5k-s", "vi"]
+        },
+        {
+          "glosses": ["to go (well, badly, etc.)", "to proceed", "to turn out", "to get along"],
+          "pos": ["v5k-s", "vi"]
+        },
+        {
+          "glosses": ["to do (in a particular way)", "to go (with; a choice)", "to try"],
+          "pos": ["v5k-s", "vi"],
+          "info": ["oft. as で〜"]
+        },
+        {
+          "glosses": ["to pass (of time, seasons, etc.)", "to go by"],
+          "pos": ["v5k-s", "vi"]
+        },
+        {
+          "glosses": ["to stream", "to flow"],
+          "pos": ["v5k-s", "vi"]
+        }
+      ]
+    },
+    {
+      "id": 1587040,
+      "headword": "言う",
+      "reading": "いう",
+      "common": true,
+      "kanji": ["言う", "云う", "謂う"],
+      "kana": ["いう", "ゆう"],
+      "senses": [
+        {
+          "glosses": ["to say", "to utter", "to declare"],
+          "pos": ["v5u", "vt"]
+        },
+        {
+          "glosses": ["to name", "to call"],
+          "pos": ["v5u", "vt"]
+        },
+        {
+          "glosses": ["to go (e.g. \"the alarm went ping\")", "to make a noise"],
+          "pos": ["v5u", "vi"]
+        }
+      ]
+    },
+    {
+      "id": 1587290,
+      "headword": "いただく",
+      "reading": "いただく",
+      "common": true,
+      "kanji": ["頂く", "戴く"],
+      "kana": ["いただく"],
+      "senses": [
+        {
+          "glosses": ["to receive", "to get", "to accept", "to take", "to buy"],
+          "pos": ["v5k", "vt"],
+          "misc": ["hum", "uk"]
+        },
+        {
+          "glosses": ["to eat", "to drink"],
+          "pos": ["v5k", "vt"],
+          "misc": ["hum", "pol", "uk"]
+        },
+        {
+          "glosses": ["to be crowned with", "to wear (on one's head)", "to have (on top)"],
+          "pos": ["v5k", "vt"],
+          "misc": ["uk"],
+          "info": ["orig. meaning"]
+        },
+        {
+          "glosses": ["to have (as one's leader)", "to live under (a ruler)", "to install (a president)"],
+          "pos": ["v5k", "vt"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": ["to get someone to do something"],
+          "pos": ["aux-v", "v5k"],
+          "misc": ["hum", "uk"],
+          "info": ["follows a verb in \"-te\" form"]
+        }
+      ]
+    },
+    {
+      "id": 1588880,
+      "headword": "大きい",
+      "reading": "おおきい",
+      "common": true,
+      "kanji": ["大きい", "巨きい"],
+      "kana": ["おおきい"],
+      "senses": [
+        {
+          "glosses": ["big", "large", "great"],
+          "pos": ["adj-i"]
+        },
+        {
+          "glosses": ["loud"],
+          "pos": ["adj-i"]
+        },
+        {
+          "glosses": ["extensive", "spacious"],
+          "pos": ["adj-i"]
+        },
+        {
+          "glosses": ["important", "decisive", "valuable"],
+          "pos": ["adj-i"]
+        },
+        {
+          "glosses": ["older", "grown-up"],
+          "pos": ["adj-i"]
+        }
+      ]
+    },
+    {
+      "id": 1589350,
+      "headword": "思う",
+      "reading": "おもう",
+      "common": true,
+      "kanji": ["思う", "想う", "憶う", "念う", "懐う", "惟う", "意う"],
+      "kana": ["おもう"],
+      "senses": [
+        {
+          "glosses": ["to think", "to consider", "to believe", "to reckon"],
+          "pos": ["v5u", "vt"],
+          "info": ["想う has connotations of heart-felt"]
+        },
+        {
+          "glosses": ["to think (of doing)", "to plan (to do)"],
+          "pos": ["v5u", "vt"]
+        },
+        {
+          "glosses": ["to judge", "to assess", "to regard"],
+          "pos": ["v5u", "vt"]
+        },
+        {
+          "glosses": ["to imagine", "to suppose", "to dream"],
+          "pos": ["v5u", "vt"]
+        },
+        {
+          "glosses": ["to expect", "to look forward to"],
+          "pos": ["v5u", "vt"]
+        },
+        {
+          "glosses": ["to feel", "to be (in a state of mind)", "to desire", "to want"],
+          "pos": ["v5u", "vt"]
+        }
+      ]
+    },
+    {
+      "id": 1592100,
+      "headword": "食う",
+      "reading": "くう",
+      "common": true,
+      "kanji": ["食う", "喰う", "啖う"],
+      "kana": ["くう"],
+      "senses": [
+        {
+          "glosses": ["to eat"],
+          "pos": ["v5u", "vt"],
+          "misc": ["male"]
+        },
+        {
+          "glosses": ["to live", "to make a living", "to survive"],
+          "pos": ["v5u", "vt"]
+        },
+        {
+          "glosses": ["to bite", "to sting (as insects do)"],
+          "pos": ["v5u", "vt"]
+        },
+        {
+          "glosses": ["to tease", "to torment", "to taunt", "to make light of", "to make fun of"],
+          "pos": ["v5u", "vt"]
+        },
+        {
+          "glosses": ["to encroach on", "to eat into", "to consume"],
+          "pos": ["v5u", "vt"]
+        },
+        {
+          "glosses": ["to defeat a superior", "to threaten a position"],
+          "pos": ["v5u", "vt"]
+        }
+      ]
+    },
+    {
+      "id": 1592410,
+      "headword": "食らう",
+      "reading": "くらう",
+      "common": true,
+      "kanji": ["食らう", "喰らう"],
+      "kana": ["くらう"],
+      "senses": [
+        {
+          "glosses": ["to eat", "to drink", "to wolf", "to knock back"],
+          "pos": ["v5u", "vt"],
+          "misc": ["vulg"]
+        },
+        {
+          "glosses": ["to receive (e.g. a blow)"],
+          "pos": ["v5u", "vt"]
+        },
+        {
+          "glosses": ["to be on the receiving end (of something undesirable)", "to undergo (trouble)"],
+          "pos": ["v5u", "vt"]
+        }
+      ]
+    },
+    {
+      "id": 1592560,
+      "headword": "計算機",
+      "reading": "けいさんき",
+      "common": false,
+      "kanji": ["計算機", "計算器"],
+      "kana": ["けいさんき"],
+      "senses": [
+        {
+          "glosses": ["calculator"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["computer"],
+          "pos": ["n"],
+          "misc": ["abbr"]
+        }
+      ]
+    },
+    {
+      "id": 1594660,
+      "headword": "写真機",
+      "reading": "しゃしんき",
+      "common": false,
+      "kanji": ["写真機", "写真器"],
+      "kana": ["しゃしんき"],
+      "senses": [
+        {
+          "glosses": ["(photographic) camera"],
+          "pos": ["n"],
+          "misc": ["dated"]
+        }
+      ]
+    },
+    {
+      "id": 1601260,
+      "headword": "ばか",
+      "reading": "ばか",
+      "common": true,
+      "kanji": ["馬鹿", "莫迦", "破家", "馬稼", "罵迦"],
+      "kana": ["ばか", "バカ"],
+      "senses": [
+        {
+          "glosses": ["idiot", "moron", "fool"],
+          "pos": ["n"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": ["stupid", "foolish", "dull", "absurd", "ridiculous"],
+          "pos": ["adj-na"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": ["trivial", "insignificant", "disappointing"],
+          "pos": ["n", "adj-na"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": ["malfunctioning", "defective", "losing sensation"],
+          "pos": ["n", "adj-na"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": ["incredibly", "unusually", "exceptionally"],
+          "pos": ["n", "n-pref"],
+          "misc": ["uk", "sl"]
+        },
+        {
+          "glosses": ["fervent enthusiast", "nut", "person singularly obsessed with something"],
+          "pos": ["n", "n-suf", "adj-na"],
+          "misc": ["uk", "sl"],
+          "info": ["usu. in compounds"]
+        }
+      ]
+    },
+    {
+      "id": 1603170,
+      "headword": "ぶっ殺す",
+      "reading": "ぶっころす",
+      "common": false,
+      "kanji": ["ぶっ殺す", "打っ殺す"],
+      "kana": ["ぶっころす"],
+      "senses": [
+        {
+          "glosses": ["to kill", "to beat to death"],
+          "pos": ["v5s", "vt"],
+          "info": ["emphatic"]
+        }
+      ]
+    },
+    {
+      "id": 1606560,
+      "headword": "わかる",
+      "reading": "わかる",
+      "common": true,
+      "kanji": ["分かる", "解る", "判る", "分る", "理解る"],
+      "kana": ["わかる"],
+      "senses": [
+        {
+          "glosses": ["to understand", "to comprehend", "to grasp", "to see", "to get", "to follow"],
+          "pos": ["v5r", "vi"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": [
+            "to become clear",
+            "to be known",
+            "to be discovered",
+            "to be realized (realised)",
+            "to be found out",
+            "to make sense"
+          ],
+          "pos": ["v5r", "vi"],
+          "misc": ["uk"]
+        },
+        {
+          "glosses": ["I know!", "I think so too!"],
+          "pos": ["int"]
+        }
+      ]
+    },
+    {
+      "id": 1612690,
+      "headword": "ございます",
+      "reading": "ございます",
+      "common": true,
+      "kanji": ["御座います", "御座居ます", "ご座います", "厶います"],
+      "kana": ["ございます"],
+      "senses": [
+        {
+          "glosses": ["to be", "to exist"],
+          "pos": ["exp"],
+          "misc": ["pol", "uk"]
+        },
+        {
+          "glosses": ["to be (doing)"],
+          "pos": ["aux-v"],
+          "misc": ["pol", "uk"],
+          "info": ["after the ～て form of a verb; in highly formal contexts"]
+        },
+        {
+          "glosses": ["did", "(have) done"],
+          "pos": ["aux-v"],
+          "misc": ["pol", "uk", "dated"],
+          "info": ["after the ～て form of a masu verb; as ましてございます"]
+        }
+      ]
+    },
+    {
+      "id": 1625780,
+      "headword": "はじめまして",
+      "reading": "はじめまして",
+      "common": true,
+      "kanji": ["初めまして", "始めまして"],
+      "kana": ["はじめまして"],
+      "senses": [
+        {
+          "glosses": ["nice to meet you", "I'm glad to make your acquaintance", "how do you do?"],
+          "pos": ["exp"],
+          "misc": ["pol", "uk"]
+        }
+      ]
+    },
+    {
+      "id": 1924310,
+      "headword": "ナウい",
+      "reading": "ナウい",
+      "common": false,
+      "kana": ["ナウい"],
+      "senses": [
+        {
+          "glosses": ["modern", "trendy", "hip", "in", "up-to-date"],
+          "pos": ["adj-i"],
+          "misc": ["sl", "dated"],
+          "info": ["1980s slang"],
+          "sources": ["now"]
+        }
+      ]
+    },
+    {
+      "id": 1979920,
+      "headword": "あんた",
+      "reading": "あんた",
+      "common": true,
+      "kanji": ["貴方"],
+      "kana": ["あんた"],
+      "senses": [
+        {
+          "glosses": ["you"],
+          "pos": ["pn"],
+          "misc": ["col", "uk"],
+          "info": ["familiar form of あなた; oft. considered rude"]
+        }
+      ]
+    },
+    {
+      "id": 2015140,
+      "headword": "汝",
+      "reading": "なんじ",
+      "common": false,
+      "kanji": ["汝", "爾"],
+      "kana": ["なんじ"],
+      "senses": [
+        {
+          "glosses": ["you"],
+          "pos": ["pn"],
+          "misc": ["poet"],
+          "info": ["referring to someone of equal or lower status"]
+        }
+      ]
+    },
+    {
+      "id": 2018460,
+      "headword": "ググる",
+      "reading": "ググる",
+      "common": false,
+      "kana": ["ググる", "ぐぐる", "グーグる"],
+      "senses": [
+        {
+          "glosses": ["to google", "to do an online search (for)"],
+          "pos": ["v5r", "vt"],
+          "misc": ["col"]
+        }
+      ]
+    },
+    {
+      "id": 2026580,
+      "headword": "キッズ",
+      "reading": "キッズ",
+      "common": true,
+      "kana": ["キッズ"],
+      "senses": [
+        {
+          "glosses": ["kids", "children"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 2076920,
+      "headword": "てめえ",
+      "reading": "てめえ",
+      "common": false,
+      "kanji": ["手前"],
+      "kana": ["てめえ", "テメー", "てめぇ"],
+      "senses": [
+        {
+          "glosses": ["you"],
+          "pos": ["pn"],
+          "misc": ["uk", "derog", "male"]
+        },
+        {
+          "glosses": ["I", "me", "oneself", "myself", "yourself", "himself", "herself"],
+          "pos": ["pn"],
+          "misc": ["uk", "male"]
+        }
+      ]
+    },
+    {
+      "id": 2079220,
+      "headword": "大邸宅",
+      "reading": "だいていたく",
+      "common": false,
+      "kanji": ["大邸宅"],
+      "kana": ["だいていたく"],
+      "senses": [
+        {
+          "glosses": ["mansion"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 2080240,
+      "headword": "おてて",
+      "reading": "おてて",
+      "common": false,
+      "kanji": ["お手手", "お手々", "お手て", "御手手"],
+      "kana": ["おてて"],
+      "senses": [
+        {
+          "glosses": ["hand", "hands"],
+          "pos": ["n"],
+          "misc": ["uk", "chn"]
+        }
+      ]
+    },
+    {
+      "id": 2183440,
+      "headword": "めっちゃ",
+      "reading": "めっちゃ",
+      "common": false,
+      "kanji": ["滅茶"],
+      "kana": ["めっちゃ", "めっっちゃ", "めっっっちゃ", "めっっっっちゃ"],
+      "senses": [
+        {
+          "glosses": ["extremely", "very", "really", "super", "so"],
+          "pos": ["adv"],
+          "misc": ["col", "uk"]
+        }
+      ]
+    },
+    {
+      "id": 2272830,
+      "headword": "すごく",
+      "reading": "すごく",
+      "common": false,
+      "kanji": ["凄く"],
+      "kana": ["すごく"],
+      "senses": [
+        {
+          "glosses": ["extremely", "very", "terribly", "awfully", "tremendously", "incredibly", "immensely"],
+          "pos": ["adv"],
+          "misc": ["uk"]
+        }
+      ]
+    },
+    {
+      "id": 2395790,
+      "headword": "候ふ",
+      "reading": "そうろう",
+      "common": false,
+      "kanji": ["候ふ", "候"],
+      "kana": ["そうろう", "そうらう"],
+      "senses": [
+        {
+          "glosses": ["to serve (by a superior's side)"],
+          "pos": ["v4h", "vi"],
+          "misc": ["arch"]
+        },
+        {
+          "glosses": ["to be"],
+          "pos": ["aux-v", "v4h"],
+          "misc": ["arch", "pol"],
+          "info": ["auxiliary used in place of ある after で or に when forming a copula"]
+        },
+        {
+          "glosses": ["to do"],
+          "pos": ["aux-v", "v4h"],
+          "misc": ["arch", "pol"],
+          "info": ["auxiliary used in place of ます"]
+        }
+      ]
+    },
+    {
+      "id": 2768450,
+      "headword": "エモい",
+      "reading": "エモい",
+      "common": false,
+      "kana": ["エモい", "えもい"],
+      "senses": [
+        {
+          "glosses": ["moving", "stirring", "nostalgic"],
+          "pos": ["adj-i"],
+          "misc": ["sl"]
+        },
+        {
+          "glosses": ["emo", "sad", "melancholic"],
+          "pos": ["adj-i"],
+          "misc": ["sl"]
+        },
+        {
+          "glosses": ["erotic in a disgusting way"],
+          "pos": ["adj-i"],
+          "misc": ["sl", "rare"],
+          "info": ["kogyaru slang; blend of エロい and キモい"]
+        }
+      ]
+    }
+  ],
+  "loans": {
+    "style": {
+      "glossesOnly": [
+        {
+          "entryId": 1069520,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1075940,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1076320,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1069520,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1075940,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1076320,
+          "by": "gloss"
+        }
+      ]
+    },
+    "mansion": {
+      "glossesOnly": [],
+      "withSources": [
+        {
+          "entryId": 1130040,
+          "by": "source"
+        }
+      ]
+    },
+    "tension": {
+      "glossesOnly": [
+        {
+          "entryId": 1080970,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1080970,
+          "by": "gloss"
+        }
+      ]
+    },
+    "naive": {
+      "glossesOnly": [],
+      "withSources": [
+        {
+          "entryId": 1089660,
+          "by": "source"
+        }
+      ]
+    },
+    "smart": {
+      "glossesOnly": [
+        {
+          "entryId": 1073570,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1060610,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1073570,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1060610,
+          "by": "gloss"
+        }
+      ]
+    },
+    "cunning": {
+      "glossesOnly": [],
+      "withSources": [
+        {
+          "entryId": 1039490,
+          "by": "source"
+        }
+      ]
+    },
+    "claim": {
+      "glossesOnly": [
+        {
+          "entryId": 1045270,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1045270,
+          "by": "gloss"
+        }
+      ]
+    },
+    "talent": {
+      "glossesOnly": [
+        {
+          "entryId": 1076460,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1076460,
+          "by": "source"
+        }
+      ]
+    },
+    "juice": {
+      "glossesOnly": [
+        {
+          "entryId": 1065950,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1065950,
+          "by": "gloss"
+        }
+      ]
+    },
+    "bike": {
+      "glossesOnly": [
+        {
+          "entryId": 1097810,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1097810,
+          "by": "gloss"
+        }
+      ]
+    },
+    "seal": {
+      "glossesOnly": [
+        {
+          "entryId": 1059670,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1059670,
+          "by": "gloss"
+        }
+      ]
+    },
+    "table": {
+      "glossesOnly": [
+        {
+          "entryId": 1078630,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1078630,
+          "by": "gloss"
+        }
+      ]
+    },
+    "coffee": {
+      "glossesOnly": [
+        {
+          "entryId": 1049180,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1122440,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1049180,
+          "by": "source"
+        },
+        {
+          "entryId": 1122440,
+          "by": "gloss"
+        }
+      ]
+    },
+    "camera": {
+      "glossesOnly": [
+        {
+          "entryId": 1038350,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1038350,
+          "by": "gloss"
+        }
+      ]
+    },
+    "computer": {
+      "glossesOnly": [
+        {
+          "entryId": 1053350,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1053350,
+          "by": "gloss"
+        }
+      ]
+    },
+    "door": {
+      "glossesOnly": [
+        {
+          "entryId": 1087820,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1087820,
+          "by": "gloss"
+        }
+      ]
+    },
+    "hotel": {
+      "glossesOnly": [
+        {
+          "entryId": 1122650,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1122650,
+          "by": "gloss"
+        }
+      ]
+    },
+    "walk": {
+      "glossesOnly": [
+        {
+          "entryId": 1110460,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1110460,
+          "by": "gloss"
+        }
+      ]
+    },
+    "borrow": {
+      "glossesOnly": [],
+      "withSources": []
+    },
+    "shallow": {
+      "glossesOnly": [],
+      "withSources": []
+    },
+    "fuck": {
+      "glossesOnly": [],
+      "withSources": []
+    },
+    "shit": {
+      "glossesOnly": [],
+      "withSources": []
+    },
+    "damn": {
+      "glossesOnly": [],
+      "withSources": []
+    },
+    "crap": {
+      "glossesOnly": [],
+      "withSources": []
+    },
+    "eat": {
+      "glossesOnly": [],
+      "withSources": []
+    },
+    "motorcar": {
+      "glossesOnly": [],
+      "withSources": []
+    },
+    "how do you do": {
+      "glossesOnly": [],
+      "withSources": []
+    },
+    "guy": {
+      "glossesOnly": [
+        {
+          "entryId": 1039860,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1039860,
+          "by": "gloss"
+        }
+      ]
+    },
+    "purchase": {
+      "glossesOnly": [],
+      "withSources": []
+    },
+    "commence": {
+      "glossesOnly": [],
+      "withSources": []
+    },
+    "kids": {
+      "glossesOnly": [
+        {
+          "entryId": 2026580,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 2026580,
+          "by": "gloss"
+        }
+      ]
+    },
+    "lift": {
+      "glossesOnly": [
+        {
+          "entryId": 1030630,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1142550,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1030630,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1142550,
+          "by": "gloss"
+        }
+      ]
+    },
+    "flat": {
+      "glossesOnly": [
+        {
+          "entryId": 1130040,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1130040,
+          "by": "gloss"
+        }
+      ]
+    },
+    "fall": {
+      "glossesOnly": [
+        {
+          "entryId": 1076980,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1110390,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1076980,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1110390,
+          "by": "gloss"
+        }
+      ]
+    },
+    "soccer": {
+      "glossesOnly": [
+        {
+          "entryId": 1056700,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1056700,
+          "by": "gloss"
+        }
+      ]
+    },
+    "lorry": {
+      "glossesOnly": [
+        {
+          "entryId": 1085760,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1085760,
+          "by": "gloss"
+        }
+      ]
+    },
+    "candy": {
+      "glossesOnly": [
+        {
+          "entryId": 1042080,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1042080,
+          "by": "gloss"
+        }
+      ]
+    }
+  }
+}

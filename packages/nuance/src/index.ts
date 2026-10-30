@@ -1,5 +1,7 @@
 export * from "./casting.ts"
+export * from "./EnglishEnricher.ts"
 export * from "./english.ts"
+export * from "./evaluation.ts"
 export * from "./golden.ts"
 export * from "./interpret.ts"
 export * from "./Jev.ts"

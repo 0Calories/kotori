@@ -5,8 +5,6 @@ import type {
   Difference,
   EnglishCurrency,
   EnglishJudgments,
-  EnglishRegister,
-  EnglishStrength,
   EnglishVariety,
   Formality,
   Gender,
@@ -18,11 +16,11 @@ import type {
   RegisterShape
 } from "@kotori/domain"
 import type { ChoiceResponse, NoulResponse, ScoreResponse, SystemOneResult } from "@typesafe-ai/sdk"
-import type { EnglishQuestions } from "./english.ts"
+import { type GlossQuestions, REGISTER_LEVELS, STRENGTH_LEVELS } from "./english.ts"
 import { FORMALITY_LEVELS, MEDIUM_LEVELS, type SenseQuestions } from "./questions.ts"
 
 export type SenseAnswers = SystemOneResult<SenseQuestions>["answers"]
-export type EnglishAnswers = SystemOneResult<EnglishQuestions>["answers"]
+export type GlossAnswers = SystemOneResult<GlossQuestions>["answers"]
 
 /**
  * JMDict's editors tag many senses with usage notes (hon, col, male, arch…).
@@ -160,14 +158,76 @@ export const interpretSense = (answers: SenseAnswers, misc: ReadonlyArray<string
   }
 }
 
-/** The English-side judgments as stored; Claude's loanword prose is added separately. */
-export const interpretEnglish = (answers: EnglishAnswers): EnglishJudgments => ({
-  variety: choice<EnglishVariety>(answers.english_variety, undefined),
-  strength: choice<EnglishStrength>(answers.english_strength, undefined),
-  currency: choice<EnglishCurrency>(answers.english_currency, undefined),
-  register: choice<EnglishRegister>(answers.english_register, undefined),
-  loan: choice<LoanVerdict>(answers.english_loan, undefined)
+/**
+ * How likely a katakana candidate must be the English word's loanword for its verdict to count:
+ * the docs' starting point for a yes. A false "diverges" costs trust in the very feature meant to
+ * build it (docs/nuance-rework.md C3), so tune it on the eval before lowering it.
+ */
+export const LOAN_IS = 0.7
+
+/** A Score as a label: the level its score rounds to, as the Score docs endorse for one outcome. */
+const level = <L extends string>(levels: ReadonlyArray<L>, answer: ScoreResponse) => ({
+  value: levels[Math.min(Math.max(Math.round(answer.score), 0), levels.length - 1)]!,
+  confidence: answer.confidence,
+  source: "jev" as JudgmentSource
 })
+
+export interface EnglishReading {
+  readonly judgments: EnglishJudgments
+  /** The katakana loan the verdict is about, as the dictionary spells it; null when there is none. */
+  readonly loanWord: string | null
+}
+
+/** A katakana word asked about as a gloss's loan, and how the dictionary ties them. */
+export interface AskedLoan {
+  readonly word: string
+  readonly by: "gloss" | "source"
+}
+
+/**
+ * The judgments about one English gloss shown to Japanese natives. `candidates` are the katakana
+ * words asked about, in the order of their `loanword_{k}` and `loan_{k}` questions. The loan is
+ * the likeliest candidate to be the gloss's loanword: certainly one JMDict names the English word
+ * as the source of, otherwise as likely as Jev judges it. With no candidate, or none likely
+ * enough, there is no loan to warn about.
+ */
+export const interpretEnglish = (
+  answers: Readonly<Record<string, unknown>>,
+  candidates: ReadonlyArray<AskedLoan>,
+  loanIs = LOAN_IS
+): EnglishReading => {
+  const own = answers as unknown as GlossAnswers
+  const likeliest = candidates
+    .map(({ word, by }, k) => ({
+      word,
+      k,
+      p: by === "source" ? 1 : ((answers[`loanword_${k}`] as NoulResponse | undefined)?.noul ?? 0)
+    }))
+    .reduce<{ word: string; k: number; p: number } | undefined>(
+      (best, candidate) => (best === undefined || candidate.p > best.p ? candidate : best),
+      undefined
+    )
+  const verdict =
+    likeliest !== undefined && likeliest.p >= loanIs
+      ? (answers[`loan_${likeliest.k}`] as ChoiceResponse | undefined)
+      : undefined
+  return {
+    judgments: {
+      variety: choice<EnglishVariety>(own.variety, undefined),
+      strength: level(STRENGTH_LEVELS, own.strength),
+      currency: choice<EnglishCurrency>(own.currency, undefined),
+      register: level(REGISTER_LEVELS, own.register),
+      loan:
+        verdict !== undefined
+          ? { value: verdict.choice as LoanVerdict, confidence: verdict.confidence, source: "jev" }
+          : likeliest === undefined
+            ? // The dictionary has no katakana word for it.
+              { value: "no_loan", confidence: 1, source: "jmdict" }
+            : { value: "no_loan", confidence: 1 - likeliest.p, source: "jev" }
+    },
+    loanWord: verdict === undefined ? null : (likeliest?.word ?? null)
+  }
+}
 
 export interface SimilarJudgment {
   readonly similarId: number
@@ -176,7 +236,14 @@ export interface SimilarJudgment {
   readonly confidence: number
 }
 
-/** Keeps candidates Jev judges to be near-synonyms (p >= 0.5), most similar first. */
+/**
+ * How likely a candidate must be a near-synonym to be kept: the docs' starting point for a
+ * yes, since 0.5 is a coin flip. On the golden pairs it kept every near-synonym and no
+ * unrelated word with jev-1.14.0 (`kotori eval nuance`).
+ */
+export const SIMILAR_KEPT = 0.7
+
+/** Keeps candidates Jev judges to be near-synonyms, most similar first. */
 export const interpretCandidates = (
   answers: Readonly<Record<string, unknown>>,
   candidateIds: ReadonlyArray<number>
@@ -185,7 +252,7 @@ export const interpretCandidates = (
     .flatMap((similarId, index) => {
       const similar = answers[`similar_${index}`] as NoulResponse | undefined
       const difference = answers[`difference_${index}`] as ChoiceResponse | undefined
-      if (similar === undefined || difference === undefined || similar.noul < 0.5) return []
+      if (similar === undefined || difference === undefined || similar.noul < SIMILAR_KEPT) return []
       return [
         {
           similarId,

@@ -3,44 +3,45 @@ import { Claude, type ClaudeError } from "./Claude.ts"
 import { loanSystem } from "./prompts.ts"
 
 export const LoanOutput = Schema.Struct({
-  senses: Schema.Array(
+  loans: Schema.Array(
     Schema.Struct({
-      sense: Schema.Int,
-      /** The katakana loanword Japanese speakers know; null when Japanese has no common one. */
-      loanWord: Schema.NullOr(Schema.String),
-      /** One Japanese sentence on how the English word's meaning differs from the loanword's. */
-      loanTrap: Schema.NullOr(Schema.String)
+      item: Schema.Int,
+      /** One Japanese sentence on how the English word's meaning differs from the katakana word's everyday meaning. */
+      loanTrap: Schema.String
     })
   )
 })
 
-/** A sense whose English word Jev judged to have a katakana loan that drifted in meaning. */
-export interface LoanSense {
-  readonly index: number
-  /** The English word Jev judged. */
+/** An English gloss whose katakana loan Jev confidently judged to mean something else in everyday Japanese. */
+export interface LoanItem {
+  /** The English word: a gloss of the headword. */
   readonly english: string
-  readonly glosses: ReadonlyArray<string>
+  /** The sense's glosses: what the English word means here. */
+  readonly meaning: string
+  /** The katakana loanword, as the dictionary spells it. */
+  readonly loanWord: string
 }
 
 export interface LoanRequest {
   readonly headword: string
   readonly reading: string
-  readonly senses: ReadonlyArray<LoanSense>
+  readonly items: ReadonlyArray<LoanItem>
 }
 
 export interface WrittenLoan {
-  readonly sense: number
-  readonly loanWord: string
-  readonly loanTrap: string | null
+  /** The item's index in the request. */
+  readonly item: number
+  readonly loanTrap: string
 }
 
-/** The user turn: the headword and, per sense, the English word whose loan drifted. */
+/** The user turn: the headword and, per numbered item, the English word, its meaning and the drifted loan. */
 export const describeLoans = (request: LoanRequest) =>
   [
     `Headword: ${request.headword} (${request.reading})`,
-    "Senses:",
-    ...request.senses.map(
-      (sense) => `${sense.index}. English word: ${sense.english}\n   meaning: ${sense.glosses.join("; ")}`
+    "Items:",
+    ...request.items.map(
+      (item, index) =>
+        `${index}. English word: ${item.english}\n   meaning here: ${item.meaning}\n   katakana loanword: ${item.loanWord}`
     )
   ].join("\n")
 
@@ -48,7 +49,7 @@ export class LoanWriter extends Context.Service<
   LoanWriter,
   {
     readonly model: string
-    /** Names each sense's drifted katakana loanword and its trap; senses Claude finds no loanword for are left out. */
+    /** Writes the warning for each item; items Claude leaves out, or answers blank, get none. */
     write(request: LoanRequest): Effect.Effect<ReadonlyArray<WrittenLoan>, ClaudeError>
   }
 >()("@kotori/ai/LoanWriter") {
@@ -58,19 +59,19 @@ export class LoanWriter extends Context.Service<
       const claude = yield* Claude
 
       const write = Effect.fn("LoanWriter.write")(function* (request: LoanRequest) {
-        if (request.senses.length === 0) return []
-        const known = new Set(request.senses.map((sense) => sense.index))
+        if (request.items.length === 0) return []
         const output = yield* claude.generate({
           schema: LoanOutput,
           system: loanSystem,
           prompt: describeLoans(request),
           effort: "low"
         })
-        return output.senses.flatMap((written): Array<WrittenLoan> =>
-          known.has(written.sense) && written.loanWord !== null
-            ? [{ sense: written.sense, loanWord: written.loanWord, loanTrap: written.loanTrap ?? null }]
+        return output.loans.flatMap((written): Array<WrittenLoan> => {
+          const loanTrap = written.loanTrap.trim()
+          return written.item >= 0 && written.item < request.items.length && loanTrap.length > 0
+            ? [{ item: written.item, loanTrap }]
             : []
-        )
+        })
       })
 
       return LoanWriter.of({ model: claude.model, write })

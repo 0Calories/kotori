@@ -84,7 +84,10 @@ export const Sense = Schema.Struct({
   related: Schema.Array(CrossReference),
   antonyms: Schema.Array(CrossReference),
   nuance: Schema.NullOr(Nuance),
-  /** The nuance of this sense's English side, for Japanese natives learning English. */
+  /**
+   * The nuance of this sense's first English gloss (the one its audio button speaks), for
+   * Japanese natives learning English; null until judged.
+   */
   english: Schema.NullOr(EnglishNuance),
   /** Kotori's usage note on this sense for learners of Japanese, in English. */
   note: Schema.NullOr(Schema.String),
@@ -100,6 +103,8 @@ export type EnrichmentStatus = typeof EnrichmentStatus.Type
 
 export const Enrichment = Schema.Struct({
   nuance: EnrichmentStatus,
+  /** The English side, judged for Japanese natives learning English; `unavailable` to everyone else, who aren't shown it. */
+  english: EnrichmentStatus,
   examples: EnrichmentStatus,
   audio: EnrichmentStatus
 })
@@ -172,8 +177,8 @@ export const EnglishMeaning = Schema.Struct({
   partOfSpeech: Schema.NullOr(Schema.String),
   formality: Schema.NullOr(Formality),
   /**
-   * The nuance of the looked-up word, for the Japanese natives this page serves; null until
-   * judged, and when the word isn't the gloss Jev judged.
+   * The nuance of the looked-up word itself, the gloss at `matched`, for the Japanese natives
+   * this page serves; null until judged, and for glosses past the leading ones Jev judges.
    */
   english: Schema.NullOr(EnglishNuance),
   /** Kotori's usage note on the sense for learners of Japanese, in English. */

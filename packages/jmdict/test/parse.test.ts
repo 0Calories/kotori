@@ -60,6 +60,24 @@ describe("JMDict parser", () => {
     expect(okashi?.senses[0]?.glosses[0]?.text).toBe("confections & sweets")
   })
 
+  it("reads the English words a loan comes from, and whether it is wasei-eigo", () => {
+    const loans = `<JMdict>
+<entry><ent_seq>1130040</ent_seq><r_ele><reb>マンション</reb></r_ele>
+<sense><pos>&n;</pos><lsource xml:lang="eng">mansion</lsource><gloss>condominium</gloss></sense>
+<sense><lsource ls_type="part" ls_wasei="y">sub</lsource><lsource xml:lang="fre"/><gloss>sub-leader</gloss></sense>
+<sense><lsource ls_wasei="y">salaried man</lsource><gloss>salaryman</gloss></sense>
+</entry>
+</JMdict>`
+    const [mansion] = Array.from(parseEntries(loans))
+    expect(mansion?.senses.map((sense) => [sense.sources, sense.wasei])).toEqual([
+      [["mansion"], false],
+      [[], true],
+      [["salaried man"], true]
+    ])
+    const [taberu] = Array.from(parseEntries(xml))
+    expect(taberu?.senses[0]).toMatchObject({ sources: [], wasei: false })
+  })
+
   it("scores newspaper frequency bands", () => {
     expect(priorityScore(["nf01"])).toBeGreaterThan(priorityScore(["nf40"]))
     expect(priorityScore([])).toBe(0)

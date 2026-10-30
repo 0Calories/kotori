@@ -6,6 +6,8 @@ import {
   EnrichmentRepo,
   type EntryRecord,
   JobsRepo,
+  type LoanCandidate,
+  loanCandidatesIn,
   normalizeGloss,
   Repositories,
   StudyRepo,
@@ -25,6 +27,8 @@ const sense = (glosses: Array<string>, extra: Partial<EntryRecord["senses"][numb
   stagr: [],
   xrefs: [],
   antonyms: [],
+  sources: [],
+  wasei: false,
   ...extra
 })
 
@@ -174,6 +178,61 @@ layer(TestLayer)("DictionaryRepo", (it) => {
         yield* repo.entriesByPriority({ limit: 10, commonOnly: true }),
         [1358280, 1269130, 1594790]
       )
+    })
+  )
+
+  it.effect("finds the katakana words that may be an English word's loan, by gloss or by JMDict source", () =>
+    Effect.gen(function* () {
+      const repo = yield* DictionaryRepo
+      const loan = (
+        id: number,
+        word: string,
+        priority: number,
+        senses: Array<ReturnType<typeof sense>>,
+        common = true
+      ): EntryRecord => ({ id, headword: word, reading: word, common, priority, forms: [kana(word, common)], senses })
+      const loans = [
+        loan(9100001, "スタイル", 60, [sense(["(one's) figure", "physique"]), sense(["style"])]),
+        loan(9100002, "タイプ", 40, [sense(["type", "kind", "style"])]),
+        loan(9100003, "マンション", 60, [sense(["condominium", "apartment building"], { sources: ["mansion"] })]),
+        // Gloss matches give false candidates too: トラック is the loan of "truck", not "lorry".
+        loan(9100004, "トラック", 60, [sense(["truck", "lorry"])]),
+        loan(9100005, "タレント", 60, [sense(["talent", "skill"], { sources: ["talent"] })]),
+        loan(9100006, "ウォーク", 0, [sense(["walk"])], false),
+        {
+          id: 9100007,
+          headword: "様式",
+          reading: "ようしき",
+          common: true,
+          priority: 90,
+          forms: [kanji("様式"), kana("ようしき")],
+          senses: [sense(["style", "form"])]
+        }
+      ]
+      yield* repo.insertEntries(loans)
+
+      const words = ["style", "mansion", "lorry", "talent", "to walk"]
+      const found = yield* repo.loanCandidates(words, 3)
+      const byWord = (candidates: ReadonlyArray<LoanCandidate>) =>
+        Object.fromEntries(
+          words
+            .map(normalizeGloss)
+            .map((word) => [word, candidates.filter((c) => c.word === word).map((c) => `${c.entryId}:${c.by}`)])
+        )
+      assert.deepStrictEqual(byWord(found), {
+        // Kanji words aren't loans; the more frequent loan comes first.
+        style: ["9100001:gloss", "9100002:gloss"],
+        // Only JMDict's lsource ties マンション to "mansion".
+        mansion: ["9100003:source"],
+        lorry: ["9100004:gloss"],
+        // A source beats a gloss as the reason.
+        talent: ["9100005:source"],
+        // Uncommon words aren't everyday loans.
+        walk: []
+      })
+      assert.deepStrictEqual(byWord(yield* repo.loanCandidates(words, 1)).style, ["9100001:gloss"])
+      // The same search over parsed entries, which cuts the golden fixture, agrees with the SQL.
+      assert.deepStrictEqual(byWord(loanCandidatesIn(loans, words, 3)), byWord(found))
     })
   )
 })
@@ -436,7 +495,8 @@ layer(TestLayer)("EnrichmentRepo", (it) => {
       assert.deepStrictEqual(yield* enrichment.outdatedNuanceEntryIds(2, false, 10), [taberu])
       assert.deepStrictEqual(yield* enrichment.outdatedNuanceEntryIds(1, false, 10), [])
 
-      // English-side judgments upsert, and Claude's loanword prose survives a re-judge.
+      // English judgments are per gloss. Claude's warning survives a re-judge that names the same
+      // loan and goes when the loan changes; glosses no longer judged go too.
       const englishJudged = {
         variety: { ...judgment, value: "universal" as const },
         strength: { ...judgment, value: "none" as const },
@@ -444,20 +504,29 @@ layer(TestLayer)("EnrichmentRepo", (it) => {
         register: { ...judgment, value: "casual" as const },
         loan: { ...judgment, value: "diverges" as const }
       }
-      const englishInput = {
+      const englishInput = (gloss: number, loanWord: string | null) => ({
         sense: 0,
+        gloss,
         nuance: englishJudged,
         answers: { raw: true },
+        loanWord,
         model: "jev-1",
-        questionsVersion: 2
-      }
-      yield* enrichment.saveEnglishNuance(taberu, [englishInput], 1000)
-      yield* enrichment.saveLoanTrap(taberu, 0, "スタイル", "意味が違う")
-      yield* enrichment.saveEnglishNuance(taberu, [englishInput], 2000)
-      const [english] = yield* enrichment.englishNuanceFor([taberu])
-      assert.strictEqual(english?.loanWord, "スタイル")
-      assert.strictEqual(english?.loanTrap, "意味が違う")
-      assert.deepStrictEqual(english?.nuance, englishJudged)
+        questionsVersion: 3
+      })
+      const englishRows = Effect.map(enrichment.englishNuanceFor([taberu]), (rows) =>
+        rows.map((row) => [row.gloss, row.loanWord, row.loanTrap])
+      )
+      yield* enrichment.saveEnglishNuance(taberu, [englishInput(0, "スタイル"), englishInput(1, null)], 1000)
+      yield* enrichment.saveLoanTrap(taberu, 0, 0, "意味が違う")
+      yield* enrichment.saveEnglishNuance(taberu, [englishInput(0, "スタイル"), englishInput(1, null)], 2000)
+      assert.deepStrictEqual(yield* englishRows, [
+        [0, "スタイル", "意味が違う"],
+        [1, null, null]
+      ])
+      assert.deepStrictEqual((yield* enrichment.englishNuanceFor([taberu]))[0]?.nuance, englishJudged)
+      yield* enrichment.saveEnglishNuance(taberu, [englishInput(0, "タイプ")], 3000)
+      assert.deepStrictEqual(yield* englishRows, [[0, "タイプ", null]])
+      assert.deepStrictEqual(yield* enrichment.englishEntryIds(), [taberu])
 
       yield* enrichment.saveSimilar(taberu, [
         { sense: 0, similarId: 1269130, similarity: 0.8, difference: "more_casual", confidence: 0.7 }

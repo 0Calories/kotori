@@ -63,7 +63,11 @@ export const senses = table(
     /** Kana forms this sense is restricted to (JMDict `stagr`). */
     stagr: text().array().notNull().default([]),
     xrefs: text().array().notNull().default([]),
-    antonyms: text().array().notNull().default([])
+    antonyms: text().array().notNull().default([]),
+    /** The English words a loanword sense comes from, where JMDict names them (`lsource`): マンション ← mansion. */
+    sources: text().array().notNull().default([]),
+    /** JMDict's wasei-eigo (和製英語) mark: English-looking, coined in Japan. */
+    wasei: boolean().notNull().default(false)
   },
   (t) => [primaryKey({ columns: [t.entryId, t.position] })]
 )

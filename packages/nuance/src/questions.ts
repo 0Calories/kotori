@@ -1,20 +1,26 @@
-import type { ChoiceQuestion, NoulQuestion, ScoreQuestion } from "@typesafe-ai/sdk"
+import type { EntryRecord } from "@kotori/db"
+import type { ChoiceQuestion, EntryType, NoulQuestion, Question, ScoreQuestion } from "@typesafe-ai/sdk"
+import { type CandidateState, candidateScope, entryState, judgedSenses, type SenseScope, senseScope } from "./state.ts"
 
 /**
- * The judgments Jev makes about one sense of a word. Each is narrow and
- * independent (Jev answers them in parallel), and refers to fields of the state
- * built in `state.ts` by backticked path. Code combines the answers.
+ * The judgments Jev makes about each sense of a word. Each is narrow and independent (Jev
+ * answers them in parallel), and refers by backticked name to the entry's state (`word`,
+ * `senses`) and to its sense's scope in its own instructions (`meaning`, …), both built in
+ * `state.ts`. Code combines the answers.
  */
 
 /**
- * Bumped whenever a question is added, removed or reworded, so stored judgments say
- * which questions produced them. Old rows stay valid; the API re-queues outdated
- * entries when they are viewed, and `kotori enrich nuance --outdated` backfills.
- * History: 1 — the launch set; 2 — registerShape added, stiffWithFriends dropped
- * (derived in interpret.ts), rudeToSuperiors told to ignore obviousness, and the
- * English-side questions introduced (docs/nuance-rework.md).
+ * Bumped whenever a question is added, removed or reworded, or what it sees changes, so
+ * stored judgments say which questions produced them. Old rows stay valid; the API re-queues
+ * outdated entries when they are viewed, and `kotori enrich nuance --outdated` backfills.
+ * History: 1 — the launch set; 2 — registerShape added, stiffWithFriends dropped (derived in
+ * interpret.ts), rudeToSuperiors told to ignore obviousness, and the English-side questions
+ * introduced (docs/nuance-rework.md); 3 — one request per entry, each question carrying its
+ * sense's scope in object-form instructions, the English side moved to its own job (see
+ * `ENGLISH_QUESTIONS_VERSION`), similar words kept at p >= 0.7, and the model moved to
+ * jev-1.14.0 (docs/handoff-jev-entry-batching.md).
  */
-export const QUESTIONS_VERSION = 2
+export const QUESTIONS_VERSION = 3
 
 export const FORMALITY_LEVELS = ["vulgar", "casual", "neutral", "polite", "formal"] as const
 export const MEDIUM_LEVELS = ["spoken", "both", "written"] as const
@@ -190,6 +196,30 @@ export const senseQuestions = {
 
 export type SenseQuestions = typeof senseQuestions
 
+/** Names the sense a question is about: every question sees all of `senses`. */
+const FOCUS =
+  "The word has the senses listed in `senses`. Judge only the sense whose meaning is `meaning`; `part_of_speech` and `dictionary_notes` are the dictionary's information on that sense."
+
+/** A question about one sense: its wording under `question`, the sense's scope beside it. */
+const scoped = <Q extends Question>(question: Q, scope: SenseScope): Q => ({
+  ...question,
+  instructions: { question: question.instructions ?? null, focus: FOCUS, ...scope }
+})
+
+/** The questions about one sense, each carrying that sense's scope. */
+export const scopedSenseQuestions = (scope: SenseScope): SenseQuestions => ({
+  formality: scoped(formality, scope),
+  medium: scoped(medium, scope),
+  keigo: scoped(keigo, scope),
+  gender: scoped(gender, scope),
+  age: scoped(age, scope),
+  currency: scoped(currency, scope),
+  connotation: scoped(connotation, scope),
+  registerShape: scoped(registerShape, scope),
+  rudeToSuperiors: scoped(rudeToSuperiors, scope),
+  slang: scoped(slang, scope)
+})
+
 /** Ways a similar word can differ from the word being looked up. */
 export const DIFFERENCES = {
   more_casual: "It is more casual or rough",
@@ -204,19 +234,65 @@ export const DIFFERENCES = {
   different_usage: "It is used in different situations or word combinations"
 } as const
 
-/** Two questions per candidate: is it a near-synonym, and how does it differ. */
-export const candidateQuestions = (index: number) => ({
-  [`similar_${index}`]: {
-    type: "noul",
-    instructions: `Can \`candidates[${index}].word\` express the same meaning as \`word\` (as described in \`meaning\`) in at least some sentences?`,
-    criteria: {
-      true: "Yes: it is a near-synonym that could replace it in some sentences",
-      false: "No: it is related, but means something different"
-    }
-  } satisfies NoulQuestion,
-  [`difference_${index}`]: {
-    type: "choice",
-    instructions: `Compared with \`word\`, what is the main difference when a native speaker chooses \`candidates[${index}].word\` instead?`,
-    criteria: DIFFERENCES
-  } satisfies ChoiceQuestion
-})
+/**
+ * Two questions per candidate: is it a near-synonym of the sense, and how does it differ.
+ * Each carries the judged sense's `meaning` and the candidate in its instructions.
+ */
+export const candidateQuestions = (index: number, sense: SenseScope, candidate: CandidateState) => {
+  const scope = { meaning: sense.meaning, ...candidateScope(candidate) }
+  return {
+    [`similar_${index}`]: {
+      type: "noul",
+      instructions: {
+        question:
+          "Can `candidate_word` express the same meaning as `word` (as described in `meaning`) in at least some sentences?",
+        ...scope
+      },
+      criteria: {
+        true: "Yes: it is a near-synonym that could replace it in some sentences",
+        false: "No: it is related, but means something different"
+      }
+    } satisfies NoulQuestion,
+    [`difference_${index}`]: {
+      type: "choice",
+      instructions: {
+        question:
+          "Compared with `word`, with the meaning in `meaning`, what is the main difference when a native speaker chooses `candidate_word` instead?",
+        ...scope
+      },
+      criteria: DIFFERENCES
+    } satisfies ChoiceQuestion
+  }
+}
+
+/** The key prefix of a sense's questions in an entry's request. */
+export const sensePrefix = (sense: number) => `s${sense}_`
+
+/**
+ * Every question about an entry in one request: each judged sense's questions and, for the
+ * senses that have them, its similar-word candidates, keyed `s{sense}_{name}`.
+ */
+export const entryRequest = (
+  entry: EntryRecord,
+  tags: ReadonlyMap<string, string>,
+  candidates: ReadonlyArray<ReadonlyArray<CandidateState> | undefined> = []
+): { readonly state: EntryType; readonly questions: Record<string, Question> } => {
+  const questions: Record<string, Question> = {}
+  judgedSenses(entry).forEach((_, index) => {
+    const scope = senseScope(entry, index, tags)
+    const own: Record<string, Question> = { ...scopedSenseQuestions(scope) }
+    candidates[index]?.forEach((candidate, j) => Object.assign(own, candidateQuestions(j, scope, candidate)))
+    for (const [name, question] of Object.entries(own)) questions[`${sensePrefix(index)}${name}`] = question
+  })
+  return { state: entryState(entry), questions }
+}
+
+/** One sense's answers from an entry's request, named as stored: `formality`, …, `similar_0`. */
+export const answersOfSense = (answers: Readonly<Record<string, unknown>>, sense: number): Record<string, unknown> => {
+  const prefix = sensePrefix(sense)
+  return Object.fromEntries(
+    Object.entries(answers).flatMap(([name, answer]) =>
+      name.startsWith(prefix) ? [[name.slice(prefix.length), answer]] : []
+    )
+  )
+}

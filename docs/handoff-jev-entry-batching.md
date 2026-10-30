@@ -330,4 +330,201 @@ where today's questions break them:
   `nuance-rework.md` C2/C3.
 - Nothing has run against production: no migration, no eval, no backfill. As long as
   nothing is pushed, there are no v2 rows anywhere.
+- **Steps 1–4 done (2026-10-30, uncommitted, everything green).** Step 1: real goldens,
+  production builders, the order check and the similar-word pairs; the v2 baseline ran on
+  both models. Step 2: one Jev request per entry, v3, jev-1.14.0. Step 3: the `english` job,
+  judged per gloss with code-found katakana candidates, and the `lsource` import. Step 4:
+  both evals re-run; results below. Three new migrations (`20261030152820_loan_sources`,
+  `20261030152833_english_job_kind`, `20261030152851_english_nuance_per_gloss`), none
+  applied anywhere.
+- The eval never saw a database: every run had `DATABASE_URL` and `NEON_AUTH_*` pointed at
+  `127.0.0.1:9`, the other provider keys set to dummies, and only `TYPESAFE_API_KEY` read
+  from `.env`. Seven paid runs, 1.33M input tokens in all, about 6 cents.
 - Implementer's log: (append here)
+
+### Step 1: real goldens, production builders, order check, pairs
+
+- **Golden set** (`packages/nuance/src/golden.ts`): every golden names an entry id and sense
+  (English goldens also the gloss judged). The entries live in a committed fixture,
+  `packages/nuance/golden/entries.json`, cut from `data/jmdict/JMdict_e.gz` by
+  `tools/golden-fixture.ts` (`pnpm golden`; reads only the file, no database). The tool
+  checks each golden against JMDict: the entry exists, the word is one of its forms, the
+  sense is one Kotori judges, the English word is one of its first `MAX_GLOSSES` glosses.
+  The fixture is slim (spellings, judged senses' glosses, POS and tag codes, tag labels, and
+  since step 3 each English word's loan candidates; 86 KB) and `goldenEntry` builds the
+  synthetic `EntryRecord`; full records were 12k lines.
+  `test/golden.test.ts` fails if the golden set and the fixture drift apart.
+- **Remapped goldens.** Senses were picked to match each golden's meaning: やばい is sense 2
+  ("terrific; amazing"), the one the slang expectation is about; 了解 is sense 1 ("OK;
+  roger"), the 了解です to a boss. 拝見する and ご逝去 aren't entries: they are 拝見 and 逝去.
+  Two English goldens had no JMDict entry carrying them as a leading gloss: "whom" became
+  "motorcar" (自動車, `currency: dated`) and "wanna" became "guy" (やつ, `register: casual`,
+  `currency: current`). Other English goldens moved to entries that really carry the word:
+  naive→甘い sense 4, juice→汁 (果汁's gloss is "fruit juice"), table→卓 (机 is "desk"),
+  flat→部屋, crap→うんこ sense 1, fuck→はめる sense 5. Loan goldens name the expected
+  katakana word (`loanWord`); coffee's is its own entry, コーヒー.
+- **Eval** (`apps/worker/src/commands/evaluate.ts`, requests in
+  `packages/nuance/src/evaluation.ts`): interprets with the entry's real tags and reports,
+  per dimension, accuracy where Jev decides what is shown, where a JMDict tag decides, and
+  Jev's own answer with tags ignored. A caution counts as tag-decided when a tag changed
+  it. Each golden request carries only that sense's questions (answers don't depend on
+  the other questions in a request), so the eval pays for one sense, not six.
+- **Option-order check:** every Choice is asked a second time with its options reversed,
+  under `name~reversed` in the same request. The report gives flips (the two orders
+  disagree) and how many flips went to each order's first option.
+- **Similar-word pairs:** 20 pairs (`GOLDEN_PAIRS`), 17 near-synonyms with acceptable
+  differences and 3 related non-synonyms, reported at p ≥ 0.5 and ≥ 0.7.
+- **English v2 baseline judges the golden gloss.** v2 production judged only each sense's
+  first gloss; the eval puts the golden gloss in `english_word`, so v2 and v3 are measured on
+  the same items with their own questions.
+- **Recordings** are in `data/eval/` (gitignored): `v2-jev-1.13.0-{nuance,english}.{json,txt}`
+  and the same for jev-1.14.0. `kotori eval … --from <file>` reinterprets one offline.
+- **Found while building it, not fixed (Ash):**
+  - いらっしゃる (1000940) imports with the headword 居らっしゃる, a search-only (`sK`) form:
+    `chooseHeadword` falls back to `kanji[0]` when no kanji form is visible, instead of the
+    reading. Jev, and learners, see 居らっしゃる.
+  - JMDict tags お茶 `pol`, which `KEIGO_TAGS` reads as teineigo; the golden says bikago.
+    よろしい is tagged `hon`, which `FORMALITY_TAGS` reads as formal; the golden says
+    polite. Both are tag-decided misses, so they don't count against Jev.
+
+### Step 2: one request per entry (v3, jev-1.14.0)
+
+- **Builders** (`packages/nuance/src/state.ts`, `questions.ts`): `entryState` (word, reading
+  with romaji, other forms, each judged sense's first three glosses as `senses`),
+  `senseScope` (`meaning`, `part_of_speech`, `dictionary_notes`) and `candidateScope`
+  (`candidate_word`, `candidate_reading`, `candidate_meaning`; flat keys, so nothing nested
+  reuses a name). `entryRequest` keys every question `s{i}_{name}` and `answersOfSense`
+  strips the prefix, so rows keep the shape stored today and v1/v2/v3 rows interpret alike.
+  `senseState`, `other_meanings` and the `candidates` state array are gone.
+- **Wording:** each question's existing text sits under `question`, beside the scope and a
+  `focus` line that names the sense by content ("The word has the senses listed in
+  `senses`. Judge only the sense whose meaning is `meaning`; …"). The difference question
+  now says "with the meaning in `meaning`", which it had left to the old per-sense state.
+- **Version and model:** `QUESTIONS_VERSION` 3, history line included; `jev-1.14.0` is the
+  default in `Jev.ts`, `.env.example` and the README (whose nuance paragraph was out of date
+  and is rewritten). The model stays a pinned ID, not `jev-latest`.
+- **Similar words** are kept at p ≥ 0.7 (`SIMILAR_KEPT`): on jev-1.14.0 every golden pair
+  is right at 0.7, with v2 and v3 questions alike.
+- **Order bias: no mitigation.** Flip rates are 0–5% on both models, 9% for v3's
+  registerShape, and at most one flip per dimension went to each order's first option. The
+  first-option lean the 1.13 docs describe doesn't show on these questions, on 1.13 or 1.14;
+  registerShape's flips are near-ties between `scaled` and `fixed`. Asking both orders
+  would add six Choices per sense for nothing measurable.
+- **The English questions left the nuance request here, not in step 3,** together with
+  `englishAnswersOf` and fix 3's interim `loans` step, so step 2 never had to scope
+  questions that step 3 replaces.
+- **Not done:** `difference_{j}` stays one question. It holds at 88% with 5% flips. Its two
+  misses (存じる judged more_formal rather than humble, お腹 more_colloquial rather than
+  more_formal) are the overlap the handoff describes, but splitting it into a question per
+  dimension would add about ten questions per candidate for two misses in 17.
+
+### Step 3: the `english` job, per gloss, with code-found loans
+
+- **When:** `Dictionary.entry`/`requestEnrichment` take the viewer (`CurrentUser`'s profile).
+  The English job is queued only for viewers with `targetLanguage === "en"`, and refreshed
+  on view like fix 1, by `ENGLISH_QUESTIONS_VERSION`. `english()` always queues it for its
+  top three entries. **Non-natives see `english: "unavailable"`**, even while a job runs
+  for someone else, so their app never waits for it. No backfill command.
+- **`ENGLISH_QUESTIONS_VERSION` starts at 3, not 1:** rows from the merged v2 request carry
+  `questionsVersion` 2, and a lower current version would never refresh them.
+- **Schema:** `job_kind` gains `english` in a migration of its own; `english_nuance` gains
+  `gloss` (default 0, so v2 rows read as the first gloss they judged) and the key
+  `(entry_id, sense, gloss)`; drizzle-kit wrote all three migrations.
+- **Questions** (`packages/nuance/src/english.ts`): variety and currency keep their wording;
+  strength (none, mild, strong, avoid) and register (casual, neutral, formal) are Scores
+  whose levels describe situations, `avoid` its own top level. Each gloss carries
+  `english_word` and `meaning`; the state is `word`, `reading` (with romaji) and `senses`.
+  Scores show as chips by rounding.
+- **Loans:** `DictionaryRepo.loanCandidates` finds common, katakana-only headwords with the
+  English word as a gloss or as their `lsource`, most frequent first, at most three per
+  gloss (`loanCandidatesIn` is the same rule over parsed entries; the PGlite test checks they
+  agree). Per candidate a Noul ("is `katakana_word` the everyday katakana loanword of
+  `english_word`?") and a Choice (`matches` first, `diverges`), with examples kept out of
+  the golden set. The candidate's scope carries its senses' translations with their usage
+  notes ("tension [physics]") and the wasei-eigo mark. Interpretation keeps the likeliest
+  candidate at p ≥ 0.7; a candidate JMDict names as the source counts as the loan outright,
+  as tags override Jev on the Japanese side. `loanWord` is the candidate's headword; each
+  row's answers store the candidates asked about, so `--reinterpret` can re-derive it.
+- **Decisions:**
+  - The entry itself can be its own candidate: コーヒー is the loan of "coffee", and
+    テンション's own "tension" sense is the trap. The app hides the "same as the katakana
+    word" chip when the loan is the word on screen.
+  - Uncommon katakana words aren't candidates, since an everyday loan is a common one.
+  - No recall fallback for glosses without a candidate: gloss matching misses exactly the
+    three `lsource` loans (mansion, naive, cunning), and with `lsource` every golden loan
+    has its candidate.
+- **`lsource` import:** the parser keeps a sense's English sources (not `ls_type="part"`,
+  not other languages) and its `ls_wasei` flag in `senses.sources` and `senses.wasei`.
+  Until JMDict is re-imported, the lookup works on gloss matches alone.
+- **Claude:** `LoanWriter` writes only `loanTrap`, for a `diverges` at confidence ≥ 0.55,
+  once per English word and loan, in the `english` job after the verdict; a re-judge naming
+  the same loan keeps the sentence (`saveEnglishNuance`'s upsert), another loan clears it.
+- **Display:** `Sense.english` is the first gloss's judgment; `EnglishMeaning.english` the
+  judgment for `match.position` (null past `MAX_GLOSSES`), replacing fix 2's gate. The entry
+  page's waiting banner includes the English job.
+- **`kotori enrich nuance --reinterpret`** also re-derives English rows of the current
+  English question set; older ones are re-judged when viewed.
+- **One iteration on the loan wording, measured:** the first v3 run (recorded as
+  `data/eval/v3a-jev-1.14.0-english.*`) judged テンション, シール, スタイル, ジュース and
+  ナイーブ to match. Their dictionary translations repeat the English word ("tension",
+  "seal"). Adding the usage notes, a line saying dictionaries list the source word even
+  where use has drifted, and JMDict's word on sources raised loan accuracy from 70% to 85%,
+  with no matching loan turned into a warning.
+
+### Step 4: results (v2 on jev-1.13.0, v2 on jev-1.14.0, v3 on jev-1.14.0)
+
+Accuracy where Jev decides what is shown; flips with options reversed in brackets.
+
+| dimension | v2 · 1.13 | v2 · 1.14 | v3 · 1.14 |
+|---|---|---|---|
+| formality | 93% (39/42) | 93% (39/42) | 90% (38/42) |
+| medium | 94% (16/17) | 94% (16/17) | 94% (16/17) |
+| keigo | 1/1 [0%] | 1/1 [1%] | 1/1 [3%] |
+| gender (all JMDict-decided) | — [3%] | — [1%] | — [0%] |
+| age | 3/3 [3%] | 3/3 [3%] | 3/3 [0%] |
+| currency | 6/6 [4%] | 5/6 [1%] | 6/6 [4%] |
+| connotation | 3/3 [4%] | 3/3 [1%] | 3/3 [4%] |
+| registerShape | 86% (6/7) [3%] | 86% (6/7) [3%] | 86% (6/7) [9%] |
+| rudeToSuperiors | 97% (29/30) | 97% (29/30) | 93% (28/30) |
+| stiffWithFriends | 86% (18/21) | 86% (18/21) | 85% (17/20) |
+| slang | 4/4 | 4/4 | 4/4 |
+| difference (pairs) | 88% (15/17) [5%] | 88% (15/17) [5%] | 88% (15/17) [5%] |
+| similar at 0.7 | 90% (18/20) | 100% (20/20) | 100% (20/20) |
+| English variety | 83% (5/6) [3%] | 83% (5/6) [0%] | 83% (5/6) [3%] |
+| English strength | 5/5 | 5/5 | 5/5 |
+| English currency | 3/3 | 3/3 | 3/3 |
+| English register | 4/4 | 4/4 | 4/4 |
+| English loan | 50% (10/20) [3%] | 50% (10/20) [5%] | 75% (15/20) now, 85% (17/20) with `lsource` [3%] |
+
+- JMDict-decided judgments are 95% (formality), 100% (medium), 88% (keigo: お茶), the same
+  on every run. Mean confidence moved little; English loan confidence rose from 0.57 to 0.81.
+- **The model alone** (v2, 1.13 → 1.14) changed one currency golden (銀幕, dated → current at
+  0.52/0.48) and the similar-word cut-off (two pairs that sat at 0.66–0.69 rose above 0.7).
+- **The scoping** (v2 → v3 on 1.14) moved formality by one golden and rudeToSuperiors by one.
+  Each change is a rounding-boundary flip with an almost unchanged distribution: 死ぬ's
+  score went 1.52 → 1.46 (neutral → casual) and its rude-to-superiors noul 0.55 → 0.65;
+  遺憾 went 3.54 → 3.44; 浣腸 went the other way, 2.69 → 2.48 (polite → neutral, now right).
+  No field went missing from a scope. Reading formality by its most likely level instead of
+  the rounded score would score 40/42 for v3 and 41/42 for v2 · 1.14, and is free to try
+  with `--from` and `--reinterpret`.
+- Request size: the eval's Japanese requests cost 46% more input tokens (436k against
+  298k), as the handoff predicted. A six-sense entry is about 15k tokens before candidates,
+  about 25k with a full set (estimated). The English request is 12–13k for 行く or 見る,
+  about 37k if every gloss had three katakana candidates, and at most about 48k (24 glosses
+  × 10 questions), under the 64k limit.
+
+### For Ash, from this work
+
+- **Re-import JMDict** for `senses.sources`/`wasei`; until then the English job finds loans
+  by gloss alone and misses マンション, ナイーブ, カンニング and the like.
+- **Deploy the API before (or with) the app:** `Enrichment` gained `english`, and an app built
+  with it can't decode an older API's response.
+- **The English goldens overlap the question examples:** all six variety goldens, four of
+  five strength goldens, all four register goldens and one of three currency goldens appear
+  as examples in their own question's criteria, in v2 and v3 alike, so those scores say
+  little (candy is missed although it is an example). The loan section is clean. Goldens
+  that aren't examples would measure generalisation.
+- **Debatable goldens:** スタイル and ジュース still come out `matches`, and both words do
+  carry the English sense in everyday use (ヘアスタイル, fruit juice). ナイーブ ("innocent;
+  sensitive") is a true miss.
+- Fixes 2 and 3 are gone: replaced by per-gloss rows and the English job, as planned.

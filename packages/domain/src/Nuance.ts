@@ -106,12 +106,12 @@ export const EnglishJudgments = Schema.Struct({
 })
 export type EnglishJudgments = typeof EnglishJudgments.Type
 
-/** The English-side nuance shown to Japanese natives: the judgments plus Claude's loanword prose. */
+/** The English-side nuance shown to Japanese natives: Jev's judgments, the loan they're about and Claude's warning. */
 export const EnglishNuance = Schema.Struct({
   ...EnglishJudgments.fields,
-  /** The katakana loanword, named by Claude when the loan verdict diverges. */
+  /** The katakana loan the verdict is about, as the dictionary spells it; null when there is none. */
   loanWord: Schema.NullOr(Schema.String),
-  /** One Japanese sentence on how the English word differs from the katakana word. */
+  /** Claude's one Japanese sentence on how the English word differs from the katakana word, when it confidently does. */
   loanTrap: Schema.NullOr(Schema.String)
 })
 export type EnglishNuance = typeof EnglishNuance.Type

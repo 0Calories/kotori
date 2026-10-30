@@ -2,7 +2,7 @@ import { and, asc, desc, eq, gte, inArray, max, min, ne, notExists, sql } from "
 import { alias } from "drizzle-orm/pg-core"
 import { Context, Effect, Layer } from "effect"
 import { Database } from "./Database.ts"
-import { type EntryRecord, normalizeGloss } from "./records.ts"
+import { type EntryRecord, KATAKANA_WORD, type LoanCandidate, normalizeGloss } from "./records.ts"
 import { chunks } from "./rows.ts"
 import { entries, entryAudio, examples, forms, glosses, jobKind, senseNuance, senses, tags } from "./schema/index.ts"
 
@@ -30,8 +30,8 @@ export interface Candidate {
   readonly gloss: string
 }
 
-/** Enrichment an entry can be missing, used to find work for the worker. */
-export type EnrichmentKind = (typeof jobKind.enumValues)[number]
+/** Enrichment an entry can be missing, used to find work for the worker. The English side is judged on view, never backfilled. */
+export type EnrichmentKind = Exclude<(typeof jobKind.enumValues)[number], "english">
 
 export interface PriorityQuery {
   readonly limit: number
@@ -58,6 +58,12 @@ export class DictionaryRepo extends Context.Service<
     findGlossesExact(query: string, limit: number): Effect.Effect<ReadonlyArray<GlossMatch>>
     /** Other entries sharing an exact gloss with the given sense: candidates for "similar words". */
     sharedGlossCandidates(entryId: number, sense: number, limit: number): Effect.Effect<ReadonlyArray<Candidate>>
+    /**
+     * Common katakana words that may be the loanword of each English word: entries with the word
+     * as a gloss, or whose JMDict source (`lsource`) it is; most frequent first, at most `limit`
+     * per word. `loanCandidatesIn` is the same search over parsed entries.
+     */
+    loanCandidates(words: ReadonlyArray<string>, limit: number): Effect.Effect<ReadonlyArray<LoanCandidate>>
     /** Commonness and frequency of entries, for ranking without loading them. */
     ranks(
       ids: ReadonlyArray<number>
@@ -145,7 +151,9 @@ export class DictionaryRepo extends Context.Service<
                 stagk: [...sense.stagk],
                 stagr: [...sense.stagr],
                 xrefs: [...sense.xrefs],
-                antonyms: [...sense.antonyms]
+                antonyms: [...sense.antonyms],
+                sources: [...sense.sources],
+                wasei: sense.wasei
               }))
             )
             for (const chunk of chunks(senseRows, 1500)) {
@@ -163,7 +171,9 @@ export class DictionaryRepo extends Context.Service<
                     stagk: sql`excluded.stagk`,
                     stagr: sql`excluded.stagr`,
                     xrefs: sql`excluded.xrefs`,
-                    antonyms: sql`excluded.antonyms`
+                    antonyms: sql`excluded.antonyms`,
+                    sources: sql`excluded.sources`,
+                    wasei: sql`excluded.wasei`
                   }
                 })
             }
@@ -324,6 +334,55 @@ export class DictionaryRepo extends Context.Service<
           .limit(limit)
       }, Effect.orDie)
 
+      const loanCandidates = Effect.fn("DictionaryRepo.loanCandidates")(function* (
+        words: ReadonlyArray<string>,
+        limit: number
+      ) {
+        const wanted = [...new Set(words.map(normalizeGloss))].filter((word) => word.length > 1)
+        if (wanted.length === 0) return []
+        const katakana = and(eq(entries.common, true), sql`${entries.headword} ~ ${KATAKANA_WORD}`)
+        const byGloss = yield* db
+          .selectDistinct({ word: glosses.norm, entryId: glosses.entryId, priority: entries.priority })
+          .from(glosses)
+          .innerJoin(entries, eq(entries.id, glosses.entryId))
+          .where(and(inArray(glosses.norm, wanted), katakana))
+        // Sources are matched loosely here and exactly below, as `normalizeGloss` matches glosses.
+        const listed = sql.join(
+          wanted.map((word) => sql`${word}`),
+          sql`, `
+        )
+        const bySource = yield* db
+          .select({ entryId: senses.entryId, sources: senses.sources, priority: entries.priority })
+          .from(senses)
+          .innerJoin(entries, eq(entries.id, senses.entryId))
+          .where(
+            and(
+              katakana,
+              sql`EXISTS (SELECT 1 FROM unnest(${senses.sources}) AS source WHERE lower(source) IN (${listed}))`
+            )
+          )
+
+        const found = new Map<string, Map<number, { readonly by: LoanCandidate["by"]; readonly priority: number }>>()
+        const add = (word: string, entryId: number, by: LoanCandidate["by"], priority: number) => {
+          const forWord = found.get(word) ?? new Map()
+          if (by === "source" || !forWord.has(entryId)) forWord.set(entryId, { by, priority })
+          found.set(word, forWord)
+        }
+        for (const row of byGloss) add(row.word, row.entryId, "gloss", row.priority)
+        for (const row of bySource) {
+          for (const source of row.sources) {
+            const word = normalizeGloss(source)
+            if (wanted.includes(word)) add(word, row.entryId, "source", row.priority)
+          }
+        }
+        return [...found].flatMap(([word, forWord]) =>
+          [...forWord]
+            .sort(([a, x], [b, y]) => y.priority - x.priority || a - b)
+            .slice(0, limit)
+            .map(([entryId, { by }]): LoanCandidate => ({ word, entryId, by }))
+        )
+      }, Effect.orDie)
+
       const ranks = Effect.fn("DictionaryRepo.ranks")(function* (ids: ReadonlyArray<number>) {
         if (ids.length === 0) return new Map<number, { common: boolean; priority: number }>()
         const rows = yield* db
@@ -370,6 +429,7 @@ export class DictionaryRepo extends Context.Service<
         searchGlosses,
         findGlossesExact,
         sharedGlossCandidates,
+        loanCandidates,
         ranks,
         entriesByPriority
       })

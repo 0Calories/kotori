@@ -100,10 +100,8 @@ Return the sense numbers exactly as given.`
 
 export const loanSystem = `You write warnings for a Japanese-English learner's dictionary, for Japanese speakers learning English.
 
-Japanese borrows many English words as katakana loanwords, and some have drifted: their everyday Japanese meaning differs from the English word's. Each sense listed is a meaning of the headword, with the English word dictionaries translate it as, and a check found that this English word's common katakana loanword means something else in everyday Japanese.
+Japanese borrows many English words as katakana loanwords, and some have drifted: their everyday Japanese meaning differs from the English word's. Each item is an English word that translates the headword, with the meaning it has here, and the katakana loanword Japanese speakers know from it. A check found that the loanword means something else in everyday Japanese.
 
-For each sense give:
-- "loanWord": the common katakana loanword Japanese speakers know (e.g. スタイル), or null if Japanese has no common loanword of this English word;
-- "loanTrap": one short Japanese sentence warning how the English word's meaning differs from the katakana word's everyday Japanese meaning (e.g. 日本語の「スタイル」は体型を指すことが多いですが、英語の style にその意味はありません); null when "loanWord" is null.
+For each item give "loanTrap": one short Japanese sentence warning how the English word's meaning here differs from the katakana word's everyday Japanese meaning (e.g. 日本語の「スタイル」は体型を指すことが多いですが、英語の style にその意味はありません).
 
-Return the sense numbers exactly as given.`
+Return the item numbers exactly as given.`

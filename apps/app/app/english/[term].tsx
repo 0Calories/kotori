@@ -111,7 +111,9 @@ const MeaningCard = ({
             ) : null}
           </View>
         ) : null}
-        {meaning.english ? <EnglishNuanceNotes english={meaning.english} /> : null}
+        {meaning.english ? (
+          <EnglishNuanceNotes english={meaning.english} word={[meaning.headword, meaning.reading]} />
+        ) : null}
         {/* The audience here is Japanese natives, so the sense note is the Japanese one. */}
         {meaning.noteJa ? (
           <Text jp variant="small" color="textMuted">

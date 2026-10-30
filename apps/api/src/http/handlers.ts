@@ -67,8 +67,14 @@ const DictionaryHandlers = HttpApiBuilder.group(
     return handlers.handleAll({
       search: ({ query }) => dictionary.search(query.q, Math.min(Math.max(query.limit ?? 30, 1), 100)),
       english: ({ query }) => dictionary.english(query.term),
-      entry: ({ params }) => dictionary.entry(params.id).pipe(Effect.flatMap(orNotFound("No such entry"))),
-      enrich: ({ params }) => dictionary.requestEnrichment(params.id).pipe(Effect.flatMap(orNotFound("No such entry")))
+      entry: ({ params }) =>
+        Effect.flatMap(CurrentUser, (user) =>
+          dictionary.entry(params.id, user.profile).pipe(Effect.flatMap(orNotFound("No such entry")))
+        ),
+      enrich: ({ params }) =>
+        Effect.flatMap(CurrentUser, (user) =>
+          dictionary.requestEnrichment(params.id, user.profile).pipe(Effect.flatMap(orNotFound("No such entry")))
+        )
     })
   })
 )

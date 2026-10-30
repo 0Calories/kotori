@@ -1,0 +1,58 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "82aae0e5-7b4b-4abf-9550-12c3ad9beab4",
+  "prevIds": ["7cf1f0bf-ac29-41b0-8464-28994495a019"],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "english_nuance", "gloss"],
+      "writes": [
+        "s|col|public.english_nuance.gloss",
+        "n|col|public.english_nuance.gloss",
+        "e|col|public.english_nuance.gloss"
+      ],
+      "reads": ["n|tbl|public.english_nuance", "n|sch|public"]
+    },
+    {
+      "statementType": "alter_pk",
+      "statementTarget": ["table", "public", "english_nuance"],
+      "writes": ["s|pk|public.english_nuance"],
+      "reads": [
+        "n|tbl|public.english_nuance",
+        "n|sch|public",
+        "n|col|public.english_nuance.entry_id",
+        "n|col|public.english_nuance.sense",
+        "n|col|public.english_nuance.gloss"
+      ],
+      "sharedWrites": ["e|uniqueness|public.english_nuance.entry_id.sense"],
+      "sqlHash": "c7101481eca06f11"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "english_nuance",
+        "name": "gloss",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "pks\u0000[\"public\",\"english_nuance\",\"english_nuance_pkey\"]",
+      "set": {
+        "columns": ["entry_id", "sense", "gloss"]
+      }
+    }
+  ]
+}

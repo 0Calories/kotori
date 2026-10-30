@@ -1,0 +1,1 @@
+ALTER TYPE "job_kind" ADD VALUE 'english';

@@ -1,0 +1,55 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "831afaaa-ff7c-4056-a2f6-135236bff1b6",
+  "prevIds": ["978b575a-8150-4a4d-99e5-18883f41f423"],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "senses", "sources"],
+      "writes": ["s|col|public.senses.sources", "n|col|public.senses.sources", "e|col|public.senses.sources"],
+      "reads": ["n|tbl|public.senses", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "senses", "wasei"],
+      "writes": ["s|col|public.senses.wasei", "n|col|public.senses.wasei", "e|col|public.senses.wasei"],
+      "reads": ["n|tbl|public.senses", "n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "senses",
+        "name": "sources",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 1,
+        "default": "'{}'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "senses",
+        "name": "wasei",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

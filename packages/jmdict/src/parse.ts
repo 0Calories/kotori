@@ -110,6 +110,23 @@ const parseKana = (block: string): FormRecord => {
   }
 }
 
+/**
+ * A sense's `lsource` elements: the English words a loan comes from, and whether JMDict marks
+ * it wasei-eigo. A source in another language, or one that is only part of the loan
+ * (`ls_type="part"`, as "sub" in サブリーダー), names no English word the loan stands for.
+ */
+const parseSources = (block: string) => {
+  const sources: Array<string> = []
+  let wasei = false
+  for (const [, attributes = "", text = ""] of block.matchAll(/<lsource([^>]*?)(?:\/>|>([\s\S]*?)<\/lsource>)/g)) {
+    if (/ls_wasei="y"/.test(attributes)) wasei = true
+    const language = /xml:lang="([^"]+)"/.exec(attributes)?.[1] ?? "eng"
+    const word = decodeText(text)
+    if (language === "eng" && !/ls_type="part"/.test(attributes) && word.length > 0) sources.push(word)
+  }
+  return { sources, wasei }
+}
+
 const parseSense = (block: string, previousPos: ReadonlyArray<string>): SenseRecord => {
   const pos = elements(block, "pos")
   return {
@@ -127,7 +144,8 @@ const parseSense = (block: string, previousPos: ReadonlyArray<string>): SenseRec
     stagk: elements(block, "stagk"),
     stagr: elements(block, "stagr"),
     xrefs: elements(block, "xref"),
-    antonyms: elements(block, "ant")
+    antonyms: elements(block, "ant"),
+    ...parseSources(block)
   }
 }
 

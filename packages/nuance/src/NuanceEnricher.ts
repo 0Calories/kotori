@@ -1,23 +1,9 @@
 import { DictionaryRepo, EnrichmentRepo, type EntryRecord } from "@kotori/db"
-import type { Question } from "@typesafe-ai/sdk"
 import { Clock, Context, Effect, Layer, Schema } from "effect"
-import { englishAnswersOf, englishQuestions } from "./english.ts"
-import {
-  type EnglishAnswers,
-  interpretCandidates,
-  interpretEnglish,
-  interpretSense,
-  type SenseAnswers
-} from "./interpret.ts"
+import { interpretCandidates, interpretSense, type SenseAnswers } from "./interpret.ts"
 import { Jev, type JevError } from "./Jev.ts"
-import { candidateQuestions, QUESTIONS_VERSION, senseQuestions } from "./questions.ts"
-import { type CandidateState, senseState } from "./state.ts"
-
-/** Senses beyond these rarely matter to learners and are left unclassified. */
-const MAX_SENSES = 6
-/** Similar words are looked for on the main senses only. */
-const SIMILAR_SENSES = 3
-const MAX_CANDIDATES = 8
+import { answersOfSense, entryRequest, QUESTIONS_VERSION } from "./questions.ts"
+import { candidateOf, judgedSenses, MAX_CANDIDATES, SIMILAR_SENSES } from "./state.ts"
 
 export class EntryNotFound extends Schema.TaggedError<EntryNotFound>()("EntryNotFound", { entryId: Schema.Int }) {}
 
@@ -55,72 +41,50 @@ export class NuanceEnricher extends Context.Service<
           .slice(0, MAX_CANDIDATES)
         const entries = yield* dictionary.getEntries(ids)
 
-        return entries.map((candidate): CandidateState => {
-          const matchedSense = shared.find((c) => c.entryId === candidate.id)?.sense ?? 0
-          const glosses = candidate.senses[matchedSense]?.glosses ?? candidate.senses[0]?.glosses ?? []
-          return {
-            entryId: candidate.id,
-            word: candidate.headword,
-            reading: candidate.reading,
-            meaning: glosses
-              .slice(0, 3)
-              .map((gloss) => gloss.text)
-              .join("; ")
-          }
-        })
+        return entries.map((candidate) =>
+          candidateOf(candidate, shared.find((c) => c.entryId === candidate.id)?.sense ?? 0)
+        )
       })
 
       const enrich = Effect.fn("NuanceEnricher.enrich")(function* (entryId: number) {
         const [entry] = yield* dictionary.getEntries([entryId])
         if (entry === undefined) return yield* new EntryNotFound({ entryId })
         const tags = yield* dictionary.tags
+        const senses = judgedSenses(entry)
+        if (senses.length === 0) return { senses: 0, similar: 0, inputTokens: 0 }
 
-        const judged = yield* Effect.forEach(
-          entry.senses.slice(0, MAX_SENSES),
-          (sense, index) =>
-            Effect.gen(function* () {
-              const candidates = index < SIMILAR_SENSES ? yield* candidatesFor(entry, index) : []
-              // One request per sense: the Japanese questions, the English-side ones and the
-              // candidate comparisons together. TypeSafe evaluates questions in parallel, so
-              // asking everything at once is barely slower or dearer than asking anything.
-              const questions: Record<string, Question> = { ...senseQuestions, ...englishQuestions }
-              candidates.forEach((_, i) => Object.assign(questions, candidateQuestions(i)))
-              const result = yield* jev.ask(senseState(entry, index, tags, candidates), questions)
-              return { index, misc: sense.misc, candidates, result }
-            }),
-          { concurrency: 3 }
+        const candidates = yield* Effect.forEach(senses, (_, index) =>
+          index < SIMILAR_SENSES ? candidatesFor(entry, index) : Effect.succeed([])
         )
+        // One request for the whole entry: every sense's questions, each carrying its sense's
+        // scope, and the candidate comparisons. Questions run in parallel, so a learner waits
+        // one round trip instead of one per sense.
+        const request = entryRequest(entry, tags, candidates)
+        const result = yield* jev.ask(request.state, request.questions)
 
         const now = yield* Clock.currentTimeMillis
-        const nuance = judged.map(({ index, misc, result }) => ({
+        const judged = senses.map((sense, index) => ({
+          index,
+          misc: sense.misc,
+          answers: answersOfSense(result.answers, index)
+        }))
+        const nuance = judged.map(({ index, misc, answers }) => ({
           sense: index,
-          nuance: interpretSense(result.answers as unknown as SenseAnswers, misc),
-          answers: result.answers,
+          nuance: interpretSense(answers as unknown as SenseAnswers, misc),
+          answers,
           model: result.model,
           questionsVersion: QUESTIONS_VERSION
         }))
-        const english = judged.map(({ index, result }) => ({
-          sense: index,
-          nuance: interpretEnglish(result.answers as unknown as EnglishAnswers),
-          answers: englishAnswersOf(result.answers),
-          model: result.model,
-          questionsVersion: QUESTIONS_VERSION
-        }))
-        const similar = judged.flatMap(({ index, candidates, result }) =>
+        const similar = judged.flatMap(({ index, answers }) =>
           interpretCandidates(
-            result.answers,
-            candidates.map((c) => c.entryId)
+            answers,
+            (candidates[index] ?? []).map((c) => c.entryId)
           ).map((j) => ({ sense: index, ...j }))
         )
 
         yield* enrichment.saveNuance(entryId, nuance, now)
-        yield* enrichment.saveEnglishNuance(entryId, english, now)
         yield* enrichment.saveSimilar(entryId, similar)
-        return {
-          senses: nuance.length,
-          similar: similar.length,
-          inputTokens: judged.reduce((sum, { result }) => sum + result.usage.input_tokens, 0)
-        }
+        return { senses: nuance.length, similar: similar.length, inputTokens: result.usage.input_tokens }
       })
 
       const reinterpret = Effect.fn("NuanceEnricher.reinterpret")(function* (entryId: number) {
@@ -135,12 +99,6 @@ export class NuanceEnricher extends Context.Service<
               row.sense,
               interpretSense(row.answers as SenseAnswers, entry.senses[row.sense]?.misc ?? [])
             ),
-          { discard: true }
-        )
-        const english = yield* enrichment.englishAnswersFor(entryId)
-        yield* Effect.forEach(
-          english,
-          (row) => enrichment.updateEnglishNuance(entryId, row.sense, interpretEnglish(row.answers as EnglishAnswers)),
           { discard: true }
         )
         return { senses: rows.length }

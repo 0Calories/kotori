@@ -10,7 +10,7 @@ import type {
   SpeakerAge,
   SpeakerGender
 } from "@kotori/domain"
-import { and, asc, desc, eq, gte, inArray, lt, sum } from "drizzle-orm"
+import { and, asc, desc, eq, gte, inArray, lt, not, or, sql, sum } from "drizzle-orm"
 import { Context, Effect, Layer, Option } from "effect"
 import { Database } from "./Database.ts"
 import { at, millis } from "./rows.ts"
@@ -47,17 +47,22 @@ export interface NuanceInput {
 export interface EnglishNuanceRow {
   readonly entryId: number
   readonly sense: number
+  /** The gloss judged, by position in the sense. */
+  readonly gloss: number
   readonly nuance: EnglishJudgments
-  /** Claude's katakana loanword and trap sentence; null until the nuance job writes them for a diverging loan. */
+  /** The katakana loan the verdict is about, from the dictionary; null when there is none. */
   readonly loanWord: string | null
+  /** Claude's warning, written once the loan confidently diverges; null until then. */
   readonly loanTrap: string | null
   readonly questionsVersion: number
 }
 
 export interface EnglishNuanceInput {
   readonly sense: number
+  readonly gloss: number
   readonly nuance: EnglishJudgments
   readonly answers: unknown
+  readonly loanWord: string | null
   readonly model: string
   readonly questionsVersion: number
 }
@@ -164,15 +169,31 @@ export class EnrichmentRepo extends Context.Service<
     updateNuance(entryId: number, sense: number, nuance: Nuance): Effect.Effect<void>
     /** Entries whose stored nuance predates `version`, most frequent first, for the backfill. */
     outdatedNuanceEntryIds(version: number, commonOnly: boolean, limit: number): Effect.Effect<ReadonlyArray<number>>
-    /** Upserts the English-side judgments, preserving Claude's loanword prose on re-runs. */
+    /**
+     * Replaces an entry's English judgments with these, one row per gloss. Claude's warning
+     * survives a re-judge that names the same loan, so it isn't paid for twice.
+     */
     saveEnglishNuance(entryId: number, rows: ReadonlyArray<EnglishNuanceInput>, now: number): Effect.Effect<void>
     englishNuanceFor(entryIds: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<EnglishNuanceRow>>
-    englishAnswersFor(
-      entryId: number
-    ): Effect.Effect<ReadonlyArray<{ readonly sense: number; readonly answers: unknown }>>
-    updateEnglishNuance(entryId: number, sense: number, nuance: EnglishJudgments): Effect.Effect<void>
-    /** Writes Claude's loanword prose onto an existing English judgment; a no-op without one. */
-    saveLoanTrap(entryId: number, sense: number, loanWord: string, loanTrap: string | null): Effect.Effect<void>
+    /** Every entry holding English judgments, for reinterpretation sweeps. */
+    englishEntryIds(): Effect.Effect<ReadonlyArray<number>>
+    englishAnswersFor(entryId: number): Effect.Effect<
+      ReadonlyArray<{
+        readonly sense: number
+        readonly gloss: number
+        readonly answers: unknown
+        readonly questionsVersion: number
+      }>
+    >
+    updateEnglishNuance(
+      entryId: number,
+      sense: number,
+      gloss: number,
+      nuance: EnglishJudgments,
+      loanWord: string | null
+    ): Effect.Effect<void>
+    /** Writes Claude's warning onto an existing English judgment; a no-op without one. */
+    saveLoanTrap(entryId: number, sense: number, gloss: number, loanTrap: string): Effect.Effect<void>
     saveSimilar(entryId: number, rows: ReadonlyArray<SimilarRow>): Effect.Effect<void>
     similarFor(entryId: number): Effect.Effect<ReadonlyArray<SimilarRow>>
     saveExamples(entryId: number, rows: ReadonlyArray<ExampleInput>, now: number): Effect.Effect<void>
@@ -282,24 +303,41 @@ export class EnrichmentRepo extends Context.Service<
         rows: ReadonlyArray<EnglishNuanceInput>,
         now: number
       ) {
-        if (rows.length === 0) return
-        // An upsert, not delete-and-insert: the loanword prose Claude wrote must survive re-judging.
-        yield* Effect.forEach(
-          rows,
-          (row) => {
-            const judged = {
-              nuance: row.nuance,
-              answers: row.answers,
-              model: row.model,
-              questionsVersion: row.questionsVersion,
-              createdAt: at(now)
-            }
-            return db
-              .insert(englishNuance)
-              .values({ entryId, sense: row.sense, ...judged })
-              .onConflictDoUpdate({ target: [englishNuance.entryId, englishNuance.sense], set: judged })
-          },
-          { discard: true }
+        yield* db.transaction((tx) =>
+          Effect.gen(function* () {
+            // Glosses no longer judged (the entry changed, or rows from an older question set) go.
+            const judged = rows.map((row) =>
+              and(eq(englishNuance.sense, row.sense), eq(englishNuance.gloss, row.gloss))
+            )
+            yield* tx
+              .delete(englishNuance)
+              .where(and(eq(englishNuance.entryId, entryId), judged.length > 0 ? not(or(...judged)) : undefined))
+            // An upsert, not a delete: the warning Claude wrote survives while the loan stays the same.
+            yield* Effect.forEach(
+              rows,
+              ({ sense, gloss, ...row }) => {
+                const fresh = {
+                  nuance: row.nuance,
+                  answers: row.answers,
+                  loanWord: row.loanWord,
+                  model: row.model,
+                  questionsVersion: row.questionsVersion,
+                  createdAt: at(now)
+                }
+                return tx
+                  .insert(englishNuance)
+                  .values({ entryId, sense, gloss, ...fresh })
+                  .onConflictDoUpdate({
+                    target: [englishNuance.entryId, englishNuance.sense, englishNuance.gloss],
+                    set: {
+                      ...fresh,
+                      loanTrap: sql`CASE WHEN ${englishNuance.loanWord} IS NOT DISTINCT FROM excluded.loan_word THEN ${englishNuance.loanTrap} END`
+                    }
+                  })
+              },
+              { discard: true }
+            )
+          })
         )
       }, Effect.orDie)
 
@@ -311,6 +349,7 @@ export class EnrichmentRepo extends Context.Service<
           .select({
             entryId: englishNuance.entryId,
             sense: englishNuance.sense,
+            gloss: englishNuance.gloss,
             nuance: englishNuance.nuance,
             loanWord: englishNuance.loanWord,
             loanTrap: englishNuance.loanTrap,
@@ -318,28 +357,52 @@ export class EnrichmentRepo extends Context.Service<
           })
           .from(englishNuance)
           .where(inArray(englishNuance.entryId, entryIds))
+          .orderBy(asc(englishNuance.entryId), asc(englishNuance.sense), asc(englishNuance.gloss))
+      }, Effect.orDie)
+
+      const englishEntryIds = Effect.fn("EnrichmentRepo.englishEntryIds")(function* () {
+        const rows = yield* db
+          .selectDistinct({ entryId: englishNuance.entryId })
+          .from(englishNuance)
+          .orderBy(asc(englishNuance.entryId))
+        return rows.map((row) => row.entryId)
       }, Effect.orDie)
 
       const englishAnswersFor = Effect.fn("EnrichmentRepo.englishAnswersFor")(function* (entryId: number) {
         return yield* db
-          .select({ sense: englishNuance.sense, answers: englishNuance.answers })
+          .select({
+            sense: englishNuance.sense,
+            gloss: englishNuance.gloss,
+            answers: englishNuance.answers,
+            questionsVersion: englishNuance.questionsVersion
+          })
           .from(englishNuance)
           .where(eq(englishNuance.entryId, entryId))
-          .orderBy(asc(englishNuance.sense))
+          .orderBy(asc(englishNuance.sense), asc(englishNuance.gloss))
       }, Effect.orDie)
 
-      const updateEnglishNuance = (entryId: number, sense: number, nuance: EnglishJudgments) =>
+      const updateEnglishNuance = (
+        entryId: number,
+        sense: number,
+        gloss: number,
+        nuance: EnglishJudgments,
+        loanWord: string | null
+      ) =>
         db
           .update(englishNuance)
-          .set({ nuance })
-          .where(and(eq(englishNuance.entryId, entryId), eq(englishNuance.sense, sense)))
+          .set({ nuance, loanWord })
+          .where(
+            and(eq(englishNuance.entryId, entryId), eq(englishNuance.sense, sense), eq(englishNuance.gloss, gloss))
+          )
           .pipe(Effect.asVoid, Effect.orDie)
 
-      const saveLoanTrap = (entryId: number, sense: number, loanWord: string, loanTrap: string | null) =>
+      const saveLoanTrap = (entryId: number, sense: number, gloss: number, loanTrap: string) =>
         db
           .update(englishNuance)
-          .set({ loanWord, loanTrap })
-          .where(and(eq(englishNuance.entryId, entryId), eq(englishNuance.sense, sense)))
+          .set({ loanTrap })
+          .where(
+            and(eq(englishNuance.entryId, entryId), eq(englishNuance.sense, sense), eq(englishNuance.gloss, gloss))
+          )
           .pipe(Effect.asVoid, Effect.orDie)
 
       const saveSimilar = Effect.fn("EnrichmentRepo.saveSimilar")(function* (
@@ -512,6 +575,7 @@ export class EnrichmentRepo extends Context.Service<
         outdatedNuanceEntryIds,
         saveEnglishNuance,
         englishNuanceFor,
+        englishEntryIds,
         englishAnswersFor,
         updateEnglishNuance,
         saveLoanTrap,

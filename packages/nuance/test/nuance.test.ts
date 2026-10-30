@@ -3,7 +3,15 @@ import { DictionaryRepo, EnrichmentRepo, type EntryRecord, Repositories } from "
 import { DatabaseMemory } from "@kotori/db/testing"
 import type { Question, Questions } from "@typesafe-ai/sdk"
 import { Effect, Layer } from "effect"
-import { interpretSense, Jev, NuanceEnricher, type SenseAnswers, senseQuestions } from "../src/index.ts"
+import {
+  entryRequest,
+  interpretSense,
+  Jev,
+  NuanceEnricher,
+  type SenseAnswers,
+  senseQuestions,
+  senseScope
+} from "../src/index.ts"
 
 const score = (value: number, confidence = 0.9) =>
   ({ type: "score", score: value, confidence, legend: {}, probabilities: {} }) as const
@@ -66,7 +74,9 @@ describe("interpretSense", () => {
   })
 })
 
-const fakeAnswer = (name: string, question: Question) => {
+/** Answers by the name a question is stored under: a request names them `s{sense}_{name}`. */
+const fakeAnswer = (key: string, question: Question) => {
+  const name = key.replace(/^s\d+_/, "")
   switch (question.type) {
     case "score":
       return score(name === "formality" ? 2 : 1)
@@ -77,7 +87,7 @@ const fakeAnswer = (name: string, question: Question) => {
   }
 }
 
-const states: Array<unknown> = []
+const requests: Array<{ readonly state: unknown; readonly questions: Questions }> = []
 
 const FakeJev = Layer.succeed(
   Jev,
@@ -85,7 +95,7 @@ const FakeJev = Layer.succeed(
     configured: true,
     model: "jev-test",
     ask: (state: unknown, questions: Questions) => {
-      states.push(state)
+      requests.push({ state, questions })
       return Effect.succeed({
         model: "jev-test",
         answers: Object.fromEntries(Object.entries(questions).map(([name, q]) => [name, fakeAnswer(name, q)])),
@@ -105,7 +115,9 @@ const sense = (glosses: Array<string>, misc: Array<string> = []) => ({
   stagk: [],
   stagr: [],
   xrefs: [],
-  antonyms: []
+  antonyms: [],
+  sources: [],
+  wasei: false
 })
 
 const entry = (id: number, headword: string, reading: string, senses: EntryRecord["senses"]): EntryRecord => ({
@@ -137,33 +149,31 @@ layer(TestLayer)("NuanceEnricher", (it) => {
       ])
       yield* dictionary.replaceTags([{ code: "v1", label: "Ichidan verb" }])
 
-      // One request per sense carries the Japanese, English-side and candidate questions.
+      // One request for the whole entry: both senses' questions and the candidate comparisons.
       const summary = yield* (yield* NuanceEnricher).enrich(1)
-      assert.deepStrictEqual(summary, { senses: 2, similar: 1, inputTokens: 200 })
+      assert.deepStrictEqual(summary, { senses: 2, similar: 1, inputTokens: 100 })
+      assert.strictEqual(requests.length, 1)
 
-      const firstState = states[0] as {
-        word: string
-        english_word: string
-        part_of_speech: Array<string>
-        candidates: Array<{ word: string }>
-      }
-      assert.strictEqual(firstState.word, "食べる")
-      assert.strictEqual(firstState.english_word, "to eat")
-      assert.deepStrictEqual(firstState.part_of_speech, ["Ichidan verb"])
+      // The state is the entry; each question carries the sense it is about.
+      const { state, questions } = requests[0]!
+      assert.deepStrictEqual(state, { word: "食べる", reading: "たべる (taberu)", senses: ["to eat", "to live on"] })
+      const instructions = (key: string) => questions[key]?.instructions as Record<string, unknown>
+      assert.strictEqual(instructions("s1_formality")["meaning"], "to live on")
+      assert.deepStrictEqual(instructions("s0_keigo")["part_of_speech"], ["Ichidan verb"])
       assert.deepStrictEqual(
-        firstState.candidates.map((c) => c.word),
+        ["s0_similar_0", "s0_similar_1"].map((key) => instructions(key)["candidate_word"]),
         ["食う", "召し上がる"]
       )
+      // Similar words are looked for on the main senses; this one's second sense shares no gloss.
+      assert.isUndefined(questions["s1_similar_0"])
 
       const repo = yield* EnrichmentRepo
       const saved = yield* repo.nuanceFor([1])
       assert.strictEqual(saved.length, 2)
       assert.strictEqual(saved[0]?.nuance.formality.value, "neutral")
-
-      // The English-side judgments ride the same request and land in their own table.
-      const english = yield* repo.englishNuanceFor([1])
-      assert.strictEqual(english.length, 2)
-      assert.strictEqual(english[0]?.nuance.loan.value, "no_loan")
+      assert.strictEqual(saved[0]?.questionsVersion, 3)
+      // The English side is its own job now.
+      assert.deepStrictEqual(yield* repo.englishNuanceFor([1]), [])
 
       const similar = yield* repo.similarFor(1)
       assert.deepStrictEqual(
@@ -200,6 +210,25 @@ describe("questions", () => {
   it("ask one narrow judgment each, referring to the state by path", () => {
     for (const question of Object.values(senseQuestions)) {
       assert.include(JSON.stringify(question.instructions), "`word`")
+    }
+  })
+
+  it("carry their sense's scope, whose keys never repeat a state key", () => {
+    const taberu = entry(1, "食べる", "たべる", [sense(["to eat"], ["col"]), sense(["to live on"])])
+    const tags = new Map([["col", "colloquial"]])
+    const { state, questions } = entryRequest(taberu, tags)
+    assert.deepStrictEqual(
+      Object.keys(questions).filter((key) => key.endsWith("_formality")),
+      ["s0_formality", "s1_formality"]
+    )
+    const scope = senseScope(taberu, 0, tags)
+    assert.deepStrictEqual(scope.dictionary_notes, ["colloquial"])
+    for (const [key, question] of Object.entries(questions)) {
+      const own = question.instructions as Record<string, unknown>
+      const name = key.replace(/^s\d+_/, "")
+      assert.strictEqual(own["question"], senseQuestions[name as keyof typeof senseQuestions].instructions)
+      assert.include(String(own["focus"]), "`senses`")
+      for (const field of Object.keys(own)) assert.notProperty(state, field)
     }
   })
 })

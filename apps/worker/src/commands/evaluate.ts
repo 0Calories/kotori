@@ -1,22 +1,37 @@
+import { normalizeGloss, resolveFromRoot } from "@kotori/db"
 import {
-  type EnglishAnswers,
-  englishQuestions,
+  answersForCandidates,
+  type EnglishReading,
+  type EvalRequest,
   GOLDEN_ENGLISH,
+  GOLDEN_FIXTURE,
+  GOLDEN_PAIRS,
   GOLDEN_SENSES,
-  goldenEnglishState,
-  goldenState,
+  GoldenFixture,
+  goldenEnglishRequest,
+  goldenEntry,
+  goldenPairRequest,
+  goldenSenseRequest,
   interpretEnglish,
   interpretSense,
   Jev,
+  type JevError,
+  LOAN_IS,
+  MAX_GLOSSES,
+  MAX_LOANS,
+  type OrderCheck,
+  QUESTIONS_VERSION,
+  readGolden,
   type SenseAnswers,
-  senseQuestions
+  SIMILAR_KEPT
 } from "@kotori/nuance"
-import { Console, Effect, Option } from "effect"
+import { Console, Effect, FileSystem, Option, Schema } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
-import { readFile, writeFile } from "node:fs/promises"
 
 /** Booleans are judged where the app judges them: the display threshold. */
 const CAUTION_SHOWN = 0.6
+/** Near-synonym cut-offs compared on the golden pairs: a coin flip, and the docs' starting point for yes. */
+const SIMILAR_AT = [0.5, 0.7] as const
 
 interface Tally {
   n: number
@@ -25,54 +40,170 @@ interface Tally {
   confidenceWrong: Array<number>
 }
 
-const tally = (
-  tallies: Map<string, Tally>,
-  dimension: string,
-  correct: boolean,
-  confidence: number | null,
-  misses: Array<string>,
-  miss: string
-) => {
-  const t = tallies.get(dimension) ?? { n: 0, correct: 0, confidenceCorrect: [], confidenceWrong: [] }
-  t.n += 1
-  if (correct) t.correct += 1
-  else misses.push(miss)
-  if (confidence !== null) (correct ? t.confidenceCorrect : t.confidenceWrong).push(confidence)
-  tallies.set(dimension, t)
+interface Order {
+  n: number
+  flipped: number
+  towardFirst: number
 }
 
-const mean = (xs: ReadonlyArray<number>) => (xs.length === 0 ? null : xs.reduce((sum, x) => sum + x, 0) / xs.length)
+/**
+ * One dimension's results. `jev` and `jmdict` split the judgments learners are shown by who
+ * decided them, so JMDict's tags don't inflate Jev's accuracy; `raw` is Jev's own answer on
+ * every golden, tags ignored; `order` compares each Choice with its options reversed.
+ */
+interface Row {
+  readonly jev: Tally
+  readonly jmdict: Tally
+  readonly raw: Tally
+  readonly order: Order
+}
 
-const report = (tallies: Map<string, Tally>, misses: Array<string>) =>
+const tally = (): Tally => ({ n: 0, correct: 0, confidenceCorrect: [], confidenceWrong: [] })
+
+const count = (t: Tally, correct: boolean, confidence: number | null) => {
+  t.n += 1
+  if (correct) t.correct += 1
+  if (confidence !== null) (correct ? t.confidenceCorrect : t.confidenceWrong).push(confidence)
+}
+
+interface Judged {
+  readonly correct: boolean
+  readonly confidence: number | null
+}
+
+const makeResults = () => {
+  const rows = new Map<string, Row>()
+  const misses: Array<string> = []
+  const failures: Array<string> = []
+  const row = (dimension: string) => {
+    const found = rows.get(dimension)
+    if (found !== undefined) return found
+    const created = { jev: tally(), jmdict: tally(), raw: tally(), order: { n: 0, flipped: 0, towardFirst: 0 } }
+    rows.set(dimension, created)
+    return created
+  }
+  return {
+    rows,
+    misses,
+    failures,
+    /** A judgment as learners see it, and Jev's own answer where JMDict's tags can override it. */
+    judged: (dimension: string, byTag: boolean, shown: Judged, miss: string, raw?: Judged) => {
+      const r = row(dimension)
+      count(byTag ? r.jmdict : r.jev, shown.correct, shown.confidence)
+      if (raw !== undefined) count(r.raw, raw.correct, raw.confidence)
+      if (!shown.correct) misses.push(`${byTag ? "[jmdict] " : ""}${miss}`)
+    },
+    order: (dimension: string, check: OrderCheck) => {
+      const order = row(dimension).order
+      order.n += 1
+      if (check.flipped) order.flipped += 1
+      if (check.towardFirst) order.towardFirst += 1
+    }
+  }
+}
+
+type Results = ReturnType<typeof makeResults>
+
+const oneOf = (wanted: ReadonlyArray<string>, value: string) => wanted.includes(value)
+const mean = (xs: ReadonlyArray<number>) => (xs.length === 0 ? null : xs.reduce((sum, x) => sum + x, 0) / xs.length)
+const percent = (part: number, whole: number) =>
+  whole === 0 ? "   —" : `${((100 * part) / whole).toFixed(0)}%`.padStart(4)
+const two = (x: number | null) => (x === null ? "  — " : x.toFixed(2))
+
+const report = (results: Results) =>
   Effect.gen(function* () {
-    yield* Console.log("\ndimension            n  correct  accuracy  conf✓   conf✗")
-    for (const [dimension, t] of tallies) {
-      const accuracy = ((100 * t.correct) / t.n).toFixed(0).padStart(7)
-      const ok = mean(t.confidenceCorrect)
-      const bad = mean(t.confidenceWrong)
+    yield* Console.log(
+      [
+        "",
+        "                    Jev decides               JMDict decides   Jev, tags ignored   Options reversed",
+        "dimension            n   acc  conf✓  conf✗      n   acc          n   acc           n  flips  to first"
+      ].join("\n")
+    )
+    for (const [dimension, { jev, jmdict, raw, order }] of results.rows) {
+      const share = (t: Tally) => `${String(t.n).padStart(4)}  ${percent(t.correct, t.n)}`
       yield* Console.log(
-        `${dimension.padEnd(18)} ${String(t.n).padStart(3)}  ${String(t.correct).padStart(7)}  ${accuracy}%  ${
-          ok === null ? "  —  " : ok.toFixed(2)
-        }   ${bad === null ? "  —  " : bad.toFixed(2)}`
+        [
+          dimension.padEnd(18),
+          `${share(jev)}  ${two(mean(jev.confidenceCorrect))}   ${two(mean(jev.confidenceWrong))}`,
+          `   ${share(jmdict)}`,
+          `       ${share(raw)}`,
+          order.n === 0
+            ? ""
+            : `       ${String(order.n).padStart(4)}  ${percent(order.flipped, order.n)}  ${String(order.towardFirst).padStart(5)}`
+        ].join(" ")
       )
     }
-    if (misses.length > 0) {
-      yield* Console.log("\nMisses:")
-      for (const miss of misses) yield* Console.log(`  ${miss}`)
+    if (results.misses.length > 0) {
+      yield* Console.log("\nMisses (shown to learners):")
+      for (const miss of results.misses) yield* Console.log(`  ${miss}`)
+    }
+    if (results.failures.length > 0) {
+      yield* Console.log("\nFailed requests:")
+      for (const failure of results.failures) yield* Console.log(`  ${failure}`)
     }
   })
 
+const summary = (results: Results) =>
+  Object.fromEntries(
+    [...results.rows].map(([dimension, { jev, jmdict, raw, order }]) => [
+      dimension,
+      {
+        jev: { n: jev.n, correct: jev.correct, confidence: mean([...jev.confidenceCorrect, ...jev.confidenceWrong]) },
+        jmdict: { n: jmdict.n, correct: jmdict.correct },
+        raw: { n: raw.n, correct: raw.correct },
+        order
+      }
+    ])
+  )
+
+/** The recorded answers of a run, for offline reinterpretation with --from. */
+const Recording = Schema.Struct({
+  kind: Schema.String,
+  model: Schema.String,
+  questionsVersion: Schema.Int,
+  answers: Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown))
+})
+
+/** The labelled judgments of a sense's nuance; every one carries a value, a confidence and its source. */
+type LabelledDimension =
+  | "formality"
+  | "medium"
+  | "keigo"
+  | "gender"
+  | "age"
+  | "currency"
+  | "connotation"
+  | "registerShape"
+interface Labelled {
+  readonly value: string
+  readonly confidence: number
+  readonly source: string
+}
+
+type Answers = Readonly<Record<string, unknown>>
+
+interface NoulAnswer {
+  readonly noul: number
+}
+interface ChoiceAnswer {
+  readonly choice: string
+  readonly confidence: number
+}
+
 /**
- * Runs the current questions against the golden set and reports per-question accuracy
- * and confidence calibration. Costs inference: run deliberately, not in CI. With
- * --record, the raw answers are written as JSON so interpretation changes can be
- * evaluated offline against the same answers.
+ * Runs the current questions against the golden set and reports per-question accuracy,
+ * confidence and option-order agreement. The golden entries come from `GOLDEN_FIXTURE`, real
+ * JMDict data, and every request is built by the production builders. Costs inference: run
+ * deliberately, not in CI. With --record, the raw answers are written as JSON so
+ * interpretation changes can be evaluated offline against the same answers (--from).
  */
 export const evaluate = Command.make(
   "eval",
   {
     kind: Argument.Literals("kind", ["nuance", "english"]).pipe(
-      Argument.withDescription("nuance (the Japanese questions) or english (the English-side questions)")
+      Argument.withDescription(
+        "nuance (the Japanese questions and the similar-word pairs) or english (the English-side questions)"
+      )
     ),
     record: Flag.String("record").pipe(
       Flag.withDescription("Write the raw answers to this JSON file, for offline reinterpretation"),
@@ -82,112 +213,241 @@ export const evaluate = Command.make(
       Flag.withDescription("Reinterpret previously recorded answers from this JSON file instead of calling Jev"),
       Flag.optional
     ),
-    concurrency: Flag.Int("concurrency").pipe(Flag.withDescription("Words judged in parallel"), Flag.withDefault(4))
+    concurrency: Flag.Int("concurrency").pipe(Flag.withDescription("Requests in parallel"), Flag.withDefault(4))
   },
   Effect.fn(function* ({ kind, record, from, concurrency }) {
     const jev = yield* Jev
-    const recordings = Option.isSome(from)
-      ? ((yield* Effect.promise(() => readFile(from.value, "utf8").then(JSON.parse))) as Record<string, unknown>)
+    const fs = yield* FileSystem.FileSystem
+    const fixture = yield* fs
+      .readFileString(resolveFromRoot(GOLDEN_FIXTURE))
+      .pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(GoldenFixture))))
+    const recording = Option.isSome(from)
+      ? yield* fs
+          .readFileString(from.value)
+          .pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Recording))))
       : null
-    if (recordings === null && !jev.configured) {
+    if (recording === null && !jev.configured) {
       return yield* Console.error("TYPESAFE_API_KEY is not set; eval needs Jev (or --from a recording).")
     }
-    /** Fresh answers from Jev, or the recorded ones when reinterpreting offline. */
-    const answersFor = (key: string, state: object, questions: Parameters<typeof jev.ask>[1]) =>
-      recordings === null
-        ? Effect.map(jev.ask(state as never, questions), (result) => result.answers as unknown)
-        : Effect.succeed(recordings[key])
+    if (recording !== null && recording.kind !== kind) {
+      return yield* Console.error(`${from.pipe(Option.getOrElse(() => ""))} records a ${recording.kind} eval.`)
+    }
 
-    const tallies = new Map<string, Tally>()
-    const misses: Array<string> = []
-    const recorded: Record<string, unknown> = {}
+    const tags = new Map(Object.entries(fixture.tags))
+    const entries = new Map(fixture.entries.map((entry) => [entry.id, goldenEntry(entry)]))
+    const entryOf = (id: number) => {
+      const entry = entries.get(id)
+      if (entry === undefined) throw new Error(`#${id} is not in ${GOLDEN_FIXTURE}; run \`pnpm golden\``)
+      return entry
+    }
+    const results = makeResults()
+    const recorded: Record<string, Answers> = {}
+    let inputTokens = 0
+
+    /** Fresh answers from Jev, or the recorded ones; a failed request is reported and skipped. */
+    const answersFor = (key: string, request: EvalRequest): Effect.Effect<Answers | undefined> => {
+      const answers: Effect.Effect<Answers | undefined, JevError> =
+        recording === null
+          ? jev.ask(request.state, { ...request.questions }).pipe(
+              Effect.map((result) => {
+                inputTokens += result.usage.input_tokens
+                return result.answers
+              })
+            )
+          : Effect.succeed(recording.answers[key])
+      return answers.pipe(
+        Effect.tap((answers) =>
+          Effect.sync(() => {
+            if (answers !== undefined) recorded[key] = answers
+          })
+        ),
+        Effect.catchTag("JevError", (error) =>
+          Effect.sync(() => {
+            results.failures.push(`${key}: ${error.message}`)
+            return undefined
+          })
+        )
+      )
+    }
+
+    const model = recording?.model ?? jev.model
+    const version = recording?.questionsVersion ?? QUESTIONS_VERSION
 
     if (kind === "nuance") {
-      yield* Console.log(`Judging ${GOLDEN_SENSES.length} golden senses with ${jev.model}…`)
+      yield* Console.log(
+        `Judging ${GOLDEN_SENSES.length} golden senses and ${GOLDEN_PAIRS.length} similar-word pairs with ${model}, questions version ${version}…`
+      )
       yield* Effect.forEach(
         GOLDEN_SENSES,
         (golden) =>
           Effect.gen(function* () {
-            const key = `${golden.word}:${golden.meaning}`
-            const answers = yield* answersFor(key, goldenState(golden), senseQuestions)
+            const entry = entryOf(golden.entryId)
+            const request = goldenSenseRequest(entry, golden.sense, tags)
+            const answers = yield* answersFor(`${golden.entryId}:${golden.sense}`, request)
             if (answers === undefined) return
-            recorded[key] = answers
-            const nuance = interpretSense(answers as SenseAnswers, [])
+            const reading = readGolden(request, answers)
+            for (const check of reading.order) results.order(check.name, check)
+
+            const answered = reading.answers as unknown as SenseAnswers
+            const shown = interpretSense(answered, entry.senses[golden.sense]?.misc ?? [])
+            const raw = interpretSense(answered, [])
             const expect = golden.expect
-            const seen = (dimension: string, got: string, confidence: number, want: ReadonlyArray<string>) =>
-              tally(
-                tallies,
+            const label = `${golden.word}#${golden.sense}`
+            const labelled = (dimension: LabelledDimension, want: ReadonlyArray<string>) => {
+              const judgment: Labelled | undefined = shown[dimension]
+              const own: Labelled | undefined = raw[dimension]
+              if (judgment === undefined || own === undefined) return
+              results.judged(
                 dimension,
-                want.includes(got),
-                confidence,
-                misses,
-                `${golden.word} ${dimension}: got ${got}, wanted ${want.join("|")}`
+                judgment.source === "jmdict",
+                { correct: want.includes(judgment.value), confidence: judgment.confidence },
+                `${label} ${dimension}: got ${judgment.value}, wanted ${want.join("|")}`,
+                { correct: want.includes(own.value), confidence: own.confidence }
               )
-            if (expect.formality)
-              seen("formality", nuance.formality.value, nuance.formality.confidence, expect.formality)
-            if (expect.medium) seen("medium", nuance.medium.value, nuance.medium.confidence, expect.medium)
-            if (expect.keigo) seen("keigo", nuance.keigo.value, nuance.keigo.confidence, [expect.keigo])
-            if (expect.gender) seen("gender", nuance.gender.value, nuance.gender.confidence, [expect.gender])
-            if (expect.age) seen("age", nuance.age.value, nuance.age.confidence, [expect.age])
-            if (expect.currency) seen("currency", nuance.currency.value, nuance.currency.confidence, [expect.currency])
-            if (expect.connotation) {
-              seen("connotation", nuance.connotation.value, nuance.connotation.confidence, [expect.connotation])
             }
-            if (expect.registerShape && nuance.registerShape) {
-              seen("registerShape", nuance.registerShape.value, nuance.registerShape.confidence, [expect.registerShape])
-            }
-            const caution = (dimension: string, probability: number, want: boolean) =>
-              tally(
-                tallies,
+            if (expect.formality) labelled("formality", expect.formality)
+            if (expect.medium) labelled("medium", expect.medium)
+            if (expect.keigo) labelled("keigo", [expect.keigo])
+            if (expect.gender) labelled("gender", [expect.gender])
+            if (expect.age) labelled("age", [expect.age])
+            if (expect.currency) labelled("currency", [expect.currency])
+            if (expect.connotation) labelled("connotation", [expect.connotation])
+            if (expect.registerShape) labelled("registerShape", [expect.registerShape])
+
+            // A caution counts as decided by JMDict when a tag changed it from Jev's own answer.
+            const caution = (dimension: keyof typeof shown.cautions, want: boolean) => {
+              const p = shown.cautions[dimension]
+              const own = raw.cautions[dimension]
+              results.judged(
                 dimension,
-                probability >= CAUTION_SHOWN === want,
-                probability,
-                misses,
-                `${golden.word} ${dimension}: p=${probability.toFixed(2)}, wanted ${want ? ">=" : "<"} ${CAUTION_SHOWN}`
+                p !== own,
+                { correct: p >= CAUTION_SHOWN === want, confidence: p },
+                `${label} ${dimension}: p=${p.toFixed(2)}, wanted ${want ? ">=" : "<"} ${CAUTION_SHOWN}`,
+                { correct: own >= CAUTION_SHOWN === want, confidence: own }
               )
-            if (expect.rudeToSuperiors !== undefined) {
-              caution("rudeToSuperiors", nuance.cautions.rudeToSuperiors, expect.rudeToSuperiors)
             }
-            if (expect.stiffWithFriends !== undefined) {
-              caution("stiffWithFriends", nuance.cautions.stiffWithFriends, expect.stiffWithFriends)
-            }
-            if (expect.slang !== undefined) caution("slang", nuance.cautions.slang, expect.slang)
+            if (expect.rudeToSuperiors !== undefined) caution("rudeToSuperiors", expect.rudeToSuperiors)
+            if (expect.stiffWithFriends !== undefined) caution("stiffWithFriends", expect.stiffWithFriends)
+            if (expect.slang !== undefined) caution("slang", expect.slang)
           }),
         { concurrency, discard: true }
       )
+
+      yield* Effect.forEach(
+        GOLDEN_PAIRS,
+        (pair) =>
+          Effect.gen(function* () {
+            const request = goldenPairRequest(
+              entryOf(pair.entryId),
+              pair.sense,
+              entryOf(pair.similarId),
+              pair.similarSense,
+              tags
+            )
+            const answers = yield* answersFor(`${pair.entryId}:${pair.sense}~${pair.similarId}`, request)
+            if (answers === undefined) return
+            const reading = readGolden(request, answers)
+            for (const check of reading.order) results.order("difference", check)
+            const label = `${pair.word}→${pair.similar}`
+            const similarity = (reading.answers["similar_0"] as NoulAnswer).noul
+            for (const at of SIMILAR_AT) {
+              results.judged(
+                `similar@${at}`,
+                false,
+                { correct: similarity >= at === pair.expect.similar, confidence: similarity },
+                `${label} similar: p=${similarity.toFixed(2)}, wanted ${pair.expect.similar ? ">=" : "<"} ${at}`
+              )
+            }
+            if (pair.expect.similar && pair.expect.difference !== undefined) {
+              const difference = reading.answers["difference_0"] as ChoiceAnswer
+              results.judged(
+                "difference",
+                false,
+                { correct: oneOf(pair.expect.difference, difference.choice), confidence: difference.confidence },
+                `${label} difference: got ${difference.choice}, wanted ${pair.expect.difference.join("|")}`
+              )
+            }
+          }),
+        { concurrency, discard: true }
+      )
+      yield* Console.log(`The enricher keeps a similar word at p >= ${SIMILAR_KEPT}.`)
     } else {
-      yield* Console.log(`Judging ${GOLDEN_ENGLISH.length} golden English words with ${jev.model}…`)
+      yield* Console.log(
+        `Judging ${GOLDEN_ENGLISH.length} golden English glosses with ${model}, questions version ${version}…`
+      )
       yield* Effect.forEach(
         GOLDEN_ENGLISH,
         (golden) =>
           Effect.gen(function* () {
-            const key = `${golden.word}:${golden.meaning}`
-            const answers = yield* answersFor(key, goldenEnglishState(golden), englishQuestions)
+            const entry = entryOf(golden.entryId)
+            const gloss = (entry.senses[golden.sense]?.glosses ?? [])
+              .slice(0, MAX_GLOSSES)
+              .findIndex((candidate) => normalizeGloss(candidate.text) === normalizeGloss(golden.english))
+            if (gloss === -1) throw new Error(`#${golden.entryId}:${golden.sense} has no gloss ${golden.english}`)
+            // The candidates production finds now (gloss matches) and once JMDict is re-imported
+            // with lsource; asked about together, read for each list on its own.
+            const loans = fixture.loans[normalizeGloss(golden.english)] ?? { glossesOnly: [], withSources: [] }
+            const listOf = (candidates: typeof loans.glossesOnly) =>
+              candidates.map(({ entryId, by }) => ({ entry: entryOf(entryId), by }))
+            const lists = { now: listOf(loans.glossesOnly), reimported: listOf(loans.withSources) }
+            const union = [
+              ...new Map(
+                [...lists.reimported, ...lists.now].map((candidate) => [candidate.entry.id, candidate])
+              ).values()
+            ]
+            const request = goldenEnglishRequest(entry, golden.sense, gloss, union, tags)
+            const answers = yield* answersFor(`${golden.entryId}:${golden.sense}:${golden.english}`, request)
             if (answers === undefined) return
-            recorded[key] = answers
-            const english = interpretEnglish(answers as EnglishAnswers)
-            for (const dimension of ["variety", "strength", "currency", "register", "loan"] as const) {
+            const reading = readGolden(request, answers)
+            for (const check of reading.order) results.order(check.name.replace(/_\d+$/, ""), check)
+            const asked = union.slice(0, MAX_LOANS).map((candidate) => candidate.entry.headword)
+            const readFor = (list: typeof lists.now, loanIs?: number) => {
+              const own = list.slice(0, MAX_LOANS).map(({ entry: { headword }, by }) => ({ word: headword, by }))
+              const words = own.map((candidate) => candidate.word)
+              return interpretEnglish(answersForCandidates(reading.answers, asked, words), own, loanIs)
+            }
+            const label = `${golden.english} (${golden.word})`
+            const { judgments } = readFor(lists.now)
+            for (const dimension of ["variety", "strength", "currency", "register"] as const) {
               const want = golden.expect[dimension]
               if (want === undefined) continue
-              const got = english[dimension]
-              tally(
-                tallies,
+              const got = judgments[dimension]
+              results.judged(
                 dimension,
-                got.value === want,
-                got.confidence,
-                misses,
-                `${golden.word} ${dimension}: got ${got.value}, wanted ${want}`
+                false,
+                { correct: got.value === want, confidence: got.confidence },
+                `${label} ${dimension}: got ${got.value}, wanted ${want}`
               )
             }
+            const want = golden.expect.loan
+            if (want === undefined) return
+            const loan = (dimension: string, read: EnglishReading) => {
+              const got = read.judgments.loan
+              const word = want === "no_loan" || read.loanWord === golden.expect.loanWord
+              results.judged(
+                dimension,
+                false,
+                { correct: got.value === want && word, confidence: got.confidence },
+                `${label} ${dimension}: got ${got.value}${read.loanWord ? ` (${read.loanWord})` : ""}, wanted ${want}${golden.expect.loanWord ? ` (${golden.expect.loanWord})` : ""}`
+              )
+            }
+            loan("loan, glosses", readFor(lists.now))
+            loan("loan, +lsource", readFor(lists.reimported))
+            loan("loan, +lsrc @0.5", readFor(lists.reimported, 0.5))
           }),
         { concurrency, discard: true }
       )
+      yield* Console.log(
+        `A loan counts at p >= ${LOAN_IS} that the katakana word is the English word's loan; "glosses" are the candidates production finds until JMDict is re-imported with lsource.`
+      )
     }
 
-    yield* report(tallies, misses)
+    yield* report(results)
+    if (recording === null) yield* Console.log(`\n${inputTokens.toLocaleString()} input tokens.`)
     if (Option.isSome(record)) {
-      yield* Effect.promise(() => writeFile(record.value, `${JSON.stringify(recorded, null, 2)}\n`))
-      yield* Console.log(`\nAnswers recorded to ${record.value}`)
+      const out = { kind, model, questionsVersion: version, answers: recorded, summary: summary(results) }
+      yield* fs.writeFileString(record.value, `${JSON.stringify(out, null, 2)}\n`)
+      yield* Console.log(`Answers recorded to ${record.value}`)
     }
   })
 ).pipe(Command.withDescription("Measure the Jev questions against the golden set (costs inference)"))

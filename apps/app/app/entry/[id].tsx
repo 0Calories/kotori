@@ -280,7 +280,7 @@ const SenseCard = ({
         {showScales && sense.nuance ? <RegisterBlock nuance={sense.nuance} /> : null}
         {showNuance && sense.nuance ? <NuanceNotes nuance={sense.nuance} register={registerChips} /> : null}
         {/* Japanese natives get the English side's chips and the loanword warning. */}
-        {english && sense.english ? <EnglishNuanceNotes english={sense.english} /> : null}
+        {english && sense.english ? <EnglishNuanceNotes english={sense.english} word={forms} /> : null}
         {usage ? (
           <Text variant="small" color="textMuted">
             {usage}
@@ -419,7 +419,8 @@ export default function EntryScreen() {
 
   const others = data.forms.filter((form) => form.text !== data.headword && form.text !== data.reading)
   const senses = showAll ? data.senses : data.senses.slice(0, 3)
-  const waiting = data.enrichment.examples === "queued" || data.enrichment.nuance === "queued"
+  const waiting =
+    data.enrichment.examples === "queued" || data.enrichment.nuance === "queued" || data.enrichment.english === "queued"
   // One register card speaks for the word only while every confidently judged sense agrees;
   // the moment senses differ on formality or medium, each sense carries its own scales.
   const confidentLabels = (judge: (nuance: Nuance) => { readonly value: string; readonly confidence: number }) =>
