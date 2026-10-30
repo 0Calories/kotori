@@ -423,6 +423,32 @@ layer(testLayer(false))("Dictionary: what Kotori wrote on an English word", (it)
       assert.isNull((yield* shown).loan)
     })
   )
+
+  it.effect("shows a similar word by the meaning it shares with the sense, not by its first", () =>
+    Effect.gen(function* () {
+      const repo = yield* DictionaryRepo
+      const enrichment = yield* EnrichmentRepo
+      const dictionary = yield* Dictionary
+      yield* repo.insertEntries([
+        word(100000050, "tension", [sense(["（精神的な）緊張", "不安"], ["n"]), sense(["張力"], ["n"])]),
+        word(100000051, "strain", [sense(["（遺伝的な）性質", "気質"], ["n"]), sense(["緊張", "重圧"], ["n"])]),
+        word(100000052, "stress", [sense(["圧力", "圧迫"], ["n"])])
+      ])
+      yield* enrichment.saveSimilar(100000050, [
+        { sense: 0, similarId: 100000051, similarity: 0.9, difference: "different_usage", confidence: 0.8 },
+        // Found through a cross-reference: no gloss in common, so its first meanings.
+        { sense: 0, similarId: 100000052, similarity: 0.8, difference: "more_general", confidence: 0.8 }
+      ])
+      const tension = Option.getOrThrow(yield* dictionary.entry(EntryId.make(100000050)))
+      assert.deepStrictEqual(
+        tension.senses[0]?.similar.map((similar) => [similar.headword, similar.meaning]),
+        [
+          ["strain", "緊張、重圧"],
+          ["stress", "圧力、圧迫"]
+        ]
+      )
+    })
+  )
 })
 
 layer(testLayer(true))("Dictionary with Jev configured", (it) => {

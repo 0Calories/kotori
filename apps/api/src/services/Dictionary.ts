@@ -155,6 +155,23 @@ const joinGlosses = (entry: EntryRecord, glosses: ReadonlyArray<string>) =>
   glosses.join(entry.language === "ja" ? "; " : "、")
 
 /**
+ * What a similar word means where it is like the sense it is listed under: its earliest sense
+ * sharing a gloss with that sense, as the nuance job's candidate search found it, so "strain"
+ * under "tension" reads 緊張 rather than its first sense, 性質. A cross-reference shares none,
+ * and shows the word's first meanings.
+ */
+const similarMeaning = (sense: EntryRecord["senses"][number], similar: EntryRecord) => {
+  // Glosses are in the other language from the headword, normalised as the import stores them.
+  const norm = similar.language === "ja" ? normalizeGloss : normalizeJapaneseGloss
+  const own = new Set(sense.glosses.map((gloss) => norm(gloss.text)).filter((text) => text.length > 1))
+  const shared = similar.senses.find((candidate) => candidate.glosses.some((gloss) => own.has(norm(gloss.text))))
+  return joinGlosses(
+    similar,
+    shared === undefined ? firstGlosses(similar, 2) : shared.glosses.slice(0, 2).map((gloss) => gloss.text)
+  )
+}
+
+/**
  * Which of a guessed "-s" form's meanings applies: a noun's plural or a verb's third person.
  * EJDict marks few parts of speech, and an unmarked sense is most often a noun's.
  */
@@ -543,7 +560,7 @@ export class Dictionary extends Context.Service<
                   entryId: EntryId.make(similar.id),
                   headword: similar.headword,
                   reading: similar.reading,
-                  meaning: joinGlosses(similar, firstGlosses(similar, 2)),
+                  meaning: similarMeaning(sense, similar),
                   difference: row.difference,
                   confidence: row.confidence,
                   formality: similarFormality.get(similar.id) ?? null
