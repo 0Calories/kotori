@@ -77,7 +77,7 @@ Remaining gaps:
    `noteJa` (Japanese) on English ones. PR #36 wrote both directions on Japanese words, but
    Japanese speakers no longer read Japanese entries.
 8. **A question version per language.** `QUESTIONS_VERSION` (Japanese) is 3 and
-   `ENGLISH_QUESTIONS_VERSION` 5, after two changes to the loan question (below). Rows PR #34
+   `ENGLISH_QUESTIONS_VERSION` 6, after three changes to the loan question (below). Rows PR #34
    judges before this ships are version 1, so they are requeued when viewed and picked up by
    `--outdated`, which compares each entry with its own language's set.
 9. **No English evidence was added for the CJK concern.** English words' meanings reach Jev in
@@ -192,7 +192,8 @@ app (#38), which this needs.
 word, reading (kana and romaji, or IPA), other forms and the senses' leading glosses. Each judged
 sense's questions carry that sense's scope in their instructions, and similar-word candidates are
 compared per sense. An English word with katakana candidates gets a second request at the same
-time, `loanword_{k}` and `loan_{k}` per candidate, whose state is the word without its senses.
+time, `loanword_{k}`, `loan_{k}` and `loan_{k}~reversed` per candidate, whose state is the word
+without its senses.
 Right after Jev, the nuance job has `LoanWriter` write the warning for a loan the app shows as
 diverging, once, from the word's judged senses (and any glossed with the loan itself) and the loan's
 JMDict meanings. If Claude is unavailable then, viewing the entry with Claude back queues the job
@@ -397,11 +398,12 @@ the companion Noul the Choice docs recommend over relying on a "none of the abov
 | `not_english` | `katakana_word` was borrowed from another language, not from English, e.g. アルバイト (from German Arbeit), パン (from Portuguese pão) |
 
 **The rule** (`loanShown` in `packages/domain/src/Nuance.ts`): a warning at p(divergent) ≥ 0.7, a
-"same meaning" chip at p(same) ≥ 0.7, nothing otherwise, including when `not_english` leads. The
+"same meaning" chip at p(same) ≥ 0.7, nothing otherwise, including when `not_english` leads. Each p
+is averaged over the Choice asked in both option orders (see "Both option orders" below). The
 app's `LoanNote`, `awaitsWarning` (the API's missing-warning re-queue and the worker's `trap`)
 and the eval all call it. A Choice's `confidence` measures how peaked its distribution is, so the
 rule reads probabilities: `loan_words.verdict` is now `{ value, probability, source }`, the
-meaning Jev picked and its probability. Only the picked meaning can reach 0.7, so nothing the
+likeliest meaning and its averaged probability. Only the likeliest meaning can reach 0.7, so nothing the
 rule needs is lost, and the raw answers stay in `answers` for `--reinterpret`. For three options
 p ≥ 0.7 is confidence ≥ 0.55, the app's bar for its other judgments. No migration: `verdict` is
 `jsonb`, and production has no loan rows.
@@ -410,7 +412,8 @@ p ≥ 0.7 is confidence ≥ 0.55, the app's bar for its other judgments. No migr
 4 has answers measured and recorded under it (the held-out runs above), and a recording's version
 is how `--from` says which question produced it. Any database judged with #43's Noul has its
 English words judged again when viewed. #43 bumped 3 to 4 the same way, though 3 hadn't shipped
-either. There is no code for reading v3 or v4 loan answers: production has none.
+either. Asking both orders makes it 6 (below), since the stored answers gain `loan_{k}~reversed`.
+There is no code for reading v3, v4 or v5 loan answers: production has none.
 
 **Wording, on the tuning loans** (the true loan's question only, three runs each, shown at 0.7;
 no variant gave a false warning):
@@ -496,6 +499,60 @@ no variant gave a false warning):
   `data/eval/loan-choice/`.
 - Spend: the experiments (0.94M input tokens) and three English evals (1.18M), about 9 cents.
 
+### Both option orders, averaged
+
+Asked with its options reversed, the loan Choice moved a little toward `same` (above), so Ash
+approved asking it both ways and averaging each option's probability, adopted only if, on the
+tuning loans, it showed at least as many true warnings with no new false warnings or wrong chips.
+The three runs above already asked both orders in one request, so the tuning check was free:
+
+| tuning loans, three runs | warnings, of 12 | false warnings | chips, of 8 | wrong chips |
+|---|---|---|---|---|
+| forward order only | 11.0 | 0 | 6.3 | 0 |
+| both orders, averaged | 11.0 | 0 | 7.0 | 0 |
+
+Averaged p(divergent): スタイル 0.885–0.890, サイン 0.725–0.730, ナイーブ 0.405–0.420 (p(same)
+0.56–0.57). The other tuning loans within 0.05 of the bar are matching ones, by p(same): ボール
+0.72–0.75 (now a chip in every run) and テスト 0.63–0.655. It passed, so `loan_{k}~reversed`, the
+same Choice with its options reversed, is asked beside `loan_{k}` in the loan request; the verdict
+is the likeliest meaning by the average, both raw answers are stored, and the eval no longer adds
+twins of its own. `ENGLISH_QUESTIONS_VERSION` is 6. It costs about 550 more input tokens per candidate, about 2 cents per thousand candidates.
+
+Then three fresh runs (`kotori eval english`, mean per run, with `lsource`):
+
+| | tuning, forward only | tuning, averaged | held out, forward only | held out, averaged |
+|---|---|---|---|---|
+| warnings shown, of 12 / 15 drifted | 11.0 | 10.7 | 13.0 | 12.0 |
+| false warnings | 0 | 0 | 1 (ランチ) | 0.3 (ランチ, 1 run of 3) |
+| "same meaning" chips, of 8 / 10 | 6.3 | 7.0 | 5.7 | 6.0 |
+| wrong chips | 0 | 0 | 0 | 0 |
+
+"Forward only" is the three runs above; read forward only, the fresh runs give 10.7, 0, 6.7, 0
+(tuning) and 12.7, 1.0, 6.0, 0 (held out), so a run-to-run difference of about half a warning is noise.
+
+| loan | forward only, p(divergent) | averaged, p(divergent) | shown, averaged |
+|---|---|---|---|
+| スタイル | 0.89–0.91 | 0.89 | warning, 3 of 3 |
+| サイン | 0.71–0.73 | 0.685–0.74 | warning, 2 of 3 |
+| ナイーブ | 0.40–0.43 | 0.425–0.43 | nothing |
+| ランチ (held out) | 0.71–0.75 | 0.665–0.71 | warning, 1 of 3 |
+| アピール (held out) | 0.68–0.73 | 0.625–0.67 | nothing |
+| フリー (held out) | 0.60–0.68 | 0.62–0.65 | nothing |
+
+- **Held out, averaging trades warnings for fewer false ones.** ランチ's reversed answer is lower
+  (0.63–0.66 against 0.70–0.76), so it is warned in one run of three instead of every run. So are
+  true drifts whose forward answer sat just over the bar: トランプ (0.655–0.72 averaged) is warned
+  in one run of three, ルーズ (0.675–0.715) in two, and アピール no longer.
+- サイン, on the tuning set, sits on the bar both ways and was warned in two fresh runs of three
+  (0.685 in the third), as with the forward order alone in the same runs.
+- **Not English**, averaged, still never leads: 0.013 on true tuning loans and 0.011 held out, at
+  most 0.19 (ジョッキ).
+- **Option order:** the eval now compares `loan_{k}` with the twin production asks; in the fresh
+  runs the two orders picked the same meaning in every loan question.
+- Recordings: `data/eval/averaged-{1,2,3}-jev-1.14.0-english.*`, and
+  `choice-{1,2,3}-reread-averaged-…` for the earlier runs re-read with the averaging.
+- Spend: three English evals, 1.18M input tokens, about 5 cents.
+
 ## For Ash
 
 - Re-import JMDict so `senses.sources` is filled. Until then the English job finds loans by gloss
@@ -504,7 +561,7 @@ no variant gave a false warning):
   `kotori enrich nuance --outdated --common-only`. Japanese rows are version 1, and English ones
   judged by PR #34's questions are version 1 too.
 - Check the Fly secrets for a `KOTORI_JEV_MODEL` override of the jev-1.14.0 pin.
-- English words judged with questions version 3 or 4 (none in production, since #40 and this
+- English words judged with questions version 3, 4 or 5 (none in production, since #40 and this
   haven't shipped) are judged again when viewed, since the loan question changed; `--outdated`
   picks them up too.
 - Re-seed the English dictionary after this merges (`pnpm kotori seed --dictionary english`):
