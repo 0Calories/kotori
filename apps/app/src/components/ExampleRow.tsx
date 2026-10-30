@@ -1,13 +1,14 @@
 import type { Example } from "@kotori/domain"
 import { View } from "react-native"
 import { useSession } from "../session/SessionProvider.tsx"
-import { theme } from "../theme/tokens.ts"
+import { useTheme } from "../theme/ThemeProvider.tsx"
 import { AudioButton } from "./AudioButton.tsx"
 import { Furigana } from "./Furigana.tsx"
 import { Text } from "./Text.tsx"
 
 /** One example sentence, led and spoken in the language being learned, with the learner's own as its translation. */
 export const ExampleRow = ({ example, mark }: { readonly example: Example; readonly mark?: string | undefined }) => {
+  const theme = useTheme()
   const { profile } = useSession()
   // Japanese speakers are learning the English side, so it leads, is the one spoken, and gets their note.
   const english = profile?.targetLanguage === "en"

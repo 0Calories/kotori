@@ -4,7 +4,7 @@ import { useState } from "react"
 import { View } from "react-native"
 import { useAddNote } from "../api/queries.ts"
 import { useSession } from "../session/SessionProvider.tsx"
-import { theme } from "../theme/tokens.ts"
+import { useTheme } from "../theme/ThemeProvider.tsx"
 import { AudioButton } from "./AudioButton.tsx"
 import { IconButton } from "./Button.tsx"
 import { Card } from "./Card.tsx"
@@ -36,6 +36,7 @@ export const PhraseCard = ({
   /** An overline above the phrase, such as "Natural". */
   readonly label?: string
 }) => {
+  const theme = useTheme()
   const { t, profile } = useSession()
   const target: Language = profile?.targetLanguage ?? "ja"
   const addNote = useAddNote()

@@ -20,7 +20,7 @@ import { Text } from "../../src/components/Text.tsx"
 import { spokenGloss } from "../../src/lib/english.ts"
 import { registerTone } from "../../src/lib/tones.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
-import { theme } from "../../src/theme/tokens.ts"
+import { useTheme } from "../../src/theme/ThemeProvider.tsx"
 
 const RATINGS: ReadonlyArray<{ readonly rating: Rating; readonly tone: Tone; readonly key: string }> = [
   { rating: "again", tone: "accent", key: "1" },
@@ -39,6 +39,7 @@ const Faces = ({
   readonly revealed: boolean
   readonly target: Language
 }) => {
+  const theme = useTheme()
   const { t } = useSession()
   const { card } = item
   const content = card.content
@@ -176,6 +177,7 @@ const AnswerButton = ({
   readonly onPress: () => void
   readonly hotkey: string
 }) => {
+  const theme = useTheme()
   const { fg, bg, ring } = useTone(tone)
   const { radius } = theme
   return (
@@ -211,6 +213,7 @@ const AnswerButton = ({
 }
 
 export default function ReviewSession() {
+  const theme = useTheme()
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const queryClient = useQueryClient()

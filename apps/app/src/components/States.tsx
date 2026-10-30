@@ -2,7 +2,7 @@ import { View } from "react-native"
 import Animated, { FadeIn } from "react-native-reanimated"
 import { ApiError } from "../api/client.ts"
 import { useT } from "../session/SessionProvider.tsx"
-import { theme } from "../theme/tokens.ts"
+import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Button } from "./Button.tsx"
 import { Mascot, type Mood } from "./Mascot.tsx"
 import { Text } from "./Text.tsx"
@@ -21,6 +21,7 @@ export const MascotMessage = ({
   readonly size?: number
   readonly children?: React.ReactNode
 }) => {
+  const theme = useTheme()
   return (
     <Animated.View
       entering={FadeIn.duration(250)}
@@ -58,7 +59,7 @@ export const ErrorState = ({ error, onRetry }: { readonly error: unknown; readon
 }
 
 const Dots = () => {
-  const { color } = theme
+  const { color } = useTheme()
   return (
     <View style={{ flexDirection: "row", gap: 6 }}>
       {[0, 1, 2].map((i) => (

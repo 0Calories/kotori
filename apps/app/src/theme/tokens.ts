@@ -5,9 +5,8 @@ export const fade = (hex: string, alpha: number) =>
   `rgba(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(", ")}, ${alpha})`
 
 /**
- * Kotori's default palette is snow and young bamboo (wakatake), with one warm
- * accent. Every lighter tint and darker shade of green is drawn from Wakatake
- * 500 at the same hue.
+ * Snow and young bamboo (wakatake), with one warm accent. Every lighter tint
+ * and darker shade of green is drawn from Wakatake 500 at the same hue.
  */
 const wakatake = {
   /** Snow: the screen background. */
@@ -92,8 +91,12 @@ const sora: Palette = {
   overlay: "rgba(19, 30, 38, 0.35)"
 }
 
-/** Chosen when the app is built: `EXPO_PUBLIC_THEME=sora` for sky, wakatake otherwise. */
-const color = process.env.EXPO_PUBLIC_THEME === "sora" ? sora : wakatake
+/** The palettes a learner can pick in settings; sora comes first and is the default. */
+const palettes = { sora, wakatake }
+
+export type ThemeName = keyof typeof palettes
+
+export const defaultTheme: ThemeName = "sora"
 
 const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, xxxl: 48 } as const
 
@@ -159,7 +162,7 @@ export const baseline = (face: Face, size: number, lineHeight: number) => {
 const maxContentWidth = 640
 
 /** Soft drops that fade out before the card's edge: cards, the search field, then the tab bar. */
-const shadow = (elevation: 1 | 2 | 3) => {
+const shadowIn = (color: Palette) => (elevation: 1 | 2 | 3) => {
   const web = ["none", "0 10px 24px -18px", "0 16px 30px -16px", "0 16px 34px -14px"][elevation]!
   const opacity = [0, 0.4, 0.35, 0.42][elevation]!
   return (
@@ -176,12 +179,17 @@ const shadow = (elevation: 1 | 2 | 3) => {
   )
 }
 
-/** Palette, spacing, type, and shadows. */
+/** Spacing, type and width: the same in every theme. Colors and shadows come from `useTheme`. */
 export const theme = {
-  color,
   space,
   radius,
   font: fonts,
-  maxWidth: maxContentWidth,
-  shadow
+  maxWidth: maxContentWidth
 }
+
+const themed = (color: Palette) => ({ ...theme, color, shadow: shadowIn(color) })
+
+type Theme = ReturnType<typeof themed>
+
+/** Each palette with the shared tokens and its own shadows, built once. */
+export const themes: Record<ThemeName, Theme> = { sora: themed(sora), wakatake: themed(wakatake) }

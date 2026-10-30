@@ -6,7 +6,8 @@ import { Platform, View } from "react-native"
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useT } from "../session/SessionProvider.tsx"
-import { fade, theme } from "../theme/tokens.ts"
+import { useTheme } from "../theme/ThemeProvider.tsx"
+import { fade } from "../theme/tokens.ts"
 import { Icon, type IconName } from "./Icon.tsx"
 import { PressableScale } from "./PressableScale.tsx"
 import { Text } from "./Text.tsx"
@@ -33,7 +34,7 @@ const Tab = ({
   readonly onPress: () => void
   readonly badge?: number
 }) => {
-  const { color } = theme
+  const { color } = useTheme()
   const pill = useAnimatedStyle(() => ({
     opacity: withSpring(focused ? 1 : 0, { duration: 250, dampingRatio: 1 }),
     transform: [{ scale: withSpring(focused ? 1 : 0.85, { duration: 300, dampingRatio: 0.7 }) }]
@@ -107,6 +108,7 @@ export const TabBar = ({
   navigation,
   badges
 }: BottomTabBarProps & { readonly badges?: Record<string, number> }) => {
+  const theme = useTheme()
   const t = useT()
   const insets = useSafeAreaInsets()
   const labels: Record<string, string> = {
