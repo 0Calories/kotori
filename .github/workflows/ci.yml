@@ -46,7 +46,7 @@ jobs:
     name: Deploy affected apps
     needs: checks
     # `nx affected -t deploy` against the last successful run on main: the Fly app
-    # (`@kotori/api:deploy`, API and worker) and the web app (`@kotori/app:deploy`, Vercel).
+    # (`@kotori/api:deploy`, API and worker), then the web app (`@kotori/app:deploy`, Vercel).
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -75,10 +75,17 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@1.5
         with:
           version: 0.5.0
-      - run: pnpm nx affected -t deploy
+      # The API before the web app: the app decodes responses with the shared schemas, so a
+      # build expecting a new field can't read the old API's responses until Fly has finished.
+      - name: Deploy the API and worker
+        run: pnpm nx affected -t deploy --exclude=@kotori/app
         env:
           NX_DAEMON: "false"
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Deploy the web app
+        run: pnpm nx affected -t deploy --exclude='*,!@kotori/app'
+        env:
+          NX_DAEMON: "false"
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}

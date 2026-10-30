@@ -551,8 +551,9 @@ Accuracy where Jev decides what is shown; flips with options reversed in bracket
 
 - **Re-import JMDict** for `senses.sources`/`wasei`; until then the English job finds loans
   by gloss alone and misses マンション, ナイーブ, カンニング and the like.
-- **Deploy the API before (or with) the app:** `Enrichment` gained `english`, and an app built
-  with it can't decode an older API's response.
+- **The API deploys before the app now:** `Enrichment` gained `english` and senses gained
+  `english`, `note` and `noteJa`, and an app built with them can't decode an older API's
+  response. CI ran both deploys at once; it now runs the Fly deploy first.
 - **The English goldens overlap the question examples:** all six variety goldens, four of
   five strength goldens, all four register goldens and one of three currency goldens appear
   as examples in their own question's criteria, in v2 and v3 alike, so those scores say
