@@ -271,6 +271,8 @@ export const GOLDEN_ENGLISH: ReadonlyArray<GoldenEnglish> = [
   e("juice", "汁", 1335520, 0, { loan: "diverges", loanWord: "ジュース" }),
   e("bike", "自転車", 1318290, 0, { loan: "diverges", loanWord: "バイク" }),
   e("seal", "封", 1499580, 0, { loan: "diverges", loanWord: "シール" }),
+  // Shares this meaning ("sign; indication"), but サイン is first an autograph or signature.
+  e("sign", "様子", 1545820, 2, { loan: "diverges", loanWord: "サイン" }),
   // --- Loans that match: instant comprehension, shown quietly -----------------------
   e("table", "卓", 1415580, 0, { loan: "matches", loanWord: "テーブル" }),
   // The katakana entry itself: the English page for "coffee" lists コーヒー.
@@ -279,6 +281,10 @@ export const GOLDEN_ENGLISH: ReadonlyArray<GoldenEnglish> = [
   e("computer", "計算機", 1592560, 1, { loan: "matches", loanWord: "コンピュータ" }),
   e("door", "扉", 1483380, 0, { loan: "matches", loanWord: "ドア" }),
   e("hotel", "宿", 1337190, 0, { loan: "matches", loanWord: "ホテル" }),
+  // Loans with several dictionary senses that English shares, against flagging every loan
+  // whose dictionary entry runs past one sense.
+  e("ball", "球", 1229880, 0, { loan: "matches", loanWord: "ボール" }),
+  e("test", "試験", 1312350, 0, { loan: "matches", loanWord: "テスト" }),
   // --- No common loan ----------------------------------------------------------------
   e("walk", "歩く", 1514320, 0, { loan: "no_loan" }),
   e("borrow", "借りる", 1323560, 0, { loan: "no_loan" }),

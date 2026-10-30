@@ -513,6 +513,40 @@ Accuracy where Jev decides what is shown; flips with options reversed in bracket
   about 37k if every gloss had three katakana candidates, and at most about 48k (24 glosses
   × 10 questions), under the 64k limit.
 
+### After review: the loan verdict weighs every use of the loan
+
+- **Why スタイル, ジュース and ナイーブ came out `matches`:** the question compared the loan with
+  the English word "with the meaning in `meaning`", and a candidate found by its gloss always
+  shares that meaning. The trap is in the loan's other uses (スタイル is first someone's
+  figure, ジュース any sweet soft drink), which the question ruled out.
+- **The question now asks** whether a Japanese speaker who uses the English word as they use
+  the katakana word is understood, weighing every common use and discounting small
+  differences; `LOAN_EVIDENCE` also leaves out rare, historical and specialist meanings.
+  `ENGLISH_QUESTIONS_VERSION` stays 3, since v3 hasn't shipped.
+- **Three loan goldens added**, none of them a question example: サイン for "sign" (様子's
+  "sign; indication"; first an autograph, so it diverges), and ボール for "ball" and テスト for
+  "test", which have several senses English shares, so a rule that flags any loan with more
+  than one sense fails on them.
+- **Measured** on the 23 loan goldens, with `lsource` candidates, in production's option order
+  (`data/eval/v3-before-loan-fix-*`, `v3-after-loan-fix-*` and `v3-after-loan-fix-2-*`). A
+  verdict is shown at confidence ≥ 0.55, which on two options takes p ≈ 0.78:
+
+  | | v3 as delivered | first rewording | second rewording (kept) |
+  |---|---|---|---|
+  | verdict right | 87% (20/23) | 96% (22/23) | 100% (23/23) |
+  | verdict right, gloss candidates only | 78% (18/23) | 83% (19/23) | 87% (20/23) |
+  | warnings shown, of 12 false friends | 7 | 11 | 10 |
+  | false warnings shown, of 8 matching loans | 0 | 0 (1 with options reversed) | 0 |
+  | "same as" chips shown, of 8 matching loans | 7 | 3 | 4 |
+
+- The first rewording ("every use matches, with the same feeling") found some difference in
+  nearly every loan. The kept one costs chips: テーブル, ホテル, テスト and ボール are judged
+  `matches` but below the display threshold. Getting them back means asking the old
+  per-meaning question beside this one for the chip, up to 3 more questions per gloss,
+  which takes the English worst case past the 64k limit unless loan questions are capped.
+- ナイーブ and カンニング are judged `diverges` but below the threshold (0.36 and 0.50), so
+  neither gets a warning yet.
+
 ### For Ash, from this work
 
 - **Re-import JMDict** for `senses.sources`/`wasei`; until then the English job finds loans
@@ -524,7 +558,5 @@ Accuracy where Jev decides what is shown; flips with options reversed in bracket
   as examples in their own question's criteria, in v2 and v3 alike, so those scores say
   little (candy is missed although it is an example). The loan section is clean. Goldens
   that aren't examples would measure generalisation.
-- **Debatable goldens:** スタイル and ジュース still come out `matches`, and both words do
-  carry the English sense in everyday use (ヘアスタイル, fruit juice). ナイーブ ("innocent;
-  sensitive") is a true miss.
+- **Loan misses:** スタイル, ジュース and ナイーブ came out `matches`; fixed after review (above).
 - Fixes 2 and 3 are gone: replaced by per-gloss rows and the English job, as planned.

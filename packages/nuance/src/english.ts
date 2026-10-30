@@ -20,7 +20,7 @@ import { judgedSenses } from "./state.ts"
  * a Japanese native views the entry. History: 1–2 — asked in the nuance request about each
  * sense's first gloss (they shared QUESTIONS_VERSION); 3 — their own job, judged per gloss,
  * strength and register as Scores, and the katakana loan chosen from candidates the dictionary
- * names instead of recalled.
+ * names instead of recalled, its verdict weighing every common use of the loan.
  */
 export const ENGLISH_QUESTIONS_VERSION = 3
 
@@ -116,17 +116,23 @@ const isLoan: NoulQuestion = {
 // Jev took a dictionary translation that repeats the source word (テンション: "tension",
 // シール: "seal") for the everyday meaning, so the evidence comes with how to read it.
 const LOAN_EVIDENCE =
-  "`katakana_meanings` are a dictionary's translations of `katakana_word`, with its usage notes in brackets. They often list the English source word itself even where everyday Japanese uses the word differently: judge how Japanese speakers commonly use it today."
+  "`katakana_meanings` are a dictionary's translations of `katakana_word`, with its usage notes in brackets. They often list the English source word itself even where everyday Japanese uses the word differently: judge how Japanese speakers commonly use it today, leaving out rare, historical and specialist meanings."
 
+// The trap is a meaning the gloss doesn't have: スタイル is "style", but first someone's
+// figure, so a learner says "she has a good style". Asked only about the meaning in `meaning`,
+// which a candidate found by its gloss always shares, Jev called スタイル, ジュース and ナイーブ
+// matches, so the question weighs every common use of the katakana word. Asked whether every
+// use matched "with the same feeling", Jev found some difference in nearly every loan, so the
+// question asks whether carrying the word over misleads, and small differences don't count.
 const loan: ChoiceQuestion = {
   type: "choice",
   instructions:
-    "Does the everyday Japanese meaning of `katakana_word` match the English word `english_word` with the meaning in `meaning`?",
+    "Would a Japanese speaker who uses the English word `english_word` (here meaning `meaning`) as they use `katakana_word` in everyday Japanese be understood? Weigh every common use of `katakana_word`, not only the one it shares with this meaning.",
   criteria: {
     matches:
-      "It means essentially the same in everyday Japanese, so a Japanese speaker who knows `katakana_word` understands `english_word` here, e.g. ピアノ for 'piano', バス for 'bus'",
+      "Carrying it over works: what `katakana_word` commonly means is what `english_word` means, so English speakers understand it, e.g. ピアノ for 'piano', バス for 'bus'. Small differences in how often or where each is used don't count",
     diverges:
-      "Its everyday Japanese meaning differs, so a Japanese speaker who knows `katakana_word` would misread or misuse `english_word` here, e.g. トランプ (playing cards, not 'trump'), コンセント (a power socket, not 'consent')"
+      "Carrying it over misleads: a common use of `katakana_word` means something `english_word` doesn't, or carries a clearly different feeling, even where they share this meaning, e.g. トレーナー (a sweatshirt, as well as a trainer), サービス ('free of charge', as well as service), コンセント (a power socket, not 'consent')"
   }
 }
 

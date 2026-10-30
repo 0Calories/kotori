@@ -30,6 +30,7 @@
     "int": "interjection (kandoushi)",
     "ksb": "Kansai-ben",
     "male": "male term or language",
+    "math": "mathematics",
     "n": "noun (common) (futsuumeishi)",
     "n-pref": "noun, used as a prefix",
     "n-suf": "noun, used as a suffix",
@@ -397,6 +398,19 @@
       ]
     },
     {
+      "id": 1016550,
+      "headword": "アット",
+      "reading": "アット",
+      "common": true,
+      "kana": ["アット"],
+      "senses": [
+        {
+          "glosses": ["@ sign", "at sign"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
       "id": 1030630,
       "headword": "エレベーター",
       "reading": "エレベーター",
@@ -510,6 +524,23 @@
         {
           "glosses": ["computer"],
           "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1056230,
+      "headword": "サイン",
+      "reading": "サイン",
+      "common": true,
+      "kana": ["サイン"],
+      "senses": [
+        {
+          "glosses": ["autograph", "signature"],
+          "pos": ["n", "vs", "vt", "vi"]
+        },
+        {
+          "glosses": ["sign", "signal", "indication"],
+          "pos": ["n", "vs", "vt", "vi"]
         }
       ]
     },
@@ -765,6 +796,27 @@
       ]
     },
     {
+      "id": 1079760,
+      "headword": "テスト",
+      "reading": "テスト",
+      "common": true,
+      "kana": ["テスト"],
+      "senses": [
+        {
+          "glosses": ["test (of ability, knowledge, etc.)", "exam", "examination", "quiz"],
+          "pos": ["n", "vs", "vt"]
+        },
+        {
+          "glosses": ["test (of performance, quality, etc.)", "trial"],
+          "pos": ["n", "vs", "vt"]
+        },
+        {
+          "glosses": ["rehearsal"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
       "id": 1080970,
       "headword": "テンション",
       "reading": "テンション",
@@ -983,6 +1035,54 @@
         {
           "glosses": ["hotel"],
           "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1123550,
+      "headword": "ボール",
+      "reading": "ボール",
+      "common": true,
+      "kana": ["ボール"],
+      "senses": [
+        {
+          "glosses": ["ball"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["ball (pitch delivered outside the strike zone)"],
+          "pos": ["n"],
+          "fields": ["baseb"]
+        }
+      ]
+    },
+    {
+      "id": 1126140,
+      "headword": "マーク",
+      "reading": "マーク",
+      "common": true,
+      "kana": ["マーク"],
+      "senses": [
+        {
+          "glosses": ["mark", "sign", "symbol", "emblem", "logo", "label", "brand"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["to mark", "to put a mark on"],
+          "pos": ["vs", "vt"]
+        },
+        {
+          "glosses": ["trademark"],
+          "pos": ["n"],
+          "misc": ["abbr"]
+        },
+        {
+          "glosses": ["paying attention to", "keeping one's eye on", "watching", "marking (a player)", "guarding"],
+          "pos": ["n", "vs", "vt"]
+        },
+        {
+          "glosses": ["setting (a record)", "posting", "recording"],
+          "pos": ["n", "vs", "vt"]
         }
       ]
     },
@@ -1272,6 +1372,30 @@
         {
           "glosses": ["and", "as well as"],
           "pos": ["conj"]
+        }
+      ]
+    },
+    {
+      "id": 1229880,
+      "headword": "球",
+      "reading": "きゅう",
+      "common": true,
+      "kanji": ["球"],
+      "kana": ["きゅう"],
+      "senses": [
+        {
+          "glosses": ["sphere", "globe", "ball", "bulb"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["ball", "sphere"],
+          "pos": ["n"],
+          "fields": ["math"]
+        },
+        {
+          "glosses": ["counter for pitches"],
+          "pos": ["ctr"],
+          "fields": ["baseb"]
         }
       ]
     },
@@ -1713,6 +1837,24 @@
           "pos": ["pn"],
           "misc": ["fem", "uk"],
           "info": ["あたくし is more polite"]
+        }
+      ]
+    },
+    {
+      "id": 1312350,
+      "headword": "試験",
+      "reading": "しけん",
+      "common": true,
+      "kanji": ["試験"],
+      "kana": ["しけん"],
+      "senses": [
+        {
+          "glosses": ["examination", "exam", "test"],
+          "pos": ["n", "vs", "vt"]
+        },
+        {
+          "glosses": ["trial", "experiment", "test"],
+          "pos": ["n", "vs", "vt"]
         }
       ]
     },
@@ -2580,6 +2722,28 @@
       "senses": [
         {
           "glosses": ["friend", "companion"],
+          "pos": ["n"]
+        }
+      ]
+    },
+    {
+      "id": 1545820,
+      "headword": "様子",
+      "reading": "ようす",
+      "common": true,
+      "kanji": ["様子", "容子"],
+      "kana": ["ようす"],
+      "senses": [
+        {
+          "glosses": ["state (of affairs)", "situation", "circumstances"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["appearance", "look(s)", "air", "manner", "behaviour", "demeanor"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["sign", "indication"],
           "pos": ["n"]
         }
       ]
@@ -3466,6 +3630,36 @@
         }
       ]
     },
+    "sign": {
+      "glossesOnly": [
+        {
+          "entryId": 1056230,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1126140,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1016550,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1056230,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1126140,
+          "by": "gloss"
+        },
+        {
+          "entryId": 1016550,
+          "by": "gloss"
+        }
+      ]
+    },
     "table": {
       "glossesOnly": [
         {
@@ -3554,6 +3748,34 @@
       "withSources": [
         {
           "entryId": 1122650,
+          "by": "gloss"
+        }
+      ]
+    },
+    "ball": {
+      "glossesOnly": [
+        {
+          "entryId": 1123550,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1123550,
+          "by": "gloss"
+        }
+      ]
+    },
+    "test": {
+      "glossesOnly": [
+        {
+          "entryId": 1079760,
+          "by": "gloss"
+        }
+      ],
+      "withSources": [
+        {
+          "entryId": 1079760,
           "by": "gloss"
         }
       ]
