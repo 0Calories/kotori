@@ -13,7 +13,7 @@ import { Screen, Section } from "../../src/components/Screen.tsx"
 import { ErrorState } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { useSession } from "../../src/session/SessionProvider.tsx"
-import { theme } from "../../src/theme/tokens.ts"
+import { useTheme } from "../../src/theme/ThemeProvider.tsx"
 
 const Count = ({ label, value, tone }: { readonly label: string; readonly value: number; readonly tone: Tone }) => {
   const { fg } = useTone(tone)
@@ -30,6 +30,7 @@ const Count = ({ label, value, tone }: { readonly label: string; readonly value:
 }
 
 const Stat = ({ icon, label, value }: { readonly icon: IconName; readonly label: string; readonly value: string }) => {
+  const theme = useTheme()
   return (
     <Card style={{ flexBasis: "47%", flexGrow: 1, gap: 6 }}>
       <Icon name={icon} size={20} color={theme.color.primaryDark} />
@@ -43,6 +44,7 @@ const Stat = ({ icon, label, value }: { readonly icon: IconName; readonly label:
 
 /** Cards due on each of the next seven days. One series, so one hue: today in the dark mark, the rest faded. */
 const Forecast = ({ days }: { readonly days: ReadonlyArray<number> }) => {
+  const theme = useTheme()
   const { t, profile } = useSession()
   const max = Math.max(...days, 1)
   const locale = profile?.nativeLanguage === "ja" ? "ja-JP" : "en-US"
@@ -83,6 +85,7 @@ const Forecast = ({ days }: { readonly days: ReadonlyArray<number> }) => {
 }
 
 export default function ReviewScreen() {
+  const theme = useTheme()
   const router = useRouter()
   const { t } = useSession()
   const queue = useQueue()

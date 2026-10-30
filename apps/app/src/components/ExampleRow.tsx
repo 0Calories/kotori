@@ -1,6 +1,6 @@
 import type { Example, Language } from "@kotori/domain"
 import { View } from "react-native"
-import { theme } from "../theme/tokens.ts"
+import { useTheme } from "../theme/ThemeProvider.tsx"
 import { AudioButton } from "./AudioButton.tsx"
 import { Furigana } from "./Furigana.tsx"
 import { MarkedText } from "./MarkedText.tsx"
@@ -21,6 +21,7 @@ export const ExampleRow = ({
   /** The word as it appears in the sentence, to mark it. */
   readonly mark?: string | undefined
 }) => {
+  const theme = useTheme()
   const english = language === "en"
   const note = english ? example.noteJa : example.note
   return (

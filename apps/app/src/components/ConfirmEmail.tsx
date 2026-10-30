@@ -2,7 +2,7 @@ import { useState } from "react"
 import { View } from "react-native"
 import { authMessage } from "../auth/messages.ts"
 import { useSession } from "../session/SessionProvider.tsx"
-import { theme } from "../theme/tokens.ts"
+import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Button } from "./Button.tsx"
 import { Card } from "./Card.tsx"
 import { Icon } from "./Icon.tsx"
@@ -16,6 +16,7 @@ import { Text } from "./Text.tsx"
  * doesn't depend on it and an account can arrive in the app unconfirmed.
  */
 export const ConfirmEmail = () => {
+  const theme = useTheme()
   const { t, profile, verifyEmail, sendVerificationCode } = useSession()
   const [code, setCode] = useState("")
   const [busy, setBusy] = useState<"verify" | "resend" | null>(null)

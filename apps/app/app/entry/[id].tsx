@@ -22,7 +22,7 @@ import { posLabel, type Strings, tagLabel } from "../../src/i18n/strings.ts"
 import { findForm } from "../../src/lib/forms.ts"
 import { wordNote } from "../../src/lib/notes.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
-import { theme } from "../../src/theme/tokens.ts"
+import { useTheme } from "../../src/theme/ThemeProvider.tsx"
 
 /** Below this confidence a judgment is shown faded rather than stated outright. */
 const CONFIDENT = 0.55
@@ -124,6 +124,7 @@ const SenseCard = ({
   readonly onSave: () => void
   readonly saving: boolean
 }) => {
+  const theme = useTheme()
   const { t } = useSession()
   const router = useRouter()
   const [first, second, ...rest] = sense.glosses
@@ -230,6 +231,7 @@ const SimilarList = ({
   /** Similar words come from the same dictionary as the entry. */
   readonly language: Language
 }) => {
+  const theme = useTheme()
   const { t } = useSession()
   const router = useRouter()
   return (
@@ -283,6 +285,7 @@ const headwordSize = (headword: string, language: Language) => {
 }
 
 export default function EntryScreen() {
+  const theme = useTheme()
   const { t } = useSession()
   const router = useRouter()
   const { id } = useLocalSearchParams<{ id: string }>()

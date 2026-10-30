@@ -19,7 +19,7 @@
       "package": "app.kotori",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#F7FAF7"
+        "backgroundColor": "#94C1E2"
       },
       "edgeToEdgeEnabled": true
     },
@@ -29,8 +29,8 @@
       "favicon": "./assets/favicon.png",
       "name": "Kotori",
       "shortName": "Kotori",
-      "themeColor": "#F7FAF7",
-      "backgroundColor": "#F7FAF7"
+      "themeColor": "#F6FAFC",
+      "backgroundColor": "#F6FAFC"
     },
     "plugins": [
       ["expo-router", { "adaptiveColors": false }],
@@ -43,7 +43,7 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 160,
           "resizeMode": "contain",
-          "backgroundColor": "#F7FAF7"
+          "backgroundColor": "#F6FAFC"
         }
       ]
     ],

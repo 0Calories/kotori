@@ -10,7 +10,7 @@ import Animated, {
   withTiming
 } from "react-native-reanimated"
 import Svg, { Circle, Defs, Pattern, Rect } from "react-native-svg"
-import { theme } from "../theme/tokens.ts"
+import { useTheme } from "../theme/ThemeProvider.tsx"
 
 /**
  * Tile, flake, and motion for one depth layer.
@@ -38,7 +38,7 @@ const loopMs = (distance: number, speed: number) => Math.round((Math.abs(distanc
  * clips it, and the sheet still covers the hero at both ends of the loop.
  */
 const FlakeLayer = ({ layer }: { readonly layer: Layer }) => {
-  const { color } = theme
+  const { color } = useTheme()
   const reduceMotion = useReducedMotion()
   const fall = useSharedValue(0)
   const drift = useSharedValue(0)

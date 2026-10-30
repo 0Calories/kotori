@@ -1,9 +1,9 @@
 import { ScrollView } from "react-native"
-import { theme } from "../theme/tokens.ts"
+import { useTheme } from "../theme/ThemeProvider.tsx"
 import { PressableScale } from "./PressableScale.tsx"
 import { Text } from "./Text.tsx"
 
-/** A row of pills; the selected one is wakatake, the design's "selected segment". */
+/** A row of pills; the selected one is primary, the design's "selected segment". */
 export const Segmented = <A extends string>({
   options,
   value,
@@ -13,7 +13,7 @@ export const Segmented = <A extends string>({
   readonly value: A
   readonly onChange: (value: A) => void
 }) => {
-  const { color, radius } = theme
+  const { color, radius } = useTheme()
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
       {options.map((option) => {

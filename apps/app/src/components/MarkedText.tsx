@@ -1,5 +1,5 @@
 import { View } from "react-native"
-import { theme } from "../theme/tokens.ts"
+import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Text } from "./Text.tsx"
 
 /** Gabarito's ascent plus descent, as a share of the size: the height of its glyph box. */
@@ -22,6 +22,7 @@ export const MarkedText = ({
   readonly size?: number
   readonly lineHeight?: number
 }) => {
+  const theme = useTheme()
   const start = mark === undefined || mark.length === 0 ? -1 : text.indexOf(mark)
   if (mark === undefined || start < 0) {
     return (

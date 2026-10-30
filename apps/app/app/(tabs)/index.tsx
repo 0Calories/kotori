@@ -20,7 +20,7 @@ import { posLabel, strings } from "../../src/i18n/strings.ts"
 import { formalityTone } from "../../src/lib/tones.ts"
 import { usePreference } from "../../src/session/preferences.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
-import { theme } from "../../src/theme/tokens.ts"
+import { useTheme } from "../../src/theme/ThemeProvider.tsx"
 
 const useDebounced = (value: string, delay: number) => {
   const [debounced, setDebounced] = useState(value)
@@ -55,6 +55,7 @@ const ResultRow = ({
   readonly first: boolean
   readonly onPress: () => void
 }) => {
+  const theme = useTheme()
   const { t } = useSession()
   const pos = posLabel(t, entry.partOfSpeech)
   return (
@@ -134,6 +135,7 @@ const ReviewTeaser = () => {
 }
 
 export default function LookUpScreen() {
+  const theme = useTheme()
   const { t, profile } = useSession()
   const router = useRouter()
   const insets = useSafeAreaInsets()

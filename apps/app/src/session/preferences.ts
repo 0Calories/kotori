@@ -3,9 +3,10 @@ import { storage } from "./storage"
 
 const listeners = new Map<string, Set<(value: string | null) => void>>()
 
-/** A small persisted preference shared across screens. */
+/** A small persisted preference shared across screens, and whether the stored value has been read. */
 export const usePreference = <A>(key: string, fallback: A) => {
   const [value, setValue] = useState<A>(fallback)
+  const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -16,6 +17,9 @@ export const usePreference = <A>(key: string, fallback: A) => {
         if (active && raw !== null) setValue(JSON.parse(raw) as A)
       })
       .catch(() => {})
+      .finally(() => {
+        if (active) setLoaded(true)
+      })
     const listener = (raw: string | null) => setValue(raw === null ? fallback : (JSON.parse(raw) as A))
     const set = listeners.get(key) ?? new Set()
     set.add(listener)
@@ -35,5 +39,5 @@ export const usePreference = <A>(key: string, fallback: A) => {
     [key]
   )
 
-  return [value, update] as const
+  return [value, update, loaded] as const
 }

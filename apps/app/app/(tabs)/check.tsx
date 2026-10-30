@@ -19,7 +19,7 @@ import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { registerTone } from "../../src/lib/tones.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
-import { theme } from "../../src/theme/tokens.ts"
+import { useTheme } from "../../src/theme/ThemeProvider.tsx"
 
 const MOOD: Record<NaturalnessResult["verdict"], Mood> = {
   natural: "celebrate",
@@ -69,6 +69,7 @@ const ENGLISH_LINE = Math.round(ENGLISH_SIZE * 1.35)
 
 /** The learner's English, with a squiggle under every mistake. */
 const WrittenEnglish = ({ text, issues }: { readonly text: string; readonly issues: ReadonlyArray<Issue> }) => {
+  const theme = useTheme()
   const [boxes, measure] = useBoxes()
   const ranges = mistakeRanges(
     text,
@@ -142,6 +143,7 @@ const Written = ({ text, issues }: { readonly text: string; readonly issues: Rea
 }
 
 const IssueCard = ({ issue, number }: { readonly issue: Issue; readonly number: number }) => {
+  const theme = useTheme()
   const { t, profile } = useSession()
   // The mock sets the change in the language being learned: English at 17pt, Japanese in Murecho at 16pt.
   const english = profile?.targetLanguage === "en"
@@ -195,6 +197,7 @@ const Result = ({
   readonly result: NaturalnessResult
   readonly onEdit: () => void
 }) => {
+  const theme = useTheme()
   const { t, profile } = useSession()
   const natural = result.verdict === "natural"
   const [best, ...others] = result.rewrites
@@ -362,6 +365,7 @@ const Result = ({
 }
 
 export default function CheckScreen() {
+  const theme = useTheme()
   const { t, profile } = useSession()
   const check = useNaturalness()
   const [text, setText] = useState("")

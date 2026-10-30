@@ -23,7 +23,7 @@ import { iconFonts } from "../src/components/Icon.tsx"
 import { Screen } from "../src/components/Screen.tsx"
 import { MascotMessage } from "../src/components/States.tsx"
 import { SessionProvider, useSession } from "../src/session/SessionProvider.tsx"
-import { theme } from "../src/theme/tokens.ts"
+import { ThemeProvider, useTheme } from "../src/theme/ThemeProvider.tsx"
 
 SplashScreen.preventAutoHideAsync().catch(() => {})
 // Pronunciation should play even when the phone's ring switch is on silent.
@@ -41,6 +41,7 @@ const queryClient = new QueryClient({
 const statusBarStyle = "dark" as const
 
 const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
+  const theme = useTheme()
   const { status, t, retry } = useSession()
   const ready = fontsLoaded && status !== "loading"
 
@@ -110,7 +111,9 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <SessionProvider>
-            <Navigator fontsLoaded={fontsLoaded} />
+            <ThemeProvider>
+              <Navigator fontsLoaded={fontsLoaded} />
+            </ThemeProvider>
           </SessionProvider>
         </QueryClientProvider>
       </SafeAreaProvider>

@@ -14,7 +14,8 @@ import { Segmented } from "../src/components/Segmented.tsx"
 import { Text } from "../src/components/Text.tsx"
 import { usePreference } from "../src/session/preferences.ts"
 import { useSession } from "../src/session/SessionProvider.tsx"
-import { theme } from "../src/theme/tokens.ts"
+import { useTheme, useThemeName } from "../src/theme/ThemeProvider.tsx"
+import type { ThemeName } from "../src/theme/tokens.ts"
 
 const Stepper = ({
   label,
@@ -37,23 +38,28 @@ const Stepper = ({
   </View>
 )
 
-const Feature = ({ label, on }: { readonly label: string; readonly on: boolean | undefined }) => (
-  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-    <Icon
-      name={on ? "check_circle" : "radio_button_unchecked"}
-      filled={on}
-      size={20}
-      color={on ? theme.color.primaryDark : theme.color.textFaint}
-    />
-    <Text variant="small">{label}</Text>
-  </View>
-)
+const Feature = ({ label, on }: { readonly label: string; readonly on: boolean | undefined }) => {
+  const { color } = useTheme()
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+      <Icon
+        name={on ? "check_circle" : "radio_button_unchecked"}
+        filled={on}
+        size={20}
+        color={on ? color.primaryDark : color.textFaint}
+      />
+      <Text variant="small">{label}</Text>
+    </View>
+  )
+}
 
 export default function SettingsScreen() {
+  const theme = useTheme()
   const router = useRouter()
   const { t, profile, updateProfile, signOut } = useSession()
   const health = useHealth()
   const [furigana, setFurigana] = usePreference("furigana", true)
+  const [themeName, setThemeName] = useThemeName()
   if (profile === null) return null
 
   return (
@@ -100,6 +106,19 @@ export default function SettingsScreen() {
           />
         </View>
       </Card>
+
+      <Section title={t.settings.theme}>
+        <Card>
+          <Segmented<ThemeName>
+            value={themeName}
+            onChange={setThemeName}
+            options={[
+              { value: "sora", label: t.settings.sora },
+              { value: "wakatake", label: t.settings.wakatake }
+            ]}
+          />
+        </Card>
+      </Section>
 
       <Section title={t.settings.server}>
         <Card style={{ gap: theme.space.sm }}>
