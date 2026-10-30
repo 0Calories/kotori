@@ -17,6 +17,7 @@
     "build": "nx run-many -t build",
     "sync": "nx sync",
     "assets": "tsx tools/render-assets.ts",
+    "motion": "tsx tools/render-motion.ts",
     "graph": "nx graph",
     "knip": "knip"
   },

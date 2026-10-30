@@ -13,7 +13,8 @@ export const palette = {
 }
 
 export const shapes = {
-  tail: "M166.7 139.9 C 170 142.1, 179.6 148, 180 152.1 C 180.3 155.8, 175.8 156.5, 171.9 156.8 C 170.4 158.1, 169.9 160.3, 165.8 159.7 C 163.4 159.4, 156.6 156.5, 157.3 154.7 L 152.9 147.5 Z",
+  /** The tail's root runs on under the body, along its edges, so it stays joined as the tail swings. */
+  tail: "M156.7 133.3 L 166.7 139.9 C 170 142.1, 179.6 148, 180 152.1 C 180.3 155.8, 175.8 156.5, 171.9 156.8 C 170.4 158.1, 169.9 160.3, 165.8 159.7 C 163.4 159.4, 156.6 156.5, 157.3 154.7 L 158.7 151.1 L 148 146 Z",
   /** Feet are round-capped strokes; the back one tucks behind the body. */
   feet: { back: "M52.3 175 H 63.3", front: "M100.6 176.9 H 111.6", width: 6.8 },
   tuft: [
@@ -29,9 +30,6 @@ export const shapes = {
   belly:
     "M125 172.1 A 49.7 42.1 39.5 0 0 31.5 158.6 C 34.4 161.3, 37.8 163.9, 41.8 166.3 C 64.6 179.9, 97.7 179.1, 125 172.1 Z",
   wing: "M153.7 80.6 C 133.9 77.4, 122.1 100.1, 135.2 120.8 C 146.1 138.1, 183.9 144.8, 183.7 127.5 C 183.6 113.9, 168.4 83, 153.7 80.6 Z",
-  /** Wing raised for celebrations. */
-  wingUp:
-    "M128.6 78.8 C 127.2 98.8, 150.7 108.6, 170.2 93.8 C 186.5 81.4, 189.9 43.1, 172.7 44.8 C 159.1 46.1, 129.6 64, 128.6 78.8 Z",
   cheeks: [
     { cx: 36.3, cy: 88.5, rx: 8.8, ry: 6.8 },
     { cx: 109.8, cy: 88.6, rx: 8.8, ry: 6.8 }
@@ -43,6 +41,21 @@ export const shapes = {
   /** Catchlight, offset from each eye's centre. */
   catchlight: { dx: 2.1, dy: -4, r: 2.4 },
   beak: "M70.6 75.8 C 68.6 75.7, 63.5 79.5, 61.6 82.9 C 60.8 84.3, 67.4 88.9, 70.6 88.8 C 73.3 88.6, 80.7 84.7, 79.8 82.8 C 78.1 79.3, 71.9 75.9, 70.6 75.8 Z"
+} as const
+
+/**
+ * The parts that move, and the point each one turns and scales about. `bird`
+ * is the whole of Kotori, standing where its feet meet the ground; `face`
+ * carries the cheeks, beak and eyes, and `eyes` moves within it.
+ */
+export const joints = {
+  bird: { x: 92, y: 180 },
+  tail: { x: 162, y: 147.3 },
+  backFoot: { x: 57.8, y: 175 },
+  frontFoot: { x: 106.1, y: 176.9 },
+  wing: { x: 140.3, y: 91.2 },
+  face: { x: 72.7, y: 82 },
+  eyes: { x: 72.7, y: 76.6 }
 } as const
 
 export type Mood = "curious" | "happy" | "thinking" | "sleepy" | "celebrate" | "oops"
