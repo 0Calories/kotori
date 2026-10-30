@@ -182,10 +182,13 @@ export const SLANG_TAGS: ReadonlyArray<string> = ["sl", "net-sl", "m-sl"]
 export const LoanMeaning = Schema.Literals(["same", "divergent", "not_english"])
 export type LoanMeaning = typeof LoanMeaning.Type
 
-/** Jev's verdict on a loan: its likeliest meaning, and how likely that is. */
+/** Jev's verdict on a loan: its likeliest meaning, and how likely that is, over both option orders. */
 export const LoanVerdict = Schema.Struct({
   value: LoanMeaning,
-  /** Jev's probability of `value`, not its confidence, which measures how peaked the answer is. */
+  /**
+   * Jev's probability of `value`, averaged over the question asked in both option orders; not its
+   * confidence, which measures how peaked an answer is.
+   */
   probability: Schema.Number,
   source: JudgmentSource
 })

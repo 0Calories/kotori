@@ -1,5 +1,6 @@
 import type { EntryRecord } from "@kotori/db"
-import type { ChoiceQuestion, ChoiceResponse, EntryType, Question } from "@typesafe-ai/sdk"
+import type { ChoiceResponse, EntryType, Question } from "@typesafe-ai/sdk"
+import { REVERSED, reversedChoice } from "./questions.ts"
 import { entryRequest, loanRequest, sensePrefix } from "./request.ts"
 import { candidateOf } from "./state.ts"
 
@@ -11,8 +12,6 @@ import { candidateOf } from "./state.ts"
  * uninformative default first.
  */
 
-export const REVERSED = "~reversed"
-
 export interface EvalRequest {
   readonly state: EntryType
   readonly questions: Readonly<Record<string, Question>>
@@ -20,17 +19,14 @@ export interface EvalRequest {
   readonly prefix: string
 }
 
-const reversedChoice = (question: ChoiceQuestion): ChoiceQuestion => ({
-  ...question,
-  criteria: Object.fromEntries(Object.entries(question.criteria).toReversed())
-})
-
-/** The questions, plus every Choice again with its options reversed. */
+/** The questions, plus every Choice not already asked both ways again with its options reversed. */
 export const withReversedChoices = (questions: Readonly<Record<string, Question>>): Record<string, Question> => ({
   ...questions,
   ...Object.fromEntries(
     Object.entries(questions).flatMap(([name, question]) =>
-      question.type === "choice" ? [[`${name}${REVERSED}`, reversedChoice(question)]] : []
+      question.type === "choice" && !name.endsWith(REVERSED) && questions[`${name}${REVERSED}`] === undefined
+        ? [[`${name}${REVERSED}`, reversedChoice(question)]]
+        : []
     )
   )
 })
@@ -110,7 +106,10 @@ export const goldenPairRequest = (
   return { state, questions: withReversedChoices(pair), prefix }
 }
 
-/** A golden loan: an English word's loan request as the nuance job sends it, with `candidates` as its katakana candidates. */
+/**
+ * A golden loan: an English word's loan request as the nuance job sends it, with `candidates` as
+ * its katakana candidates. Its Choices are already asked both ways.
+ */
 export const goldenLoanRequest = (
   entry: EntryRecord,
   candidates: ReadonlyArray<EntryRecord>,
@@ -134,6 +133,7 @@ export const answersForCandidates = (
     const from = asked.indexOf(word)
     own[`loanword_${k}`] = answers[`loanword_${from}`]
     own[`loan_${k}`] = answers[`loan_${from}`]
+    own[`loan_${k}${REVERSED}`] = answers[`loan_${from}${REVERSED}`]
   })
   return own
 }

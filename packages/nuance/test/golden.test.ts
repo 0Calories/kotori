@@ -96,13 +96,13 @@ describe("golden requests", () => {
     const style = goldenEnglishEntry(entries.values(), "style")!
     const candidates = (fixture.loans["style"]?.glossesOnly ?? []).map(({ entryId }) => entries.get(entryId)!)
     const loans = goldenLoanRequest(style, candidates, tags)
-    const production = loanRequest(style, candidates, tags)
-    assert.deepStrictEqual(loans, { ...production, questions: withReversedChoices(production.questions), prefix: "" })
+    // The nuance job already asks the loan Choice in both option orders, so the eval adds nothing.
+    assert.deepStrictEqual(loans, { ...loanRequest(style, candidates, tags), prefix: "" })
     assert.deepStrictEqual(loans.state, { word: "style", reading: "/staɪl/" })
-    // Whether the loan means the same is a Choice, so it is asked again with its options reversed.
-    assert.deepStrictEqual(Object.keys(loans.questions), [
-      ...candidates.flatMap((_, k) => [`loanword_${k}`, `loan_${k}`]),
-      ...candidates.map((_, k) => `loan_${k}${REVERSED}`)
-    ])
+    assert.deepStrictEqual(
+      Object.keys(loans.questions),
+      candidates.flatMap((_, k) => [`loanword_${k}`, `loan_${k}`, `loan_${k}${REVERSED}`])
+    )
+    assert.deepStrictEqual(withReversedChoices(loans.questions), loans.questions)
   })
 })

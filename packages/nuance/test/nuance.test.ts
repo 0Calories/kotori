@@ -14,6 +14,7 @@ import {
   Jev,
   loanRequest,
   NuanceEnricher,
+  REVERSED,
   type SenseAnswers,
   senseQuestions,
   senseScope
@@ -32,6 +33,11 @@ const meaning = (value: LoanMeaning, p: number) =>
     confidence: (3 * p - 1) / 2,
     probabilities: { same: 0, divergent: 0, not_english: 0, [value]: p }
   }) as const
+/** The `k`th candidate's loan Choice, asked in both option orders, the same answer each way. */
+const loanAnswers = (k: number, value: LoanMeaning, p: number) => ({
+  [`loan_${k}`]: meaning(value, p),
+  [`loan_${k}${REVERSED}`]: meaning(value, p)
+})
 
 const answers = {
   formality: score(2.2),
@@ -124,9 +130,9 @@ describe("interpretLoan", () => {
     const loan = interpretLoan(
       {
         loanword_0: noul(0.85),
-        loan_0: meaning("divergent", 0.9),
+        ...loanAnswers(0, "divergent", 0.9),
         loanword_1: noul(0.1),
-        loan_1: meaning("same", 0.8)
+        ...loanAnswers(1, "same", 0.8)
       },
       asked
     )
@@ -139,16 +145,16 @@ describe("interpretLoan", () => {
   it("finds no loan when no candidate is likely enough, or there are none", () => {
     const unlikely = {
       loanword_0: noul(0.5),
-      loan_0: meaning("divergent", 0.9),
+      ...loanAnswers(0, "divergent", 0.9),
       loanword_1: noul(0.2),
-      loan_1: meaning("same", 0.9)
+      ...loanAnswers(1, "same", 0.9)
     }
     assert.deepStrictEqual(interpretLoan(unlikely, asked), { word: null, verdict: null })
     assert.deepStrictEqual(interpretLoan({}, []), { word: null, verdict: null })
   })
 
   it("takes JMDict's word for a candidate it names the English word as the source of", () => {
-    const loan = interpretLoan({ loanword_0: noul(0.2), loan_0: meaning("divergent", 0.7) }, [
+    const loan = interpretLoan({ loanword_0: noul(0.2), ...loanAnswers(0, "divergent", 0.7) }, [
       { word: "マンション", by: "source" }
     ])
     assert.strictEqual(loan.word, "マンション")
@@ -156,7 +162,7 @@ describe("interpretLoan", () => {
 
   it("shows the meaning Jev picks at p ≥ 0.7, as a warning or a chip, and never one not from English", () => {
     const read = (value: LoanMeaning, p: number) =>
-      interpretLoan({ loanword_0: noul(0.9), loan_0: meaning(value, p) }, asked).verdict!
+      interpretLoan({ loanword_0: noul(0.9), ...loanAnswers(0, value, p) }, asked).verdict!
     // The probability of the meaning, not the Choice's confidence: 0.55 at p = 0.7.
     assert.deepStrictEqual(read("divergent", 0.7), { value: "divergent", probability: 0.7, source: "jev" })
     assert.strictEqual(loanShown(read("divergent", 0.7)), "warning")
@@ -174,6 +180,30 @@ describe("interpretLoan", () => {
     assert.isFalse(awaitsWarning(stored(read("divergent", 0.7), "体型の意味です。")))
     assert.isFalse(awaitsWarning(stored(read("divergent", 0.69))))
     assert.isFalse(awaitsWarning(stored(read("same", 0.9))))
+  })
+
+  it("averages each meaning over the Choice asked in both option orders", () => {
+    const choiceOf = (same: number, divergent: number, notEnglish: number) => ({
+      type: "choice",
+      choice: divergent > same ? "divergent" : "same",
+      confidence: 0,
+      probabilities: { same, divergent, not_english: notEnglish }
+    })
+    // Forward leans same, reversed divergent: divergent is likelier together, but not enough to show.
+    const split = interpretLoan(
+      {
+        loanword_0: noul(0.9),
+        loan_0: choiceOf(0.6, 0.4, 0),
+        [`loan_0${REVERSED}`]: choiceOf(0.1, 0.9, 0)
+      },
+      asked
+    ).verdict!
+    assert.strictEqual(split.value, "divergent")
+    assert.closeTo(split.probability, 0.65, 1e-9)
+    assert.isNull(loanShown(split))
+    // One order alone isn't a verdict.
+    const forwardOnly = { loanword_0: noul(0.9), loan_0: meaning("divergent", 0.9) }
+    assert.deepStrictEqual(interpretLoan(forwardOnly, asked), { word: null, verdict: null })
   })
 })
 
@@ -354,7 +384,7 @@ layer(TestLayer)("NuanceEnricher", (it) => {
       const [senses, loans] = requests.slice(1)
       assert.isUndefined(senses!.questions["loan_0"])
       assert.deepStrictEqual(loans!.state, { word: "style" })
-      assert.deepStrictEqual(Object.keys(loans!.questions), ["loanword_0", "loan_0"])
+      assert.deepStrictEqual(Object.keys(loans!.questions), ["loanword_0", "loan_0", `loan_0${REVERSED}`])
       const loanAsked = loans!.questions["loan_0"]!.instructions as Record<string, unknown>
       assert.strictEqual(loanAsked["katakana_word"], "スタイル")
       const [loan] = yield* repo.loanWordsFor([100000004])
@@ -392,7 +422,9 @@ layer(TestLayer)("NuanceEnricher", (it) => {
       yield* enricher.reinterpret(100000005)
       const [loan] = yield* repo.loanWordsFor([100000005])
       assert.strictEqual(loan?.word, "ジュース")
-      assert.isTrue(Option.isSome(yield* repo.loanAnswersFor(100000005)))
+      // Both orders' answers are kept, so the averaged verdict can be re-derived.
+      const stored = Option.getOrThrow(yield* repo.loanAnswersFor(100000005)) as Record<string, unknown>
+      assert.includeMembers(Object.keys(stored), ["loanword_0", "loan_0", `loan_0${REVERSED}`, "candidates"])
       assert.strictEqual(requests.length, callsBefore)
     })
   )
@@ -437,12 +469,19 @@ describe("questions", () => {
     }
     // An English word's loan candidates are asked about once, in a request without its senses.
     const loans = loanRequest(style, [katakana(9100001, "スタイル", ["(one's) figure", "style"])], tags)
-    assert.deepStrictEqual(Object.keys(loans.questions), ["loanword_0", "loan_0"])
+    assert.deepStrictEqual(Object.keys(loans.questions), ["loanword_0", "loan_0", `loan_0${REVERSED}`])
     assert.notProperty(loans.state, "senses")
     assert.strictEqual(loans.questions["loanword_0"]?.type, "noul")
     const meanings = loans.questions["loan_0"] as { readonly type: string; readonly criteria: object }
     assert.strictEqual(meanings.type, "choice")
     assert.deepStrictEqual(Object.keys(meanings.criteria), ["same", "divergent", "not_english"])
+    // Asked again with its options reversed, since Jev leans toward the first.
+    const reversed = loans.questions[`loan_0${REVERSED}`] as {
+      readonly criteria: object
+      readonly instructions: unknown
+    }
+    assert.deepStrictEqual(Object.keys(reversed.criteria), ["not_english", "divergent", "same"])
+    assert.deepStrictEqual(reversed.instructions, loans.questions["loan_0"]?.instructions)
   })
 })
 

@@ -24,6 +24,7 @@ import {
   Jev,
   type JevError,
   LOAN_IS,
+  loanMeanings,
   type LoanReading,
   MAX_LOANS,
   type OrderCheck,
@@ -198,7 +199,6 @@ interface NoulAnswer {
 interface ChoiceAnswer {
   readonly choice: string
   readonly confidence: number
-  readonly probabilities: Readonly<Record<string, number>>
 }
 
 /** A golden sense to judge, of either dictionary. */
@@ -525,24 +525,24 @@ export const evaluate = Command.make(
             display("same-meaning chip", golden.loan === "same", shown === "chip" && about)
             display("no wrong chip", true, shown !== "chip" || (golden.loan === "same" && about))
             // What "not English" takes from the true loan, which is always borrowed from English.
-            const meaning =
-              golden.loanWord === undefined
-                ? undefined
-                : (reading.answers[`loan_${asked.indexOf(golden.loanWord)}`] as ChoiceAnswer | undefined)
-            if (meaning !== undefined) {
-              const notEnglish = meaning.probabilities["not_english"] ?? 0
+            const meanings =
+              golden.loanWord === undefined ? undefined : loanMeanings(reading.answers, asked.indexOf(golden.loanWord))
+            if (meanings !== undefined) {
               results.judged(
                 `${set}not English`,
                 false,
-                { correct: meaning.choice !== "not_english", confidence: notEnglish },
-                `${golden.word} ${set}not English: p=${notEnglish.toFixed(2)} for ${golden.loanWord}`
+                {
+                  correct: meanings.not_english < Math.max(meanings.same, meanings.divergent),
+                  confidence: meanings.not_english
+                },
+                `${golden.word} ${set}not English: p=${meanings.not_english.toFixed(2)} for ${golden.loanWord}`
               )
             }
           }),
         { concurrency, discard: true }
       )
       yield* Console.log(
-        `A loan counts at p >= ${LOAN_IS} that the katakana word is the English word's loan; "glosses" are the candidates production finds until JMDict is re-imported with lsource. The app shows a warning at p(divergent) >= ${LOAN_SHOWN} and a "same meaning" chip at p(same) >= ${LOAN_SHOWN}; the conf columns of loan rows hold that p, and of "not English" the true loan's p(not_english).`
+        `A loan counts at p >= ${LOAN_IS} that the katakana word is the English word's loan; "glosses" are the candidates production finds until JMDict is re-imported with lsource. The app shows a warning at p(divergent) >= ${LOAN_SHOWN} and a "same meaning" chip at p(same) >= ${LOAN_SHOWN}; each p averaged over the loan Choice asked in both option orders. The conf columns of loan rows hold that p, and of "not English" the true loan's p(not_english).`
       )
     }
     yield* Console.log(`The enricher keeps a similar word at p >= ${SIMILAR_KEPT}.`)

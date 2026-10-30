@@ -1,6 +1,6 @@
 import type { EntryRecord, LoanCandidate } from "@kotori/db"
 import type { ChoiceQuestion, NoulQuestion, ScoreQuestion } from "@typesafe-ai/sdk"
-import { CONNOTATIONS, SUBJECT_NOT_REGISTER } from "./questions.ts"
+import { CONNOTATIONS, REVERSED, reversedChoice, SUBJECT_NOT_REGISTER } from "./questions.ts"
 import { judgedSenses } from "./state.ts"
 
 /**
@@ -21,9 +21,10 @@ import { judgedSenses } from "./state.ts"
  * stiffWithFriends derived instead of asked; 4 — the katakana loan asked in a request of its
  * own, whose state leaves out the word's Japanese senses, and whether it misleads asked as a
  * Noul instead of a Choice; 5 — whether it means the same, has drifted or isn't English asked
- * as a Choice of the three (docs/nuance-on-english-entries.md).
+ * as a Choice of the three; 6 — that Choice asked in both option orders and read from the two
+ * together (docs/nuance-on-english-entries.md).
  */
-export const ENGLISH_QUESTIONS_VERSION = 5
+export const ENGLISH_QUESTIONS_VERSION = 6
 
 export const PROFANITY_LEVELS = ["none", "mild", "strong", "avoid"] as const
 
@@ -264,7 +265,8 @@ const LOAN_EVIDENCE =
 // "sign", fell from p 0.70 to 0.61, so it asks whether the loan has come to mean something
 // different. "Not English" takes about 1% from true loans, but gets under 0.25 even on loans
 // JMDict derives from German or Dutch (docs/nuance-on-english-entries.md). The app reads the
-// probability of each meaning (`loanShown`).
+// probability of each meaning (`loanShown`), averaged over the Choice asked in both option
+// orders: Jev leans toward the option listed first, and `same` gained 0.02 on average reversed.
 const loan: ChoiceQuestion = {
   type: "choice",
   instructions:
@@ -305,8 +307,9 @@ export const loanScope = (candidate: EntryRecord, tags: ReadonlyMap<string, stri
 })
 
 /**
- * The two questions about the English word's `k`th katakana candidate, keyed `loanword_{k}` (a Noul:
- * is it the word's loan?) and `loan_{k}` (a Choice: same, divergent or not English).
+ * The questions about the English word's `k`th katakana candidate: `loanword_{k}` (a Noul: is it
+ * the word's loan?) and `loan_{k}` (a Choice: same, divergent or not English), asked again with
+ * its options reversed as `loan_{k}~reversed`.
  */
 export const loanQuestions = (
   k: number,
@@ -315,15 +318,17 @@ export const loanQuestions = (
   tags: ReadonlyMap<string, string>
 ) => {
   const katakana = { english_word: english.headword, ...loanScope(candidate, tags) }
+  const meaning: ChoiceQuestion = {
+    ...loan,
+    instructions: { question: loan.instructions ?? null, ...katakana, evidence: LOAN_EVIDENCE }
+  }
   return {
     [`loanword_${k}`]: { ...isLoan, instructions: { question: isLoan.instructions ?? null, ...katakana } },
-    [`loan_${k}`]: {
-      ...loan,
-      instructions: { question: loan.instructions ?? null, ...katakana, evidence: LOAN_EVIDENCE }
-    }
+    [`loan_${k}`]: meaning,
+    [`loan_${k}${REVERSED}`]: reversedChoice(meaning)
   } satisfies Record<string, NoulQuestion | ChoiceQuestion>
 }
 
-/** The loan answers of an English word's request, named as stored: `loanword_0`, `loan_0`, …. */
+/** The loan answers of an English word's request, named as stored: `loanword_0`, `loan_0`, `loan_0~reversed`, …. */
 export const answersOfLoans = (answers: Readonly<Record<string, unknown>>): Record<string, unknown> =>
-  Object.fromEntries(Object.entries(answers).filter(([name]) => /^loan(word)?_\d+$/.test(name)))
+  Object.fromEntries(Object.entries(answers).filter(([name]) => /^loan(word)?_\d+$/.test(name.replace(REVERSED, ""))))

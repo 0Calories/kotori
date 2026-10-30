@@ -17,7 +17,7 @@ import {
 } from "@kotori/domain"
 import type { ChoiceResponse, NoulResponse, ScoreResponse } from "@typesafe-ai/sdk"
 import { PROFANITY_LEVELS } from "./english.ts"
-import { FORMALITY_LEVELS, MEDIUM_LEVELS } from "./questions.ts"
+import { FORMALITY_LEVELS, MEDIUM_LEVELS, REVERSED } from "./questions.ts"
 
 /**
  * Jev's answers about one sense of a word in either language, by question name. Answers stored
@@ -198,16 +198,34 @@ export interface LoanReading {
   readonly verdict: LoanVerdict | null
 }
 
+const LOAN_MEANINGS: ReadonlyArray<LoanMeaning> = ["same", "divergent", "not_english"]
+
 /**
- * The verdict of a `loan_{k}` Choice: the meaning Jev picked and its probability, which the
- * display rule reads (`loanShown`), rather than the Choice's confidence, which says how peaked
- * the answer is. Only the picked meaning can reach the 0.7 the app shows at, so the rule needs
- * no other.
+ * How likely each meaning of the `k`th candidate is: the probabilities of its `loan_{k}` Choice
+ * averaged with those of `loan_{k}~reversed`, the same Choice with its options in reverse order,
+ * since Jev leans toward the option listed first. Undefined unless both were answered.
  */
-const loanVerdict = (answer: ChoiceResponse): Omit<LoanVerdict, "source"> => ({
-  value: answer.choice as LoanMeaning,
-  probability: answer.probabilities[answer.choice] ?? 0
-})
+export const loanMeanings = (
+  answers: Readonly<Record<string, unknown>>,
+  k: number
+): Record<LoanMeaning, number> | undefined => {
+  const forward = answers[`loan_${k}`] as ChoiceResponse | undefined
+  const backward = answers[`loan_${k}${REVERSED}`] as ChoiceResponse | undefined
+  if (forward === undefined || backward === undefined) return undefined
+  const mean = (meaning: LoanMeaning) =>
+    ((forward.probabilities[meaning] ?? 0) + (backward.probabilities[meaning] ?? 0)) / 2
+  return { same: mean("same"), divergent: mean("divergent"), not_english: mean("not_english") }
+}
+
+/**
+ * A loan's verdict: its likeliest meaning and that meaning's probability, which the display rule
+ * reads (`loanShown`), rather than a Choice's confidence, which says how peaked the answer is.
+ * Only the likeliest meaning can reach the 0.7 the app shows at, so the rule needs no other.
+ */
+const loanVerdict = (meanings: Record<LoanMeaning, number>): Omit<LoanVerdict, "source"> => {
+  const value = LOAN_MEANINGS.reduce((best, meaning) => (meanings[meaning] > meanings[best] ? meaning : best))
+  return { value, probability: meanings[value] }
+}
 
 /**
  * An English word's katakana loan, from Jev's answers about its candidates, in the order of their
@@ -231,13 +249,10 @@ export const interpretLoan = (
       (best, candidate) => (best === undefined || candidate.p > best.p ? candidate : best),
       undefined
     )
-  const answer =
-    likeliest !== undefined && likeliest.p >= loanIs
-      ? (answers[`loan_${likeliest.k}`] as ChoiceResponse | undefined)
-      : undefined
-  return likeliest === undefined || answer === undefined
+  const meanings = likeliest !== undefined && likeliest.p >= loanIs ? loanMeanings(answers, likeliest.k) : undefined
+  return likeliest === undefined || meanings === undefined
     ? { word: null, verdict: null }
-    : { word: likeliest.word, verdict: { ...loanVerdict(answer), source: "jev" } }
+    : { word: likeliest.word, verdict: { ...loanVerdict(meanings), source: "jev" } }
 }
 
 export interface SimilarJudgment {
