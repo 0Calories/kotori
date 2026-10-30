@@ -1,14 +1,11 @@
 import { useEffect, useState } from "react"
 import { View } from "react-native"
 import Animated, {
-  Easing,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
-  withRepeat,
   withSequence,
-  withSpring,
-  withTiming
+  withSpring
 } from "react-native-reanimated"
 import Svg, { Circle, Ellipse, G, Path, Text as SvgText } from "react-native-svg"
 import { type Mood, palette, shapes } from "../mascot/geometry.ts"
@@ -58,25 +55,13 @@ const Foot = ({ d }: { readonly d: string }) => (
 )
 
 /**
- * Kotori, the shima enaga. Bobs gently, blinks now and then, and changes
- * expression with `mood`. Stays still when the system asks for reduced motion.
+ * Kotori, the shima enaga. Blinks now and then and changes expression with
+ * `mood`. Stays still when the system asks for reduced motion.
  */
 export const Mascot = ({ size = 120, mood = "curious" }: { readonly size?: number; readonly mood?: Mood }) => {
   const reduceMotion = useReducedMotion()
-  const bob = useSharedValue(0)
   const hop = useSharedValue(0)
   const [blinking, setBlinking] = useState(false)
-
-  useEffect(() => {
-    if (reduceMotion) return
-    bob.value = withRepeat(
-      withSequence(
-        withTiming(-size * 0.025, { duration: 1400, easing: Easing.inOut(Easing.sin) }),
-        withTiming(0, { duration: 1400, easing: Easing.inOut(Easing.sin) })
-      ),
-      -1
-    )
-  }, [reduceMotion, size])
 
   useEffect(() => {
     if (reduceMotion || mood !== "celebrate") return
@@ -105,7 +90,7 @@ export const Mascot = ({ size = 120, mood = "curious" }: { readonly size?: numbe
     return () => clearTimeout(timer)
   }, [mood, reduceMotion])
 
-  const style = useAnimatedStyle(() => ({ transform: [{ translateY: bob.value + hop.value }] }))
+  const style = useAnimatedStyle(() => ({ transform: [{ translateY: hop.value }] }))
   const celebrating = mood === "celebrate"
 
   return (
@@ -131,23 +116,23 @@ export const Mascot = ({ size = 120, mood = "curious" }: { readonly size?: numbe
           ))}
           <Eyes mood={mood} blinking={blinking} />
           <Path d={shapes.beak} fill={palette.ink} />
-          {mood === "oops" ? <Path d="M171 46 q 7 10 0 15 q -7 -5 0 -15 Z" fill={palette.sky} /> : null}
+          {mood === "oops" ? <Path d="M29 46 q 7 10 0 15 q -7 -5 0 -15 Z" fill={palette.sky} /> : null}
           {mood === "sleepy" ? (
-            <SvgText x={164} y={38} fontSize={22} fontWeight="bold" fill={palette.sky}>
+            <SvgText x={25} y={38} fontSize={22} fontWeight="bold" fill={palette.sky}>
               z
             </SvgText>
           ) : null}
           {mood === "thinking" ? (
             <G opacity={0.85}>
-              <Circle cx={160} cy={37} r={4} fill={palette.shade} />
-              <Circle cx={171} cy={24} r={5.5} fill={palette.shade} />
-              <Circle cx={185} cy={10} r={7.5} fill={palette.shade} />
+              <Circle cx={40} cy={37} r={4} fill={palette.shade} />
+              <Circle cx={29} cy={24} r={5.5} fill={palette.shade} />
+              <Circle cx={15} cy={10} r={7.5} fill={palette.shade} />
             </G>
           ) : null}
           {celebrating ? (
             <G fill={palette.blush}>
-              <Path d="M42 9 l 3 8 l 8 3 l -8 3 l -3 8 l -3 -8 l -8 -3 l 8 -3 Z" />
-              <Path d="M172 20 l 2 6 l 6 2 l -6 2 l -2 6 l -2 -6 l -6 -2 l 6 -2 Z" />
+              <Path d="M158 9 l 3 8 l 8 3 l -8 3 l -3 8 l -3 -8 l -8 -3 l 8 -3 Z" />
+              <Path d="M28 20 l 2 6 l 6 2 l -6 2 l -2 6 l -2 -6 l -6 -2 l 6 -2 Z" />
             </G>
           ) : null}
         </Svg>
