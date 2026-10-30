@@ -20,22 +20,22 @@ export const shapeOf = (nuance: Nuance) =>
   nuance.registerShape && nuance.registerShape.confidence >= CONFIDENT ? nuance.registerShape.value : "scaled"
 
 /**
- * How the word's register is shown: a slider per scale, except where a slider is the
- * wrong model — a word at a scale's far end, a fixed-register word (insults, ceremonial
- * wording) or a split one (clinical in one world, crude in the other) becomes chips.
- * Low-confidence judgments are left out entirely.
+ * How the word's register is shown: one line in words, 「カジュアル · 話し言葉」 or "Casual · Speech",
+ * for every word on both sides, which expands to a slider per scale where a slider is the right
+ * model. A word at a scale's far end or with a fixed register (insults, ceremonial wording) has
+ * no slider for it, since a slider implies a middle it doesn't have; a split one (clinical in
+ * one world, crude in the other) has no honest single label, so its line says so. Low-confidence
+ * judgments are left out entirely.
  */
-export const registerDisplay = (t: Strings, nuance: Nuance): { rows: Array<ScaleRow>; chips: Array<string> } => {
+export const registerDisplay = (t: Strings, nuance: Nuance): { line: Array<string>; rows: Array<ScaleRow> } => {
   const shape = shapeOf(nuance)
-  // A split register has no honest slider position and no single label: one chip says it all.
-  if (shape === "split") return { rows: [], chips: [t.nuance.contextSplit] }
+  if (shape === "split") return { line: [t.nuance.contextSplit], rows: [] }
+  const line: Array<string> = []
   const rows: Array<ScaleRow> = []
-  const chips: Array<string> = []
   if (nuance.formality.confidence >= CONFIDENT) {
     const value = nuance.formality.value
-    if (value === "vulgar" || value === "formal") chips.push(t.nuance.edge[value])
-    else if (shape === "fixed") chips.push(t.nuance.scale[value])
-    else {
+    line.push(t.nuance.scale[value])
+    if (shape === "scaled" && value !== "vulgar" && value !== "formal") {
       rows.push({
         left: t.nuance.poles.casual,
         right: t.nuance.poles.formal,
@@ -47,8 +47,8 @@ export const registerDisplay = (t: Strings, nuance: Nuance): { rows: Array<Scale
   }
   if (nuance.medium.confidence >= CONFIDENT) {
     const value = nuance.medium.value
-    if (value === "spoken" || value === "written") chips.push(t.nuance.edge[value])
-    else if (shape !== "fixed") {
+    line.push(t.nuance.mediumScale[value])
+    if (shape === "scaled" && value === "both") {
       rows.push({
         left: t.nuance.poles.spoken,
         right: t.nuance.poles.written,
@@ -58,7 +58,7 @@ export const registerDisplay = (t: Strings, nuance: Nuance): { rows: Array<Scale
       })
     }
   }
-  return { rows, chips }
+  return { line, rows }
 }
 
 /** The nuance worth saying in words: tags such as "Young people", and cautions such as "Slang". */
@@ -139,15 +139,18 @@ export const dictionaryTags = (sense: Sense) =>
 
 /**
  * Where each sense's register is shown. One card up top speaks for the word, from its first
- * judged sense, as a dictionary labels its headword; a sense whose register reads differently
- * carries its own line, and senses that agree, shown or behind "more", don't repeat it.
+ * judged sense, as a dictionary labels its headword; a sense carries its own line only where it
+ * says something the card doesn't. A sense too unsure of a scale to show it hasn't said anything
+ * different, so it doesn't get a line that only leaves that scale out.
  */
 export const registers = (t: Strings, senses: ReadonlyArray<Sense>) => {
   const featured = senses.find((sense) => sense.nuance !== null)
-  const lineOf = (nuance: Nuance) => JSON.stringify(registerDisplay(t, nuance))
-  const word = featured?.nuance ? lineOf(featured.nuance) : null
+  const word = new Set(featured?.nuance ? registerDisplay(t, featured.nuance).line : [])
   return {
     featured,
-    ownLine: (sense: Sense) => sense !== featured && sense.nuance !== null && lineOf(sense.nuance) !== word
+    ownLine: (sense: Sense) =>
+      sense !== featured &&
+      sense.nuance !== null &&
+      registerDisplay(t, sense.nuance).line.some((part) => !word.has(part))
   }
 }

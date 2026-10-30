@@ -1,7 +1,7 @@
 import type { Medium, Nuance, Sense } from "@kotori/domain"
 import { assert, describe, it } from "vitest"
 import { strings } from "../src/i18n/strings.ts"
-import { dictionaryTags, registers } from "../src/lib/nuance.ts"
+import { dictionaryTags, registerDisplay, registers } from "../src/lib/nuance.ts"
 
 const t = strings.ja
 
@@ -102,5 +102,27 @@ describe("the entry page's nuance", () => {
     const later = [sense(0, { nuance: null }), written(1), sense(2)]
     assert.strictEqual(registers(t, later).featured, later[1])
     assert.deepStrictEqual(later.map(registers(t, later).ownLine), [false, false, true])
+  })
+
+  it("says the register in one line for every word, with sliders only where they fit", () => {
+    // crap: crude and spoken, both at a scale's end, read as a line like any other word's.
+    const crap = nuance({
+      formality: { ...judged("vulgar" as const), position: 0 },
+      medium: { ...judged("spoken" as const), position: 0 }
+    })
+    assert.deepStrictEqual(registerDisplay(t, crap), { line: ["乱暴", "話し言葉"], rows: [] })
+    // A fixed register has no slider either, and a split one says so instead of a label.
+    const fixed = nuance({ registerShape: judged("fixed" as const) })
+    assert.deepStrictEqual(registerDisplay(t, fixed), { line: ["普通", "話し言葉と書き言葉"], rows: [] })
+    const split = nuance({ registerShape: judged("split" as const) })
+    assert.deepStrictEqual(registerDisplay(t, split).line, [t.nuance.contextSplit])
+    assert.strictEqual(registerDisplay(t, nuance()).rows.length, 2)
+  })
+
+  it("doesn't give a sense its own line for leaving out a scale it's unsure of", () => {
+    // tension: sense 2 unsure of its formality would read 「話し言葉と書き言葉」 alone.
+    const unsure = sense(1, { nuance: nuance({ formality: { ...judged("neutral" as const, 0.25), position: 0.5 } }) })
+    const tension = [sense(0), unsure]
+    assert.deepStrictEqual(tension.map(registers(t, tension).ownLine), [false, false])
   })
 })

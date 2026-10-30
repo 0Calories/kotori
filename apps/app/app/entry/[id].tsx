@@ -28,21 +28,13 @@ import { useTheme } from "../../src/theme/ThemeProvider.tsx"
 /** Web browsers without the Web Share API can't share, so the button is left out there. */
 const canShare = Platform.OS !== "web" || (typeof navigator !== "undefined" && "share" in navigator)
 
-const NO_CHIPS: ReadonlyArray<string> = []
-
-const NuanceNotes = ({
-  nuance,
-  register = NO_CHIPS
-}: {
-  readonly nuance: Nuance
-  readonly register?: ReadonlyArray<string>
-}) => {
+const NuanceNotes = ({ nuance }: { readonly nuance: Nuance }) => {
   const { t } = useSession()
   const { tags, cautions } = nuanceNotes(t, nuance)
-  if (register.length + tags.length + cautions.length === 0) return null
+  if (tags.length + cautions.length === 0) return null
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-      {[...register, ...tags].map((tag) => (
+      {tags.map((tag) => (
         <Chip key={tag} label={tag} />
       ))}
       {cautions.map((caution) => (
@@ -52,13 +44,19 @@ const NuanceNotes = ({
   )
 }
 
-/** The register in words — "Casual · Speech" — expandable to the labelled scales. */
+/** The register in words — "Casual · Speech" — expandable to the labelled scales where it has any. */
 const RegisterBlock = ({ nuance }: { readonly nuance: Nuance }) => {
   const theme = useTheme()
   const { t } = useSession()
   const [expanded, setExpanded] = useState(false)
-  const rows = registerDisplay(t, nuance).rows
-  if (rows.length === 0) return null
+  const { line, rows } = registerDisplay(t, nuance)
+  if (line.length === 0) return null
+  const text = (
+    <Text variant="small" weight="semibold" color="textMuted" style={{ flex: 1 }}>
+      {line.join(" · ")}
+    </Text>
+  )
+  if (rows.length === 0) return text
   return (
     <View style={{ gap: 12 }}>
       <PressableScale
@@ -67,9 +65,7 @@ const RegisterBlock = ({ nuance }: { readonly nuance: Nuance }) => {
         accessibilityLabel={expanded ? t.nuance.hideScales : t.nuance.showScales}
         style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
       >
-        <Text variant="small" weight="semibold" color="textMuted" style={{ flex: 1 }}>
-          {rows.map((row) => row.value).join(" · ")}
-        </Text>
+        {text}
         <Icon name={expanded ? "expand_less" : "expand_more"} size={20} color={theme.color.textMuted} />
       </PressableScale>
       {expanded ? <NuanceScales rows={rows} labelled /> : null}
@@ -80,14 +76,14 @@ const RegisterBlock = ({ nuance }: { readonly nuance: Nuance }) => {
 /** Where the word sits between casual and formal, and between speech and writing. */
 const NuanceCard = ({ nuance }: { readonly nuance: Nuance }) => {
   const { t } = useSession()
-  const { rows, chips } = registerDisplay(t, nuance)
+  const { line } = registerDisplay(t, nuance)
   const { tags, cautions } = nuanceNotes(t, nuance)
-  if (rows.length + chips.length + tags.length + cautions.length === 0) return null
+  if (line.length + tags.length + cautions.length === 0) return null
   return (
     <Animated.View entering={FadeInDown.delay(60).duration(350)}>
       <Card style={{ gap: 12, paddingHorizontal: 18, paddingVertical: 14 }}>
         <RegisterBlock nuance={nuance} />
-        <NuanceNotes nuance={nuance} register={chips} />
+        <NuanceNotes nuance={nuance} />
       </Card>
     </Animated.View>
   )
@@ -164,7 +160,6 @@ const SenseCard = ({
   )
   const open = (id: number) => router.push({ pathname: "/entry/[id]", params: { id: String(id) } })
   const tags = dictionaryTags(sense)
-  const registerChips = showScales && sense.nuance ? registerDisplay(t, sense.nuance).chips : []
   // The usage note in the learner's language: Japanese on an English word, English on a Japanese one.
   const usage = language === "en" ? sense.noteJa : sense.note
 
@@ -228,7 +223,7 @@ const SenseCard = ({
           </Text>
         ) : null}
         {showScales && sense.nuance ? <RegisterBlock nuance={sense.nuance} /> : null}
-        {showNuance && sense.nuance ? <NuanceNotes nuance={sense.nuance} register={registerChips} /> : null}
+        {showNuance && sense.nuance ? <NuanceNotes nuance={sense.nuance} /> : null}
         {usage ? (
           <Text jp={language === "en"} variant="small" color="textMuted">
             {usage}
