@@ -1,5 +1,5 @@
 {
-  "about": "The entries the golden set names, cut from JMdict_e.gz (created 2026-10-27) and the English dictionary built from data/eiwa, by tools/golden-fixture.ts. Regenerate it; don't edit it.",
+  "about": "The entries the golden set names, cut from JMdict_e.gz (created 2026-10-27) and the English dictionary built from data/eiwa, by tools/golden-fixture.ts. Regenerate it; don't edit it. Excerpts of JMdict (© EDRDG), Japanese Wiktionary and FrequencyWords, shared under CC BY-SA 4.0, and of EJDict-hand (CC0): see NOTICE.md beside this file.",
   "tags": {
     "X": "rude or X-rated term (not displayed in educational software)",
     "abbr": "abbreviation",
