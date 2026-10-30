@@ -6,7 +6,7 @@ import { Platform, View } from "react-native"
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useT } from "../session/SessionProvider.tsx"
-import { theme } from "../theme/tokens.ts"
+import { fade, theme } from "../theme/tokens.ts"
 import { Icon, type IconName } from "./Icon.tsx"
 import { PressableScale } from "./PressableScale.tsx"
 import { Text } from "./Text.tsx"
@@ -19,10 +19,6 @@ const ICONS: Record<string, IconName> = {
   check: "spellcheck",
   review: "bookmarks"
 }
-
-/** `#RRGGBB` at the given opacity, for fading the page into the bar. */
-const fade = (hex: string, alpha: number) =>
-  `rgba(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(", ")}, ${alpha})`
 
 const Tab = ({
   name,

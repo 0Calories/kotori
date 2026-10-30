@@ -1,11 +1,15 @@
 import { Platform } from "react-native"
 
+/** `#RRGGBB` at the given opacity. */
+export const fade = (hex: string, alpha: number) =>
+  `rgba(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(", ")}, ${alpha})`
+
 /**
- * Kotori's palette is snow and young bamboo (wakatake), with one warm accent.
- * Every lighter tint and darker shade of green is drawn from Wakatake 500 at
- * the same hue.
+ * Kotori's default palette is snow and young bamboo (wakatake), with one warm
+ * accent. Every lighter tint and darker shade of green is drawn from Wakatake
+ * 500 at the same hue.
  */
-const color = {
+const wakatake = {
   /** Snow: the screen background. */
   background: "#F7FAF7",
   surface: "#FFFFFF",
@@ -54,7 +58,42 @@ const color = {
   overlay: "rgba(19, 32, 26, 0.35)"
 }
 
-export type Palette = typeof color
+export type Palette = typeof wakatake
+
+/**
+ * Sky (sora): the blue behind the app icon in place of Wakatake 500. Every
+ * other step, and every neutral wakatake tinges green, keeps its OKLCH
+ * lightness turned to the sky's hue, so each contrast above still holds.
+ */
+const sora: Palette = {
+  ...wakatake,
+  background: "#F6FAFC",
+  surfaceMuted: "#EBF1F6",
+  border: "#D5E0E7",
+  divider: "#E8EEF3",
+  hairline: "rgba(19, 30, 38, 0.05)",
+  ring: "rgba(19, 30, 38, 0.07)",
+  outline: "rgba(19, 30, 38, 0.08)",
+  track: "rgba(19, 30, 38, 0.12)",
+  ink: "#131E26",
+  text: "#131E26",
+  textMuted: "#515C64",
+  textFaint: "#666F76",
+  /** The icon's background. */
+  primary: "#94C1E2",
+  primaryPressed: "#76A3C3",
+  primaryTint: "#DAEEFE",
+  primarySoft: "#C1DFF6",
+  primaryDark: "#34576F",
+  primaryDeep: "#223C4F",
+  onPrimary: "#131E26",
+  selected: "rgba(19, 30, 38, 0.075)",
+  shadow: "#131E26",
+  overlay: "rgba(19, 30, 38, 0.35)"
+}
+
+/** Chosen when the app is built: `EXPO_PUBLIC_THEME=sora` for sky, wakatake otherwise. */
+const color = process.env.EXPO_PUBLIC_THEME === "sora" ? sora : wakatake
 
 const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, xxxl: 48 } as const
 
@@ -125,7 +164,7 @@ const shadow = (elevation: 1 | 2 | 3) => {
   const opacity = [0, 0.4, 0.35, 0.42][elevation]!
   return (
     Platform.select({
-      web: { boxShadow: `${web} rgba(19,32,26, ${opacity})` },
+      web: { boxShadow: `${web} ${fade(color.shadow, opacity)}` },
       default: {
         shadowColor: color.shadow,
         shadowOpacity: [0, 0.07, 0.1, 0.14][elevation]!,

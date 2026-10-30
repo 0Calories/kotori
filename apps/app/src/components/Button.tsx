@@ -7,7 +7,7 @@ import { Text } from "./Text.tsx"
 export interface ButtonProps {
   readonly label: string
   readonly onPress?: () => void
-  /** primary: wakatake with ink text. dark: ink, for the action that finishes a flow. */
+  /** primary: the palette's 500 with ink text. dark: ink, for the action that finishes a flow. */
   readonly variant?: "primary" | "dark" | "secondary" | "soft" | "ghost"
   readonly size?: "md" | "lg" | "sm"
   readonly icon?: IconName
