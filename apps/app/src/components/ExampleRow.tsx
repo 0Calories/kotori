@@ -3,6 +3,7 @@ import { View } from "react-native"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { AudioButton } from "./AudioButton.tsx"
 import { Furigana } from "./Furigana.tsx"
+import { Icon } from "./Icon.tsx"
 import { MarkedText } from "./MarkedText.tsx"
 import { Text } from "./Text.tsx"
 
@@ -59,9 +60,15 @@ export const ExampleRow = ({
           </>
         )}
         {note ? (
-          <Text variant="caption" color="textFaint">
-            {note}
-          </Text>
+          // Set apart from the translation above it, which it otherwise reads like.
+          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 5, marginTop: 4 }}>
+            <View style={{ paddingTop: 1 }}>
+              <Icon name="info" size={14} color={theme.color.textFaint} />
+            </View>
+            <Text jp={english} variant="caption" color="textFaint" style={{ flex: 1 }}>
+              {note}
+            </Text>
+          </View>
         ) : null}
       </View>
       <AudioButton url={english ? example.translationAudioUrl : example.audioUrl} />
