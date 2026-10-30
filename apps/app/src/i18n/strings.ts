@@ -527,7 +527,8 @@ const ja: Strings = {
     contextSplit: "場面で印象が大きく変わる",
     english: {
       variety: { universal: "", american: "アメリカ英語", british: "イギリス英語" },
-      profanity: { none: "", mild: "ややくだけた言葉", strong: "強い言葉・注意", avoid: "侮蔑語・使わない" },
+      // くだけた is casual, not coarse, and 強い言葉 is harsh wording, not swearing.
+      profanity: { none: "", mild: "やや下品な言葉", strong: "かなり下品な言葉・注意", avoid: "侮蔑語・使わない" },
       loanMatches: (loan: string) => `カタカナ語「${loan}」と同じ意味`,
       loanDiverges: (loan: string) => `カタカナ語「${loan}」とは意味が違う`
     },
