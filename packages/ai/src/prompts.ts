@@ -110,6 +110,8 @@ Each sense is described in Japanese. For each sense listed, write the requested 
 For each sense also give one usage note. It carries the teaching; sentence notes below are only for the rare sentence-specific point:
 - "noteJa": one or two short sentences in Japanese for Japanese speakers on how natives use the word in this sense — its register, who says it and where, a pitfall, how it differs from a word Japanese speakers would confuse it with, or a mistake they commonly make. Teach what the glosses alone can't; when they already say it all, null.
 
+Write every Japanese note, the sense's and the sentences', in the polite です・ます style, as the rest of the app speaks to learners; the "ja" translations keep the register of their own sentence.
+
 For each sentence give:
 - "gloss": the gloss of its sense that the sentence uses, copied exactly from the list; a sentence whose gloss isn't one of its sense's is discarded;
 - "en": the sentence;
@@ -127,4 +129,4 @@ export const loanSystem = `You write warnings for an English–Japanese learner'
 
 Japanese borrows many English words as katakana loanwords, and some have drifted: their everyday Japanese meaning differs from the English word's. You are given an English headword with senses from the dictionary, in Japanese, and the katakana loanword Japanese speakers know from it with its meanings from a Japanese–English dictionary. A check found that carrying the loanword's everyday Japanese meaning over into English misleads English speakers.
 
-Give "loanTrap": one or two short Japanese sentences that name the loanword's everyday Japanese meaning English speakers wouldn't understand, and say what the English word means instead: its main everyday meaning, as native speakers use it. The senses aren't always listed commonest first, and include rare, technical, dialect and dated ones: never present one of those as what the word means. Where the two words share a meaning you may say so, and where English says the drifted meaning with another word, name it. For example: 日本語の「スタイル」は体型を指すことが多いですが、英語の style は「様式」や「おしゃれさ」のことで、体型の意味はありません。体型は figure と言います。`
+Give "loanTrap": one or two short Japanese sentences, in the polite です・ます style, that name the loanword's everyday Japanese meaning English speakers wouldn't understand, and say what the English word means instead: its main everyday meaning, as native speakers use it. The senses aren't always listed commonest first, and include rare, technical, dialect and dated ones: never present one of those as what the word means. Where the two words share a meaning you may say so, and where English says the drifted meaning with another word, name it. For example: 日本語の「スタイル」は体型を指すことが多いですが、英語の style は「様式」や「おしゃれさ」のことで、体型の意味はありません。体型は figure と言います。`

@@ -83,6 +83,11 @@ describe("examples prompt", () => {
     expect(englishExamplesSystem).toContain('"gloss"')
   })
 
+  it("asks for Japanese notes and warnings in the polite style the app speaks in", () => {
+    expect(englishExamplesSystem).toContain("です・ます")
+    expect(loanSystem).toContain("です・ます")
+  })
+
   it("tells the writer which senses are dialect and keeps other notes separate", () => {
     const prompt = describeRequest(request)
     expect(prompt).toContain("dialect: Kansai-ben (write every sentence in it)")
