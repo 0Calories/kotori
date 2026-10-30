@@ -1,4 +1,4 @@
-import { type EntryRecord, type FormRecord, normalizeJapaneseGloss, type SenseRecord } from "@kotori/db"
+import { type EntryRecord, type FormRecord, normalizeGloss, normalizeJapaneseGloss, type SenseRecord } from "@kotori/db"
 import type { Inflection } from "./tags.ts"
 import type { FormOf, InflectedForm, References, Word } from "./words.ts"
 
@@ -146,12 +146,40 @@ const placeReferences = (words: ReadonlyArray<Built>) => {
 const LITTLE_USED = new Set(["arch", "obs", "rare", "dated", "hist"])
 
 /**
- * Senses in the order JMDict gives them, commonest first: Wiktionary often lists the oldest
- * first ("sad": 満足した, obsolete), so archaic, obsolete, rare and dated senses go last.
+ * The Japanese words a gloss may name, for matching it to JMDict's spellings: the gloss as
+ * looked up ("～を食べる" -> "食べる"), and without a な, の, に, と, だ or する ending, as
+ * JMDict writes na-adjectives, adverbs and suru verbs bare ("利口な", "勉強する").
  */
-const commonestFirst = (senses: ReadonlyArray<SenseRecord>) => {
+const namedWords = (gloss: string) => {
+  const word = normalizeJapaneseGloss(gloss)
+  const bare = word.replace(/(?:をする|する|な|の|に|と|だ)$/u, "")
+  return bare.length > 0 && bare !== word ? [word, bare] : [word]
+}
+
+/**
+ * Senses commonest first, as JMDict lists them. Wiktionary often lists the oldest or most
+ * literal senses first ("kid": a young goat; "coffee": the coffee plant; "smart": to sting),
+ * and no common Japanese word translates those. So a sense is attested when it names, among
+ * its glosses, a common Japanese word that JMDict translates with the English word
+ * (`backTranslations`), weighted by that word's best weight. The first attested sense leads;
+ * the other attested senses follow by weight ("fall": 秋 rises from twelfth to sixth); the rest
+ * keep Wiktionary's order after them; and archaic, obsolete, rare and dated senses go last
+ * ("sad": 満足した, obsolete). A sense's weight is its heaviest word's, not their sum: summed,
+ * senses listing more synonyms won ("cool" led with 冷淡な, "kid" with からかう).
+ */
+export const commonestFirst = (
+  senses: ReadonlyArray<SenseRecord>,
+  attested: ReadonlyMap<string, number> = new Map()
+): Array<SenseRecord> => {
   const littleUsed = (sense: SenseRecord) => sense.misc.some((tag) => LITTLE_USED.has(tag))
-  return [...senses.filter((sense) => !littleUsed(sense)), ...senses.filter(littleUsed)]
+  const weight = (sense: SenseRecord) =>
+    Math.max(0, ...sense.glosses.flatMap((gloss) => namedWords(gloss.text).map((word) => attested.get(word) ?? 0)))
+  const ranked = senses.map((sense, index) => ({ sense, index, weight: weight(sense), little: littleUsed(sense) }))
+  const lead = ranked.find((sense) => !sense.little && sense.weight > 0)
+  const rank = (sense: (typeof ranked)[number]) => (sense.little ? 3 : sense === lead ? 0 : sense.weight > 0 ? 1 : 2)
+  return ranked
+    .toSorted((a, b) => rank(a) - rank(b) || (rank(a) === 1 ? b.weight - a.weight : 0) || a.index - b.index)
+    .map(({ sense }) => sense)
 }
 
 const pronoun = (word: Built) => word.senses.some((sense) => sense.pos.includes("pn"))
@@ -196,7 +224,8 @@ const form = (
 export const toEntries = (
   words: ReadonlyArray<Built>,
   frequency: ReadonlyMap<string, number>,
-  existing: ReadonlyMap<string, number>
+  existing: ReadonlyMap<string, number>,
+  translations: ReadonlyMap<string, ReadonlyMap<string, number>> = new Map()
 ): Array<EntryRecord & { readonly source: Source }> => {
   const lowercase = new Map(
     words.filter((word) => word.headword === word.headword.toLowerCase()).map((word) => [word.headword, word])
@@ -226,7 +255,11 @@ export const toEntries = (
         ...spellings.map((spelling) => form(spelling, "spelling", false, [])),
         ...[...word.inflections].map(([text, tags]) => form(text, "inflection", false, [...tags]))
       ],
-      senses: commonestFirst(sensesOf(word))
+      // Back-translations name lowercase words; a capitalised headword is a name or a title.
+      senses: commonestFirst(
+        sensesOf(word),
+        word.headword === word.headword.toLowerCase() ? translations.get(normalizeGloss(word.headword)) : undefined
+      )
     }
   })
 }

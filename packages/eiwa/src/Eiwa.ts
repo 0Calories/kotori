@@ -142,7 +142,12 @@ const build = Effect.fnUntraced(function* (options: ImportOptions, existing: Rea
   yield* eachJmdictEntry(options.jmdict, reader.add)
   const jmdict = reader.finish()
 
-  let entries = toEntries(mergeSources({ wiktionary, ejdict, jmdict, frequency }), frequency, existing)
+  let entries = toEntries(
+    mergeSources({ wiktionary, ejdict, jmdict, frequency }),
+    frequency,
+    existing,
+    reader.backTranslations()
+  )
   if (options.commonOnly) entries = entries.filter((entry) => entry.common)
   if (options.limit !== undefined) entries = entries.slice(0, options.limit)
   return entries
