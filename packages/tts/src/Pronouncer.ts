@@ -31,17 +31,16 @@ export class Pronouncer extends Context.Service<
   Pronouncer,
   {
     readonly configured: boolean
-    /** The languages example sentences are voiced in. */
-    readonly exampleLanguages: ReadonlyArray<Language>
     /**
      * Returns the audio key for `text`, synthesising it only if this voice hasn't
      * spoken it yet. Without a voice, the language's first dictionary voice reads it.
      */
     speak(text: string, language: Language, voice?: Voice): Effect.Effect<string, TtsError>
     /**
-     * Audio for an entry's headword and example sentences, voices chosen per sentence. Only
-     * what is missing is voiced: existing clips are left as they are, so re-running fills gaps
-     * (a newly voiced language, a run cut short) without re-casting or paying twice.
+     * Audio for an entry's headword and example sentences in the entry's language (the one
+     * its learners are learning), voices chosen per sentence. Only what is missing is voiced:
+     * existing clips are left as they are, so re-running fills gaps (a run cut short) without
+     * re-casting or paying twice.
      */
     enrichEntry(entryId: number): Effect.Effect<AudioSummary, TtsError>
   }
@@ -57,14 +56,6 @@ export class Pronouncer extends Context.Service<
       const casts = yield* VoiceCasts
       const budget = yield* Config.Int("KOTORI_AUDIO_MONTHLY_CHARS").pipe(Config.withDefault(50_000))
       const headwordCap = yield* Config.Int("KOTORI_HEADWORD_VOICES").pipe(Config.withDefault(3))
-      // Japanese is always voiced. English is too, for Japanese speakers learning it, unless
-      // KOTORI_AUDIO_LANGUAGES=ja opts it out. A language nobody is cast in can't be voiced.
-      const voicedEnglish = (yield* Config.String("KOTORI_AUDIO_LANGUAGES").pipe(Config.withDefault("ja,en")))
-        .split(",")
-        .some((language) => language.trim() === "en")
-      const exampleLanguages = (voicedEnglish ? (["ja", "en"] as const) : (["ja"] as const)).filter((language) =>
-        casts[language].some((voice) => voice.providerId !== null)
-      )
 
       const defaultVoice = (language: Language): Effect.Effect<Voice, TtsError> => {
         const voice = headwordVoices(language, casts)[0]
@@ -175,15 +166,19 @@ export class Pronouncer extends Context.Service<
           characters += text.length
         }
 
-        // The kana reading pins down the pronunciation; kanji alone can be ambiguous (生, 今日…).
+        // Learners hear the language they're learning: Japanese words and their sentences in
+        // Japanese, English words and theirs in English. A Japanese headword is read from its
+        // kana, which pins down the pronunciation where kanji alone is ambiguous (生, 今日…).
         // Every dictionary voice reads it, so learners hear the word from more than one speaker.
         // Clips made before casting (no voice) count as done, so old entries aren't voiced again.
+        const language = entry.language
+        const spoken = language === "ja" ? entry.reading : entry.headword
         const voiced = (yield* repo.entryAudio([entryId])).get(entryId) ?? []
         const uncast = voiced.some((clip) => clip.voice === null)
-        for (const voice of headwordVoices("ja", casts).slice(0, Math.max(headwordCap, 1))) {
+        for (const voice of headwordVoices(language, casts).slice(0, Math.max(headwordCap, 1))) {
           if (uncast || voiced.some((clip) => clip.voice === voice.id)) continue
-          yield* repo.linkEntryAudio(entryId, yield* speak(entry.reading, "ja", voice))
-          track(entry.reading)
+          yield* repo.linkEntryAudio(entryId, yield* speak(spoken, language, voice))
+          track(spoken)
         }
 
         const nuance = new Map((yield* repo.nuanceFor([entryId])).map((row) => [row.sense, row.nuance]))
@@ -193,8 +188,7 @@ export class Pronouncer extends Context.Service<
           examples,
           (example) =>
             Effect.gen(function* () {
-              const missing = exampleLanguages.filter((language) => !linked.has(`${example.id}:${language}`))
-              if (missing.length === 0) return
+              if (linked.has(`${example.id}:${language}`)) return
               const sense = entry.senses[example.sense]
               const brief = briefFor({
                 sentence: example,
@@ -205,14 +199,12 @@ export class Pronouncer extends Context.Service<
                 },
                 nuance: nuance.get(example.sense) ?? null
               })
-              for (const language of missing) {
-                const decision = yield* decide(example, brief, language)
-                if (Option.isNone(decision)) continue
-                const text = language === "ja" ? example.ja : example.en
-                const key = yield* speak(text, language, decision.value.voice)
-                yield* repo.linkExampleAudio(example.id, language, key, decision.value.casting)
-                track(text)
-              }
+              const decision = yield* decide(example, brief, language)
+              if (Option.isNone(decision)) return
+              const text = language === "ja" ? example.ja : example.en
+              const key = yield* speak(text, language, decision.value.voice)
+              yield* repo.linkExampleAudio(example.id, language, key, decision.value.casting)
+              track(text)
             }),
           { concurrency: 2, discard: true }
         )
@@ -220,7 +212,7 @@ export class Pronouncer extends Context.Service<
         return { clips, characters }
       })
 
-      return Pronouncer.of({ configured: tts.configured, exampleLanguages, speak, enrichEntry })
+      return Pronouncer.of({ configured: tts.configured, speak, enrichEntry })
     })
   )
 }

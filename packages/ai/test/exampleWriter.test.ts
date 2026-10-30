@@ -2,9 +2,10 @@ import { Effect, Layer } from "effect"
 import { describe, expect, it } from "vitest"
 import { Claude, describeRequest, ExamplesOutput, ExampleWriter } from "../src/index.ts"
 import type { ExampleRequest } from "../src/index.ts"
-import { examplesSystem } from "../src/prompts.ts"
+import { englishExamplesSystem, examplesSystem } from "../src/prompts.ts"
 
 const request: ExampleRequest = {
+  language: "ja",
   headword: "あかん",
   reading: "あかん",
   otherForms: [],
@@ -53,9 +54,9 @@ const fakeClaude = (output: typeof ExamplesOutput.Type) => {
   return { asked, layer }
 }
 
-const write = (output: typeof ExamplesOutput.Type) => {
-  const claude = fakeClaude(output)
-  return Effect.flatMap(ExampleWriter, (writer) => writer.write(request))
+const write = (output: unknown, to: ExampleRequest = request) => {
+  const claude = fakeClaude(output as typeof ExamplesOutput.Type)
+  return Effect.flatMap(ExampleWriter, (writer) => writer.write(to))
     .pipe(Effect.provide(ExampleWriter.layer.pipe(Layer.provide(claude.layer))), Effect.runPromise)
     .then((examples) => ({ examples, asked: claude.asked }))
 }
@@ -107,5 +108,57 @@ describe("ExampleWriter.write", () => {
     const { asked } = await write({ senses: [] })
     expect(asked[0]?.system).toBe(examplesSystem)
     expect(asked[0]?.prompt).toBe(describeRequest(request))
+  })
+})
+
+describe("ExampleWriter.write for English words", () => {
+  const awkward: ExampleRequest = {
+    language: "en",
+    headword: "awkward",
+    reading: "/ˈɔːkwɚd/",
+    otherForms: [],
+    perSense: 2,
+    senses: [{ index: 0, glosses: ["ぎこちない", "気まずい"], partsOfSpeech: ["adjective"], notes: [], dialects: [] }]
+  }
+
+  it("asks for English sentences with Japanese translations and notes", async () => {
+    const { examples, asked } = await write(
+      {
+        senses: [
+          {
+            sense: 0,
+            examples: [
+              {
+                en: "There was an awkward silence.",
+                ja: "気まずい沈黙が流れた。",
+                formality: "neutral",
+                speaker: { gender: "unspecified", age: "adult" },
+                medium: "narration",
+                variety: null,
+                tone: "neutral",
+                noteJa: "「awkward silence」は決まった言い方。"
+              }
+            ]
+          }
+        ]
+      },
+      awkward
+    )
+    expect(asked[0]?.system).toBe(englishExamplesSystem)
+    expect(asked[0]?.prompt).toContain("Headword: awkward (/ˈɔːkwɚd/)")
+    expect(asked[0]?.prompt).toContain("0. ぎこちない; 気まずい")
+    expect(examples[0]).toMatchObject({
+      en: "There was an awkward silence.",
+      ja: "気まずい沈黙が流れた。",
+      // No readings on the Japanese side: the learner reads it natively.
+      furigana: "気まずい沈黙が流れた。",
+      note: null,
+      noteJa: "「awkward silence」は決まった言い方。",
+      variety: null
+    })
+  })
+
+  it("leaves out an empty reading", () => {
+    expect(describeRequest({ ...awkward, reading: "" })).toContain("Headword: awkward\n")
   })
 })

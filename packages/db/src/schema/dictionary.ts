@@ -1,27 +1,38 @@
-import type { SQL } from "drizzle-orm"
+import type { Language } from "@kotori/domain"
+import { type SQL, sql } from "drizzle-orm"
 import { boolean, foreignKey, index, integer, pgEnum, primaryKey, text } from "drizzle-orm/pg-core"
 import { bytewiseText, englishDocument, table, tsvector } from "./columns.ts"
 
-// The dictionary is seeded from JMDict and read everywhere. Entries are JMDict's own
-// units; forms, senses and glosses are ordered children with a `position`. The seeder
-// upserts entries and senses and replaces forms and glosses, so enrichment survives a reseed.
+// The dictionary is read everywhere and holds two of them: JMDict's Japanese words with
+// English glosses, and English words with Japanese glosses (see packages/eiwa). Entries
+// are each dictionary's own units; forms, senses and glosses are ordered children with a
+// `position`. The seeders upsert entries and senses and replace forms and glosses, so
+// enrichment survives a reseed.
 
-/** Declared in display order: an enum sorts by declaration, so `ORDER BY kind` puts kanji before kana. */
-export const formKind = pgEnum("form_kind", ["kanji", "kana"])
+export const language = pgEnum("language", ["en", "ja"])
+
+/**
+ * Declared in display order: an enum sorts by declaration, so `ORDER BY kind` puts kanji
+ * before kana. English words have spellings (the headword first) and inflections.
+ */
+export const formKind = pgEnum("form_kind", ["kanji", "kana", "spelling", "inflection"])
 
 export const entries = table(
   "entries",
   {
-    /** JMDict's `ent_seq`. */
+    /** JMDict's `ent_seq`; English entries are numbered from 100,000,000 (see packages/eiwa). */
     id: integer().primaryKey(),
+    /** The headword's language: Japanese for JMDict, English for the English dictionary. */
+    language: language().$type<Language>().notNull().default("ja"),
     headword: text().notNull(),
+    /** Kana for Japanese words; IPA for English ones, or empty when the sources have none. */
     reading: text().notNull(),
-    /** Carries one of JMDict's "common" markers (news1, ichi1, spec1, gai1). */
+    /** Carries one of JMDict's "common" markers (news1, ichi1, spec1, gai1), or is a frequent English word. */
     common: boolean().notNull().default(false),
-    /** JMDict's frequency markers folded into one number, so search and enrichment can favour words people use. */
+    /** How often the word is used, folded into one number, so search and enrichment can favour words people use. */
     priority: integer().notNull().default(0)
   },
-  (t) => [index("entries_priority").on(t.priority.desc(), t.id)]
+  (t) => [index("entries_priority").on(t.language, t.priority.desc(), t.id)]
 )
 
 export const forms = table(
@@ -34,7 +45,7 @@ export const forms = table(
     position: integer().notNull(),
     text: bytewiseText().notNull(),
     common: boolean().notNull().default(false),
-    /** JMDict `ke_inf` / `re_inf` codes, e.g. "rK" (rarely-used kanji), "sk" (search-only). */
+    /** JMDict `ke_inf` / `re_inf` codes, e.g. "rK" (rarely-used kanji), "sk" (search-only); for an inflection, what it is ("past"). */
     tags: text().array().notNull().default([]),
     /** JMDict priority markers: news1, ichi1, spec1, gai1, nf01… */
     priorities: text().array().notNull().default([]),
@@ -42,7 +53,12 @@ export const forms = table(
     restrictions: text().array().notNull().default([]),
     noKanji: boolean().notNull().default(false)
   },
-  (t) => [primaryKey({ columns: [t.entryId, t.kind, t.position] }), index("forms_text").on(t.text)]
+  (t) => [
+    primaryKey({ columns: [t.entryId, t.kind, t.position] }),
+    index("forms_text").on(t.text),
+    // English is looked up regardless of case ("polish" finds Polish); bytewise, like `text`, for prefixes.
+    index("forms_folded").on(sql`lower(${t.text})`)
+  ]
 )
 
 export const senses = table(
@@ -78,7 +94,10 @@ export const glosses = table(
     text: text().notNull(),
     /** JMDict gloss type: "lit", "fig", "expl", "tm", or null for an ordinary gloss. */
     type: text(),
-    /** `normalizeGloss(text)`: "to eat (a meal)" -> "eat", for exact EN->JP lookup and finding words that share a meaning. */
+    /**
+     * The gloss as looked up, for exact lookup and finding words that share a meaning: `normalizeGloss`
+     * for English ("to eat (a meal)" -> "eat"), `normalizeJapaneseGloss` for Japanese ("～を食べる。" -> "食べる").
+     */
     norm: text().notNull(),
     /** Full-text index over `text`, maintained by Postgres. */
     document: tsvector()

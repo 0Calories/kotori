@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { chooseHeadword, parseEntries, parseTags, priorityScore } from "../src/index.ts"
+import { chooseHeadword, entrySplitter, parseEntries, parseTags, priorityScore } from "../src/index.ts"
 
 const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE JMdict [
@@ -75,5 +75,17 @@ describe("JMDict parser", () => {
       []
     )
     expect(headword).toBe("食う")
+  })
+})
+
+describe("entrySplitter", () => {
+  it("cuts out every entry, wherever the chunks split the document", () => {
+    const whole = Array.from(parseEntries(xml))
+    for (const size of [1, 2, 3, 5, 7, 64, 1000]) {
+      const split = entrySplitter()
+      const entries = []
+      for (let start = 0; start < xml.length; start += size) entries.push(...split(xml.slice(start, start + size)))
+      expect(entries).toEqual(whole)
+    }
   })
 })

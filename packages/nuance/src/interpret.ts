@@ -13,7 +13,10 @@ import type {
 import type { ChoiceResponse, NoulResponse, ScoreResponse, SystemOneResult } from "@typesafe-ai/sdk"
 import { FORMALITY_LEVELS, MEDIUM_LEVELS, type SenseQuestions } from "./questions.ts"
 
-export type SenseAnswers = SystemOneResult<SenseQuestions>["answers"]
+export type SenseAnswers = Omit<SystemOneResult<SenseQuestions>["answers"], "keigo"> & {
+  /** Absent for English words: English has no keigo. */
+  readonly keigo?: ChoiceResponse
+}
 
 /**
  * JMDict's editors tag many senses with usage notes (hon, col, male, arch…).
@@ -96,7 +99,10 @@ const choice = <L extends string>(answer: ChoiceResponse, tagged: L | undefined)
 export const interpretSense = (answers: SenseAnswers, misc: ReadonlyArray<string>): Nuance => ({
   formality: scale(FORMALITY_LEVELS, answers.formality, firstTag(misc, FORMALITY_TAGS)),
   medium: scale(MEDIUM_LEVELS, answers.medium, firstTag(misc, MEDIUM_TAGS)),
-  keigo: choice<Keigo>(answers.keigo, firstTag(misc, KEIGO_TAGS)),
+  keigo:
+    answers.keigo === undefined
+      ? { value: "none", confidence: 1, source: "jmdict" }
+      : choice<Keigo>(answers.keigo, firstTag(misc, KEIGO_TAGS)),
   gender: choice<Gender>(answers.gender, firstTag(misc, GENDER_TAGS)),
   age: choice<AgeGroup>(answers.age, firstTag(misc, AGE_TAGS)),
   currency: choice<Currency>(answers.currency, firstTag(misc, CURRENCY_TAGS)),

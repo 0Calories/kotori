@@ -1,6 +1,7 @@
 import * as Schema from "effect/Schema"
 import { Register } from "./Coach.ts"
 import { EntryId } from "./Dictionary.ts"
+import { Language } from "./Language.ts"
 
 export const NoteId = Schema.String.pipe(Schema.brand("NoteId"))
 export type NoteId = typeof NoteId.Type
@@ -32,8 +33,11 @@ export const WordNote = Schema.Struct({
   kind: Schema.Literal("word"),
   entryId: EntryId,
   senseIndex: Schema.Int,
+  /** The headword's language; absent on notes saved before the English dictionary, all of them Japanese words. */
+  language: Schema.optional(Language),
   headword: Schema.String,
   reading: Schema.String,
+  /** The glosses of the saved sense, in the other language from the headword. */
   meaning: Schema.String,
   /** A short nuance hint shown on production cards, e.g. "casual, spoken". */
   hint: Schema.NullOr(Schema.String),

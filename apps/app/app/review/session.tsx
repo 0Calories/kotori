@@ -13,6 +13,7 @@ import { Button, IconButton } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
 import { Chip, type Tone, useTone } from "../../src/components/Chip.tsx"
 import { Furigana } from "../../src/components/Furigana.tsx"
+import { Headword } from "../../src/components/Headword.tsx"
 import { Mascot } from "../../src/components/Mascot.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
@@ -46,17 +47,20 @@ const Faces = ({
   const recognize = card.template === "recognize"
 
   if (content.kind === "word") {
-    // Word notes come from the Japanese dictionary; which side is "target" depends on the learner.
-    const japanese = (
+    // The headword is in the language being learned. Notes saved before the English dictionary
+    // are all Japanese words, which Japanese speakers saved for their English glosses.
+    const language = content.language ?? "ja"
+    const learning = language === target
+    const headword = (
       <View style={{ alignItems: "center", gap: 4 }}>
-        {revealed || target === "en" ? (
-          <Text jp color="textMuted" size={18}>
-            {content.reading !== content.headword ? content.reading : " "}
+        {revealed || !learning ? (
+          <Text jp={language === "ja"} color="textMuted" size={18}>
+            {content.reading.length > 0 && content.reading !== content.headword ? content.reading : " "}
           </Text>
         ) : null}
-        <Text mincho size={52} style={{ lineHeight: 62 }} align="center">
+        <Headword language={language} size={language === "ja" ? 52 : 44} style={{ lineHeight: 62 }} align="center">
           {content.headword}
-        </Text>
+        </Headword>
       </View>
     )
     const meaning = (
@@ -67,13 +71,13 @@ const Faces = ({
         {content.hint ? <Chip tone="neutral" label={content.hint} /> : null}
       </View>
     )
-    const japaneseFirst = target === "ja" ? recognize : !recognize
-    const front = japaneseFirst ? japanese : meaning
-    const back = japaneseFirst ? meaning : japanese
+    const headwordFirst = learning ? recognize : !recognize
+    const front = headwordFirst ? headword : meaning
+    const back = headwordFirst ? meaning : headword
     return (
       <View style={{ gap: theme.space.xl, alignItems: "center" }}>
         <Text variant="label" color="textFaint">
-          {(japaneseFirst === (target === "ja") ? t.review.recallMeaning : t.review.recallWord).toUpperCase()}
+          {(headwordFirst === learning ? t.review.recallMeaning : t.review.recallWord).toUpperCase()}
         </Text>
         {front}
         {revealed ? (
@@ -83,11 +87,15 @@ const Faces = ({
           >
             <View style={{ height: 1, alignSelf: "stretch", backgroundColor: theme.color.border }} />
             {back}
-            {/* Learners hear the side they're learning: the headword, or for Japanese speakers its English. */}
-            {target === "en" ? (
-              <AudioButton speak={{ text: spokenGloss(content.meaning.split("; ")[0]!), language: "en" }} size={44} />
+            {/* Learners hear the side they're learning: the headword, or for an older note its English. */}
+            {learning ? (
+              content.audioUrl === null && language === "en" ? (
+                <AudioButton speak={{ text: content.headword, language }} size={44} />
+              ) : (
+                <AudioButton url={content.audioUrl} size={44} />
+              )
             ) : (
-              <AudioButton url={content.audioUrl} size={44} />
+              <AudioButton speak={{ text: spokenGloss(content.meaning.split("; ")[0]!), language: target }} size={44} />
             )}
             {content.example ? (
               <View

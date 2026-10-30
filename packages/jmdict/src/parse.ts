@@ -159,12 +159,35 @@ export const parseEntry = (block: string): EntryRecord => {
   const { headword, reading } = chooseHeadword(forms, senses)
   return {
     id: Number(first(block, "ent_seq")),
+    language: "ja",
     headword,
     reading,
     common: forms.some((form) => form.common),
     priority: Math.max(0, ...forms.map((form) => priorityScore(form.priorities))),
     forms,
     senses
+  }
+}
+
+/**
+ * Cuts entries out of a JMdict document arriving in chunks, so it never has to be held whole:
+ * each call takes the next chunk and returns the entries it completes, wherever chunks split.
+ */
+export const entrySplitter = () => {
+  let buffer = ""
+  return (chunk: string): Array<EntryRecord> => {
+    buffer += chunk
+    const entries: Array<EntryRecord> = []
+    let start = buffer.indexOf("<entry>")
+    let end = start === -1 ? -1 : buffer.indexOf("</entry>", start)
+    while (start !== -1 && end !== -1) {
+      entries.push(parseEntry(buffer.slice(start + "<entry>".length, end)))
+      start = buffer.indexOf("<entry>", end)
+      end = start === -1 ? -1 : buffer.indexOf("</entry>", start)
+    }
+    // Keep what may begin the next entry, which a chunk can end partway into ("<ent").
+    buffer = start === -1 ? buffer.slice(-"<entry>".length) : buffer.slice(start)
+    return entries
   }
 }
 

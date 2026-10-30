@@ -3,6 +3,7 @@ import type {
   CardId,
   EntryId,
   HowToSayRequest,
+  Language,
   NaturalnessRequest,
   NoteId,
   Rating,
@@ -13,9 +14,8 @@ import { call } from "./client.ts"
 
 export const keys = {
   health: ["health"] as const,
-  search: (q: string) => ["search", q] as const,
+  search: (q: string, language: Language) => ["search", language, q] as const,
   entry: (id: number) => ["entry", id] as const,
-  english: (term: string) => ["english", term] as const,
   notes: ["notes"] as const,
   queue: ["queue"] as const,
   stats: ["stats"] as const
@@ -24,9 +24,10 @@ export const keys = {
 export const useHealth = () =>
   useQuery({ queryKey: keys.health, queryFn: () => call((api) => api.health()), staleTime: 60_000 })
 
-export const useSearch = (q: string) =>
+/** Searches the dictionary of the language being learned, which the server reads from the profile. */
+export const useSearch = (q: string, language: Language) =>
   useQuery({
-    queryKey: keys.search(q),
+    queryKey: keys.search(q, language),
     queryFn: () => call((api) => api.dictionary.search({ query: { q, limit: 30 } })),
     enabled: q.trim().length > 0,
     placeholderData: keepPreviousData,
@@ -42,15 +43,6 @@ export const useEntry = (id: number) =>
       const enrichment = query.state.data?.enrichment
       return enrichment && Object.values(enrichment).includes("queued") ? 3000 : false
     }
-  })
-
-/** An English word for Japanese speakers, checked again while its examples are being written. */
-export const useEnglish = (term: string) =>
-  useQuery({
-    queryKey: keys.english(term),
-    queryFn: () => call((api) => api.dictionary.english({ query: { term } })),
-    enabled: term.trim().length > 0,
-    refetchInterval: (query) => (query.state.data?.waiting ? 3000 : false)
   })
 
 export const useNotes = () => useQuery({ queryKey: keys.notes, queryFn: () => call((api) => api.study.notes()) })

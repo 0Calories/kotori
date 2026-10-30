@@ -14,7 +14,7 @@ import {
 } from "drizzle-orm/pg-core"
 import { createdAt, table, timestamptz } from "./columns.ts"
 import { entries } from "./dictionary.ts"
-import { language } from "./enrichment.ts"
+import { language } from "./dictionary.ts"
 
 // The learner: profile, what they study and how it went. Everything cascades from `users`.
 

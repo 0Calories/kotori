@@ -1,7 +1,15 @@
-import { Formality, furiganaToText, SentenceMedium, SentenceTone, SpeakerAge, SpeakerGender } from "@kotori/domain"
+import {
+  Formality,
+  furiganaToText,
+  type Language,
+  SentenceMedium,
+  SentenceTone,
+  SpeakerAge,
+  SpeakerGender
+} from "@kotori/domain"
 import { Context, Effect, Layer, Schema } from "effect"
 import { Claude, type ClaudeError } from "./Claude.ts"
-import { examplesSystem } from "./prompts.ts"
+import { englishExamplesSystem, examplesSystem } from "./prompts.ts"
 
 export const ExamplesOutput = Schema.Struct({
   senses: Schema.Array(
@@ -26,8 +34,31 @@ export const ExamplesOutput = Schema.Struct({
   )
 })
 
+/** Sentences for an English word: the same signals, with the Japanese as the translation and no furigana. */
+export const EnglishExamplesOutput = Schema.Struct({
+  senses: Schema.Array(
+    Schema.Struct({
+      sense: Schema.Int,
+      examples: Schema.Array(
+        Schema.Struct({
+          en: Schema.String,
+          ja: Schema.String,
+          formality: Formality,
+          speaker: Schema.Struct({ gender: SpeakerGender, age: SpeakerAge }),
+          medium: SentenceMedium,
+          /** Variety of English as a lowercase label ("british"); null for American English. */
+          variety: Schema.NullOr(Schema.String),
+          tone: SentenceTone,
+          noteJa: Schema.NullOr(Schema.String)
+        })
+      )
+    })
+  )
+})
+
 export interface ExampleSense {
   readonly index: number
+  /** In the other language from the headword: English for a Japanese word, Japanese for an English one. */
   readonly glosses: ReadonlyArray<string>
   readonly partsOfSpeech: ReadonlyArray<string>
   /** Human-readable usage tags and notes (e.g. "honorific language", "colloquial"). */
@@ -37,7 +68,10 @@ export interface ExampleSense {
 }
 
 export interface ExampleRequest {
+  /** The headword's language: sentences are written in it and translated into the other. */
+  readonly language: Language
   readonly headword: string
+  /** Kana for a Japanese word; IPA, or empty, for an English one. */
   readonly reading: string
   readonly otherForms: ReadonlyArray<string>
   readonly senses: ReadonlyArray<ExampleSense>
@@ -64,7 +98,7 @@ export interface WrittenExample {
 /** The user turn: the headword and each sense with the hints that shape its sentences. */
 export const describeRequest = (request: ExampleRequest) =>
   [
-    `Headword: ${request.headword} (${request.reading})`,
+    request.reading.length > 0 ? `Headword: ${request.headword} (${request.reading})` : `Headword: ${request.headword}`,
     request.otherForms.length > 0 ? `Other forms: ${request.otherForms.join(", ")}` : null,
     `Sentences per sense: ${request.perSense}`,
     "Senses:",
@@ -105,7 +139,38 @@ export class ExampleWriter extends Context.Service<
     Effect.gen(function* () {
       const claude = yield* Claude
 
+      /** English sentences with Japanese translations, for Japanese speakers learning the word. */
+      const writeEnglish = Effect.fn("ExampleWriter.writeEnglish")(function* (request: ExampleRequest) {
+        const known = new Set(request.senses.map((sense) => sense.index))
+        const output = yield* claude.generate({
+          schema: EnglishExamplesOutput,
+          system: englishExamplesSystem,
+          prompt: describeRequest(request),
+          effort: "low"
+        })
+        return output.senses
+          .filter((group) => known.has(group.sense))
+          .flatMap((group) =>
+            group.examples.map((example): WrittenExample => ({
+              sense: group.sense,
+              ja: example.ja,
+              // Japanese speakers read the translation without readings.
+              furigana: example.ja,
+              en: example.en,
+              formality: example.formality,
+              speakerGender: example.speaker.gender,
+              speakerAge: example.speaker.age,
+              medium: example.medium,
+              variety: normalizeVariety(example.variety),
+              tone: example.tone,
+              note: null,
+              noteJa: example.noteJa
+            }))
+          )
+      })
+
       const write = Effect.fn("ExampleWriter.write")(function* (request: ExampleRequest) {
+        if (request.language === "en") return yield* writeEnglish(request)
         const known = new Set(request.senses.map((sense) => sense.index))
         const output = yield* claude.generate({
           schema: ExamplesOutput,

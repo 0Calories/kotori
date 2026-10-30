@@ -2,7 +2,7 @@
 
 Kotori helps intermediate and advanced learners **sound natural** — in Japanese if you speak English, in English if you speak Japanese. Its mascot is a shima enaga (シマエナガ), Hokkaido's snowball of a bird.
 
-- **Dictionary** — all of [JMDict](https://www.edrdg.org/jmdict/j_jmdict.html) (≈219k entries), searchable in English, Japanese or rōmaji. Conjugated forms work too: 食べなかった finds 食べる.
+- **Dictionary** — for English speakers, all of [JMDict](https://www.edrdg.org/jmdict/j_jmdict.html) (≈219k Japanese words explained in English); for Japanese speakers, ≈65k English words explained in Japanese, built from Japanese Wiktionary, EJDict and JMDict read backwards. Both work the same way round: search in either language or in rōmaji, and conjugated forms work too (食べなかった finds 食べる, "ate" finds eat).
 - **Nuance** — every sense gets judged for formality, speech vs. writing, keigo, speaker gender and age, how current it feels, connotation and learner pitfalls ("too casual for your boss"), plus similar words and how they differ. Judgments come from TypeSafe's **Jev**; JMDict's own usage tags override them where they exist.
 - **Examples and pronunciation** — a separate worker writes natural example sentences per meaning with **Claude** (with furigana) and voices headwords and sentences with **ElevenLabs**.
 - **Naturalness check** — write a sentence in the language you're learning; Kotori says how a native hears it, what to fix and how a native would say it.
@@ -32,6 +32,7 @@ packages/
   domain/     Schemas and the HttpApi contract shared by the API and the app (typed client)
   db/         Drizzle schema (the data model), generated migrations, repositories, full-text search
   jmdict/     Downloads and parses EDRDG's JMdict_e, imports it
+  eiwa/       Builds the English dictionary for Japanese speakers (Wiktionary, EJDict, JMDict), imports it
   japanese/   Romaji ↔ kana, script detection, Yomichan-style deinflection
   nuance/     Jev questions, state building and interpretation for nuance + similar words
   ai/         Claude service, coach prompts, example-sentence writer
@@ -69,7 +70,7 @@ Tests need no database, server or API keys: repositories run on an in-process Po
 pnpm dev:setup
 ```
 
-This creates `.env` from `.env.example`, starts Postgres 18 in Docker (`compose.yaml`), applies the schema (`pnpm kotori migrate`), downloads JMDict (~10 MB) and imports its ~219k entries (~30 s), and creates the development account `dev@kotori.test` (password `kotori-dev-account`), already confirmed, approved and learning Japanese. Each step skips what is already done, so it is safe to re-run. `pnpm seed` re-imports the dictionary, updating entries in place so enrichment is kept; `docker compose down -v` deletes the database so you can start over.
+This creates `.env` from `.env.example`, starts Postgres 18 in Docker (`compose.yaml`), applies the schema (`pnpm kotori migrate`), downloads JMDict (~10 MB) and imports its ~219k entries (~30 s), downloads the English dictionary's sources (~65 MB) and imports its ~65k words (~20 s), and creates the development account `dev@kotori.test` (password `kotori-dev-account`), already confirmed, approved and learning Japanese. Each step skips what is already done, so it is safe to re-run. `pnpm seed` re-imports both dictionaries (`--dictionary jmdict` or `english` for one), updating entries in place so enrichment is kept; `docker compose down -v` deletes the database so you can start over.
 
 If your local database predates the Postgres 18 and Drizzle schema change, `pnpm dev:setup` stops and asks you to run `docker compose down -v` once. The old database can't be upgraded in place, and setup never deletes it for you.
 
@@ -111,7 +112,9 @@ Runs skip entries that are already done, so they can be repeated or interrupted 
 
 **Examples** use Claude structured outputs validated with Effect Schema. Furigana is written inline as `{漢字|かんじ}` and checked against the sentence before it's shown.
 
-**Audio** is cached by content hash (voice, model, text), so each clip is generated once. `KOTORI_AUDIO_MONTHLY_CHARS` (default 50,000) caps spend; headwords are voiced from their kana reading to avoid kanji misreadings. Example sentences are voiced in Japanese and, for Japanese speakers learning English, in English (`KOTORI_AUDIO_LANGUAGES=ja` leaves English out); English runs two to three times the characters of the Japanese. Re-running audio only voices what is missing, so existing clips keep their voices.
+**Audio** is cached by content hash (voice, model, text), so each clip is generated once. `KOTORI_AUDIO_MONTHLY_CHARS` (default 50,000) caps spend. Learners hear the language they're learning: Japanese words and their example sentences are voiced in Japanese, headwords from their kana reading to avoid kanji misreadings, and English words and theirs in English. Re-running audio only voices what is missing, so existing clips keep their voices.
+
+**The English dictionary** gives Japanese speakers what JMDict gives English speakers: English headwords with their pronunciation, inflections and senses written in Japanese, enriched with the same nuance, examples and audio. Each word comes from the first source that has it: [Japanese Wiktionary](https://ja.wiktionary.org) (≈32k words, with parts of speech, IPA, inflections and usage labels), then [EJDict-hand](https://github.com/kujirahand/EJDict) (≈26k more, mostly everyday words Wiktionary has no page for, such as "team" and "be"), then English words and phrases only JMDict has, read backwards from its glosses ("selfie" from 自撮り, "hang out" from 遊ぶ and たむろする) and kept only when attested as words people use. Pages that only name another word's inflection or spelling ("asked", "judgement") become forms of that word, and senses marked rare, dated or obsolete go last, as JMDict lists the commonest first. How common a word is comes from subtitle word counts ([FrequencyWords](https://github.com/hermitdave/FrequencyWords), OpenSubtitles 2018), counting its inflections; the 10,000 most used are marked common, as JMDict marks about a tenth of its words. A word only JMDict has counts as common only when a common Japanese word glosses it, since the subtitles may count a name spelled the same ("kim" for 韓国海苔). Wiktionary lists synonyms for a whole part of speech, so each is placed on the sense it shares a meaning with, or left out. Re-importing keeps each word's id, so enrichment and saved words survive.
 
 Claude requests opt into server-side refusal fallbacks (`fallbacks: "default"`), so a safety-classifier decline is retried on Anthropic's recommended fallback model instead of failing.
 
@@ -154,4 +157,4 @@ Tests cover the SM-2 scheduler against Anki's behaviour, deinflection, JMDict pa
 
 ## Data and credits
 
-Dictionary data is [JMDict](https://www.edrdg.org/jmdict/j_jmdict.html) by the Electronic Dictionary Research and Development Group, used under [CC BY-SA 4.0](https://www.edrdg.org/edrdg/licence.html). The app credits it in Settings. JMDict downloads land in `data/` and are not committed; everything else lives in Postgres.
+Dictionary data is [JMDict](https://www.edrdg.org/jmdict/j_jmdict.html) by the Electronic Dictionary Research and Development Group, used under [CC BY-SA 4.0](https://www.edrdg.org/edrdg/licence.html). English words come from [Japanese Wiktionary](https://ja.wiktionary.org) as extracted by [Wiktextract](https://github.com/tatuylonen/wiktextract) for [kaikki.org](https://kaikki.org/jawiktionary/) (CC BY-SA 4.0) and from [EJDict-hand](https://github.com/kujirahand/EJDict) (public domain, CC0); word frequencies from [FrequencyWords](https://github.com/hermitdave/FrequencyWords) (CC BY-SA 4.0). The app credits them in Settings. Downloads land in `data/` and are not committed; everything else lives in Postgres.

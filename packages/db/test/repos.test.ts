@@ -7,6 +7,7 @@ import {
   type EntryRecord,
   JobsRepo,
   normalizeGloss,
+  normalizeJapaneseGloss,
   Repositories,
   StudyRepo,
   type UserRow,
@@ -42,6 +43,7 @@ const kana = (text: string, common = true) => ({ ...kanji(text, common), kind: "
 const entries: Array<EntryRecord> = [
   {
     id: 1358280,
+    language: "ja",
     headword: "食べる",
     reading: "たべる",
     common: true,
@@ -51,6 +53,7 @@ const entries: Array<EntryRecord> = [
   },
   {
     id: 1269130,
+    language: "ja",
     headword: "食う",
     reading: "くう",
     common: true,
@@ -60,6 +63,7 @@ const entries: Array<EntryRecord> = [
   },
   {
     id: 1594790,
+    language: "ja",
     headword: "召し上がる",
     reading: "めしあがる",
     common: true,
@@ -69,12 +73,64 @@ const entries: Array<EntryRecord> = [
   },
   {
     id: 1000000,
+    language: "ja",
     headword: "鯛焼き",
     reading: "たいやき",
     common: false,
     priority: 0,
     forms: [kanji("鯛焼き", false), kana("たいやき", false)],
     senses: [sense(["taiyaki", "fish-shaped pancake filled with bean jam"], { pos: ["n"] })]
+  }
+]
+
+const spelling = (text: string, common = false) => ({
+  ...kanji(text, common),
+  kind: "spelling" as const,
+  priorities: []
+})
+const inflection = (text: string, tags: Array<string>) => ({ ...spelling(text), kind: "inflection" as const, tags })
+
+/** English words, with Japanese glosses. */
+const english: Array<EntryRecord> = [
+  {
+    id: 100000001,
+    language: "en",
+    headword: "eat",
+    reading: "/iːt/",
+    common: true,
+    priority: 90,
+    forms: [spelling("eat", true), inflection("ate", ["past"]), inflection("eaten", ["past-participle"])],
+    senses: [sense(["～を食べる。"], { pos: ["v", "vt"] }), sense(["食事をする"], { pos: ["v", "vi"] })]
+  },
+  {
+    id: 100000002,
+    language: "en",
+    headword: "Polish",
+    reading: "",
+    common: false,
+    priority: 30,
+    forms: [spelling("Polish")],
+    senses: [sense(["ポーランドの"], { pos: ["adj"] })]
+  },
+  {
+    id: 100000003,
+    language: "en",
+    headword: "polish",
+    reading: "",
+    common: true,
+    priority: 40,
+    forms: [spelling("polish", true), inflection("polished", ["past", "past-participle"])],
+    senses: [sense(["磨く"], { pos: ["v"] })]
+  },
+  {
+    id: 100000004,
+    language: "en",
+    headword: "dine",
+    reading: "",
+    common: false,
+    priority: 20,
+    forms: [spelling("dine")],
+    senses: [sense(["食事をする", "正餐を取る"], { pos: ["v"] })]
   }
 ]
 
@@ -98,12 +154,30 @@ describe("normalizeGloss", () => {
   })
 })
 
+describe("normalizeJapaneseGloss", () => {
+  layer(Layer.empty)((it) => {
+    it.effect("strips asides, the object marker and closing punctuation", () =>
+      Effect.sync(() => {
+        assert.strictEqual(normalizeJapaneseGloss("～を食べる。"), "食べる")
+        assert.strictEqual(normalizeJapaneseGloss("（資源や金銭を）消費する"), "消費する")
+        assert.strictEqual(normalizeJapaneseGloss("…に『火をつける』"), "火をつける")
+        assert.strictEqual(normalizeJapaneseGloss("〈C〉『明かり』(太陽・灯火など光を出すもの)"), "明かり")
+        // Only after a tilde is a leading particle the object marker; とても keeps its と.
+        assert.strictEqual(normalizeJapaneseGloss("とても"), "とても")
+      })
+    )
+  })
+})
+
 layer(TestLayer)("DictionaryRepo", (it) => {
   it.effect("imports entries and reads them back in order", () =>
     Effect.gen(function* () {
       const repo = yield* DictionaryRepo
       yield* repo.insertEntries(entries)
-      assert.strictEqual(yield* repo.count, 4)
+      yield* repo.insertEntries(english)
+      assert.strictEqual(yield* repo.count, 8)
+      assert.strictEqual(yield* repo.countOf("ja"), 4)
+      assert.strictEqual(yield* repo.countOf("en"), 4)
 
       const [taberu] = yield* repo.getEntries([1358280])
       assert.strictEqual(taberu?.headword, "食べる")
@@ -169,10 +243,77 @@ layer(TestLayer)("DictionaryRepo", (it) => {
   it.effect("lists entries missing enrichment in priority order", () =>
     Effect.gen(function* () {
       const repo = yield* DictionaryRepo
-      assert.deepStrictEqual(yield* repo.entriesByPriority({ limit: 2, missing: "nuance" }), [1358280, 1269130])
       assert.deepStrictEqual(
-        yield* repo.entriesByPriority({ limit: 10, commonOnly: true }),
+        yield* repo.entriesByPriority({ limit: 2, missing: "nuance", language: "ja" }),
+        [1358280, 1269130]
+      )
+      assert.deepStrictEqual(
+        yield* repo.entriesByPriority({ limit: 10, commonOnly: true, language: "ja" }),
         [1358280, 1269130, 1594790]
+      )
+      assert.deepStrictEqual(
+        yield* repo.entriesByPriority({ limit: 10, commonOnly: true, language: "en" }),
+        [100000001, 100000003]
+      )
+    })
+  )
+
+  it.effect("keeps each dictionary's lookups to its own words", () =>
+    Effect.gen(function* () {
+      const repo = yield* DictionaryRepo
+      // Japanese glosses of English words aren't English glosses of Japanese words.
+      assert.notInclude(
+        (yield* repo.findGlossesExact("eat", 20)).map((match) => match.entryId),
+        100000001
+      )
+      assert.deepStrictEqual(yield* repo.findForms(["eat"]), [])
+      assert.deepStrictEqual(yield* repo.findForms(["たべる"], "en"), [])
+      // 食べる and 食う share "to eat"; eat and dine share 食事をする, and never a Japanese word.
+      assert.deepStrictEqual(
+        (yield* repo.sharedGlossCandidates(100000001, 1, 10)).map((c) => c.entryId),
+        [100000004]
+      )
+    })
+  )
+
+  it.effect("finds English words whatever their case, and by their inflections", () =>
+    Effect.gen(function* () {
+      const repo = yield* DictionaryRepo
+      assert.sameMembers(
+        (yield* repo.findForms(["POLISH"], "en")).map((match) => match.entryId),
+        [100000002, 100000003]
+      )
+      const [ate] = yield* repo.findForms(["Ate"], "en")
+      assert.deepStrictEqual([ate?.entryId, ate?.kind, ate?.tags], [100000001, "inflection", ["past"]])
+      // Prefixes find headwords and spellings, not inflections: "eate" isn't the start of a word.
+      assert.deepStrictEqual(yield* repo.findFormPrefix("Po", 10, "en"), [100000003, 100000002])
+      assert.deepStrictEqual(yield* repo.findFormPrefix("eate", 10, "en"), [])
+      assert.deepStrictEqual(yield* repo.findFormPrefix("た", 10, "en"), [])
+    })
+  )
+
+  it.effect("looks up the Japanese glosses of English words", () =>
+    Effect.gen(function* () {
+      const repo = yield* DictionaryRepo
+      const exact = yield* repo.findJapaneseGlosses(["食べる"], 20)
+      assert.deepStrictEqual(
+        exact.map((match) => [match.entryId, match.text]),
+        [[100000001, "～を食べる。"]]
+      )
+      assert.deepStrictEqual(
+        (yield* repo.searchJapaneseGlosses("食事", 20)).map((match) => match.entryId),
+        [100000001, 100000004]
+      )
+      // LIKE wildcards in a query are taken literally.
+      assert.deepStrictEqual(yield* repo.searchJapaneseGlosses("%", 20), [])
+      assert.deepStrictEqual(
+        [...(yield* repo.headwordIds("en"))].sort(([, a], [, b]) => a - b),
+        [
+          ["eat", 100000001],
+          ["Polish", 100000002],
+          ["polish", 100000003],
+          ["dine", 100000004]
+        ]
       )
     })
   )
@@ -184,6 +325,7 @@ const stubEntries = (ids: ReadonlyArray<number>) =>
     dictionary.insertEntries(
       ids.map((id) => ({
         id,
+        language: "ja" as const,
         headword: `w${id}`,
         reading: `r${id}`,
         common: false,

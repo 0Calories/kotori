@@ -8,7 +8,7 @@ import * as HttpApiSchema from "effect/http-api/HttpApiSchema"
 import * as OpenApi from "effect/http-api/OpenApi"
 import { Profile, UpdateProfileRequest, UserId } from "./Account.ts"
 import { HowToSayRequest, HowToSayResult, NaturalnessRequest, NaturalnessResult } from "./Coach.ts"
-import { EnglishEntry, Enrichment, Entry, EntryId, SearchResult } from "./Dictionary.ts"
+import { Enrichment, Entry, EntryId, SearchResult } from "./Dictionary.ts"
 import {
   AiUnavailable,
   AuthUnavailable,
@@ -77,17 +77,14 @@ export class AccountApi extends HttpApiGroup.make("account")
 
 export class DictionaryApi extends HttpApiGroup.make("dictionary")
   .add(
+    // Searches the dictionary of the language the learner is learning: Japanese words for
+    // English speakers, English words for Japanese speakers.
     HttpApiEndpoint.get("search", "/search", {
       query: {
         q: Schema.String,
         limit: Schema.optional(Schema.Int)
       },
       success: SearchResult
-    }),
-    // An English word read backwards from JMDict, for Japanese speakers; queues examples for its leading meanings.
-    HttpApiEndpoint.get("english", "/english", {
-      query: { term: Schema.String },
-      success: EnglishEntry
     }),
     HttpApiEndpoint.get("entry", "/entries/:id", {
       params: { id: EntryId },

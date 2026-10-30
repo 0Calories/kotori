@@ -1,6 +1,7 @@
 import { Schema } from "effect"
+import { formKind, language } from "./schema/dictionary.ts"
 
-/** Dictionary data as stored, close to JMDict's own structure. */
+/** Dictionary data as stored, close to JMDict's own structure; English entries share it. */
 export const GlossRecord = Schema.Struct({
   text: Schema.String,
   type: Schema.NullOr(Schema.String)
@@ -8,10 +9,11 @@ export const GlossRecord = Schema.Struct({
 export type GlossRecord = typeof GlossRecord.Type
 
 export const FormRecord = Schema.Struct({
-  kind: Schema.Literals(["kanji", "kana"]),
+  /** Japanese words are written in kanji and kana; English ones have spellings and inflections. */
+  kind: Schema.Literals(formKind.enumValues),
   text: Schema.String,
   common: Schema.Boolean,
-  /** ke_inf / re_inf tag codes (e.g. "rK" rarely-used kanji, "sk" search-only). */
+  /** ke_inf / re_inf tag codes (e.g. "rK" rarely-used kanji, "sk" search-only); what an inflection is ("past"). */
   tags: Schema.Array(Schema.String),
   /** JMDict priority markers: news1, ichi1, spec1, gai1, nf01… */
   priorities: Schema.Array(Schema.String),
@@ -37,6 +39,8 @@ export type SenseRecord = typeof SenseRecord.Type
 
 export const EntryRecord = Schema.Struct({
   id: Schema.Int,
+  /** The headword's language, and so which language the glosses are in: the other one. */
+  language: Schema.Literals(language.enumValues),
   headword: Schema.String,
   reading: Schema.String,
   common: Schema.Boolean,
@@ -58,3 +62,22 @@ export const normalizeGloss = (text: string) =>
     .replace(/\s+/g, " ")
     .trim()
     .replace(/^(to|a|an|the) /, "")
+
+/** Bracketed asides in a gloss, innermost first: (…), 〈…〉, 《…》, 〔…〕 and […] after NFKC. */
+const ASIDE = /\([^()]*\)|〈[^〈〉]*〉|《[^《》]*》|〔[^〔〕]*〕|\[[^[\]]*\]/g
+
+/**
+ * Normalises a Japanese gloss or query for exact matching, the way `normalizeGloss` does
+ * English: "～を食べる。" -> "食べる", "（資源や金銭を）消費する" -> "消費する", "『走る』" -> "走る".
+ */
+export const normalizeJapaneseGloss = (text: string) => {
+  let norm = text.normalize("NFKC")
+  // Twice, for an aside inside an aside.
+  norm = norm.replace(ASIDE, "").replace(ASIDE, "")
+  return norm
+    .replace(/[『』「」【】"]/g, "")
+    .replace(/^\s*[~〜…・.]+\s*(?:を|に|が|と|で|の|へ|から|より)?/, "")
+    .replace(/[\s。、.,!?！？・;；:：]+$/, "")
+    .replace(/\s+/g, " ")
+    .trim()
+}

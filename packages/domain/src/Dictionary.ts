@@ -1,7 +1,8 @@
 import * as Schema from "effect/Schema"
+import { Language } from "./Language.ts"
 import { Difference, Formality, Nuance } from "./Nuance.ts"
 
-/** JMDict's `ent_seq`. */
+/** JMDict's `ent_seq` for Japanese words; English words are numbered from 100,000,000. */
 export const EntryId = Schema.Int.pipe(Schema.brand("EntryId"))
 export type EntryId = typeof EntryId.Type
 
@@ -11,8 +12,10 @@ export type Tag = typeof Tag.Type
 
 export const Form = Schema.Struct({
   text: Schema.String,
-  kind: Schema.Literals(["kanji", "kana"]),
+  /** Japanese words are written in kanji and kana; English ones have other spellings and inflections. */
+  kind: Schema.Literals(["kanji", "kana", "spelling", "inflection"]),
   common: Schema.Boolean,
+  /** Usage tags for Japanese forms; what an English inflection is ("past", "plural"). */
   tags: Schema.Array(Tag)
 })
 export type Form = typeof Form.Type
@@ -73,6 +76,7 @@ export type Example = typeof Example.Type
 
 export const Sense = Schema.Struct({
   index: Schema.Int,
+  /** What the word means, in the other language: English for a Japanese word, Japanese for an English one. */
   glosses: Schema.Array(Schema.String),
   partsOfSpeech: Schema.Array(Tag),
   misc: Schema.Array(Tag),
@@ -108,10 +112,18 @@ export const EntryAudio = Schema.Struct({
 })
 export type EntryAudio = typeof EntryAudio.Type
 
+/**
+ * A word in the learner's target language, explained in their own: a Japanese word from
+ * JMDict for English speakers, an English word for Japanese speakers.
+ */
 export const Entry = Schema.Struct({
   id: EntryId,
+  /** The headword's language. */
+  language: Language,
   headword: Schema.String,
+  /** Kana for a Japanese word; IPA for an English one, or empty when the dictionary has none. */
   reading: Schema.String,
+  /** The kana reading in rōmaji; empty for English words. */
   romaji: Schema.String,
   common: Schema.Boolean,
   forms: Schema.Array(Form),
@@ -126,6 +138,7 @@ export type Entry = typeof Entry.Type
 
 export const EntrySummary = Schema.Struct({
   id: EntryId,
+  language: Language,
   headword: Schema.String,
   reading: Schema.String,
   romaji: Schema.String,
@@ -133,7 +146,7 @@ export const EntrySummary = Schema.Struct({
   meanings: Schema.Array(Schema.String),
   partOfSpeech: Schema.NullOr(Schema.String),
   formality: Schema.NullOr(Formality),
-  /** Inflections undone to find this entry, e.g. ["polite", "past"] for 食べました. */
+  /** Inflections undone to find this entry, e.g. ["polite", "past"] for 食べました or ["past"] for "ate". */
   inflection: Schema.Array(Schema.String)
 })
 export type EntrySummary = typeof EntrySummary.Type
@@ -141,44 +154,12 @@ export type EntrySummary = typeof EntrySummary.Type
 export const SearchMode = Schema.Literals(["japanese", "english", "romaji"])
 export type SearchMode = typeof SearchMode.Type
 
+/** How the query was read: as Japanese, as English, or as rōmaji for Japanese. */
 export const SearchResult = Schema.Struct({
   query: Schema.String,
   mode: SearchMode,
   /** The kana reading searched for, when the query was romaji. */
   reading: Schema.NullOr(Schema.String),
-  /** Whether the query is itself a meaning of some word, so it can be looked up as an English word. */
-  englishWord: Schema.Boolean,
   entries: Schema.Array(EntrySummary)
 })
 export type SearchResult = typeof SearchResult.Type
-
-/** One Japanese word that means an English word or phrase, in one of its senses. */
-export const EnglishMeaning = Schema.Struct({
-  entryId: EntryId,
-  sense: Schema.Int,
-  headword: Schema.String,
-  reading: Schema.String,
-  common: Schema.Boolean,
-  /** Every English gloss of the sense, the looked-up one among them. */
-  glosses: Schema.Array(Schema.String),
-  /** Which of `glosses` is the looked-up word. */
-  matched: Schema.Int,
-  partOfSpeech: Schema.NullOr(Schema.String),
-  formality: Schema.NullOr(Formality),
-  examples: Schema.Array(Example)
-})
-export type EnglishMeaning = typeof EnglishMeaning.Type
-
-/**
- * An English word or phrase as Japanese speakers look it up: the Japanese words that
- * mean it, most likely first. Built by reading JMDict backwards.
- */
-export const EnglishEntry = Schema.Struct({
-  term: Schema.String,
-  meanings: Schema.Array(EnglishMeaning),
-  /** Whether anything for the leading meanings (nuance, examples, audio) is still on its way. */
-  waiting: Schema.Boolean,
-  /** Whether example sentences for the leading meanings are still being written. */
-  writing: Schema.Boolean
-})
-export type EnglishEntry = typeof EnglishEntry.Type
