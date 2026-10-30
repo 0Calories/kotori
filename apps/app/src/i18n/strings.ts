@@ -515,7 +515,8 @@ const ja: Strings = {
     formality: "丁寧さ",
     medium: "使われる場面",
     scale: { vulgar: "乱暴", casual: "カジュアル", neutral: "普通", polite: "丁寧", formal: "改まった" },
-    mediumScale: { spoken: "話し言葉", both: "話し言葉・書き言葉", written: "書き言葉" },
+    // と, not ・: the register line joins its parts with " · ", and 「普通 · 話し言葉・書き言葉」 reads as three.
+    mediumScale: { spoken: "話し言葉", both: "話し言葉と書き言葉", written: "書き言葉" },
     edge: { vulgar: "乱暴な言葉", formal: "改まった言葉", spoken: "話し言葉", written: "書き言葉" },
     keigo: { none: "", teineigo: "丁寧語", sonkeigo: "尊敬語", kenjougo: "謙譲語", bikago: "美化語" },
     gender: { neutral: "", masculine: "男性的", feminine: "女性的" },
