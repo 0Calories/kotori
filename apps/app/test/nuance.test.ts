@@ -49,14 +49,45 @@ describe("the entry page's nuance", () => {
       fields: [{ code: "aviat", label: "aviation" }],
       nuance: nuance({ variety: { value: "american", confidence: 1, source: "jmdict" } })
     })
-    assert.deepStrictEqual(dictionaryTags(t, american), [{ code: "aviat", label: "aviation" }])
+    assert.deepStrictEqual(dictionaryTags(american), [{ code: "aviat", label: "aviation" }])
     // Too unsure to show, the judgment leaves the tag where it is.
     const unsure = { ...american, nuance: nuance({ variety: judged("american" as const, 0.3) }) }
-    assert.deepStrictEqual(dictionaryTags(t, unsure), [{ code: "aviat", label: "aviation" }, usOnly])
-    assert.deepStrictEqual(dictionaryTags(t, { ...american, nuance: null }), [
+    assert.deepStrictEqual(dictionaryTags(unsure), [{ code: "aviat", label: "aviation" }, usOnly])
+    assert.deepStrictEqual(dictionaryTags({ ...american, nuance: null }), [
       { code: "aviat", label: "aviation" },
       usOnly
     ])
+  })
+
+  it("leaves out a tag whose register the page shows, by its code in either language", () => {
+    const fromTag = <A>(value: A) => ({ value, confidence: 1, source: "jmdict" as const })
+    // ご苦労様: pol makes it polite 丁寧語, shown as "Polite (丁寧語)" whatever the tag's label says.
+    const pol = { code: "pol", label: "polite (teineigo) language" }
+    const gokurousama = sense(0, {
+      misc: [pol],
+      nuance: nuance({
+        formality: { ...fromTag("polite" as const), position: 0.75 },
+        keigo: fromTag("teineigo" as const)
+      })
+    })
+    assert.deepStrictEqual(dictionaryTags(gokurousama), [])
+    // col makes a sense casual and spoken: 口語 would repeat 「カジュアル · 話し言葉」.
+    const col = { code: "col", label: "colloquial" }
+    const casual = nuance({
+      formality: { ...fromTag("casual" as const), position: 0.25 },
+      medium: { ...fromTag("spoken" as const), position: 0 }
+    })
+    assert.deepStrictEqual(dictionaryTags(sense(0, { misc: [col], nuance: casual })), [])
+    // A split register shows no scale, and a tag a stronger one overrode says something new.
+    const split = { ...casual, registerShape: fromTag("split" as const) }
+    assert.deepStrictEqual(dictionaryTags(sense(0, { misc: [col], nuance: split })), [col])
+    // With hon as well, hon decides: formal 尊敬語 is shown, and pol's 丁寧語 isn't, so pol stays.
+    const honorific = nuance({
+      formality: { ...fromTag("formal" as const), position: 1 },
+      keigo: fromTag("sonkeigo" as const)
+    })
+    const both = sense(0, { misc: [{ code: "hon", label: "honorific" }, pol], nuance: honorific })
+    assert.deepStrictEqual(dictionaryTags(both), [pol])
   })
 
   it("gives a sense its own register line only where it reads differently from the word's", () => {

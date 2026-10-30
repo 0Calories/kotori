@@ -93,6 +93,87 @@ export const Nuance = Schema.Struct({
 })
 export type Nuance = typeof Nuance.Type
 
+type TagTable<A> = ReadonlyArray<readonly [string, A]>
+
+/**
+ * The dictionary's usage tags that decide a judgment outright, the first listed winning: JMDict's
+ * codes, which the English dictionary maps Wiktionary's and EJDict's labels and its regions to.
+ * The nuance interpretation reads them over Jev's answers, and the entry page leaves a tag out of
+ * a sense's chips once the judgments it decided are shown, so 口語 isn't said again beside
+ * 「カジュアル · 話し言葉」.
+ */
+export const TAG_JUDGMENTS: {
+  readonly formality: TagTable<Formality>
+  readonly medium: TagTable<Medium>
+  readonly keigo: TagTable<Keigo>
+  readonly gender: TagTable<Gender>
+  readonly age: TagTable<AgeGroup>
+  readonly currency: TagTable<Currency>
+  readonly connotation: TagTable<Connotation>
+  /** Tags whose words sit at one obvious register, so a slider is the wrong model. */
+  readonly registerShape: TagTable<RegisterShape>
+  /** The English dictionary's regions; other varieties (Australian, Indian…) are left to Jev. */
+  readonly variety: TagTable<Variety>
+} = {
+  formality: [
+    ["vulg", "vulgar"],
+    ["X", "vulgar"],
+    ["hon", "formal"],
+    ["hum", "formal"],
+    ["form", "formal"],
+    ["pol", "polite"],
+    ["sl", "casual"],
+    ["net-sl", "casual"],
+    ["m-sl", "casual"],
+    ["col", "casual"],
+    ["fam", "casual"],
+    ["chn", "casual"]
+  ],
+  medium: [
+    ["col", "spoken"],
+    ["sl", "spoken"],
+    ["net-sl", "spoken"],
+    ["fam", "spoken"],
+    ["form", "written"],
+    ["poet", "written"]
+  ],
+  keigo: [
+    ["hon", "sonkeigo"],
+    ["hum", "kenjougo"],
+    ["pol", "teineigo"]
+  ],
+  gender: [
+    ["male", "masculine"],
+    ["fem", "feminine"]
+  ],
+  age: [
+    ["chn", "children"],
+    ["net-sl", "youth"],
+    ["m-sl", "youth"]
+  ],
+  currency: [
+    ["arch", "archaic"],
+    ["obs", "archaic"],
+    ["dated", "dated"]
+  ],
+  connotation: [
+    ["derog", "negative"],
+    ["vulg", "negative"]
+  ],
+  registerShape: [
+    ["vulg", "fixed"],
+    ["X", "fixed"],
+    ["derog", "fixed"]
+  ],
+  variety: [
+    ["en-US", "american"],
+    ["en-GB", "british"]
+  ]
+}
+
+/** Tags that make a sense slang outright, which the slang caution then says. */
+export const SLANG_TAGS: ReadonlyArray<string> = ["sl", "net-sl", "m-sl"]
+
 /**
  * Whether a katakana loan means in everyday Japanese what its English word means (コーヒー,
  * coffee), has drifted, so a Japanese speaker carrying it over is misunderstood (スタイル is

@@ -1,7 +1,7 @@
-import type { Formality, Medium, Nuance, Sense } from "@kotori/domain"
+import { type Formality, type Medium, type Nuance, type Sense, TAG_JUDGMENTS } from "@kotori/domain"
 import type { IconName } from "../components/Icon.tsx"
 import type { ScaleRow } from "../components/NuanceScales.tsx"
-import { type Strings, tagLabel } from "../i18n/strings.ts"
+import type { Strings } from "../i18n/strings.ts"
 
 // How the entry page shows a word's judged nuance: which scales, chips and cautions, and where.
 
@@ -105,13 +105,37 @@ export const nuanceNotes = (t: Strings, nuance: Nuance) => {
 }
 
 /**
- * A sense's dictionary tags, less those its judged nuance already shows, in the card up top or
- * on the sense (アメリカ英語 from en-US, 古語 from arch), so no label is shown twice.
+ * Whether a sense's judged nuance already says what one of its dictionary tags says: the tag
+ * decided judgments (JMDict's col makes a sense casual and spoken) and the page shows each of them
+ * with the tag's value. Matched by code, not label, so it holds in both languages' UI: ご苦労様's
+ * pol is "Polite (丁寧語)" as a judgment but "polite (teineigo) language" as a tag. A split
+ * register shows neither scale, so its register tags stay.
  */
-export const dictionaryTags = (t: Strings, sense: Sense) => {
-  const judged = new Set(sense.nuance ? nuanceNotes(t, sense.nuance).tags : [])
-  return [...sense.misc, ...sense.fields, ...sense.dialects].filter((tag) => !judged.has(tagLabel(t, tag)))
+const saidByNuance = (nuance: Nuance, code: string) => {
+  const decided = Object.entries(TAG_JUDGMENTS).flatMap(
+    ([dimension, table]: [string, ReadonlyArray<readonly [string, string]>]) =>
+      table
+        .filter(([tag]) => tag === code)
+        .map(([, value]) => ({ dimension: dimension as keyof typeof TAG_JUDGMENTS, value }))
+  )
+  return (
+    decided.length > 0 &&
+    decided.every(({ dimension, value }) => {
+      const judgment = nuance[dimension]
+      const hidden = (dimension === "formality" || dimension === "medium") && shapeOf(nuance) === "split"
+      return judgment?.source === "jmdict" && judgment.value === value && !hidden
+    })
+  )
 }
+
+/**
+ * A sense's dictionary tags, less those its judged nuance already shows, in the card up top or
+ * on the sense (アメリカ英語 from en-US, 古語 from arch, 口語 from col), so nothing is said twice.
+ */
+export const dictionaryTags = (sense: Sense) =>
+  [...sense.misc, ...sense.fields, ...sense.dialects].filter(
+    (tag) => sense.nuance === null || !saidByNuance(sense.nuance, tag.code)
+  )
 
 /**
  * Where each sense's register is shown. One card up top speaks for the word, from its first

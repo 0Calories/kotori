@@ -3,16 +3,16 @@ import {
   type Connotation,
   type Currency,
   type Difference,
-  type Formality,
   type Gender,
   type JudgmentSource,
   type Keigo,
   type LoanMeaning,
   loanShown,
   type LoanVerdict,
-  type Medium,
   type Nuance,
   type RegisterShape,
+  SLANG_TAGS,
+  TAG_JUDGMENTS,
   type Variety
 } from "@kotori/domain"
 import type { ChoiceResponse, NoulResponse, ScoreResponse } from "@typesafe-ai/sdk"
@@ -45,8 +45,8 @@ export interface SenseAnswers {
 /**
  * The dictionary's editors tag many senses with usage notes (hon, col, male, arch…; the English
  * dictionary maps Wiktionary's and EJDict's labels to the same codes, and its regions to en-US
- * and en-GB). Those are authoritative, so they override Jev wherever they speak to a dimension;
- * Jev fills in everything the tags don't cover.
+ * and en-GB). Those are authoritative, so they override Jev wherever they speak to a dimension
+ * (`TAG_JUDGMENTS`); Jev fills in everything the tags don't cover.
  */
 const firstTag = <A>(tags: ReadonlyArray<string>, table: ReadonlyArray<readonly [string, A]>): A | undefined =>
   table.find(([tag]) => tags.includes(tag))?.[1]
@@ -56,67 +56,6 @@ export const senseTags = (sense: {
   readonly misc: ReadonlyArray<string>
   readonly dialects: ReadonlyArray<string>
 }) => [...sense.misc, ...sense.dialects]
-
-const FORMALITY_TAGS: ReadonlyArray<readonly [string, Formality]> = [
-  ["vulg", "vulgar"],
-  ["X", "vulgar"],
-  ["hon", "formal"],
-  ["hum", "formal"],
-  ["form", "formal"],
-  ["pol", "polite"],
-  ["sl", "casual"],
-  ["net-sl", "casual"],
-  ["m-sl", "casual"],
-  ["col", "casual"],
-  ["fam", "casual"],
-  ["chn", "casual"]
-]
-
-const MEDIUM_TAGS: ReadonlyArray<readonly [string, Medium]> = [
-  ["col", "spoken"],
-  ["sl", "spoken"],
-  ["net-sl", "spoken"],
-  ["fam", "spoken"],
-  ["form", "written"],
-  ["poet", "written"]
-]
-
-const KEIGO_TAGS: ReadonlyArray<readonly [string, Keigo]> = [
-  ["hon", "sonkeigo"],
-  ["hum", "kenjougo"],
-  ["pol", "teineigo"]
-]
-
-const GENDER_TAGS: ReadonlyArray<readonly [string, Gender]> = [
-  ["male", "masculine"],
-  ["fem", "feminine"]
-]
-const AGE_TAGS: ReadonlyArray<readonly [string, AgeGroup]> = [
-  ["chn", "children"],
-  ["net-sl", "youth"],
-  ["m-sl", "youth"]
-]
-const CURRENCY_TAGS: ReadonlyArray<readonly [string, Currency]> = [
-  ["arch", "archaic"],
-  ["obs", "archaic"],
-  ["dated", "dated"]
-]
-const CONNOTATION_TAGS: ReadonlyArray<readonly [string, Connotation]> = [
-  ["derog", "negative"],
-  ["vulg", "negative"]
-]
-const SLANG_TAGS = ["sl", "net-sl", "m-sl"]
-/** Tags whose words sit at one obvious register, so a slider is the wrong model. */
-const FIXED_SHAPE_TAGS: ReadonlyArray<readonly [string, RegisterShape]> = [
-  ["vulg", "fixed"],
-  ["X", "fixed"],
-  ["derog", "fixed"]
-]
-/** The English dictionary's regions; other varieties (Australian, Indian…) are left to Jev. */
-const VARIETY_TAGS: ReadonlyArray<readonly [string, Variety]> = [
-  ["en-US", "american"],
-  ["en-GB", "british"]
-]
 
 const scale = <L extends string>(levels: ReadonlyArray<L>, answer: ScoreResponse, tagged: L | undefined) => {
   const last = levels.length - 1
@@ -190,9 +129,10 @@ export const interpretSense = (
   tags: ReadonlyArray<string>,
   fields: ReadonlyArray<string> = []
 ): Nuance => {
-  const formality = scale(FORMALITY_LEVELS, answers.formality, firstTag(tags, FORMALITY_TAGS))
-  const medium = scale(MEDIUM_LEVELS, answers.medium, firstTag(tags, MEDIUM_TAGS))
-  const keigo = answers.keigo === undefined ? NO_KEIGO : choice<Keigo>(answers.keigo, firstTag(tags, KEIGO_TAGS))
+  const formality = scale(FORMALITY_LEVELS, answers.formality, firstTag(tags, TAG_JUDGMENTS.formality))
+  const medium = scale(MEDIUM_LEVELS, answers.medium, firstTag(tags, TAG_JUDGMENTS.medium))
+  const keigo =
+    answers.keigo === undefined ? NO_KEIGO : choice<Keigo>(answers.keigo, firstTag(tags, TAG_JUDGMENTS.keigo))
   // Answers recorded before questions version 2 have no registerShape; the field stays
   // absent and the app falls back to its pre-shape heuristics for those rows.
   const shape = answers.registerShape
@@ -200,11 +140,13 @@ export const interpretSense = (
     formality,
     medium,
     keigo,
-    gender: choice<Gender>(answers.gender, firstTag(tags, GENDER_TAGS)),
-    age: choice<AgeGroup>(answers.age, firstTag(tags, AGE_TAGS)),
-    currency: choice<Currency>(answers.currency, firstTag(tags, CURRENCY_TAGS)),
-    connotation: choice<Connotation>(answers.connotation, firstTag(tags, CONNOTATION_TAGS)),
-    ...(shape === undefined ? {} : { registerShape: choice<RegisterShape>(shape, firstTag(tags, FIXED_SHAPE_TAGS)) }),
+    gender: choice<Gender>(answers.gender, firstTag(tags, TAG_JUDGMENTS.gender)),
+    age: choice<AgeGroup>(answers.age, firstTag(tags, TAG_JUDGMENTS.age)),
+    currency: choice<Currency>(answers.currency, firstTag(tags, TAG_JUDGMENTS.currency)),
+    connotation: choice<Connotation>(answers.connotation, firstTag(tags, TAG_JUDGMENTS.connotation)),
+    ...(shape === undefined
+      ? {}
+      : { registerShape: choice<RegisterShape>(shape, firstTag(tags, TAG_JUDGMENTS.registerShape)) }),
     cautions: {
       rudeToSuperiors: answers.rudeToSuperiors.noul,
       stiffWithFriends: stiffBetweenFriends(answers, formality, medium, keigo, fields.length > 0),
@@ -213,7 +155,7 @@ export const interpretSense = (
     },
     ...(answers.variety === undefined
       ? {}
-      : { variety: choice<Variety>(answers.variety, firstTag(tags, VARIETY_TAGS)) }),
+      : { variety: choice<Variety>(answers.variety, firstTag(tags, TAG_JUDGMENTS.variety)) }),
     ...(answers.profanity === undefined ? {} : { profanity: level(PROFANITY_LEVELS, answers.profanity) })
   }
 }

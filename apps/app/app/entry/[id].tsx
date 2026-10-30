@@ -163,7 +163,7 @@ const SenseCard = ({
     (label) => label !== partOfSpeech
   )
   const open = (id: number) => router.push({ pathname: "/entry/[id]", params: { id: String(id) } })
-  const tags = dictionaryTags(t, sense)
+  const tags = dictionaryTags(sense)
   const registerChips = showScales && sense.nuance ? registerDisplay(t, sense.nuance).chips : []
   // The usage note in the learner's language: Japanese on an English word, English on a Japanese one.
   const usage = language === "en" ? sense.noteJa : sense.note
