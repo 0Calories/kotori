@@ -144,7 +144,9 @@ Enrichment is keyed by sense position. The import used to upsert senses by posit
 re-import that reordered or dropped senses left each row on whatever sense now sat there.
 `DictionaryRepo.insertEntries` now matches each entry's stored senses to the incoming ones by
 their glosses (`matchSenses`): the same glosses in order, or failing that at least half of them
-shared. It then moves every row keyed by position with its sense:
+shared. A sense that matches nothing stays at its position unless another sense moved there,
+because JMDict rewords glosses in place far more often than it moves senses. It then moves every
+row keyed by position with its sense:
 
 | table | keyed by | on a move |
 |---|---|---|
@@ -154,7 +156,8 @@ shared. It then moves every row keyed by position with its sense:
 | `examples` | id, with (entry, sense) | moved in place, keeping ids and so their audio (`example_audio`) |
 | `notes` (saved words) | (user, entry, sense), and `senseIndex` in the card content | moved through negative positions, since the triple is unique |
 
-- **Dropped senses:** a sense that can't be matched takes its rows with it. A saved word whose
+- **Dropped senses:** a sense that can't be matched, and whose position is gone or taken by a
+  moved sense, takes its rows with it. A saved word whose
   sense is gone keeps its cards, with `sense` null and `senseIndex` -1, so it no longer marks a
   sense on the entry page.
 - **Unchanged entries:** entries whose senses stay put take the old path. That is every entry on

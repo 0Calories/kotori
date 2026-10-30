@@ -784,9 +784,13 @@ describe("matchSenses", () => {
     const [a, b, c] = [["型", "様式"], ["やり方"], ["格好"]]
     assert.deepStrictEqual(matchSenses([a, b, c], [a, b, c]), [0, 1, 2])
     assert.deepStrictEqual(matchSenses([a, b, c], [c, a, b]), [1, 2, 0])
-    // An edit that keeps half the glosses is the same sense; one that keeps less is another.
+    // An edit that keeps half the glosses is the same sense, wherever it went.
     assert.deepStrictEqual(matchSenses([a, b, c], [["やり方", "方法"], a]), [1, 0, null])
-    assert.deepStrictEqual(matchSenses([["型", "様式", "流儀"]], [["型", "スタイル", "流行"]]), [null])
+    // One that keeps less stays at its position, as a sense reworded in place, unless another
+    // sense moved there.
+    assert.deepStrictEqual(matchSenses([["型", "様式", "流儀"]], [["型", "スタイル", "流行"]]), [0])
+    assert.deepStrictEqual(matchSenses([["to eat"], ["to drink"]], [["to eat (a meal)"], ["to drink"]]), [0, 1])
+    assert.deepStrictEqual(matchSenses([a, ["流儀"]], [["流儀"], ["格好"]]), [null, 0])
     // Twin senses keep their order; an incoming sense is taken once.
     assert.deepStrictEqual(matchSenses([b, b, a], [a, b, b]), [1, 2, 0])
     assert.deepStrictEqual(matchSenses([a, ["型"]], [a]), [0, null])
