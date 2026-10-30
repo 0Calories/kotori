@@ -5,6 +5,7 @@ import { Effect } from "effect"
 import { Command } from "effect/cli"
 import { adminCommand, approve, archive, devAccount, requests, revoke, users } from "./commands/accounts.ts"
 import { enrich } from "./commands/enrich.ts"
+import { evaluate } from "./commands/evaluate.ts"
 import { migrate } from "./commands/migrate.ts"
 import { seed } from "./commands/seed.ts"
 import { status } from "./commands/status.ts"
@@ -19,6 +20,7 @@ const kotori = Command.make("kotori").pipe(
     migrate,
     seed,
     enrich,
+    evaluate,
     work,
     status,
     requests,

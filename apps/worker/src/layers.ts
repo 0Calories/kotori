@@ -1,5 +1,5 @@
 import { NodeHttpClient, NodeServices } from "@effect/platform-node"
-import { Claude, ExampleWriter } from "@kotori/ai"
+import { Claude, ExampleWriter, LoanWriter } from "@kotori/ai"
 import { Approvals, Auth } from "@kotori/auth"
 import { DatabaseLive, Repositories } from "@kotori/db"
 import { MailerLive } from "@kotori/email"
@@ -10,7 +10,7 @@ import { Enrichers } from "./Enrichers.ts"
 
 const Providers = Layer.mergeAll(
   NuanceEnricher.layer.pipe(Layer.provideMerge(Jev.layer)),
-  ExampleWriter.layer.pipe(Layer.provideMerge(Claude.layer)),
+  Layer.mergeAll(ExampleWriter.layer, LoanWriter.layer).pipe(Layer.provideMerge(Claude.layer)),
   Pronouncer.layer.pipe(Layer.provideMerge(Layer.mergeAll(ElevenLabs.layer, AudioStore.layer, Jev.layer))),
   MailerLive
 )

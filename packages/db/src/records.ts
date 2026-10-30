@@ -33,7 +33,11 @@ export const SenseRecord = Schema.Struct({
   stagk: Schema.Array(Schema.String),
   stagr: Schema.Array(Schema.String),
   xrefs: Schema.Array(Schema.String),
-  antonyms: Schema.Array(Schema.String)
+  antonyms: Schema.Array(Schema.String),
+  /** The English words a loanword sense comes from, where JMDict names them (`lsource`): マンション ← mansion. */
+  sources: Schema.Array(Schema.String),
+  /** Whether JMDict marks the sense as wasei-eigo (和製英語), English-looking but coined in Japan. */
+  wasei: Schema.Boolean
 })
 export type SenseRecord = typeof SenseRecord.Type
 
@@ -80,4 +84,54 @@ export const normalizeJapaneseGloss = (text: string) => {
     .replace(/[\s。、.,!?！？・;；:：]+$/, "")
     .replace(/\s+/g, " ")
     .trim()
+}
+
+/** A word written in katakana alone, as loanwords are (スタイル, コーヒー); valid in JavaScript and Postgres. */
+export const KATAKANA_WORD = "^[゠-ヿ]+$"
+
+/** A katakana word that may be the loanword of an English word, and how the dictionary ties them. */
+export interface LoanCandidate {
+  /** The English word, normalised (`normalizeGloss`). */
+  readonly word: string
+  readonly entryId: number
+  /** `gloss`: the entry has the word as a gloss; `source`: JMDict names it as the loan's source. */
+  readonly by: "gloss" | "source"
+}
+
+/**
+ * The loan candidates of English words among `entries`: common katakana words with the word as
+ * a gloss or as their JMDict source, most frequent first, at most `limit` per word.
+ * `DictionaryRepo.loanCandidates` is the same search in SQL; the golden fixture is cut with this.
+ */
+export const loanCandidatesIn = (
+  entries: Iterable<EntryRecord>,
+  words: ReadonlyArray<string>,
+  limit: number
+): Array<LoanCandidate> => {
+  const wanted = new Set(words.map(normalizeGloss).filter((word) => word.length > 1))
+  const katakana = new RegExp(KATAKANA_WORD, "u")
+  const found = new Map<string, Array<LoanCandidate & { readonly priority: number }>>()
+  for (const entry of entries) {
+    if (entry.language !== "ja" || !entry.common || !katakana.test(entry.headword)) continue
+    const by = new Map<string, LoanCandidate["by"]>()
+    for (const sense of entry.senses) {
+      for (const gloss of sense.glosses) {
+        const word = normalizeGloss(gloss.text)
+        if (wanted.has(word) && !by.has(word)) by.set(word, "gloss")
+      }
+      for (const source of sense.sources) {
+        const word = normalizeGloss(source)
+        if (wanted.has(word)) by.set(word, "source")
+      }
+    }
+    for (const [word, how] of by) {
+      found.set(word, [...(found.get(word) ?? []), { word, entryId: entry.id, by: how, priority: entry.priority }])
+    }
+  }
+  return [...found.values()].flatMap((candidates) =>
+    candidates
+      .sort((a, b) => b.priority - a.priority || a.entryId - b.entryId)
+      .slice(0, limit)
+      .map(({ word, entryId, by }) => ({ word, entryId, by }))
+  )
 }

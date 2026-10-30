@@ -57,7 +57,9 @@ export const emptySense = (): SenseRecord => ({
   stagk: [],
   stagr: [],
   xrefs: [],
-  antonyms: []
+  antonyms: [],
+  sources: [],
+  wasei: false
 })
 
 /** The inflections a gloss such as "tireの過去形・過去分詞" or "beの過去分詞形" names. */

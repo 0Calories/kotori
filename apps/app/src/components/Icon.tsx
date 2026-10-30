@@ -28,6 +28,7 @@ const glyphs = {
   eco: 59957,
   edit: 58313,
   error: 57344,
+  expand_less: 58830,
   expand_more: 58831,
   forum: 57535,
   info: 59534,

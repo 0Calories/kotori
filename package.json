@@ -17,6 +17,7 @@
     "build": "nx run-many -t build",
     "sync": "nx sync",
     "assets": "tsx tools/render-assets.ts",
+    "golden": "tsx -C @kotori/source tools/golden-fixture.mts",
     "graph": "nx graph",
     "knip": "knip"
   },

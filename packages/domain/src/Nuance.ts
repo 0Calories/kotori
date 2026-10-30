@@ -25,7 +25,10 @@ export type Currency = typeof Currency.Type
 export const Connotation = Schema.Literals(["negative", "neutral", "positive"])
 export type Connotation = typeof Connotation.Type
 
-/** Where a judgment came from: a JMDict tag (authoritative) or Jev's classification. */
+/**
+ * Where a judgment came from: a dictionary tag (authoritative), JMDict's or the English
+ * dictionary's in JMDict's codes, or Jev's classification.
+ */
 export const JudgmentSource = Schema.Literals(["jmdict", "jev"])
 export type JudgmentSource = typeof JudgmentSource.Type
 
@@ -45,22 +48,68 @@ const scale = <S extends Schema.Top>(value: S) =>
     source: JudgmentSource
   })
 
+/**
+ * Whether a casual↔formal scale is the right model for the word at all:
+ * scaled words move along it, fixed words sit at one obvious register
+ * (insults, ceremonial words), split words live in two worlds at once
+ * (clinical in one, crude or joking in the other).
+ */
+export const RegisterShape = Schema.Literals(["scaled", "fixed", "split"])
+export type RegisterShape = typeof RegisterShape.Type
+
+// --- Judged on English words only, for Japanese speakers learning them --------
+
+/** Whose English a word is: everyone's, or mainly American or British. */
+export const Variety = Schema.Literals(["universal", "american", "british"])
+export type Variety = typeof Variety.Type
+
+/** How offensive an English word is; "avoid" marks slurs and words learners should not use. */
+export const Profanity = Schema.Literals(["none", "mild", "strong", "avoid"])
+export type Profanity = typeof Profanity.Type
+
 export const Nuance = Schema.Struct({
   formality: scale(Formality),
   medium: scale(Medium),
+  /** English has no keigo: English words carry "none", from the dictionary. */
   keigo: judgment(Keigo),
   gender: judgment(Gender),
   age: judgment(AgeGroup),
   currency: judgment(Currency),
   connotation: judgment(Connotation),
+  /** Absent on judgments stored before questions version 2. */
+  registerShape: Schema.optional(judgment(RegisterShape)),
   /** Probabilities of common pitfalls for learners. */
   cautions: Schema.Struct({
     rudeToSuperiors: Schema.Number,
     stiffWithFriends: Schema.Number,
-    slang: Schema.Number
-  })
+    slang: Schema.Number,
+    /** English words: wording taught to learners that natives rarely use ("How do you do?"). */
+    textbook: Schema.optional(Schema.Number)
+  }),
+  /** English words only. */
+  variety: Schema.optional(judgment(Variety)),
+  /** English words only. */
+  profanity: Schema.optional(judgment(Profanity))
 })
 export type Nuance = typeof Nuance.Type
+
+/**
+ * Whether a katakana loan means in everyday Japanese what its English word means
+ * (コーヒー, coffee) or has drifted, so a Japanese speaker carrying it over is
+ * misunderstood (スタイル is first someone's figure).
+ */
+export const LoanVerdict = Schema.Literals(["matches", "diverges"])
+export type LoanVerdict = typeof LoanVerdict.Type
+
+/** The katakana loan of an English word, which Japanese speakers already think they know. */
+export const Loanword = Schema.Struct({
+  /** The katakana word, as JMDict spells it. */
+  word: Schema.String,
+  verdict: judgment(LoanVerdict),
+  /** Claude's one Japanese sentence on how the words differ, once the loan confidently diverges. */
+  trap: Schema.NullOr(Schema.String)
+})
+export type Loanword = typeof Loanword.Type
 
 /** How a similar word differs from the one being looked at. */
 export const Difference = Schema.Literals([

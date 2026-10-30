@@ -284,7 +284,9 @@ const jmdictEntry = (
       stagk: [],
       stagr: [],
       xrefs: [],
-      antonyms: []
+      antonyms: [],
+      sources: [],
+      wasei: false
     }
   ]
 })
