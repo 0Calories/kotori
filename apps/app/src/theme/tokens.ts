@@ -1,9 +1,9 @@
 import { Platform } from "react-native"
 
 /**
- * Kotori's palette is snow and young bamboo (wakatake), with one warm accent
- * taken from the bird's rosy shoulders. Every lighter tint and darker shade of
- * green is drawn from Wakatake 500 at the same hue.
+ * Kotori's palette is snow and young bamboo (wakatake), with one warm accent.
+ * Every lighter tint and darker shade of green is drawn from Wakatake 500 at
+ * the same hue.
  */
 const color = {
   /** Snow: the screen background. */

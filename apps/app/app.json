@@ -19,7 +19,7 @@
       "package": "app.kotori",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#F7FAF7"
+        "backgroundColor": "#94C1E2"
       },
       "edgeToEdgeEnabled": true
     },
