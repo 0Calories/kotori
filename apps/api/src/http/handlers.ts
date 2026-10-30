@@ -66,7 +66,7 @@ const DictionaryHandlers = HttpApiBuilder.group(
     const dictionary = yield* Dictionary
     return handlers.handleAll({
       search: ({ query }) => dictionary.search(query.q, Math.min(Math.max(query.limit ?? 30, 1), 100)),
-      english: ({ query }) => dictionary.english(query.term),
+      english: ({ query }) => Effect.flatMap(CurrentUser, (user) => dictionary.english(query.term, user.profile)),
       entry: ({ params }) =>
         Effect.flatMap(CurrentUser, (user) =>
           dictionary.entry(params.id, user.profile).pipe(Effect.flatMap(orNotFound("No such entry")))

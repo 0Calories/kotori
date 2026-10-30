@@ -165,7 +165,7 @@ layer(testLayer(false))("Dictionary", (it) => {
       yield* enrichment.saveExamples(10, [example(0, "気まずい沈黙が続いた。", "There was an awkward silence.")], 0)
 
       const dictionary = yield* Dictionary
-      const awkward = yield* dictionary.english("  awkward ")
+      const awkward = yield* dictionary.english("  awkward ", japaneseNative)
       assert.strictEqual(awkward.term, "awkward")
       assert.deepStrictEqual(
         awkward.meanings.map((meaning) => [meaning.headword, meaning.sense]),
@@ -193,7 +193,7 @@ layer(testLayer(false))("Dictionary", (it) => {
       assert.isFalse((yield* dictionary.search("awk", 10)).englishWord)
       assert.isFalse((yield* dictionary.search("気まずい", 10)).englishWord)
 
-      assert.deepStrictEqual((yield* dictionary.english("nothing like it")).meanings, [])
+      assert.deepStrictEqual((yield* dictionary.english("nothing like it", japaneseNative)).meanings, [])
     })
   )
 
@@ -214,7 +214,9 @@ layer(testLayer(false))("Dictionary", (it) => {
       })
       yield* enrichment.saveEnglishNuance(14, [judgedGloss(0, "universal"), judgedGloss(1, "british")], 0)
       const meaning = (term: string) =>
-        Effect.map(dictionary.english(term), (found) => found.meanings.find((m) => m.entryId === EntryId.make(14)))
+        Effect.map(dictionary.english(term, japaneseNative), (found) =>
+          found.meanings.find((m) => m.entryId === EntryId.make(14))
+        )
 
       // Each gloss was judged on its own: the "naive" page shows the judgments about "naive".
       assert.strictEqual((yield* meaning("pure"))?.english?.variety.value, "universal")
@@ -350,8 +352,15 @@ layer(testLayer(true))("Dictionary with Jev configured", (it) => {
         )
       yield* repo.insertEntries([entry(31, "様式", "ようしき", [sense(["style", "form"], ["n"])])])
 
-      // A learner of Japanese isn't shown the English side, so nothing is queued or waited for.
+      const englishPage = (viewer: typeof learner | typeof japaneseNative) =>
+        Effect.map(dictionary.english("style", viewer), (found) => found.meanings[0]?.english ?? null)
+      const entryPage = (viewer: typeof learner | typeof japaneseNative) =>
+        Effect.map(dictionary.entry(EntryId.make(31), viewer), (found) => Option.getOrThrow(found).senses[0]?.english)
+
+      // A learner of Japanese isn't shown the English side, so nothing is queued or waited for,
+      // not even from the English page, which the app only links for learners of English.
       assert.strictEqual(yield* englishStatus(learner), "unavailable")
+      yield* englishPage(learner)
       assert.isUndefined(yield* englishJob)
 
       // A Japanese native gets it judged.
@@ -360,6 +369,9 @@ layer(testLayer(true))("Dictionary with Jev configured", (it) => {
       yield* judge(ENGLISH_QUESTIONS_VERSION - 1)
       yield* finishJobs("english", 1)
       assert.strictEqual(yield* englishStatus(learner), "unavailable")
+      // Judged, but still kept from the learner on either page.
+      assert.isNull(yield* englishPage(learner))
+      assert.isNull(yield* entryPage(learner))
 
       // Judged by an older English question set: shown, and queued again on the next look.
       assert.strictEqual(yield* englishStatus(japaneseNative), "ready")
@@ -368,6 +380,8 @@ layer(testLayer(true))("Dictionary with Jev configured", (it) => {
       yield* finishJobs("english", 2)
       assert.strictEqual(yield* englishStatus(japaneseNative), "ready")
       assert.strictEqual(yield* englishJob, "done")
+      assert.exists(yield* englishPage(japaneseNative))
+      assert.exists(yield* entryPage(japaneseNative))
     })
   )
 })

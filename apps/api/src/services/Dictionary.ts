@@ -54,6 +54,9 @@ export interface Viewer {
   readonly targetLanguage: Language
 }
 
+/** Whether a viewer is shown the English side, and so has it judged. */
+const seesEnglish = (viewer: Viewer) => viewer.targetLanguage === "en"
+
 interface Hit {
   readonly entryId: number
   readonly score: number
@@ -149,8 +152,8 @@ export class Dictionary extends Context.Service<
   Dictionary,
   {
     search(query: string, limit: number): Effect.Effect<SearchResult>
-    /** The Japanese words meaning an English word, queueing examples for the leading ones. */
-    english(term: string): Effect.Effect<EnglishEntry>
+    /** The Japanese words meaning an English word, queueing what the leading ones are missing for this viewer. */
+    english(term: string, viewer: Viewer): Effect.Effect<EnglishEntry>
     entry(id: EntryId, viewer: Viewer): Effect.Effect<Option.Option<Entry>>
     /** Queues whatever enrichment an entry is missing for this viewer, returning its status. */
     requestEnrichment(id: EntryId, viewer: Viewer): Effect.Effect<Option.Option<Enrichment>>
@@ -360,11 +363,8 @@ export class Dictionary extends Context.Service<
 
         const nuance = new Map((yield* enrichment.nuanceFor([entry.id])).map((row) => [row.sense, row.nuance]))
         // The judgment of each sense's first gloss: the one its audio button speaks.
-        const english = new Map(
-          (yield* enrichment.englishNuanceFor([entry.id]))
-            .filter((row) => row.gloss === 0)
-            .map((row) => [row.sense, row])
-        )
+        const englishRows = seesEnglish(viewer) ? yield* enrichment.englishNuanceFor([entry.id]) : []
+        const english = new Map(englishRows.filter((row) => row.gloss === 0).map((row) => [row.sense, row]))
         const notes = new Map((yield* enrichment.senseNotesFor([entry.id])).map((row) => [row.sense, row]))
         const examples = yield* enrichment.examplesFor([entry.id])
         const exampleAudio = yield* enrichment.exampleAudio(examples.map((example) => example.id))
@@ -445,7 +445,7 @@ export class Dictionary extends Context.Service<
             voice: clip.voice,
             voiceName: voiceName(clip.voice)
           })),
-          enrichment: yield* enrichmentFor(entry, true, viewer.targetLanguage === "en")
+          enrichment: yield* enrichmentFor(entry, true, seesEnglish(viewer))
         } satisfies Entry
       })
 
@@ -454,7 +454,7 @@ export class Dictionary extends Context.Service<
         return record === undefined ? Option.none() : Option.some(yield* assemble(record, viewer))
       })
 
-      const english = Effect.fn("Dictionary.english")(function* (raw: string) {
+      const english = Effect.fn("Dictionary.english")(function* (raw: string, viewer: Viewer) {
         const term = raw.normalize("NFKC").trim()
         const norm = normalizeGloss(term)
         const matches = yield* repo.findGlossesExact(term, 300)
@@ -476,7 +476,10 @@ export class Dictionary extends Context.Service<
         )
         const notes = new Map((yield* enrichment.senseNotesFor(ids)).map((row) => [`${row.entryId}:${row.sense}`, row]))
         const englishRows = new Map(
-          (yield* enrichment.englishNuanceFor(ids)).map((row) => [`${row.entryId}:${row.sense}:${row.gloss}`, row])
+          (seesEnglish(viewer) ? yield* enrichment.englishNuanceFor(ids) : []).map((row) => [
+            `${row.entryId}:${row.sense}:${row.gloss}`,
+            row
+          ])
         )
         const examples = yield* enrichment.examplesFor(ids)
         const clips = yield* enrichment.exampleAudio(examples.map((example) => example.id))
@@ -486,8 +489,7 @@ export class Dictionary extends Context.Service<
         for (const id of ids.slice(0, ENGLISH_ENRICHED)) {
           const record = records.get(id)
           if (record === undefined) continue
-          // Only Japanese natives learning English reach this page, so the English side is wanted.
-          const status = yield* enrichmentFor(record, true, true)
+          const status = yield* enrichmentFor(record, true, seesEnglish(viewer))
           if (Object.values(status).includes("queued")) waiting = true
           if (status.examples === "queued") writing = true
         }
@@ -527,7 +529,7 @@ export class Dictionary extends Context.Service<
         const [record] = yield* repo.getEntries([id])
         return record === undefined
           ? Option.none()
-          : Option.some(yield* enrichmentFor(record, true, viewer.targetLanguage === "en"))
+          : Option.some(yield* enrichmentFor(record, true, seesEnglish(viewer)))
       })
 
       const lookupWords = Effect.fn("Dictionary.lookupWords")(function* (
