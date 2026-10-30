@@ -75,6 +75,7 @@ const FakeJev = Layer.succeed(
 )
 
 let loanRequests = 0
+const loanPrompts: Array<string> = []
 /** Whether the Claude probe succeeds: false as with no key, a bad one, or a probe that timed out. */
 let claudeUp = true
 
@@ -87,6 +88,7 @@ const FakeClaude = Layer.succeed(
       (options.schema as unknown) === LoanOutput
         ? Effect.sync(() => {
             loanRequests++
+            loanPrompts.push(options.prompt)
             return { loanTrap: WARNING } as never
           })
         : Effect.succeed({
@@ -288,7 +290,20 @@ layer(TestLayer)("kotori work", (it) => {
       const jobs = yield* JobsRepo
       const mansion = 100001700
       yield* dictionary.insertEntries([
-        { ...entry(mansion, "mansion", "/ˈmænʃən/", [["大邸宅"]]), language: "en", forms: [] },
+        {
+          // Its seventh sense, beyond the six judged, is glossed with the loan itself.
+          ...entry(mansion, "mansion", "/ˈmænʃən/", [
+            ["大邸宅"],
+            ["館"],
+            ["屋敷"],
+            ["（月の）宿"],
+            ["住まい"],
+            ["邸"],
+            ["マンション", "分譲マンション"]
+          ]),
+          language: "en",
+          forms: []
+        },
         {
           ...entry(1130040, "マンション", "マンション", [["condominium", "mansion"]]),
           forms: [
@@ -327,6 +342,12 @@ layer(TestLayer)("kotori work", (it) => {
       assert.deepStrictEqual(yield* trap, ["diverges", WARNING])
       assert.strictEqual(jevRequests - before.jev, 2)
       assert.strictEqual(loanRequests - before.claude, 1)
+      // Written from the senses that bear on the loan, the seventh among them, and the loan's own meanings.
+      const prompt = loanPrompts.at(-1)!
+      assert.include(prompt, "1. 大邸宅")
+      assert.include(prompt, "7. マンション; 分譲マンション")
+      assert.include(prompt, "Katakana loanword: マンション")
+      assert.include(prompt, "1. condominium; mansion")
     })
   )
 

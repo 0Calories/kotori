@@ -1,11 +1,34 @@
 import { Claude, ExampleWriter, LoanWriter } from "@kotori/ai"
-import { DictionaryRepo, EnrichmentRepo, type JobKind } from "@kotori/db"
-import { awaitsWarning, Jev, NuanceEnricher, nuanceOutdated } from "@kotori/nuance"
+import { DictionaryRepo, EnrichmentRepo, type EntryRecord, type JobKind } from "@kotori/db"
+import { awaitsWarning, Jev, loanScope, MAX_LOANS, MAX_SENSES, NuanceEnricher, nuanceOutdated } from "@kotori/nuance"
 import { Pronouncer } from "@kotori/tts"
 import { Clock, Context, Effect, Layer } from "effect"
 
 /** Senses that get example sentences; later senses are rarely what learners look for. */
 const EXAMPLE_SENSES = 4
+
+type Sense = EntryRecord["senses"][number]
+
+/** A sense as a writer reads it: its leading glosses, and its usage labels in brackets. */
+const described = (sense: Sense, tags: ReadonlyMap<string, string>) => {
+  const glosses = sense.glosses
+    .slice(0, 3)
+    .map((gloss) => gloss.text)
+    .join("; ")
+  const labels = [...sense.misc, ...sense.fields, ...sense.dialects].map((code) => tags.get(code) ?? code)
+  return labels.length > 0 ? `${glosses} [${labels.join("; ")}]` : glosses
+}
+
+/**
+ * The English word's senses that bear on its loan's warning: the judged ones, which the import
+ * ranks commonest first, and any glossed with the loan itself (「スマートな」 for "smart"),
+ * wherever it is. Judged in an older order, "smart" led with six senses of pain, and the warning
+ * said smart meant to throb; the writer is also told the order isn't always by frequency.
+ */
+const loanSenses = (entry: EntryRecord, loanWord: string) =>
+  entry.senses.filter(
+    (sense, index) => index < MAX_SENSES || sense.glosses.some((gloss) => gloss.text.includes(loanWord))
+  )
 
 export class Enrichers extends Context.Service<
   Enrichers,
@@ -93,16 +116,18 @@ export class Enrichers extends Context.Service<
         if (loan?.word == null || !awaitsWarning(loan) || !(yield* claude.available)) return false
         const [entry] = yield* dictionary.getEntries([entryId])
         if (entry === undefined) return false
+        const tags = yield* dictionary.tags
+        // The katakana word's own meanings, as Jev saw them: JMDict's, with their usage notes.
+        const candidates = yield* dictionary.loanCandidates([entry.headword], MAX_LOANS)
+        const katakana = (yield* dictionary.getEntries(candidates.map((candidate) => candidate.entryId))).find(
+          (candidate) => candidate.headword === loan.word
+        )
         const written = yield* loanWriter.write({
           headword: entry.headword,
           reading: entry.reading,
-          meanings: entry.senses.slice(0, EXAMPLE_SENSES).map((sense) =>
-            sense.glosses
-              .slice(0, 3)
-              .map((gloss) => gloss.text)
-              .join("; ")
-          ),
-          loanWord: loan.word
+          meanings: loanSenses(entry, loan.word).map((sense) => described(sense, tags)),
+          loanWord: loan.word,
+          loanMeanings: katakana === undefined ? [] : loanScope(katakana, tags).katakana_meanings
         })
         if (written === null) return false
         yield* enrichment.saveLoanTrap(entryId, loan.word, written)
