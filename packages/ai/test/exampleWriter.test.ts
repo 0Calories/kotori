@@ -40,7 +40,6 @@ const written = (overrides: Partial<(typeof ExamplesOutput.Type)["senses"][numbe
   variety: "Kansai-ben",
   tone: "rough" as const,
   note: null,
-  noteJa: null,
   ...overrides
 })
 
@@ -75,6 +74,10 @@ describe("examples prompt", () => {
       expect(examplesSystem).toContain(field)
     }
     expect(examplesSystem).toMatch(/written entirely in that dialect/)
+  })
+
+  it("asks a Japanese word's sentences for English notes only", () => {
+    expect(examplesSystem).not.toContain('"noteJa"')
   })
 
   it("tells the writer which senses are dialect and keeps other notes separate", () => {

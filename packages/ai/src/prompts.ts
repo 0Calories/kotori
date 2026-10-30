@@ -92,8 +92,7 @@ For each sentence give:
 - "medium": conversation (someone talking to someone), announcement (news, notices, public address, business mail read aloud) or narration (prose, proverbs, descriptions);
 - "variety": the regional variety the sentence is written in, as one lowercase word such as "kansai", "tohoku" or "kyushu"; null for standard Japanese;
 - "tone": the dominant feel of the delivery — neutral, cheerful, serious, gentle, rough, or humorous for a joke, gag, pun or comic exaggeration;
-- "note": null unless this particular sentence needs explaining — a collocation in it, why this register fits this situation, a twist in the translation. One short English sentence that never repeats the sense note;
-- "noteJa": the same, in Japanese for Japanese speakers learning English, about this English sentence; null unless the sentence itself teaches something. It is not a translation of "note".
+- "note": null unless this particular sentence needs explaining — a collocation in it, why this register fits this situation, a twist in the translation. One short English sentence that never repeats the sense note.
 
 Return the sense numbers exactly as given.`
 

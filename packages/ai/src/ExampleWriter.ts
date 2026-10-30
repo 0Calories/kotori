@@ -28,8 +28,7 @@ export const ExamplesOutput = Schema.Struct({
           /** Regional variety as a lowercase label ("kansai"); null for the standard language. */
           variety: Schema.NullOr(Schema.String),
           tone: SentenceTone,
-          note: Schema.NullOr(Schema.String),
-          noteJa: Schema.NullOr(Schema.String)
+          note: Schema.NullOr(Schema.String)
         })
       )
     })
@@ -214,7 +213,8 @@ export class ExampleWriter extends Context.Service<
               variety: normalizeVariety(example.variety),
               tone: example.tone,
               note: example.note,
-              noteJa: example.noteJa
+              // Japanese words are read by learners of Japanese, in English.
+              noteJa: null
             }))
           )
         }
