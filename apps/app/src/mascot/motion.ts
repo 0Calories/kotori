@@ -9,9 +9,10 @@ import { joints, type Mood } from "./geometry.ts"
  * can be checked as stills with `pnpm motion`.
  *
  * To add an animation, name it in `ClipName`, give it keys in `clips`, and
- * list it in `entrances` to play it when Kotori takes a mood. An entrance
- * starts from the drawing (the tests hold it to that), so nothing jumps as the
- * mood changes.
+ * list it in `entrances` to play it when Kotori takes a mood, or in `loops` to
+ * play it over and over once the entrance ends. Every part of an entrance
+ * starts from the drawing or hidden (the tests hold it to that), so nothing
+ * jumps as the mood changes, and a loop starts and ends on the drawing.
  *
  * Functions marked "worklet" also run on the UI thread, so keep them to plain
  * loops and property access: Babel may turn destructuring or `for…of` into
@@ -50,7 +51,35 @@ export type Clip = {
   readonly tracks: { readonly [P in Part]?: { readonly [K in keyof Pose]?: readonly Key[] } }
 }
 
-export type ClipName = "celebrate" | "thinking" | "blink"
+export type ClipName = "celebrate" | "thinking" | "ponder" | "blink"
+
+/** A puff, bubble or dot growing out of nothing from `ms`, for 160 ms: shown at a fifth of its size, it swells past it and settles. */
+const popIn = (ms: number) => ({
+  opacity: [
+    [0, 0],
+    [ms, 1, "step"]
+  ] as const,
+  scaleX: [
+    [0, 0.2],
+    [ms, 0.2, "step"],
+    [ms + 160, 1, "overshoot"]
+  ] as const,
+  scaleY: [
+    [0, 0.2],
+    [ms, 0.2, "step"],
+    [ms + 160, 1, "overshoot"]
+  ] as const
+})
+
+/** A dot of the bubble's ellipsis hopping from `ms`, for 400 ms. */
+const hop = (ms: number) => ({
+  y: [
+    [0, 0],
+    [ms, 0],
+    [ms + 160, -4, "out"],
+    [ms + 400, 0]
+  ] as const
+})
 
 export const clips: Record<ClipName, Clip> = {
   /** Crouch, hop up stretched, land squashed, wave, and fold the wing back down. */
@@ -108,20 +137,58 @@ export const clips: Record<ClipName, Clip> = {
       }
     }
   },
-  /** Eyes drift up and to the side. */
+  /**
+   * Kotori faces the viewer and raises a wing to its chin, a thought bubble
+   * grows puff by puff above its head, and an ellipsis fills it dot by dot.
+   * The raised wing fades in folded over the side wing, then unfolds.
+   */
   thinking: {
-    duration: 280,
+    duration: 1000,
     tracks: {
-      eyes: {
-        x: [
+      sideWing: {
+        opacity: [
+          [0, 1],
+          [80, 0, "linear"]
+        ]
+      },
+      chinWing: {
+        opacity: [
           [0, 0],
-          [280, -2.5, "out"]
+          [80, 1, "linear"]
         ],
+        rotate: [
+          [0, 20],
+          [80, 20],
+          [420, 0, "overshoot"]
+        ],
+        scaleX: [
+          [0, 0.35],
+          [80, 0.35],
+          [420, 1, "overshoot"]
+        ]
+      },
+      trail0: popIn(340),
+      trail1: popIn(440),
+      bubble: popIn(540),
+      dot0: popIn(680),
+      dot1: popIn(760),
+      dot2: popIn(840)
+    }
+  },
+  /** While thinking, on a loop: the ellipsis hops dot by dot, and the bubble bobs. */
+  ponder: {
+    duration: 1400,
+    tracks: {
+      bubble: {
         y: [
           [0, 0],
-          [280, -3, "out"]
+          [700, -1.5],
+          [1400, 0]
         ]
-      }
+      },
+      dot0: hop(100),
+      dot1: hop(250),
+      dot2: hop(400)
     }
   },
   /** Eyes shut for a moment: the open eyes vanish, and the shut ones show in their place. */
@@ -140,6 +207,9 @@ export const clips: Record<ClipName, Clip> = {
 
 /** What Kotori plays on taking a mood. Its last frame is how Kotori stays in that mood. */
 export const entrances: Partial<Record<Mood, ClipName>> = { celebrate: "celebrate", thinking: "thinking" }
+
+/** What Kotori plays over and over in a mood once the entrance ends, over the entrance's last frame. */
+export const loops: Partial<Record<Mood, ClipName>> = { thinking: "ponder" }
 
 const ease = (curve: Ease, u: number) => {
   "worklet"
@@ -208,22 +278,23 @@ export const combine = (a: Pose, b: Pose): Pose => {
 export const settled = (mood: Mood, part: Part) => poseAt(entrances[mood] ?? null, part, Infinity)
 
 /**
- * A React Native transform placing `part` in a view `size` pixels square that
- * shows the 200×200 box. Views turn and scale about their centre, so the
- * joint is moved there first and back after.
+ * A React Native transform placing `part` in a view `size` pixels wide that
+ * shows the 200×200 box and `headroom` units above it. Views turn and scale
+ * about their centre, so the joint is moved there first and back after.
  */
-export const viewTransform = (pose: Pose, part: Part, size: number) => {
+export const viewTransform = (pose: Pose, part: Part, size: number, headroom = 0) => {
   "worklet"
   const k = size / 200
   const joint = joints[part]
+  const middle = (200 - headroom) / 2
   return [
     { translateX: (joint.x - 100 + pose.x) * k },
-    { translateY: (joint.y - 100 + pose.y) * k },
+    { translateY: (joint.y - middle + pose.y) * k },
     { rotate: `${pose.rotate}deg` },
     { scaleX: pose.scaleX },
     { scaleY: pose.scaleY },
     { translateX: (100 - joint.x) * k },
-    { translateY: (100 - joint.y) * k }
+    { translateY: (middle - joint.y) * k }
   ]
 }
 

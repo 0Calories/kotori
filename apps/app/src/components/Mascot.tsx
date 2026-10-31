@@ -1,22 +1,31 @@
 import { type ComponentProps, type ReactNode, useEffect, useMemo } from "react"
 import { StyleSheet, View } from "react-native"
 import Animated, {
+  cancelAnimation,
   Easing,
   type SharedValue,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withDelay,
+  withRepeat,
   withTiming
 } from "react-native-reanimated"
 import Svg, { Circle, Ellipse, G, Path, Text as SvgText } from "react-native-svg"
-import { type Mood, palette, shapes } from "../mascot/geometry.ts"
-import { type ClipName, clips, combine, entrances, type Part, poseAt, viewTransform } from "../mascot/motion.ts"
+import { frontMoods, frontShapes, type Mood, palette, shapes, thinkingShapes } from "../mascot/geometry.ts"
+import { type ClipName, clips, combine, entrances, loops, type Part, poseAt, viewTransform } from "../mascot/motion.ts"
 
 export type { Mood }
 
-const Eyes = ({ mood }: { readonly mood: Mood }) => {
+/** The eyes and catchlight of one of Kotori's views. */
+type Face = {
+  readonly eyes: readonly { readonly cx: number; readonly cy: number; readonly rx: number; readonly ry: number }[]
+  readonly catchlight: { readonly dx: number; readonly dy: number; readonly r: number }
+}
+
+const Eyes = ({ mood, face = shapes }: { readonly mood: Mood; readonly face?: Face }) => {
   if (mood === "happy" || mood === "celebrate") {
-    return shapes.eyes.map((e) => (
+    return face.eyes.map((e) => (
       <Path
         key={e.cx}
         d={`M${e.cx - 7} ${e.cy + 2} Q ${e.cx} ${e.cy - 7} ${e.cx + 7} ${e.cy + 2}`}
@@ -28,7 +37,7 @@ const Eyes = ({ mood }: { readonly mood: Mood }) => {
     ))
   }
   if (mood === "sleepy") {
-    return shapes.eyes.map((e) => (
+    return face.eyes.map((e) => (
       <Path
         key={e.cx}
         d={`M${e.cx - 7} ${e.cy + 1} Q ${e.cx} ${e.cy + 5} ${e.cx + 7} ${e.cy + 1}`}
@@ -40,8 +49,8 @@ const Eyes = ({ mood }: { readonly mood: Mood }) => {
     ))
   }
   const scale = mood === "oops" ? 1.08 : 1
-  const { catchlight } = shapes
-  return shapes.eyes.map((e) => (
+  const { catchlight } = face
+  return face.eyes.map((e) => (
     <G key={e.cx}>
       <Ellipse cx={e.cx} cy={e.cy} rx={e.rx * scale} ry={e.ry * scale} fill={palette.ink} />
       <Circle cx={e.cx + catchlight.dx} cy={e.cy + catchlight.dy} r={catchlight.r} fill={palette.white} />
@@ -60,13 +69,6 @@ const extras: Partial<Record<Mood, ReactNode>> = {
     <SvgText x={25} y={38} fontSize={22} fontWeight="bold" fill={palette.sky}>
       z
     </SvgText>
-  ),
-  thinking: (
-    <G opacity={0.85}>
-      <Circle cx={40} cy={37} r={4} fill={palette.shade} />
-      <Circle cx={29} cy={24} r={5.5} fill={palette.shade} />
-      <Circle cx={15} cy={10} r={7.5} fill={palette.shade} />
-    </G>
   ),
   celebrate: (
     <G fill={palette.blush}>
@@ -99,53 +101,39 @@ const play = (channel: Channel, name: ClipName | null, animate: boolean) => {
   if (animate && name !== null) channel.time.set(withTiming(duration, { duration, easing: Easing.linear }))
 }
 
-/**
- * Moves the layer holding `part` to its pose in both channels at once. A
- * `shut` layer goes where `part` goes but shows as it fades, as shut eyes do.
- */
-const usePartStyle = (part: Part, size: number, entrance: Channel, idle: Channel, shut = false) =>
-  useAnimatedStyle(() => {
-    const pose = combine(
-      poseAt(entrance.clip.get(), part, entrance.time.get()),
-      poseAt(idle.clip.get(), part, idle.time.get())
-    )
-    return { opacity: shut ? 1 - pose.opacity : pose.opacity, transform: viewTransform(pose, part, size) }
-  })
+/** Plays a clip over and over, `delay` ms from now; `null` stops it. */
+const repeat = (channel: Channel, name: ClipName | null, delay: number) => {
+  channel.time.set(0)
+  channel.clip.set(name)
+  if (name === null) return
+  const { duration } = clips[name]
+  channel.time.set(withDelay(delay, withRepeat(withTiming(duration, { duration, easing: Easing.linear }), -1)))
+}
 
-/** A moving part on a canvas of its own, stacked over the parts drawn before it. */
-const Layer = ({
-  style,
-  size,
-  children
-}: {
-  readonly style: ComponentProps<typeof Animated.View>["style"]
-  readonly size: number
-  readonly children: ReactNode
-}) => (
-  <Animated.View style={[StyleSheet.absoluteFill, style]}>
-    <Svg width={size} height={size} viewBox="0 0 200 200">
-      {children}
-    </Svg>
-  </Animated.View>
-)
+/** What Kotori is playing: the mood's entrance, then its loop over the entrance's last frame, and blinks over both. */
+type Motion = { readonly entrance: Channel; readonly loop: Channel; readonly idle: Channel }
 
 /**
- * Kotori, the shima enaga. Changes expression with `mood`, plays the mood's
- * entrance from `motion.ts` and blinks now and then; with reduced motion it
- * holds each mood's pose and doesn't blink. Every moving part is a layer
- * placed with plain view transforms, so a clip plays the same way on iOS,
- * Android and the web.
+ * Plays `mood`'s entrance and loop, and blinks now and then; with reduced
+ * motion, holds the mood's pose and doesn't blink. A view starts on the
+ * entrance's first frame (or its last, when it won't play), so a view that
+ * appears with the mood doesn't flash its finished pose first.
  */
-export const Mascot = ({ size = 120, mood = "curious" }: { readonly size?: number; readonly mood?: Mood }) => {
+const useMotion = (mood: Mood): Motion => {
   const reduceMotion = useReducedMotion()
   const enter = entrances[mood] ?? null
-  // Begin on the entrance's first frame, or on its last when it won't play.
   const entrance = useChannel(enter, reduceMotion && enter !== null ? clips[enter].duration : 0)
+  const loop = useChannel(null, 0)
   const idle = useChannel(null, 0)
 
   useEffect(() => {
     play(entrance, enter, !reduceMotion)
   }, [entrance, enter, reduceMotion])
+
+  useEffect(() => {
+    repeat(loop, reduceMotion ? null : (loops[mood] ?? null), enter === null ? 0 : clips[enter].duration)
+    return () => cancelAnimation(loop.time)
+  }, [loop, mood, enter, reduceMotion])
 
   useEffect(() => {
     if (reduceMotion || !blinks(mood)) return
@@ -163,21 +151,77 @@ export const Mascot = ({ size = 120, mood = "curious" }: { readonly size?: numbe
     return () => clearTimeout(timer)
   }, [idle, mood, reduceMotion])
 
-  const bird = usePartStyle("bird", size, entrance, idle)
-  const tail = usePartStyle("tail", size, entrance, idle)
-  const backFoot = usePartStyle("backFoot", size, entrance, idle)
-  const frontFoot = usePartStyle("frontFoot", size, entrance, idle)
-  const wing = usePartStyle("wing", size, entrance, idle)
-  const face = usePartStyle("face", size, entrance, idle)
-  const eyes = usePartStyle("eyes", size, entrance, idle)
-  const shutEyes = usePartStyle("eyes", size, entrance, idle, true)
+  return useMemo(() => ({ entrance, loop, idle }), [entrance, loop, idle])
+}
+
+/**
+ * Moves the layer holding `part` to its pose in every channel at once, in a
+ * canvas reaching `headroom` box units above the box. A `shut` layer goes
+ * where `part` goes but shows as it fades, as shut eyes do.
+ */
+const usePartStyle = (part: Part, size: number, motion: Motion, shut = false, headroom = 0) =>
+  useAnimatedStyle(() => {
+    const { entrance, loop, idle } = motion
+    const pose = combine(
+      combine(poseAt(entrance.clip.get(), part, entrance.time.get()), poseAt(loop.clip.get(), part, loop.time.get())),
+      poseAt(idle.clip.get(), part, idle.time.get())
+    )
+    return { opacity: shut ? 1 - pose.opacity : pose.opacity, transform: viewTransform(pose, part, size, headroom) }
+  })
+
+/** A canvas showing the 200×200 box at `size` pixels wide, and `headroom` units above it. */
+const Canvas = ({
+  size,
+  headroom = 0,
+  children
+}: {
+  readonly size: number
+  readonly headroom?: number
+  readonly children: ReactNode
+}) => (
+  <Svg
+    style={StyleSheet.absoluteFill}
+    width={size}
+    height={(size * (200 + headroom)) / 200}
+    viewBox={`0 ${-headroom} 200 ${200 + headroom}`}
+  >
+    {children}
+  </Svg>
+)
+
+/** A moving part on a canvas of its own, stacked over the parts drawn before it. */
+const Layer = ({
+  style,
+  size,
+  headroom = 0,
+  children
+}: {
+  readonly style: ComponentProps<typeof Animated.View>["style"]
+  readonly size: number
+  readonly headroom?: number
+  readonly children: ReactNode
+}) => (
+  <Animated.View style={[StyleSheet.absoluteFill, style]}>
+    <Svg width={size} height={(size * (200 + headroom)) / 200} viewBox={`0 ${-headroom} 200 ${200 + headroom}`}>
+      {children}
+    </Svg>
+  </Animated.View>
+)
+
+/** Kotori in three-quarter view. */
+const Side = ({ size, mood }: { readonly size: number; readonly mood: Mood }) => {
+  const motion = useMotion(mood)
+  const bird = usePartStyle("bird", size, motion)
+  const tail = usePartStyle("tail", size, motion)
+  const backFoot = usePartStyle("backFoot", size, motion)
+  const frontFoot = usePartStyle("frontFoot", size, motion)
+  const wing = usePartStyle("wing", size, motion)
+  const face = usePartStyle("face", size, motion)
+  const eyes = usePartStyle("eyes", size, motion)
+  const shutEyes = usePartStyle("eyes", size, motion, true)
 
   return (
-    <View
-      style={{ width: size, height: size }}
-      accessibilityRole="image"
-      accessibilityLabel="Kotori the long-tailed tit"
-    >
+    <>
       <Animated.View style={[StyleSheet.absoluteFill, bird]}>
         <Layer style={tail} size={size}>
           <Path d={shapes.tail} fill={palette.ink} />
@@ -185,14 +229,14 @@ export const Mascot = ({ size = 120, mood = "curious" }: { readonly size?: numbe
         <Layer style={backFoot} size={size}>
           <Foot d={shapes.feet.back} />
         </Layer>
-        <Svg style={StyleSheet.absoluteFill} width={size} height={size} viewBox="0 0 200 200">
+        <Canvas size={size}>
           {shapes.tuft.map((t) => (
             <Circle key={t.cx} cx={t.cx} cy={t.cy} r={t.r} fill={palette.cream} />
           ))}
           <Path d={shapes.body} fill={palette.cream} />
           <Path d={shapes.shade} fill={palette.shade} />
           <Path d={shapes.belly} fill={palette.white} fillOpacity={0.4} />
-        </Svg>
+        </Canvas>
         <Layer style={frontFoot} size={size}>
           <Foot d={shapes.feet.front} />
         </Layer>
@@ -200,12 +244,12 @@ export const Mascot = ({ size = 120, mood = "curious" }: { readonly size?: numbe
           <Path d={shapes.wing} fill={palette.ink} />
         </Layer>
         <Animated.View style={[StyleSheet.absoluteFill, face]}>
-          <Svg style={StyleSheet.absoluteFill} width={size} height={size} viewBox="0 0 200 200">
+          <Canvas size={size}>
             {shapes.cheeks.map((c) => (
               <Ellipse key={c.cx} cx={c.cx} cy={c.cy} rx={c.rx} ry={c.ry} fill={palette.blush} />
             ))}
             <Path d={shapes.beak} fill={palette.ink} />
-          </Svg>
+          </Canvas>
           <Layer style={eyes} size={size}>
             <Eyes mood={mood} />
           </Layer>
@@ -214,11 +258,118 @@ export const Mascot = ({ size = 120, mood = "curious" }: { readonly size?: numbe
           </Layer>
         </Animated.View>
       </Animated.View>
-      {extras[mood] === undefined ? null : (
-        <Svg style={StyleSheet.absoluteFill} width={size} height={size} viewBox="0 0 200 200">
-          {extras[mood]}
-        </Svg>
-      )}
+      {extras[mood] === undefined ? null : <Canvas size={size}>{extras[mood]}</Canvas>}
+    </>
+  )
+}
+
+/**
+ * The thought bubble, on a canvas that reaches above Kotori's box. It neither
+ * takes up layout space nor catches touches, so it can overlap what's above.
+ */
+const ThoughtBubble = ({ size, motion }: { readonly size: number; readonly motion: Motion }) => {
+  const { headroom, trail, dots } = thinkingShapes
+  const trail0 = usePartStyle("trail0", size, motion, false, headroom)
+  const trail1 = usePartStyle("trail1", size, motion, false, headroom)
+  const bubble = usePartStyle("bubble", size, motion, false, headroom)
+  const dot0 = usePartStyle("dot0", size, motion, false, headroom)
+  const dot1 = usePartStyle("dot1", size, motion, false, headroom)
+  const dot2 = usePartStyle("dot2", size, motion, false, headroom)
+  const dotStyles = [dot0, dot1, dot2]
+  const k = size / 200
+
+  return (
+    <View
+      style={{
+        position: "absolute",
+        left: 0,
+        top: -headroom * k,
+        width: size,
+        height: (200 + headroom) * k,
+        pointerEvents: "none"
+      }}
+    >
+      <Layer style={trail0} size={size} headroom={headroom}>
+        <Circle cx={trail[0].cx} cy={trail[0].cy} r={trail[0].r} fill={palette.shade} />
+      </Layer>
+      <Layer style={trail1} size={size} headroom={headroom}>
+        <Circle cx={trail[1].cx} cy={trail[1].cy} r={trail[1].r} fill={palette.shade} />
+      </Layer>
+      <Animated.View style={[StyleSheet.absoluteFill, bubble]}>
+        <Canvas size={size} headroom={headroom}>
+          <Path d={thinkingShapes.bubble} fill={palette.shade} />
+        </Canvas>
+        {dots.map((d, i) => (
+          <Layer key={d.cx} style={dotStyles[i]} size={size} headroom={headroom}>
+            <Circle cx={d.cx} cy={d.cy} r={d.r} fill={palette.ink} />
+          </Layer>
+        ))}
+      </Animated.View>
     </View>
   )
 }
+
+/** Kotori facing the viewer: thinking, with a wing raised to its chin and the thought bubble above its head. */
+const Front = ({ size, mood }: { readonly size: number; readonly mood: Mood }) => {
+  const motion = useMotion(mood)
+  const bird = usePartStyle("bird", size, motion)
+  const sideWing = usePartStyle("sideWing", size, motion)
+  const chinWing = usePartStyle("chinWing", size, motion)
+  const eyes = usePartStyle("eyes", size, motion)
+  const shutEyes = usePartStyle("eyes", size, motion, true)
+  const { feet, wings } = frontShapes
+
+  return (
+    <>
+      <Animated.View style={[StyleSheet.absoluteFill, bird]}>
+        <Canvas size={size}>
+          <Path d={wings[1]} fill={palette.ink} />
+        </Canvas>
+        <Layer style={sideWing} size={size}>
+          <Path d={wings[0]} fill={palette.ink} />
+        </Layer>
+        <Canvas size={size}>
+          {frontShapes.tuft.map((t) => (
+            <Circle key={t.cx} cx={t.cx} cy={t.cy} r={t.r} fill={palette.cream} />
+          ))}
+          <Path d={frontShapes.body} fill={palette.cream} />
+          <Path d={frontShapes.shade} fill={palette.shade} />
+          <Path d={frontShapes.belly} fill={palette.white} fillOpacity={0.4} />
+          {[feet.left, feet.right].map((d) => (
+            <Path key={d} d={d} stroke={palette.ink} strokeWidth={feet.width} strokeLinecap="round" />
+          ))}
+          {frontShapes.cheeks.map((c) => (
+            <Ellipse key={c.cx} cx={c.cx} cy={c.cy} rx={c.rx} ry={c.ry} fill={palette.blush} />
+          ))}
+        </Canvas>
+        <Layer style={eyes} size={size}>
+          <Eyes mood={mood} face={frontShapes} />
+        </Layer>
+        <Layer style={shutEyes} size={size}>
+          <Eyes mood="sleepy" face={frontShapes} />
+        </Layer>
+        <Canvas size={size}>
+          <Path d={frontShapes.beak} fill={palette.ink} />
+        </Canvas>
+        <Layer style={chinWing} size={size}>
+          <Path d={thinkingShapes.chinWing} fill={palette.ink} />
+        </Layer>
+      </Animated.View>
+      <ThoughtBubble size={size} motion={motion} />
+    </>
+  )
+}
+
+/**
+ * Kotori, the shima enaga. Changes expression with `mood`, plays the mood's
+ * entrance and loop from `motion.ts` and blinks now and then; with reduced
+ * motion it holds each mood's pose and doesn't blink. Thinking, it faces the
+ * viewer under a thought bubble that rises above its `size` box. Every moving
+ * part is a layer placed with plain view transforms, so a clip plays the same
+ * way on iOS, Android and the web.
+ */
+export const Mascot = ({ size = 120, mood = "curious" }: { readonly size?: number; readonly mood?: Mood }) => (
+  <View style={{ width: size, height: size }} accessibilityRole="image" accessibilityLabel="Kotori the long-tailed tit">
+    {frontMoods.has(mood) ? <Front size={size} mood={mood} /> : <Side size={size} mood={mood} />}
+  </View>
+)

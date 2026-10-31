@@ -1,4 +1,4 @@
-import { frontShapes, type Mood, palette, shapes } from "./geometry.ts"
+import { frontMoods, frontShapes, headroom, type Mood, palette, shapes, thinkingShapes } from "./geometry.ts"
 import {
   type ClipName,
   clips,
@@ -7,12 +7,22 @@ import {
   type Part,
   type Pose,
   poseAt,
+  rest,
   settled,
   svgTransform
 } from "./motion.ts"
 
-/** Kotori in its 200×200 box, with each moving part placed by `pose`. */
-const drawing = (mood: Mood, pose: (part: Part) => Pose) => {
+/** `content` placed by `pose`. */
+const placed = (pose: (part: Part) => Pose) => (name: Part, content: string) => {
+  const at = pose(name)
+  return `<g transform="${svgTransform(at, name)}" opacity="${at.opacity}">${content}</g>`
+}
+
+const circle = (c: { readonly cx: number; readonly cy: number; readonly r: number }, fill: string) =>
+  `<circle cx="${c.cx}" cy="${c.cy}" r="${c.r}" fill="${fill}"/>`
+
+/** Kotori in three-quarter view in its 200×200 box, with each moving part placed by `pose`. */
+const sideDrawing = (mood: Mood, pose: (part: Part) => Pose) => {
   const { catchlight } = shapes
   const eyes =
     mood === "happy" || mood === "celebrate"
@@ -36,10 +46,7 @@ const drawing = (mood: Mood, pose: (part: Part) => Pose) => {
     .join("")
   const foot = (d: string) =>
     `<path d="${d}" stroke="${palette.ink}" stroke-width="${shapes.feet.width}" stroke-linecap="round"/>`
-  const part = (name: Part, content: string) => {
-    const placed = pose(name)
-    return `<g transform="${svgTransform(placed, name)}" opacity="${placed.opacity}">${content}</g>`
-  }
+  const part = placed(pose)
   const eyesPose = pose("eyes")
 
   return part(
@@ -62,14 +69,75 @@ const drawing = (mood: Mood, pose: (part: Part) => Pose) => {
   )
 }
 
-/** The mascot as an SVG document, for generating icons and splash images. */
+/**
+ * Kotori facing the viewer in its 200×200 box, with each moving part placed
+ * by `pose`. `thinking` adds the wing raised to the chin and the thought
+ * bubble, which reaches above the box.
+ */
+const frontDrawing = (pose: (part: Part) => Pose, thinking: boolean) => {
+  const { catchlight, feet, wings } = frontShapes
+  const eyes = frontShapes.eyes
+    .map(
+      (e) =>
+        `<ellipse cx="${e.cx}" cy="${e.cy}" rx="${e.rx}" ry="${e.ry}" fill="${palette.ink}"/><circle cx="${e.cx + catchlight.dx}" cy="${e.cy + catchlight.dy}" r="${catchlight.r}" fill="${palette.white}"/>`
+    )
+    .join("")
+  const shut = frontShapes.eyes
+    .map(
+      (e) =>
+        `<path d="M${e.cx - 7} ${e.cy + 1} Q ${e.cx} ${e.cy + 5} ${e.cx + 7} ${e.cy + 1}" fill="none" stroke="${palette.ink}" stroke-width="3.5" stroke-linecap="round"/>`
+    )
+    .join("")
+  const foot = (d: string) =>
+    `<path d="${d}" stroke="${palette.ink}" stroke-width="${feet.width}" stroke-linecap="round"/>`
+  const part = placed(pose)
+  const eyesPose = pose("eyes")
+  const { trail, dots } = thinkingShapes
+
+  const bird = part(
+    "bird",
+    `<path d="${wings[1]}" fill="${palette.ink}"/>
+  ${part("sideWing", `<path d="${wings[0]}" fill="${palette.ink}"/>`)}
+  ${frontShapes.tuft.map((t) => circle(t, palette.cream)).join("")}
+  <path d="${frontShapes.body}" fill="${palette.cream}"/>
+  <path d="${frontShapes.shade}" fill="${palette.shade}"/>
+  <path d="${frontShapes.belly}" fill="${palette.white}" fill-opacity="0.4"/>
+  ${foot(feet.left)}
+  ${foot(feet.right)}
+  ${frontShapes.cheeks.map((c) => `<ellipse cx="${c.cx}" cy="${c.cy}" rx="${c.rx}" ry="${c.ry}" fill="${palette.blush}"/>`).join("")}
+  ${part("eyes", eyes)}
+  <g transform="${svgTransform(eyesPose, "eyes")}" opacity="${1 - eyesPose.opacity}">${shut}</g>
+  <path d="${frontShapes.beak}" fill="${palette.ink}"/>
+  ${thinking ? part("chinWing", `<path d="${thinkingShapes.chinWing}" fill="${palette.ink}"/>`) : ""}`
+  )
+  if (!thinking) return bird
+
+  return `${bird}
+  ${part("trail0", circle(trail[0], palette.shade))}
+  ${part("trail1", circle(trail[1], palette.shade))}
+  ${part(
+    "bubble",
+    `<path d="${thinkingShapes.bubble}" fill="${palette.shade}"/>
+  ${part("dot0", circle(dots[0], palette.ink))}
+  ${part("dot1", circle(dots[1], palette.ink))}
+  ${part("dot2", circle(dots[2], palette.ink))}`
+  )}`
+}
+
+/** Kotori in `mood`, in whichever view it takes that mood in. */
+const drawing = (mood: Mood, pose: (part: Part) => Pose) =>
+  frontMoods.has(mood) ? frontDrawing(pose, mood === "thinking") : sideDrawing(mood, pose)
+
+/** The mascot as an SVG document, for generating icons and splash images. In moods that reach above the box, the image grows taller to fit. */
 export const mascotSvg = (options: { mood?: Mood; background?: string; padding?: number } = {}) => {
   const mood = options.mood ?? "curious"
   const pad = options.padding ?? 0
   const size = 200 + pad * 2
+  const top = -pad - headroom(mood)
+  const height = size + headroom(mood)
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-pad} ${-pad} ${size} ${size}" width="${size}" height="${size}">
-  ${options.background ? `<rect x="${-pad}" y="${-pad}" width="${size}" height="${size}" fill="${options.background}"/>` : ""}
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-pad} ${top} ${size} ${height}" width="${size}" height="${height}">
+  ${options.background ? `<rect x="${-pad}" y="${top}" width="${size}" height="${height}" fill="${options.background}"/>` : ""}
   ${drawing(mood, (part) => settled(mood, part))}
 </svg>`
 }
@@ -78,12 +146,14 @@ export const mascotSvg = (options: { mood?: Mood; background?: string; padding?:
 const clipPose = (name: ClipName, mood: Mood, t: number) => (part: Part) =>
   entrances[mood] === name ? poseAt(name, part, t) : combine(settled(mood, part), poseAt(name, part, t))
 
-/** One frame of a clip, `t` ms in, on the sky. */
-export const frameSvg = (name: ClipName, mood: Mood, t: number) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-  <rect width="200" height="200" fill="${palette.sky}"/>
+/** One frame of a clip, `t` ms in, on the sky, with room above the box for whatever reaches there. */
+export const frameSvg = (name: ClipName, mood: Mood, t: number) => {
+  const top = headroom(mood)
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 ${-top} 200 ${200 + top}" width="200" height="${200 + top}">
+  <rect y="${-top}" width="200" height="${200 + top}" fill="${palette.sky}"/>
   ${drawing(mood, clipPose(name, mood, t))}
 </svg>`
+}
 
 /**
  * A clip's frames on one sheet, read left to right, each marked with its time,
@@ -91,12 +161,13 @@ export const frameSvg = (name: ClipName, mood: Mood, t: number) =>
  */
 export const framesSvg = (name: ClipName, mood: Mood, count = 12) => {
   const columns = 6
-  const cell = { width: 220, height: 270 }
+  const top = headroom(mood)
+  const cell = { width: 220, height: 270 + top }
   const { duration } = clips[name]
   const frames = Array.from({ length: count }, (_, i) => {
     const t = Math.round((duration * i) / (count - 1))
     const x = (i % columns) * cell.width + 10
-    const y = Math.floor(i / columns) * cell.height + 40
+    const y = Math.floor(i / columns) * cell.height + 40 + top
     return `<g transform="translate(${x} ${y})">${drawing(mood, clipPose(name, mood, t))}<text x="100" y="222" text-anchor="middle" font-family="sans-serif" font-size="15" fill="${palette.ink}">${t} ms</text></g>`
   })
   const width = columns * cell.width
@@ -112,26 +183,9 @@ export const framesSvg = (name: ClipName, mood: Mood, count = 12) => {
 export const mascotFrontSvg = (options: { background?: string; padding?: number } = {}) => {
   const pad = options.padding ?? 0
   const size = 200 + pad * 2
-  const { catchlight, feet } = frontShapes
-  const foot = (d: string) =>
-    `<path d="${d}" stroke="${palette.ink}" stroke-width="${feet.width}" stroke-linecap="round"/>`
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-pad} ${-pad} ${size} ${size}" width="${size}" height="${size}">
   ${options.background ? `<rect x="${-pad}" y="${-pad}" width="${size}" height="${size}" fill="${options.background}"/>` : ""}
-  ${frontShapes.wings.map((d) => `<path d="${d}" fill="${palette.ink}"/>`).join("")}
-  ${frontShapes.tuft.map((t) => `<circle cx="${t.cx}" cy="${t.cy}" r="${t.r}" fill="${palette.cream}"/>`).join("")}
-  <path d="${frontShapes.body}" fill="${palette.cream}"/>
-  <path d="${frontShapes.shade}" fill="${palette.shade}"/>
-  <path d="${frontShapes.belly}" fill="${palette.white}" fill-opacity="0.4"/>
-  ${foot(feet.left)}
-  ${foot(feet.right)}
-  ${frontShapes.cheeks.map((c) => `<ellipse cx="${c.cx}" cy="${c.cy}" rx="${c.rx}" ry="${c.ry}" fill="${palette.blush}"/>`).join("")}
-  ${frontShapes.eyes
-    .map(
-      (e) =>
-        `<ellipse cx="${e.cx}" cy="${e.cy}" rx="${e.rx}" ry="${e.ry}" fill="${palette.ink}"/><circle cx="${e.cx + catchlight.dx}" cy="${e.cy + catchlight.dy}" r="${catchlight.r}" fill="${palette.white}"/>`
-    )
-    .join("")}
-  <path d="${frontShapes.beak}" fill="${palette.ink}"/>
+  ${frontDrawing(() => rest, false)}
 </svg>`
 }

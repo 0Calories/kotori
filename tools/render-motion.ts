@@ -9,7 +9,7 @@ import { writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { Mood } from "../apps/app/src/mascot/geometry.ts"
-import { type ClipName, clips, entrances } from "../apps/app/src/mascot/motion.ts"
+import { type ClipName, clips, entrances, loops } from "../apps/app/src/mascot/motion.ts"
 import { frameSvg, framesSvg } from "../apps/app/src/mascot/svg.ts"
 
 const [clip, mood] = process.argv.slice(2)
@@ -20,7 +20,9 @@ if (clip === undefined || !(clip in clips)) {
 
 const name = clip as ClipName
 const shown =
-  (mood as Mood | undefined) ?? (Object.keys(entrances) as Mood[]).find((m) => entrances[m] === name) ?? "curious"
+  (mood as Mood | undefined) ??
+  (Object.keys({ ...entrances, ...loops }) as Mood[]).find((m) => entrances[m] === name || loops[m] === name) ??
+  "curious"
 const base = join(tmpdir(), `kotori-${name}-${shown}`)
 
 writeFileSync(`${base}.png`, new Resvg(framesSvg(name, shown)).render().asPng())
@@ -34,7 +36,7 @@ writeFileSync(
   `<!doctype html>
 <title>Kotori: ${name}</title>
 <body style="margin:0;display:grid;place-items:center;min-height:100vh;background:#94C1E2;font:14px sans-serif">
-<div id="bird" style="width:400px;height:400px"></div>
+<div id="bird" style="width:400px"></div>
 <label><input id="slow" type="checkbox"> Quarter speed</label>
 <script>
 const frames = ${JSON.stringify(frames)}
@@ -46,7 +48,7 @@ const tick = (now) => {
   const speed = slow.checked ? 0.25 : 1
   // The first frame's timestamp can come just before \`start\`.
   const t = (Math.max(0, now - start) * speed) % (duration + pause)
-  bird.innerHTML = frames[Math.min(frames.length - 1, Math.floor((t * 60) / 1000))].replace('width="200" height="200"', 'width="400" height="400"')
+  bird.innerHTML = frames[Math.min(frames.length - 1, Math.floor((t * 60) / 1000))].replace(/width="200" height="(\\d+)"/, (_, h) => \`width="400" height="\${h * 2}"\`)
   requestAnimationFrame(tick)
 }
 slow.onchange = () => (start = performance.now())
