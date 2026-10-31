@@ -78,8 +78,8 @@ const extras: Partial<Record<Mood, ReactNode>> = {
   )
 }
 
-/** In these moods Kotori's eyes are open, so it blinks. */
-const blinks = (mood: Mood) => mood === "curious" || mood === "thinking" || mood === "oops"
+/** In these moods Kotori's eyes are open, so it blinks. Thinking, it holds still and only the thought bubble moves. */
+const blinks = (mood: Mood) => mood === "curious" || mood === "oops"
 
 /** A clip and how far into it Kotori is. */
 type Channel = { readonly clip: SharedValue<ClipName | null>; readonly time: SharedValue<number> }
@@ -117,7 +117,7 @@ type Motion = { readonly entrance: Channel; readonly loop: Channel; readonly idl
  * Plays `mood`'s entrance and loop, and blinks now and then; with reduced
  * motion, holds the mood's pose and doesn't blink. A view starts on the
  * entrance's first frame (or its last, when it won't play), so a view that
- * appears with the mood doesn't flash its finished pose first.
+ * appears with the mood doesn't jump.
  */
 const useMotion = (mood: Mood): Motion => {
   const reduceMotion = useReducedMotion()
@@ -269,8 +269,6 @@ const Side = ({ size, mood }: { readonly size: number; readonly mood: Mood }) =>
  */
 const ThoughtBubble = ({ size, motion }: { readonly size: number; readonly motion: Motion }) => {
   const { headroom, trail, dots } = thinkingShapes
-  const trail0 = usePartStyle("trail0", size, motion, false, headroom)
-  const trail1 = usePartStyle("trail1", size, motion, false, headroom)
   const bubble = usePartStyle("bubble", size, motion, false, headroom)
   const dot0 = usePartStyle("dot0", size, motion, false, headroom)
   const dot1 = usePartStyle("dot1", size, motion, false, headroom)
@@ -289,15 +287,14 @@ const ThoughtBubble = ({ size, motion }: { readonly size: number; readonly motio
         pointerEvents: "none"
       }}
     >
-      <Layer style={trail0} size={size} headroom={headroom}>
-        <Circle cx={trail[0].cx} cy={trail[0].cy} r={trail[0].r} fill={palette.shade} />
-      </Layer>
-      <Layer style={trail1} size={size} headroom={headroom}>
-        <Circle cx={trail[1].cx} cy={trail[1].cy} r={trail[1].r} fill={palette.shade} />
-      </Layer>
+      <Canvas size={size} headroom={headroom}>
+        {trail.map((t) => (
+          <Circle key={t.cx} cx={t.cx} cy={t.cy} r={t.r} fill={palette.cream} />
+        ))}
+      </Canvas>
       <Animated.View style={[StyleSheet.absoluteFill, bubble]}>
         <Canvas size={size} headroom={headroom}>
-          <Path d={thinkingShapes.bubble} fill={palette.shade} />
+          <Path d={thinkingShapes.bubble} fill={palette.cream} />
         </Canvas>
         {dots.map((d, i) => (
           <Layer key={d.cx} style={dotStyles[i]} size={size} headroom={headroom}>
@@ -309,52 +306,34 @@ const ThoughtBubble = ({ size, motion }: { readonly size: number; readonly motio
   )
 }
 
-/** Kotori facing the viewer: thinking, with a wing raised to its chin and the thought bubble above its head. */
+/**
+ * Kotori facing the viewer: thinking, in a still pose with a wing raised to
+ * its chin. Only the thought bubble above its head moves.
+ */
 const Front = ({ size, mood }: { readonly size: number; readonly mood: Mood }) => {
   const motion = useMotion(mood)
-  const bird = usePartStyle("bird", size, motion)
-  const sideWing = usePartStyle("sideWing", size, motion)
-  const chinWing = usePartStyle("chinWing", size, motion)
-  const eyes = usePartStyle("eyes", size, motion)
-  const shutEyes = usePartStyle("eyes", size, motion, true)
   const { feet, wings } = frontShapes
 
   return (
     <>
-      <Animated.View style={[StyleSheet.absoluteFill, bird]}>
-        <Canvas size={size}>
-          <Path d={wings[1]} fill={palette.ink} />
-        </Canvas>
-        <Layer style={sideWing} size={size}>
-          <Path d={wings[0]} fill={palette.ink} />
-        </Layer>
-        <Canvas size={size}>
-          {frontShapes.tuft.map((t) => (
-            <Circle key={t.cx} cx={t.cx} cy={t.cy} r={t.r} fill={palette.cream} />
-          ))}
-          <Path d={frontShapes.body} fill={palette.cream} />
-          <Path d={frontShapes.shade} fill={palette.shade} />
-          <Path d={frontShapes.belly} fill={palette.white} fillOpacity={0.4} />
-          {[feet.left, feet.right].map((d) => (
-            <Path key={d} d={d} stroke={palette.ink} strokeWidth={feet.width} strokeLinecap="round" />
-          ))}
-          {frontShapes.cheeks.map((c) => (
-            <Ellipse key={c.cx} cx={c.cx} cy={c.cy} rx={c.rx} ry={c.ry} fill={palette.blush} />
-          ))}
-        </Canvas>
-        <Layer style={eyes} size={size}>
-          <Eyes mood={mood} face={frontShapes} />
-        </Layer>
-        <Layer style={shutEyes} size={size}>
-          <Eyes mood="sleepy" face={frontShapes} />
-        </Layer>
-        <Canvas size={size}>
-          <Path d={frontShapes.beak} fill={palette.ink} />
-        </Canvas>
-        <Layer style={chinWing} size={size}>
-          <Path d={thinkingShapes.chinWing} fill={palette.ink} />
-        </Layer>
-      </Animated.View>
+      <Canvas size={size}>
+        <Path d={wings[1]} fill={palette.ink} />
+        {frontShapes.tuft.map((t) => (
+          <Circle key={t.cx} cx={t.cx} cy={t.cy} r={t.r} fill={palette.cream} />
+        ))}
+        <Path d={frontShapes.body} fill={palette.cream} />
+        <Path d={frontShapes.shade} fill={palette.shade} />
+        <Path d={frontShapes.belly} fill={palette.white} fillOpacity={0.4} />
+        {[feet.left, feet.right].map((d) => (
+          <Path key={d} d={d} stroke={palette.ink} strokeWidth={feet.width} strokeLinecap="round" />
+        ))}
+        {frontShapes.cheeks.map((c) => (
+          <Ellipse key={c.cx} cx={c.cx} cy={c.cy} rx={c.rx} ry={c.ry} fill={palette.blush} />
+        ))}
+        <Eyes mood={mood} face={frontShapes} />
+        <Path d={frontShapes.beak} fill={palette.ink} />
+        <Path d={thinkingShapes.chinWing} fill={palette.ink} />
+      </Canvas>
       <ThoughtBubble size={size} motion={motion} />
     </>
   )
@@ -364,9 +343,9 @@ const Front = ({ size, mood }: { readonly size: number; readonly mood: Mood }) =
  * Kotori, the shima enaga. Changes expression with `mood`, plays the mood's
  * entrance and loop from `motion.ts` and blinks now and then; with reduced
  * motion it holds each mood's pose and doesn't blink. Thinking, it faces the
- * viewer under a thought bubble that rises above its `size` box. Every moving
- * part is a layer placed with plain view transforms, so a clip plays the same
- * way on iOS, Android and the web.
+ * viewer and holds still under a thought bubble that rises above its `size`
+ * box. Every moving part is a layer placed with plain view transforms, so a
+ * clip plays the same way on iOS, Android and the web.
  */
 export const Mascot = ({ size = 120, mood = "curious" }: { readonly size?: number; readonly mood?: Mood }) => (
   <View style={{ width: size, height: size }} accessibilityRole="image" accessibilityLabel="Kotori the long-tailed tit">

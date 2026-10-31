@@ -10,9 +10,9 @@ import { joints, type Mood } from "./geometry.ts"
  *
  * To add an animation, name it in `ClipName`, give it keys in `clips`, and
  * list it in `entrances` to play it when Kotori takes a mood, or in `loops` to
- * play it over and over once the entrance ends. Every part of an entrance
- * starts from the drawing or hidden (the tests hold it to that), so nothing
- * jumps as the mood changes, and a loop starts and ends on the drawing.
+ * play it over and over in a mood. An entrance starts from the drawing and a
+ * loop starts and ends on it (the tests hold them to that), so nothing jumps
+ * as the mood changes or as a loop comes round.
  *
  * Functions marked "worklet" also run on the UI thread, so keep them to plain
  * loops and property access: Babel may turn destructuring or `for…of` into
@@ -51,25 +51,7 @@ export type Clip = {
   readonly tracks: { readonly [P in Part]?: { readonly [K in keyof Pose]?: readonly Key[] } }
 }
 
-export type ClipName = "celebrate" | "thinking" | "ponder" | "blink"
-
-/** A puff, bubble or dot growing out of nothing from `ms`, for 160 ms: shown at a fifth of its size, it swells past it and settles. */
-const popIn = (ms: number) => ({
-  opacity: [
-    [0, 0],
-    [ms, 1, "step"]
-  ] as const,
-  scaleX: [
-    [0, 0.2],
-    [ms, 0.2, "step"],
-    [ms + 160, 1, "overshoot"]
-  ] as const,
-  scaleY: [
-    [0, 0.2],
-    [ms, 0.2, "step"],
-    [ms + 160, 1, "overshoot"]
-  ] as const
-})
+export type ClipName = "celebrate" | "thinking" | "blink"
 
 /** A dot of the bubble's ellipsis hopping from `ms`, for 400 ms. */
 const hop = (ms: number) => ({
@@ -138,45 +120,10 @@ export const clips: Record<ClipName, Clip> = {
     }
   },
   /**
-   * Kotori faces the viewer and raises a wing to its chin, a thought bubble
-   * grows puff by puff above its head, and an ellipsis fills it dot by dot.
-   * The raised wing fades in folded over the side wing, then unfolds.
+   * While thinking, on a loop: the ellipsis hops dot by dot, and the bubble
+   * bobs. Only the bubble moves; Kotori holds its pose.
    */
   thinking: {
-    duration: 1000,
-    tracks: {
-      sideWing: {
-        opacity: [
-          [0, 1],
-          [80, 0, "linear"]
-        ]
-      },
-      chinWing: {
-        opacity: [
-          [0, 0],
-          [80, 1, "linear"]
-        ],
-        rotate: [
-          [0, 20],
-          [80, 20],
-          [420, 0, "overshoot"]
-        ],
-        scaleX: [
-          [0, 0.35],
-          [80, 0.35],
-          [420, 1, "overshoot"]
-        ]
-      },
-      trail0: popIn(340),
-      trail1: popIn(440),
-      bubble: popIn(540),
-      dot0: popIn(680),
-      dot1: popIn(760),
-      dot2: popIn(840)
-    }
-  },
-  /** While thinking, on a loop: the ellipsis hops dot by dot, and the bubble bobs. */
-  ponder: {
     duration: 1400,
     tracks: {
       bubble: {
@@ -206,10 +153,10 @@ export const clips: Record<ClipName, Clip> = {
 }
 
 /** What Kotori plays on taking a mood. Its last frame is how Kotori stays in that mood. */
-export const entrances: Partial<Record<Mood, ClipName>> = { celebrate: "celebrate", thinking: "thinking" }
+export const entrances: Partial<Record<Mood, ClipName>> = { celebrate: "celebrate" }
 
-/** What Kotori plays over and over in a mood once the entrance ends, over the entrance's last frame. */
-export const loops: Partial<Record<Mood, ClipName>> = { thinking: "ponder" }
+/** What Kotori plays over and over in a mood, once any entrance ends, over the entrance's last frame. */
+export const loops: Partial<Record<Mood, ClipName>> = { thinking: "thinking" }
 
 const ease = (curve: Ease, u: number) => {
   "worklet"

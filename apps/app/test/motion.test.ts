@@ -55,12 +55,9 @@ const throughSvg = (transform: string, point: Point): Point => {
 }
 
 describe("Kotori's clips", () => {
-  it("start each part of a mood's entrance from the drawing or hidden, so nothing showing jumps as the mood changes", () => {
+  it("start each mood's entrance from the drawing, so no part jumps as the mood changes", () => {
     for (const name of Object.values(entrances)) {
-      for (const part of parts) {
-        const start = poseAt(name, part, 0)
-        if (start.opacity !== 0) assert.deepStrictEqual(start, rest, `${name}: ${part}`)
-      }
+      for (const part of parts) assert.deepStrictEqual(poseAt(name, part, 0), rest, `${name}: ${part}`)
     }
   })
 
@@ -97,27 +94,10 @@ describe("Kotori's clips", () => {
     for (const part of parts) assert.deepStrictEqual(poseAt("celebrate", part, Infinity), rest, part)
   })
 
-  it("leave Kotori thinking with its wing at its chin under a full thought bubble", () => {
-    assert.strictEqual(settled("thinking", "sideWing").opacity, 0)
-    for (const part of parts.filter((p) => p !== "sideWing")) {
-      assert.deepStrictEqual(settled("thinking", part), rest, part)
-    }
-  })
-
-  it("grow the thought bubble from the head up: each puff, then the bubble, then each dot", () => {
-    const appears = (part: Part) => {
-      let t = 0
-      while (poseAt("thinking", part, t).opacity === 0) t++
-      return t
-    }
-    const order: Part[] = ["trail0", "trail1", "bubble", "dot0", "dot1", "dot2"]
-    const times = order.map(appears)
-    assert.deepStrictEqual(
-      times,
-      [...times].sort((a, b) => a - b),
-      order.join(", ")
-    )
-    assert.strictEqual(new Set(times).size, order.length)
+  it("leave Kotori still while it thinks: no entrance, and only the thought bubble and its dots move", () => {
+    assert.isUndefined(entrances.thinking)
+    for (const part of parts) assert.deepStrictEqual(settled("thinking", part), rest, part)
+    assert.sameMembers(Object.keys(clips.thinking.tracks), ["bubble", "dot0", "dot1", "dot2"])
   })
 
   it("shut the eyes for the whole blink, then open them, since it plays over everything else", () => {

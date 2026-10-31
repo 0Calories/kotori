@@ -70,34 +70,19 @@ const sideDrawing = (mood: Mood, pose: (part: Part) => Pose) => {
 }
 
 /**
- * Kotori facing the viewer in its 200×200 box, with each moving part placed
- * by `pose`. `thinking` adds the wing raised to the chin and the thought
- * bubble, which reaches above the box.
+ * Kotori facing the viewer in its 200×200 box. It holds still; `thinking`
+ * raises its wing to its chin and adds the thought bubble above the box, the
+ * only part that moves, placed by `pose`.
  */
 const frontDrawing = (pose: (part: Part) => Pose, thinking: boolean) => {
   const { catchlight, feet, wings } = frontShapes
-  const eyes = frontShapes.eyes
-    .map(
-      (e) =>
-        `<ellipse cx="${e.cx}" cy="${e.cy}" rx="${e.rx}" ry="${e.ry}" fill="${palette.ink}"/><circle cx="${e.cx + catchlight.dx}" cy="${e.cy + catchlight.dy}" r="${catchlight.r}" fill="${palette.white}"/>`
-    )
-    .join("")
-  const shut = frontShapes.eyes
-    .map(
-      (e) =>
-        `<path d="M${e.cx - 7} ${e.cy + 1} Q ${e.cx} ${e.cy + 5} ${e.cx + 7} ${e.cy + 1}" fill="none" stroke="${palette.ink}" stroke-width="3.5" stroke-linecap="round"/>`
-    )
-    .join("")
   const foot = (d: string) =>
     `<path d="${d}" stroke="${palette.ink}" stroke-width="${feet.width}" stroke-linecap="round"/>`
   const part = placed(pose)
-  const eyesPose = pose("eyes")
   const { trail, dots } = thinkingShapes
 
-  const bird = part(
-    "bird",
-    `<path d="${wings[1]}" fill="${palette.ink}"/>
-  ${part("sideWing", `<path d="${wings[0]}" fill="${palette.ink}"/>`)}
+  const bird = `<path d="${wings[1]}" fill="${palette.ink}"/>
+  ${thinking ? "" : `<path d="${wings[0]}" fill="${palette.ink}"/>`}
   ${frontShapes.tuft.map((t) => circle(t, palette.cream)).join("")}
   <path d="${frontShapes.body}" fill="${palette.cream}"/>
   <path d="${frontShapes.shade}" fill="${palette.shade}"/>
@@ -105,19 +90,21 @@ const frontDrawing = (pose: (part: Part) => Pose, thinking: boolean) => {
   ${foot(feet.left)}
   ${foot(feet.right)}
   ${frontShapes.cheeks.map((c) => `<ellipse cx="${c.cx}" cy="${c.cy}" rx="${c.rx}" ry="${c.ry}" fill="${palette.blush}"/>`).join("")}
-  ${part("eyes", eyes)}
-  <g transform="${svgTransform(eyesPose, "eyes")}" opacity="${1 - eyesPose.opacity}">${shut}</g>
-  <path d="${frontShapes.beak}" fill="${palette.ink}"/>
-  ${thinking ? part("chinWing", `<path d="${thinkingShapes.chinWing}" fill="${palette.ink}"/>`) : ""}`
-  )
+  ${frontShapes.eyes
+    .map(
+      (e) =>
+        `<ellipse cx="${e.cx}" cy="${e.cy}" rx="${e.rx}" ry="${e.ry}" fill="${palette.ink}"/><circle cx="${e.cx + catchlight.dx}" cy="${e.cy + catchlight.dy}" r="${catchlight.r}" fill="${palette.white}"/>`
+    )
+    .join("")}
+  <path d="${frontShapes.beak}" fill="${palette.ink}"/>`
   if (!thinking) return bird
 
   return `${bird}
-  ${part("trail0", circle(trail[0], palette.shade))}
-  ${part("trail1", circle(trail[1], palette.shade))}
+  <path d="${thinkingShapes.chinWing}" fill="${palette.ink}"/>
+  ${trail.map((t) => circle(t, palette.cream)).join("")}
   ${part(
     "bubble",
-    `<path d="${thinkingShapes.bubble}" fill="${palette.shade}"/>
+    `<path d="${thinkingShapes.bubble}" fill="${palette.cream}"/>
   ${part("dot0", circle(dots[0], palette.ink))}
   ${part("dot1", circle(dots[1], palette.ink))}
   ${part("dot2", circle(dots[2], palette.ink))}`

@@ -50,11 +50,8 @@ export const shapes = {
  * carries the cheeks, beak and eyes, and `eyes` moves within it. As the eyes
  * fade, shut eyes show in their place.
  *
- * The front view (see `frontMoods`) adds its own parts: `sideWing` is its
- * left wing as `frontShapes` draws it, `chinWing` the same wing raised to the
- * chin, and the thought bubble's `trail0` and `trail1` puffs and `bubble`,
- * which carries `dot0` to `dot2`. It reuses `bird`, and `eyes` only to blink,
- * which fades them without moving them.
+ * Thinking adds the thought `bubble`, which carries `dot0` to `dot2`. They're
+ * the only parts that move while Kotori thinks; the rest of the pose holds still.
  */
 export const joints = {
   bird: { x: 92, y: 180 },
@@ -64,12 +61,7 @@ export const joints = {
   wing: { x: 140.3, y: 91.2 },
   face: { x: 72.7, y: 82 },
   eyes: { x: 72.7, y: 76.6 },
-  sideWing: { x: 30, y: 113 },
-  /** The shoulder, on the wing's outer edge. */
-  chinWing: { x: 24, y: 118 },
-  trail0: { x: 119, y: 15 },
-  trail1: { x: 127, y: 2 },
-  /** The bubble's lower left, nearest the trail, which it grows out of. */
+  /** The bubble's lower left, nearest the trail. */
   bubble: { x: 116, y: -14 },
   dot0: { x: 126, y: -33 },
   dot1: { x: 140, y: -33 },
@@ -116,9 +108,9 @@ export const frontShapes = {
  * the box, into `headroom`.
  */
 export const thinkingShapes = {
-  /** A crescent drawn over the body and cheek, its tip under the beak. Shown in place of `frontShapes.wings[0]`. */
+  /** A crescent drawn over the body and cheek, its rounded tip under the beak. Shown in place of `frontShapes.wings[0]`. */
   chinWing:
-    "M89 89.5 C 92 95, 88 112, 80 120.3 C 72 131, 58 143, 45 143.5 C 33 144, 22 134, 21 120 C 20 108, 24 97, 33 93 C 40 90, 47 97, 58 101.5 C 70 106, 82 100, 89 89.5 Z",
+    "M92.6 95.5 C 92.8 104, 88 113, 80 120.3 C 72 131, 58 143, 45 143.5 C 33 144, 22 134, 21 120 C 20 108, 24 97, 33 93 C 40 90, 47 97, 58 101.5 C 68 105.5, 78 101, 84 92.5 A 4.6 4.6 0 0 1 92.6 95.5 Z",
   /** Puffs between the head and the bubble, smallest first. */
   trail: [
     { cx: 119, cy: 15, r: 3.4 },
@@ -133,8 +125,8 @@ export const thinkingShapes = {
     { cx: 140, cy: -33, r: 4 },
     { cx: 154, cy: -33, r: 4 }
   ],
-  /** How far above the box the bubble reaches, with room for it to swell as it appears and to bob. */
-  headroom: 66
+  /** How far above the box the bubble reaches, with room for it to bob. */
+  headroom: 62
 } as const
 
 export type Mood = "curious" | "happy" | "thinking" | "sleepy" | "celebrate" | "oops"
