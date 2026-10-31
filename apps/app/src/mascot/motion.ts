@@ -10,9 +10,9 @@ import { confetti, joints, type Mood, type palette, type Shape } from "./geometr
  * can be checked as stills with `pnpm motion`.
  *
  * To add an animation, name it in `ClipName`, give it keys in `clips`, and
- * list it in `entrances` to play it when Kotori takes a mood. An entrance
- * starts from the drawing (the tests hold it to that), so nothing jumps as the
- * mood changes.
+ * list it in `entrances` to play it when Kotori takes a mood, or in `idles` to
+ * play it now and then in one. An entrance starts from the drawing (the tests
+ * hold it to that), so nothing jumps as the mood changes.
  *
  * Functions marked "worklet" also run on the UI thread, so keep them to plain
  * loops and property access: Babel may turn destructuring or `for…of` into
@@ -20,6 +20,11 @@ import { confetti, joints, type Mood, type palette, type Shape } from "./geometr
  */
 
 export type Part = keyof typeof joints
+
+/** The parts that float beside Kotori when it celebrates, rather than moving with it. */
+export const sparkleParts = ["bigSparkle", "smallSparkle"] as const satisfies readonly Part[]
+
+export type SparklePart = (typeof sparkleParts)[number]
 
 /**
  * Where a part sits relative to the drawing: moved `x` and `y` box units,
@@ -75,17 +80,16 @@ export type Clip = {
   readonly tracks: { readonly [P in Part]?: { readonly [K in keyof Pose]?: readonly Key[] } }
   /** Confetti the clip throws, behind Kotori. It has all faded by the time the clip ends. */
   readonly confetti?: Burst
-  /** How much of the mood's extras show as the clip plays, for a clip that fades them; they show throughout otherwise. */
-  readonly extras?: readonly Key[]
 }
 
-export type ClipName = "celebrate" | "thinking" | "blink"
+export type ClipName = "celebrate" | "thinking" | "blink" | "twinkle"
 
 export const clips: Record<ClipName, Clip> = {
   /**
    * Crouch, hop up stretched and throw confetti from the top of the hop, land
-   * squashed, wave as it falls, and fold the wing back down as the sparkles
-   * come out.
+   * squashed, and wave as it falls. As the confetti fades, the wave's last
+   * stroke flicks two sparkles off the wingtip: they spin up and out, pop
+   * bigger than they rest and settle, while the wing folds back down.
    */
   celebrate: {
     duration: 1620,
@@ -138,6 +142,81 @@ export const clips: Record<ClipName, Clip> = {
           [720, 6],
           [900, 0, "out"]
         ]
+      },
+      // Each sparkle starts on the wingtip, where these offsets put it, and flies out to where it's drawn.
+      bigSparkle: {
+        x: [
+          [0, 16],
+          [1240, 16],
+          [1460, 0, "out"]
+        ],
+        y: [
+          [0, 26],
+          [1240, 26],
+          [1420, 0, "out"]
+        ],
+        rotate: [
+          [0, -135],
+          [1240, -135],
+          [1480, 0, "out"]
+        ],
+        scaleX: [
+          [0, 0.3],
+          [1240, 0.3],
+          [1340, 1.3, "out"],
+          [1430, 0.9],
+          [1530, 1.04],
+          [1620, 1]
+        ],
+        scaleY: [
+          [0, 0.3],
+          [1240, 0.3],
+          [1340, 1.3, "out"],
+          [1430, 0.9],
+          [1530, 1.04],
+          [1620, 1]
+        ],
+        opacity: [
+          [0, 0],
+          [1240, 1, "step"]
+        ]
+      },
+      smallSparkle: {
+        x: [
+          [0, -6],
+          [1280, -6],
+          [1500, 0, "out"]
+        ],
+        y: [
+          [0, 43],
+          [1280, 43],
+          [1460, 0, "out"]
+        ],
+        rotate: [
+          [0, 135],
+          [1280, 135],
+          [1520, 0, "out"]
+        ],
+        scaleX: [
+          [0, 0.3],
+          [1280, 0.3],
+          [1380, 1.3, "out"],
+          [1460, 0.9],
+          [1550, 1.04],
+          [1620, 1]
+        ],
+        scaleY: [
+          [0, 0.3],
+          [1280, 0.3],
+          [1380, 1.3, "out"],
+          [1460, 0.9],
+          [1550, 1.04],
+          [1620, 1]
+        ],
+        opacity: [
+          [0, 0],
+          [1280, 1, "step"]
+        ]
       }
     },
     confetti: {
@@ -157,13 +236,7 @@ export const clips: Record<ClipName, Clip> = {
         { shape: "dot", color: "peach", to: [216, 92], delay: 40, spin: 1.3 },
         { shape: "curl", color: "blush", to: [-12, 100], delay: 70, spin: 0.9 }
       ]
-    },
-    // The sparkles wait until the confetti has fallen, and twinkle in as the wing settles.
-    extras: [
-      [0, 0],
-      [1380, 0],
-      [1560, 1, "out"]
-    ]
+    }
   },
   /** Eyes drift up and to the side. */
   thinking: {
@@ -192,11 +265,63 @@ export const clips: Record<ClipName, Clip> = {
         ]
       }
     }
+  },
+  /**
+   * The sparkles glint in turn, each swelling as it turns a quarter turn,
+   * after which a four-point star looks as it did.
+   */
+  twinkle: {
+    duration: 640,
+    tracks: {
+      bigSparkle: {
+        rotate: [
+          [0, 0],
+          [440, 90]
+        ],
+        scaleX: [
+          [0, 1],
+          [160, 1.35, "out"],
+          [440, 1]
+        ],
+        scaleY: [
+          [0, 1],
+          [160, 1.35, "out"],
+          [440, 1]
+        ]
+      },
+      smallSparkle: {
+        rotate: [
+          [0, 0],
+          [200, 0],
+          [640, -90]
+        ],
+        scaleX: [
+          [0, 1],
+          [200, 1],
+          [360, 1.45, "out"],
+          [640, 1]
+        ],
+        scaleY: [
+          [0, 1],
+          [200, 1],
+          [360, 1.45, "out"],
+          [640, 1]
+        ]
+      }
+    }
   }
 }
 
 /** What Kotori plays on taking a mood. Its last frame is how Kotori stays in that mood. */
 export const entrances: Partial<Record<Mood, ClipName>> = { celebrate: "celebrate", thinking: "thinking" }
+
+/** What Kotori plays now and then in a mood once it's in it: it blinks while its eyes are open, and its sparkles twinkle. */
+export const idles: Partial<Record<Mood, ClipName>> = {
+  curious: "blink",
+  thinking: "blink",
+  oops: "blink",
+  celebrate: "twinkle"
+}
 
 const ease = (curve: Ease, u: number) => {
   "worklet"
@@ -259,12 +384,6 @@ export const combine = (a: Pose, b: Pose): Pose => {
     scaleY: a.scaleY * b.scaleY,
     opacity: a.opacity * b.opacity
   }
-}
-
-/** How much of the mood's extras show `t` ms into a clip. */
-export const extrasAt = (name: ClipName | null, t: number) => {
-  "worklet"
-  return sample(name === null ? undefined : clips[name].extras, t, 1)
 }
 
 /** Where `part` stays in `mood`: the last frame of the mood's entrance. */
@@ -346,6 +465,18 @@ export const pieceAt = (name: ClipName | null, index: number, t: number): Pose =
  * as big as at 100 px, so they don't shrink to specks.
  */
 export const confettiFor = (size: number) => ({ count: size < 100 ? 6 : Infinity, grow: Math.max(1, 100 / size) })
+
+/**
+ * How a Kotori `size` pixels square draws its sparkles: a pose to combine
+ * with theirs, growing them about their middles. Below 100 px they grow,
+ * though less than confetti does, so they don't shrink to specks and still
+ * sit apart.
+ */
+export const sparklesFor = (size: number): Pose => {
+  "worklet"
+  const grow = Math.max(1, Math.sqrt(100 / size))
+  return { x: 0, y: 0, rotate: 0, scaleX: grow, scaleY: grow, opacity: 1 }
+}
 
 /**
  * A React Native transform placing a piece in a view `size` pixels square that

@@ -5,18 +5,24 @@ import {
   combine,
   confettiFor,
   entrances,
-  extrasAt,
   type Part,
   pieceAt,
   pieceSvgTransform,
   type Pose,
   poseAt,
   settled,
+  type SparklePart,
+  sparkleParts,
+  sparklesFor,
   svgTransform
 } from "./motion.ts"
 
-/** Kotori in its 200×200 box, with each moving part placed by `pose`. */
-const drawing = (mood: Mood, pose: (part: Part) => Pose) => {
+/**
+ * Kotori in its 200×200 box, with each moving part placed by `pose`, and its
+ * sparkles beside it when it celebrates, as big as a Kotori `size` pixels
+ * square draws them.
+ */
+const drawing = (mood: Mood, pose: (part: Part) => Pose, size = 200) => {
   const { catchlight } = shapes
   const eyes =
     mood === "happy" || mood === "celebrate"
@@ -40,13 +46,13 @@ const drawing = (mood: Mood, pose: (part: Part) => Pose) => {
     .join("")
   const foot = (d: string) =>
     `<path d="${d}" stroke="${palette.ink}" stroke-width="${shapes.feet.width}" stroke-linecap="round"/>`
-  const part = (name: Part, content: string) => {
-    const placed = pose(name)
-    return `<g transform="${svgTransform(placed, name)}" opacity="${placed.opacity}">${content}</g>`
-  }
+  const part = (name: Part, content: string, placed = pose(name)) =>
+    `<g transform="${svgTransform(placed, name)}" opacity="${placed.opacity}">${content}</g>`
   const eyesPose = pose("eyes")
+  const sparkle = (name: SparklePart) =>
+    part(name, `<path d="${shapes.sparkles[name]}" fill="${palette.blush}"/>`, combine(pose(name), sparklesFor(size)))
 
-  return part(
+  return `${part(
     "bird",
     `${part("tail", `<path d="${shapes.tail}" fill="${palette.ink}"/>`)}
   ${part("backFoot", foot(shapes.feet.back))}
@@ -63,7 +69,7 @@ const drawing = (mood: Mood, pose: (part: Part) => Pose) => {
   ${part("eyes", eyes)}
   <g transform="${svgTransform(eyesPose, "eyes")}" opacity="${1 - eyesPose.opacity}">${shut}</g>`
   )}`
-  )
+  )}${mood === "celebrate" ? sparkleParts.map(sparkle).join("") : ""}`
 }
 
 /** The mascot as an SVG document, for generating icons and splash images. */
@@ -101,13 +107,6 @@ const thrown = (name: ClipName, t: number, size: number) => {
     .join("")
 }
 
-/** Celebrate's sparkles, over Kotori as in the app, showing as much as the mood's entrance lets them `t` ms into `name`. */
-const sparkles = (name: ClipName, mood: Mood, t: number) => {
-  if (mood !== "celebrate") return ""
-  const shown = entrances[mood] === name ? extrasAt(name, t) : extrasAt(entrances[mood] ?? null, Infinity)
-  return `<g fill="${palette.blush}" opacity="${shown}">${shapes.sparkles.map((d) => `<path d="${d}"/>`).join("")}</g>`
-}
-
 /** How far past the box a frame shows, for the hop and the confetti, which go beyond it. */
 const room = 40
 
@@ -116,8 +115,7 @@ export const frameSvg = (name: ClipName, mood: Mood, t: number, size = 200) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-room} ${-room} ${200 + room * 2} ${200 + room * 2}" width="200" height="200">
   <rect x="${-room}" y="${-room}" width="${200 + room * 2}" height="${200 + room * 2}" fill="${palette.sky}"/>
   ${thrown(name, t, size)}
-  ${drawing(mood, clipPose(name, mood, t))}
-  ${sparkles(name, mood, t)}
+  ${drawing(mood, clipPose(name, mood, t), size)}
 </svg>`
 
 /**
@@ -132,7 +130,7 @@ export const framesSvg = (name: ClipName, mood: Mood, count = 12) => {
     const t = Math.round((duration * i) / (count - 1))
     const x = (i % columns) * cell.width + room
     const y = Math.floor(i / columns) * cell.height + room
-    return `<g transform="translate(${x} ${y})">${thrown(name, t, 200)}${drawing(mood, clipPose(name, mood, t))}${sparkles(name, mood, t)}<text x="100" y="${200 + room - 10}" text-anchor="middle" font-family="sans-serif" font-size="15" fill="${palette.ink}">${t} ms</text></g>`
+    return `<g transform="translate(${x} ${y})">${thrown(name, t, 200)}${drawing(mood, clipPose(name, mood, t))}<text x="100" y="${200 + room - 10}" text-anchor="middle" font-family="sans-serif" font-size="15" fill="${palette.ink}">${t} ms</text></g>`
   })
   const width = columns * cell.width
   const height = Math.ceil(count / columns) * cell.height

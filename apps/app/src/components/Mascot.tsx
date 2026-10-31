@@ -16,12 +16,15 @@ import {
   combine,
   confettiFor,
   entrances,
-  extrasAt,
+  idles,
   type Part,
   type Piece,
   pieceAt,
   pieceTransform,
   poseAt,
+  type SparklePart,
+  sparkleParts,
+  sparklesFor,
   viewTransform
 } from "../mascot/motion.ts"
 
@@ -66,10 +69,7 @@ const Foot = ({ d }: { readonly d: string }) => (
   <Path d={d} stroke={palette.ink} strokeWidth={shapes.feet.width} strokeLinecap="round" />
 )
 
-/**
- * What floats beside Kotori in some moods. It stays put while Kotori moves,
- * and shows as much as the mood's entrance says (see `FadingExtras`).
- */
+/** What floats beside Kotori in some moods. It stays put while Kotori moves. */
 const extras: Partial<Record<Mood, ReactNode>> = {
   oops: <Path d="M29 46 q 7 10 0 15 q -7 -5 0 -15 Z" fill={palette.sky} />,
   sleepy: (
@@ -83,18 +83,8 @@ const extras: Partial<Record<Mood, ReactNode>> = {
       <Circle cx={29} cy={24} r={5.5} fill={palette.shade} />
       <Circle cx={15} cy={10} r={7.5} fill={palette.shade} />
     </G>
-  ),
-  celebrate: (
-    <G fill={palette.blush}>
-      {shapes.sparkles.map((d) => (
-        <Path key={d} d={d} />
-      ))}
-    </G>
   )
 }
-
-/** In these moods Kotori's eyes are open, so it blinks. */
-const blinks = (mood: Mood) => mood === "curious" || mood === "thinking" || mood === "oops"
 
 /** A clip and how far into it Kotori is. */
 type Channel = { readonly clip: SharedValue<ClipName | null>; readonly time: SharedValue<number> }
@@ -147,27 +137,35 @@ const Layer = ({
 )
 
 /**
- * Extras that the mood's entrance `name` fades, as celebrate keeps its
- * sparkles back until the confetti has fallen. Until the entrance starts,
- * they show as on its first frame.
+ * One of celebrate's sparkles, beside Kotori rather than on it, so it stays
+ * put as Kotori moves. It comes out as celebrate's entrance plays, twinkles
+ * as the idle clip says, and grows on a small Kotori (see `sparklesFor`).
+ * Until the entrance starts, it shows as on its first frame: hidden.
  */
-const FadingExtras = ({
-  name,
+const Sparkle = ({
+  part,
   size,
   entrance,
-  children
+  idle
 }: {
-  readonly name: ClipName
+  readonly part: SparklePart
   readonly size: number
   readonly entrance: Channel
-  readonly children: ReactNode
+  readonly idle: Channel
 }) => {
-  const style = useAnimatedStyle(() => ({
-    opacity: extrasAt(name, entrance.clip.get() === name ? entrance.time.get() : 0)
-  }))
+  const style = useAnimatedStyle(() => {
+    const pose = combine(
+      combine(
+        poseAt("celebrate", part, entrance.clip.get() === "celebrate" ? entrance.time.get() : 0),
+        poseAt(idle.clip.get(), part, idle.time.get())
+      ),
+      sparklesFor(size)
+    )
+    return { opacity: pose.opacity, transform: viewTransform(pose, part, size) }
+  })
   return (
     <Layer style={style} size={size}>
-      {children}
+      <Path d={shapes.sparkles[part]} fill={palette.blush} />
     </Layer>
   )
 }
@@ -241,10 +239,11 @@ const Confetti = ({
 
 /**
  * Kotori, the shima enaga. Changes expression with `mood`, plays the mood's
- * entrance from `motion.ts`, confetti and all, and blinks now and then; with
- * reduced motion it holds each mood's pose, and doesn't blink or throw
- * confetti. Every moving part is a layer placed with plain view transforms,
- * so a clip plays the same way on iOS, Android and the web.
+ * entrance from `motion.ts`, confetti and all, and now and then blinks or
+ * twinkles its sparkles; with reduced motion it holds each mood's pose, and
+ * doesn't blink, twinkle or throw confetti. Every moving part is a layer
+ * placed with plain view transforms, so a clip plays the same way on iOS,
+ * Android and the web.
  */
 export const Mascot = ({ size = 120, mood = "curious" }: { readonly size?: number; readonly mood?: Mood }) => {
   const reduceMotion = useReducedMotion()
@@ -257,13 +256,14 @@ export const Mascot = ({ size = 120, mood = "curious" }: { readonly size?: numbe
     play(entrance, enter, !reduceMotion)
   }, [entrance, enter, reduceMotion])
 
+  const fidget = idles[mood] ?? null
   useEffect(() => {
-    if (reduceMotion || !blinks(mood)) return
+    if (reduceMotion || fidget === null) return
     let timer: ReturnType<typeof setTimeout>
     const schedule = () => {
       timer = setTimeout(
         () => {
-          play(idle, "blink", true)
+          play(idle, fidget, true)
           schedule()
         },
         2600 + Math.random() * 3200
@@ -271,7 +271,7 @@ export const Mascot = ({ size = 120, mood = "curious" }: { readonly size?: numbe
     }
     schedule()
     return () => clearTimeout(timer)
-  }, [idle, mood, reduceMotion])
+  }, [idle, fidget, reduceMotion])
 
   const bird = usePartStyle("bird", size, entrance, idle)
   const tail = usePartStyle("tail", size, entrance, idle)
@@ -327,11 +327,10 @@ export const Mascot = ({ size = 120, mood = "curious" }: { readonly size?: numbe
           </Layer>
         </Animated.View>
       </Animated.View>
-      {extras[mood] === undefined ? null : enter !== null && clips[enter].extras !== undefined ? (
-        <FadingExtras name={enter} size={size} entrance={entrance}>
-          {extras[mood]}
-        </FadingExtras>
-      ) : (
+      {mood === "celebrate"
+        ? sparkleParts.map((part) => <Sparkle key={part} part={part} size={size} entrance={entrance} idle={idle} />)
+        : null}
+      {extras[mood] === undefined ? null : (
         <Svg style={StyleSheet.absoluteFill} width={size} height={size} viewBox="0 0 200 200">
           {extras[mood]}
         </Svg>
