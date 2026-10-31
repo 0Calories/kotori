@@ -33,7 +33,11 @@ export const SenseRecord = Schema.Struct({
   stagk: Schema.Array(Schema.String),
   stagr: Schema.Array(Schema.String),
   xrefs: Schema.Array(Schema.String),
-  antonyms: Schema.Array(Schema.String)
+  antonyms: Schema.Array(Schema.String),
+  /** The English words a loanword sense comes from, where JMDict names them (`lsource`): マンション ← mansion. */
+  sources: Schema.Array(Schema.String),
+  /** Whether JMDict marks the sense as wasei-eigo (和製英語), English-looking but coined in Japan. */
+  wasei: Schema.Boolean
 })
 export type SenseRecord = typeof SenseRecord.Type
 
@@ -80,4 +84,107 @@ export const normalizeJapaneseGloss = (text: string) => {
     .replace(/[\s。、.,!?！？・;；:：]+$/, "")
     .replace(/\s+/g, " ")
     .trim()
+}
+
+/** A word written in katakana alone, as loanwords are (スタイル, コーヒー); valid in JavaScript and Postgres. */
+export const KATAKANA_WORD = "^[゠-ヿ]+$"
+
+/** A katakana word that may be the loanword of an English word, and how the dictionary ties them. */
+export interface LoanCandidate {
+  /** The English word, normalised (`normalizeGloss`). */
+  readonly word: string
+  readonly entryId: number
+  /** `gloss`: the entry has the word as a gloss; `source`: JMDict names it as the loan's source. */
+  readonly by: "gloss" | "source"
+}
+
+/**
+ * The loan candidates of English words among `entries`: common katakana words with the word as
+ * a gloss or as their JMDict source, most frequent first, at most `limit` per word.
+ * `DictionaryRepo.loanCandidates` is the same search in SQL; the golden fixture is cut with this.
+ */
+export const loanCandidatesIn = (
+  entries: Iterable<EntryRecord>,
+  words: ReadonlyArray<string>,
+  limit: number
+): Array<LoanCandidate> => {
+  const wanted = new Set(words.map(normalizeGloss).filter((word) => word.length > 1))
+  const katakana = new RegExp(KATAKANA_WORD, "u")
+  const found = new Map<string, Array<LoanCandidate & { readonly priority: number }>>()
+  for (const entry of entries) {
+    if (entry.language !== "ja" || !entry.common || !katakana.test(entry.headword)) continue
+    const by = new Map<string, LoanCandidate["by"]>()
+    for (const sense of entry.senses) {
+      for (const gloss of sense.glosses) {
+        const word = normalizeGloss(gloss.text)
+        if (wanted.has(word) && !by.has(word)) by.set(word, "gloss")
+      }
+      for (const source of sense.sources) {
+        const word = normalizeGloss(source)
+        if (wanted.has(word)) by.set(word, "source")
+      }
+    }
+    for (const [word, how] of by) {
+      found.set(word, [...(found.get(word) ?? []), { word, entryId: entry.id, by: how, priority: entry.priority }])
+    }
+  }
+  return [...found.values()].flatMap((candidates) =>
+    candidates
+      .sort((a, b) => b.priority - a.priority || a.entryId - b.entryId)
+      .slice(0, limit)
+      .map(({ word, entryId, by }) => ({ word, entryId, by }))
+  )
+}
+
+/** How much of one sense's glosses another must share to count as the same sense after an edit. */
+const SAME_SENSE = 0.5
+
+/**
+ * Where each of an entry's stored senses went in a re-import: the position of the sense with the
+ * same glosses, in the same order, or, failing that, of the one sharing the most of them (at
+ * least half, by Jaccard). A sense that matches nothing stays where it was, if no other sense
+ * took that position, since dictionaries reword senses in place; null means it is gone.
+ * Enrichment is keyed by position, so a re-import that reorders senses (the English dictionary
+ * ranks them at import) moves each row with its sense rather than leaving it on whatever sense
+ * now sits there.
+ */
+export const matchSenses = (
+  stored: ReadonlyArray<ReadonlyArray<string>>,
+  incoming: ReadonlyArray<ReadonlyArray<string>>
+): Array<number | null> => {
+  const moves: Array<number | null> = stored.map(() => null)
+  const taken = new Set<number>()
+  const key = (glosses: ReadonlyArray<string>) => JSON.stringify(glosses)
+  const free = new Map<string, Array<number>>()
+  incoming.forEach((glosses, index) => free.set(key(glosses), [...(free.get(key(glosses)) ?? []), index]))
+  stored.forEach((glosses, from) => {
+    const to = free.get(key(glosses))?.shift()
+    if (to === undefined) return
+    moves[from] = to
+    taken.add(to)
+  })
+  const pairs: Array<{ readonly from: number; readonly to: number; readonly overlap: number }> = []
+  stored.forEach((glosses, from) => {
+    if (moves[from] !== null) return
+    const own = new Set(glosses)
+    incoming.forEach((other, to) => {
+      if (taken.has(to)) return
+      const shared = other.filter((gloss) => own.has(gloss)).length
+      const overlap = shared / new Set([...glosses, ...other]).size
+      if (overlap >= SAME_SENSE) pairs.push({ from, to, overlap })
+    })
+  })
+  for (const { from, to } of pairs.sort((a, b) => b.overlap - a.overlap || a.from - b.from || a.to - b.to)) {
+    if (moves[from] !== null || taken.has(to)) continue
+    moves[from] = to
+    taken.add(to)
+  }
+  // JMDict rewords glosses ("to eat" → "to eat (a meal)") far more often than it moves senses,
+  // and dropping a reworded sense would take its examples, audio and saved words with it.
+  stored.forEach((_, from) => {
+    if (moves[from] !== null || from >= incoming.length || taken.has(from)) return
+    moves[from] = from
+    taken.add(from)
+  })
+  return moves
 }

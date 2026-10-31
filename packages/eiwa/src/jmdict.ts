@@ -74,6 +74,10 @@ interface Candidate {
   readonly score: number
 }
 
+/** Back-translations are read from a Japanese word's leading senses and glosses, where JMDict puts the common ones. */
+const BACK_SENSES = 3
+const BACK_GLOSSES = 4
+
 export interface KnownEnglish {
   /** Lowercased headwords, spellings and inflections of the words already in the dictionary. */
   readonly words: ReadonlySet<string>
@@ -97,6 +101,10 @@ const attested = (term: string, known: KnownEnglish) => {
 /** Reads JMDict an entry at a time, collecting the English words its glosses name; see `wordsFromJmdict`. */
 export const jmdictReader = (known: KnownEnglish) => {
   const candidates = new Map<string, Array<Candidate>>()
+  // Per English word already in the dictionary: the spellings of the common Japanese words that
+  // JMDict translates with it, each with its best weight as a candidate, as evidence of which
+  // of the English word's senses are in common use.
+  const translations = new Map<string, Map<string, number>>()
 
   const add = (entry: EntryRecord) => {
     const romaji = romanize(entry.reading)
@@ -105,14 +113,21 @@ export const jmdictReader = (known: KnownEnglish) => {
         // Capitalised glosses are names ("Disney"); lowercase ones are words.
         if ((gloss.type !== null && SKIPPED_TYPES.has(gloss.type)) || !/^[a-z]/.test(gloss.text)) return
         const term = normalizeGloss(gloss.text)
-        if (term.length < 2 || !isEnglish(term) || term === romaji || known.words.has(term)) return
-        if (!attested(term, known)) return
+        if (term.length < 2 || !isEnglish(term) || term === romaji) return
         const score =
           (entry.common ? 30 : 0) +
           entry.priority / 5 +
           (SENSE_BONUS[senseIndex] ?? 0) -
           3 * position -
           (sense.misc.some((tag) => RARE.has(tag)) ? 25 : 0)
+        if (known.words.has(term)) {
+          if (!entry.common || senseIndex >= BACK_SENSES || position >= BACK_GLOSSES) return
+          const spellings = translations.get(term) ?? new Map<string, number>()
+          translations.set(term, spellings)
+          for (const form of entry.forms) spellings.set(form.text, Math.max(spellings.get(form.text) ?? 0, score))
+          return
+        }
+        if (!attested(term, known)) return
         const list = candidates.get(term) ?? []
         candidates.set(term, list)
         list.push({ japanese: entry.headword, common: entry.common, pos: partOfSpeech(sense.pos), score })
@@ -142,7 +157,13 @@ export const jmdictReader = (known: KnownEnglish) => {
       }
     })
 
-  return { add, finish }
+  /**
+   * Per English word the dictionary already has (normalised), the spellings of the common
+   * Japanese words JMDict translates with it, weighted as candidates are.
+   */
+  const backTranslations = (): ReadonlyMap<string, ReadonlyMap<string, number>> => translations
+
+  return { add, finish, backTranslations }
 }
 
 export const wordsFromJmdict = (entries: Iterable<EntryRecord>, known: KnownEnglish): Array<Word> => {

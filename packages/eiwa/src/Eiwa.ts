@@ -142,11 +142,22 @@ const build = Effect.fnUntraced(function* (options: ImportOptions, existing: Rea
   yield* eachJmdictEntry(options.jmdict, reader.add)
   const jmdict = reader.finish()
 
-  let entries = toEntries(mergeSources({ wiktionary, ejdict, jmdict, frequency }), frequency, existing)
+  let entries = toEntries(
+    mergeSources({ wiktionary, ejdict, jmdict, frequency }),
+    frequency,
+    existing,
+    reader.backTranslations()
+  )
   if (options.commonOnly) entries = entries.filter((entry) => entry.common)
   if (options.limit !== undefined) entries = entries.slice(0, options.limit)
   return entries
 })
+
+/**
+ * The English dictionary's entries as a fresh import would number them, built from its sources
+ * without a database: for tools that cut fixtures from it, such as the golden set's.
+ */
+export const buildEntries = (options: ImportOptions) => build(options, new Map())
 
 /**
  * Builds the English dictionary from its sources and loads it alongside JMDict. Re-importing

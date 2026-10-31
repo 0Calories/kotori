@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema"
 import { Language } from "./Language.ts"
-import { Difference, Formality, Nuance } from "./Nuance.ts"
+import { Difference, Formality, Loanword, Nuance } from "./Nuance.ts"
 
 /** JMDict's `ent_seq` for Japanese words; English words are numbered from 100,000,000. */
 export const EntryId = Schema.Int.pipe(Schema.brand("EntryId"))
@@ -88,6 +88,10 @@ export const Sense = Schema.Struct({
   related: Schema.Array(CrossReference),
   antonyms: Schema.Array(CrossReference),
   nuance: Schema.NullOr(Nuance),
+  /** Kotori's usage note on this sense for learners of Japanese, in English; on Japanese words. */
+  note: Schema.NullOr(Schema.String),
+  /** The same for learners of English, in Japanese; on English words. */
+  noteJa: Schema.NullOr(Schema.String),
   similar: Schema.Array(SimilarWord),
   examples: Schema.Array(Example)
 })
@@ -132,6 +136,8 @@ export const Entry = Schema.Struct({
   audioUrl: Schema.NullOr(Schema.String),
   /** Every headword clip, one per dictionary voice. */
   audio: Schema.Array(EntryAudio),
+  /** An English word's katakana loan, once judged; null for Japanese words and English words without one. */
+  loan: Schema.NullOr(Loanword),
   enrichment: Enrichment
 })
 export type Entry = typeof Entry.Type

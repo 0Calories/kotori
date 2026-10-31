@@ -1,4 +1,4 @@
-import { type Mood, palette, shapes } from "./geometry.ts"
+import { frontShapes, type Mood, palette, shapes } from "./geometry.ts"
 import {
   type ClipName,
   clips,
@@ -105,5 +105,33 @@ export const framesSvg = (name: ClipName, mood: Mood, count = 12) => {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
   <rect width="${width}" height="${height}" fill="${palette.sky}"/>
   ${frames.join("\n  ")}
+</svg>`
+}
+
+/** Kotori facing the viewer as an SVG document, with `mascotSvg`'s background and padding options. */
+export const mascotFrontSvg = (options: { background?: string; padding?: number } = {}) => {
+  const pad = options.padding ?? 0
+  const size = 200 + pad * 2
+  const { catchlight, feet } = frontShapes
+  const foot = (d: string) =>
+    `<path d="${d}" stroke="${palette.ink}" stroke-width="${feet.width}" stroke-linecap="round"/>`
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-pad} ${-pad} ${size} ${size}" width="${size}" height="${size}">
+  ${options.background ? `<rect x="${-pad}" y="${-pad}" width="${size}" height="${size}" fill="${options.background}"/>` : ""}
+  ${frontShapes.wings.map((d) => `<path d="${d}" fill="${palette.ink}"/>`).join("")}
+  ${frontShapes.tuft.map((t) => `<circle cx="${t.cx}" cy="${t.cy}" r="${t.r}" fill="${palette.cream}"/>`).join("")}
+  <path d="${frontShapes.body}" fill="${palette.cream}"/>
+  <path d="${frontShapes.shade}" fill="${palette.shade}"/>
+  <path d="${frontShapes.belly}" fill="${palette.white}" fill-opacity="0.4"/>
+  ${foot(feet.left)}
+  ${foot(feet.right)}
+  ${frontShapes.cheeks.map((c) => `<ellipse cx="${c.cx}" cy="${c.cy}" rx="${c.rx}" ry="${c.ry}" fill="${palette.blush}"/>`).join("")}
+  ${frontShapes.eyes
+    .map(
+      (e) =>
+        `<ellipse cx="${e.cx}" cy="${e.cy}" rx="${e.rx}" ry="${e.ry}" fill="${palette.ink}"/><circle cx="${e.cx + catchlight.dx}" cy="${e.cy + catchlight.dy}" r="${catchlight.r}" fill="${palette.white}"/>`
+    )
+    .join("")}
+  <path d="${frontShapes.beak}" fill="${palette.ink}"/>
 </svg>`
 }

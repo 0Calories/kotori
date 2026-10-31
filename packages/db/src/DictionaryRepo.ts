@@ -1,9 +1,16 @@
 import type { Language } from "@kotori/domain"
-import { and, asc, desc, eq, gte, inArray, max, min, ne, notExists, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gte, inArray, isNotNull, lt, max, min, ne, notExists, sql } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import { Context, Effect, Layer } from "effect"
 import { Database } from "./Database.ts"
-import { type EntryRecord, normalizeGloss, normalizeJapaneseGloss } from "./records.ts"
+import {
+  type EntryRecord,
+  KATAKANA_WORD,
+  type LoanCandidate,
+  matchSenses,
+  normalizeGloss,
+  normalizeJapaneseGloss
+} from "./records.ts"
 import { chunks } from "./rows.ts"
 import {
   entries,
@@ -13,8 +20,11 @@ import {
   forms,
   glosses,
   jobKind,
+  notes,
+  senseNotes,
   senseNuance,
   senses,
+  similarWords,
   tags
 } from "./schema/index.ts"
 
@@ -44,8 +54,8 @@ export interface Candidate {
   readonly gloss: string
 }
 
-/** Enrichment an entry can be missing, used to find work for the worker. */
-export type EnrichmentKind = (typeof jobKind.enumValues)[number]
+/** Enrichment an entry can be missing, used to find work for the worker. The English side is judged on view, never backfilled. */
+export type EnrichmentKind = Exclude<(typeof jobKind.enumValues)[number], "english">
 
 export interface PriorityQuery {
   readonly limit: number
@@ -86,6 +96,12 @@ export class DictionaryRepo extends Context.Service<
     searchJapaneseGlosses(text: string, limit: number): Effect.Effect<ReadonlyArray<GlossMatch>>
     /** Other entries in the same dictionary sharing an exact gloss with the given sense: candidates for "similar words". */
     sharedGlossCandidates(entryId: number, sense: number, limit: number): Effect.Effect<ReadonlyArray<Candidate>>
+    /**
+     * Common katakana words that may be the loanword of each English word: entries with the word
+     * as a gloss, or whose JMDict source (`lsource`) it is; most frequent first, at most `limit`
+     * per word. `loanCandidatesIn` is the same search over parsed entries.
+     */
+    loanCandidates(words: ReadonlyArray<string>, limit: number): Effect.Effect<ReadonlyArray<LoanCandidate>>
     /** Commonness and frequency of entries, for ranking without loading them. */
     ranks(
       ids: ReadonlyArray<number>
@@ -105,6 +121,151 @@ export class DictionaryRepo extends Context.Service<
         WHERE g2.entry_id = ${glosses.entryId} AND g2.sense = ${glosses.sense}
       )`.mapWith(Number)
 
+      type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+      /**
+       * Where each entry's stored senses go in `records`: per entry, each stored sense's new
+       * position, or null where it is gone. Entries whose senses all stay put are left out, which
+       * is every entry on a first import and nearly every one on a re-import of unchanged sources.
+       */
+      const sensesMoved = Effect.fnUntraced(function* (tx: Tx, records: ReadonlyArray<EntryRecord>) {
+        const stored = new Map<number, Array<Array<string>>>()
+        for (const chunk of chunks(
+          records.map((entry) => entry.id),
+          5000
+        )) {
+          const positions = yield* tx
+            .select({ entryId: senses.entryId, position: senses.position })
+            .from(senses)
+            .where(inArray(senses.entryId, [...chunk]))
+          for (const row of positions) {
+            const list = stored.get(row.entryId) ?? []
+            list[row.position] = []
+            stored.set(row.entryId, list)
+          }
+          const rows = yield* tx
+            .select({ entryId: glosses.entryId, sense: glosses.sense, text: glosses.text })
+            .from(glosses)
+            .where(inArray(glosses.entryId, [...chunk]))
+            .orderBy(asc(glosses.entryId), asc(glosses.sense), asc(glosses.position))
+          for (const row of rows) stored.get(row.entryId)?.[row.sense]?.push(row.text)
+        }
+        const moves = new Map<number, ReadonlyArray<number | null>>()
+        for (const entry of records) {
+          const before = stored.get(entry.id)
+          if (before === undefined) continue
+          const dense = Array.from({ length: before.length }, (_, index) => before[index] ?? [])
+          const match = matchSenses(
+            dense,
+            entry.senses.map((sense) => sense.glosses.map((gloss) => gloss.text))
+          )
+          if (dense.length !== entry.senses.length || match.some((to, from) => to !== from)) moves.set(entry.id, match)
+        }
+        return moves
+      })
+
+      /**
+       * Takes out the rows keyed by sense of entries whose senses move, until the senses are in
+       * place: judgments, notes and similar words are held and deleted; example sentences and
+       * saved words are only listed, as they are moved in place (keeping their ids and audio).
+       */
+      const takeSenseRows = Effect.fnUntraced(function* (tx: Tx, ids: ReadonlyArray<number>) {
+        const held = {
+          nuance: yield* tx
+            .select()
+            .from(senseNuance)
+            .where(inArray(senseNuance.entryId, [...ids])),
+          notes: yield* tx
+            .select()
+            .from(senseNotes)
+            .where(inArray(senseNotes.entryId, [...ids])),
+          similar: yield* tx
+            .select()
+            .from(similarWords)
+            .where(inArray(similarWords.entryId, [...ids])),
+          sentences: yield* tx
+            .select({ id: examples.id, entryId: examples.entryId, sense: examples.sense })
+            .from(examples)
+            .where(inArray(examples.entryId, [...ids])),
+          saved: yield* tx
+            .select({ id: notes.id, entryId: notes.entryId, sense: notes.sense })
+            .from(notes)
+            .where(and(inArray(notes.entryId, [...ids]), isNotNull(notes.sense)))
+        }
+        yield* tx.delete(senseNuance).where(inArray(senseNuance.entryId, [...ids]))
+        yield* tx.delete(senseNotes).where(inArray(senseNotes.entryId, [...ids]))
+        yield* tx.delete(similarWords).where(inArray(similarWords.entryId, [...ids]))
+        return held
+      })
+
+      /** Puts the taken rows back with their senses; a sense that is gone takes its rows with it. */
+      const moveSenseRows = Effect.fnUntraced(function* (
+        tx: Tx,
+        moves: ReadonlyMap<number, ReadonlyArray<number | null>>,
+        held: Effect.Success<ReturnType<typeof takeSenseRows>>
+      ) {
+        const to = (entryId: number | null, sense: number | null) =>
+          entryId === null || sense === null ? null : (moves.get(entryId)?.[sense] ?? null)
+        const follow = <R extends { readonly entryId: number; readonly sense: number }>(rows: ReadonlyArray<R>) =>
+          rows.flatMap((row) => {
+            const sense = to(row.entryId, row.sense)
+            return sense === null ? [] : [{ ...row, sense }]
+          })
+        for (const chunk of chunks(follow(held.nuance), 1000)) yield* tx.insert(senseNuance).values([...chunk])
+        for (const chunk of chunks(follow(held.notes), 1000)) yield* tx.insert(senseNotes).values([...chunk])
+        for (const chunk of chunks(follow(held.similar), 1000)) yield* tx.insert(similarWords).values([...chunk])
+
+        // Sentences move by id, so a swap of two senses can't carry either set twice.
+        const sentences = new Map<number, Array<number>>()
+        const unheard: Array<number> = []
+        for (const sentence of held.sentences) {
+          const sense = to(sentence.entryId, sentence.sense)
+          if (sense === null) unheard.push(sentence.id)
+          else if (sense !== sentence.sense) sentences.set(sense, [...(sentences.get(sense) ?? []), sentence.id])
+        }
+        for (const [sense, ids] of sentences) {
+          for (const chunk of chunks(ids, 5000))
+            yield* tx
+              .update(examples)
+              .set({ sense })
+              .where(inArray(examples.id, [...chunk]))
+        }
+        for (const chunk of chunks(unheard, 5000)) yield* tx.delete(examples).where(inArray(examples.id, [...chunk]))
+
+        // Saved words follow too, in the column and in the card content the entry page reads.
+        // (user, entry, sense) is unique, so they pass through negative positions: a swap made
+        // in one step would collide halfway. A word whose sense is gone keeps its cards and
+        // loses only its place on the entry page.
+        const saved = new Map<number, Array<string>>()
+        const orphaned: Array<string> = []
+        for (const note of held.saved) {
+          const sense = to(note.entryId, note.sense)
+          if (sense === null) orphaned.push(note.id)
+          else saved.set(sense, [...(saved.get(sense) ?? []), note.id])
+        }
+        for (const [sense, ids] of saved) {
+          yield* tx
+            .update(notes)
+            .set({
+              sense: -sense - 1,
+              content: sql`jsonb_set(${notes.content}, '{senseIndex}', to_jsonb(${sense}::integer))`
+            })
+            .where(inArray(notes.id, ids))
+        }
+        if (saved.size > 0) {
+          yield* tx
+            .update(notes)
+            .set({ sense: sql`-${notes.sense} - 1` })
+            .where(and(inArray(notes.entryId, [...moves.keys()]), lt(notes.sense, 0)))
+        }
+        if (orphaned.length > 0) {
+          yield* tx
+            .update(notes)
+            .set({ sense: null, content: sql`jsonb_set(${notes.content}, '{senseIndex}', '-1'::jsonb)` })
+            .where(inArray(notes.id, orphaned))
+        }
+      })
+
       const insertEntries = Effect.fn("DictionaryRepo.insertEntries")(function* (records: ReadonlyArray<EntryRecord>) {
         if (records.length === 0) return
         const ids = records.map((entry) => entry.id)
@@ -112,18 +273,14 @@ export class DictionaryRepo extends Context.Service<
           Effect.gen(function* () {
             // Forms and glosses are replaced wholesale. Senses are upserted by position, since
             // enrichment references them and would cascade away; only senses past an entry's
-            // new count are deleted.
+            // new count are deleted. Where a re-import moves senses (or drops one), enrichment
+            // keyed by position follows its sense, matched by glosses (`matchSenses`), and
+            // what belonged to a sense that is gone goes with it.
+            const moves = yield* sensesMoved(tx, records)
+            const moved = [...moves.keys()]
+            const keyed = moved.length === 0 ? null : yield* takeSenseRows(tx, moved)
             yield* tx.delete(forms).where(inArray(forms.entryId, ids))
             yield* tx.delete(glosses).where(inArray(glosses.entryId, ids))
-            const bySenseCount = new Map<number, Array<number>>()
-            for (const entry of records) {
-              const group = bySenseCount.get(entry.senses.length)
-              if (group) group.push(entry.id)
-              else bySenseCount.set(entry.senses.length, [entry.id])
-            }
-            for (const [count, group] of bySenseCount) {
-              yield* tx.delete(senses).where(and(inArray(senses.entryId, group), gte(senses.position, count)))
-            }
             yield* tx
               .insert(entries)
               .values(
@@ -175,7 +332,9 @@ export class DictionaryRepo extends Context.Service<
                 stagk: [...sense.stagk],
                 stagr: [...sense.stagr],
                 xrefs: [...sense.xrefs],
-                antonyms: [...sense.antonyms]
+                antonyms: [...sense.antonyms],
+                sources: [...sense.sources],
+                wasei: sense.wasei
               }))
             )
             for (const chunk of chunks(senseRows, 1500)) {
@@ -193,9 +352,22 @@ export class DictionaryRepo extends Context.Service<
                     stagk: sql`excluded.stagk`,
                     stagr: sql`excluded.stagr`,
                     xrefs: sql`excluded.xrefs`,
-                    antonyms: sql`excluded.antonyms`
+                    antonyms: sql`excluded.antonyms`,
+                    sources: sql`excluded.sources`,
+                    wasei: sql`excluded.wasei`
                   }
                 })
+            }
+            // Every new position exists now, so rows can move before the surplus senses go.
+            if (keyed !== null) yield* moveSenseRows(tx, moves, keyed)
+            const bySenseCount = new Map<number, Array<number>>()
+            for (const entry of records) {
+              const group = bySenseCount.get(entry.senses.length)
+              if (group) group.push(entry.id)
+              else bySenseCount.set(entry.senses.length, [entry.id])
+            }
+            for (const [count, group] of bySenseCount) {
+              yield* tx.delete(senses).where(and(inArray(senses.entryId, group), gte(senses.position, count)))
             }
 
             const glossRows = records.flatMap((entry) =>
@@ -431,6 +603,59 @@ export class DictionaryRepo extends Context.Service<
           .limit(limit)
       }, Effect.orDie)
 
+      const loanCandidates = Effect.fn("DictionaryRepo.loanCandidates")(function* (
+        words: ReadonlyArray<string>,
+        limit: number
+      ) {
+        const wanted = [...new Set(words.map(normalizeGloss))].filter((word) => word.length > 1)
+        if (wanted.length === 0) return []
+        const katakana = and(
+          eq(entries.language, "ja"),
+          eq(entries.common, true),
+          sql`${entries.headword} ~ ${KATAKANA_WORD}`
+        )
+        const byGloss = yield* db
+          .selectDistinct({ word: glosses.norm, entryId: glosses.entryId, priority: entries.priority })
+          .from(glosses)
+          .innerJoin(entries, eq(entries.id, glosses.entryId))
+          .where(and(inArray(glosses.norm, wanted), katakana))
+        // Sources are matched loosely here and exactly below, as `normalizeGloss` matches glosses.
+        const listed = sql.join(
+          wanted.map((word) => sql`${word}`),
+          sql`, `
+        )
+        const bySource = yield* db
+          .select({ entryId: senses.entryId, sources: senses.sources, priority: entries.priority })
+          .from(senses)
+          .innerJoin(entries, eq(entries.id, senses.entryId))
+          .where(
+            and(
+              katakana,
+              sql`EXISTS (SELECT 1 FROM unnest(${senses.sources}) AS source WHERE lower(source) IN (${listed}))`
+            )
+          )
+
+        const found = new Map<string, Map<number, { readonly by: LoanCandidate["by"]; readonly priority: number }>>()
+        const add = (word: string, entryId: number, by: LoanCandidate["by"], priority: number) => {
+          const forWord = found.get(word) ?? new Map()
+          if (by === "source" || !forWord.has(entryId)) forWord.set(entryId, { by, priority })
+          found.set(word, forWord)
+        }
+        for (const row of byGloss) add(row.word, row.entryId, "gloss", row.priority)
+        for (const row of bySource) {
+          for (const source of row.sources) {
+            const word = normalizeGloss(source)
+            if (wanted.includes(word)) add(word, row.entryId, "source", row.priority)
+          }
+        }
+        return [...found].flatMap(([word, forWord]) =>
+          [...forWord]
+            .sort(([a, x], [b, y]) => y.priority - x.priority || a - b)
+            .slice(0, limit)
+            .map(([entryId, { by }]): LoanCandidate => ({ word, entryId, by }))
+        )
+      }, Effect.orDie)
+
       const ranks = Effect.fn("DictionaryRepo.ranks")(function* (ids: ReadonlyArray<number>) {
         if (ids.length === 0) return new Map<number, { common: boolean; priority: number }>()
         const rows = yield* db
@@ -483,6 +708,7 @@ export class DictionaryRepo extends Context.Service<
         findJapaneseGlosses,
         searchJapaneseGlosses,
         sharedGlossCandidates,
+        loanCandidates,
         ranks,
         entriesByPriority
       })

@@ -3,6 +3,7 @@ import type {
   Difference,
   Formality,
   Language,
+  Loanword,
   Nuance,
   SentenceMedium,
   SentenceTone,
@@ -57,6 +58,8 @@ export const senseNuance = table(
     /** The raw answer distributions, so thresholds and labels can be re-derived without paying for inference again. */
     answers: jsonb().notNull(),
     model: text().notNull(),
+    /** Which question set produced the answers (QUESTIONS_VERSION); old rows are refreshed on view. */
+    questionsVersion: integer().notNull().default(1),
     createdAt: createdAt()
   },
   (t) => [
@@ -64,6 +67,28 @@ export const senseNuance = table(
     foreignKey({ columns: [t.entryId, t.sense], foreignColumns: [senses.entryId, senses.position] }).onDelete("cascade")
   ]
 )
+
+/**
+ * An English word's katakana loan, judged in the same Jev request as its senses: one row per
+ * English entry the dictionary has katakana candidates for. Keeps the answers, so the verdict
+ * can be re-derived, and Claude's warning, which survives a re-judge naming the same loan.
+ */
+export const loanWords = table("loan_words", {
+  entryId: integer()
+    .primaryKey()
+    .references(() => entries.id, { onDelete: "cascade" }),
+  /** The katakana loan, as JMDict spells it; null when Jev judged none of the candidates its loan. */
+  word: text(),
+  verdict: jsonb().$type<Loanword["verdict"]>(),
+  /** Jev's answers about each candidate, and the candidates asked about. */
+  answers: jsonb().notNull(),
+  /** Claude's one-sentence warning, in Japanese, once the loan confidently diverges. */
+  trap: text(),
+  model: text().notNull(),
+  /** Which question set produced the answers (QUESTIONS_VERSION). */
+  questionsVersion: integer().notNull(),
+  createdAt: createdAt()
+})
 
 export const similarWords = table(
   "similar_words",
@@ -79,6 +104,25 @@ export const similarWords = table(
   },
   (t) => [
     primaryKey({ columns: [t.entryId, t.sense, t.similarId] }),
+    foreignKey({ columns: [t.entryId, t.sense], foreignColumns: [senses.entryId, senses.position] }).onDelete("cascade")
+  ]
+)
+
+/** Claude's usage note per sense, written alongside its example sentences. */
+export const senseNotes = table(
+  "sense_notes",
+  {
+    entryId: integer().notNull(),
+    sense: integer().notNull(),
+    /** On a Japanese word, for learners of Japanese, in English; null when the glosses say it all. */
+    note: text(),
+    /** On an English word, for learners of English, in Japanese; null likewise. */
+    noteJa: text(),
+    model: text().notNull(),
+    createdAt: createdAt()
+  },
+  (t) => [
+    primaryKey({ columns: [t.entryId, t.sense] }),
     foreignKey({ columns: [t.entryId, t.sense], foreignColumns: [senses.entryId, senses.position] }).onDelete("cascade")
   ]
 )

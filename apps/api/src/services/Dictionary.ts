@@ -32,7 +32,7 @@ import {
   romajiToKana,
   romanize
 } from "@kotori/japanese"
-import { Jev } from "@kotori/nuance"
+import { Jev, MAX_SENSES, questionsVersionOf } from "@kotori/nuance"
 import { CASTS, Pronouncer } from "@kotori/tts"
 import { Clock, Context, Effect, Layer, Option } from "effect"
 
@@ -428,7 +428,15 @@ export class Dictionary extends Context.Service<
         ready ? "ready" : !available || job === "failed" ? "unavailable" : "queued"
 
       const enrichmentFor = Effect.fnUntraced(function* (entry: EntryRecord, enqueue: boolean) {
-        const hasNuance = (yield* enrichment.nuanceFor([entry.id])).length > 0
+        const nuanceRows = yield* enrichment.nuanceFor([entry.id])
+        const hasNuance = nuanceRows.length > 0
+        // Old rows stay valid and shown, but a viewed entry gets fresh judgments queued: when they
+        // predate its question set, or when a re-import has ranked a sense nobody judged among
+        // the ones that are (judged rows follow their senses, so one may lead without any).
+        const judged = new Set(nuanceRows.map((row) => row.sense))
+        const nuanceOutdated =
+          nuanceRows.some((row) => row.questionsVersion < questionsVersionOf(entry.language)) ||
+          (hasNuance && entry.senses.slice(0, MAX_SENSES).some((_, index) => !judged.has(index)))
         const examples = yield* enrichment.examplesFor([entry.id])
         const hasExamples = examples.length > 0
         const clips = yield* enrichment.exampleAudio(examples.map((example) => example.id))
@@ -440,14 +448,23 @@ export class Dictionary extends Context.Service<
         const now = yield* Clock.currentTimeMillis
 
         if (enqueue) {
-          if (!hasNuance && jev.configured) yield* jobs.enqueue("nuance", entry.id, ON_DEMAND, now)
+          const before = yield* jobs.statusFor(entry.id)
+          if (jev.configured) {
+            // Enqueueing a finished job is a no-op, so one that judged with an older question set is
+            // queued again; saving replaces every row of the entry, so it runs once per version.
+            if (nuanceOutdated && before.get("nuance") === "done") {
+              yield* jobs.requeue("nuance", entry.id, ON_DEMAND, now)
+            } else if (!hasNuance || nuanceOutdated) {
+              yield* jobs.enqueue("nuance", entry.id, ON_DEMAND, now)
+            }
+          }
           if (!hasExamples && coachAvailable) yield* jobs.enqueue("examples", entry.id, ON_DEMAND, now)
           // The worker re-runs audio once example sentences exist, so they get voiced too. A finished
           // job can still leave gaps (sentences written after it ran), so it runs again to fill
           // them, but at most once an hour, in case the gap is one the worker can't fill.
           if (!hasAudio && pronouncer.configured) {
             // Enqueueing a finished job would touch it, putting its next try off with every look.
-            if ((yield* jobs.statusFor(entry.id)).get("audio") === "done") {
+            if (before.get("audio") === "done") {
               yield* jobs.refill("audio", entry.id, now - REFILL_AFTER, ON_DEMAND, now)
             } else {
               yield* jobs.enqueue("audio", entry.id, ON_DEMAND, now)
@@ -469,6 +486,8 @@ export class Dictionary extends Context.Service<
         const tag = (code: string): Tag => ({ code, label: tags.get(code) ?? code })
 
         const nuance = new Map((yield* enrichment.nuanceFor([entry.id])).map((row) => [row.sense, row.nuance]))
+        const notes = new Map((yield* enrichment.senseNotesFor([entry.id])).map((row) => [row.sense, row]))
+        const [loan] = yield* enrichment.loanWordsFor([entry.id])
         const examples = yield* enrichment.examplesFor([entry.id])
         const exampleAudio = yield* enrichment.exampleAudio(examples.map((example) => example.id))
         const entryClips = (yield* enrichment.entryAudio([entry.id])).get(entry.id) ?? []
@@ -512,6 +531,8 @@ export class Dictionary extends Context.Service<
           related: sense.xrefs.map(resolve),
           antonyms: sense.antonyms.map(resolve),
           nuance: nuance.get(index) ?? null,
+          note: notes.get(index)?.note ?? null,
+          noteJa: notes.get(index)?.noteJa ?? null,
           similar: similarRows
             .filter((row) => row.sense === index)
             .flatMap((row): Array<SimilarWord> => {
@@ -551,6 +572,10 @@ export class Dictionary extends Context.Service<
             voice: clip.voice,
             voiceName: voiceName(clip.voice)
           })),
+          loan:
+            loan?.word == null || loan.verdict === null
+              ? null
+              : { word: loan.word, verdict: loan.verdict, trap: loan.trap },
           enrichment: yield* enrichmentFor(entry, true)
         } satisfies Entry
       })

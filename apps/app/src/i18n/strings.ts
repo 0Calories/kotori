@@ -144,6 +144,13 @@ const en = {
       formal: "Formal"
     },
     mediumScale: { spoken: "Speech", both: "Speech & writing", written: "Writing" },
+    /** Chips replacing a scale when the word sits at its far end; a slider implies a middle it doesn't have. */
+    edge: {
+      vulgar: "Crude language",
+      formal: "Formal language",
+      spoken: "Spoken language",
+      written: "Written language"
+    },
     keigo: {
       none: "",
       teineigo: "Polite (丁寧語)",
@@ -155,9 +162,21 @@ const en = {
     age: { any: "", children: "Children's word", youth: "Young people", older: "Older speakers" },
     currency: { current: "", trendy: "Trendy", dated: "Dated", archaic: "Archaic" },
     connotation: { neutral: "", positive: "Positive", negative: "Negative" },
-    cautionRude: "Too casual for your boss or customers",
+    showScales: "Show the nuance scales",
+    hideScales: "Hide the nuance scales",
+    /** For words whose register is bimodal: clinical in one world, crude in the other. */
+    contextSplit: "Clinical or crude — depends on context",
+    /** What English words have and Japanese ones don't. */
+    english: {
+      variety: { universal: "", american: "American English", british: "British English" },
+      profanity: { none: "", mild: "Mildly coarse", strong: "Strong language", avoid: "Offensive — never use" },
+      loanMatches: (loan: string) => `Same meaning as the katakana 「${loan}」`,
+      loanDiverges: (loan: string) => `Not the katakana 「${loan}」`
+    },
+    cautionRude: "Can sound rude to your boss or customers",
     cautionStiff: "Sounds stiff between friends",
     cautionSlang: "Slang",
+    cautionTextbook: "Textbook English: natives rarely say it",
     fromDictionary: "From the dictionary",
     fromJev: "Judged by Jev",
     difference: {
@@ -497,14 +516,25 @@ const ja: Strings = {
     medium: "使われる場面",
     scale: { vulgar: "乱暴", casual: "カジュアル", neutral: "普通", polite: "丁寧", formal: "改まった" },
     mediumScale: { spoken: "話し言葉", both: "話し言葉・書き言葉", written: "書き言葉" },
+    edge: { vulgar: "乱暴な言葉", formal: "改まった言葉", spoken: "話し言葉", written: "書き言葉" },
     keigo: { none: "", teineigo: "丁寧語", sonkeigo: "尊敬語", kenjougo: "謙譲語", bikago: "美化語" },
     gender: { neutral: "", masculine: "男性的", feminine: "女性的" },
     age: { any: "", children: "子ども言葉", youth: "若者言葉", older: "年配の人" },
     currency: { current: "", trendy: "流行語", dated: "古風", archaic: "古語" },
     connotation: { neutral: "", positive: "ポジティブ", negative: "ネガティブ" },
+    showScales: "ニュアンスの目盛りを表示",
+    hideScales: "ニュアンスの目盛りを隠す",
+    contextSplit: "場面で印象が大きく変わる",
+    english: {
+      variety: { universal: "", american: "アメリカ英語", british: "イギリス英語" },
+      profanity: { none: "", mild: "ややくだけた言葉", strong: "強い言葉・注意", avoid: "侮蔑語・使わない" },
+      loanMatches: (loan: string) => `カタカナ語「${loan}」と同じ意味`,
+      loanDiverges: (loan: string) => `カタカナ語「${loan}」とは意味が違う`
+    },
     cautionRude: "目上の人には失礼に聞こえることも",
     cautionStiff: "友達同士だと堅く聞こえる",
     cautionSlang: "スラング",
+    cautionTextbook: "教科書英語：ネイティブはあまり言わない",
     fromDictionary: "辞書の情報",
     fromJev: "Jevによる判定",
     difference: {

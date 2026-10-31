@@ -1,10 +1,10 @@
 import type { EntryRecord } from "@kotori/db"
 import { describe, expect, it } from "vitest"
-import { mergeSources, toEntries } from "../src/build.ts"
+import { commonestFirst, mergeSources, toEntries } from "../src/build.ts"
 import { parseEjdict } from "../src/ejdict.ts"
 import { parseFrequency } from "../src/frequency.ts"
 import { uninflect } from "../src/inflect.ts"
-import { wordsFromJmdict } from "../src/jmdict.ts"
+import { jmdictReader, wordsFromJmdict } from "../src/jmdict.ts"
 import { splitDefinition } from "../src/text.ts"
 import { cleanIpa, parseWiktionary } from "../src/wiktionary.ts"
 import { emptySense, formOf } from "../src/words.ts"
@@ -284,7 +284,9 @@ const jmdictEntry = (
       stagk: [],
       stagr: [],
       xrefs: [],
-      antonyms: []
+      antonyms: [],
+      sources: [],
+      wasei: false
     }
   ]
 })
@@ -457,5 +459,81 @@ describe("toEntries", () => {
       ["kim", false],
       ["website", true]
     ])
+  })
+})
+
+describe("commonestFirst", () => {
+  const sense = (glosses: Array<string>, misc: Array<string> = []) => ({
+    ...emptySense(),
+    glosses: glosses.map((text) => ({ text, type: null })),
+    misc
+  })
+  const order = (senses: ReturnType<typeof sense>[], weights: Record<string, number>) =>
+    commonestFirst(senses, new Map(Object.entries(weights))).map((own) => own.glosses[0]?.text)
+
+  it("leads with the first attested sense, then the other attested ones by weight, the rest after", () => {
+    // "kid" as Wiktionary lists it: no common Japanese word translates "kid" as a young goat.
+    const kid = [
+      sense(["仔やぎ"]),
+      sense(["子供"]),
+      sense(["からかう", "ふざける"]),
+      sense(["冗談を言う"]),
+      sense(["子分"], ["obs"])
+    ]
+    expect(order(kid, { 子供: 50, ふざける: 90, 冗談を言う: 70, 子分: 99 })).toEqual([
+      "子供",
+      "からかう",
+      "冗談を言う",
+      "仔やぎ",
+      "子分"
+    ])
+    // Its heaviest word decides a sense's weight, not how many synonyms it lists.
+    expect(
+      order([sense(["涼しい"]), sense(["冷淡な", "冷ややかな", "冷たい"]), sense(["冷静な"])], {
+        涼しい: 80,
+        冷淡: 40,
+        冷ややか: 40,
+        冷たい: 40,
+        冷静: 60
+      })
+    ).toEqual(["涼しい", "冷静な", "冷淡な"])
+    // Without back-translations, Wiktionary's order stands but for the little-used senses.
+    expect(order([sense(["満足した"], ["obs"]), sense(["悲しい"])], {})).toEqual(["悲しい", "満足した"])
+  })
+
+  it("matches na-adjectives, adverbs and suru verbs to JMDict's bare spellings", () => {
+    expect(order([sense(["痛む"]), sense(["利口な"]), sense(["勉強する"])], { 利口: 10, 勉強: 20 })).toEqual([
+      "利口な",
+      "勉強する",
+      "痛む"
+    ])
+  })
+})
+
+describe("jmdictReader backTranslations", () => {
+  it("collects the common Japanese words JMDict translates with a known English word, from their leading glosses", () => {
+    const reader = jmdictReader({
+      words: new Set(["smart", "kid"]),
+      verbs: new Set(),
+      phrases: new Set(),
+      frequency: new Map()
+    })
+    const entry = (id: number, word: string, glosses: Array<string>, common = true, sense = 0): EntryRecord => ({
+      ...jmdictEntry(id, word, word, glosses, common),
+      forms: [{ kind: "kanji", text: word, common, tags: [], priorities: [], restrictions: [], noKanji: false }],
+      senses: [
+        ...Array.from({ length: sense }, () => jmdictEntry(id, word, word, ["other"], common).senses[0]!),
+        jmdictEntry(id, word, word, glosses, common).senses[0]!
+      ]
+    })
+    reader.add(entry(1, "賢い", ["wise", "clever", "smart"]))
+    reader.add(entry(2, "粋", ["chic", "stylish", "refined", "elegant", "smart"]))
+    reader.add(entry(3, "洒脱", ["smart"], false))
+    reader.add(entry(4, "利口", ["smart"], true, 3))
+    reader.add(entry(5, "子供", ["child", "children"]))
+    const smart = reader.backTranslations().get("smart")
+    // A fifth gloss, an uncommon word or a fourth sense is too far from the word's use to count.
+    expect([...(smart?.keys() ?? [])]).toEqual(["賢い"])
+    expect(reader.backTranslations().has("kid")).toBe(false)
   })
 })
