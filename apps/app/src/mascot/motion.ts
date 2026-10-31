@@ -10,9 +10,11 @@ import { confetti, joints, type Mood, type palette, type Shape } from "./geometr
  * can be checked as stills with `pnpm motion`.
  *
  * To add an animation, name it in `ClipName`, give it keys in `clips`, and
- * list it in `entrances` to play it when Kotori takes a mood, or in `idles` to
- * play it now and then in one. An entrance starts from the drawing (the tests
- * hold it to that), so nothing jumps as the mood changes.
+ * list it in `entrances` to play it when Kotori takes a mood, in `loops` to
+ * play it over and over in a mood, or in `idles` to play it now and then in
+ * one. An entrance starts from the drawing and a loop starts and ends on it
+ * (the tests hold them to that), so nothing jumps as the mood changes or as a
+ * loop comes round.
  *
  * Functions marked "worklet" also run on the UI thread, so keep them to plain
  * loops and property access: Babel may turn destructuring or `for…of` into
@@ -83,6 +85,16 @@ export type Clip = {
 }
 
 export type ClipName = "celebrate" | "thinking" | "blink" | "twinkle"
+
+/** A dot of the bubble's ellipsis hopping from `ms`, for 400 ms. */
+const hop = (ms: number) => ({
+  y: [
+    [0, 0],
+    [ms, 0],
+    [ms + 160, -4, "out"],
+    [ms + 400, 0]
+  ] as const
+})
 
 export const clips: Record<ClipName, Clip> = {
   /**
@@ -238,20 +250,23 @@ export const clips: Record<ClipName, Clip> = {
       ]
     }
   },
-  /** Eyes drift up and to the side. */
+  /**
+   * While thinking, on a loop: the ellipsis hops dot by dot, and the bubble
+   * bobs. Only the bubble moves; Kotori holds its pose.
+   */
   thinking: {
-    duration: 280,
+    duration: 1400,
     tracks: {
-      eyes: {
-        x: [
-          [0, 0],
-          [280, -2.5, "out"]
-        ],
+      bubble: {
         y: [
           [0, 0],
-          [280, -3, "out"]
+          [700, -1.5],
+          [1400, 0]
         ]
-      }
+      },
+      dot0: hop(100),
+      dot1: hop(250),
+      dot2: hop(400)
     }
   },
   /** Eyes shut for a moment: the open eyes vanish, and the shut ones show in their place. */
@@ -313,12 +328,18 @@ export const clips: Record<ClipName, Clip> = {
 }
 
 /** What Kotori plays on taking a mood. Its last frame is how Kotori stays in that mood. */
-export const entrances: Partial<Record<Mood, ClipName>> = { celebrate: "celebrate", thinking: "thinking" }
+export const entrances: Partial<Record<Mood, ClipName>> = { celebrate: "celebrate" }
 
-/** What Kotori plays now and then in a mood once it's in it: it blinks while its eyes are open, and its sparkles twinkle. */
+/** What Kotori plays over and over in a mood, once any entrance ends, over the entrance's last frame. */
+export const loops: Partial<Record<Mood, ClipName>> = { thinking: "thinking" }
+
+/**
+ * What Kotori plays now and then in a mood once it's in it: it blinks while
+ * its eyes are open, and its sparkles twinkle. Thinking, it holds still and
+ * only the thought bubble moves.
+ */
 export const idles: Partial<Record<Mood, ClipName>> = {
   curious: "blink",
-  thinking: "blink",
   oops: "blink",
   celebrate: "twinkle"
 }
@@ -390,22 +411,23 @@ export const combine = (a: Pose, b: Pose): Pose => {
 export const settled = (mood: Mood, part: Part) => poseAt(entrances[mood] ?? null, part, Infinity)
 
 /**
- * A React Native transform placing `part` in a view `size` pixels square that
- * shows the 200×200 box. Views turn and scale about their centre, so the
- * joint is moved there first and back after.
+ * A React Native transform placing `part` in a view `size` pixels wide that
+ * shows the 200×200 box and `headroom` units above it. Views turn and scale
+ * about their centre, so the joint is moved there first and back after.
  */
-export const viewTransform = (pose: Pose, part: Part, size: number) => {
+export const viewTransform = (pose: Pose, part: Part, size: number, headroom = 0) => {
   "worklet"
   const k = size / 200
   const joint = joints[part]
+  const middle = (200 - headroom) / 2
   return [
     { translateX: (joint.x - 100 + pose.x) * k },
-    { translateY: (joint.y - 100 + pose.y) * k },
+    { translateY: (joint.y - middle + pose.y) * k },
     { rotate: `${pose.rotate}deg` },
     { scaleX: pose.scaleX },
     { scaleY: pose.scaleY },
     { translateX: (100 - joint.x) * k },
-    { translateY: (100 - joint.y) * k }
+    { translateY: (middle - joint.y) * k }
   ]
 }
 

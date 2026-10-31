@@ -1,11 +1,12 @@
 import { assert, describe, it } from "vitest"
-import { confetti, joints, type Mood, shapes } from "../src/mascot/geometry.ts"
+import { confetti, joints, type Mood, shapes, thinkingShapes } from "../src/mascot/geometry.ts"
 import {
   type ClipName,
   clips,
   confettiFor,
   entrances,
   idles,
+  loops,
   type Part,
   pieceAt,
   pieceSvgTransform,
@@ -13,6 +14,7 @@ import {
   type Pose,
   poseAt,
   rest,
+  settled,
   sparkleParts,
   sparklesFor,
   svgTransform,
@@ -36,9 +38,9 @@ const turn = ([x, y]: Point, degrees: number): Point => {
   return [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)]
 }
 
-/** A point through a React Native transform in a view `size` pixels square: about the view's centre, last step first. */
-const throughView = (transform: ReturnType<typeof viewTransform>, size: number, point: Point): Point => {
-  let p: Point = [point[0] - size / 2, point[1] - size / 2]
+/** A point through a React Native transform in a view `size` pixels wide and `height` high: about the view's centre, last step first. */
+const throughView = (transform: ReturnType<typeof viewTransform>, size: number, point: Point, height = size): Point => {
+  let p: Point = [point[0] - size / 2, point[1] - height / 2]
   for (const step of transform.toReversed()) {
     if (step.translateX !== undefined) p = [p[0] + step.translateX, p[1]]
     else if (step.translateY !== undefined) p = [p[0], p[1] + step.translateY]
@@ -46,7 +48,7 @@ const throughView = (transform: ReturnType<typeof viewTransform>, size: number, 
     else if (step.scaleY !== undefined) p = [p[0], p[1] * step.scaleY]
     else if (step.rotate !== undefined) p = turn(p, Number.parseFloat(step.rotate))
   }
-  return [p[0] + size / 2, p[1] + size / 2]
+  return [p[0] + size / 2, p[1] + height / 2]
 }
 
 /** A point through an SVG transform attribute, last function first. */
@@ -68,6 +70,15 @@ describe("Kotori's clips", () => {
     }
     // The sparkles come with the mood, so they start out of sight.
     for (const part of sparkleParts) assert.strictEqual(poseAt("celebrate", part, 0).opacity, 0, part)
+  })
+
+  it("start and end each loop on the drawing, so it plays over a mood's pose without a jump each time round", () => {
+    for (const name of Object.values(loops)) {
+      for (const part of parts) {
+        assert.deepStrictEqual(poseAt(name, part, 0), rest, `${name}: ${part} at the start`)
+        assert.deepStrictEqual(poseAt(name, part, clips[name].duration), rest, `${name}: ${part} at the end`)
+      }
+    }
   })
 
   it("keep their keys in order and within the clip", () => {
@@ -93,6 +104,13 @@ describe("Kotori's clips", () => {
     for (const part of parts) assert.deepStrictEqual(poseAt("celebrate", part, Infinity), rest, part)
   })
 
+  it("leave Kotori still while it thinks: no entrance or blink, and only the thought bubble and its dots move", () => {
+    assert.isUndefined(entrances.thinking)
+    assert.isUndefined(idles.thinking)
+    for (const part of parts) assert.deepStrictEqual(settled("thinking", part), rest, part)
+    assert.sameMembers(Object.keys(clips.thinking.tracks), ["bubble", "dot0", "dot1", "dot2"])
+  })
+
   it("blink only in moods whose eyes are open, and twinkle only where there are sparkles", () => {
     const shut: Mood[] = ["happy", "celebrate", "sleepy"]
     for (const mood of Object.keys(idles) as Mood[])
@@ -109,7 +127,7 @@ describe("Kotori's clips", () => {
 
   it("ease between keys", () => {
     // Halfway to an `out` key, a value has gone seven eighths of the way.
-    assert.closeTo(poseAt("thinking", "eyes", 140).x, -2.5 * 0.875, 1e-9)
+    assert.closeTo(poseAt("celebrate", "bird", 250).y, -28 * 0.875, 1e-9)
   })
 })
 
@@ -394,22 +412,27 @@ describe("a pose", () => {
     const poses = [
       rest,
       stretched,
-      ...[130, 370, 660, 1300].flatMap((t) => parts.map((part) => poseAt("celebrate", part, t)))
+      ...[130, 370, 660, 1300].flatMap((t) => parts.map((part) => poseAt("celebrate", part, t))),
+      ...[60, 300, 600].flatMap((t) => parts.map((part) => poseAt("thinking", part, t)))
     ]
-    for (const part of parts) {
-      const points: Point[] = [
-        [0, 0],
-        [200, 0],
-        [37, 151],
-        [joints[part].x, joints[part].y]
-      ]
-      for (const pose of poses) {
-        for (const point of points) {
-          const inStill = throughSvg(svgTransform(pose, part), point)
-          near(throughView(viewTransform(pose, part, size), size, [point[0] * k, point[1] * k]), [
-            inStill[0] * k,
-            inStill[1] * k
-          ])
+    // The thought bubble's canvas reaches above the box.
+    for (const headroom of [0, thinkingShapes.headroom]) {
+      const height = (200 + headroom) * k
+      for (const part of parts) {
+        const points: Point[] = [
+          [0, 0],
+          [200, 0],
+          [37, 151],
+          [140, -50],
+          [joints[part].x, joints[part].y]
+        ]
+        for (const pose of poses) {
+          for (const point of points) {
+            const inStill = throughSvg(svgTransform(pose, part), point)
+            // A point's place in the canvas, which starts `headroom` units above the box.
+            const inView = (p: Point): Point => [p[0] * k, (p[1] + headroom) * k]
+            near(throughView(viewTransform(pose, part, size, headroom), size, inView(point), height), inView(inStill))
+          }
         }
       }
     }

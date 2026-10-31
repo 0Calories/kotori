@@ -80,6 +80,9 @@ export const confetti: { readonly canvas: number; readonly bits: Readonly<Record
  * carries the cheeks, beak and eyes, and `eyes` moves within it. As the eyes
  * fade, shut eyes show in their place. The sparkles turn and scale about
  * their middles, beside Kotori rather than on it.
+ *
+ * Thinking adds the thought `bubble`, which carries `dot0` to `dot2`. They're
+ * the only parts that move while Kotori thinks; the rest of the pose holds still.
  */
 export const joints = {
   bird: { x: 92, y: 180 },
@@ -90,7 +93,12 @@ export const joints = {
   face: { x: 72.7, y: 82 },
   eyes: { x: 72.7, y: 76.6 },
   bigSparkle: { x: 160, y: 24 },
-  smallSparkle: { x: 183, y: 7.5 }
+  smallSparkle: { x: 183, y: 7.5 },
+  /** The bubble's lower left, nearest the trail. */
+  bubble: { x: 116, y: -14 },
+  dot0: { x: 126, y: -33 },
+  dot1: { x: 140, y: -33 },
+  dot2: { x: 154, y: -33 }
 } as const
 
 /** Kotori facing the viewer, symmetric about x = 100. */
@@ -127,4 +135,37 @@ export const frontShapes = {
   beak: "M100 75.6 C 97.1 75.6, 90.9 81.2, 90.4 83.1 C 90.2 84.2, 98 88.5, 100 88.5 C 102 88.5, 109.8 84.2, 109.6 83.1 C 109.1 81.2, 102.9 75.6, 100 75.6 Z"
 } as const
 
+/**
+ * Kotori thinking: the front view with its left wing raised to its chin, and
+ * a thought bubble rising from the top of its head. The bubble reaches above
+ * the box, into `headroom`.
+ */
+export const thinkingShapes = {
+  /** A crescent drawn over the body below the cheek, broad at the side and as thick at its rounded tip under the beak. Shown in place of `frontShapes.wings[0]`. */
+  chinWing:
+    "M90.4 98.5 C 90.8 102.2, 89 107.1, 87.6 111.2 C 86.2 115.3, 84.3 119.3, 81.9 122.9 C 79.5 126.5, 76.6 130, 73.3 132.8 C 70.1 135.6, 66.3 138, 62.3 139.7 C 58.4 141.3, 53.9 142.5, 49.7 142.7 C 45.4 142.8, 40.7 142.3, 36.9 140.7 C 33 139.1, 29 136.2, 26.5 132.9 C 24.1 129.6, 22.8 124.9, 22.2 120.8 C 21.6 116.6, 22.1 112, 23.1 107.8 C 24.1 103.7, 25.6 98.3, 28.4 96 C 31.2 93.7, 36.3 93, 39.9 93.9 C 43.6 94.9, 46.4 100.3, 50.3 101.7 C 54.1 103.1, 58.9 103, 63 102.1 C 67 101.3, 70.9 98.6, 74.6 96.4 C 78.3 94.1, 82.6 88.5, 85.2 88.8 C 87.8 89.2, 90 94.8, 90.4 98.5 Z",
+  /** Puffs between the head and the bubble, smallest first. */
+  trail: [
+    { cx: 119, cy: 15, r: 3.4 },
+    { cx: 127, cy: 2, r: 5 }
+  ],
+  /** A cloud of eight bumps, symmetric about x = 140, reaching y = -58. */
+  bubble:
+    "M114 -14 A 11 11 0 0 1 103 -32 A 11.5 11.5 0 0 1 118 -48 A 12.5 12.5 0 0 1 140 -54 A 12.5 12.5 0 0 1 162 -48 A 11.5 11.5 0 0 1 177 -32 A 11 11 0 0 1 166 -14 A 14 14 0 0 1 140 -10 A 14 14 0 0 1 114 -14 Z",
+  /** The dots of an ellipsis inside the bubble, left to right. */
+  dots: [
+    { cx: 126, cy: -33, r: 4 },
+    { cx: 140, cy: -33, r: 4 },
+    { cx: 154, cy: -33, r: 4 }
+  ],
+  /** How far above the box the bubble reaches, with room for it to bob. */
+  headroom: 62
+} as const
+
 export type Mood = "curious" | "happy" | "thinking" | "sleepy" | "celebrate" | "oops"
+
+/** Moods Kotori takes facing the viewer. It shows the rest in three-quarter view. */
+export const frontMoods: ReadonlySet<Mood> = new Set(["thinking"])
+
+/** How far above the box Kotori's drawing reaches in `mood`, in box units. */
+export const headroom = (mood: Mood) => (mood === "thinking" ? thinkingShapes.headroom : 0)
