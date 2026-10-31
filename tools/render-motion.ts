@@ -9,7 +9,7 @@ import { writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { Mood } from "../apps/app/src/mascot/geometry.ts"
-import { type ClipName, clips, entrances, loops } from "../apps/app/src/mascot/motion.ts"
+import { type ClipName, clips, entrances, idles, loops } from "../apps/app/src/mascot/motion.ts"
 import { frameSvg, framesSvg } from "../apps/app/src/mascot/svg.ts"
 
 const [clip, mood] = process.argv.slice(2)
@@ -19,9 +19,12 @@ if (clip === undefined || !(clip in clips)) {
 }
 
 const name = clip as ClipName
+// The mood the clip enters or loops in, or else the first that plays it now and then.
 const shown =
   (mood as Mood | undefined) ??
-  (Object.keys({ ...entrances, ...loops }) as Mood[]).find((m) => entrances[m] === name || loops[m] === name) ??
+  (Object.keys(entrances) as Mood[]).find((m) => entrances[m] === name) ??
+  (Object.keys(loops) as Mood[]).find((m) => loops[m] === name) ??
+  (Object.keys(idles) as Mood[]).find((m) => idles[m] === name) ??
   "curious"
 const base = join(tmpdir(), `kotori-${name}-${shown}`)
 

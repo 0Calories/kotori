@@ -1,18 +1,20 @@
-import { joints, type Mood } from "./geometry.ts"
+import { confetti, joints, type Mood, type palette, type Shape } from "./geometry.ts"
 
 /**
  * Kotori's animations, kept as data. A clip moves the parts in `joints`
- * through keyframes, and `poseAt` says where a part is at any moment. The app
+ * through keyframes, and `poseAt` says where a part is at any moment; a clip
+ * can also throw confetti, which `pieceAt` places the same way. The app
  * plays clips with Reanimated, which runs these same functions on the UI
  * thread on iOS and Android and in the page on the web, and `mascotSvg` draws
  * single frames from them, so an animation moves the same way everywhere and
  * can be checked as stills with `pnpm motion`.
  *
  * To add an animation, name it in `ClipName`, give it keys in `clips`, and
- * list it in `entrances` to play it when Kotori takes a mood, or in `loops` to
- * play it over and over in a mood. An entrance starts from the drawing and a
- * loop starts and ends on it (the tests hold them to that), so nothing jumps
- * as the mood changes or as a loop comes round.
+ * list it in `entrances` to play it when Kotori takes a mood, in `loops` to
+ * play it over and over in a mood, or in `idles` to play it now and then in
+ * one. An entrance starts from the drawing and a loop starts and ends on it
+ * (the tests hold them to that), so nothing jumps as the mood changes or as a
+ * loop comes round.
  *
  * Functions marked "worklet" also run on the UI thread, so keep them to plain
  * loops and property access: Babel may turn destructuring or `for…of` into
@@ -20,6 +22,11 @@ import { joints, type Mood } from "./geometry.ts"
  */
 
 export type Part = keyof typeof joints
+
+/** The parts that float beside Kotori when it celebrates, rather than moving with it. */
+export const sparkleParts = ["bigSparkle", "smallSparkle"] as const satisfies readonly Part[]
+
+export type SparklePart = (typeof sparkleParts)[number]
 
 /**
  * Where a part sits relative to the drawing: moved `x` and `y` box units,
@@ -46,12 +53,38 @@ type Ease = "linear" | "in" | "out" | "inOut" | "overshoot" | "step"
 /** A value at a time in ms, eased in from the key before (`inOut` unless given). */
 type Key = readonly [ms: number, value: number, ease?: Ease]
 
+/**
+ * A piece of confetti. The burst throws it from behind Kotori towards `to`,
+ * and the air slows it nearly to a stop there; then it falls, swinging from
+ * side to side and tumbling, and fades away before it lands.
+ */
+export type Piece = {
+  readonly shape: Shape
+  readonly color: keyof typeof palette
+  /** Where the burst throws it, in box units. */
+  readonly to: readonly [x: number, y: number]
+  /** How long after the burst it's thrown, in ms. */
+  readonly delay: number
+  /** Turns a second, clockwise, or anticlockwise below zero; it tumbles over as often. */
+  readonly spin: number
+}
+
+/** Confetti thrown `at` ms into a clip, from a point hidden behind Kotori. */
+type Burst = {
+  readonly at: number
+  readonly from: readonly [x: number, y: number]
+  /** The first six are the ones a small Kotori throws (see `confettiFor`). */
+  readonly pieces: readonly Piece[]
+}
+
 export type Clip = {
   readonly duration: number
   readonly tracks: { readonly [P in Part]?: { readonly [K in keyof Pose]?: readonly Key[] } }
+  /** Confetti the clip throws, behind Kotori. It has all faded by the time the clip ends. */
+  readonly confetti?: Burst
 }
 
-export type ClipName = "celebrate" | "thinking" | "blink"
+export type ClipName = "celebrate" | "thinking" | "blink" | "twinkle"
 
 /** A dot of the bubble's ellipsis hopping from `ms`, for 400 ms. */
 const hop = (ms: number) => ({
@@ -64,7 +97,12 @@ const hop = (ms: number) => ({
 })
 
 export const clips: Record<ClipName, Clip> = {
-  /** Crouch, hop up stretched, land squashed, wave, and fold the wing back down. */
+  /**
+   * Crouch, hop up stretched and throw confetti from the top of the hop, land
+   * squashed, and wave as it falls. As the confetti fades, the wave's last
+   * stroke flicks two sparkles off the wingtip: they spin up and out, pop
+   * bigger than they rest and settle, while the wing folds back down.
+   */
   celebrate: {
     duration: 1620,
     tracks: {
@@ -116,7 +154,100 @@ export const clips: Record<ClipName, Clip> = {
           [720, 6],
           [900, 0, "out"]
         ]
+      },
+      // Each sparkle starts on the wingtip, where these offsets put it, and flies out to where it's drawn.
+      bigSparkle: {
+        x: [
+          [0, 16],
+          [1240, 16],
+          [1460, 0, "out"]
+        ],
+        y: [
+          [0, 26],
+          [1240, 26],
+          [1420, 0, "out"]
+        ],
+        rotate: [
+          [0, -135],
+          [1240, -135],
+          [1480, 0, "out"]
+        ],
+        scaleX: [
+          [0, 0.3],
+          [1240, 0.3],
+          [1340, 1.3, "out"],
+          [1430, 0.9],
+          [1530, 1.04],
+          [1620, 1]
+        ],
+        scaleY: [
+          [0, 0.3],
+          [1240, 0.3],
+          [1340, 1.3, "out"],
+          [1430, 0.9],
+          [1530, 1.04],
+          [1620, 1]
+        ],
+        opacity: [
+          [0, 0],
+          [1240, 1, "step"]
+        ]
+      },
+      smallSparkle: {
+        x: [
+          [0, -6],
+          [1280, -6],
+          [1500, 0, "out"]
+        ],
+        y: [
+          [0, 43],
+          [1280, 43],
+          [1460, 0, "out"]
+        ],
+        rotate: [
+          [0, 135],
+          [1280, 135],
+          [1520, 0, "out"]
+        ],
+        scaleX: [
+          [0, 0.3],
+          [1280, 0.3],
+          [1380, 1.3, "out"],
+          [1460, 0.9],
+          [1550, 1.04],
+          [1620, 1]
+        ],
+        scaleY: [
+          [0, 0.3],
+          [1280, 0.3],
+          [1380, 1.3, "out"],
+          [1460, 0.9],
+          [1550, 1.04],
+          [1620, 1]
+        ],
+        opacity: [
+          [0, 0],
+          [1280, 1, "step"]
+        ]
       }
+    },
+    confetti: {
+      at: 200,
+      from: [92, 56],
+      pieces: [
+        { shape: "square", color: "peach", to: [-10, 28], delay: 0, spin: 1.1 },
+        { shape: "curl", color: "blush", to: [178, -12], delay: 20, spin: -0.9 },
+        { shape: "dot", color: "yellow", to: [86, -26], delay: 40, spin: 1.2 },
+        { shape: "strip", color: "mint", to: [212, 54], delay: 10, spin: 1.3 },
+        { shape: "dot", color: "mint", to: [-6, 60], delay: 50, spin: 0.8 },
+        { shape: "square", color: "blush", to: [132, -20], delay: 30, spin: -1.2 },
+        { shape: "squiggle", color: "peach", to: [40, -18], delay: 70, spin: -0.7 },
+        { shape: "square", color: "yellow", to: [200, 12], delay: 60, spin: -1.4 },
+        { shape: "squiggle", color: "mint", to: [16, 2], delay: 30, spin: 1 },
+        { shape: "strip", color: "yellow", to: [60, -30], delay: 80, spin: -1 },
+        { shape: "dot", color: "peach", to: [216, 92], delay: 40, spin: 1.3 },
+        { shape: "curl", color: "blush", to: [-12, 100], delay: 70, spin: 0.9 }
+      ]
     }
   },
   /**
@@ -149,6 +280,50 @@ export const clips: Record<ClipName, Clip> = {
         ]
       }
     }
+  },
+  /**
+   * The sparkles glint in turn, each swelling as it turns a quarter turn,
+   * after which a four-point star looks as it did.
+   */
+  twinkle: {
+    duration: 640,
+    tracks: {
+      bigSparkle: {
+        rotate: [
+          [0, 0],
+          [440, 90]
+        ],
+        scaleX: [
+          [0, 1],
+          [160, 1.35, "out"],
+          [440, 1]
+        ],
+        scaleY: [
+          [0, 1],
+          [160, 1.35, "out"],
+          [440, 1]
+        ]
+      },
+      smallSparkle: {
+        rotate: [
+          [0, 0],
+          [200, 0],
+          [640, -90]
+        ],
+        scaleX: [
+          [0, 1],
+          [200, 1],
+          [360, 1.45, "out"],
+          [640, 1]
+        ],
+        scaleY: [
+          [0, 1],
+          [200, 1],
+          [360, 1.45, "out"],
+          [640, 1]
+        ]
+      }
+    }
   }
 }
 
@@ -157,6 +332,17 @@ export const entrances: Partial<Record<Mood, ClipName>> = { celebrate: "celebrat
 
 /** What Kotori plays over and over in a mood, once any entrance ends, over the entrance's last frame. */
 export const loops: Partial<Record<Mood, ClipName>> = { thinking: "thinking" }
+
+/**
+ * What Kotori plays now and then in a mood once it's in it: it blinks while
+ * its eyes are open, and its sparkles twinkle. Thinking, it holds still and
+ * only the thought bubble moves.
+ */
+export const idles: Partial<Record<Mood, ClipName>> = {
+  curious: "blink",
+  oops: "blink",
+  celebrate: "twinkle"
+}
 
 const ease = (curve: Ease, u: number) => {
   "worklet"
@@ -250,3 +436,89 @@ export const svgTransform = (pose: Pose, part: Part) => {
   const joint = joints[part]
   return `translate(${joint.x + pose.x} ${joint.y + pose.y}) rotate(${pose.rotate}) scale(${pose.scaleX} ${pose.scaleY}) translate(${-joint.x} ${-joint.y})`
 }
+
+/** After `drag` ms the air has slowed a thrown piece so much that it's gone about two thirds of the way. */
+const drag = 120
+/** How fast a piece falls once the air has slowed it, in box units a second. */
+const fall = 85
+/** How far a falling piece swings to each side, in box units, and how long it takes to swing there and back. */
+const swing = { reach: 6, period: 800 }
+/** How long a piece shows after it's thrown, in ms, fading over the last `fade`. */
+const flight = { span: 1250, fade: 300 }
+
+/** A piece that isn't showing. */
+const hidden: Pose = { ...rest, opacity: 0 }
+
+/**
+ * Where piece `index` of the confetti `name` throws is `t` ms into the clip:
+ * its centre in the box, how it's turned, flipped and faded. It's hidden
+ * until it's thrown and once it has faded, and when the clip throws none.
+ */
+export const pieceAt = (name: ClipName | null, index: number, t: number): Pose => {
+  "worklet"
+  const burst = name === null ? undefined : clips[name].confetti
+  const piece = burst === undefined ? undefined : burst.pieces[index]
+  if (burst === undefined || piece === undefined) return hidden
+  const s = t - burst.at - piece.delay
+  if (!(s > 0 && s < flight.span)) return hidden
+  // How far the throw has gone, and how many turns the piece has made.
+  const thrown = 1 - Math.exp(-s / drag)
+  const turns = (piece.spin * s) / 1000
+  // Each piece starts its swing and its flip at its own point (the golden angle apart), so no two move together.
+  const phase = index * 2.4
+  const flip = Math.cos(Math.PI * turns + phase)
+  return {
+    x:
+      burst.from[0] +
+      (piece.to[0] - burst.from[0]) * thrown +
+      swing.reach * thrown * Math.sin((2 * Math.PI * s) / swing.period + phase),
+    y: burst.from[1] + (piece.to[1] - burst.from[1]) * thrown + (fall * (s - drag * thrown)) / 1000,
+    rotate: 360 * turns + (phase * 180) / Math.PI,
+    // Paper tumbles end over end and ribbon twists, so each flattens along its length and fills out again.
+    scaleX: 1,
+    scaleY: 0.5 + 0.5 * flip * flip,
+    opacity: Math.min(1, (flight.span - s) / flight.fade)
+  }
+}
+
+/**
+ * How many of a clip's pieces a Kotori `size` pixels square throws, and how
+ * much bigger it draws them. Below 100 px it throws only the first six, drawn
+ * as big as at 100 px, so they don't shrink to specks.
+ */
+export const confettiFor = (size: number) => ({ count: size < 100 ? 6 : Infinity, grow: Math.max(1, 100 / size) })
+
+/**
+ * How a Kotori `size` pixels square draws its sparkles: a pose to combine
+ * with theirs, growing them about their middles. Below 100 px they grow,
+ * though less than confetti does, so they don't shrink to specks and still
+ * sit apart.
+ */
+export const sparklesFor = (size: number): Pose => {
+  "worklet"
+  const grow = Math.max(1, Math.sqrt(100 / size))
+  return { x: 0, y: 0, rotate: 0, scaleX: grow, scaleY: grow, opacity: 1 }
+}
+
+/**
+ * A React Native transform placing a piece in a view `size` pixels square that
+ * shows the 200×200 box. The piece's own view is its canvas, grown by `grow`,
+ * in the box's top left corner; views turn and scale about their centre, so
+ * moving the canvas's centre to the piece's is all it takes.
+ */
+export const pieceTransform = (pose: Pose, size: number, grow: number) => {
+  "worklet"
+  const k = size / 200
+  const half = (confetti.canvas * k * grow) / 2
+  return [
+    { translateX: pose.x * k - half },
+    { translateY: pose.y * k - half },
+    { rotate: `${pose.rotate}deg` },
+    { scaleX: pose.scaleX },
+    { scaleY: pose.scaleY }
+  ]
+}
+
+/** The same placement as an SVG transform, in the box's own units, for a piece drawn about the origin. */
+export const pieceSvgTransform = (pose: Pose, grow: number) =>
+  `translate(${pose.x} ${pose.y}) rotate(${pose.rotate}) scale(${pose.scaleX * grow} ${pose.scaleY * grow})`

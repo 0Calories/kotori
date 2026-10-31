@@ -1,28 +1,38 @@
-import { frontMoods, frontShapes, headroom, type Mood, palette, shapes, thinkingShapes } from "./geometry.ts"
+import { confetti, frontMoods, frontShapes, headroom, type Mood, palette, shapes, thinkingShapes } from "./geometry.ts"
 import {
   type ClipName,
   clips,
   combine,
+  confettiFor,
   entrances,
   type Part,
+  pieceAt,
+  pieceSvgTransform,
   type Pose,
   poseAt,
   rest,
   settled,
+  type SparklePart,
+  sparkleParts,
+  sparklesFor,
   svgTransform
 } from "./motion.ts"
 
-/** `content` placed by `pose`. */
-const placed = (pose: (part: Part) => Pose) => (name: Part, content: string) => {
-  const at = pose(name)
-  return `<g transform="${svgTransform(at, name)}" opacity="${at.opacity}">${content}</g>`
-}
+/** `content` placed by `pose`, or by `at` when given. */
+const placed =
+  (pose: (part: Part) => Pose) =>
+  (name: Part, content: string, at = pose(name)) =>
+    `<g transform="${svgTransform(at, name)}" opacity="${at.opacity}">${content}</g>`
 
 const circle = (c: { readonly cx: number; readonly cy: number; readonly r: number }, fill: string) =>
   `<circle cx="${c.cx}" cy="${c.cy}" r="${c.r}" fill="${fill}"/>`
 
-/** Kotori in three-quarter view in its 200×200 box, with each moving part placed by `pose`. */
-const sideDrawing = (mood: Mood, pose: (part: Part) => Pose) => {
+/**
+ * Kotori in three-quarter view in its 200×200 box, with each moving part
+ * placed by `pose`, and its sparkles beside it when it celebrates, as big as a
+ * Kotori `size` pixels square draws them.
+ */
+const sideDrawing = (mood: Mood, pose: (part: Part) => Pose, size = 200) => {
   const { catchlight } = shapes
   const eyes =
     mood === "happy" || mood === "celebrate"
@@ -48,8 +58,10 @@ const sideDrawing = (mood: Mood, pose: (part: Part) => Pose) => {
     `<path d="${d}" stroke="${palette.ink}" stroke-width="${shapes.feet.width}" stroke-linecap="round"/>`
   const part = placed(pose)
   const eyesPose = pose("eyes")
+  const sparkle = (name: SparklePart) =>
+    part(name, `<path d="${shapes.sparkles[name]}" fill="${palette.blush}"/>`, combine(pose(name), sparklesFor(size)))
 
-  return part(
+  return `${part(
     "bird",
     `${part("tail", `<path d="${shapes.tail}" fill="${palette.ink}"/>`)}
   ${part("backFoot", foot(shapes.feet.back))}
@@ -66,7 +78,7 @@ const sideDrawing = (mood: Mood, pose: (part: Part) => Pose) => {
   ${part("eyes", eyes)}
   <g transform="${svgTransform(eyesPose, "eyes")}" opacity="${1 - eyesPose.opacity}">${shut}</g>`
   )}`
-  )
+  )}${mood === "celebrate" ? sparkleParts.map(sparkle).join("") : ""}`
 }
 
 /**
@@ -111,9 +123,9 @@ const frontDrawing = (pose: (part: Part) => Pose, thinking: boolean) => {
   )}`
 }
 
-/** Kotori in `mood`, in whichever view it takes that mood in. */
-const drawing = (mood: Mood, pose: (part: Part) => Pose) =>
-  frontMoods.has(mood) ? frontDrawing(pose, mood === "thinking") : sideDrawing(mood, pose)
+/** Kotori in `mood`, in whichever view it takes that mood in, as a Kotori `size` pixels square draws it. */
+const drawing = (mood: Mood, pose: (part: Part) => Pose, size = 200) =>
+  frontMoods.has(mood) ? frontDrawing(pose, mood === "thinking") : sideDrawing(mood, pose, size)
 
 /** The mascot as an SVG document, for generating icons and splash images. In moods that reach above the box, the image grows taller to fit. */
 export const mascotSvg = (options: { mood?: Mood; background?: string; padding?: number } = {}) => {
@@ -133,12 +145,40 @@ export const mascotSvg = (options: { mood?: Mood; background?: string; padding?:
 const clipPose = (name: ClipName, mood: Mood, t: number) => (part: Part) =>
   entrances[mood] === name ? poseAt(name, part, t) : combine(settled(mood, part), poseAt(name, part, t))
 
-/** One frame of a clip, `t` ms in, on the sky, with room above the box for whatever reaches there. */
-export const frameSvg = (name: ClipName, mood: Mood, t: number) => {
-  const top = headroom(mood)
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 ${-top} 200 ${200 + top}" width="200" height="${200 + top}">
-  <rect y="${-top}" width="200" height="${200 + top}" fill="${palette.sky}"/>
-  ${drawing(mood, clipPose(name, mood, t))}
+/** The confetti a clip has thrown `t` ms in, as a Kotori `size` pixels square throws it; it goes behind Kotori. */
+const thrown = (name: ClipName, t: number, size: number) => {
+  const { count, grow } = confettiFor(size)
+  return (clips[name].confetti?.pieces ?? [])
+    .slice(0, count)
+    .map((piece, i) => {
+      const pose = pieceAt(name, i, t)
+      if (pose.opacity === 0) return ""
+      const bit = confetti.bits[piece.shape]
+      const color = palette[piece.color]
+      const paint =
+        bit.stroke === undefined
+          ? `fill="${color}"`
+          : `fill="none" stroke="${color}" stroke-width="${bit.stroke}" stroke-linecap="round"`
+      return `<g transform="${pieceSvgTransform(pose, grow)}" opacity="${pose.opacity}"><path d="${bit.d}" ${paint}/></g>`
+    })
+    .join("")
+}
+
+/** How far past the box a frame shows, for the hop and the confetti, which go beyond it. */
+const room = 40
+
+/**
+ * One frame of a clip, `t` ms in, on the sky, with confetti as a Kotori `size`
+ * pixels square throws it, and room above the box for whatever reaches there.
+ */
+export const frameSvg = (name: ClipName, mood: Mood, t: number, size = 200) => {
+  const top = room + headroom(mood)
+  const width = 200 + room * 2
+  const height = 200 + room + top
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-room} ${-top} ${width} ${height}" width="200" height="${Math.round((200 * height) / width)}">
+  <rect x="${-room}" y="${-top}" width="${width}" height="${height}" fill="${palette.sky}"/>
+  ${thrown(name, t, size)}
+  ${drawing(mood, clipPose(name, mood, t), size)}
 </svg>`
 }
 
@@ -149,13 +189,13 @@ export const frameSvg = (name: ClipName, mood: Mood, t: number) => {
 export const framesSvg = (name: ClipName, mood: Mood, count = 12) => {
   const columns = 6
   const top = headroom(mood)
-  const cell = { width: 220, height: 270 + top }
+  const cell = { width: 200 + room * 2, height: 210 + room * 2 + top }
   const { duration } = clips[name]
   const frames = Array.from({ length: count }, (_, i) => {
     const t = Math.round((duration * i) / (count - 1))
-    const x = (i % columns) * cell.width + 10
-    const y = Math.floor(i / columns) * cell.height + 40 + top
-    return `<g transform="translate(${x} ${y})">${drawing(mood, clipPose(name, mood, t))}<text x="100" y="222" text-anchor="middle" font-family="sans-serif" font-size="15" fill="${palette.ink}">${t} ms</text></g>`
+    const x = (i % columns) * cell.width + room
+    const y = Math.floor(i / columns) * cell.height + room + top
+    return `<g transform="translate(${x} ${y})">${thrown(name, t, 200)}${drawing(mood, clipPose(name, mood, t))}<text x="100" y="${200 + room - 10}" text-anchor="middle" font-family="sans-serif" font-size="15" fill="${palette.ink}">${t} ms</text></g>`
   })
   const width = columns * cell.width
   const height = Math.ceil(count / columns) * cell.height
