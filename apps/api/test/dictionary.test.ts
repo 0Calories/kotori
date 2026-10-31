@@ -475,4 +475,32 @@ layer(testLayer(true))("Dictionary with Jev configured", (it) => {
       }
     })
   )
+
+  it.effect("queues an entry again when a judged sense has no judgment, as after a re-import ranks it in", () =>
+    Effect.gen(function* () {
+      const repo = yield* DictionaryRepo
+      const enrichment = yield* EnrichmentRepo
+      const jobs = yield* JobsRepo
+      const dictionary = yield* Dictionary
+      yield* repo.insertEntries([word(100000031, "kid", [sense(["子供"], ["n"]), sense(["仔やぎ"], ["n"])])])
+      // Judged when 仔やぎ led: its row followed it to the second sense, and 子供 has none.
+      yield* enrichment.saveNuance(
+        100000031,
+        [
+          {
+            sense: 1,
+            nuance: interpretSense(senseAnswers, []),
+            answers: senseAnswers,
+            model: "test",
+            questionsVersion: ENGLISH_QUESTIONS_VERSION
+          }
+        ],
+        0
+      )
+      yield* jobs.enqueue("nuance", 100000031, 0, 0)
+      yield* finishJobs("nuance", 1)
+      yield* dictionary.requestEnrichment(EntryId.make(100000031))
+      assert.strictEqual((yield* jobs.statusFor(100000031)).get("nuance"), "queued")
+    })
+  )
 })

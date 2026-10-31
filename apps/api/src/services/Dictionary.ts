@@ -32,7 +32,7 @@ import {
   romajiToKana,
   romanize
 } from "@kotori/japanese"
-import { Jev, questionsVersionOf } from "@kotori/nuance"
+import { Jev, MAX_SENSES, questionsVersionOf } from "@kotori/nuance"
 import { CASTS, Pronouncer } from "@kotori/tts"
 import { Clock, Context, Effect, Layer, Option } from "effect"
 
@@ -430,8 +430,13 @@ export class Dictionary extends Context.Service<
       const enrichmentFor = Effect.fnUntraced(function* (entry: EntryRecord, enqueue: boolean) {
         const nuanceRows = yield* enrichment.nuanceFor([entry.id])
         const hasNuance = nuanceRows.length > 0
-        // Old rows stay valid and shown, but a viewed entry gets fresh judgments queued.
-        const nuanceOutdated = nuanceRows.some((row) => row.questionsVersion < questionsVersionOf(entry.language))
+        // Old rows stay valid and shown, but a viewed entry gets fresh judgments queued: when they
+        // predate its question set, or when a re-import has ranked a sense nobody judged among
+        // the ones that are (judged rows follow their senses, so one may lead without any).
+        const judged = new Set(nuanceRows.map((row) => row.sense))
+        const nuanceOutdated =
+          nuanceRows.some((row) => row.questionsVersion < questionsVersionOf(entry.language)) ||
+          (hasNuance && entry.senses.slice(0, MAX_SENSES).some((_, index) => !judged.has(index)))
         const examples = yield* enrichment.examplesFor([entry.id])
         const hasExamples = examples.length > 0
         const clips = yield* enrichment.exampleAudio(examples.map((example) => example.id))

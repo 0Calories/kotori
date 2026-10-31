@@ -1,4 +1,4 @@
-import { assert, describe, layer } from "@effect/vitest"
+import { assert, describe, it, layer } from "@effect/vitest"
 import { Effect, Layer, Option } from "effect"
 import {
   CoachRepo,
@@ -8,6 +8,7 @@ import {
   JobsRepo,
   type LoanCandidate,
   loanCandidatesIn,
+  matchSenses,
   normalizeGloss,
   normalizeJapaneseGloss,
   Repositories,
@@ -774,6 +775,178 @@ layer(TestLayer)("EnrichmentRepo", (it) => {
         shrunk?.senses.map((s) => s.glosses.map((gloss) => gloss.text)),
         [["to eat", "to have a meal"]]
       )
+    })
+  )
+})
+
+describe("matchSenses", () => {
+  it("follows each stored sense to the incoming one with its glosses", () => {
+    const [a, b, c] = [["型", "様式"], ["やり方"], ["格好"]]
+    assert.deepStrictEqual(matchSenses([a, b, c], [a, b, c]), [0, 1, 2])
+    assert.deepStrictEqual(matchSenses([a, b, c], [c, a, b]), [1, 2, 0])
+    // An edit that keeps half the glosses is the same sense, wherever it went.
+    assert.deepStrictEqual(matchSenses([a, b, c], [["やり方", "方法"], a]), [1, 0, null])
+    // One that keeps less stays at its position, as a sense reworded in place, unless another
+    // sense moved there.
+    assert.deepStrictEqual(matchSenses([["型", "様式", "流儀"]], [["型", "スタイル", "流行"]]), [0])
+    assert.deepStrictEqual(matchSenses([["to eat"], ["to drink"]], [["to eat (a meal)"], ["to drink"]]), [0, 1])
+    assert.deepStrictEqual(matchSenses([a, ["流儀"]], [["流儀"], ["格好"]]), [null, 0])
+    // Twin senses keep their order; an incoming sense is taken once.
+    assert.deepStrictEqual(matchSenses([b, b, a], [a, b, b]), [1, 2, 0])
+    assert.deepStrictEqual(matchSenses([a, ["型"]], [a]), [0, null])
+  })
+})
+
+layer(TestLayer)("DictionaryRepo re-imports", (it) => {
+  it.effect("move what is keyed by sense with its sense, and drop what belonged to a sense that is gone", () =>
+    Effect.gen(function* () {
+      const dictionary = yield* DictionaryRepo
+      const enrichment = yield* EnrichmentRepo
+      const study = yield* StudyRepo
+      const users = yield* UsersRepo
+      yield* users.ensure(learner)
+      const style = 100000500
+      const word = (senses: Array<Array<string>>): EntryRecord => ({
+        id: style,
+        language: "en",
+        headword: "style",
+        reading: "",
+        common: true,
+        priority: 80,
+        forms: [spelling("style", true)],
+        senses: senses.map((glosses) => sense(glosses))
+      })
+      const [form, way, look, pistil] = [["型", "様式"], ["やり方"], ["格好"], ["花柱"]]
+      yield* dictionary.insertEntries([word([form, way, look, pistil])])
+      yield* dictionary.insertEntries([{ ...word([["型"]]), id: style + 1, headword: "type" }])
+
+      // Each sense's judgment, note, similar word and sentence names it by its first gloss.
+      const judged = (marker: string) => ({
+        formality: { value: "neutral" as const, position: 0.5, confidence: 0.9, source: "jev" as const },
+        medium: { value: "both" as const, position: 0.5, confidence: 0.9, source: "jev" as const },
+        keigo: { value: "none" as const, confidence: 1, source: "jmdict" as const },
+        gender: { value: "neutral" as const, confidence: 0.9, source: "jev" as const },
+        age: { value: "any" as const, confidence: 0.9, source: "jev" as const },
+        currency: { value: "current" as const, confidence: 0.9, source: "jev" as const },
+        connotation: { value: "neutral" as const, confidence: 0.9, source: "jev" as const },
+        cautions: { rudeToSuperiors: 0.1, stiffWithFriends: 0.1, slang: 0.1 },
+        marker
+      })
+      const markers = ["型", "やり方", "格好", "花柱"]
+      yield* enrichment.saveNuance(
+        style,
+        markers.map((marker, sense) => ({
+          sense,
+          nuance: judged(marker) as never,
+          answers: { marker },
+          model: "jev",
+          questionsVersion: 3
+        })),
+        0
+      )
+      yield* enrichment.saveSenseNotes(
+        style,
+        markers.map((marker, sense) => ({ sense, note: null, noteJa: marker, model: "claude" })),
+        0
+      )
+      yield* enrichment.saveSimilar(style, [
+        { sense: 0, similarId: style + 1, similarity: 0.9, difference: "more_general", confidence: 0.8 }
+      ])
+      yield* enrichment.saveExamples(
+        style,
+        markers.map((marker, sense) => ({
+          sense,
+          ja: marker,
+          furigana: marker,
+          en: `${marker} sentence`,
+          formality: "neutral" as const,
+          note: null,
+          model: "claude"
+        })),
+        0
+      )
+      const sentenceIds = new Map((yield* enrichment.examplesFor([style])).map((row) => [row.ja, row.id]))
+      const saveWord = (id: string, sense: number) =>
+        study.insertNote(
+          {
+            id,
+            userId: U1,
+            content: {
+              kind: "word",
+              entryId: style as never,
+              senseIndex: sense,
+              language: "en",
+              headword: "style",
+              reading: "",
+              meaning: markers[sense]!,
+              hint: null,
+              example: null,
+              audioUrl: null
+            },
+            entryId: style,
+            sense,
+            createdAt: 0
+          },
+          []
+        )
+      yield* saveWord("00000000-0000-4000-8000-0000000000e1", 2)
+      yield* saveWord("00000000-0000-4000-8000-0000000000e2", 3)
+      yield* saveWord("00000000-0000-4000-8000-0000000000e3", 0)
+
+      // The re-import ranks 格好 first, edits やり方, and drops 花柱.
+      yield* dictionary.insertEntries([word([look, form, ["やり方", "方法"]])])
+
+      const [entry] = yield* dictionary.getEntries([style])
+      assert.deepStrictEqual(
+        entry?.senses.map((s) => s.glosses.map((g) => g.text)),
+        [look, form, ["やり方", "方法"]]
+      )
+      const bySense = <R extends { readonly sense: number }>(rows: ReadonlyArray<R>, read: (row: R) => unknown) =>
+        rows.toSorted((a, b) => a.sense - b.sense).map((row) => [row.sense, read(row)])
+      assert.deepStrictEqual(
+        bySense(yield* enrichment.nuanceFor([style]), (row) => (row.nuance as unknown as { marker: string }).marker),
+        [
+          [0, "格好"],
+          [1, "型"],
+          [2, "やり方"]
+        ]
+      )
+      assert.deepStrictEqual(
+        bySense(yield* enrichment.senseNotesFor([style]), (row) => row.noteJa),
+        [
+          [0, "格好"],
+          [1, "型"],
+          [2, "やり方"]
+        ]
+      )
+      assert.deepStrictEqual(
+        bySense(yield* enrichment.similarFor(style), (row) => row.similarId),
+        [[1, style + 1]]
+      )
+      // Sentences keep their ids, and so their audio; the dropped sense's sentence goes.
+      const sentences = yield* enrichment.examplesFor([style])
+      assert.deepStrictEqual(
+        bySense(sentences, (row) => [row.ja, row.id]),
+        [
+          [0, ["格好", sentenceIds.get("格好")]],
+          [1, ["型", sentenceIds.get("型")]],
+          [2, ["やり方", sentenceIds.get("やり方")]]
+        ]
+      )
+      // Saved words follow in the column and the card content; the dropped sense's loses its place.
+      const saved = (yield* study.notes(U1)).flatMap(({ note }) =>
+        note.content.kind === "word" ? [[note.content.meaning, note.sense, note.content.senseIndex]] : []
+      )
+      assert.sameDeepMembers(saved, [
+        ["格好", 0, 0],
+        ["花柱", null, -1],
+        ["型", 1, 1]
+      ])
+
+      // Re-importing the same senses moves nothing.
+      yield* dictionary.insertEntries([word([look, form, ["やり方", "方法"]])])
+      assert.strictEqual((yield* enrichment.nuanceFor([style])).length, 3)
+      assert.strictEqual((yield* enrichment.examplesFor([style])).length, 3)
     })
   )
 })

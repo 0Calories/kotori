@@ -35,17 +35,8 @@ English word, after this branch.
 
 Remaining gaps:
 
-- **Sense order.** JMDict lists senses commonest first; Japanese Wiktionary doesn't. "smart"
-  leads with 痛む (to smart) and has 賢い at senses 6–7 of 12; "coffee" leads with the coffee
-  plant; "fall" has autumn at 11 of 14; "kid" leads with a young goat, "guy" with a guy-rope,
-  "phone" with a speech sound. Of 7,306 common English words that a common JMDict word
-  back-translates, 50.8% lead with that sense, 13.3% have it at senses 1–5, and 35.9% have none
-  of the first six matching, mostly function words whose glosses describe grammar. Only the first
-  `MAX_SENSES` (6) are judged and the first four get examples, so these words' main senses get no
-  nuance or examples, and the entry page opens on an odd sense. **Open:** rank English senses at
-  import, for instance by JMDict back-translation. Decide before English enrichment piles up in
-  production: stored enrichment is keyed by sense position, so a re-import that reorders senses
-  misattributes it.
+- **Sense order: ranked at import since this was written** (see "Ranking English senses" below).
+  "kid" still doesn't lead with 子供, because JMDict glosses 子供 only "child; children".
 - **Gender and age** have no English goldens. Clean examples are rare, and the question criteria use the obvious ones.
 - **Textbook English** has no clean goldens: the canonical case, "How do you do?", is the
   question's own example.
@@ -92,6 +83,92 @@ Remaining gaps:
    cross-lingual weak spot is the loan verdict, where the English word's Japanese senses are
    compared with the katakana word's English glosses. Telling Jev to judge the English word as it
    knows it, rather than through its listed senses, did worse (loans 74%/83%), so it was reverted.
+
+## Ranking English senses
+
+JMDict lists senses commonest first; Japanese Wiktionary doesn't. It put the coffee plant first
+for "coffee", a guy-rope for "guy", a speech sound for "phone", 痛む (to smart) for "smart", and
+autumn twelfth for "fall". Only the first six senses are judged and the first four get examples,
+so the main sense of such a word got no nuance or examples, and the entry page opened on an odd one.
+
+**The rule** (`commonestFirst` in `packages/eiwa/src/build.ts`):
+
+- While reading JMDict backwards, the importer collects, for each English word the dictionary
+  already has, the common Japanese words that gloss it among their first four glosses in their
+  first three senses. Each is weighted as the reader weighs candidates: common, frequent, early
+  sense, first gloss.
+- An English sense is *attested* when one of its Japanese glosses is one of those words. Glosses
+  are looked up as `normalizeJapaneseGloss` does, and also without a な, の, に, と, だ or する
+  ending, since JMDict spells 利口 and 勉強 bare.
+- The first attested sense leads. The other attested senses follow, heaviest first, a sense
+  weighing as much as its heaviest word. The rest keep Wiktionary's order after them. Rare, dated
+  and obsolete senses stay last, as before.
+- Two variants did worse, and were dropped:
+  - *Summed weights:* a sense listing more synonyms collected more weight. "cool" led with 冷淡な,
+    "kid" with からかう and "fall" with 落下, and the EJDict check below fell from 42.8% to 41.7%.
+  - *Attestation alone:* this fixed the first senses but left "fall" with autumn seventh, outside
+    the judged six. The heaviest-word weighting brings it to sixth.
+
+**Measured** on the 65,226 English words:
+
+| | Wiktionary's order | ranked |
+|---|---|---|
+| leads with a back-translated sense (7,306 common words) | 50.8% | 62.1% |
+| a back-translated sense, but not first, in the first six | 13.3% | 3.4% |
+| none in the first six (mostly function words) | 35.9% | 34.5% |
+| first sense shares a gloss with EJDict's first sense (7,324 common Wiktionary words) | 42.8% | 43.2% |
+
+- The first metric uses the ranking's own signal, so it improves by construction. The EJDict
+  check is independent: EJDict lists senses as a learner's dictionary does. It only moves a little,
+  because most words' first sense doesn't change.
+- 1,691 words get a new first sense, 1,048 of them common, and 2,853 change the order of their
+  first six.
+
+| word | before | after |
+|---|---|---|
+| coffee | コーヒーノキ · コーヒー · 一杯のコーヒー | コーヒー · コーヒーノキ · 一杯のコーヒー |
+| fall | 落ちる · 下がる · 陥落する (秋 twelfth) | 落ちる · 落下 · 陥落する (秋 sixth) |
+| smart | 痛む · 心が痛む · 痛み | 利発な、利口な · 洒脱な、粋な · 格好良い (賢い fourth) |
+| style | 型、様式 · やり方 · 格好 | 型、様式 · 格好 · やり方 |
+| guy | 控え綱 · 控え綱を張る · 男、やつ | 男、やつ · 控え綱 · 控え綱を張る |
+| phone | 音、言語音 · 電話 · 電話する | 電話 · 電話する · 音、言語音 |
+| kid | 仔やぎ · 仔やぎの革 · 子供 | からかう、ふざける · 仔やぎ · 仔やぎの革 |
+| cool | 涼しい · 冷たい · 冷静な | 涼しい · 冷淡な · 冷やす |
+
+"kid" is the known miss: no common Japanese word that JMDict glosses "kid" appears among its
+senses' glosses, so 子供 is unattested and からかう leads.
+
+## Re-importing without misattaching enrichment
+
+Enrichment is keyed by sense position. The import used to upsert senses by position, so a
+re-import that reordered or dropped senses left each row on whatever sense now sat there.
+`DictionaryRepo.insertEntries` now matches each entry's stored senses to the incoming ones by
+their glosses (`matchSenses`): the same glosses in order, or failing that at least half of them
+shared. A sense that matches nothing stays at its position unless another sense moved there,
+because JMDict rewords glosses in place far more often than it moves senses. It then moves every
+row keyed by position with its sense:
+
+| table | keyed by | on a move |
+|---|---|---|
+| `sense_nuance` | (entry, sense) | held, put back at the new position |
+| `sense_notes` | (entry, sense) | held, put back |
+| `similar_words` | (entry, sense, similar word) | held, put back |
+| `examples` | id, with (entry, sense) | moved in place, keeping ids and so their audio (`example_audio`) |
+| `notes` (saved words) | (user, entry, sense), and `senseIndex` in the card content | moved through negative positions, since the triple is unique |
+
+- **Dropped senses:** a sense that can't be matched, and whose position is gone or taken by a
+  moved sense, takes its rows with it. A saved word whose
+  sense is gone keeps its cards, with `sense` null and `senseIndex` -1, so it no longer marks a
+  sense on the entry page.
+- **Unchanged entries:** entries whose senses stay put take the old path. That is every entry on
+  a first import, and nearly every one on a re-import of unchanged sources.
+- **Entry-level tables don't move:** `loan_words`, `entry_audio` and `jobs` hang off the entry,
+  not a sense.
+- **Requeuing:** a judged sense can lead without a judgment, after its rows moved down. Viewing
+  the entry then queues it again, as for an older question set. Examples aren't requeued the same
+  way, because rewriting an entry's examples replaces their audio.
+- **Production:** it works against rows judged in #34's order. The matching reads the senses as
+  stored, whatever order they were imported in.
 
 ## Data model
 
@@ -174,14 +251,43 @@ the app to show (≥ 0.55).
 
 With `lsource`, the misses are ナイーブ and バイク (judged to match; English "bike" is listed as
 both bicycle and motorbike) and テスト (diverges at 0.58, too unsure to show). The warnings missing
-at the threshold are スタイル (0.62), タレント, ジュース and サイン: the verdict is right but not
-confident. **Open:** the per-word framing loses confidence against PR #36's per-gloss one, which
-compared English with English. Options: give the verdict the English word's leading sense
-explicitly, once senses are ranked; or lower the display threshold for loans, which the eval
-says would add no false warnings on this set.
+at the threshold are スタイル (p(diverges) 0.62), タレント, ジュース and サイン: the verdict is
+right but not confident.
 
-Spend: 6 paid runs (one Japanese, four English while tuning the loan questions, and PR #34's
-questions), 1.95M input tokens, about 8 cents.
+**After ranking senses**, the same eval was run twice (the loan questions see the senses in their
+new order):
+
+| | before ranking | ranked, run 1 | ranked, run 2 |
+|---|---|---|---|
+| verdict right, with `lsource` | 20/23 | 19/23 | 19/23 |
+| warnings shown, of 12 false friends | 6 | 6 | 5 |
+| false warnings | 0 | 0 | 0 |
+| "same as" chips shown, of 8 | 6 | 6 | 5 |
+| スタイル: p(diverges), confidence | 0.62, 0.24 | 0.70, 0.40 | 0.62, 0.24 |
+| sense dimensions and pairs | as above | the same, but profanity 9/9 (was 8/9) | the same as run 1 |
+
+Ranking doesn't change the loan verdicts beyond run-to-run noise. **The display threshold**, on
+the three runs together (verdicts shown per run, of 12 false friends and 8 matching loans):
+
+| rule | warnings | false warnings | chips | wrong chips |
+|---|---|---|---|---|
+| confidence ≥ 0.55, warnings and chips (now) | 5.7 | 0 | 5.7 | 0 |
+| warnings at p(diverges) ≥ 0.75 | 5.7 | 0 | | |
+| warnings at p(diverges) ≥ 0.65 | 7.3 | 0 | | |
+| warnings at p(diverges) ≥ 0.6 | 9.0 | 0 | | |
+| confidence ≥ 0.2, warnings and chips | 9.0 | 0 | 6.7 | 2.0 |
+
+- Lowering the bar for chips gives false friends a "same meaning" chip: ナイーブ and バイク are
+  judged to match at p(diverges) 0.34–0.43.
+- テスト, which matches, is judged to diverge at p(diverges) 0.55–0.59 in all three runs, so 0.6
+  leaves it 0.01–0.05 below the cut-off.
+- *Recommendation, not made:* warn at p(diverges) ≥ 0.65 and keep chips at confidence ≥ 0.55.
+  That is about 1.6 more warnings per run (タレント always, スタイル and サイン in one run each)
+  with no false warnings on three runs. It is a small sample, the same goldens the wording was
+  tuned on, and スタイル still wouldn't show reliably.
+
+Spend: 8 paid runs (one Japanese, four English while tuning the loan questions, PR #34's
+questions, and two English runs after ranking), 2.65M input tokens, about 11 cents.
 
 ## For Ash
 
@@ -191,4 +297,5 @@ questions), 1.95M input tokens, about 8 cents.
   `kotori enrich nuance --outdated --common-only`. Japanese rows are version 1, and English ones
   judged by PR #34's questions are version 1 too.
 - Check the Fly secrets for a `KOTORI_JEV_MODEL` override of the jev-1.14.0 pin.
-- Decide on English sense order before English enrichment accumulates (see the mirror audit).
+- Re-seed the English dictionary after this merges (`pnpm kotori seed --dictionary english`):
+  senses take their ranked order, and what production judged in #34's order moves with them.

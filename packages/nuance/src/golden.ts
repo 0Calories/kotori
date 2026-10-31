@@ -233,8 +233,8 @@ export const GOLDEN_PAIRS: ReadonlyArray<GoldenPair> = [
 //
 // Senses of the English dictionary, named by headword: its ids are numbered at import. Each
 // names how its sense's Japanese glosses start, so a re-import that reorders senses is caught.
-// Wiktionary doesn't list senses commonest first as JMDict does ("kid" leads with a young
-// goat), and only the first `MAX_SENSES` are judged, so every golden is one of those. None
+// Senses are ranked at import (`commonestFirst` in packages/eiwa), and only the first
+// `MAX_SENSES` are judged, so every golden is one of those. None
 // is an example in its own question's criteria.
 
 export interface GoldenEnglishSense {
@@ -263,7 +263,7 @@ export const GOLDEN_ENGLISH_SENSES: ReadonlyArray<GoldenEnglishSense> = [
   }),
   en("bitch", 0, "嫌な女、くそばばあ", { formality: ["vulgar"], profanity: "strong", connotation: "negative" }),
   en("motherfucker", 0, "マザーファッカー、下衆野郎", { formality: ["vulgar"], profanity: "strong" }),
-  en("piss", 3, "小便をする、放尿する", { formality: ["vulgar", "casual"], profanity: "mild" }),
+  en("piss", 1, "小便をする、放尿する", { formality: ["vulgar", "casual"], profanity: "mild" }),
   en("hell", 3, "ちくしょう", { profanity: "mild", rudeToSuperiors: true }),
   en("idiot", 0, "（略語・時に侮蔑）大ばか、間抜け", {
     registerShape: "fixed",
@@ -316,7 +316,7 @@ export const GOLDEN_ENGLISH_SENSES: ReadonlyArray<GoldenEnglishSense> = [
     medium: ["written"],
     stiffWithFriends: true
   }),
-  en("purchase", 4, "買う", { formality: ["formal", "polite"], stiffWithFriends: true }),
+  en("purchase", 1, "買う", { formality: ["formal", "polite"], stiffWithFriends: true }),
   en("furthermore", 0, "（重要なことを付け加える時）その上、おまけに", { medium: ["written"], stiffWithFriends: true }),
   en("whereas", 0, "…であるのに反して、なのに対して", { medium: ["written"], formality: ["formal"] }),
   en("thereby", 0, "それによって、従って", { formality: ["formal"], medium: ["written"], stiffWithFriends: true }),
@@ -374,12 +374,12 @@ const ep = (
 export const GOLDEN_ENGLISH_PAIRS: ReadonlyArray<GoldenEnglishPair> = [
   ep("big", 0, "large", 0, { similar: true }),
   ep("talk", 0, "speak", 0, { similar: true }),
-  ep("happy", 0, "glad", 0, { similar: true }),
-  ep("buy", 0, "purchase", 4, { similar: true, difference: ["more_formal"] }),
+  ep("happy", 2, "glad", 0, { similar: true }),
+  ep("buy", 0, "purchase", 1, { similar: true, difference: ["more_formal"] }),
   ep("start", 1, "commence", 0, { similar: true, difference: ["more_formal"] }),
-  ep("eat", 2, "dine", 0, { similar: true, difference: ["more_formal", "more_specific"] }),
-  ep("child", 0, "kid", 2, { similar: true, difference: ["more_casual", "more_colloquial"] }),
-  ep("awkward", 1, "clumsy", 0, { similar: true }),
+  ep("eat", 3, "dine", 0, { similar: true, difference: ["more_formal", "more_specific"] }),
+  ep("child", 0, "kid", 3, { similar: true, difference: ["more_casual", "more_colloquial"] }),
+  ep("awkward", 0, "clumsy", 0, { similar: true }),
   ep("dog", 0, "cat", 0, { similar: false }),
   ep("eat", 0, "drink", 0, { similar: false }),
   ep("school", 0, "company", 0, { similar: false }),
