@@ -4,6 +4,7 @@ import { Schema } from "effect"
 import { readFileSync } from "node:fs"
 import {
   entryRequest,
+  loanRequest,
   GOLDEN_ENGLISH_PAIRS,
   GOLDEN_ENGLISH_SENSES,
   GOLDEN_PAIRS,
@@ -15,7 +16,8 @@ import {
   goldenSenseRequest,
   MAX_SENSES,
   readGolden,
-  REVERSED
+  REVERSED,
+  withReversedChoices
 } from "../src/index.ts"
 
 const fixture = Schema.decodeUnknownSync(Schema.fromJsonString(GoldenFixture))(
@@ -90,19 +92,17 @@ describe("golden requests", () => {
     assert.deepStrictEqual(Object.keys(reading.answers), ["keigo", `keigo${REVERSED}`, "gender", `gender${REVERSED}`])
   })
 
-  it("ask about an English word's katakana loans as the nuance job does, and nothing else", () => {
+  it("ask about an English word's katakana loans as the nuance job does, without its senses", () => {
     const style = goldenEnglishEntry(entries.values(), "style")!
     const candidates = (fixture.loans["style"]?.glossesOnly ?? []).map(({ entryId }) => entries.get(entryId)!)
     const loans = goldenLoanRequest(style, candidates, tags)
-    const production = entryRequest(style, tags, [], candidates)
-    assert.deepStrictEqual(loans.state, production.state)
-    assert.strictEqual(loans.prefix, "")
+    // The nuance job already asks the loan Choice in both option orders, so the eval adds nothing.
+    assert.deepStrictEqual(loans, { ...loanRequest(style, candidates, tags), prefix: "" })
+    assert.deepStrictEqual(loans.state, { word: "style", reading: "/staɪl/" })
     assert.deepStrictEqual(
-      Object.keys(loans.questions).filter((key) => !key.endsWith(REVERSED)),
-      candidates.flatMap((_, k) => [`loanword_${k}`, `loan_${k}`])
+      Object.keys(loans.questions),
+      candidates.flatMap((_, k) => [`loanword_${k}`, `loan_${k}`, `loan_${k}${REVERSED}`])
     )
-    for (const key of Object.keys(loans.questions)) {
-      if (!key.endsWith(REVERSED)) assert.deepStrictEqual(loans.questions[key], production.questions[key])
-    }
+    assert.deepStrictEqual(withReversedChoices(loans.questions), loans.questions)
   })
 })

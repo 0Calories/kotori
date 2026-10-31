@@ -32,7 +32,7 @@ import {
   romajiToKana,
   romanize
 } from "@kotori/japanese"
-import { Jev, MAX_SENSES, questionsVersionOf } from "@kotori/nuance"
+import { awaitsWarning, Jev, nuanceOutdated } from "@kotori/nuance"
 import { CASTS, Pronouncer } from "@kotori/tts"
 import { Clock, Context, Effect, Layer, Option } from "effect"
 
@@ -43,6 +43,8 @@ const ON_DEMAND = 1_000
 
 /** How long a finished audio job that left gaps waits before it is tried again. */
 const REFILL_AFTER = 60 * 60 * 1000
+/** How long after a nuance job a viewed entry's missing loan warning gets another try. */
+const WARNING_RETRY_AFTER = 10 * 60 * 1000
 
 interface Hit {
   readonly entryId: number
@@ -153,6 +155,23 @@ const firstGlosses = (entry: EntryRecord, count: number) => {
 /** Glosses run together as each language lists them: "to eat; to dine", "食べる、食事をする". */
 const joinGlosses = (entry: EntryRecord, glosses: ReadonlyArray<string>) =>
   glosses.join(entry.language === "ja" ? "; " : "、")
+
+/**
+ * What a similar word means where it is like the sense it is listed under: its earliest sense
+ * sharing a gloss with that sense, as the nuance job's candidate search found it, so "strain"
+ * under "tension" reads 緊張 rather than its first sense, 性質. A cross-reference shares none,
+ * and shows the word's first meanings.
+ */
+const similarMeaning = (sense: EntryRecord["senses"][number], similar: EntryRecord) => {
+  // Glosses are in the other language from the headword, normalised as the import stores them.
+  const norm = similar.language === "ja" ? normalizeGloss : normalizeJapaneseGloss
+  const own = new Set(sense.glosses.map((gloss) => norm(gloss.text)).filter((text) => text.length > 1))
+  const shared = similar.senses.find((candidate) => candidate.glosses.some((gloss) => own.has(norm(gloss.text))))
+  return joinGlosses(
+    similar,
+    shared === undefined ? firstGlosses(similar, 2) : shared.glosses.slice(0, 2).map((gloss) => gloss.text)
+  )
+}
 
 /**
  * Which of a guessed "-s" form's meanings applies: a noun's plural or a verb's third person.
@@ -430,13 +449,10 @@ export class Dictionary extends Context.Service<
       const enrichmentFor = Effect.fnUntraced(function* (entry: EntryRecord, enqueue: boolean) {
         const nuanceRows = yield* enrichment.nuanceFor([entry.id])
         const hasNuance = nuanceRows.length > 0
-        // Old rows stay valid and shown, but a viewed entry gets fresh judgments queued: when they
-        // predate its question set, or when a re-import has ranked a sense nobody judged among
-        // the ones that are (judged rows follow their senses, so one may lead without any).
-        const judged = new Set(nuanceRows.map((row) => row.sense))
-        const nuanceOutdated =
-          nuanceRows.some((row) => row.questionsVersion < questionsVersionOf(entry.language)) ||
-          (hasNuance && entry.senses.slice(0, MAX_SENSES).some((_, index) => !judged.has(index)))
+        // Old rows stay valid and shown, but a viewed entry gets fresh judgments queued when they
+        // predate its question set, or a re-import has ranked an unjudged sense among them.
+        const outdated = nuanceOutdated(entry, nuanceRows)
+        const [loan] = yield* enrichment.loanWordsFor([entry.id])
         const examples = yield* enrichment.examplesFor([entry.id])
         const hasExamples = examples.length > 0
         const clips = yield* enrichment.exampleAudio(examples.map((example) => example.id))
@@ -452,10 +468,14 @@ export class Dictionary extends Context.Service<
           if (jev.configured) {
             // Enqueueing a finished job is a no-op, so one that judged with an older question set is
             // queued again; saving replaces every row of the entry, so it runs once per version.
-            if (nuanceOutdated && before.get("nuance") === "done") {
+            if (outdated && before.get("nuance") === "done") {
               yield* jobs.requeue("nuance", entry.id, ON_DEMAND, now)
-            } else if (!hasNuance || nuanceOutdated) {
+            } else if (!hasNuance || outdated) {
               yield* jobs.enqueue("nuance", entry.id, ON_DEMAND, now)
+            } else if (coachAvailable && awaitsWarning(loan) && before.get("nuance") === "done") {
+              // A drifted loan judged while Claude was unavailable has no warning: the job writes
+              // just that, without Jev. Not on every look, in case Claude still can't write it.
+              yield* jobs.refill("nuance", entry.id, now - WARNING_RETRY_AFTER, ON_DEMAND, now)
             }
           }
           if (!hasExamples && coachAvailable) yield* jobs.enqueue("examples", entry.id, ON_DEMAND, now)
@@ -543,7 +563,7 @@ export class Dictionary extends Context.Service<
                   entryId: EntryId.make(similar.id),
                   headword: similar.headword,
                   reading: similar.reading,
-                  meaning: joinGlosses(similar, firstGlosses(similar, 2)),
+                  meaning: similarMeaning(sense, similar),
                   difference: row.difference,
                   confidence: row.confidence,
                   formality: similarFormality.get(similar.id) ?? null

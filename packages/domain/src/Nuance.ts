@@ -93,23 +93,136 @@ export const Nuance = Schema.Struct({
 })
 export type Nuance = typeof Nuance.Type
 
+type TagTable<A> = ReadonlyArray<readonly [string, A]>
+
 /**
- * Whether a katakana loan means in everyday Japanese what its English word means
- * (コーヒー, coffee) or has drifted, so a Japanese speaker carrying it over is
- * misunderstood (スタイル is first someone's figure).
+ * The dictionary's usage tags that decide a judgment outright, the first listed winning: JMDict's
+ * codes, which the English dictionary maps Wiktionary's and EJDict's labels and its regions to.
+ * The nuance interpretation reads them over Jev's answers, and the entry page leaves a tag out of
+ * a sense's chips once the judgments it decided are shown, so 口語 isn't said again beside
+ * 「カジュアル · 話し言葉」.
  */
-export const LoanVerdict = Schema.Literals(["matches", "diverges"])
+export const TAG_JUDGMENTS: {
+  readonly formality: TagTable<Formality>
+  readonly medium: TagTable<Medium>
+  readonly keigo: TagTable<Keigo>
+  readonly gender: TagTable<Gender>
+  readonly age: TagTable<AgeGroup>
+  readonly currency: TagTable<Currency>
+  readonly connotation: TagTable<Connotation>
+  /** Tags whose words sit at one obvious register, so a slider is the wrong model. */
+  readonly registerShape: TagTable<RegisterShape>
+  /** The English dictionary's regions; other varieties (Australian, Indian…) are left to Jev. */
+  readonly variety: TagTable<Variety>
+} = {
+  formality: [
+    ["vulg", "vulgar"],
+    ["X", "vulgar"],
+    ["hon", "formal"],
+    ["hum", "formal"],
+    ["form", "formal"],
+    ["pol", "polite"],
+    ["sl", "casual"],
+    ["net-sl", "casual"],
+    ["m-sl", "casual"],
+    ["col", "casual"],
+    ["fam", "casual"],
+    ["chn", "casual"]
+  ],
+  medium: [
+    ["col", "spoken"],
+    ["sl", "spoken"],
+    ["net-sl", "spoken"],
+    ["fam", "spoken"],
+    ["form", "written"],
+    ["poet", "written"]
+  ],
+  keigo: [
+    ["hon", "sonkeigo"],
+    ["hum", "kenjougo"],
+    ["pol", "teineigo"]
+  ],
+  gender: [
+    ["male", "masculine"],
+    ["fem", "feminine"]
+  ],
+  age: [
+    ["chn", "children"],
+    ["net-sl", "youth"],
+    ["m-sl", "youth"]
+  ],
+  currency: [
+    ["arch", "archaic"],
+    ["obs", "archaic"],
+    ["dated", "dated"]
+  ],
+  connotation: [
+    ["derog", "negative"],
+    ["vulg", "negative"]
+  ],
+  registerShape: [
+    ["vulg", "fixed"],
+    ["X", "fixed"],
+    ["derog", "fixed"]
+  ],
+  variety: [
+    ["en-US", "american"],
+    ["en-GB", "british"]
+  ]
+}
+
+/** Tags that make a sense slang outright, which the slang caution then says. */
+export const SLANG_TAGS: ReadonlyArray<string> = ["sl", "net-sl", "m-sl"]
+
+/**
+ * Whether a katakana loan means in everyday Japanese what its English word means (コーヒー,
+ * coffee), has drifted, so a Japanese speaker carrying it over is misunderstood (スタイル is
+ * first someone's figure), or wasn't borrowed from English at all (パン, from Portuguese).
+ */
+export const LoanMeaning = Schema.Literals(["same", "divergent", "not_english"])
+export type LoanMeaning = typeof LoanMeaning.Type
+
+/** Jev's verdict on a loan: its likeliest meaning, and how likely that is, over both option orders. */
+export const LoanVerdict = Schema.Struct({
+  value: LoanMeaning,
+  /**
+   * Jev's probability of `value`, averaged over the question asked in both option orders; not its
+   * confidence, which measures how peaked an answer is.
+   */
+  probability: Schema.Number,
+  source: JudgmentSource
+})
 export type LoanVerdict = typeof LoanVerdict.Type
 
 /** The katakana loan of an English word, which Japanese speakers already think they know. */
 export const Loanword = Schema.Struct({
   /** The katakana word, as JMDict spells it. */
   word: Schema.String,
-  verdict: judgment(LoanVerdict),
-  /** Claude's one Japanese sentence on how the words differ, once the loan confidently diverges. */
+  verdict: LoanVerdict,
+  /** Claude's one Japanese sentence on how the words differ, once the loan is shown diverging. */
   trap: Schema.NullOr(Schema.String)
 })
 export type Loanword = typeof Loanword.Type
+
+/**
+ * How likely a loan's meaning must be for the app to show it: the docs' starting point for acting
+ * on an answer, and for a three-option Choice the app's 0.55 confidence for its other judgments.
+ */
+export const LOAN_SHOWN = 0.7
+
+/**
+ * What the app shows for a loan verdict, and so whether Claude writes its warning: a warning at
+ * p(divergent) ≥ 0.7, a "same meaning" chip at p(same) ≥ 0.7, and nothing for an unsure verdict
+ * or a loan Jev judges not English (docs/nuance-on-english-entries.md).
+ */
+export const loanShown = (verdict: LoanVerdict): "warning" | "chip" | null =>
+  verdict.probability < LOAN_SHOWN
+    ? null
+    : verdict.value === "divergent"
+      ? "warning"
+      : verdict.value === "same"
+        ? "chip"
+        : null
 
 /** How a similar word differs from the one being looked at. */
 export const Difference = Schema.Literals([

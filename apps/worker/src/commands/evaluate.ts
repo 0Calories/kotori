@@ -1,5 +1,6 @@
 import type { EntryRecord } from "@kotori/db"
 import { normalizeGloss, resolveFromRoot } from "@kotori/db"
+import { LOAN_SHOWN, loanShown } from "@kotori/domain"
 import {
   answersForCandidates,
   ENGLISH_QUESTIONS_VERSION,
@@ -23,6 +24,7 @@ import {
   Jev,
   type JevError,
   LOAN_IS,
+  loanMeanings,
   type LoanReading,
   MAX_LOANS,
   type OrderCheck,
@@ -318,7 +320,7 @@ export const evaluate = Command.make(
 
         const answered = reading.answers as unknown as SenseAnswers
         const sense = golden.entry.senses[golden.sense]
-        const shown = interpretSense(answered, sense === undefined ? [] : senseTags(sense))
+        const shown = interpretSense(answered, sense === undefined ? [] : senseTags(sense), sense?.fields)
         const raw = interpretSense(answered, [])
         const { expect, label } = golden
         const labelled = (dimension: LabelledDimension, want: ReadonlyArray<string>) => {
@@ -480,31 +482,67 @@ export const evaluate = Command.make(
             const answers = union.length === 0 ? {} : yield* answersFor(`${golden.word}:loan`, request)
             if (answers === undefined) return
             const reading = readGolden(request, answers)
-            for (const check of reading.order) results.order(check.name.replace(/_\d+$/, ""), check)
+            // Held-out words are reported apart, so tuning on the others can't flatter them.
+            const set = golden.heldOut ? "held out: " : ""
+            for (const check of reading.order) results.order(`${set}${check.name.replace(/_\d+$/, "")}`, check)
             const asked = union.map((candidate) => candidate.entry.headword)
             const readFor = (list: typeof lists.now, loanIs?: number) => {
               const own = list.slice(0, MAX_LOANS).map(({ entry: { headword }, by }) => ({ word: headword, by }))
               const words = own.map((candidate) => candidate.word)
               return interpretLoan(answersForCandidates(reading.answers, asked, words), own, loanIs)
             }
+            const wanted = `${golden.loan}${golden.loanWord ? ` (${golden.loanWord})` : ""}`
             const loan = (dimension: string, read: LoanReading) => {
               const got = read.verdict?.value ?? "no_loan"
               const right = got === golden.loan && (golden.loan === "no_loan" || read.word === golden.loanWord)
               results.judged(
-                dimension,
+                `${set}${dimension}`,
                 false,
-                { correct: right, confidence: read.verdict?.confidence ?? null },
-                `${golden.word} ${dimension}: got ${got}${read.word ? ` (${read.word})` : ""}, wanted ${golden.loan}${golden.loanWord ? ` (${golden.loanWord})` : ""}`
+                { correct: right, confidence: read.verdict?.probability ?? null },
+                `${golden.word} ${set}${dimension}: got ${got}${read.word ? ` (${read.word})` : ""}, wanted ${wanted}`
               )
             }
             loan("loan, glosses", readFor(lists.now))
-            loan("loan, +lsource", readFor(lists.reimported))
+            const reimported = readFor(lists.reimported)
+            loan("loan, +lsource", reimported)
             loan("loan, +lsrc @0.5", readFor(lists.reimported, 0.5))
+            // What learners see once JMDict has lsource, by the app's rule: a warning on a drifted
+            // loan, a "same meaning" chip on one carried over as is, or nothing.
+            const verdict = reimported.verdict
+            const shown = verdict === null ? null : loanShown(verdict)
+            const about = reimported.word === golden.loanWord
+            const display = (dimension: string, applies: boolean, correct: boolean) => {
+              if (!applies) return
+              results.judged(
+                `${set}${dimension}`,
+                false,
+                { correct, confidence: shown === null ? null : (verdict?.probability ?? null) },
+                `${golden.word} ${set}${dimension}: shown ${shown === null || verdict === null ? "nothing" : `${shown} (${reimported.word}) at ${verdict.probability.toFixed(2)}`}, wanted ${wanted}`
+              )
+            }
+            display("warning shown", golden.loan === "divergent", shown === "warning" && about)
+            display("no false warning", true, shown !== "warning" || (golden.loan === "divergent" && about))
+            display("same-meaning chip", golden.loan === "same", shown === "chip" && about)
+            display("no wrong chip", true, shown !== "chip" || (golden.loan === "same" && about))
+            // What "not English" takes from the true loan, which is always borrowed from English.
+            const meanings =
+              golden.loanWord === undefined ? undefined : loanMeanings(reading.answers, asked.indexOf(golden.loanWord))
+            if (meanings !== undefined) {
+              results.judged(
+                `${set}not English`,
+                false,
+                {
+                  correct: meanings.not_english < Math.max(meanings.same, meanings.divergent),
+                  confidence: meanings.not_english
+                },
+                `${golden.word} ${set}not English: p=${meanings.not_english.toFixed(2)} for ${golden.loanWord}`
+              )
+            }
           }),
         { concurrency, discard: true }
       )
       yield* Console.log(
-        `A loan counts at p >= ${LOAN_IS} that the katakana word is the English word's loan; "glosses" are the candidates production finds until JMDict is re-imported with lsource.`
+        `A loan counts at p >= ${LOAN_IS} that the katakana word is the English word's loan; "glosses" are the candidates production finds until JMDict is re-imported with lsource. The app shows a warning at p(divergent) >= ${LOAN_SHOWN} and a "same meaning" chip at p(same) >= ${LOAN_SHOWN}; each p averaged over the loan Choice asked in both option orders. The conf columns of loan rows hold that p, and of "not English" the true loan's p(not_english).`
       )
     }
     yield* Console.log(`The enricher keeps a similar word at p >= ${SIMILAR_KEPT}.`)

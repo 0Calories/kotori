@@ -1,22 +1,23 @@
-import type {
-  AgeGroup,
-  Connotation,
-  Currency,
-  Difference,
-  Formality,
-  Gender,
-  JudgmentSource,
-  Keigo,
-  Loanword,
-  LoanVerdict,
-  Medium,
-  Nuance,
-  RegisterShape,
-  Variety
+import {
+  type AgeGroup,
+  type Connotation,
+  type Currency,
+  type Difference,
+  type Gender,
+  type JudgmentSource,
+  type Keigo,
+  type LoanMeaning,
+  loanShown,
+  type LoanVerdict,
+  type Nuance,
+  type RegisterShape,
+  SLANG_TAGS,
+  TAG_JUDGMENTS,
+  type Variety
 } from "@kotori/domain"
 import type { ChoiceResponse, NoulResponse, ScoreResponse } from "@typesafe-ai/sdk"
 import { PROFANITY_LEVELS } from "./english.ts"
-import { FORMALITY_LEVELS, MEDIUM_LEVELS } from "./questions.ts"
+import { FORMALITY_LEVELS, MEDIUM_LEVELS, REVERSED } from "./questions.ts"
 
 /**
  * Jev's answers about one sense of a word in either language, by question name. Answers stored
@@ -44,8 +45,8 @@ export interface SenseAnswers {
 /**
  * The dictionary's editors tag many senses with usage notes (hon, col, male, arch…; the English
  * dictionary maps Wiktionary's and EJDict's labels to the same codes, and its regions to en-US
- * and en-GB). Those are authoritative, so they override Jev wherever they speak to a dimension;
- * Jev fills in everything the tags don't cover.
+ * and en-GB). Those are authoritative, so they override Jev wherever they speak to a dimension
+ * (`TAG_JUDGMENTS`); Jev fills in everything the tags don't cover.
  */
 const firstTag = <A>(tags: ReadonlyArray<string>, table: ReadonlyArray<readonly [string, A]>): A | undefined =>
   table.find(([tag]) => tags.includes(tag))?.[1]
@@ -55,67 +56,6 @@ export const senseTags = (sense: {
   readonly misc: ReadonlyArray<string>
   readonly dialects: ReadonlyArray<string>
 }) => [...sense.misc, ...sense.dialects]
-
-const FORMALITY_TAGS: ReadonlyArray<readonly [string, Formality]> = [
-  ["vulg", "vulgar"],
-  ["X", "vulgar"],
-  ["hon", "formal"],
-  ["hum", "formal"],
-  ["form", "formal"],
-  ["pol", "polite"],
-  ["sl", "casual"],
-  ["net-sl", "casual"],
-  ["m-sl", "casual"],
-  ["col", "casual"],
-  ["fam", "casual"],
-  ["chn", "casual"]
-]
-
-const MEDIUM_TAGS: ReadonlyArray<readonly [string, Medium]> = [
-  ["col", "spoken"],
-  ["sl", "spoken"],
-  ["net-sl", "spoken"],
-  ["fam", "spoken"],
-  ["form", "written"],
-  ["poet", "written"]
-]
-
-const KEIGO_TAGS: ReadonlyArray<readonly [string, Keigo]> = [
-  ["hon", "sonkeigo"],
-  ["hum", "kenjougo"],
-  ["pol", "teineigo"]
-]
-
-const GENDER_TAGS: ReadonlyArray<readonly [string, Gender]> = [
-  ["male", "masculine"],
-  ["fem", "feminine"]
-]
-const AGE_TAGS: ReadonlyArray<readonly [string, AgeGroup]> = [
-  ["chn", "children"],
-  ["net-sl", "youth"],
-  ["m-sl", "youth"]
-]
-const CURRENCY_TAGS: ReadonlyArray<readonly [string, Currency]> = [
-  ["arch", "archaic"],
-  ["obs", "archaic"],
-  ["dated", "dated"]
-]
-const CONNOTATION_TAGS: ReadonlyArray<readonly [string, Connotation]> = [
-  ["derog", "negative"],
-  ["vulg", "negative"]
-]
-const SLANG_TAGS = ["sl", "net-sl", "m-sl"]
-/** Tags whose words sit at one obvious register, so a slider is the wrong model. */
-const FIXED_SHAPE_TAGS: ReadonlyArray<readonly [string, RegisterShape]> = [
-  ["vulg", "fixed"],
-  ["X", "fixed"],
-  ["derog", "fixed"]
-]
-/** The English dictionary's regions; other varieties (Australian, Indian…) are left to Jev. */
-const VARIETY_TAGS: ReadonlyArray<readonly [string, Variety]> = [
-  ["en-US", "american"],
-  ["en-GB", "british"]
-]
 
 const scale = <L extends string>(levels: ReadonlyArray<L>, answer: ScoreResponse, tagged: L | undefined) => {
   const last = levels.length - 1
@@ -151,13 +91,16 @@ const level = <L extends string>(levels: ReadonlyArray<L>, answer: ScoreResponse
  * written language; the probability is the most Jev puts on any of those, and a dictionary
  * tag decides outright. English words have no keigo. Jev's `confidence` measures how peaked
  * an answer is, not how likely a label is: a word split between 尊敬語 and 謙譲語 is unsure
- * which keigo it is, but sure it is keigo.
+ * which keigo it is, but sure it is keigo. A sense the dictionary files under a field
+ * (physics, medicine…) is written because of its subject, not its register, so its medium
+ * doesn't count: "tension" in physics, 張力 and 電圧, was marked stiff between friends.
  */
 const stiffBetweenFriends = (
   answers: SenseAnswers,
   formality: Nuance["formality"],
   medium: Nuance["medium"],
-  keigo: Nuance["keigo"]
+  keigo: Nuance["keigo"],
+  technical: boolean
 ): number =>
   Math.max(
     formality.source === "jmdict"
@@ -168,20 +111,28 @@ const stiffBetweenFriends = (
       : (answers.keigo.probabilities["sonkeigo"] ?? 0) + (answers.keigo.probabilities["kenjougo"] ?? 0),
     medium.source === "jmdict"
       ? Number(medium.value === "written")
-      : (answers.medium.probabilities[MEDIUM_LEVELS.indexOf("written")] ?? 0)
+      : technical
+        ? 0
+        : (answers.medium.probabilities[MEDIUM_LEVELS.indexOf("written")] ?? 0)
   )
 
 /** English has no keigo; the dictionary is certain of it. */
 const NO_KEIGO = { value: "none", confidence: 1, source: "jmdict" } as const
 
 /**
- * Combines Jev's answers for a sense with its dictionary tags (`senseTags`) into the nuance shown
- * to learners. English words also get their regional variety, profanity and the textbook caution.
+ * Combines Jev's answers for a sense with its dictionary tags (`senseTags`) and fields (physics,
+ * medicine…) into the nuance shown to learners. English words also get their regional variety,
+ * profanity and the textbook caution.
  */
-export const interpretSense = (answers: SenseAnswers, tags: ReadonlyArray<string>): Nuance => {
-  const formality = scale(FORMALITY_LEVELS, answers.formality, firstTag(tags, FORMALITY_TAGS))
-  const medium = scale(MEDIUM_LEVELS, answers.medium, firstTag(tags, MEDIUM_TAGS))
-  const keigo = answers.keigo === undefined ? NO_KEIGO : choice<Keigo>(answers.keigo, firstTag(tags, KEIGO_TAGS))
+export const interpretSense = (
+  answers: SenseAnswers,
+  tags: ReadonlyArray<string>,
+  fields: ReadonlyArray<string> = []
+): Nuance => {
+  const formality = scale(FORMALITY_LEVELS, answers.formality, firstTag(tags, TAG_JUDGMENTS.formality))
+  const medium = scale(MEDIUM_LEVELS, answers.medium, firstTag(tags, TAG_JUDGMENTS.medium))
+  const keigo =
+    answers.keigo === undefined ? NO_KEIGO : choice<Keigo>(answers.keigo, firstTag(tags, TAG_JUDGMENTS.keigo))
   // Answers recorded before questions version 2 have no registerShape; the field stays
   // absent and the app falls back to its pre-shape heuristics for those rows.
   const shape = answers.registerShape
@@ -189,30 +140,51 @@ export const interpretSense = (answers: SenseAnswers, tags: ReadonlyArray<string
     formality,
     medium,
     keigo,
-    gender: choice<Gender>(answers.gender, firstTag(tags, GENDER_TAGS)),
-    age: choice<AgeGroup>(answers.age, firstTag(tags, AGE_TAGS)),
-    currency: choice<Currency>(answers.currency, firstTag(tags, CURRENCY_TAGS)),
-    connotation: choice<Connotation>(answers.connotation, firstTag(tags, CONNOTATION_TAGS)),
-    ...(shape === undefined ? {} : { registerShape: choice<RegisterShape>(shape, firstTag(tags, FIXED_SHAPE_TAGS)) }),
+    gender: choice<Gender>(answers.gender, firstTag(tags, TAG_JUDGMENTS.gender)),
+    age: choice<AgeGroup>(answers.age, firstTag(tags, TAG_JUDGMENTS.age)),
+    currency: choice<Currency>(answers.currency, firstTag(tags, TAG_JUDGMENTS.currency)),
+    connotation: choice<Connotation>(answers.connotation, firstTag(tags, TAG_JUDGMENTS.connotation)),
+    ...(shape === undefined
+      ? {}
+      : { registerShape: choice<RegisterShape>(shape, firstTag(tags, TAG_JUDGMENTS.registerShape)) }),
     cautions: {
       rudeToSuperiors: answers.rudeToSuperiors.noul,
-      stiffWithFriends: stiffBetweenFriends(answers, formality, medium, keigo),
+      stiffWithFriends: stiffBetweenFriends(answers, formality, medium, keigo, fields.length > 0),
       slang: tags.some((tag) => SLANG_TAGS.includes(tag)) ? 1 : answers.slang.noul,
       ...(answers.textbook === undefined ? {} : { textbook: answers.textbook.noul })
     },
     ...(answers.variety === undefined
       ? {}
-      : { variety: choice<Variety>(answers.variety, firstTag(tags, VARIETY_TAGS)) }),
+      : { variety: choice<Variety>(answers.variety, firstTag(tags, TAG_JUDGMENTS.variety)) }),
     ...(answers.profanity === undefined ? {} : { profanity: level(PROFANITY_LEVELS, answers.profanity) })
   }
 }
 
 /**
  * How likely a katakana candidate must be the English word's loanword for its verdict to count:
- * the docs' starting point for a yes. A false "diverges" costs trust in the very feature meant to
+ * the docs' starting point for a yes. A false warning costs trust in the very feature meant to
  * build it (docs/nuance-rework.md C3), so tune it on the eval before lowering it.
  */
 export const LOAN_IS = 0.7
+
+/**
+ * A stored loan the app shows as drifted whose warning Claude hasn't written: it was judged while
+ * Claude was unavailable (no key, a bad one, or a probe that timed out).
+ */
+export const awaitsWarning = (
+  loan:
+    | {
+        readonly word: string | null
+        readonly verdict: LoanVerdict | null
+        readonly trap: string | null
+      }
+    | undefined
+): boolean =>
+  loan !== undefined &&
+  loan.word !== null &&
+  loan.trap === null &&
+  loan.verdict !== null &&
+  loanShown(loan.verdict) === "warning"
 
 /** A katakana word asked about as an English word's loan, and how the dictionary ties them. */
 export interface AskedLoan {
@@ -223,7 +195,36 @@ export interface AskedLoan {
 /** An English word's katakana loan as judged; both null when no candidate is likely enough. */
 export interface LoanReading {
   readonly word: string | null
-  readonly verdict: Loanword["verdict"] | null
+  readonly verdict: LoanVerdict | null
+}
+
+const LOAN_MEANINGS: ReadonlyArray<LoanMeaning> = ["same", "divergent", "not_english"]
+
+/**
+ * How likely each meaning of the `k`th candidate is: the probabilities of its `loan_{k}` Choice
+ * averaged with those of `loan_{k}~reversed`, the same Choice with its options in reverse order,
+ * since Jev leans toward the option listed first. Undefined unless both were answered.
+ */
+export const loanMeanings = (
+  answers: Readonly<Record<string, unknown>>,
+  k: number
+): Record<LoanMeaning, number> | undefined => {
+  const forward = answers[`loan_${k}`] as ChoiceResponse | undefined
+  const backward = answers[`loan_${k}${REVERSED}`] as ChoiceResponse | undefined
+  if (forward === undefined || backward === undefined) return undefined
+  const mean = (meaning: LoanMeaning) =>
+    ((forward.probabilities[meaning] ?? 0) + (backward.probabilities[meaning] ?? 0)) / 2
+  return { same: mean("same"), divergent: mean("divergent"), not_english: mean("not_english") }
+}
+
+/**
+ * A loan's verdict: its likeliest meaning and that meaning's probability, which the display rule
+ * reads (`loanShown`), rather than a Choice's confidence, which says how peaked the answer is.
+ * Only the likeliest meaning can reach the 0.7 the app shows at, so the rule needs no other.
+ */
+const loanVerdict = (meanings: Record<LoanMeaning, number>): Omit<LoanVerdict, "source"> => {
+  const value = LOAN_MEANINGS.reduce((best, meaning) => (meanings[meaning] > meanings[best] ? meaning : best))
+  return { value, probability: meanings[value] }
 }
 
 /**
@@ -248,16 +249,10 @@ export const interpretLoan = (
       (best, candidate) => (best === undefined || candidate.p > best.p ? candidate : best),
       undefined
     )
-  const verdict =
-    likeliest !== undefined && likeliest.p >= loanIs
-      ? (answers[`loan_${likeliest.k}`] as ChoiceResponse | undefined)
-      : undefined
-  return likeliest === undefined || verdict === undefined
+  const meanings = likeliest !== undefined && likeliest.p >= loanIs ? loanMeanings(answers, likeliest.k) : undefined
+  return likeliest === undefined || meanings === undefined
     ? { word: null, verdict: null }
-    : {
-        word: likeliest.word,
-        verdict: { value: verdict.choice as LoanVerdict, confidence: verdict.confidence, source: "jev" }
-      }
+    : { word: likeliest.word, verdict: { ...loanVerdict(meanings), source: "jev" } }
 }
 
 export interface SimilarJudgment {

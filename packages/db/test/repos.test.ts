@@ -657,7 +657,7 @@ layer(TestLayer)("EnrichmentRepo", (it) => {
       // loan, a warning for another loan isn't written, and the warning goes when the loan changes.
       const loanInput = (word: string | null) => ({
         word,
-        verdict: word === null ? null : { value: "diverges" as const, confidence: 0.9, source: "jev" as const },
+        verdict: word === null ? null : { value: "divergent" as const, probability: 0.9, source: "jev" as const },
         answers: { raw: true },
         model: "jev-1",
         questionsVersion: 3
@@ -669,15 +669,15 @@ layer(TestLayer)("EnrichmentRepo", (it) => {
       yield* enrichment.saveLoanTrap(taberu, "タイプ", "古い警告")
       yield* enrichment.saveLoanTrap(taberu, "スタイル", "意味が違う")
       yield* enrichment.saveLoanWord(taberu, loanInput("スタイル"), 2000)
-      assert.deepStrictEqual(yield* loanRow, [["スタイル", "diverges", "意味が違う"]])
+      assert.deepStrictEqual(yield* loanRow, [["スタイル", "divergent", "意味が違う"]])
       assert.deepStrictEqual(Option.getOrThrow(yield* enrichment.loanAnswersFor(taberu)), { raw: true })
       // Reinterpreting into the same loan keeps the warning; into none drops it.
-      yield* enrichment.updateLoanWord(taberu, "スタイル", { value: "diverges", confidence: 0.8, source: "jev" })
-      assert.deepStrictEqual(yield* loanRow, [["スタイル", "diverges", "意味が違う"]])
+      yield* enrichment.updateLoanWord(taberu, "スタイル", { value: "divergent", probability: 0.8, source: "jev" })
+      assert.deepStrictEqual(yield* loanRow, [["スタイル", "divergent", "意味が違う"]])
       yield* enrichment.updateLoanWord(taberu, null, null)
       assert.deepStrictEqual(yield* loanRow, [[null, null, null]])
       yield* enrichment.saveLoanWord(taberu, loanInput("タイプ"), 3000)
-      assert.deepStrictEqual(yield* loanRow, [["タイプ", "diverges", null]])
+      assert.deepStrictEqual(yield* loanRow, [["タイプ", "divergent", null]])
       yield* enrichment.saveLoanWord(taberu, null, 4000)
       assert.deepStrictEqual(yield* loanRow, [])
       assert.isTrue(Option.isNone(yield* enrichment.loanAnswersFor(taberu)))

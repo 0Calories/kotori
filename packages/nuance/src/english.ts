@@ -1,6 +1,6 @@
 import type { EntryRecord, LoanCandidate } from "@kotori/db"
 import type { ChoiceQuestion, NoulQuestion, ScoreQuestion } from "@typesafe-ai/sdk"
-import { CONNOTATIONS, SUBJECT_NOT_REGISTER } from "./questions.ts"
+import { CONNOTATIONS, REVERSED, reversedChoice, SUBJECT_NOT_REGISTER } from "./questions.ts"
 import { judgedSenses } from "./state.ts"
 
 /**
@@ -18,9 +18,13 @@ import { judgedSenses } from "./state.ts"
  * (rows stored before question versions had a column are version 1); 3 — one request per
  * entry, each question carrying its sense's scope, as the Japanese set's version 3 does, with
  * registerShape, regional variety, profanity, textbook English and the katakana loan added, and
- * stiffWithFriends derived instead of asked (docs/nuance-on-english-entries.md).
+ * stiffWithFriends derived instead of asked; 4 — the katakana loan asked in a request of its
+ * own, whose state leaves out the word's Japanese senses, and whether it misleads asked as a
+ * Noul instead of a Choice; 5 — whether it means the same, has drifted or isn't English asked
+ * as a Choice of the three; 6 — that Choice asked in both option orders and read from the two
+ * together (docs/nuance-on-english-entries.md).
  */
-export const ENGLISH_QUESTIONS_VERSION = 3
+export const ENGLISH_QUESTIONS_VERSION = 6
 
 export const PROFANITY_LEVELS = ["none", "mild", "strong", "avoid"] as const
 
@@ -224,7 +228,10 @@ export type EnglishSenseQuestions = typeof englishSenseQuestions
 // candidate (トラック has the gloss "lorry", but is the loan of "truck"), so a Noul asks
 // whether the pair is a loan at all before the Choice about its meaning counts; where JMDict
 // names the English word as the loan's source, its word decides. Examples are kept out of
-// the golden set. The trap is a word's, not a sense's, so the loan is judged once per word.
+// the golden set. The trap is a word's, not a sense's, so the loan is judged once per word,
+// in a request of its own (`loanRequest`): beside the word's Japanese senses, Jev read any
+// sense overlapping the katakana word's meaning (格好 beside スタイル's figure, オートバイ beside
+// バイク, サインする beside サイン) as the two words meaning the same.
 // On an English word the katakana word is often one of its Japanese translations (テーブル for
 // "table"), so "only another translation" can't be the "no": asked that way, Jev said no to
 // テーブル at 0.04. The false candidates the Noul is for are loans of other English words. Both
@@ -249,18 +256,27 @@ const LOAN_EVIDENCE =
 // The trap is a meaning the English word doesn't have: スタイル is "style", but first someone's
 // figure, so a learner says "she has a good style". Asked only about the meaning it shares
 // with the English word, which a candidate found by gloss always does, Jev called スタイル,
-// ジュース and ナイーブ matches, so the question weighs every common use of the katakana word.
+// ジュース and ナイーブ matches, so the options weigh every common use of the katakana word.
 // Asked whether every use matched "with the same feeling", Jev found some difference in nearly
-// every loan, so it asks whether carrying the word over misleads, and small differences don't count.
+// every loan, so small differences don't count. "Same" is using the English word wherever the
+// katakana one is used: described as every common use being a meaning the English word has, it
+// gave "same meaning" chips to サイン (an autograph) and ナイーブ. Asked whether the loan has "a
+// different meaning altogether", Jev leaned toward total mismatches, and サイン, which shares
+// "sign", fell from p 0.70 to 0.61, so it asks whether the loan has come to mean something
+// different. "Not English" takes about 1% from true loans, but gets under 0.25 even on loans
+// JMDict derives from German or Dutch (docs/nuance-on-english-entries.md). The app reads the
+// probability of each meaning (`loanShown`), averaged over the Choice asked in both option
+// orders: Jev leans toward the option listed first, and `same` gained 0.02 on average reversed.
 const loan: ChoiceQuestion = {
   type: "choice",
   instructions:
-    "Would a Japanese speaker who uses the English word `english_word` (its meanings are listed in `senses`, in Japanese) as they use `katakana_word` in everyday Japanese be understood? Weigh every common use of `katakana_word`, not only the ones it shares with `english_word`.",
+    "Does the katakana loanword `katakana_word` share the same meaning as the original word it's taken from in English, `english_word`, or has it come to mean something different in everyday Japanese?",
   criteria: {
-    matches:
-      "Carrying it over works: what `katakana_word` commonly means is what `english_word` means, so English speakers understand it, e.g. ピアノ for 'piano', バス for 'bus'. Small differences in how often or where each is used don't count",
-    diverges:
-      "Carrying it over misleads: a common use of `katakana_word` means something `english_word` doesn't, or carries a clearly different feeling, even where they share a meaning, e.g. トレーナー (a sweatshirt, as well as a trainer), サービス ('free of charge', as well as service), コンセント (a power socket, not 'consent')"
+    same: "A Japanese speaker can use `english_word` wherever they would use `katakana_word` in everyday Japanese, and English speakers understand them, e.g. ピアノ for 'piano', バス for 'bus'. Small differences in how often or where each is used don't count",
+    divergent:
+      "A common use of `katakana_word` means something `english_word` doesn't, or carries a clearly different feeling, even where they share a meaning, so a Japanese speaker who uses `english_word` that way misleads English speakers, e.g. トレーナー (a sweatshirt, as well as a trainer), サービス ('free of charge', as well as service), コンセント (a power socket, not 'consent')",
+    not_english:
+      "`katakana_word` was borrowed from another language, not from English, e.g. アルバイト (from German Arbeit), パン (from Portuguese pão)"
   }
 }
 
@@ -290,7 +306,11 @@ export const loanScope = (candidate: EntryRecord, tags: ReadonlyMap<string, stri
     : {})
 })
 
-/** The two questions about the English word's `k`th katakana candidate, keyed `loanword_{k}` and `loan_{k}`. */
+/**
+ * The questions about the English word's `k`th katakana candidate: `loanword_{k}` (a Noul: is it
+ * the word's loan?) and `loan_{k}` (a Choice: same, divergent or not English), asked again with
+ * its options reversed as `loan_{k}~reversed`.
+ */
 export const loanQuestions = (
   k: number,
   english: EntryRecord,
@@ -298,15 +318,17 @@ export const loanQuestions = (
   tags: ReadonlyMap<string, string>
 ) => {
   const katakana = { english_word: english.headword, ...loanScope(candidate, tags) }
+  const meaning: ChoiceQuestion = {
+    ...loan,
+    instructions: { question: loan.instructions ?? null, ...katakana, evidence: LOAN_EVIDENCE }
+  }
   return {
     [`loanword_${k}`]: { ...isLoan, instructions: { question: isLoan.instructions ?? null, ...katakana } },
-    [`loan_${k}`]: {
-      ...loan,
-      instructions: { question: loan.instructions ?? null, ...katakana, evidence: LOAN_EVIDENCE }
-    }
+    [`loan_${k}`]: meaning,
+    [`loan_${k}${REVERSED}`]: reversedChoice(meaning)
   } satisfies Record<string, NoulQuestion | ChoiceQuestion>
 }
 
-/** The loan answers of an English word's request, named as stored: `loanword_0`, `loan_0`, …. */
+/** The loan answers of an English word's request, named as stored: `loanword_0`, `loan_0`, `loan_0~reversed`, …. */
 export const answersOfLoans = (answers: Readonly<Record<string, unknown>>): Record<string, unknown> =>
-  Object.fromEntries(Object.entries(answers).filter(([name]) => /^loan(word)?_\d+$/.test(name)))
+  Object.fromEntries(Object.entries(answers).filter(([name]) => /^loan(word)?_\d+$/.test(name.replace(REVERSED, ""))))

@@ -3,7 +3,7 @@ import { Claude, type ClaudeError } from "./Claude.ts"
 import { loanSystem } from "./prompts.ts"
 
 export const LoanOutput = Schema.Struct({
-  /** One Japanese sentence on how the English word differs from the katakana word's everyday meaning. */
+  /** One or two Japanese sentences on how the English word differs from the katakana word's everyday meaning. */
   loanTrap: Schema.String
 })
 
@@ -12,21 +12,28 @@ export interface LoanRequest {
   readonly headword: string
   /** The word's IPA, or empty when the dictionary has none. */
   readonly reading: string
-  /** What the English word means, in Japanese: its senses' leading glosses. */
+  /**
+   * The English word's senses that bear on the comparison, in Japanese, with their usage labels:
+   * its main ones and any glossed with the loan itself. Not always commonest first.
+   */
   readonly meanings: ReadonlyArray<string>
   /** The katakana loanword, as the dictionary spells it. */
   readonly loanWord: string
+  /** What the loanword means, from JMDict's English translations, with their usage labels. */
+  readonly loanMeanings: ReadonlyArray<string>
 }
 
-/** The user turn: the English word, its meanings and the drifted loan. */
+/** The user turn: the English word and its senses, and the drifted loan and its meanings. */
 export const describeLoan = (request: LoanRequest) =>
   [
     request.reading.length > 0
       ? `English word: ${request.headword} (${request.reading})`
       : `English word: ${request.headword}`,
-    "Meanings:",
+    "Its senses in the dictionary, in Japanese:",
     ...request.meanings.map((meaning, index) => `${index + 1}. ${meaning}`),
-    `Katakana loanword: ${request.loanWord}`
+    `Katakana loanword: ${request.loanWord}`,
+    "Its meanings in Japanese, translated into English:",
+    ...request.loanMeanings.map((meaning, index) => `${index + 1}. ${meaning}`)
   ].join("\n")
 
 export class LoanWriter extends Context.Service<

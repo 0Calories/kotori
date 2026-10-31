@@ -20,6 +20,19 @@ import type { ChoiceQuestion, NoulQuestion, ScoreQuestion } from "@typesafe-ai/s
  */
 export const QUESTIONS_VERSION = 3
 
+/**
+ * Names a Choice asked again with its options in reverse order: jev-1.13 leans toward the option
+ * listed first (model-jaggedness docs). The eval asks every Choice so; the katakana loan's is
+ * always asked both ways, and read from the two together.
+ */
+export const REVERSED = "~reversed"
+
+/** A Choice with its options in reverse order. */
+export const reversedChoice = (question: ChoiceQuestion): ChoiceQuestion => ({
+  ...question,
+  criteria: Object.fromEntries(Object.entries(question.criteria).toReversed())
+})
+
 export const FORMALITY_LEVELS = ["vulgar", "casual", "neutral", "polite", "formal"] as const
 export const MEDIUM_LEVELS = ["spoken", "both", "written"] as const
 

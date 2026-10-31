@@ -10,7 +10,7 @@ import {
   senseTags
 } from "./interpret.ts"
 import { Jev, type JevError } from "./Jev.ts"
-import { answersOfSense, entryRequest, questionsVersionOf } from "./request.ts"
+import { answersOfSense, entryRequest, loanRequest, questionsVersionOf } from "./request.ts"
 import { candidateOf, judgedSenses, MAX_CANDIDATES, SIMILAR_SENSES } from "./state.ts"
 
 export class EntryNotFound extends Schema.TaggedError<EntryNotFound>()("EntryNotFound", { entryId: Schema.Int }) {}
@@ -88,27 +88,38 @@ export class NuanceEnricher extends Context.Service<
           index < SIMILAR_SENSES ? candidatesFor(entry, index) : Effect.succeed([])
         )
         const loans = yield* loansFor(entry)
-        // One request for the whole entry: every sense's questions, each carrying its sense's
-        // scope, the candidate comparisons and an English word's loan. Questions run in parallel,
-        // so a learner waits one round trip instead of one per sense.
-        const request = entryRequest(
-          entry,
-          tags,
-          candidates,
-          loans.map((loan) => loan.entry)
+        // One request for the senses: every sense's questions, each carrying its sense's scope,
+        // and the candidate comparisons. Questions run in parallel, so a learner waits one round
+        // trip instead of one per sense. An English word's loan candidates are asked at the same
+        // time in a request of their own, whose state leaves out the senses (`loanRequest`).
+        const request = entryRequest(entry, tags, candidates)
+        const loanAsked =
+          loans.length === 0
+            ? null
+            : loanRequest(
+                entry,
+                loans.map((loan) => loan.entry),
+                tags
+              )
+        const [result, loanResult] = yield* Effect.all(
+          [
+            jev.ask(request.state, request.questions),
+            loanAsked === null ? Effect.succeed(null) : jev.ask(loanAsked.state, loanAsked.questions)
+          ],
+          { concurrency: 2 }
         )
-        const result = yield* jev.ask(request.state, request.questions)
 
         const now = yield* Clock.currentTimeMillis
         const questionsVersion = questionsVersionOf(entry.language)
         const judged = senses.map((sense, index) => ({
           index,
           tags: senseTags(sense),
+          fields: sense.fields,
           answers: answersOfSense(result.answers, index)
         }))
-        const nuance = judged.map(({ index, tags: senseTagged, answers }) => ({
+        const nuance = judged.map(({ index, tags: senseTagged, fields, answers }) => ({
           sense: index,
-          nuance: interpretSense(answers as unknown as SenseAnswers, senseTagged),
+          nuance: interpretSense(answers as unknown as SenseAnswers, senseTagged, fields),
           answers,
           model: result.model,
           questionsVersion
@@ -120,27 +131,23 @@ export class NuanceEnricher extends Context.Service<
           ).map((j) => ({ sense: index, ...j }))
         )
         const asked: ReadonlyArray<AskedLoan> = loans.map((loan) => ({ word: loan.entry.headword, by: loan.by }))
-        const loan = interpretLoan(result.answers, asked)
+        const loanAnswers = loanResult === null ? {} : answersOfLoans(loanResult.answers)
+        const loan = interpretLoan(loanAnswers, asked)
 
         yield* enrichment.saveNuance(entryId, nuance, now)
         yield* enrichment.saveSimilar(entryId, similar)
         yield* enrichment.saveLoanWord(
           entryId,
-          asked.length === 0
+          loanResult === null
             ? null
-            : {
-                ...loan,
-                answers: { ...answersOfLoans(result.answers), candidates: asked },
-                model: result.model,
-                questionsVersion
-              },
+            : { ...loan, answers: { ...loanAnswers, candidates: asked }, model: loanResult.model, questionsVersion },
           now
         )
         return {
           senses: nuance.length,
           similar: similar.length,
           loan: loan.word,
-          inputTokens: result.usage.input_tokens
+          inputTokens: result.usage.input_tokens + (loanResult?.usage.input_tokens ?? 0)
         }
       })
 
@@ -155,7 +162,7 @@ export class NuanceEnricher extends Context.Service<
             return enrichment.updateNuance(
               entryId,
               row.sense,
-              interpretSense(row.answers as SenseAnswers, sense === undefined ? [] : senseTags(sense))
+              interpretSense(row.answers as SenseAnswers, sense === undefined ? [] : senseTags(sense), sense?.fields)
             )
           },
           { discard: true }

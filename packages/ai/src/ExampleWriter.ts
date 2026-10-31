@@ -7,6 +7,7 @@ import {
   SpeakerAge,
   SpeakerGender
 } from "@kotori/domain"
+import { normalizeGloss, normalizeJapaneseGloss } from "@kotori/db"
 import { Context, Effect, Layer, Schema } from "effect"
 import { Claude, type ClaudeError } from "./Claude.ts"
 import { englishExamplesSystem, examplesSystem } from "./prompts.ts"
@@ -19,6 +20,8 @@ export const ExamplesOutput = Schema.Struct({
       note: Schema.NullOr(Schema.String),
       examples: Schema.Array(
         Schema.Struct({
+          /** The gloss of its sense the sentence uses, copied from the list, so a misfiled one can be dropped. */
+          gloss: Schema.String,
           ja: Schema.String,
           furigana: Schema.String,
           en: Schema.String,
@@ -28,8 +31,7 @@ export const ExamplesOutput = Schema.Struct({
           /** Regional variety as a lowercase label ("kansai"); null for the standard language. */
           variety: Schema.NullOr(Schema.String),
           tone: SentenceTone,
-          note: Schema.NullOr(Schema.String),
-          noteJa: Schema.NullOr(Schema.String)
+          note: Schema.NullOr(Schema.String)
         })
       )
     })
@@ -45,6 +47,7 @@ export const EnglishExamplesOutput = Schema.Struct({
       noteJa: Schema.NullOr(Schema.String),
       examples: Schema.Array(
         Schema.Struct({
+          gloss: Schema.String,
           en: Schema.String,
           ja: Schema.String,
           formality: Formality,
@@ -142,6 +145,42 @@ export interface WrittenExamples {
   /** One usage note per sense; the examples only annotate what is specific to a sentence. */
   readonly notes: ReadonlyArray<WrittenSenseNote>
   readonly examples: ReadonlyArray<WrittenExample>
+  /** Sentences left out because the gloss they name isn't their sense's: misfiled, or a meaning not listed. */
+  readonly dropped: number
+}
+
+/**
+ * Whether a sentence uses the sense it is filed under: the gloss Claude names for it is one of
+ * that sense's, as the import normalises them, or a part of one. "claim" filed under
+ * （手間などを）要する but naming 命を奪う, a sense it wasn't shown, is not.
+ */
+const fitsSense = (sense: ExampleSense | undefined, gloss: string, language: Language) => {
+  // Glosses are in the other language from the headword.
+  const norm = language === "ja" ? normalizeGloss : normalizeJapaneseGloss
+  const named = norm(gloss)
+  if (sense === undefined || named.length < 2) return false
+  return sense.glosses.some((own) => {
+    const listed = norm(own)
+    return listed.length > 0 && (listed === named || listed.includes(named) || named.includes(listed))
+  })
+}
+
+/** The groups of the senses asked about, each keeping only the sentences that fit its sense. */
+const filed = <
+  E extends { readonly gloss: string },
+  G extends { readonly sense: number; readonly examples: ReadonlyArray<E> }
+>(
+  request: ExampleRequest,
+  groups: ReadonlyArray<G>
+) => {
+  const senses = new Map(request.senses.map((sense) => [sense.index, sense]))
+  const known = groups.filter((group) => senses.has(group.sense))
+  const kept = known.map((group) => ({
+    ...group,
+    examples: group.examples.filter((example) => fitsSense(senses.get(group.sense), example.gloss, request.language))
+  }))
+  const count = (list: ReadonlyArray<G>) => list.reduce((sum, group) => sum + group.examples.length, 0)
+  return { groups: kept, dropped: count(known) - count(kept) }
 }
 
 export class ExampleWriter extends Context.Service<
@@ -158,15 +197,15 @@ export class ExampleWriter extends Context.Service<
 
       /** English sentences with Japanese translations, for Japanese speakers learning the word. */
       const writeEnglish = Effect.fn("ExampleWriter.writeEnglish")(function* (request: ExampleRequest) {
-        const known = new Set(request.senses.map((sense) => sense.index))
         const output = yield* claude.generate({
           schema: EnglishExamplesOutput,
           system: englishExamplesSystem,
           prompt: describeRequest(request),
           effort: "low"
         })
-        const groups = output.senses.filter((group) => known.has(group.sense))
+        const { groups, dropped } = filed(request, output.senses)
         return {
+          dropped,
           notes: groups.map((group) => ({ sense: group.sense, note: null, noteJa: group.noteJa ?? null })),
           examples: groups.flatMap((group) =>
             group.examples.map((example): WrittenExample => ({
@@ -190,15 +229,15 @@ export class ExampleWriter extends Context.Service<
 
       const write = Effect.fn("ExampleWriter.write")(function* (request: ExampleRequest) {
         if (request.language === "en") return yield* writeEnglish(request)
-        const known = new Set(request.senses.map((sense) => sense.index))
         const output = yield* claude.generate({
           schema: ExamplesOutput,
           system: examplesSystem,
           prompt: describeRequest(request),
           effort: "low"
         })
-        const groups = output.senses.filter((group) => known.has(group.sense))
+        const { groups, dropped } = filed(request, output.senses)
         return {
+          dropped,
           notes: groups.map((group) => ({ sense: group.sense, note: group.note ?? null, noteJa: null })),
           examples: groups.flatMap((group) =>
             group.examples.map((example) => ({
@@ -214,7 +253,8 @@ export class ExampleWriter extends Context.Service<
               variety: normalizeVariety(example.variety),
               tone: example.tone,
               note: example.note,
-              noteJa: example.noteJa
+              // Japanese words are read by learners of Japanese, in English.
+              noteJa: null
             }))
           )
         }

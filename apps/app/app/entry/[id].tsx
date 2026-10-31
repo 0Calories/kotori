@@ -1,4 +1,4 @@
-import type { Formality, Language, Loanword, Medium, Nuance, Sense, SimilarWord } from "@kotori/domain"
+import { type Language, loanShown, type Loanword, type Nuance, type Sense, type SimilarWord } from "@kotori/domain"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { Platform, Share, View } from "react-native"
@@ -10,137 +10,31 @@ import { Card } from "../../src/components/Card.tsx"
 import { Chip } from "../../src/components/Chip.tsx"
 import { ExampleRow } from "../../src/components/ExampleRow.tsx"
 import { Headword } from "../../src/components/Headword.tsx"
-import { Icon, type IconName } from "../../src/components/Icon.tsx"
+import { Icon } from "../../src/components/Icon.tsx"
 import { Mascot } from "../../src/components/Mascot.tsx"
-import { NuanceScales, type ScaleRow } from "../../src/components/NuanceScales.tsx"
+import { NuanceScales } from "../../src/components/NuanceScales.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
 import { Header, Screen, Section } from "../../src/components/Screen.tsx"
 import { Snow } from "../../src/components/Snow.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
-import { posLabel, type Strings, tagLabel } from "../../src/i18n/strings.ts"
+import { posLabel, tagLabel } from "../../src/i18n/strings.ts"
 import { findForm } from "../../src/lib/forms.ts"
 import { wordNote } from "../../src/lib/notes.ts"
+import { CONFIDENT, dictionaryTags, nuanceNotes, registerDisplay, registers } from "../../src/lib/nuance.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
-
-/** Below this confidence a judgment is kept to ourselves: a hint is only worth showing when it's right. */
-const CONFIDENT = 0.55
-
-const FORMALITY_ORDER: ReadonlyArray<Formality> = ["vulgar", "casual", "neutral", "polite", "formal"]
-const MEDIUM_ORDER: ReadonlyArray<Medium> = ["spoken", "both", "written"]
-
-/** The stop for a judged label: "neutral" sits dead centre regardless of Jev's raw score. */
-const snapped = <L extends string>(order: ReadonlyArray<L>, value: L) =>
-  Math.max(order.indexOf(value), 0) / (order.length - 1)
-
-/** The confidently judged register shape; absent or unsure means "treat as scaled". */
-const shapeOf = (nuance: Nuance) =>
-  nuance.registerShape && nuance.registerShape.confidence >= CONFIDENT ? nuance.registerShape.value : "scaled"
-
-/**
- * How the word's register is shown: a slider per scale, except where a slider is the
- * wrong model — a word at a scale's far end, a fixed-register word (insults, ceremonial
- * wording) or a split one (clinical in one world, crude in the other) becomes chips.
- * Low-confidence judgments are left out entirely.
- */
-const registerDisplay = (t: Strings, nuance: Nuance): { rows: Array<ScaleRow>; chips: Array<string> } => {
-  const shape = shapeOf(nuance)
-  // A split register has no honest slider position and no single label: one chip says it all.
-  if (shape === "split") return { rows: [], chips: [t.nuance.contextSplit] }
-  const rows: Array<ScaleRow> = []
-  const chips: Array<string> = []
-  if (nuance.formality.confidence >= CONFIDENT) {
-    const value = nuance.formality.value
-    if (value === "vulgar" || value === "formal") chips.push(t.nuance.edge[value])
-    else if (shape === "fixed") chips.push(t.nuance.scale[value])
-    else {
-      rows.push({
-        left: t.nuance.poles.casual,
-        right: t.nuance.poles.formal,
-        position: snapped(FORMALITY_ORDER, value),
-        value: t.nuance.scale[value],
-        stops: FORMALITY_ORDER.length
-      })
-    }
-  }
-  if (nuance.medium.confidence >= CONFIDENT) {
-    const value = nuance.medium.value
-    if (value === "spoken" || value === "written") chips.push(t.nuance.edge[value])
-    else if (shape !== "fixed") {
-      rows.push({
-        left: t.nuance.poles.spoken,
-        right: t.nuance.poles.written,
-        position: snapped(MEDIUM_ORDER, value),
-        value: t.nuance.mediumScale[value],
-        stops: MEDIUM_ORDER.length
-      })
-    }
-  }
-  return { rows, chips }
-}
 
 /** Web browsers without the Web Share API can't share, so the button is left out there. */
 const canShare = Platform.OS !== "web" || (typeof navigator !== "undefined" && "share" in navigator)
 
-/** The nuance worth saying in words: tags such as "Young people", and cautions such as "Slang". */
-const nuanceNotes = (t: Strings, nuance: Nuance) => {
-  const tags = [
-    nuance.keigo.value !== "none" && nuance.keigo.confidence >= CONFIDENT ? t.nuance.keigo[nuance.keigo.value] : null,
-    nuance.gender.value !== "neutral" && nuance.gender.confidence >= CONFIDENT
-      ? t.nuance.gender[nuance.gender.value]
-      : null,
-    nuance.age.value !== "any" && nuance.age.confidence >= CONFIDENT ? t.nuance.age[nuance.age.value] : null,
-    nuance.currency.value !== "current" && nuance.currency.confidence >= CONFIDENT
-      ? t.nuance.currency[nuance.currency.value]
-      : null,
-    nuance.connotation.value !== "neutral" && nuance.connotation.confidence >= CONFIDENT
-      ? t.nuance.connotation[nuance.connotation.value]
-      : null,
-    // English words: whose English it is.
-    nuance.variety && nuance.variety.value !== "universal" && nuance.variety.confidence >= CONFIDENT
-      ? t.nuance.english.variety[nuance.variety.value]
-      : null
-  ].filter((tag): tag is string => tag !== null && tag.length > 0)
-  // Vulgar, fixed-register and dictionary-tagged insult words announce themselves; the
-  // rudeness caution earns its place on words that look safe but misfire upward (了解,
-  // ご苦労様, "yep") — including harmless slang, which is why slang alone doesn't suppress it.
-  const obviouslyRude =
-    (nuance.formality.value === "vulgar" && nuance.formality.confidence >= CONFIDENT) ||
-    shapeOf(nuance) === "fixed" ||
-    (nuance.connotation.value === "negative" && nuance.connotation.source === "jmdict")
-  const profanity =
-    nuance.profanity && nuance.profanity.value !== "none" && nuance.profanity.confidence >= CONFIDENT
-      ? nuance.profanity.value
-      : null
-  const cautions: Array<{ readonly label: string; readonly icon: IconName }> = [
-    // English words: how offensive a swear word is, which learners can't tell from its meaning.
-    ...(profanity === null ? [] : [{ label: t.nuance.english.profanity[profanity], icon: "error" as const }]),
-    ...(nuance.cautions.rudeToSuperiors >= 0.6 && !obviouslyRude
-      ? [{ label: t.nuance.cautionRude, icon: "work_off" as const }]
-      : []),
-    ...(nuance.cautions.stiffWithFriends >= 0.6 ? [{ label: t.nuance.cautionStiff, icon: "info" as const }] : []),
-    ...(nuance.cautions.slang >= 0.6 ? [{ label: t.nuance.cautionSlang, icon: "info" as const }] : []),
-    ...((nuance.cautions.textbook ?? 0) >= 0.6 ? [{ label: t.nuance.cautionTextbook, icon: "info" as const }] : [])
-  ]
-  return { tags, cautions }
-}
-
-const NO_CHIPS: ReadonlyArray<string> = []
-
-const NuanceNotes = ({
-  nuance,
-  register = NO_CHIPS
-}: {
-  readonly nuance: Nuance
-  readonly register?: ReadonlyArray<string>
-}) => {
+const NuanceNotes = ({ nuance }: { readonly nuance: Nuance }) => {
   const { t } = useSession()
   const { tags, cautions } = nuanceNotes(t, nuance)
-  if (register.length + tags.length + cautions.length === 0) return null
+  if (tags.length + cautions.length === 0) return null
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-      {[...register, ...tags].map((tag) => (
+      {tags.map((tag) => (
         <Chip key={tag} label={tag} />
       ))}
       {cautions.map((caution) => (
@@ -150,13 +44,19 @@ const NuanceNotes = ({
   )
 }
 
-/** The register in words — "Casual · Speech" — expandable to the labelled scales. */
+/** The register in words — "Casual · Speech" — expandable to the labelled scales where it has any. */
 const RegisterBlock = ({ nuance }: { readonly nuance: Nuance }) => {
   const theme = useTheme()
   const { t } = useSession()
   const [expanded, setExpanded] = useState(false)
-  const rows = registerDisplay(t, nuance).rows
-  if (rows.length === 0) return null
+  const { line, rows } = registerDisplay(t, nuance)
+  if (line.length === 0) return null
+  const text = (
+    <Text variant="small" weight="semibold" color="textMuted" style={{ flex: 1 }}>
+      {line.join(" · ")}
+    </Text>
+  )
+  if (rows.length === 0) return text
   return (
     <View style={{ gap: 12 }}>
       <PressableScale
@@ -165,9 +65,7 @@ const RegisterBlock = ({ nuance }: { readonly nuance: Nuance }) => {
         accessibilityLabel={expanded ? t.nuance.hideScales : t.nuance.showScales}
         style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
       >
-        <Text variant="small" weight="semibold" color="textMuted" style={{ flex: 1 }}>
-          {rows.map((row) => row.value).join(" · ")}
-        </Text>
+        {text}
         <Icon name={expanded ? "expand_less" : "expand_more"} size={20} color={theme.color.textMuted} />
       </PressableScale>
       {expanded ? <NuanceScales rows={rows} labelled /> : null}
@@ -178,14 +76,14 @@ const RegisterBlock = ({ nuance }: { readonly nuance: Nuance }) => {
 /** Where the word sits between casual and formal, and between speech and writing. */
 const NuanceCard = ({ nuance }: { readonly nuance: Nuance }) => {
   const { t } = useSession()
-  const { rows, chips } = registerDisplay(t, nuance)
+  const { line } = registerDisplay(t, nuance)
   const { tags, cautions } = nuanceNotes(t, nuance)
-  if (rows.length + chips.length + tags.length + cautions.length === 0) return null
+  if (line.length + tags.length + cautions.length === 0) return null
   return (
     <Animated.View entering={FadeInDown.delay(60).duration(350)}>
       <Card style={{ gap: 12, paddingHorizontal: 18, paddingVertical: 14 }}>
         <RegisterBlock nuance={nuance} />
-        <NuanceNotes nuance={nuance} register={chips} />
+        <NuanceNotes nuance={nuance} />
       </Card>
     </Animated.View>
   )
@@ -194,12 +92,14 @@ const NuanceCard = ({ nuance }: { readonly nuance: Nuance }) => {
 /**
  * An English word's katakana loan, which Japanese speakers already think they know: a drifted
  * one (スタイル is first someone's figure) is the headline warning, with Claude's sentence on
- * how they differ; a matching one is quiet good news. Unsure verdicts aren't shown.
+ * how they differ; a matching one is quiet good news. Unsure verdicts, and loans Jev judges not
+ * English, aren't shown.
  */
 const LoanNote = ({ loan }: { readonly loan: Loanword }) => {
   const { t } = useSession()
-  if (loan.verdict.confidence < CONFIDENT) return null
-  if (loan.verdict.value === "matches") {
+  const shown = loanShown(loan.verdict)
+  if (shown === null) return null
+  if (shown === "chip") {
     return (
       <View style={{ flexDirection: "row" }}>
         <Chip icon="check" label={t.nuance.english.loanMatches(loan.word)} />
@@ -244,7 +144,7 @@ const SenseCard = ({
   /** Already shown in the hero; repeated only when this sense differs. */
   readonly partOfSpeech: string | null
   readonly showNuance: boolean
-  /** When senses disagree on register, each carries its own scales instead of one card up top. */
+  /** The sense's register reads differently from the word's card up top, so it carries its own. */
   readonly showScales: boolean
   readonly saved: boolean
   readonly onSave: () => void
@@ -259,8 +159,7 @@ const SenseCard = ({
     (label) => label !== partOfSpeech
   )
   const open = (id: number) => router.push({ pathname: "/entry/[id]", params: { id: String(id) } })
-  const tags = [...sense.misc, ...sense.fields, ...sense.dialects]
-  const registerChips = showScales && sense.nuance ? registerDisplay(t, sense.nuance).chips : []
+  const tags = dictionaryTags(sense)
   // The usage note in the learner's language: Japanese on an English word, English on a Japanese one.
   const usage = language === "en" ? sense.noteJa : sense.note
 
@@ -324,7 +223,7 @@ const SenseCard = ({
           </Text>
         ) : null}
         {showScales && sense.nuance ? <RegisterBlock nuance={sense.nuance} /> : null}
-        {showNuance && sense.nuance ? <NuanceNotes nuance={sense.nuance} register={registerChips} /> : null}
+        {showNuance && sense.nuance ? <NuanceNotes nuance={sense.nuance} /> : null}
         {usage ? (
           <Text jp={language === "en"} variant="small" color="textMuted">
             {usage}
@@ -488,18 +387,7 @@ export default function EntryScreen() {
   const inflections = data.forms.filter((form) => form.kind === "inflection")
   const senses = showAll ? data.senses : data.senses.slice(0, 3)
   const waiting = data.enrichment.examples === "queued" || data.enrichment.nuance === "queued"
-  // One register card speaks for the word only while every confidently judged sense agrees;
-  // the moment senses differ on formality or medium, each sense carries its own scales.
-  const confidentLabels = (judge: (nuance: Nuance) => { readonly value: string; readonly confidence: number }) =>
-    new Set(
-      data.senses.flatMap((sense) => {
-        const judgment = sense.nuance ? judge(sense.nuance) : null
-        return judgment && judgment.confidence >= CONFIDENT ? [judgment.value] : []
-      })
-    )
-  const registerVaries =
-    confidentLabels((nuance) => nuance.formality).size > 1 || confidentLabels((nuance) => nuance.medium).size > 1
-  const featured = registerVaries ? undefined : data.senses.find((sense) => sense.nuance !== null)
+  const { featured, ownLine } = registers(t, data.senses)
   const similar = [
     ...new Map(data.senses.flatMap((sense) => sense.similar).map((word) => [word.entryId, word])).values()
   ]
@@ -662,7 +550,7 @@ export default function EntryScreen() {
               forms={forms}
               partOfSpeech={partOfSpeech}
               showNuance={sense !== featured}
-              showScales={registerVaries}
+              showScales={ownLine(sense)}
               saved={savedSenses.has(sense.index)}
               saving={addNote.isPending}
               onSave={() => save(sense)}

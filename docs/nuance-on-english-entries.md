@@ -48,11 +48,13 @@ Remaining gaps:
    `Nuance`: `variety`, `profanity` and `cautions.textbook`. English words carry `keigo: none` from
    the dictionary. *Why:* the app renders one nuance card for both. A second table and job would
    mean a second request per English word and two code paths that mirror each other by hand.
-2. **The katakana loan is judged once per English word**, in the same request as its senses, and
-   stored in `loan_words`: the verdict, the answers for reinterpretation, and Claude's warning.
-   The warning survives a re-judge that names the same loan. *Why:* a drifted loan is a word's
-   trap, not a sense's (スタイル is first someone's figure whichever sense of "style" you look at),
-   and one warning per word is what the page should show. *Evidence:* see the loan table below.
+2. **The katakana loan is judged once per English word**, in a request of its own sent beside
+   its senses' (`loanRequest`), and stored in `loan_words`: the verdict, the answers for
+   reinterpretation, and Claude's warning. The warning survives a re-judge that names the same
+   loan. *Why:* a drifted loan is a word's trap, not a sense's (スタイル is first someone's figure
+   whichever sense of "style" you look at), and one warning per word is what the page should
+   show. Its own request, because its state must not hold the word's Japanese senses: see
+   "Why false friends scored low" below.
 3. **Candidates come from JMDict**, as in PR #36: common katakana-only words with the English
    word as a gloss, or as their `lsource` (`DictionaryRepo.loanCandidates`, now limited to
    `language = 'ja'`).
@@ -74,10 +76,10 @@ Remaining gaps:
 7. **One usage note per sense, in the learner's language:** `note` (English) on Japanese words,
    `noteJa` (Japanese) on English ones. PR #36 wrote both directions on Japanese words, but
    Japanese speakers no longer read Japanese entries.
-8. **A question version per language.** `QUESTIONS_VERSION` (Japanese) and
-   `ENGLISH_QUESTIONS_VERSION` are both 3. Rows PR #34 judges before this ships are version 1, so
-   they are requeued when viewed and picked up by `--outdated`, which compares each entry with its
-   own language's set.
+8. **A question version per language.** `QUESTIONS_VERSION` (Japanese) is 3 and
+   `ENGLISH_QUESTIONS_VERSION` 6, after three changes to the loan question (below). Rows PR #34
+   judges before this ships are version 1, so they are requeued when viewed and picked up by
+   `--outdated`, which compares each entry with its own language's set.
 9. **No English evidence was added for the CJK concern.** English words' meanings reach Jev in
    Japanese, but their sense judgments were already right on almost every golden (below). The one
    cross-lingual weak spot is the loan verdict, where the English word's Japanese senses are
@@ -189,9 +191,13 @@ app (#38), which this needs.
 `NuanceEnricher.enrich` sends one request per entry, in either language. The state is the entry:
 word, reading (kana and romaji, or IPA), other forms and the senses' leading glosses. Each judged
 sense's questions carry that sense's scope in their instructions, and similar-word candidates are
-compared per sense. An English word's katakana candidates add `loanword_{k}` and `loan_{k}`.
-Right after Jev, the nuance job has `LoanWriter` write the warning for a confidently diverging
-loan, once. `kotori enrich nuance --reinterpret` re-derives senses and loan verdicts without
+compared per sense. An English word with katakana candidates gets a second request at the same
+time, `loanword_{k}`, `loan_{k}` and `loan_{k}~reversed` per candidate, whose state is the word
+without its senses.
+Right after Jev, the nuance job has `LoanWriter` write the warning for a loan the app shows as
+diverging, once, from the word's judged senses (and any glossed with the loan itself) and the loan's
+JMDict meanings. If Claude is unavailable then, viewing the entry with Claude back queues the job
+again, at most every ten minutes, and it writes just the warning, without Jev. `kotori enrich nuance --reinterpret` re-derives senses and loan verdicts without
 inference, and `--outdated` re-judges entries behind their language's question set; both honour
 `--dictionary`.
 
@@ -238,7 +244,8 @@ loan questions.
 The misses: "penis" is judged rude to a boss (0.74) and mildly profane; "cookie" is judged
 universal; "happy"→"glad" scored 0.66 as similar, just under 0.7.
 
-**Katakana loans.** Each English word is judged once. "Shown" counts verdicts confident enough for
+**Katakana loans, as first asked** (a Choice beside the senses; superseded by "Why false friends
+scored low" below). Each English word is judged once. "Shown" counts verdicts confident enough for
 the app to show (≥ 0.55).
 
 | | PR #36, per gloss of a Japanese word | this branch, per English word |
@@ -289,6 +296,263 @@ the three runs together (verdicts shown per run, of 12 false friends and 8 match
 Spend: 8 paid runs (one Japanese, four English while tuning the loan questions, PR #34's
 questions, and two English runs after ranking), 2.65M input tokens, about 11 cents.
 
+## Why false friends scored low
+
+PR #40's loan question shared the entry's request, so it saw the English word's senses in
+Japanese, and every question sees the whole state. Measured on the tuning goldens (the 23 the
+wording was written on), three runs per variant, p(diverges) of the true loan, with the same
+katakana evidence and question unless the row says otherwise:
+
+| variant | スタイル | ジュース | ナイーブ | タレント | サイン | バイク | warnings at p ≥ 0.7, of 12 | chips at p ≤ 0.3, of 8 |
+|---|---|---|---|---|---|---|---|---|
+| #41 as shipped: a Choice, the senses in the state | 0.69 | 0.59 | 0.33 | 0.66 | 0.39 | 0.41 | 7.0 | 6.0 |
+| 1. glosses spelling the loan taken out of the senses | 0.69 | 0.59 | 0.37 | 0.86 | 0.41 | 0.40 | 7.7 | 6.0 |
+| 3. the first sense only | 0.89 | 0.80 | 0.46 | 0.98 | 0.83 | 0.93 | 11.0 | 6.0 |
+| 3. the senses in the state, the question not naming them | 0.66 | 0.55 | 0.33 | 0.79 | 0.35 | 0.51 | 7.0 | 6.0 |
+| 3, 5. no senses at all | 0.86 | 0.70 | 0.18 | 0.96 | 0.57 | 0.90 | 9.7 | 6.0, and ナイーブ's |
+| 4. a Noul, the senses in the state | 0.81 | 0.73 | 0.62 | 0.83 | 0.53 | 0.61 | 9.0 | 3.7; テスト warned at 0.77 |
+| 3, 4, 5. a Noul, no senses (shipped) | 0.89 | 0.83 | 0.39 | 0.94 | 0.74 | 0.85 | 11.0 | 6.0 |
+
+- **The English word's senses in the state drive it (hypotheses 3 and 5).** Any sense whose
+  Japanese overlaps the katakana word's meaning reads as the two meaning the same: 格好 beside
+  スタイル's figure, オートバイ beside バイク, 署名する and サインする beside サイン, a drink made from
+  fruit juice beside ジュース. It is the state, not the question: naming them or not makes no
+  difference, and leaving them out lifts every false friend but ナイーブ while matching loans stay
+  low. The first sense alone does as well, but it trusts the ranking: "pen" leads with an animal
+  pen. #36 asked per gloss, with the gloss's English meaning and no Japanese senses, which is
+  why it scored higher.
+- **A gloss that is the loan itself (hypothesis 1)** matters for some words: タレント, glossed
+  タレント, goes from 0.66 to 0.86 without it. Ranking ran the same experiment by accident: it
+  brought 「に署名する、サインする」 into "sign"'s six senses, and サイン fell from 0.70–0.80 to 0.37
+  with the question unchanged; 「スマートな」 into "smart"'s, and スマート fell from 0.93–0.95 to
+  0.74–0.81.
+- **The question type and display rule (hypothesis 4)** matter at the margin. A two-option
+  Choice shown at confidence 0.55 needs p ≥ 0.78. As a Noul, p rises for false friends and a
+  little for matching loans; shown at the docs' 0.7 and 0.3, that keeps every matching loan
+  that had a chip and takes ジュース (0.70 → 0.83) and サイン (0.57 → 0.74) over the bar. Asked as
+  a Choice without the senses, ナイーブ falls to 0.18 and would get a "same meaning" chip; as a
+  Noul it is 0.39 and gets nothing.
+- **Not the cause (hypotheses 2 and 5):** the katakana word's senses reach Jev whole and labelled,
+  most common first (スタイル's first is "(one's) figure; build; physique"), exactly as in #36,
+  which scored 0.81 with them. Every key a question names is in its instructions or the state.
+
+**The fix:** the loan candidates get a request of their own, beside the senses', whose state is
+the word and its reading; whether carrying the word over misleads is a Noul; a verdict's
+confidence is |2p − 1| (a stored Choice's already is), and the app and the worker show it from
+`LOAN_SHOWN` = 0.4, a warning at p ≥ 0.7 and a chip at p ≤ 0.3. The wording is #40's, turned into
+a yes-or-no question. `ENGLISH_QUESTIONS_VERSION` is 4. (Since replaced by a Choice of three
+meanings: see "The loan as a Choice" below.)
+
+**Held-out goldens.** Before the change, 26 more loan goldens were added that no wording was tuned
+on and no criterion names: 15 drifted (クーラー, ハンドル, ピアス, ストーブ, バイキング, シャープ, フリー,
+リフォーム, トランプ, ルーズ, フロント, モーニング, アピール, ジョッキ, レンジ), 10 carried over as is
+(ゲーム, ランチ, カード, チーム, チャンス, ペン, エレベーター, ヒント, レベル, メンバー) and "launch",
+whose only candidate is a false one. ベテラン was left out: JMDict's only sense of it is English
+too. `kotori eval english` reports them apart. Mean per run, with `lsource`, two runs before and
+three after:
+
+| | tuning, before | tuning, after | held out, before | held out, after |
+|---|---|---|---|---|
+| warnings shown, of 12 / 15 drifted | 5.5 | 10.7 | 10.5 | 14 |
+| false warnings | 0 | 0 | 0 | 1 (ランチ, p 0.77–0.78) |
+| "same meaning" chips, of 8 / 10 | 5 | 6 | 7 | 6 |
+| wrong chips | 0 | 0 | 0 | 0 |
+| verdict right, with `lsource` | 19/23 | 20.7/23 | 23.5/26 | 25/26 |
+| verdict right, gloss candidates only | 17/23 | 18.7/23 | 18.5/26 | 20/26 |
+| スタイル: p(diverges) | 0.69–0.72 | 0.90 | | |
+
+- **Misses after:** ナイーブ is judged to match (0.36–0.39): its JMDict glosses (innocent;
+  sensitive; uncomplicated) read like English "naive"; the drift is its feeling. サイン sits at
+  the bar (0.66–0.73), shown in two runs of three, and アピール just under it (0.64–0.65). ボール and テスト sit at 0.47–0.51 and get neither chip nor
+  warning. ランチ is warned at 0.77–0.78: Jev weighs its set-lunch sense, which I'd counted as a
+  small difference; the old question put it at 0.63–0.67. チャンス (0.46–0.47), カード (0.40–0.41)
+  and レベル (0.31–0.32) lose or don't gain a chip.
+- **The display rule alone isn't enough:** #41's answers shown at p ≥ 0.7 give 6.5 warnings of 12
+  and 12.5 of 15, and a false one on カード (0.70) in one run.
+- Every sense dimension and similar-word pair scores as before (formality 19/19, medium 11/11,
+  profanity 9/9, variety 5/6 and 7/7, stiff and rude 11/12, similar at 0.7 11/12).
+- Recordings: `data/eval/heldout-before-{1,2}-…` and `heldout-after-{1,2,3}-…`;
+  `heldout-after-*-reread` and `heldout-before-*-reread-at-0.4` re-read them offline with the
+  final interpretation; the tuning-set experiments are in `data/eval/loan-lab/`.
+- Spend: the experiments and five English evals, 2.32M input tokens, about 10 cents.
+
+## The loan as a Choice: same, divergent or not English
+
+Ash asked for the loan to be a choice rather than a yes-or-no: "Does this katakana loanword share
+the same meaning as the original word it's taken from in English, or does it have a different
+meaning altogether?", answered same, divergent or not English. Only `loan_{k}` changed: it keeps
+its own request without the senses, and `loanword_{k}` still picks which candidate is the loan,
+the companion Noul the Choice docs recommend over relying on a "none of the above" option.
+
+**The question** (`loan` in `packages/nuance/src/english.ts`), with `katakana_word`,
+`katakana_meanings` and the evidence beside it as before:
+
+> Does the katakana loanword `katakana_word` share the same meaning as the original word it's
+> taken from in English, `english_word`, or has it come to mean something different in everyday
+> Japanese?
+
+| option | description |
+|---|---|
+| `same` | A Japanese speaker can use `english_word` wherever they would use `katakana_word` in everyday Japanese, and English speakers understand them, e.g. ピアノ for 'piano', バス for 'bus'. Small differences in how often or where each is used don't count |
+| `divergent` | A common use of `katakana_word` means something `english_word` doesn't, or carries a clearly different feeling, even where they share a meaning, so a Japanese speaker who uses `english_word` that way misleads English speakers, e.g. トレーナー (a sweatshirt, as well as a trainer), サービス ('free of charge', as well as service), コンセント (a power socket, not 'consent') |
+| `not_english` | `katakana_word` was borrowed from another language, not from English, e.g. アルバイト (from German Arbeit), パン (from Portuguese pão) |
+
+**The rule** (`loanShown` in `packages/domain/src/Nuance.ts`): a warning at p(divergent) ≥ 0.7, a
+"same meaning" chip at p(same) ≥ 0.7, nothing otherwise, including when `not_english` leads. Each p
+is averaged over the Choice asked in both option orders (see "Both option orders" below). The
+app's `LoanNote`, `awaitsWarning` (the API's missing-warning re-queue and the worker's `trap`)
+and the eval all call it. A Choice's `confidence` measures how peaked its distribution is, so the
+rule reads probabilities: `loan_words.verdict` is now `{ value, probability, source }`, the
+likeliest meaning and its averaged probability. Only the likeliest meaning can reach 0.7, so nothing the
+rule needs is lost, and the raw answers stay in `answers` for `--reinterpret`. For three options
+p ≥ 0.7 is confidence ≥ 0.55, the app's bar for its other judgments. No migration: `verdict` is
+`jsonb`, and production has no loan rows.
+
+**Version 5.** `ENGLISH_QUESTIONS_VERSION` goes to 5 rather than redefining 4. Neither shipped, but
+4 has answers measured and recorded under it (the held-out runs above), and a recording's version
+is how `--from` says which question produced it. Any database judged with #43's Noul has its
+English words judged again when viewed. #43 bumped 3 to 4 the same way, though 3 hadn't shipped
+either. Asking both orders makes it 6 (below), since the stored answers gain `loan_{k}~reversed`.
+There is no code for reading v3, v4 or v5 loan answers: production has none.
+
+**Wording, on the tuning loans** (the true loan's question only, three runs each, shown at 0.7;
+no variant gave a false warning):
+
+| variant | warnings, of 12 | chips, of 8 | wrong chips | サイン p(divergent) | ナイーブ p(same) |
+|---|---|---|---|---|---|
+| #43's Noul, run again (two runs) | 10.5 | 6.0 | 0 | 0.70 | 0.62 |
+| Ash's question, #43's criteria reworded as the options | 9.0 | 7.7 | 2.0 | 0.27 | 0.75 |
+| the same without `not_english` | 8.7 | 7.7 | 2.0 | 0.21 | 0.78 |
+| Ash's question, plus "weigh every common use" | 9.3 | 6.3 | 2.0 | 0.25 | 0.72 |
+| "…or has it come to mean something different in everyday Japanese?", plus "weigh…" | 9.3 | 6.3 | 0.3 | 0.31 | 0.61 |
+| #43's question ("would … mislead English speakers") as the Choice | 9.0 | 6.0 | 1.0 | 0.35 | 0.70 |
+| "…come to mean something different…", plus "weigh…", `same` as using one wherever the other is used | 10.0 | 6.0 | 0 | 0.67 | 0.51 |
+| Ash's question verbatim, those options | 10.0 | 7.0 | 0 | 0.61 | 0.65 |
+| **"…come to mean something different…", those options (shipped)** | **10.7** | **6.7** | **0** | **0.70** | **0.57** |
+| shipped, `not_english` said to hold "even where English has a similar word" | 11.0 | 6.3 | 0 | 0.74 | 0.58 |
+
+- **The options decide more than the question.** With `same` described as "every common use of
+  `katakana_word` is a meaning `english_word` has", the partial drifts passed as the same: under
+  every question tried, サイン (an autograph, sharing "sign") or ナイーブ got a "same meaning" chip
+  (0.3–2.0 wrong chips a run). Described as using the English word wherever the katakana word is
+  used, neither does.
+- **"A different meaning altogether" asks for a total mismatch.** With the shipped options, Ash's
+  wording verbatim lowers p(divergent) for the partial drifts (サイン 0.70 → 0.61, ナイーブ
+  0.42 → 0.33, スタイル 0.90 → 0.83, ジュース 0.87 → 0.81) and leaves the total ones (マンション,
+  テンション, カンニング, タレント at 0.97–1.00) where they were. So the question is softened to "has it come
+  to mean something different in everyday Japanese?". Ash's wording would cost サイン's warning
+  and give ボール its chip (p(same) 0.79 against 0.70).
+- "Weigh every common use" in the question added nothing once the options say it (10.0 warnings
+  with it, 10.7 without). Four more wordings (a different meaning; every common use, literally;
+  the carrying-over situation first; `divergent` saying it misleads, with the first `same`) gave
+  8.7–10.0 warnings and 1.0–1.3 wrong chips.
+
+**Results.** `kotori eval english`, three runs, mean per run with `lsource`, beside #43's:
+
+| | tuning, #43 | tuning, now | held out, #43 | held out, now |
+|---|---|---|---|---|
+| warnings shown, of 12 / 15 drifted | 10.7 | 11.0 | 14 | 13.0 |
+| false warnings | 0 | 0 | 1 (ランチ) | 1 (ランチ) |
+| "same meaning" chips, of 8 / 10 | 6 | 6.3 | 6 | 5.7 |
+| wrong chips | 0 | 0 | 0 | 0 |
+| verdict right, with `lsource` | 20.7/23 | 22/23 | 25/26 | 24/26 |
+| verdict right, gloss candidates only | 18.7/23 | 20/23 | 20/26 | 19/26 |
+
+| loan | #43, p(misleads) | now, p(divergent) | now, p(same) | shown now |
+|---|---|---|---|---|
+| スタイル | 0.90 | 0.89–0.91 | 0.09–0.11 | warning, 3 runs of 3 |
+| サイン | 0.66–0.73 | 0.71–0.73 | 0.27–0.29 | warning, 3 of 3 (#43: 2 of 3) |
+| ナイーブ | 0.36–0.39 | 0.40–0.43 | 0.56–0.58 | nothing |
+| アピール (held out) | 0.64–0.65 | 0.68–0.73 | 0.27–0.32 | warning, 1 of 3 |
+| ランチ (held out) | 0.77–0.78 | 0.71–0.75 | 0.25–0.29 | false warning, 3 of 3 |
+
+- **ランチ is still warned**, a little less surely. The wording was settled on the tuning words,
+  and no question names a held-out word. Jev still counts its set-lunch sense as a meaning
+  "lunch" doesn't have.
+- **Held out, the other misses:** フリー (p(divergent) 0.60–0.68) loses the warning #43 gave it.
+  ゲーム (p(same) 0.61–0.66), カード (0.61–0.65) and レベル (0.68–0.74, two runs of three) miss or
+  flicker on their chips. チャンス leans divergent (0.55–0.60) but shows nothing.
+- **Thresholds, on the tuning runs:** any warning bar from 0.45 to 0.71 shows the same 11
+  warnings (サイン 0.71–0.73 above, テスト 0.38 the closest matching loan below). Chips at 0.6
+  would add ボール and テスト (8 of 8), but ナイーブ sits at p(same) 0.56–0.58, 0.02–0.04 under.
+  Both stay at the docs' 0.7: lower gains no warning on these words, and would leave a false
+  friend 0.02 from a "same meaning" chip.
+- **Not English barely registers.** On the true loans it averages 0.008 (tuning) and 0.009 (held
+  out), at most 0.07 (コーヒー, which JMDict also derives from Dutch koffie) and 0.17 (ジョッキ),
+  and it never leads, so it changes no verdict. It doesn't fire where it should either: on ten
+  common loans JMDict derives from German, Dutch or Latin (テーマ, エネルギー, アレルギー, カルテ,
+  ワクチン, ガーゼ, ガラス, ゴム, ビール, ウイルス; not goldens), it reached at most 0.14 (カルテ),
+  or 0.24 with the options reversed. `loanword_{k}` passes most of them too (0.79–0.98; カルテ
+  and ゴム 0.57–0.58), and Jev judges テーマ, ビール, ガーゼ and ウイルス the same as their English
+  words (p(same) 0.78–0.91), which is what a learner needs. Saying it holds "even where English
+  has a similar word" lifted カルテ to 0.38 and ガラス to 0.19 (0.42 and 0.30 reversed), and
+  nothing else past 0.1.
+- **Option order:** on the tuning runs no verdict flips with the options reversed (0 of 60), and
+  only ボール's display does (a chip only reversed, two runs of three). Held out, 2 of 75 verdicts
+  flip (チャンス, in two runs), and the display of ゲーム, ランチ, レベル, トランプ and アピール
+  changes in some runs. Reversed, `divergent` (in the middle both ways) loses 0.03 on average and
+  `same` gains 0.02: ランチ falls to 0.62–0.64 and isn't warned, ゲーム gets its chip, トランプ and
+  アピール lose warnings. Asking both orders and averaging would follow the docs' advice, but this
+  is a held-out observation, so nothing was changed for it.
+- Every sense dimension and similar-word pair scores as before.
+- Recordings: `data/eval/choice-{1,2,3}-jev-1.14.0-english.*`; the wording experiments are in
+  `data/eval/loan-choice/`.
+- Spend: the experiments (0.94M input tokens) and three English evals (1.18M), about 9 cents.
+
+### Both option orders, averaged
+
+Asked with its options reversed, the loan Choice moved a little toward `same` (above), so Ash
+approved asking it both ways and averaging each option's probability, adopted only if, on the
+tuning loans, it showed at least as many true warnings with no new false warnings or wrong chips.
+The three runs above already asked both orders in one request, so the tuning check was free:
+
+| tuning loans, three runs | warnings, of 12 | false warnings | chips, of 8 | wrong chips |
+|---|---|---|---|---|
+| forward order only | 11.0 | 0 | 6.3 | 0 |
+| both orders, averaged | 11.0 | 0 | 7.0 | 0 |
+
+Averaged p(divergent): スタイル 0.885–0.890, サイン 0.725–0.730, ナイーブ 0.405–0.420 (p(same)
+0.56–0.57). The other tuning loans within 0.05 of the bar are matching ones, by p(same): ボール
+0.72–0.75 (now a chip in every run) and テスト 0.63–0.655. It passed, so `loan_{k}~reversed`, the
+same Choice with its options reversed, is asked beside `loan_{k}` in the loan request; the verdict
+is the likeliest meaning by the average, both raw answers are stored, and the eval no longer adds
+twins of its own. `ENGLISH_QUESTIONS_VERSION` is 6. It costs about 550 more input tokens per candidate, about 2 cents per thousand candidates.
+
+Then three fresh runs (`kotori eval english`, mean per run, with `lsource`):
+
+| | tuning, forward only | tuning, averaged | held out, forward only | held out, averaged |
+|---|---|---|---|---|
+| warnings shown, of 12 / 15 drifted | 11.0 | 10.7 | 13.0 | 12.0 |
+| false warnings | 0 | 0 | 1 (ランチ) | 0.3 (ランチ, 1 run of 3) |
+| "same meaning" chips, of 8 / 10 | 6.3 | 7.0 | 5.7 | 6.0 |
+| wrong chips | 0 | 0 | 0 | 0 |
+
+"Forward only" is the three runs above; read forward only, the fresh runs give 10.7, 0, 6.7, 0
+(tuning) and 12.7, 1.0, 6.0, 0 (held out), so a run-to-run difference of about half a warning is noise.
+
+| loan | forward only, p(divergent) | averaged, p(divergent) | shown, averaged |
+|---|---|---|---|
+| スタイル | 0.89–0.91 | 0.89 | warning, 3 of 3 |
+| サイン | 0.71–0.73 | 0.685–0.74 | warning, 2 of 3 |
+| ナイーブ | 0.40–0.43 | 0.425–0.43 | nothing |
+| ランチ (held out) | 0.71–0.75 | 0.665–0.71 | warning, 1 of 3 |
+| アピール (held out) | 0.68–0.73 | 0.625–0.67 | nothing |
+| フリー (held out) | 0.60–0.68 | 0.62–0.65 | nothing |
+
+- **Held out, averaging trades warnings for fewer false ones.** ランチ's reversed answer is lower
+  (0.63–0.66 against 0.70–0.76), so it is warned in one run of three instead of every run. So are
+  true drifts whose forward answer sat just over the bar: トランプ (0.655–0.72 averaged) is warned
+  in one run of three, ルーズ (0.675–0.715) in two, and アピール no longer.
+- サイン, on the tuning set, sits on the bar both ways and was warned in two fresh runs of three
+  (0.685 in the third), as with the forward order alone in the same runs.
+- **Not English**, averaged, still never leads: 0.013 on true tuning loans and 0.011 held out, at
+  most 0.19 (ジョッキ).
+- **Option order:** the eval now compares `loan_{k}` with the twin production asks; in the fresh
+  runs the two orders picked the same meaning in every loan question.
+- Recordings: `data/eval/averaged-{1,2,3}-jev-1.14.0-english.*`, and
+  `choice-{1,2,3}-reread-averaged-…` for the earlier runs re-read with the averaging.
+- Spend: three English evals, 1.18M input tokens, about 5 cents.
+
 ## For Ash
 
 - Re-import JMDict so `senses.sources` is filled. Until then the English job finds loans by gloss
@@ -297,5 +561,8 @@ questions, and two English runs after ranking), 2.65M input tokens, about 11 cen
   `kotori enrich nuance --outdated --common-only`. Japanese rows are version 1, and English ones
   judged by PR #34's questions are version 1 too.
 - Check the Fly secrets for a `KOTORI_JEV_MODEL` override of the jev-1.14.0 pin.
+- English words judged with questions version 3, 4 or 5 (none in production, since #40 and this
+  haven't shipped) are judged again when viewed, since the loan question changed; `--outdated`
+  picks them up too.
 - Re-seed the English dictionary after this merges (`pnpm kotori seed --dictionary english`):
   senses take their ranked order, and what production judged in #34's order moves with them.

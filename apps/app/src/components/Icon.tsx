@@ -3,9 +3,11 @@ import createIconSet from "@expo/vector-icons/createIconSet"
 /**
  * Material Symbols Rounded (Apache 2.0, see assets/fonts), weight 400 at the
  * 24px optical size, outlined and filled. The fonts are subsets holding only
- * the glyphs below. To add one, download both styles again from Google Fonts
- * (`css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,{0|1},0&icon_names=…`)
- * and add its codepoint here.
+ * the glyphs below. To add one, add its codepoint here and download both styles again from
+ * Google Fonts (`css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,{0|1},0&icon_names=…`,
+ * every name below in alphabetical order; curl's default user agent is served TrueType). A name
+ * missing from the fonts draws as a crossed box, so check the new files hold its codepoint
+ * (`fc-query --format='%{charset}' MaterialSymbolsRounded.ttf`).
  */
 const glyphs = {
   add: 57669,

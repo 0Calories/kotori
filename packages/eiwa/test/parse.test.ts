@@ -228,6 +228,15 @@ describe("parseEjdict", () => {
     expect(word("light")?.senses[0]).toMatchObject({ pos: ["n"], misc: ["uncountable"] })
   })
 
+  it("spells out the headword where a grammar note writes ~", () => {
+    const [crap, atom] = parseEjdict([
+      "crap\t〈U〉うんこ,くそ,糞 / 《a~》うんこをすること",
+      "atom\t『原子』 / 《時にa~》微量,わずか(の…)《+『of』+『名』》"
+    ]).words
+    expect(crap?.senses[1]?.info).toEqual(["「a crap」の形で"])
+    expect(atom?.senses[1]?.info).toEqual(["時にan atom", "+of+名"])
+  })
+
   it("turns lines that only name another word's form into forms of it", () => {
     expect(formsOf).toEqual([
       { text: "was", base: "be", tags: ["past"] },
