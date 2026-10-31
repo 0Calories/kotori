@@ -9,7 +9,11 @@ export const palette = {
   cream: "#F5F1E8",
   shade: "#DFD1C4",
   blush: "#F49D94",
-  sky: "#94C1E2"
+  sky: "#94C1E2",
+  /** Confetti comes in these and the blush. */
+  peach: "#F7A062",
+  mint: "#96C979",
+  yellow: "#F7C747"
 }
 
 /** Kotori in three-quarter view, facing left. */
@@ -41,14 +45,41 @@ export const shapes = {
   ],
   /** Catchlight, offset from each eye's centre. */
   catchlight: { dx: 2.1, dy: -4, r: 2.4 },
-  beak: "M70.6 75.8 C 68.6 75.7, 63.5 79.5, 61.6 82.9 C 60.8 84.3, 67.4 88.9, 70.6 88.8 C 73.3 88.6, 80.7 84.7, 79.8 82.8 C 78.1 79.3, 71.9 75.9, 70.6 75.8 Z"
+  beak: "M70.6 75.8 C 68.6 75.7, 63.5 79.5, 61.6 82.9 C 60.8 84.3, 67.4 88.9, 70.6 88.8 C 73.3 88.6, 80.7 84.7, 79.8 82.8 C 78.1 79.3, 71.9 75.9, 70.6 75.8 Z",
+  /** A big sparkle and a small one, above Kotori's back when it celebrates. */
+  sparkles: {
+    bigSparkle: "M160 13 l 3 8 l 8 3 l -8 3 l -3 8 l -3 -8 l -8 -3 l 8 -3 Z",
+    smallSparkle: "M183 1 l 2 4.5 l 4.5 2 l -4.5 2 l -2 4.5 l -2 -4.5 l -4.5 -2 l 4.5 -2 Z"
+  }
 } as const
+
+export type Shape = "square" | "strip" | "dot" | "curl" | "squiggle"
+
+/** A piece of confetti, drawn about its centre: filled, or as a round-ended stroke `stroke` wide. */
+type Bit = { readonly d: string; readonly stroke?: number }
+
+/**
+ * Confetti for celebrating: squares, strips and dots of paper, and curls and
+ * squiggles of ribbon. Every piece fits a canvas `canvas` units square about
+ * its centre, however it turns.
+ */
+export const confetti: { readonly canvas: number; readonly bits: Readonly<Record<Shape, Bit>> } = {
+  canvas: 22,
+  bits: {
+    square: { d: "M-5.5 -5.5 H 5.5 V 5.5 H -5.5 Z" },
+    strip: { d: "M-3 -7 H 3 V 7 H -3 Z" },
+    dot: { d: "M-5 0 A 5 5 0 0 0 5 0 A 5 5 0 0 0 -5 0 Z" },
+    curl: { d: "M-7 3 Q 0 -7.5 7 3", stroke: 4 },
+    squiggle: { d: "M-8.5 0 Q -4.25 -4 0 0 Q 4.25 4 8.5 0", stroke: 3.4 }
+  }
+}
 
 /**
  * The parts that move, and the point each one turns and scales about. `bird`
  * is the whole of Kotori, standing where its feet meet the ground; `face`
  * carries the cheeks, beak and eyes, and `eyes` moves within it. As the eyes
- * fade, shut eyes show in their place.
+ * fade, shut eyes show in their place. The sparkles turn and scale about
+ * their middles, beside Kotori rather than on it.
  */
 export const joints = {
   bird: { x: 92, y: 180 },
@@ -57,7 +88,9 @@ export const joints = {
   frontFoot: { x: 106.1, y: 176.9 },
   wing: { x: 140.3, y: 91.2 },
   face: { x: 72.7, y: 82 },
-  eyes: { x: 72.7, y: 76.6 }
+  eyes: { x: 72.7, y: 76.6 },
+  bigSparkle: { x: 160, y: 24 },
+  smallSparkle: { x: 183, y: 7.5 }
 } as const
 
 /** Kotori facing the viewer, symmetric about x = 100. */
