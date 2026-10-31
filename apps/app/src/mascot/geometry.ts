@@ -108,9 +108,9 @@ export const frontShapes = {
  * the box, into `headroom`.
  */
 export const thinkingShapes = {
-  /** A crescent drawn over the body and cheek, its rounded tip under the beak. Shown in place of `frontShapes.wings[0]`. */
+  /** A crescent drawn over the body below the cheek, broad at the side and as thick at its rounded tip under the beak. Shown in place of `frontShapes.wings[0]`. */
   chinWing:
-    "M92.6 95.5 C 92.8 104, 88 113, 80 120.3 C 72 131, 58 143, 45 143.5 C 33 144, 22 134, 21 120 C 20 108, 24 97, 33 93 C 40 90, 47 97, 58 101.5 C 68 105.5, 78 101, 84 92.5 A 4.6 4.6 0 0 1 92.6 95.5 Z",
+    "M90.4 98.5 C 90.8 102.2, 89 107.1, 87.6 111.2 C 86.2 115.3, 84.3 119.3, 81.9 122.9 C 79.5 126.5, 76.6 130, 73.3 132.8 C 70.1 135.6, 66.3 138, 62.3 139.7 C 58.4 141.3, 53.9 142.5, 49.7 142.7 C 45.4 142.8, 40.7 142.3, 36.9 140.7 C 33 139.1, 29 136.2, 26.5 132.9 C 24.1 129.6, 22.8 124.9, 22.2 120.8 C 21.6 116.6, 22.1 112, 23.1 107.8 C 24.1 103.7, 25.6 98.3, 28.4 96 C 31.2 93.7, 36.3 93, 39.9 93.9 C 43.6 94.9, 46.4 100.3, 50.3 101.7 C 54.1 103.1, 58.9 103, 63 102.1 C 67 101.3, 70.9 98.6, 74.6 96.4 C 78.3 94.1, 82.6 88.5, 85.2 88.8 C 87.8 89.2, 90 94.8, 90.4 98.5 Z",
   /** Puffs between the head and the bubble, smallest first. */
   trail: [
     { cx: 119, cy: 15, r: 3.4 },
