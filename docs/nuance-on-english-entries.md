@@ -558,7 +558,8 @@ Then three fresh runs (`kotori eval english`, mean per run, with `lsource`):
 - Re-import JMDict so `senses.sources` is filled. Until then the English job finds loans by gloss
   only, and misses マンション, ナイーブ and カンニング.
 - After deploying: `kotori enrich nuance --reinterpret` (free), then
-  `kotori enrich nuance --outdated --common-only`. Japanese rows are version 1, and English ones
+  `kotori enrich nuance --outdated --common-only --limit <n>`, which shows how many entries it
+  would re-judge and roughly what Jev would cost, and runs with `--yes`. Japanese rows are version 1, and English ones
   judged by PR #34's questions are version 1 too.
 - Check the Fly secrets for a `KOTORI_JEV_MODEL` override of the jev-1.14.0 pin.
 - English words judged with questions version 3, 4 or 5 (none in production, since #40 and this

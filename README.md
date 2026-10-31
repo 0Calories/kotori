@@ -106,6 +106,8 @@ pnpm kotori enrich audio --limit 100        # ElevenLabs
 pnpm kotori status                          # coverage and queue
 ```
 
+Each of these first says how many entries it would enrich and roughly what that costs, and stops; add `--yes` to spend it. `--entry <id>` and `--reinterpret` (free) run straight away.
+
 Runs skip entries that are already done, so they can be repeated or interrupted safely.
 
 **How nuance is judged.** Jev judges a whole entry in one request. Every question sees the word, its reading and the leading glosses of its senses, and carries in its own instructions the sense it's about: that sense's meaning, part of speech and JMDict's usage notes. Per sense it answers two scores (formality, speech ↔ writing), six choices (keigo type, gender, age group, currency, connotation, register shape) and two yes/no cautions. Similar-word candidates come from JMDict cross-references and words sharing an exact gloss; for each, Jev judges whether it's a near-synonym and how it differs (more casual, humble, broader…). Code combines the answers: JMDict tags such as `hon`, `col` or `male` win over Jev; "stiff between friends" is derived from the register judgments; low-confidence judgments are hidden; raw distributions are stored so labels can be re-derived without re-running inference (`kotori enrich nuance --reinterpret`). The model is pinned (`jev-1.14.0`) so stored confidences stay comparable, and `kotori eval nuance` measures the questions against a golden set of real JMDict entries.
