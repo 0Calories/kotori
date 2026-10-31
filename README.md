@@ -38,7 +38,7 @@ packages/
   ai/         Claude service, coach prompts, example-sentence writer
   tts/        ElevenLabs client, content-addressed audio store, monthly budget guard
   srs/        Anki's SM-2 scheduler (v3), pure and fully tested
-tools/        Local setup script; renders the mascot into app icons
+tools/        Local setup script; renders the mascot into app icons and animation stills
 ```
 
 `nx graph` shows how they fit together.
@@ -149,6 +149,7 @@ pnpm lint        # Oxlint (.oxlintrc.json), including type-aware rules
 pnpm format      # Oxfmt (.oxfmtrc.json); `pnpm format:check` in CI
 pnpm sync        # Nx keeps tsconfig project references in step with package.json
 pnpm assets      # re-render icons and splash from the mascot geometry
+pnpm motion      # preview a mascot animation as stills and a looping page, e.g. `pnpm motion celebrate`
 ```
 
 Packages are TypeScript project references. Each one has a `tsconfig.lib.json` (source, emitted to `dist/`) and a `tsconfig.spec.json` (tests, type-checked only); `nx sync` derives the `references` between them from `package.json` dependencies, so importing a package you have not declared fails the typecheck. Their `exports` maps point `@kotori/source` at `src/` and everything else at `dist/`: `tsc`, `tsx -C @kotori/source`, Vitest and Metro read source, while `node dist/main.js` in production reads the compiled output.
