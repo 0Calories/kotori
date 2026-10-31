@@ -147,6 +147,8 @@ export default function LookUpScreen() {
   const target = profile?.targetLanguage ?? "ja"
   const search = useSearch(debounced, target)
   const searching = query.trim().length > 0
+  // Kotori thinks until the results for what's typed arrive, including the debounce before the request.
+  const loading = searching && (debounced !== query.trim() || search.isFetching)
 
   const remember = (term: string) => setRecent([term, ...recent.filter((r) => r !== term)].slice(0, 8))
 
@@ -280,7 +282,7 @@ export default function LookUpScreen() {
             ) : null}
           </View>
           <View pointerEvents="none" style={{ position: "absolute", right: 62, top: -58 }}>
-            <Mascot size={70} mood={searching ? "thinking" : "curious"} />
+            <Mascot size={70} mood={loading ? "thinking" : "curious"} />
           </View>
         </View>
 
