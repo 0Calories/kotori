@@ -81,6 +81,12 @@ const fromCard = (card: CardRow): typeof cards.$inferInsert => ({
   createdAt: at(card.createdAt)
 })
 
+/**
+ * The card that shows the target language. `produce` is the retired reverse direction:
+ * those rows stay so their review logs are kept, and every queue and count skips them.
+ */
+const scheduled = eq(cards.template, "recognize")
+
 export class StudyRepo extends Context.Service<
   StudyRepo,
   {
@@ -188,7 +194,12 @@ export class StudyRepo extends Context.Service<
           .from(cards)
           .innerJoin(notes, eq(notes.id, cards.noteId))
           .where(
-            and(eq(cards.userId, userId), inArray(cards.queue, ["learning", "relearning"]), lte(cards.due, at(until)))
+            and(
+              eq(cards.userId, userId),
+              scheduled,
+              inArray(cards.queue, ["learning", "relearning"]),
+              lte(cards.due, at(until))
+            )
           )
           .orderBy(asc(cards.due))
         return rows.map(toCardWithContent)
@@ -200,7 +211,7 @@ export class StudyRepo extends Context.Service<
           .select(cardsWithContent)
           .from(cards)
           .innerJoin(notes, eq(notes.id, cards.noteId))
-          .where(and(eq(cards.userId, userId), eq(cards.queue, "review"), lte(cards.due, at(until))))
+          .where(and(eq(cards.userId, userId), scheduled, eq(cards.queue, "review"), lte(cards.due, at(until))))
           .orderBy(asc(cards.due), asc(cards.seed))
           .limit(limit)
         return rows.map(toCardWithContent)
@@ -212,7 +223,7 @@ export class StudyRepo extends Context.Service<
           .select(cardsWithContent)
           .from(cards)
           .innerJoin(notes, eq(notes.id, cards.noteId))
-          .where(and(eq(cards.userId, userId), eq(cards.queue, "new")))
+          .where(and(eq(cards.userId, userId), scheduled, eq(cards.queue, "new")))
           .orderBy(asc(cards.position), asc(cards.template))
           .limit(limit)
         return rows.map(toCardWithContent)
@@ -222,7 +233,7 @@ export class StudyRepo extends Context.Service<
         db
           .select({ due: min(cards.due) })
           .from(cards)
-          .where(and(eq(cards.userId, userId), inArray(cards.queue, ["learning", "relearning"])))
+          .where(and(eq(cards.userId, userId), scheduled, inArray(cards.queue, ["learning", "relearning"])))
           .pipe(
             Effect.map((rows) => Option.fromNullishOr(rows[0]?.due).pipe(Option.map(millis))),
             Effect.orDie
@@ -232,10 +243,12 @@ export class StudyRepo extends Context.Service<
         db
           .select({ n: countDistinct(reviewLogs.cardId) })
           .from(reviewLogs)
+          .innerJoin(cards, eq(cards.id, reviewLogs.cardId))
           .where(
             and(
               eq(reviewLogs.userId, userId),
               eq(reviewLogs.studyDay, studyDay),
+              scheduled,
               queueBefore === undefined ? undefined : eq(reviewLogs.queueBefore, queueBefore)
             )
           )
@@ -271,7 +284,7 @@ export class StudyRepo extends Context.Service<
         db
           .select({ queue: cards.queue, mature, n: count() })
           .from(cards)
-          .where(eq(cards.userId, userId))
+          .where(and(eq(cards.userId, userId), scheduled))
           .groupBy(cards.queue, mature)
           .pipe(Effect.orDie)
 
@@ -294,8 +307,14 @@ export class StudyRepo extends Context.Service<
             failed: sql<number>`count(*) FILTER (WHERE ${reviewLogs.rating} = 'again')`.mapWith(Number)
           })
           .from(reviewLogs)
+          .innerJoin(cards, eq(cards.id, reviewLogs.cardId))
           .where(
-            and(eq(reviewLogs.userId, userId), eq(reviewLogs.queueBefore, "review"), gte(reviewLogs.studyDay, sinceDay))
+            and(
+              eq(reviewLogs.userId, userId),
+              scheduled,
+              eq(reviewLogs.queueBefore, "review"),
+              gte(reviewLogs.studyDay, sinceDay)
+            )
           )
           .pipe(
             Effect.map((rows) => ({ total: rows[0]?.total ?? 0, failed: rows[0]?.failed ?? 0 })),
@@ -306,7 +325,7 @@ export class StudyRepo extends Context.Service<
         db
           .select({ due: cards.due })
           .from(cards)
-          .where(and(eq(cards.userId, userId), eq(cards.queue, "review"), lt(cards.due, at(until))))
+          .where(and(eq(cards.userId, userId), scheduled, eq(cards.queue, "review"), lt(cards.due, at(until))))
           .pipe(
             Effect.map((rows) => rows.map((row) => millis(row.due))),
             Effect.orDie

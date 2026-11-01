@@ -5,7 +5,6 @@ import {
   type AnswerResult,
   CardId,
   type CardSummary,
-  type CardTemplate,
   type Note,
   NoteId,
   type Profile,
@@ -70,7 +69,8 @@ const toNote = (note: NoteRow, cards: ReadonlyArray<CardRow>): Note => ({
   id: NoteId.make(note.id),
   content: note.content,
   createdAt: note.createdAt,
-  cards: cards.map(toSummary)
+  // Reverse cards stay in the database. Callers only see the target-language one.
+  cards: cards.filter((card) => card.template === "recognize").map(toSummary)
 })
 
 export class Study extends Context.Service<
@@ -114,8 +114,6 @@ export class Study extends Context.Service<
         }
 
         const now = yield* Clock.currentTimeMillis
-        const templates: ReadonlyArray<CardTemplate> =
-          request.templates && request.templates.length > 0 ? [...new Set(request.templates)] : ["recognize", "produce"]
         const position = yield* repo.nextPosition(user.id)
         const note: NoteRow = {
           id: randomUUID(),
@@ -125,24 +123,28 @@ export class Study extends Context.Service<
           sense: word?.senseIndex ?? null,
           createdAt: now
         }
-        const cards = templates.map((template): CardRow => ({
-          id: randomUUID(),
-          noteId: note.id,
-          userId: user.id,
-          template,
-          queue: "new",
-          due: now,
-          interval: 0,
-          ease: 0,
-          step: 0,
-          reps: 0,
-          lapses: 0,
-          leech: false,
-          lastReview: null,
-          seed: randomInt(2 ** 31),
-          position,
-          createdAt: now
-        }))
+        // One card per saved item: the target-language side. `request.templates` is ignored so
+        // older clients that asked for the reverse direction don't get a second card.
+        const cards: Array<CardRow> = [
+          {
+            id: randomUUID(),
+            noteId: note.id,
+            userId: user.id,
+            template: "recognize",
+            queue: "new",
+            due: now,
+            interval: 0,
+            ease: 0,
+            step: 0,
+            reps: 0,
+            lapses: 0,
+            leech: false,
+            lastReview: null,
+            seed: randomInt(2 ** 31),
+            position,
+            createdAt: now
+          }
+        ]
         yield* repo.insertNote(note, cards)
         return toNote(note, cards)
       })

@@ -146,6 +146,11 @@ const U1 = "00000000-0000-4000-8000-000000000001"
 const N1 = "00000000-0000-4000-8000-00000000000a"
 const C1 = "00000000-0000-4000-8000-0000000000c1"
 const C2 = "00000000-0000-4000-8000-0000000000c2"
+const N2 = "00000000-0000-4000-8000-00000000000b"
+const C3 = "00000000-0000-4000-8000-0000000000c3"
+const C4 = "00000000-0000-4000-8000-0000000000c4"
+const C5 = "00000000-0000-4000-8000-0000000000c5"
+const C6 = "00000000-0000-4000-8000-0000000000c6"
 
 describe("normalizeGloss", () => {
   layer(Layer.empty)((it) => {
@@ -507,7 +512,7 @@ layer(TestLayer)("StudyRepo", (it) => {
           sense: null,
           createdAt: 0
         },
-        [card(C1, "new", 0), { ...card(C2, "review", 500), template: "produce" }]
+        [card(C1, "new", 0), card(C2, "review", 500)]
       )
 
       const notes = yield* study.notes(U1)
@@ -572,6 +577,110 @@ layer(TestLayer)("StudyRepo", (it) => {
       assert.isTrue(yield* study.deleteNote(U1, N1))
       assert.isTrue(Option.isNone(yield* study.card(U1, C2)))
       assert.strictEqual(yield* study.noteCount(U1), 0)
+    })
+  )
+
+  it.effect("keeps reverse cards for their history and leaves them out of the queue and the counts", () =>
+    Effect.gen(function* () {
+      const users = yield* UsersRepo
+      const study = yield* StudyRepo
+      yield* users.ensure(learner)
+
+      const card = (
+        id: string,
+        template: "recognize" | "produce",
+        queue: "new" | "learning" | "review",
+        due: number
+      ) => ({
+        id,
+        noteId: N2,
+        userId: U1,
+        template,
+        queue,
+        due,
+        interval: queue === "review" ? 10 : 0,
+        ease: queue === "review" ? 2.5 : 0,
+        step: 0,
+        reps: 0,
+        lapses: 0,
+        leech: false,
+        lastReview: null,
+        seed: 3,
+        position: 1,
+        createdAt: 0
+      })
+
+      yield* study.insertNote(
+        {
+          id: N2,
+          userId: U1,
+          content: {
+            kind: "phrase",
+            text: "ありがとう",
+            furigana: null,
+            meaning: "thank you",
+            note: null,
+            register: null,
+            source: "manual"
+          },
+          entryId: null,
+          sense: null,
+          createdAt: 0
+        },
+        [
+          card(C3, "recognize", "new", 0),
+          card(C4, "produce", "new", 0),
+          card(C5, "produce", "learning", 50),
+          card(C6, "produce", "review", 100)
+        ]
+      )
+
+      // The reverse cards are still stored, so the review log that points at them can stay.
+      assert.strictEqual((yield* study.notes(U1)).find((row) => row.note.id === N2)?.cards.length, 4)
+      assert.strictEqual(Option.getOrThrow(yield* study.card(U1, C6)).template, "produce")
+
+      assert.deepStrictEqual(
+        (yield* study.newCards(U1, 10)).map((c) => c.id),
+        [C3]
+      )
+      assert.deepStrictEqual(yield* study.reviewDue(U1, 1_000, 10), [])
+      assert.deepStrictEqual(yield* study.learningDue(U1, 1_000), [])
+      assert.isTrue(Option.isNone(yield* study.nextLearningDue(U1)))
+      assert.deepStrictEqual(yield* study.reviewDueTimes(U1, 100_000), [])
+      assert.deepStrictEqual(
+        (yield* study.queueCounts(U1)).map((row) => `${row.queue}:${row.mature}:${row.n}`),
+        ["new:false:1"]
+      )
+
+      const log = {
+        userId: U1,
+        intervalBefore: 0,
+        interval: 0,
+        easeBefore: 0,
+        ease: 0,
+        delayMs: 0,
+        durationMs: null,
+        reviewedAt: 30_000,
+        studyDay: 30_000
+      }
+      yield* study.insertLog({ ...log, cardId: C3, rating: "good", queueBefore: "new" })
+      yield* study.insertLog({ ...log, cardId: C4, rating: "easy", queueBefore: "new" })
+      yield* study.insertLog({
+        ...log,
+        cardId: C6,
+        rating: "again",
+        queueBefore: "review",
+        intervalBefore: 10,
+        interval: 1
+      })
+
+      // New-card and review limits, and the day's count, follow the one scheduled card.
+      assert.strictEqual(yield* study.countAnswers(U1, 30_000), 1)
+      assert.strictEqual(yield* study.countAnswers(U1, 30_000, "new"), 1)
+      assert.strictEqual(yield* study.countAnswers(U1, 30_000, "review"), 0)
+      assert.deepStrictEqual(yield* study.retention(U1, 30_000), { total: 0, failed: 0 })
+
+      assert.isTrue(yield* study.deleteNote(U1, N2))
     })
   )
 })

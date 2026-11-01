@@ -15,7 +15,10 @@ export type Rating = typeof Rating.Type
 export const CardQueue = Schema.Literals(["new", "learning", "review", "relearning"])
 export type CardQueue = typeof CardQueue.Type
 
-/** recognize: see the target language, recall the meaning. produce: see the meaning, say it. */
+/**
+ * recognize: show the word in the target language and ask for the meaning.
+ * produce: the retired reverse direction. Rows stay so review history is kept; nothing schedules them.
+ */
 export const CardTemplate = Schema.Literals(["recognize", "produce"])
 export type CardTemplate = typeof CardTemplate.Type
 
@@ -126,6 +129,7 @@ export type ReviewQueue = typeof ReviewQueue.Type
 
 export const AddNoteRequest = Schema.Struct({
   content: NoteContent,
+  /** Older clients asked for both directions. Saving always creates the one target-language card. */
   templates: Schema.optional(Schema.Array(CardTemplate))
 })
 export type AddNoteRequest = typeof AddNoteRequest.Type

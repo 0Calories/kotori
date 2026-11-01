@@ -260,14 +260,16 @@ layer(TestLayer)("Kotori API", (it) => {
           }
         }
       })
-      assert.strictEqual(note.cards.length, 2)
+      assert.strictEqual(note.cards.length, 1)
+      assert.strictEqual(note.cards[0]?.template, "recognize")
 
       // Saving the same sense again is idempotent.
       const again = yield* api.study.addNote({ payload: { content: note.content } })
       assert.strictEqual(again.id, note.id)
 
       const queue = yield* api.study.queue({ query: {} })
-      assert.deepStrictEqual(queue.counts, { new: 2, learning: 0, review: 0 })
+      assert.deepStrictEqual(queue.counts, { new: 1, learning: 0, review: 0 })
+      assert.strictEqual(queue.items.length, 1)
       const first = queue.items[0]!
       assert.strictEqual(first.labels.again, "1m")
 
@@ -278,10 +280,39 @@ layer(TestLayer)("Kotori API", (it) => {
       const stats = yield* api.study.stats()
       assert.strictEqual(stats.reviewedToday, 1)
       assert.strictEqual(stats.streak, 1)
-      assert.strictEqual(stats.unseen, 1)
+      assert.strictEqual(stats.cards, 1)
+      assert.strictEqual(stats.unseen, 0)
 
       yield* api.study.removeNote({ params: { id: note.id } })
       assert.deepStrictEqual(yield* api.study.notes(), [])
+    }).pipe(Effect.provide(Session))
+  )
+
+  it.effect("saves one target-language card when a client asks for both directions", () =>
+    Effect.gen(function* () {
+      yield* signedIn("both-directions@example.com")
+      const api = yield* client
+      const note = yield* api.study.addNote({
+        payload: {
+          content: {
+            kind: "phrase",
+            text: "いってきます",
+            furigana: null,
+            meaning: "I'm off",
+            note: null,
+            register: null,
+            source: "manual"
+          },
+          templates: ["produce", "recognize"]
+        }
+      })
+      assert.deepStrictEqual(
+        note.cards.map((card) => card.template),
+        ["recognize"]
+      )
+      const queue = yield* api.study.queue({ query: {} })
+      assert.deepStrictEqual(queue.counts, { new: 1, learning: 0, review: 0 })
+      assert.strictEqual(queue.items[0]?.card.id, note.cards[0]?.id)
     }).pipe(Effect.provide(Session))
   )
 
