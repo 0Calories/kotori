@@ -1,5 +1,5 @@
 import { type Language, loanShown, type Loanword, type Nuance, type Sense, type SimilarWord } from "@kotori/domain"
-import { useLocalSearchParams, useRouter } from "expo-router"
+import { Link, useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { Platform, Share, View } from "react-native"
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated"
@@ -22,6 +22,7 @@ import { posLabel, tagLabel } from "../../src/i18n/strings.ts"
 import { findForm } from "../../src/lib/forms.ts"
 import { wordNote } from "../../src/lib/notes.ts"
 import { CONFIDENT, dictionaryTags, nuanceNotes, registerDisplay, registers } from "../../src/lib/nuance.ts"
+import { entryIdFromParam, entrySourcesHref } from "../../src/lib/sources.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
 
@@ -322,19 +323,20 @@ export default function EntryScreen() {
   const theme = useTheme()
   const { t } = useSession()
   const router = useRouter()
-  const { id } = useLocalSearchParams<{ id: string }>()
-  const entry = useEntry(Number(id))
+  const { id: rawId } = useLocalSearchParams<{ id?: string | string[] }>()
+  const id = entryIdFromParam(rawId)
+  const entry = useEntry(id ?? 0)
   const notes = useNotes()
   const addNote = useAddNote()
-  const enrich = useEnrich(Number(id))
+  const enrich = useEnrich(id ?? 0)
   const [showAll, setShowAll] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const back = () => (router.canGoBack() ? router.back() : router.replace("/"))
 
-  if (entry.isError) {
+  if (id === null || entry.isError) {
     return (
       <Screen bottomInset={40} header={<Header onBack={back} />}>
-        <ErrorState error={entry.error} onRetry={() => entry.refetch()} />
+        <ErrorState error={entry.error} onRetry={id === null ? undefined : () => entry.refetch()} />
       </Screen>
     )
   }
@@ -534,11 +536,13 @@ export default function EntryScreen() {
             <Text variant="caption" color="textMuted" style={{ flex: 1 }}>
               {t.entry.byAi}
             </Text>
-            <PressableScale onPress={() => router.push("/settings")} accessibilityRole="link" hitSlop={12}>
-              <Text variant="caption" weight="semibold" style={{ textDecorationLine: "underline" }}>
-                {t.entry.sources}
-              </Text>
-            </PressableScale>
+            <Link href={entrySourcesHref(data.id)} asChild>
+              <PressableScale accessibilityRole="link" hitSlop={12}>
+                <Text variant="caption" weight="semibold" style={{ textDecorationLine: "underline" }}>
+                  {t.entry.sources}
+                </Text>
+              </PressableScale>
+            </Link>
           </View>
         ) : null}
         {senses.map((sense, index) => (
