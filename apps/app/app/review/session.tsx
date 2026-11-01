@@ -19,6 +19,7 @@ import { PressableScale } from "../../src/components/PressableScale.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { spokenGloss } from "../../src/lib/english.ts"
+import { shownReviewCard } from "../../src/lib/review.ts"
 import { registerTone } from "../../src/lib/tones.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
@@ -238,13 +239,21 @@ export default function ReviewSession() {
   const [revealed, setRevealed] = useState(false)
   const [reviewed, setReviewed] = useState(0)
   const [leech, setLeech] = useState(false)
+  // The card on screen. A refetch gathers the queue again and can put a different card first;
+  // this stays until the learner answers it.
+  const [pinned, setPinned] = useState<ReviewItem | null>(null)
   const shownAt = useRef(Date.now())
   const [now, setNow] = useState(Date.now())
 
-  // Cards answered but not yet reflected in a refreshed queue are hidden locally, so the next card appears instantly.
-  const items = (queue.data?.items ?? []).filter((item) => !answered.has(item.card.id))
-  const current = items[0]
-  const remaining = items.length
+  const queueItems = queue.data?.items ?? []
+  // Answered cards are skipped locally so the next one appears before the refetch lands.
+  const current = shownReviewCard(queueItems, pinned, answered)
+  // Record the opening card before paint. `respond` pins each card after that, so a
+  // refetch that gathers a new head can't replace whichever one is already showing.
+  if (pinned === null && current !== undefined) setPinned(current)
+  const remaining =
+    queueItems.filter((item) => !answered.has(item.card.id) && item.card.id !== current?.card.id).length +
+    (current === undefined ? 0 : 1)
   const total = remaining + reviewed
   const nextDue = queue.data?.nextDue ?? null
 
@@ -272,12 +281,17 @@ export default function ReviewSession() {
   const respond = useCallback(
     async (rating: Rating) => {
       if (current === undefined || !revealed) return
-      const id = current.card.id
+      const item = current
+      const id = item.card.id
       if (Platform.OS !== "web")
         Haptics.impactAsync(
           rating === "again" ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light
         ).catch(() => {})
-      setAnswered((set) => new Set(set).add(id))
+      const nextAnswered = new Set(answered).add(id)
+      setAnswered(nextAnswered)
+      // Pin the card this answer reveals before the refetch. Gathering again re-spaces new
+      // cards and pulls newly due learning cards forward, which would otherwise replace it.
+      setPinned(shownReviewCard(queue.data?.items ?? [], item, nextAnswered) ?? null)
       setRevealed(false)
       setReviewed((n) => n + 1)
       try {
@@ -285,8 +299,9 @@ export default function ReviewSession() {
         setLeech(result.leech)
         await queue.refetch()
       } catch {
-        // Not recorded: the card comes back below to be answered again.
+        // Not recorded: put this card back. The advance above already pinned the next one.
         setReviewed((n) => n - 1)
+        setPinned(item)
       } finally {
         setAnswered((set) => {
           const next = new Set(set)
@@ -295,7 +310,7 @@ export default function ReviewSession() {
         })
       }
     },
-    [current, revealed, answer, queue]
+    [current, revealed, answer, queue, answered]
   )
 
   // Keyboard shortcuts on the web: space to reveal, 1-4 to answer, Escape to leave.

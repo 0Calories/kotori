@@ -27,6 +27,7 @@ import {
 } from "@kotori/srs"
 import { Clock, Context, Effect, Layer, Option } from "effect"
 import { randomInt, randomUUID } from "node:crypto"
+import { gatherQueue } from "./gather.ts"
 import { utcOffsetMinutes } from "./time.ts"
 
 /** Learning cards due within this window can be shown early, as in Anki. */
@@ -172,18 +173,7 @@ export class Study extends Context.Service<
       const queue = Effect.fn("Study.queue")(function* (user: Profile, limit: number) {
         const now = yield* Clock.currentTimeMillis
         const { learning, reviews, fresh } = yield* counts(user, now)
-        // Learning cards that are due come first (they're time-sensitive), then reviews with new cards
-        // spread among them. Learning cards not quite due yet only come up when nothing else is left,
-        // as with Anki's learn-ahead limit.
-        const ordered: Array<CardWithContent> = learning.filter((card) => card.due <= now)
-        const spacing = fresh.length === 0 ? Infinity : Math.max(Math.floor(reviews.length / fresh.length), 1)
-        let next = 0
-        reviews.forEach((card, index) => {
-          ordered.push(card)
-          if ((index + 1) % spacing === 0 && next < fresh.length) ordered.push(fresh[next++]!)
-        })
-        ordered.push(...fresh.slice(next))
-        ordered.push(...learning.filter((card) => card.due > now))
+        const ordered = gatherQueue(learning, reviews, fresh, now)
 
         const items = ordered.slice(0, limit).map((card) => ({
           card: toStudyCard(card),
