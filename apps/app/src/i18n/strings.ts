@@ -126,6 +126,24 @@ const en = {
     share: "Share",
     byAi: "Examples, audio and similar words by AI",
     sources: "Sources",
+    sourcesIntro: "Where this entry comes from.",
+    sourceDictionary: "Dictionary",
+    sourceDictionaryJa:
+      "Meanings, parts of speech and usage notes are from JMDict by the Electronic Dictionary Research and Development Group (CC BY-SA 4.0).",
+    sourceDictionaryEn:
+      "Meanings are from Japanese Wiktionary via Wiktextract (CC BY-SA 4.0), EJDict-hand (public domain), or JMDict read backwards (CC BY-SA 4.0), whichever listed the word. How often it is used is from OpenSubtitles via FrequencyWords (CC BY-SA 4.0).",
+    sourceNuance: "Nuance",
+    sourceNuanceBody:
+      "Register and cautions are judged by TypeSafe's Jev. Where the dictionary already marks them, that mark is what you see.",
+    sourceExamples: "Examples",
+    sourceExamplesBody: "Example sentences are written by Claude.",
+    sourceSimilar: "Similar words",
+    sourceSimilarBody: "Near-synonyms, and how each one differs, are chosen by TypeSafe's Jev.",
+    sourceAudio: "Pronunciation",
+    sourceAudioBody: "Voices are by ElevenLabs.",
+    sourceLoan: "Katakana loan",
+    sourceLoanBody:
+      "Whether the katakana word means the same thing is judged by TypeSafe's Jev. Claude writes the warning when it has drifted.",
     fromDictionary: "from the dictionary",
     similarIntro: (word: string) => `Picked for ${word} by AI, with how each one differs.`,
     dictionaryOnly: "Dictionary entry only",
@@ -497,6 +515,24 @@ const ja: Strings = {
     share: "共有",
     byAi: "例文・音声・似た言葉はAIで作成しています",
     sources: "出典",
+    sourcesIntro: "この項目の出典です。",
+    sourceDictionary: "辞書",
+    sourceDictionaryJa:
+      "意味、品詞、用法は JMDict（Electronic Dictionary Research and Development Group、CC BY-SA 4.0）によります。",
+    sourceDictionaryEn:
+      "意味は、その単語を載せている出典によります。ウィクショナリー日本語版（Wiktextract 経由、CC BY-SA 4.0）、EJDict-hand（パブリックドメイン）、または JMDict の逆引き（CC BY-SA 4.0）です。使用頻度は OpenSubtitles（FrequencyWords、CC BY-SA 4.0）によります。",
+    sourceNuance: "ニュアンス",
+    sourceNuanceBody:
+      "丁寧さなどの判定は TypeSafe の Jev によるものです。辞書に記載がある項目は、その記載が優先されます。",
+    sourceExamples: "例文",
+    sourceExamplesBody: "例文は Claude が書いています。",
+    sourceSimilar: "似た言葉",
+    sourceSimilarBody: "近い言葉と、それぞれの違いは TypeSafe の Jev が選んでいます。",
+    sourceAudio: "音声",
+    sourceAudioBody: "読み上げは ElevenLabs によるものです。",
+    sourceLoan: "カタカナ語",
+    sourceLoanBody:
+      "カタカナ語が同じ意味かどうかは TypeSafe の Jev が判定します。意味がずれているときの説明は Claude が書いています。",
     fromDictionary: "辞書より",
     similarIntro: (word: string) => `${word}に近い言葉をAIが選び、それぞれの違いを示しています。`,
     dictionaryOnly: "辞書の情報のみ",

@@ -38,6 +38,7 @@ export const useEntry = (id: number) =>
   useQuery({
     queryKey: keys.entry(id),
     queryFn: () => call((api) => api.dictionary.entry({ params: { id: id as EntryId } })),
+    enabled: Number.isInteger(id) && id > 0,
     // While Kotori's worker is still enriching the entry, check back every few seconds.
     refetchInterval: (query) => {
       const enrichment = query.state.data?.enrichment
