@@ -1,4 +1,4 @@
-import { Auth, type AuthUser } from "@kotori/auth"
+import { Auth, type AuthUser } from "../../integrations/auth/Auth.ts"
 import { type UserRow, UsersRepo } from "@kotori/db"
 import { otherLanguage, type Profile, type UpdateProfileRequest, UserId } from "@kotori/domain"
 import { Clock, Context, Effect, Layer, Option } from "effect"

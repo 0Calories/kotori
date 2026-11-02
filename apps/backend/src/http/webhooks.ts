@@ -1,4 +1,4 @@
-import { AuthWebhooks } from "@kotori/auth"
+import { AuthWebhooks } from "../features/accounts/Webhooks.ts"
 import { ByteSize, Effect } from "effect"
 import { HttpIncomingMessage, HttpRouter, HttpServerResponse } from "effect/http"
 

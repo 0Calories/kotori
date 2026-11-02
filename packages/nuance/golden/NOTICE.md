@@ -1,6 +1,6 @@
 # The golden fixture's data and licences
 
-`entries.json` holds excerpts of four dictionaries, cut by `tools/golden-fixture.mts` for
+`entries.json` holds excerpts of four dictionaries, cut by `kotori golden` for
 Kotori's evals and tests (`pnpm golden`). Unlike the rest of this repository, which is under the
 MIT licence in `/LICENSE`, it is an adaptation of works under the Creative Commons
 Attribution-ShareAlike 4.0 International licence, and is shared under that licence:

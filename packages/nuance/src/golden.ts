@@ -21,7 +21,7 @@ import { Schema } from "effect"
  * of JMDict (`kotori eval nuance`) or of the English dictionary (`kotori eval english`), and the
  * eval builds its request from that entry with the production builders and interprets the
  * answers with the entry's own tags, so it measures what learners are shown. The entries come
- * from `GOLDEN_FIXTURE`, cut from the downloads by `tools/golden-fixture.ts`. Scale expectations list every acceptable label
+ * from `GOLDEN_FIXTURE`, cut from the downloads by `kotori golden`. Scale expectations list every acceptable label
  * (adjacent labels are often both defensible); boolean expectations are judged at the display
  * threshold (probability >= 0.6).
  */
@@ -518,7 +518,7 @@ const FixtureLoans = Schema.Struct({
   withSources: Schema.Array(FixtureCandidate)
 })
 
-/** The entries the golden set names, as `tools/golden-fixture.ts` cuts them from the two dictionaries. */
+/** The entries the golden set names, as `kotori golden` cuts them from the two dictionaries. */
 export const GoldenFixture = Schema.Struct({
   about: Schema.String,
   /** Labels of the tag codes the entries use, as JMDict declares them. */

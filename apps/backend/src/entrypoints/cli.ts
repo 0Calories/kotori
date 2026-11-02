@@ -7,6 +7,7 @@ import { Command } from "effect/cli"
 import { adminCommand, approve, archive, devAccount, requests, revoke, users } from "../cli/accounts.ts"
 import { enrich } from "../cli/enrich.ts"
 import { evaluate } from "../cli/evaluate.ts"
+import { golden } from "../cli/golden.ts"
 import { migrate } from "../cli/migrate.ts"
 import { seed } from "../cli/seed.ts"
 import { status } from "../cli/status.ts"
@@ -24,6 +25,7 @@ const kotori = Command.make("kotori").pipe(
     seed.pipe(Command.provide(SeedLive)),
     enrich.pipe(Command.provide(WorkerLive)),
     evaluate.pipe(Command.provide(Jev.layer)),
+    golden,
     status.pipe(Command.provide(WorkerLive)),
     requests.pipe(Command.provide(AccountsLive)),
     approve.pipe(Command.provide(AccountsLive)),

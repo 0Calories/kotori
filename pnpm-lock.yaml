@@ -425,24 +425,12 @@ importers:
       '@kotori/ai':
         specifier: workspace:*
         version: link:../../packages/ai
-      '@kotori/auth':
-        specifier: workspace:*
-        version: link:../../packages/auth
       '@kotori/db':
         specifier: workspace:*
         version: link:../../packages/db
       '@kotori/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@kotori/eiwa':
-        specifier: workspace:*
-        version: link:../../packages/eiwa
-      '@kotori/email':
-        specifier: workspace:*
-        version: link:../../packages/email
-      '@kotori/jmdict':
-        specifier: workspace:*
-        version: link:../../packages/jmdict
       '@kotori/language':
         specifier: workspace:*
         version: link:../../packages/language
@@ -455,9 +443,15 @@ importers:
       '@kotori/tts':
         specifier: workspace:*
         version: link:../../packages/tts
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 1.0.0-rc.5(@effect/sql-pg@4.0.3(effect@4.0.3))(@effect/sql-pglite@4.0.3(effect@4.0.3))(@electric-sql/pglite@0.5.11)(@types/pg@8.23.1)(effect@4.0.3)(pg@8.23.1)(zod@4.6.7)
       effect:
         specifier: 'catalog:'
         version: 4.0.3
+      jose:
+        specifier: 'catalog:'
+        version: 6.2.12
 
   apps/local-auth:
     dependencies:
@@ -490,27 +484,6 @@ importers:
         specifier: 'catalog:'
         version: 4.0.3
 
-  packages/auth:
-    dependencies:
-      '@kotori/db':
-        specifier: workspace:*
-        version: link:../db
-      '@kotori/domain':
-        specifier: workspace:*
-        version: link:../domain
-      '@kotori/email':
-        specifier: workspace:*
-        version: link:../email
-      drizzle-orm:
-        specifier: 'catalog:'
-        version: 1.0.0-rc.5(@effect/sql-pg@4.0.3(effect@4.0.3))(@effect/sql-pglite@4.0.3(effect@4.0.3))(@electric-sql/pglite@0.5.11)(@types/pg@8.23.1)(effect@4.0.3)(pg@8.23.1)(zod@4.6.7)
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.3
-      jose:
-        specifier: 'catalog:'
-        version: 6.2.12
-
   packages/db:
     dependencies:
       '@effect/sql-pg':
@@ -538,43 +511,6 @@ importers:
 
   packages/domain:
     dependencies:
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.3
-
-  packages/eiwa:
-    dependencies:
-      '@kotori/db':
-        specifier: workspace:*
-        version: link:../db
-      '@kotori/jmdict':
-        specifier: workspace:*
-        version: link:../jmdict
-      '@kotori/language':
-        specifier: workspace:*
-        version: link:../language
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.3
-
-  packages/email:
-    dependencies:
-      '@kotori/domain':
-        specifier: workspace:*
-        version: link:../domain
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.3
-    devDependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.3(effect@4.0.3)(redis@6.3.0)
-
-  packages/jmdict:
-    dependencies:
-      '@kotori/db':
-        specifier: workspace:*
-        version: link:../db
       effect:
         specifier: 'catalog:'
         version: 4.0.3

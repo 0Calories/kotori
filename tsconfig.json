@@ -6,19 +6,10 @@
       "path": "./packages/ai"
     },
     {
-      "path": "./packages/auth"
-    },
-    {
       "path": "./packages/db"
     },
     {
       "path": "./packages/domain"
-    },
-    {
-      "path": "./packages/email"
-    },
-    {
-      "path": "./packages/jmdict"
     },
     {
       "path": "./packages/nuance"
@@ -31,9 +22,6 @@
     },
     {
       "path": "./apps/local-auth"
-    },
-    {
-      "path": "./packages/eiwa"
     },
     {
       "path": "./packages/language"

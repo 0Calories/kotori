@@ -1,7 +1,8 @@
 import { NodeHttpClient } from "@effect/platform-node"
-import { Approvals, Auth } from "@kotori/auth"
+import { Approvals } from "../features/accounts/Approvals.ts"
+import { Auth } from "../integrations/auth/Auth.ts"
 import { DatabaseLive, Repositories } from "@kotori/db"
-import { MailerLive } from "@kotori/email"
+import { MailerLive } from "../integrations/email/live.ts"
 import { Layer } from "effect"
 
 /** What `kotori seed` needs: the repositories, and an HTTP client to download the sources. */

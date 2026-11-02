@@ -1,4 +1,5 @@
-import { type Account, Approvals, Auth } from "@kotori/auth"
+import { type Account, Approvals } from "../features/accounts/Approvals.ts"
+import { Auth } from "../integrations/auth/Auth.ts"
 import { UsersRepo } from "@kotori/db"
 import type { Language } from "@kotori/domain"
 import { Clock, Console, Effect, Option } from "effect"

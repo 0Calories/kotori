@@ -20,22 +20,10 @@
       "path": "../../packages/language/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/jmdict/tsconfig.lib.json"
-    },
-    {
-      "path": "../../packages/email/tsconfig.lib.json"
-    },
-    {
-      "path": "../../packages/eiwa/tsconfig.lib.json"
-    },
-    {
       "path": "../../packages/domain/tsconfig.lib.json"
     },
     {
       "path": "../../packages/db/tsconfig.lib.json"
-    },
-    {
-      "path": "../../packages/auth/tsconfig.lib.json"
     },
     {
       "path": "../../packages/ai/tsconfig.lib.json"

@@ -1,6 +1,6 @@
 import { DictionaryRepo, resolveFromRoot } from "@kotori/db"
-import { Eiwa } from "@kotori/eiwa"
-import { JMDict } from "@kotori/jmdict"
+import * as Eiwa from "../features/dictionary/import/eiwa/Eiwa.ts"
+import * as JMDict from "../features/dictionary/import/jmdict/JMDict.ts"
 import { Console, Effect, FileSystem, Option } from "effect"
 import { Command, Flag } from "effect/cli"
 

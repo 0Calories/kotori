@@ -1,7 +1,7 @@
 import { Claude } from "@kotori/ai"
 import { DictionaryRepo } from "@kotori/db"
 import { CurrentUser, InvalidRequest, KotoriApi, NotFound } from "@kotori/domain"
-import { Mailer } from "@kotori/email"
+import { Mailer } from "../integrations/email/Mailer.ts"
 import { Jev } from "@kotori/nuance"
 import { Pronouncer } from "@kotori/tts"
 import { Effect, Layer, Option } from "effect"

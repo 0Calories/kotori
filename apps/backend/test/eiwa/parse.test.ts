@@ -1,0 +1,526 @@
+import type { EntryRecord } from "@kotori/db"
+import { describe, expect, it } from "vitest"
+import { commonestFirst, mergeSources, toEntries } from "../../src/features/dictionary/import/eiwa/build.ts"
+import { parseEjdict } from "../../src/features/dictionary/import/eiwa/ejdict.ts"
+import { parseFrequency } from "../../src/features/dictionary/import/eiwa/frequency.ts"
+import { jmdictReader, wordsFromJmdict } from "../../src/features/dictionary/import/eiwa/jmdict.ts"
+import { splitDefinition } from "../../src/features/dictionary/import/eiwa/text.ts"
+import { cleanIpa, parseWiktionary } from "../../src/features/dictionary/import/eiwa/wiktionary.ts"
+import { emptySense, formOf } from "../../src/features/dictionary/import/eiwa/words.ts"
+
+// Lines as Wiktextract writes them for Japanese Wiktionary, trimmed to the fields read.
+const line = (entry: object) => JSON.stringify({ lang_code: "en", lang: "英語", ...entry })
+const wiktionary = [
+  line({
+    word: "eat",
+    pos: "verb",
+    senses: [
+      { glosses: ["～を食べる。"] },
+      { glosses: ["やつれさせる。心配させる。"], tags: ["informal"] },
+      { glosses: ["（資源や金銭を）消費する。浪費する。食う。"] }
+    ],
+    forms: [
+      { form: "eats", tags: ["third-person", "singular", "present"] },
+      { form: "eating", tags: ["present", "participle"] },
+      { form: "ate", tags: ["past"] },
+      { form: "eaten", tags: ["past", "participle"] }
+    ],
+    sounds: [{ ipa: "/en/" }, { ipa: "/iːt/" }, { ipa: "/i:t/", tags: ["X-SAMPA"] }],
+    synonyms: [{ word: "consume" }, { word: "dine" }],
+    derived: [{ word: "eat out" }, { word: "eatery" }]
+  }),
+  line({
+    word: "eat",
+    pos: "noun",
+    senses: [{ glosses: ["(米話)食べ物。"] }],
+    forms: [{ form: "eats", tags: ["plural"] }]
+  }),
+  line({
+    word: "walk",
+    pos: "verb",
+    senses: [
+      { glosses: ["歩く。"], tags: ["intransitive"] },
+      { glosses: ["散歩させる。"], tags: ["transitive"], raw_tags: ["犬などを"] }
+    ],
+    forms: [{ form: "walked", tags: ["past", "participle"] }],
+    derived: "[2]{word:string}\nwalk out\nwalk over\n"
+  }),
+  line({
+    word: "make sense",
+    pos: "phrase",
+    senses: [
+      {
+        glosses: [
+          "（現象が主語。主語が人の場合はその人の発言内容や態度などを意味する）納得できる。辻褄が合う。（＊原義は「意味を成す」）"
+        ]
+      }
+    ]
+  }),
+  line({
+    word: "tired",
+    pos: "verb",
+    senses: [{ glosses: ["tireの過去形・過去分詞"], tags: ["form-of"], form_of: [{ word: "tire" }] }]
+  }),
+  line({ word: "tired", pos: "adj", senses: [{ glosses: ["疲れた。"] }], forms: [{ form: "more tired" }] }),
+  line({ word: "tire", pos: "verb", senses: [{ glosses: ["疲れる。"] }] }),
+  // Pages for inflections and other spellings, saying so only in the definition, as Wiktionary
+  // writes it: bare, quoted, or after a label.
+  line({ word: "ate", pos: "verb", senses: [{ glosses: ["eatの過去形"] }] }),
+  line({
+    word: "eaten",
+    pos: "verb",
+    senses: [{ glosses: ["eatの過去分詞"] }, { glosses: ["（特に複合語で）食べられる"] }]
+  }),
+  line({ word: "asked", pos: "verb", senses: [{ glosses: ['"ask" の過去形・過去分詞形。'] }] }),
+  line({ word: "gotten", pos: "verb", senses: [{ glosses: ["(米) getの過去分詞"] }] }),
+  line({ word: "judgement", pos: "noun", senses: [{ glosses: ["judgmentの異綴、米国でも時折みられる"] }] }),
+  // Senses Wiktionary lists oldest first.
+  line({
+    word: "sad",
+    pos: "adj",
+    senses: [{ glosses: ["満足した。"], tags: ["obsolete"] }, { glosses: ["悲しい。"] }]
+  }),
+  // Lines that aren't JSON, or aren't shaped like an entry, are skipped.
+  '{"word": "broken", "lang_code": "en", ',
+  line({ word: "mistyped", pos: "verb", senses: "走る。" }),
+  line({
+    word: "hello",
+    pos: "intj",
+    senses: [{ glosses: ["こんにちは。"] }],
+    forms: [
+      { form: "hallo", tags: ["alternative"] },
+      { form: "hullo", tags: ["alternative", "obsolete"] },
+      { form: "または" }
+    ]
+  }),
+  // Other languages share the file and are skipped.
+  JSON.stringify({ word: "be", lang_code: "nb", pos: "verb", senses: [{ glosses: ["求める。"] }] })
+]
+
+const ejdict = [
+  "team\t(スポーツの)『チーム』 / (共に仕事などをする)『一団』,一組 / …をチームにする《+『up』》",
+  "guy\t控え綱 / 《米話》男,やつ",
+  "was\tbeの一人称および三人称単数過去形",
+  "be\t《連結語として補語を伴なって》…『である』,…だ / 〈物事が〉『存在する』,ある",
+  "okay\t=OK,O.K.",
+  "eat\t…を『食べる』",
+  "light\t〈U〉『光』;明るさ / 〈C〉『明かり』"
+]
+
+describe("splitDefinition", () => {
+  it("splits sentences and short synonym lists, not clauses", () => {
+    expect(splitDefinition("青の、青色をした。藍色の、紺色の。").glosses).toEqual([
+      "青の",
+      "青色をした",
+      "藍色の",
+      "紺色の"
+    ])
+    expect(splitDefinition("人間の肌の色、特に人種や民族を指す。").glosses).toEqual([
+      "人間の肌の色、特に人種や民族を指す"
+    ])
+  })
+
+  it("keeps separators inside asides and sets whole asides apart as notes", () => {
+    expect(splitDefinition("（現象が主語。主語が人）納得できる。（＊原義は「意味を成す」）")).toEqual({
+      glosses: ["（現象が主語。主語が人）納得できる"],
+      notes: ["＊原義は「意味を成す」"]
+    })
+  })
+})
+
+describe("parseWiktionary", () => {
+  const { words, formsOf, phrases } = parseWiktionary(wiktionary)
+  const word = (headword: string) => words.find((candidate) => candidate.headword === headword)
+
+  it("merges a word's parts of speech into one headword, in page order", () => {
+    const eat = word("eat")
+    expect(eat?.ipa).toBe("/iːt/")
+    expect(eat?.senses.map((sense) => [sense.glosses.map((gloss) => gloss.text), sense.pos, sense.misc])).toEqual([
+      [["～を食べる"], ["v"], []],
+      [["やつれさせる", "心配させる"], ["v"], ["col"]],
+      [["（資源や金銭を）消費する", "浪費する", "食う"], ["v"], []],
+      [["食べ物"], ["n"], ["col"]]
+    ])
+    expect(eat?.senses[3]?.dialects).toEqual(["en-US"])
+    // Synonyms are listed for the whole part of speech, to be placed once every word is known.
+    expect(eat?.senses[0]?.xrefs).toEqual([])
+    expect(eat?.references).toEqual([{ from: 0, to: 3, synonyms: ["consume", "dine"], antonyms: [] }])
+  })
+
+  it("keeps real IPA and drops template debris", () => {
+    expect(cleanIpa("/en/")).toBeNull()
+    expect(cleanIpa("[list]")).toBeNull()
+    expect(cleanIpa("//ɪnkənˈviːniənt//")).toBe("/ɪnkənˈviːniənt/")
+    expect(cleanIpa("/'bɑðɚ/")).toBe("/ˈbɑðɚ/")
+    expect(cleanIpa("[tʰeɪk]")).toBe("[tʰeɪk]")
+  })
+
+  it("reads inflections, with a regular verb's one past form as both past and participle", () => {
+    expect(word("eat")?.inflections).toEqual([
+      { text: "eats", tags: ["third-person", "plural"] },
+      { text: "eating", tags: ["present-participle"] },
+      { text: "ate", tags: ["past"] },
+      { text: "eaten", tags: ["past-participle"] }
+    ])
+    expect(word("walk")?.inflections).toEqual([{ text: "walked", tags: ["past", "past-participle"] }])
+  })
+
+  it("files transitivity as part of speech and keeps context labels in the gloss", () => {
+    expect(word("walk")?.senses.map((sense) => [sense.glosses[0]?.text, sense.pos])).toEqual([
+      ["歩く", ["v", "vi"]],
+      ["（犬などを）散歩させる", ["v", "vt"]]
+    ])
+  })
+
+  it("turns form-of senses into forms of their word, and keeps the word's own senses", () => {
+    expect(formsOf).toEqual([
+      { text: "tired", base: "tire", tags: ["past", "past-participle"] },
+      { text: "ate", base: "eat", tags: ["past"] },
+      { text: "eaten", base: "eat", tags: ["past-participle"] },
+      { text: "asked", base: "ask", tags: ["past", "past-participle"] },
+      { text: "gotten", base: "get", tags: ["past-participle"] },
+      { text: "judgement", base: "judgment", tags: [] }
+    ])
+    expect(word("tired")?.senses.map((sense) => sense.glosses[0]?.text)).toEqual(["疲れた"])
+    // "ate" is only eat's past, so it is no word of its own; "eaten" also has a meaning.
+    expect(word("ate")).toBeUndefined()
+    expect(word("asked")).toBeUndefined()
+    expect(word("eaten")?.senses.map((sense) => sense.glosses[0]?.text)).toEqual(["（特に複合語で）食べられる"])
+  })
+
+  it("skips lines that aren't entries", () => {
+    expect(word("broken")).toBeUndefined()
+    expect(word("mistyped")).toBeUndefined()
+  })
+
+  it("keeps everyday spellings and drops obsolete ones and non-English text", () => {
+    expect(word("hello")?.spellings).toEqual(["hallo"])
+  })
+
+  it("collects the phrases listed under words, and notes from asides", () => {
+    expect([...phrases]).toEqual(["eat out", "walk out", "walk over"])
+    expect(word("make sense")?.senses[0]).toMatchObject({
+      glosses: [
+        { text: "（現象が主語。主語が人の場合はその人の発言内容や態度などを意味する）納得できる" },
+        { text: "辻褄が合う" }
+      ],
+      info: ["＊原義は「意味を成す」"],
+      pos: ["exp"]
+    })
+    expect(word("be")).toBeUndefined()
+  })
+})
+
+describe("parseEjdict", () => {
+  const { words, formsOf } = parseEjdict(ejdict)
+  const word = (headword: string) => words.find((candidate) => candidate.headword === headword)
+
+  it("reads meanings as senses, their usage labels as tags and grammar notes as notes", () => {
+    expect(
+      word("team")?.senses.map((sense) => [sense.glosses.map((gloss) => gloss.text), sense.pos, sense.info])
+    ).toEqual([
+      [["(スポーツの)チーム"], [], []],
+      [["(共に仕事などをする)一団", "一組"], [], []],
+      [["…をチームにする"], ["v", "vt"], ["+up"]]
+    ])
+    expect(word("guy")?.senses[1]).toMatchObject({ dialects: ["en-US"], misc: ["col"] })
+    expect(word("light")?.senses[0]).toMatchObject({ pos: ["n"], misc: ["uncountable"] })
+  })
+
+  it("spells out the headword where a grammar note writes ~", () => {
+    const [crap, atom] = parseEjdict([
+      "crap\t〈U〉うんこ,くそ,糞 / 《a~》うんこをすること",
+      "atom\t『原子』 / 《時にa~》微量,わずか(の…)《+『of』+『名』》"
+    ]).words
+    expect(crap?.senses[1]?.info).toEqual(["「a crap」の形で"])
+    expect(atom?.senses[1]?.info).toEqual(["時にan atom", "+of+名"])
+  })
+
+  it("turns lines that only name another word's form into forms of it", () => {
+    expect(formsOf).toEqual([
+      { text: "was", base: "be", tags: ["past"] },
+      { text: "okay", base: "OK", tags: [] },
+      { text: "okay", base: "O.K.", tags: [] }
+    ])
+    expect(word("was")).toBeUndefined()
+  })
+})
+
+const jmdictEntry = (
+  id: number,
+  headword: string,
+  reading: string,
+  glosses: Array<string>,
+  common = true
+): EntryRecord => ({
+  id,
+  language: "ja",
+  headword,
+  reading,
+  common,
+  priority: common ? 60 : 0,
+  forms: [],
+  senses: [
+    {
+      glosses: glosses.map((text) => ({ text, type: null })),
+      pos: ["v5b"],
+      misc: [],
+      fields: [],
+      dialects: [],
+      info: [],
+      stagk: [],
+      stagr: [],
+      xrefs: [],
+      antonyms: [],
+      sources: [],
+      wasei: false
+    }
+  ]
+})
+
+describe("formOf", () => {
+  it.each([
+    ["eatの過去形", "eat", ["past"]],
+    ['"ask" の過去形・過去分詞形。', "ask", ["past", "past-participle"]],
+    ["「look」の複数形", "look", ["plural"]],
+    ["strange の比較級。", "strange", ["comparative"]],
+    ["cinqueの旧綴り。", "cinque", []],
+    ["'tisの異綴。", "'tis", []]
+  ])("%s is a form of %s", (gloss, base, tags) => {
+    expect(formOf(gloss)).toEqual({ base, tags })
+  })
+
+  it.each(["走る", "(俗) for の略記。", "doの二人称・単数・現在形"])("%s is a meaning", (gloss) => {
+    expect(formOf(gloss)).toBeNull()
+  })
+})
+
+describe("wordsFromJmdict", () => {
+  const known = {
+    words: new Set(["hang", "eat", "team"]),
+    verbs: new Set(["hang", "eat"]),
+    phrases: new Set(["eat out"]),
+    frequency: new Map([
+      ["selfie", 900],
+      ["teams", 500],
+      ["kata", 300],
+      ["website", 800],
+      ["kim", 5000],
+      ["ex-wife", 600]
+    ])
+  }
+  const words = wordsFromJmdict(
+    [
+      jmdictEntry(1, "遊ぶ", "あそぶ", ["to play", "to hang out"]),
+      jmdictEntry(2, "たむろする", "たむろする", ["to hang out"], false),
+      jmdictEntry(3, "自撮り", "じどり", ["selfie"], false),
+      jmdictEntry(4, "外食", "がいしょく", ["eating out", "to eat out"]),
+      jmdictEntry(5, "秋晴れ", "あきばれ", ["clear autumnal weather"]),
+      jmdictEntry(6, "型", "かた", ["kata"]),
+      jmdictEntry(7, "ディズニー", "ディズニー", ["Disney"]),
+      jmdictEntry(8, "組", "くみ", ["teams"]),
+      jmdictEntry(9, "ウェブサイト", "ウェブサイト", ["website"]),
+      jmdictEntry(10, "韓国海苔", "かんこくのり", ["gim", "kim"], false),
+      jmdictEntry(11, "元妻", "もとつま", ["ex-wife"], false)
+    ],
+    known
+  )
+  const word = (headword: string) => words.find((candidate) => candidate.headword === headword)
+
+  it("reads attested words and phrases backwards, the likeliest Japanese word first", () => {
+    expect(words.map((word) => [word.headword, word.senses.map((sense) => sense.glosses[0]?.text)])).toEqual([
+      ["hang out", ["遊ぶ", "たむろする"]],
+      ["selfie", ["自撮り"]],
+      ["eat out", ["外食"]],
+      ["website", ["ウェブサイト"]],
+      ["kim", ["韓国海苔"]],
+      ["ex-wife", ["元妻"]]
+    ])
+    expect(words[0]?.senses[0]?.pos).toEqual(["v"])
+  })
+
+  it("trusts a word's count only when a common Japanese word glosses it, or it is hyphenated", () => {
+    expect(word("website")?.mayBeName).toBe(false)
+    expect(word("ex-wife")?.mayBeName).toBe(false)
+    // The subtitles count Kim, the name.
+    expect(word("kim")?.mayBeName).toBe(true)
+    expect(word("selfie")?.mayBeName).toBe(true)
+  })
+})
+
+describe("toEntries", () => {
+  const frequency = parseFrequency(["eat 5000", "ate 3000", "team 4000", "be 90000", "was 80000", "hello 100"])
+  const merged = mergeSources({
+    wiktionary: parseWiktionary(wiktionary),
+    ejdict: parseEjdict(ejdict),
+    jmdict: [],
+    frequency
+  })
+
+  it("takes each word from the first source that has it, with the forms the others point at", () => {
+    const sources = new Map(merged.map((word) => [word.headword, word.source]))
+    expect(sources.get("eat")).toBe("wiktionary")
+    expect(sources.get("team")).toBe("ejdict")
+    expect(merged.find((word) => word.headword === "be")?.inflections.get("was")).toEqual(new Set(["past"]))
+    expect(merged.find((word) => word.headword === "tire")?.inflections.has("tired")).toBe(true)
+  })
+
+  it("places synonyms on the sense they share a meaning with, and leaves out the rest", () => {
+    const placed = mergeSources({
+      wiktionary: parseWiktionary([
+        line({
+          word: "eat",
+          pos: "verb",
+          senses: [{ glosses: ["～を食べる。"] }, { glosses: ["食事をする。"] }, { glosses: ["心配させる。"] }],
+          synonyms: [{ word: "dine" }, { word: "bother" }, { word: "chow down" }],
+          antonyms: [{ word: "fast" }]
+        }),
+        line({ word: "dine", pos: "verb", senses: [{ glosses: ["食事をとる。"] }] }),
+        line({
+          word: "bother",
+          pos: "verb",
+          senses: [{ glosses: ["悩ます、困らせる。"] }, { glosses: ["心配させる。"] }]
+        }),
+        line({ word: "awkward", pos: "adj", senses: [{ glosses: ["不器用な。"] }], antonyms: [{ word: "handy" }] })
+      ]),
+      ejdict: { words: [], formsOf: [] },
+      jmdict: [],
+      frequency
+    })
+    const entries = toEntries(placed, frequency, new Map())
+    const eat = entries.find((entry) => entry.headword === "eat")
+    expect(eat?.senses.map((sense) => sense.xrefs)).toEqual([[], ["dine"], ["bother"]])
+    // An antonym can only be placed when there is one sense to place it on.
+    expect(eat?.senses.every((sense) => sense.antonyms.length === 0)).toBe(true)
+    expect(entries.find((entry) => entry.headword === "awkward")?.senses[0]?.antonyms).toEqual(["handy"])
+  })
+
+  it("ranks words by how often they and their inflections are used, and keeps ids stable", () => {
+    const entries = toEntries(merged, frequency, new Map([["team", 100000007]]))
+    expect(entries.slice(0, 3).map((entry) => [entry.headword, entry.id, entry.priority])).toEqual([
+      ["be", 100000008, Math.round(20 * Math.log10(170000))],
+      ["eat", 100000009, Math.round(20 * Math.log10(8000))],
+      ["team", 100000007, Math.round(20 * Math.log10(4000))]
+    ])
+    const eat = entries.find((entry) => entry.headword === "eat")
+    expect(eat).toMatchObject({ language: "en", reading: "/iːt/", common: true })
+    expect(eat?.forms.map((form) => [form.kind, form.text])).toEqual([
+      ["spelling", "eat"],
+      ["inflection", "eats"],
+      ["inflection", "eating"],
+      ["inflection", "ate"],
+      ["inflection", "eaten"]
+    ])
+    expect(entries.find((entry) => entry.headword === "make sense")).toMatchObject({ common: false, priority: 0 })
+  })
+
+  it("lists rare, dated and obsolete senses last", () => {
+    const sad = toEntries(merged, frequency, new Map()).find((entry) => entry.headword === "sad")
+    expect(sad?.senses.map((sense) => [sense.glosses[0]?.text, sense.misc])).toEqual([
+      ["悲しい", []],
+      ["満足した", ["obs"]]
+    ])
+  })
+
+  it("marks a word common only when its count can be trusted", () => {
+    const counts = parseFrequency(["kim 5000", "website 800"])
+    const jmdictOnly = (headword: string, mayBeName: boolean) => ({
+      headword,
+      ipa: null,
+      spellings: [],
+      inflections: [],
+      senses: [{ ...emptySense(), glosses: [{ text: "ウェブサイト", type: null }] }],
+      mayBeName
+    })
+    const entries = toEntries(
+      mergeSources({
+        wiktionary: { words: [], formsOf: [] },
+        ejdict: { words: [], formsOf: [] },
+        jmdict: [jmdictOnly("kim", true), jmdictOnly("website", false)],
+        frequency: counts
+      }),
+      counts,
+      new Map()
+    )
+    expect(entries.map((entry) => [entry.headword, entry.common])).toEqual([
+      ["kim", false],
+      ["website", true]
+    ])
+  })
+})
+
+describe("commonestFirst", () => {
+  const sense = (glosses: Array<string>, misc: Array<string> = []) => ({
+    ...emptySense(),
+    glosses: glosses.map((text) => ({ text, type: null })),
+    misc
+  })
+  const order = (senses: ReturnType<typeof sense>[], weights: Record<string, number>) =>
+    commonestFirst(senses, new Map(Object.entries(weights))).map((own) => own.glosses[0]?.text)
+
+  it("leads with the first attested sense, then the other attested ones by weight, the rest after", () => {
+    // "kid" as Wiktionary lists it: no common Japanese word translates "kid" as a young goat.
+    const kid = [
+      sense(["仔やぎ"]),
+      sense(["子供"]),
+      sense(["からかう", "ふざける"]),
+      sense(["冗談を言う"]),
+      sense(["子分"], ["obs"])
+    ]
+    expect(order(kid, { 子供: 50, ふざける: 90, 冗談を言う: 70, 子分: 99 })).toEqual([
+      "子供",
+      "からかう",
+      "冗談を言う",
+      "仔やぎ",
+      "子分"
+    ])
+    // Its heaviest word decides a sense's weight, not how many synonyms it lists.
+    expect(
+      order([sense(["涼しい"]), sense(["冷淡な", "冷ややかな", "冷たい"]), sense(["冷静な"])], {
+        涼しい: 80,
+        冷淡: 40,
+        冷ややか: 40,
+        冷たい: 40,
+        冷静: 60
+      })
+    ).toEqual(["涼しい", "冷静な", "冷淡な"])
+    // Without back-translations, Wiktionary's order stands but for the little-used senses.
+    expect(order([sense(["満足した"], ["obs"]), sense(["悲しい"])], {})).toEqual(["悲しい", "満足した"])
+  })
+
+  it("matches na-adjectives, adverbs and suru verbs to JMDict's bare spellings", () => {
+    expect(order([sense(["痛む"]), sense(["利口な"]), sense(["勉強する"])], { 利口: 10, 勉強: 20 })).toEqual([
+      "利口な",
+      "勉強する",
+      "痛む"
+    ])
+  })
+})
+
+describe("jmdictReader backTranslations", () => {
+  it("collects the common Japanese words JMDict translates with a known English word, from their leading glosses", () => {
+    const reader = jmdictReader({
+      words: new Set(["smart", "kid"]),
+      verbs: new Set(),
+      phrases: new Set(),
+      frequency: new Map()
+    })
+    const entry = (id: number, word: string, glosses: Array<string>, common = true, sense = 0): EntryRecord => ({
+      ...jmdictEntry(id, word, word, glosses, common),
+      forms: [{ kind: "kanji", text: word, common, tags: [], priorities: [], restrictions: [], noKanji: false }],
+      senses: [
+        ...Array.from({ length: sense }, () => jmdictEntry(id, word, word, ["other"], common).senses[0]!),
+        jmdictEntry(id, word, word, glosses, common).senses[0]!
+      ]
+    })
+    reader.add(entry(1, "賢い", ["wise", "clever", "smart"]))
+    reader.add(entry(2, "粋", ["chic", "stylish", "refined", "elegant", "smart"]))
+    reader.add(entry(3, "洒脱", ["smart"], false))
+    reader.add(entry(4, "利口", ["smart"], true, 3))
+    reader.add(entry(5, "子供", ["child", "children"]))
+    const smart = reader.backTranslations().get("smart")
+    // A fifth gloss, an uncommon word or a fourth sense is too far from the word's use to count.
+    expect([...(smart?.keys() ?? [])]).toEqual(["賢い"])
+    expect(reader.backTranslations().has("kid")).toBe(false)
+  })
+})
