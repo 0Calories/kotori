@@ -3,12 +3,6 @@
   "files": [],
   "references": [
     {
-      "path": "./apps/api"
-    },
-    {
-      "path": "./apps/worker"
-    },
-    {
       "path": "./packages/ai"
     },
     {
@@ -43,6 +37,9 @@
     },
     {
       "path": "./packages/language"
+    },
+    {
+      "path": "./apps/backend"
     }
   ]
 }

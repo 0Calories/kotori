@@ -91,7 +91,9 @@ const SPELLING_OF = new RegExp(`${BASE.source}(?:異綴り?|別綴り|旧綴り|
  * The word a gloss says this one is a form of, and which inflections it is (none for another
  * spelling), or null for a gloss that is a meaning.
  */
-export const formOf = (gloss: string): { readonly base: string; readonly tags: ReadonlyArray<EnglishInflection> } | null => {
+export const formOf = (
+  gloss: string
+): { readonly base: string; readonly tags: ReadonlyArray<EnglishInflection> } | null => {
   const text = gloss.trim()
   const spelling = SPELLING_OF.exec(text)
   if (spelling !== null) return { base: spelling[1]!.trim(), tags: [] }

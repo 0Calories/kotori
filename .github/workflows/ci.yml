@@ -46,7 +46,7 @@ jobs:
     name: Deploy affected apps
     needs: checks
     # `nx affected -t deploy` against the last successful run on main: the Fly app
-    # (`@kotori/api:deploy`, API and worker), then the web app (`@kotori/app:deploy`, Vercel).
+    # (`@kotori/backend:deploy`, API and worker), then the web app (`@kotori/app:deploy`, Vercel).
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30

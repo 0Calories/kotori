@@ -16,8 +16,8 @@
   },
   "dependencies": {
     "@kotori/db": "workspace:*",
-    "@kotori/language": "workspace:*",
     "@kotori/jmdict": "workspace:*",
+    "@kotori/language": "workspace:*",
     "effect": "catalog:"
   }
 }
