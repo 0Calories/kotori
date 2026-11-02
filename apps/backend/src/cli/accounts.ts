@@ -1,8 +1,9 @@
 import type { Language } from "@kotori/contracts"
 import { Clock, Console, Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
+import { Database } from "../db/Database.ts"
 import { type Account, Approvals } from "../features/accounts/Approvals.ts"
-import { UsersRepo } from "../features/accounts/UsersRepo.ts"
+import { ensureUser, updateUser } from "../features/accounts/index.ts"
 import { Auth } from "../integrations/auth/Auth.ts"
 
 const email = Argument.String("email").pipe(Argument.withDescription("The learner's email address"))
@@ -133,30 +134,18 @@ export const devAccount = Command.make(
     const targetLanguage: Language = language === "en" ? "ja" : "en"
 
     const auth = yield* Auth
-    const users = yield* UsersRepo
+    const db = yield* Database
     const existing = yield* auth.userByEmail(email)
     const user = Option.isSome(existing) ? existing.value : yield* auth.signUp({ email, password, name: "Dev Learner" })
     yield* Console.log(Option.isSome(existing) ? `Reusing ${user.email}.` : `Created ${user.email}.`)
 
     // Confirmed, approved and past the language picker, so the app opens onto the tabs.
-    // `ensure` then `update`, so an account left over from an earlier run is reset too.
+    // `ensureUser` then `updateUser`, so an account left over from an earlier run is reset too.
     yield* auth.setEmailVerified(user.id)
-    const now = yield* Clock.currentTimeMillis
+    const now = new Date(yield* Clock.currentTimeMillis)
     const role = admin ? "admin" : "user"
-    yield* users.ensure({
-      id: user.id,
-      status: "approved",
-      role,
-      nativeLanguage,
-      targetLanguage,
-      onboardedAt: now,
-      displayName: user.name.trim() || null,
-      timezone: "UTC",
-      dailyNewLimit: 20,
-      dailyReviewLimit: 200,
-      createdAt: now
-    })
-    yield* users.update(user.id, { status: "approved", role, nativeLanguage, targetLanguage, onboardedAt: now })
+    yield* ensureUser(db, { id: user.id, displayName: user.name.trim() || null, createdAt: now })
+    yield* updateUser(db, user.id, { status: "approved", role, nativeLanguage, targetLanguage, onboardedAt: now })
 
     yield* Console.log(
       `Ready: ${email} / ${password} — confirmed, approved${admin ? ", admin" : ""}, learning ` +

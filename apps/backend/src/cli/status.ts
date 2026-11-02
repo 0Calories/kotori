@@ -1,25 +1,26 @@
 import { Console, Effect } from "effect"
 import { Command } from "effect/cli"
-import { DictionaryRepo } from "../features/dictionary/DictionaryRepo.ts"
+import { Database } from "../db/Database.ts"
+import { countOf, entriesByPriority } from "../features/dictionary/index.ts"
 import { Enrichers } from "../features/enrichment/Enrichers.ts"
-import { JobsRepo } from "../features/enrichment/JobsRepo.ts"
+import { jobCounts } from "../features/enrichment/index.ts"
 
 export const status = Command.make(
   "status",
   {},
   Effect.fn(function* () {
-    const dictionary = yield* DictionaryRepo
+    const db = yield* Database
     for (const [name, language] of [
       ["JMDict", "ja"],
       ["English", "en"]
     ] as const) {
       const ids = (missing?: "nuance" | "examples" | "audio") =>
-        dictionary
-          .entriesByPriority({ limit: 1_000_000, missing, commonOnly: true, language })
-          .pipe(Effect.map((found) => found.length))
+        entriesByPriority(db, { limit: 1_000_000, missing, commonOnly: true, language }).pipe(
+          Effect.map((found) => found.length)
+        )
       const common = yield* ids()
       yield* Console.log(
-        `${name}: ${(yield* dictionary.countOf(language)).toLocaleString()} entries (${common.toLocaleString()} common)`
+        `${name}: ${(yield* countOf(db, language)).toLocaleString()} entries (${common.toLocaleString()} common)`
       )
       for (const kind of ["nuance", "examples", "audio"] as const) {
         yield* Console.log(
@@ -28,7 +29,7 @@ export const status = Command.make(
       }
     }
     yield* Console.log(`Providers: ${(yield* (yield* Enrichers).available).join(", ") || "none configured"}`)
-    for (const row of yield* (yield* JobsRepo).counts) {
+    for (const row of yield* jobCounts(db)) {
       yield* Console.log(`  jobs ${row.kind}/${row.status}: ${row.n}`)
     }
   })

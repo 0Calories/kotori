@@ -1,16 +1,16 @@
 import { assert, layer } from "@effect/vitest"
 import { Effect, Layer, Option } from "effect"
 import { Headers } from "effect/http"
-import { Repositories } from "../src/db/Repositories.ts"
+import { Database } from "../src/db/Database.ts"
 import { Approvals } from "../src/features/accounts/Approvals.ts"
-import { UsersRepo } from "../src/features/accounts/UsersRepo.ts"
+import { ensureUser, userById } from "../src/features/accounts/queries.ts"
 import { Auth, TestAuth } from "../src/integrations/auth/Auth.ts"
 import { Mailbox, MailerMemory } from "../src/integrations/email/Mailer.ts"
 import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 
 const TestLayer = Approvals.layer.pipe(
   Layer.provideMerge(Auth.layerMemory),
-  Layer.provideMerge(Layer.mergeAll(TestAuth.layer, MailerMemory, Repositories)),
+  Layer.provideMerge(Layer.mergeAll(TestAuth.layer, MailerMemory)),
   Layer.provideMerge(DatabaseMemory)
 )
 
@@ -21,7 +21,7 @@ layer(TestLayer)("Approvals", (it) => {
     Effect.gen(function* () {
       const approvals = yield* Approvals
       const mailbox = yield* Mailbox
-      const users = yield* UsersRepo
+      const db = yield* Database
 
       yield* signUp("first@example.com", "First")
       const second = yield* signUp("second@example.com", "二番目")
@@ -51,18 +51,18 @@ layer(TestLayer)("Approvals", (it) => {
       assert.deepStrictEqual(yield* mailbox.messages, [])
 
       // A learner who already opened the app and picked Japanese is welcomed in Japanese.
-      yield* users.ensure({
+      yield* ensureUser(db, {
         id: second.id,
         status: "pending",
         role: "user",
         nativeLanguage: "ja",
         targetLanguage: "en",
-        onboardedAt: 1,
+        onboardedAt: new Date(1),
         displayName: null,
         timezone: "Asia/Tokyo",
         dailyNewLimit: 20,
         dailyReviewLimit: 200,
-        createdAt: 1
+        createdAt: new Date(1)
       })
       const approved = yield* approvals.approve("Second@Example.com")
       assert.strictEqual(approved.status, "approved")
@@ -87,15 +87,15 @@ layer(TestLayer)("Approvals", (it) => {
 
   it.effect("promotes admins and revokes sessions", () =>
     Effect.gen(function* () {
+      const db = yield* Database
       const approvals = yield* Approvals
       const auth = yield* Auth
-      const users = yield* UsersRepo
 
       const user = yield* signUp("admin@example.com", "Admin")
       const promoted = yield* approvals.setRole("admin@example.com", "admin")
       assert.strictEqual(promoted.role, "admin")
       // The role lives on Kotori's profile, created on the spot if needed.
-      assert.strictEqual(Option.getOrThrow(yield* users.byId(user.id)).role, "admin")
+      assert.strictEqual(Option.getOrThrow(yield* userById(db, user.id)).role, "admin")
 
       const before = yield* auth.sessionFromCookies(Headers.fromInput({ cookie: user.cookie }))
       assert.isTrue(Option.isSome(before))

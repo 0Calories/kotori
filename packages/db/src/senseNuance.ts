@@ -1,6 +1,7 @@
 import { foreignKey, integer, jsonb, primaryKey, text } from "drizzle-orm/pg-core"
 import * as Schema from "effect/Schema"
 import { createdAt, Formality, table } from "./columns.ts"
+import { type EntryId } from "./entries.ts"
 import { senses } from "./senses.ts"
 
 /** Japanese honorific language (敬語). */
@@ -96,7 +97,7 @@ export type Nuance = typeof Nuance.Type
 export const senseNuance = table(
   "sense_nuance",
   {
-    entryId: integer().notNull(),
+    entryId: integer().$type<EntryId>().notNull(),
     sense: integer().notNull(),
     nuance: jsonb().$type<Nuance>().notNull(),
     /** The raw answer distributions, so thresholds and labels can be re-derived without paying for inference again. */

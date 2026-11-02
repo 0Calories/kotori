@@ -1,8 +1,9 @@
 import { Console, Effect, FileSystem, Option } from "effect"
 import { Command, Flag } from "effect/cli"
-import { DictionaryRepo } from "../features/dictionary/DictionaryRepo.ts"
+import { Database } from "../db/Database.ts"
 import * as Eiwa from "../features/dictionary/import/eiwa/Eiwa.ts"
 import * as JMDict from "../features/dictionary/import/jmdict/JMDict.ts"
+import { countOf, entryCount } from "../features/dictionary/index.ts"
 import { resolveFromRoot } from "../runtime/Paths.ts"
 
 export const seed = Command.make(
@@ -32,7 +33,7 @@ export const seed = Command.make(
     )
   },
   Effect.fn(function* ({ dictionary: which, file, limit, commonOnly, ifEmpty }) {
-    const dictionary = yield* DictionaryRepo
+    const db = yield* Database
     const fs = yield* FileSystem.FileSystem
     const seconds = (started: number) => ((Date.now() - started) / 1000).toFixed(1)
 
@@ -47,7 +48,7 @@ export const seed = Command.make(
     })
 
     if (which !== "english") {
-      const existing = yield* dictionary.countOf("ja")
+      const existing = yield* countOf(db, "ja")
       if (ifEmpty && existing > 0) {
         yield* Console.log(`JMDict already has ${existing.toLocaleString()} entries.`)
       } else {
@@ -59,7 +60,7 @@ export const seed = Command.make(
     }
 
     if (which !== "jmdict") {
-      const existing = yield* dictionary.countOf("en")
+      const existing = yield* countOf(db, "en")
       if (ifEmpty && existing > 0) {
         yield* Console.log(`The English dictionary already has ${existing.toLocaleString()} words.`)
       } else {
@@ -79,7 +80,7 @@ export const seed = Command.make(
         )
       }
     }
-    yield* Console.log(`The dictionary has ${(yield* dictionary.count).toLocaleString()} entries.`)
+    yield* Console.log(`The dictionary has ${(yield* entryCount(db)).toLocaleString()} entries.`)
   })
 ).pipe(
   Command.withDescription(

@@ -1,3 +1,4 @@
+import type { UserId } from "@kotori/db"
 import { boolean, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core"
 
 /**
@@ -9,7 +10,7 @@ import { boolean, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core"
 export const neonAuth = pgSchema("neon_auth")
 
 export const authUsers = neonAuth.table("user", {
-  id: uuid("id").primaryKey(),
+  id: uuid("id").primaryKey().$type<UserId>(),
   email: text("email").notNull(),
   emailVerified: boolean("emailVerified").notNull(),
   name: text("name").notNull(),
@@ -19,6 +20,7 @@ export const authUsers = neonAuth.table("user", {
 export const authSessions = neonAuth.table("session", {
   id: text("id").primaryKey(),
   userId: uuid("userId")
+    .$type<UserId>()
     .notNull()
     .references(() => authUsers.id, { onDelete: "cascade" }),
   expiresAt: timestamp("expiresAt", { withTimezone: true }).notNull()

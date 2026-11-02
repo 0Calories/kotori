@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm"
 import { boolean, index, integer, pgEnum, primaryKey, text } from "drizzle-orm/pg-core"
 import { bytewiseText, table } from "./columns.ts"
-import { entries } from "./entries.ts"
+import { entries, type EntryId } from "./entries.ts"
 
 /**
  * Declared in display order: an enum sorts by declaration, so `ORDER BY kind` puts kanji
@@ -13,6 +13,7 @@ export const forms = table(
   "forms",
   {
     entryId: integer()
+      .$type<EntryId>()
       .notNull()
       .references(() => entries.id, { onDelete: "cascade" }),
     kind: formKind().notNull(),

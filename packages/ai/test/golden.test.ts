@@ -23,7 +23,10 @@ import {
 const fixture = Schema.decodeUnknownSync(Schema.fromJsonString(GoldenFixture))(
   readFileSync(new URL("../golden/entries.json", import.meta.url), "utf8")
 )
-const entries = new Map(fixture.entries.map((entry) => [entry.id, goldenEntry(entry)]))
+/** By id; the golden set names entries by plain JMDict numbers. */
+const entries = new Map<number, ReturnType<typeof goldenEntry>>(
+  fixture.entries.map((entry) => [entry.id, goldenEntry(entry)])
+)
 const tags = new Map(Object.entries(fixture.tags))
 
 describe("the golden fixture", () => {

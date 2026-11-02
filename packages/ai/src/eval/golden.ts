@@ -1,4 +1,4 @@
-import type { EntryRecord } from "@kotori/contracts"
+import { EntryId, type EntryRecord } from "@kotori/contracts"
 import type {
   AgeGroup,
   Connotation,
@@ -493,7 +493,7 @@ const FixtureSense = Schema.Struct({
 
 /** An entry cut down to what the request builders read: its spellings and its judged senses. */
 export const FixtureEntry = Schema.Struct({
-  id: Schema.Int,
+  id: EntryId,
   /** Absent on Japanese words. */
   language: Schema.optional(Schema.Literals(["ja", "en"])),
   headword: Schema.String,

@@ -1,7 +1,6 @@
 import { assert, layer } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 import { HttpRouter } from "effect/http"
-import { UsersRepo } from "../src/features/accounts/UsersRepo.ts"
 import { AuthWebhooks } from "../src/features/accounts/Webhooks.ts"
 import { WebhooksRoute } from "../src/http/webhooks.ts"
 import { Auth, TestAuth } from "../src/integrations/auth/Auth.ts"
@@ -10,7 +9,7 @@ import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 
 const TestAuthLive = TestAuth.layer
 const TestLayer = AuthWebhooks.layer.pipe(
-  Layer.provideMerge(Layer.mergeAll(Auth.layerMemory, UsersRepo.layer, MailerMemory)),
+  Layer.provideMerge(Layer.mergeAll(Auth.layerMemory, MailerMemory)),
   Layer.provideMerge(Layer.mergeAll(TestAuthLive, DatabaseMemory))
 )
 

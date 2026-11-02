@@ -1,11 +1,12 @@
 import { boolean, integer, primaryKey, text } from "drizzle-orm/pg-core"
 import { table } from "./columns.ts"
-import { entries } from "./entries.ts"
+import { entries, type EntryId } from "./entries.ts"
 
 export const senses = table(
   "senses",
   {
     entryId: integer()
+      .$type<EntryId>()
       .notNull()
       .references(() => entries.id, { onDelete: "cascade" }),
     position: integer().notNull(),

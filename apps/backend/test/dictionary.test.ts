@@ -15,11 +15,20 @@ import {
 import { EntryId, type EntryRecord } from "@kotori/contracts"
 import { Effect, Layer, Option } from "effect"
 import { TestClock } from "effect/testing"
-import { Repositories } from "../src/db/Repositories.ts"
+import { Database } from "../src/db/Database.ts"
+import { linkEntryAudio, linkExampleAudio, saveAudio } from "../src/features/audio/queries.ts"
 import { Dictionary } from "../src/features/dictionary/Dictionary.ts"
-import { DictionaryRepo } from "../src/features/dictionary/DictionaryRepo.ts"
-import { EnrichmentRepo } from "../src/features/enrichment/EnrichmentRepo.ts"
-import { type JobKind, JobsRepo } from "../src/features/enrichment/JobsRepo.ts"
+import { insertEntries, saveTags } from "../src/features/dictionary/queries.ts"
+import { claimJob, completeJob, type JobKind, enqueueJob, jobStatusFor } from "../src/features/enrichment/jobs.ts"
+import {
+  examplesFor,
+  saveExamples,
+  saveLoanTrap,
+  saveLoanWord,
+  saveNuance,
+  saveSenseNotes,
+  saveSimilar
+} from "../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 
 // The dictionary service on PGlite with audio configured, so it queues audio jobs; nothing is synthesised.
@@ -61,7 +70,6 @@ const providers = (jevConfigured: boolean, claudeAvailable = false) =>
 const testLayer = (jevConfigured: boolean, claudeAvailable = false) =>
   Dictionary.layer.pipe(
     Layer.provideMerge(providers(jevConfigured, claudeAvailable)),
-    Layer.provideMerge(Repositories),
     Layer.provideMerge(DatabaseMemory)
   )
 
@@ -87,7 +95,7 @@ const entry = (
   senses: EntryRecord["senses"],
   common = true
 ): EntryRecord => ({
-  id,
+  id: EntryId.make(id),
   language: "ja",
   headword,
   reading,
@@ -112,7 +120,7 @@ const word = (
     readonly inflections?: ReadonlyArray<readonly [string, ReadonlyArray<string>]>
   } = {}
 ): EntryRecord => ({
-  id,
+  id: EntryId.make(id),
   language: "en",
   headword,
   reading: options.reading ?? "",
@@ -153,17 +161,17 @@ const clip = (key: string, text: string, language: "ja" | "en") => ({
   modelId: "model",
   characters: text.length,
   bytes: 1,
-  createdAt: 0
+  createdAt: new Date(0)
 })
 
 /** Runs every queued job of `kind` to completion, as a worker would. */
 const finishJobs = (kind: JobKind, now: number) =>
   Effect.gen(function* () {
-    const jobs = yield* JobsRepo
+    const db = yield* Database
     while (true) {
-      const job = yield* jobs.claim([kind], now)
+      const job = yield* claimJob(db, [kind], new Date(now))
       if (Option.isNone(job)) return
-      yield* jobs.complete(job.value.id, now)
+      yield* completeJob(db, job.value.id, new Date(now))
     }
   })
 
@@ -184,8 +192,8 @@ const senseAnswers = {
 layer(testLayer(false))("Dictionary", (it) => {
   it.effect("searches English words for Japanese speakers by spelling, inflection and prefix", () =>
     Effect.gen(function* () {
-      const repo = yield* DictionaryRepo
-      yield* repo.insertEntries([
+      const db = yield* Database
+      yield* insertEntries(db, [
         word(100000001, "eat", [sense(["～を食べる。"], ["v", "vt"]), sense(["食事をする"], ["v", "vi"])], {
           reading: "/iːt/",
           priority: 90,
@@ -243,8 +251,8 @@ layer(testLayer(false))("Dictionary", (it) => {
 
   it.effect("finds English words for a Japanese query by their glosses and through JMDict", () =>
     Effect.gen(function* () {
-      const repo = yield* DictionaryRepo
-      yield* repo.insertEntries([
+      const db = yield* Database
+      yield* insertEntries(db, [
         entry(1155020, "気まずい", "きまずい", [sense(["unpleasant", "awkward", "embarrassing"], ["adj-i"])]),
         entry(1009310, "猫", "ねこ", [sense(["cat"], ["n"])]),
         word(100000010, "awkward", [sense(["ぎこちない"], ["adj"])], { priority: 60 }),
@@ -291,9 +299,8 @@ layer(testLayer(false))("Dictionary", (it) => {
 
   it.effect("assembles an English word as an entry, voiced and cross-referenced in English", () =>
     Effect.gen(function* () {
-      const repo = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
-      yield* repo.insertEntries([
+      const db = yield* Database
+      yield* insertEntries(db, [
         word(100000020, "dine", [sense(["食事をする"], ["v"])]),
         word(
           100000021,
@@ -302,13 +309,18 @@ layer(testLayer(false))("Dictionary", (it) => {
           { reading: "/kənˈsjuːm/", inflections: [["consumed", ["past", "past-participle"]]] }
         )
       ])
-      yield* repo.saveTags([{ code: "form", label: "formal or literary term" }])
-      yield* enrichment.saveExamples(100000021, [example(0, "電気を使いすぎる。", "We consume too much power.")], 0)
-      const [written] = yield* enrichment.examplesFor([100000021])
-      yield* enrichment.saveAudio(clip("consume", "consume", "en"))
-      yield* enrichment.linkEntryAudio(100000021, "consume")
-      yield* enrichment.saveAudio(clip("sentence-en", "We consume too much power.", "en"))
-      yield* enrichment.linkExampleAudio(written!.id, "en", "sentence-en")
+      yield* saveTags(db, [{ code: "form", label: "formal or literary term" }])
+      yield* saveExamples(
+        db,
+        EntryId.make(100000021),
+        [example(0, "電気を使いすぎる。", "We consume too much power.")],
+        new Date(0)
+      )
+      const [written] = yield* examplesFor(db, [EntryId.make(100000021)])
+      yield* saveAudio(db, clip("consume", "consume", "en"))
+      yield* linkEntryAudio(db, EntryId.make(100000021), "consume")
+      yield* saveAudio(db, clip("sentence-en", "We consume too much power.", "en"))
+      yield* linkExampleAudio(db, written!.id, "en", "sentence-en")
 
       const consume = Option.getOrThrow(yield* (yield* Dictionary).entry(EntryId.make(100000021)))
       assert.strictEqual(consume.language, "en")
@@ -354,45 +366,43 @@ layer(testLayer(false))("Dictionary", (it) => {
 
   it.effect("voices examples again when a finished audio job left one unvoiced, at most hourly", () =>
     Effect.gen(function* () {
-      const repo = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
-      const jobs = yield* JobsRepo
+      const db = yield* Database
       const dictionary = yield* Dictionary
       const audioStatus = Effect.map(dictionary.requestEnrichment(EntryId.make(20)), (s) => Option.getOrThrow(s).audio)
       const hour = 60 * 60 * 1000
-      yield* repo.insertEntries([entry(20, "食べる", "たべる", [sense(["to eat"], ["v1"])])])
+      yield* insertEntries(db, [entry(20, "食べる", "たべる", [sense(["to eat"], ["v1"])])])
 
       // Voiced before its examples were written: the headword only.
-      yield* enrichment.saveAudio(clip("headword", "たべる", "ja"))
-      yield* enrichment.linkEntryAudio(20, "headword")
-      yield* jobs.enqueue("audio", 20, 0, 0)
+      yield* saveAudio(db, clip("headword", "たべる", "ja"))
+      yield* linkEntryAudio(db, EntryId.make(20), "headword")
+      yield* enqueueJob(db, "audio", EntryId.make(20), 0, new Date(0))
       yield* finishJobs("audio", 1)
-      yield* enrichment.saveExamples(20, [example(0, "パンを食べる。", "I eat bread.")], 1)
-      const [written] = yield* enrichment.examplesFor([20])
+      yield* saveExamples(db, EntryId.make(20), [example(0, "パンを食べる。", "I eat bread.")], new Date(1))
+      const [written] = yield* examplesFor(db, [EntryId.make(20)])
 
       // Looking at it later queues the job again to fill the gap.
       yield* TestClock.setTime(2 * hour)
       assert.strictEqual(yield* audioStatus, "queued")
-      assert.strictEqual((yield* jobs.statusFor(20)).get("audio"), "queued")
+      assert.strictEqual((yield* jobStatusFor(db, EntryId.make(20))).get("audio"), "queued")
 
       // The worker runs but can't fill it: the entry isn't queued again on every look,
       // and its audio stops counting as on its way, so the app stops polling.
       yield* finishJobs("audio", 2 * hour)
       yield* TestClock.setTime(2 * hour + 3000)
       assert.strictEqual(yield* audioStatus, "ready")
-      assert.strictEqual((yield* jobs.statusFor(20)).get("audio"), "done")
+      assert.strictEqual((yield* jobStatusFor(db, EntryId.make(20))).get("audio"), "done")
 
       // An hour on, it gets one more try.
       yield* TestClock.setTime(3 * hour + 1)
       assert.strictEqual(yield* audioStatus, "queued")
 
       // Once the sentence is voiced in Japanese, the entry's audio is complete and nothing is queued again.
-      yield* enrichment.saveAudio(clip("sentence-ja", "パンを食べる。", "ja"))
-      yield* enrichment.linkExampleAudio(written!.id, "ja", "sentence-ja")
+      yield* saveAudio(db, clip("sentence-ja", "パンを食べる。", "ja"))
+      yield* linkExampleAudio(db, written!.id, "ja", "sentence-ja")
       yield* finishJobs("audio", 3 * hour + 2)
       yield* TestClock.setTime(10 * hour)
       assert.strictEqual(yield* audioStatus, "ready")
-      assert.strictEqual((yield* jobs.statusFor(20)).get("audio"), "done")
+      assert.strictEqual((yield* jobStatusFor(db, EntryId.make(20))).get("audio"), "done")
     })
   )
 })
@@ -400,26 +410,27 @@ layer(testLayer(false))("Dictionary", (it) => {
 layer(testLayer(false))("Dictionary: what Kotori wrote on an English word", (it) => {
   it.effect("shows its usage note for Japanese speakers and its katakana loan", () =>
     Effect.gen(function* () {
-      const repo = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
+      const db = yield* Database
       const dictionary = yield* Dictionary
-      yield* repo.insertEntries([word(100000040, "style", [sense(["様式", "流儀"], ["n"])])])
-      yield* enrichment.saveSenseNotes(
-        100000040,
+      yield* insertEntries(db, [word(100000040, "style", [sense(["様式", "流儀"], ["n"])])])
+      yield* saveSenseNotes(
+        db,
+        EntryId.make(100000040),
         [{ sense: 0, note: null, noteJa: "建物や文章の「様式」に使う。", model: "test" }],
-        0
+        new Date(0)
       )
       const shown = Effect.map(dictionary.entry(EntryId.make(100000040)), Option.getOrThrow)
       assert.strictEqual((yield* shown).senses[0]?.noteJa, "建物や文章の「様式」に使う。")
       assert.isNull((yield* shown).loan)
 
       const verdict = { value: "divergent" as const, probability: 0.9, source: "jev" as const }
-      yield* enrichment.saveLoanWord(
-        100000040,
+      yield* saveLoanWord(
+        db,
+        EntryId.make(100000040),
         { word: "スタイル", verdict, answers: {}, model: "test", questionsVersion: ENGLISH_QUESTIONS_VERSION },
-        0
+        new Date(0)
       )
-      yield* enrichment.saveLoanTrap(100000040, "スタイル", "日本語の「スタイル」は体型を指すことが多いです。")
+      yield* saveLoanTrap(db, EntryId.make(100000040), "スタイル", "日本語の「スタイル」は体型を指すことが多いです。")
       assert.deepStrictEqual((yield* shown).loan, {
         word: "スタイル",
         verdict,
@@ -427,10 +438,11 @@ layer(testLayer(false))("Dictionary: what Kotori wrote on an English word", (it)
       })
 
       // Candidates asked about, none judged the loan: nothing to show.
-      yield* enrichment.saveLoanWord(
-        100000040,
+      yield* saveLoanWord(
+        db,
+        EntryId.make(100000040),
         { word: null, verdict: null, answers: {}, model: "test", questionsVersion: ENGLISH_QUESTIONS_VERSION },
-        1
+        new Date(1)
       )
       assert.isNull((yield* shown).loan)
     })
@@ -438,18 +450,23 @@ layer(testLayer(false))("Dictionary: what Kotori wrote on an English word", (it)
 
   it.effect("shows a similar word by the meaning it shares with the sense, not by its first", () =>
     Effect.gen(function* () {
-      const repo = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
+      const db = yield* Database
       const dictionary = yield* Dictionary
-      yield* repo.insertEntries([
+      yield* insertEntries(db, [
         word(100000050, "tension", [sense(["（精神的な）緊張", "不安"], ["n"]), sense(["張力"], ["n"])]),
         word(100000051, "strain", [sense(["（遺伝的な）性質", "気質"], ["n"]), sense(["緊張", "重圧"], ["n"])]),
         word(100000052, "stress", [sense(["圧力", "圧迫"], ["n"])])
       ])
-      yield* enrichment.saveSimilar(100000050, [
-        { sense: 0, similarId: 100000051, similarity: 0.9, difference: "different_usage", confidence: 0.8 },
+      yield* saveSimilar(db, EntryId.make(100000050), [
+        {
+          sense: 0,
+          similarId: EntryId.make(100000051),
+          similarity: 0.9,
+          difference: "different_usage",
+          confidence: 0.8
+        },
         // Found through a cross-reference: no gloss in common, so its first meanings.
-        { sense: 0, similarId: 100000052, similarity: 0.8, difference: "more_general", confidence: 0.8 }
+        { sense: 0, similarId: EntryId.make(100000052), similarity: 0.8, difference: "more_general", confidence: 0.8 }
       ])
       const tension = Option.getOrThrow(yield* dictionary.entry(EntryId.make(100000050)))
       assert.deepStrictEqual(
@@ -466,15 +483,14 @@ layer(testLayer(false))("Dictionary: what Kotori wrote on an English word", (it)
 layer(testLayer(true))("Dictionary with Jev configured", (it) => {
   it.effect("queues a finished nuance job again once its answers predate the word's question set, once", () =>
     Effect.gen(function* () {
-      const repo = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
-      const jobs = yield* JobsRepo
+      const db = yield* Database
       const dictionary = yield* Dictionary
-      const nuanceStatus = (id: number) =>
-        Effect.map(dictionary.requestEnrichment(EntryId.make(id)), (s) => Option.getOrThrow(s).nuance)
-      const nuanceJob = (id: number) => Effect.map(jobs.statusFor(id), (status) => status.get("nuance"))
-      const judge = (id: number, questionsVersion: number) =>
-        enrichment.saveNuance(
+      const nuanceStatus = (id: EntryId) =>
+        Effect.map(dictionary.requestEnrichment(id), (s) => Option.getOrThrow(s).nuance)
+      const nuanceJob = (id: EntryId) => Effect.map(jobStatusFor(db, id), (status) => status.get("nuance"))
+      const judge = (id: EntryId, questionsVersion: number) =>
+        saveNuance(
+          db,
           id,
           [
             {
@@ -485,20 +501,20 @@ layer(testLayer(true))("Dictionary with Jev configured", (it) => {
               questionsVersion
             }
           ],
-          0
+          new Date(0)
         )
-      yield* repo.insertEntries([
+      yield* insertEntries(db, [
         entry(30, "食べる", "たべる", [sense(["to eat"], ["v1"])]),
         word(100000030, "eat", [sense(["食べる"], ["v"])])
       ])
 
       // Each judged, and its job finished, under the question set before its language's current one.
       for (const [id, version] of [
-        [30, QUESTIONS_VERSION],
-        [100000030, ENGLISH_QUESTIONS_VERSION]
+        [EntryId.make(30), QUESTIONS_VERSION],
+        [EntryId.make(100000030), ENGLISH_QUESTIONS_VERSION]
       ] as const) {
         yield* judge(id, version - 1)
-        yield* jobs.enqueue("nuance", id, 0, 0)
+        yield* enqueueJob(db, "nuance", id, 0, new Date(0))
         yield* finishJobs("nuance", 1)
 
         // Looking at the entry queues it again, while the old judgments stay on show.
@@ -516,14 +532,13 @@ layer(testLayer(true))("Dictionary with Jev configured", (it) => {
 
   it.effect("queues an entry again when a judged sense has no judgment, as after a re-import ranks it in", () =>
     Effect.gen(function* () {
-      const repo = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
-      const jobs = yield* JobsRepo
+      const db = yield* Database
       const dictionary = yield* Dictionary
-      yield* repo.insertEntries([word(100000031, "kid", [sense(["子供"], ["n"]), sense(["仔やぎ"], ["n"])])])
+      yield* insertEntries(db, [word(100000031, "kid", [sense(["子供"], ["n"]), sense(["仔やぎ"], ["n"])])])
       // Judged when 仔やぎ led: its row followed it to the second sense, and 子供 has none.
-      yield* enrichment.saveNuance(
-        100000031,
+      yield* saveNuance(
+        db,
+        EntryId.make(100000031),
         [
           {
             sense: 1,
@@ -533,12 +548,12 @@ layer(testLayer(true))("Dictionary with Jev configured", (it) => {
             questionsVersion: ENGLISH_QUESTIONS_VERSION
           }
         ],
-        0
+        new Date(0)
       )
-      yield* jobs.enqueue("nuance", 100000031, 0, 0)
+      yield* enqueueJob(db, "nuance", EntryId.make(100000031), 0, new Date(0))
       yield* finishJobs("nuance", 1)
       yield* dictionary.requestEnrichment(EntryId.make(100000031))
-      assert.strictEqual((yield* jobs.statusFor(100000031)).get("nuance"), "queued")
+      assert.strictEqual((yield* jobStatusFor(db, EntryId.make(100000031))).get("nuance"), "queued")
     })
   )
 })
@@ -546,17 +561,16 @@ layer(testLayer(true))("Dictionary with Jev configured", (it) => {
 layer(testLayer(true, true))("Dictionary with Jev and Claude", (it) => {
   it.effect("queues a judged word again for a loan warning Claude couldn't write, not on every look", () =>
     Effect.gen(function* () {
-      const repo = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
-      const jobs = yield* JobsRepo
+      const db = yield* Database
       const dictionary = yield* Dictionary
       const minute = 60 * 1000
-      const nuanceJob = Effect.map(jobs.statusFor(100000060), (status) => status.get("nuance"))
+      const nuanceJob = Effect.map(jobStatusFor(db, EntryId.make(100000060)), (status) => status.get("nuance"))
       const look = (at: number) =>
         TestClock.setTime(at).pipe(Effect.andThen(dictionary.requestEnrichment(EntryId.make(100000060))))
-      yield* repo.insertEntries([word(100000060, "mansion", [sense(["大邸宅"], ["n"])])])
-      yield* enrichment.saveNuance(
-        100000060,
+      yield* insertEntries(db, [word(100000060, "mansion", [sense(["大邸宅"], ["n"])])])
+      yield* saveNuance(
+        db,
+        EntryId.make(100000060),
         [
           {
             sense: 0,
@@ -566,16 +580,17 @@ layer(testLayer(true, true))("Dictionary with Jev and Claude", (it) => {
             questionsVersion: ENGLISH_QUESTIONS_VERSION
           }
         ],
-        0
+        new Date(0)
       )
       // Judged while Claude was unavailable: a confident verdict, no warning.
       const verdict = { value: "divergent" as const, probability: 0.9, source: "jev" as const }
-      yield* enrichment.saveLoanWord(
-        100000060,
+      yield* saveLoanWord(
+        db,
+        EntryId.make(100000060),
         { word: "マンション", verdict, answers: {}, model: "test", questionsVersion: ENGLISH_QUESTIONS_VERSION },
-        0
+        new Date(0)
       )
-      yield* jobs.enqueue("nuance", 100000060, 0, 0)
+      yield* enqueueJob(db, "nuance", EntryId.make(100000060), 0, new Date(0))
       yield* finishJobs("nuance", 0)
 
       // Right after the job, a look leaves it; ten minutes on, it is queued for the warning.
@@ -590,7 +605,7 @@ layer(testLayer(true, true))("Dictionary with Jev and Claude", (it) => {
       assert.strictEqual(yield* nuanceJob, "done")
 
       // Once written, nothing more is queued.
-      yield* enrichment.saveLoanTrap(100000060, "マンション", "日本語の「マンション」は集合住宅です。")
+      yield* saveLoanTrap(db, EntryId.make(100000060), "マンション", "日本語の「マンション」は集合住宅です。")
       yield* look(60 * minute)
       assert.strictEqual(yield* nuanceJob, "done")
     })
@@ -600,13 +615,12 @@ layer(testLayer(true, true))("Dictionary with Jev and Claude", (it) => {
 layer(testLayer(true))("Dictionary with Jev, and Claude unavailable", (it) => {
   it.effect("doesn't queue a word for a loan warning while Claude can't write it", () =>
     Effect.gen(function* () {
-      const repo = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
-      const jobs = yield* JobsRepo
+      const db = yield* Database
       const dictionary = yield* Dictionary
-      yield* repo.insertEntries([word(100000061, "mansion", [sense(["大邸宅"], ["n"])])])
-      yield* enrichment.saveNuance(
-        100000061,
+      yield* insertEntries(db, [word(100000061, "mansion", [sense(["大邸宅"], ["n"])])])
+      yield* saveNuance(
+        db,
+        EntryId.make(100000061),
         [
           {
             sense: 0,
@@ -616,19 +630,20 @@ layer(testLayer(true))("Dictionary with Jev, and Claude unavailable", (it) => {
             questionsVersion: ENGLISH_QUESTIONS_VERSION
           }
         ],
-        0
+        new Date(0)
       )
       const verdict = { value: "divergent" as const, probability: 0.9, source: "jev" as const }
-      yield* enrichment.saveLoanWord(
-        100000061,
+      yield* saveLoanWord(
+        db,
+        EntryId.make(100000061),
         { word: "マンション", verdict, answers: {}, model: "test", questionsVersion: ENGLISH_QUESTIONS_VERSION },
-        0
+        new Date(0)
       )
-      yield* jobs.enqueue("nuance", 100000061, 0, 0)
+      yield* enqueueJob(db, "nuance", EntryId.make(100000061), 0, new Date(0))
       yield* finishJobs("nuance", 0)
       yield* TestClock.setTime(60 * 60 * 1000)
       yield* dictionary.requestEnrichment(EntryId.make(100000061))
-      assert.strictEqual((yield* jobs.statusFor(100000061)).get("nuance"), "done")
+      assert.strictEqual((yield* jobStatusFor(db, EntryId.make(100000061))).get("nuance"), "done")
     })
   )
 })

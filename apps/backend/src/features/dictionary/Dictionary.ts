@@ -25,9 +25,23 @@ import {
   uninflect
 } from "@kotori/language"
 import { Clock, Context, Effect, Layer, Option } from "effect"
-import { EnrichmentRepo, type ExampleRow } from "../enrichment/EnrichmentRepo.ts"
-import { JobsRepo } from "../enrichment/JobsRepo.ts"
-import { DictionaryRepo, type FormMatch, type GlossMatch } from "./DictionaryRepo.ts"
+import { Database } from "../../db/Database.ts"
+import { entryClips, exampleClips } from "../audio/index.ts"
+import type { ExampleRow } from "../enrichment/index.ts"
+import { examplesFor, loanWordsFor, nuanceFor, senseNotesFor, similarFor } from "../enrichment/index.ts"
+import { enqueueJob, jobStatusFor, refillJob, requeueJob } from "../enrichment/index.ts"
+import type { FormMatch, GlossMatch } from "./queries.ts"
+import {
+  findFormPrefix,
+  findForms,
+  findGlossesExact,
+  findJapaneseGlosses,
+  getEntries,
+  entryRanks,
+  searchGlosses,
+  searchJapaneseGlosses,
+  tagLabels
+} from "./queries.ts"
 
 export const audioUrl = (key: string) => `/audio/${key}.mp3`
 
@@ -40,13 +54,13 @@ const REFILL_AFTER = 60 * 60 * 1000
 const WARNING_RETRY_AFTER = 10 * 60 * 1000
 
 interface Hit {
-  readonly entryId: number
+  readonly entryId: EntryId
   readonly score: number
   readonly inflection: ReadonlyArray<string>
 }
 
 const keepBest = (hits: Iterable<Hit>) => {
-  const best = new Map<number, Hit>()
+  const best = new Map<EntryId, Hit>()
   for (const hit of hits) {
     const current = best.get(hit.entryId)
     if (current === undefined || hit.score > current.score) best.set(hit.entryId, hit)
@@ -195,9 +209,7 @@ export class Dictionary extends Context.Service<
   static readonly layer = Layer.effect(
     Dictionary,
     Effect.gen(function* () {
-      const repo = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
-      const jobs = yield* JobsRepo
+      const db = yield* Database
       const jev = yield* Jev
       const claude = yield* Claude
       const pronouncer = yield* Pronouncer
@@ -209,8 +221,8 @@ export class Dictionary extends Context.Service<
       const japaneseHits = Effect.fnUntraced(function* (query: string) {
         const variants = unique([query, katakanaToHiragana(query)])
         const candidates = variants.flatMap(deinflect)
-        const matches = yield* repo.findForms(unique(candidates.map((candidate) => candidate.term)))
-        const entries = new Map((yield* repo.getEntries(unique(matches.map((m) => m.entryId)))).map((e) => [e.id, e]))
+        const matches = yield* findForms(db, unique(candidates.map((candidate) => candidate.term)))
+        const entries = new Map((yield* getEntries(db, unique(matches.map((m) => m.entryId)))).map((e) => [e.id, e]))
 
         const exact = matches.flatMap((match): Array<Hit> => {
           const entry = entries.get(match.entryId)
@@ -229,8 +241,8 @@ export class Dictionary extends Context.Service<
             }))
         })
 
-        const prefixIds = yield* repo.findFormPrefix(query, 40)
-        const ranks = yield* repo.ranks(prefixIds)
+        const prefixIds = yield* findFormPrefix(db, query, 40)
+        const ranks = yield* entryRanks(db, prefixIds)
         const prefix = prefixIds.map((entryId, index): Hit => ({
           entryId,
           score: 400 - index + (ranks.get(entryId)?.common ? 50 : 0),
@@ -242,10 +254,10 @@ export class Dictionary extends Context.Service<
       /** Japanese words whose English glosses match an English query. */
       const englishGlossHits = Effect.fnUntraced(function* (query: string) {
         const expression = ftsExpression(query)
-        const exact = yield* repo.findGlossesExact(query, 300)
-        const fuzzy = expression === null ? [] : yield* repo.searchGlosses(expression, 600)
+        const exact = yield* findGlossesExact(db, query, 300)
+        const fuzzy = expression === null ? [] : yield* searchGlosses(db, expression, 600)
         const norm = normalizeGloss(query)
-        const ranks = yield* repo.ranks(unique([...exact, ...fuzzy].map((match) => match.entryId)))
+        const ranks = yield* entryRanks(db, unique([...exact, ...fuzzy].map((match) => match.entryId)))
         const score = (match: GlossMatch, isExact: boolean): Hit => ({
           entryId: match.entryId,
           score: glossScore(match, isExact, norm, normalizeGloss, ranks.get(match.entryId)),
@@ -284,18 +296,19 @@ export class Dictionary extends Context.Service<
       const englishWordHits = Effect.fnUntraced(function* (query: string) {
         const guesses = uninflect(query)
         const [matches, guessed] = yield* Effect.all([
-          repo.findForms([query], "en"),
+          findForms(db, [query], "en"),
           guesses.length === 0
             ? Effect.succeed([])
-            : repo.findForms(
+            : findForms(
+                db,
                 guesses.map((guess) => guess.base),
                 "en"
               )
         ])
-        const prefixIds = yield* repo.findFormPrefix(query, 40, "en")
-        const ranks = yield* repo.ranks(unique([...matches, ...guessed].map((m) => m.entryId).concat(prefixIds)))
+        const prefixIds = yield* findFormPrefix(db, query, 40, "en")
+        const ranks = yield* entryRanks(db, unique([...matches, ...guessed].map((m) => m.entryId).concat(prefixIds)))
         const guessedEntries = new Map(
-          (yield* repo.getEntries(unique(guessed.map((match) => match.entryId)))).map((entry) => [entry.id, entry])
+          (yield* getEntries(db, unique(guessed.map((match) => match.entryId)))).map((entry) => [entry.id, entry])
         )
 
         const exact = matches.map((match): Hit => {
@@ -339,12 +352,15 @@ export class Dictionary extends Context.Service<
         // Adjectival nouns are glossed as they modify a noun: きれい → きれいな.
         const norms = unique(terms.flatMap((term) => [normalizeJapaneseGloss(term), `${term}な`, `${term}の`]))
         const norm = normalizeJapaneseGloss(query)
-        const exact = yield* repo.findJapaneseGlosses(norms, 300)
-        const fuzzy = exact.length >= 20 ? [] : yield* repo.searchJapaneseGlosses(norm, 200)
+        const exact = yield* findJapaneseGlosses(db, norms, 300)
+        const fuzzy = exact.length >= 20 ? [] : yield* searchJapaneseGlosses(db, norm, 200)
 
         // The Japanese words the query is, and the English words their glosses name.
         const japanese = (yield* japaneseHits(query)).filter((hit) => hit.score >= 700).slice(0, BRIDGE_WORDS)
-        const records = yield* repo.getEntries(japanese.map((hit) => hit.entryId))
+        const records = yield* getEntries(
+          db,
+          japanese.map((hit) => hit.entryId)
+        )
         const named = records.flatMap((record, order) =>
           record.senses.slice(0, BRIDGE_SENSES).flatMap((sense, senseIndex) =>
             sense.glosses
@@ -357,9 +373,9 @@ export class Dictionary extends Context.Service<
           )
         )
         const bridged: ReadonlyArray<FormMatch> =
-          named.length === 0 ? [] : yield* repo.findForms(unique(named.map((name) => name.term)), "en")
+          named.length === 0 ? [] : yield* findForms(db, unique(named.map((name) => name.term)), "en")
 
-        const ranks = yield* repo.ranks(unique([...exact, ...fuzzy, ...bridged].map((match) => match.entryId)))
+        const ranks = yield* entryRanks(db, unique([...exact, ...fuzzy, ...bridged].map((match) => match.entryId)))
         const score = (match: GlossMatch, isExact: boolean): Hit => ({
           entryId: match.entryId,
           score: glossScore(match, isExact, norm, normalizeJapaneseGloss, ranks.get(match.entryId)),
@@ -400,8 +416,8 @@ export class Dictionary extends Context.Service<
 
       const summaries = Effect.fnUntraced(function* (hits: ReadonlyArray<Hit>) {
         const ids = hits.map((hit) => hit.entryId)
-        const entries = new Map((yield* repo.getEntries(ids)).map((entry) => [entry.id, entry]))
-        const nuance = yield* enrichment.nuanceFor(ids)
+        const entries = new Map((yield* getEntries(db, ids)).map((entry) => [entry.id, entry]))
+        const nuance = yield* nuanceFor(db, ids)
         const formality = new Map(
           nuance.filter((row) => row.sense === 0).map((row) => [row.entryId, row.nuance.formality.value] as const)
         )
@@ -440,52 +456,55 @@ export class Dictionary extends Context.Service<
         ready ? "ready" : !available || job === "failed" ? "unavailable" : "queued"
 
       const enrichmentFor = Effect.fnUntraced(function* (entry: EntryRecord, enqueue: boolean) {
-        const nuanceRows = yield* enrichment.nuanceFor([entry.id])
+        const nuanceRows = yield* nuanceFor(db, [entry.id])
         const hasNuance = nuanceRows.length > 0
         // Old rows stay valid and shown, but a viewed entry gets fresh judgments queued when they
         // predate its question set, or a re-import has ranked an unjudged sense among them.
         const outdated = nuanceOutdated(entry, nuanceRows)
-        const [loan] = yield* enrichment.loanWordsFor([entry.id])
-        const examples = yield* enrichment.examplesFor([entry.id])
+        const [loan] = yield* loanWordsFor(db, [entry.id])
+        const examples = yield* examplesFor(db, [entry.id])
         const hasExamples = examples.length > 0
-        const clips = yield* enrichment.exampleAudio(examples.map((example) => example.id))
+        const clips = yield* exampleClips(
+          db,
+          examples.map((example) => example.id)
+        )
         // Ready once the headword and every example are voiced in the entry's language.
         const hasAudio =
-          (yield* enrichment.entryAudio([entry.id])).size > 0 &&
+          (yield* entryClips(db, [entry.id])).size > 0 &&
           examples.every((example) => clips.has(`${example.id}:${entry.language}`))
         const coachAvailable = yield* claude.available
-        const now = yield* Clock.currentTimeMillis
+        const now = new Date(yield* Clock.currentTimeMillis)
 
         if (enqueue) {
-          const before = yield* jobs.statusFor(entry.id)
+          const before = yield* jobStatusFor(db, entry.id)
           if (jev.configured) {
             // Enqueueing a finished job is a no-op, so one that judged with an older question set is
             // queued again; saving replaces every row of the entry, so it runs once per version.
             if (outdated && before.get("nuance") === "done") {
-              yield* jobs.requeue("nuance", entry.id, ON_DEMAND, now)
+              yield* requeueJob(db, "nuance", entry.id, ON_DEMAND, now)
             } else if (!hasNuance || outdated) {
-              yield* jobs.enqueue("nuance", entry.id, ON_DEMAND, now)
+              yield* enqueueJob(db, "nuance", entry.id, ON_DEMAND, now)
             } else if (coachAvailable && awaitsWarning(loan) && before.get("nuance") === "done") {
               // A drifted loan judged while Claude was unavailable has no warning: the job writes
               // just that, without Jev. Not on every look, in case Claude still can't write it.
-              yield* jobs.refill("nuance", entry.id, now - WARNING_RETRY_AFTER, ON_DEMAND, now)
+              yield* refillJob(db, "nuance", entry.id, new Date(now.getTime() - WARNING_RETRY_AFTER), ON_DEMAND, now)
             }
           }
-          if (!hasExamples && coachAvailable) yield* jobs.enqueue("examples", entry.id, ON_DEMAND, now)
+          if (!hasExamples && coachAvailable) yield* enqueueJob(db, "examples", entry.id, ON_DEMAND, now)
           // The worker re-runs audio once example sentences exist, so they get voiced too. A finished
           // job can still leave gaps (sentences written after it ran), so it runs again to fill
           // them, but at most once an hour, in case the gap is one the worker can't fill.
           if (!hasAudio && pronouncer.configured) {
             // Enqueueing a finished job would touch it, putting its next try off with every look.
             if (before.get("audio") === "done") {
-              yield* jobs.refill("audio", entry.id, now - REFILL_AFTER, ON_DEMAND, now)
+              yield* refillJob(db, "audio", entry.id, new Date(now.getTime() - REFILL_AFTER), ON_DEMAND, now)
             } else {
-              yield* jobs.enqueue("audio", entry.id, ON_DEMAND, now)
+              yield* enqueueJob(db, "audio", entry.id, ON_DEMAND, now)
             }
           }
         }
 
-        const job = yield* jobs.statusFor(entry.id)
+        const job = yield* jobStatusFor(db, entry.id)
         return {
           nuance: status(hasNuance, jev.configured, job.get("nuance")),
           examples: status(hasExamples, coachAvailable, job.get("examples")),
@@ -495,23 +514,26 @@ export class Dictionary extends Context.Service<
       })
 
       const assemble = Effect.fnUntraced(function* (entry: EntryRecord) {
-        const tags = yield* repo.tags
+        const tags = yield* tagLabels(db)
         const tag = (code: string): Tag => ({ code, label: tags.get(code) ?? code })
 
-        const nuance = new Map((yield* enrichment.nuanceFor([entry.id])).map((row) => [row.sense, row.nuance]))
-        const notes = new Map((yield* enrichment.senseNotesFor([entry.id])).map((row) => [row.sense, row]))
-        const [loan] = yield* enrichment.loanWordsFor([entry.id])
-        const examples = yield* enrichment.examplesFor([entry.id])
-        const exampleAudio = yield* enrichment.exampleAudio(examples.map((example) => example.id))
-        const entryClips = (yield* enrichment.entryAudio([entry.id])).get(entry.id) ?? []
+        const nuance = new Map((yield* nuanceFor(db, [entry.id])).map((row) => [row.sense, row.nuance]))
+        const notes = new Map((yield* senseNotesFor(db, [entry.id])).map((row) => [row.sense, row]))
+        const [loan] = yield* loanWordsFor(db, [entry.id])
+        const examples = yield* examplesFor(db, [entry.id])
+        const exampleAudio = yield* exampleClips(
+          db,
+          examples.map((example) => example.id)
+        )
+        const headwordClips = (yield* entryClips(db, [entry.id])).get(entry.id) ?? []
         const voiceName = (voice: string | null) =>
           voice === null ? null : (CASTS[entry.language].find((candidate) => candidate.id === voice)?.name ?? null)
 
-        const similarRows = yield* enrichment.similarFor(entry.id)
+        const similarRows = yield* similarFor(db, entry.id)
         const similarIds = unique(similarRows.map((row) => row.similarId))
-        const similarEntries = new Map((yield* repo.getEntries(similarIds)).map((e) => [e.id, e]))
+        const similarEntries = new Map((yield* getEntries(db, similarIds)).map((e) => [e.id, e]))
         const similarFormality = new Map(
-          (yield* enrichment.nuanceFor(similarIds))
+          (yield* nuanceFor(db, similarIds))
             .filter((row) => row.sense === 0)
             .map((row) => [row.entryId, row.nuance.formality.value] as const)
         )
@@ -519,7 +541,7 @@ export class Dictionary extends Context.Service<
         // Cross-references point within the entry's own dictionary: JMDict's are "text・reading・sense",
         // an English word's are its synonyms and antonyms, matched whatever their case.
         const xrefTexts = unique(entry.senses.flatMap((s) => [...s.xrefs, ...s.antonyms]).map((x) => x.split("・")[0]!))
-        const xrefMatches = yield* repo.findForms(xrefTexts, entry.language)
+        const xrefMatches = yield* findForms(db, xrefTexts, entry.language)
         const fold = (text: string) => (entry.language === "en" ? text.toLowerCase() : text)
         const resolve = (xref: string) => {
           const [text = xref, reading] = xref.split("・")
@@ -579,8 +601,8 @@ export class Dictionary extends Context.Service<
             .filter((form) => !form.tags.includes("sK") && !form.tags.includes("sk"))
             .map((form) => ({ text: form.text, kind: form.kind, common: form.common, tags: form.tags.map(tag) })),
           senses,
-          audioUrl: entryClips[0] === undefined ? null : audioUrl(entryClips[0].key),
-          audio: entryClips.map((clip) => ({
+          audioUrl: headwordClips[0] === undefined ? null : audioUrl(headwordClips[0].key),
+          audio: headwordClips.map((clip) => ({
             url: audioUrl(clip.key),
             voice: clip.voice,
             voiceName: voiceName(clip.voice)
@@ -594,12 +616,12 @@ export class Dictionary extends Context.Service<
       })
 
       const entry = Effect.fn("Dictionary.entry")(function* (id: EntryId) {
-        const [record] = yield* repo.getEntries([id])
+        const [record] = yield* getEntries(db, [id])
         return record === undefined ? Option.none() : Option.some(yield* assemble(record))
       })
 
       const requestEnrichment = Effect.fn("Dictionary.requestEnrichment")(function* (id: EntryId) {
-        const [record] = yield* repo.getEntries([id])
+        const [record] = yield* getEntries(db, [id])
         return record === undefined ? Option.none() : Option.some(yield* enrichmentFor(record, true))
       })
 
@@ -607,8 +629,8 @@ export class Dictionary extends Context.Service<
         words: ReadonlyArray<{ readonly word: string; readonly reading: string }>,
         language: Language
       ) {
-        const matches = yield* repo.findForms(unique(words.flatMap((w) => [w.word, w.reading])), language)
-        const ranks = yield* repo.ranks(unique(matches.map((m) => m.entryId)))
+        const matches = yield* findForms(db, unique(words.flatMap((w) => [w.word, w.reading])), language)
+        const ranks = yield* entryRanks(db, unique(matches.map((m) => m.entryId)))
         const fold = (text: string) => (language === "en" ? text.toLowerCase() : text)
         return words.map(({ word, reading }) => {
           const candidates = matches.filter((m) => fold(m.text) === fold(word) || fold(m.text) === fold(reading))

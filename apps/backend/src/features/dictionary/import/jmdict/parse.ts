@@ -1,4 +1,4 @@
-import type { EntryRecord, FormRecord, SenseRecord } from "@kotori/contracts"
+import { EntryId, type EntryRecord, type FormRecord, type SenseRecord } from "@kotori/contracts"
 
 /**
  * A streaming-friendly parser for EDRDG's JMdict XML.
@@ -176,7 +176,7 @@ export const parseEntry = (block: string): EntryRecord => {
   }
   const { headword, reading } = chooseHeadword(forms, senses)
   return {
-    id: Number(first(block, "ent_seq")),
+    id: EntryId.make(Number(first(block, "ent_seq"))),
     language: "ja",
     headword,
     reading,

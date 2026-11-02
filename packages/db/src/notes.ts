@@ -3,7 +3,7 @@ import { index, integer, jsonb, pgEnum, uniqueIndex, uuid } from "drizzle-orm/pg
 import * as Schema from "effect/Schema"
 import { createdAt, Language, table } from "./columns.ts"
 import { entries, EntryId } from "./entries.ts"
-import { users } from "./users.ts"
+import { type UserId, users } from "./users.ts"
 
 /** Speech register used across the coach features. */
 export const Register = Schema.Literals(["casual", "neutral", "polite", "formal"])
@@ -64,15 +64,18 @@ export type NoteId = typeof NoteId.Type
 export const notes = table(
   "notes",
   {
-    id: uuid().primaryKey().defaultRandom(),
+    id: uuid().primaryKey().defaultRandom().$type<NoteId>(),
     userId: uuid()
+      .$type<UserId>()
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     kind: noteKind().notNull(),
     /** What is shown on the cards, frozen at save time so later enrichment changes don't rewrite a learner's card. */
     content: jsonb().$type<NoteContent>().notNull(),
     /** For word notes, the dictionary sense they came from. */
-    entryId: integer().references(() => entries.id, { onDelete: "set null" }),
+    entryId: integer()
+      .$type<EntryId>()
+      .references(() => entries.id, { onDelete: "set null" }),
     sense: integer(),
     createdAt: createdAt()
   },

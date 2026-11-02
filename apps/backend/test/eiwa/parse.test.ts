@@ -1,4 +1,4 @@
-import type { EntryRecord } from "@kotori/contracts"
+import { EntryId, type EntryRecord } from "@kotori/contracts"
 import { describe, expect, it } from "vitest"
 import { commonestFirst, mergeSources, toEntries } from "../../src/features/dictionary/import/eiwa/build.ts"
 import { parseEjdict } from "../../src/features/dictionary/import/eiwa/ejdict.ts"
@@ -253,7 +253,7 @@ const jmdictEntry = (
   glosses: Array<string>,
   common = true
 ): EntryRecord => ({
-  id,
+  id: EntryId.make(id),
   language: "ja",
   headword,
   reading,

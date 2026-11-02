@@ -2,8 +2,9 @@ import { Pronouncer, TtsError, type Voice } from "@kotori/ai"
 import type { Language } from "@kotori/contracts"
 import { Clock, Config, Context, Effect, Layer, Option } from "effect"
 import { createHash } from "node:crypto"
-import { EnrichmentRepo } from "../enrichment/EnrichmentRepo.ts"
+import { Database } from "../../db/Database.ts"
 import { AudioStore } from "./AudioStore.ts"
+import { audioCharactersSince, findAudio, saveAudio } from "./queries.ts"
 
 const MONTH = 30 * 24 * 60 * 60 * 1000
 
@@ -28,7 +29,7 @@ export class Speech extends Context.Service<
     Effect.gen(function* () {
       const pronouncer = yield* Pronouncer
       const store = yield* AudioStore
-      const repo = yield* EnrichmentRepo
+      const db = yield* Database
       const budget = yield* Config.Int("KOTORI_AUDIO_MONTHLY_CHARS").pipe(Config.withDefault(50_000))
 
       const keyFor = (text: string, language: Language, providerId: string) =>
@@ -41,11 +42,11 @@ export class Speech extends Context.Service<
         }
         const normalized = text.trim()
         const key = keyFor(normalized, language, reader.providerId)
-        const cached = yield* repo.findAudio(key)
+        const cached = yield* findAudio(db, key)
         if (Option.isSome(cached) && (yield* store.exists(key))) return key
 
         const now = yield* Clock.currentTimeMillis
-        const used = yield* repo.audioCharactersSince(now - MONTH)
+        const used = yield* audioCharactersSince(db, new Date(now - MONTH))
         if (used + normalized.length > budget) {
           return yield* new TtsError({
             reason: "quota",
@@ -55,7 +56,7 @@ export class Speech extends Context.Service<
 
         const bytes = yield* pronouncer.synthesize(normalized, language, reader)
         // The clip's row first: `audio_files` references it.
-        yield* repo.saveAudio({
+        yield* saveAudio(db, {
           key,
           text: normalized,
           language,
@@ -64,7 +65,7 @@ export class Speech extends Context.Service<
           modelId: pronouncer.model,
           characters: normalized.length,
           bytes: bytes.byteLength,
-          createdAt: now
+          createdAt: new Date(now)
         })
         yield* store.put(key, bytes)
         return key

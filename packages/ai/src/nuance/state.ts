@@ -1,4 +1,4 @@
-import type { EntryRecord } from "@kotori/contracts"
+import type { EntryId, EntryRecord } from "@kotori/contracts"
 import { romanize } from "@kotori/language"
 
 /** Senses beyond these rarely matter to learners and are left unclassified. */
@@ -59,7 +59,7 @@ export const senseScope = (entry: EntryRecord, senseIndex: number, tags: Readonl
 export type SenseScope = ReturnType<typeof senseScope>
 
 export interface CandidateState {
-  readonly entryId: number
+  readonly entryId: EntryId
   readonly word: string
   readonly reading: string
   readonly meaning: string

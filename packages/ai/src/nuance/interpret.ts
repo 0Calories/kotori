@@ -3,6 +3,7 @@ import {
   type Connotation,
   type Currency,
   type Difference,
+  type EntryId,
   type Gender,
   type JudgmentSource,
   type Keigo,
@@ -256,7 +257,7 @@ export const interpretLoan = (
 }
 
 export interface SimilarJudgment {
-  readonly similarId: number
+  readonly similarId: EntryId
   readonly similarity: number
   readonly difference: Difference
   readonly confidence: number
@@ -272,7 +273,7 @@ export const SIMILAR_KEPT = 0.7
 /** Keeps candidates Jev judges to be near-synonyms, most similar first. */
 export const interpretCandidates = (
   answers: Readonly<Record<string, unknown>>,
-  candidateIds: ReadonlyArray<number>
+  candidateIds: ReadonlyArray<EntryId>
 ): Array<SimilarJudgment> =>
   candidateIds
     .flatMap((similarId, index) => {

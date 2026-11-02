@@ -1,4 +1,4 @@
-import { entries, forms, glosses, senses } from "@kotori/db"
+import { entries, EntryId, forms, glosses, senses } from "@kotori/db"
 import { createSelectSchema } from "drizzle-orm/effect-schema"
 import * as Schema from "effect/Schema"
 import * as Struct from "effect/Struct"
@@ -38,7 +38,14 @@ export const SenseRecord = Schema.Struct({
 export type SenseRecord = typeof SenseRecord.Type
 
 export const EntryRecord = Schema.Struct({
-  ...Struct.pick(createSelectSchema(entries).fields, ["id", "language", "headword", "reading", "common", "priority"]),
+  ...Struct.pick(createSelectSchema(entries, { id: EntryId }).fields, [
+    "id",
+    "language",
+    "headword",
+    "reading",
+    "common",
+    "priority"
+  ]),
   forms: Schema.Array(FormRecord),
   senses: Schema.Array(SenseRecord)
 })

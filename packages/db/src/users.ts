@@ -19,7 +19,7 @@ export type UserId = typeof UserId.Type
 export const users = table(
   "users",
   {
-    id: uuid().primaryKey(),
+    id: uuid().primaryKey().$type<UserId>(),
     status: accountStatus().notNull().default("pending"),
     role: userRole().notNull().default("user"),
     nativeLanguage: language().notNull().default("en"),

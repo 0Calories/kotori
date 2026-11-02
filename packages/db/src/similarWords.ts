@@ -1,6 +1,6 @@
 import { doublePrecision, foreignKey, integer, pgEnum, primaryKey } from "drizzle-orm/pg-core"
 import { table } from "./columns.ts"
-import { entries } from "./entries.ts"
+import { entries, type EntryId } from "./entries.ts"
 import { senses } from "./senses.ts"
 
 export const difference = pgEnum("difference", [
@@ -19,9 +19,10 @@ export const difference = pgEnum("difference", [
 export const similarWords = table(
   "similar_words",
   {
-    entryId: integer().notNull(),
+    entryId: integer().$type<EntryId>().notNull(),
     sense: integer().notNull(),
     similarId: integer()
+      .$type<EntryId>()
       .notNull()
       .references(() => entries.id, { onDelete: "cascade" }),
     similarity: doublePrecision().notNull(),

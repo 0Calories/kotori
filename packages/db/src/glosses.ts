@@ -1,13 +1,14 @@
 import { type SQL } from "drizzle-orm"
 import { foreignKey, index, integer, text } from "drizzle-orm/pg-core"
 import { englishDocument, table, tsvector } from "./columns.ts"
+import { type EntryId } from "./entries.ts"
 import { senses } from "./senses.ts"
 
 export const glosses = table(
   "glosses",
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    entryId: integer().notNull(),
+    entryId: integer().$type<EntryId>().notNull(),
     sense: integer().notNull(),
     position: integer().notNull(),
     text: text().notNull(),

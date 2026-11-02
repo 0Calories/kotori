@@ -12,9 +12,11 @@ import {
 } from "@kotori/contracts"
 import { Clock, Config, Context, Effect, Layer, Option, Schema } from "effect"
 import { createHash } from "node:crypto"
+import { Database } from "../../db/Database.ts"
+import { scopedToUser } from "../../db/scopedToUser.ts"
 import { Speech } from "../audio/Speech.ts"
 import { audioUrl, Dictionary } from "../dictionary/Dictionary.ts"
-import { type CoachKind, CoachRepo } from "./CoachRepo.ts"
+import { cachedAnswer, type CoachKind, recordUsage, reserveUsage, storeAnswer, usageSince } from "./queries.ts"
 
 const HOUR = 60 * 60 * 1000
 
@@ -53,18 +55,24 @@ export class Coaching extends Context.Service<
       const jev = yield* Jev
       const speech = yield* Speech
       const dictionary = yield* Dictionary
-      const repo = yield* CoachRepo
+      const db = yield* Database
       const hourlyLimit = yield* Config.Int("KOTORI_COACH_HOURLY_LIMIT").pipe(Config.withDefault(60))
 
       const limit = Effect.fnUntraced(function* (user: Profile, kind: CoachKind, perHour: number) {
         const now = yield* Clock.currentTimeMillis
-        if ((yield* repo.usageSince(user.id, now - HOUR, COACHING)) >= perHour) {
+        const reserved = yield* reserveUsage(scopedToUser(db, user.id), {
+          kind,
+          kinds: COACHING,
+          since: new Date(now - HOUR),
+          limit: perHour,
+          now: new Date(now)
+        })
+        if (!reserved) {
           return yield* new RateLimited({
             message: "You've hit this hour's limit. Take a breather!",
             retryAfterSeconds: 600
           })
         }
-        yield* repo.recordUsage(user.id, kind, now)
       })
 
       /** Serves identical requests from the cache; only fresh answers count toward rate limits. */
@@ -80,7 +88,7 @@ export class Coaching extends Context.Service<
             .update(JSON.stringify([kind, user.nativeLanguage, user.targetLanguage, request]))
             .digest("hex")
           const now = yield* Clock.currentTimeMillis
-          const hit = yield* repo.cached(key, now - CACHE_TTL)
+          const hit = yield* cachedAnswer(db, key, new Date(now - CACHE_TTL))
           if (Option.isSome(hit)) {
             const decoded = Schema.decodeUnknownOption(schema)(hit.value)
             if (Option.isSome(decoded)) return decoded.value
@@ -88,7 +96,7 @@ export class Coaching extends Context.Service<
           yield* limit(user, kind, hourlyLimit)
           const result = yield* compute
           const encoded = Schema.encodeUnknownOption(schema)(result)
-          if (Option.isSome(encoded)) yield* repo.store(key, encoded.value, now)
+          if (Option.isSome(encoded)) yield* storeAnswer(db, key, encoded.value, new Date(now))
           return result
         })
 
@@ -140,8 +148,10 @@ export class Coaching extends Context.Service<
           return yield* new AiUnavailable({ message: "Audio isn't set up on this server (missing ElevenLabs key)." })
         }
         const now = yield* Clock.currentTimeMillis
-        // Audio has its own allowance: Japanese speakers hear most English on demand.
-        if ((yield* repo.usageSince(user.id, now - HOUR, ["speak"])) >= hourlyLimit * 3) {
+        const learner = scopedToUser(db, user.id)
+        // Audio has its own allowance: Japanese speakers hear most English on demand. Only clips
+        // that were made count, so a failed request doesn't use it up.
+        if ((yield* usageSince(learner, new Date(now - HOUR), ["speak"])) >= hourlyLimit * 3) {
           return yield* new RateLimited({ message: "Too many audio requests this hour.", retryAfterSeconds: 600 })
         }
         const key = yield* speech
@@ -153,7 +163,7 @@ export class Coaching extends Context.Service<
                 : new AiUnavailable({ message: "Couldn't generate audio right now." })
             )
           )
-        yield* repo.recordUsage(user.id, "speak", now)
+        yield* recordUsage(learner, "speak", new Date(now))
         return { url: audioUrl(key) }
       })
 

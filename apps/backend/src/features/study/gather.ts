@@ -8,11 +8,11 @@
  * whatever was showing. Callers that already have a card on screen must not
  * follow that new head.
  */
-export const gatherQueue = <Card extends { readonly due: number }>(
+export const gatherQueue = <Card extends { readonly due: Date }>(
   learning: ReadonlyArray<Card>,
   reviews: ReadonlyArray<Card>,
   fresh: ReadonlyArray<Card>,
-  now: number
+  now: Date
 ): Card[] => {
   const ordered: Card[] = learning.filter((card) => card.due <= now)
   // At least one review between new cards, and no division by zero when nothing is new.

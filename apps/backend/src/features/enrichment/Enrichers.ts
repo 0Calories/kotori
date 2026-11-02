@@ -11,12 +11,14 @@ import {
   Pronouncer
 } from "@kotori/ai"
 import type { EntryRecord } from "@kotori/contracts"
+import type { EntryId } from "@kotori/db"
 import { Clock, Context, Effect, Layer } from "effect"
-import { DictionaryRepo } from "../dictionary/DictionaryRepo.ts"
+import { Database } from "../../db/Database.ts"
+import { getEntries, loanCandidates, tagLabels } from "../dictionary/index.ts"
 import { AudioEnricher } from "./AudioEnricher.ts"
-import { EnrichmentRepo } from "./EnrichmentRepo.ts"
-import type { JobKind } from "./JobsRepo.ts"
+import type { JobKind } from "./jobs.ts"
 import { NuanceEnricher } from "./NuanceEnricher.ts"
+import { loanWordsFor, nuanceFor, saveExamples, saveLoanTrap, saveSenseNotes } from "./queries.ts"
 
 /** Senses that get example sentences; later senses are rarely what learners look for. */
 const EXAMPLE_SENSES = 4
@@ -50,7 +52,7 @@ export class Enrichers extends Context.Service<
     /** Which kinds of enrichment have a configured provider. */
     readonly available: Effect.Effect<ReadonlyArray<JobKind>>
     /** Runs one kind of enrichment for an entry, returning a short description of what was done. */
-    run(kind: JobKind, entryId: number): Effect.Effect<string, unknown>
+    run(kind: JobKind, entryId: EntryId): Effect.Effect<string, unknown>
   }
 >()("@kotori/backend/Enrichers") {
   static readonly layer = Layer.effect(
@@ -61,8 +63,7 @@ export class Enrichers extends Context.Service<
       const loanWriter = yield* LoanWriter
       const pronouncer = yield* Pronouncer
       const audio = yield* AudioEnricher
-      const dictionary = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
+      const db = yield* Database
       const jev = yield* Jev
       const claude = yield* Claude
 
@@ -74,12 +75,12 @@ export class Enrichers extends Context.Service<
         return kinds
       })
 
-      const examples = Effect.fn("Enrichers.examples")(function* (entryId: number) {
-        const [entry] = yield* dictionary.getEntries([entryId])
+      const examples = Effect.fn("Enrichers.examples")(function* (entryId: EntryId) {
+        const [entry] = yield* getEntries(db, [entryId])
         if (entry === undefined) return "missing entry"
-        const tags = yield* dictionary.tags
+        const tags = yield* tagLabels(db)
         const label = (code: string) => tags.get(code) ?? code
-        const judged = new Map((yield* enrichment.nuanceFor([entryId])).map((row) => [row.sense, row.nuance]))
+        const judged = new Map((yield* nuanceFor(db, [entryId])).map((row) => [row.sense, row.nuance]))
 
         const senses = entry.senses.slice(0, EXAMPLE_SENSES).map((sense, index) => {
           const nuance = judged.get(index)
@@ -106,13 +107,15 @@ export class Enrichers extends Context.Service<
           senses,
           perSense: senses.length > 2 ? 2 : 3
         })
-        const now = yield* Clock.currentTimeMillis
-        yield* enrichment.saveExamples(
+        const now = new Date(yield* Clock.currentTimeMillis)
+        yield* saveExamples(
+          db,
           entryId,
           written.examples.map((example) => ({ ...example, model: writer.model })),
           now
         )
-        yield* enrichment.saveSenseNotes(
+        yield* saveSenseNotes(
+          db,
           entryId,
           written.notes.map(({ sense, note, noteJa }) => ({ sense, note, noteJa, model: writer.model })),
           now
@@ -126,17 +129,18 @@ export class Enrichers extends Context.Service<
        * to diverge, right after the verdict. A warning already written survives a re-judge that
        * names the same loan, so it is paid for once.
        */
-      const trap = Effect.fn("Enrichers.loanTrap")(function* (entryId: number) {
-        const [loan] = yield* enrichment.loanWordsFor([entryId])
+      const trap = Effect.fn("Enrichers.loanTrap")(function* (entryId: EntryId) {
+        const [loan] = yield* loanWordsFor(db, [entryId])
         if (loan?.word == null || !awaitsWarning(loan) || !(yield* claude.available)) return false
-        const [entry] = yield* dictionary.getEntries([entryId])
+        const [entry] = yield* getEntries(db, [entryId])
         if (entry === undefined) return false
-        const tags = yield* dictionary.tags
+        const tags = yield* tagLabels(db)
         // The katakana word's own meanings, as Jev saw them: JMDict's, with their usage notes.
-        const candidates = yield* dictionary.loanCandidates([entry.headword], MAX_LOANS)
-        const katakana = (yield* dictionary.getEntries(candidates.map((candidate) => candidate.entryId))).find(
-          (candidate) => candidate.headword === loan.word
-        )
+        const candidates = yield* loanCandidates(db, [entry.headword], MAX_LOANS)
+        const katakana = (yield* getEntries(
+          db,
+          candidates.map((candidate) => candidate.entryId)
+        )).find((candidate) => candidate.headword === loan.word)
         const written = yield* loanWriter.write({
           headword: entry.headword,
           reading: entry.reading,
@@ -145,7 +149,7 @@ export class Enrichers extends Context.Service<
           loanMeanings: katakana === undefined ? [] : loanScope(katakana, tags).katakana_meanings
         })
         if (written === null) return false
-        yield* enrichment.saveLoanTrap(entryId, loan.word, written)
+        yield* saveLoanTrap(db, entryId, loan.word, written)
         return true
       })
 
@@ -154,17 +158,17 @@ export class Enrichers extends Context.Service<
        * current, and Claude was unavailable when its loan was judged (no key, a bad one, or a
        * probe that timed out). The API queues such a job when the entry is viewed with Claude back.
        */
-      const onlyWarningMissing = Effect.fnUntraced(function* (entryId: number) {
-        const [entry] = yield* dictionary.getEntries([entryId])
-        const rows = yield* enrichment.nuanceFor([entryId])
-        const [loan] = yield* enrichment.loanWordsFor([entryId])
+      const onlyWarningMissing = Effect.fnUntraced(function* (entryId: EntryId) {
+        const [entry] = yield* getEntries(db, [entryId])
+        const rows = yield* nuanceFor(db, [entryId])
+        const [loan] = yield* loanWordsFor(db, [entryId])
         return entry !== undefined && rows.length > 0 && !nuanceOutdated(entry, rows) && awaitsWarning(loan)
       })
 
       // A Claude failure fails the job after Jev's answers are saved; the retry asks Jev again,
       // which costs a fraction of a cent and keeps the warning from being silently skipped. A
       // job queued for a missing warning alone writes it without asking Jev again.
-      const judge = Effect.fn("Enrichers.nuance")(function* (entryId: number) {
+      const judge = Effect.fn("Enrichers.nuance")(function* (entryId: EntryId) {
         if (yield* onlyWarningMissing(entryId)) {
           return (yield* trap(entryId)) ? "loan warning written" : "loan warning still missing: Claude is unavailable"
         }
@@ -174,7 +178,7 @@ export class Enrichers extends Context.Service<
         return `${summary.senses} senses, ${summary.similar} similar words${loan}, ${summary.inputTokens} tokens`
       })
 
-      const run = (kind: JobKind, entryId: number): Effect.Effect<string, unknown> => {
+      const run = (kind: JobKind, entryId: EntryId): Effect.Effect<string, unknown> => {
         switch (kind) {
           case "nuance":
             return judge(entryId)

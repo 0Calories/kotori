@@ -1,12 +1,19 @@
 import { assert, layer } from "@effect/vitest"
 import { ENGLISH_QUESTIONS_VERSION, Jev, NuanceJudge, REVERSED } from "@kotori/ai"
-import type { EntryRecord, LoanMeaning } from "@kotori/contracts"
+import { EntryId, type EntryRecord, type LoanMeaning } from "@kotori/contracts"
 import type { Question, Questions } from "@typesafe-ai/sdk"
 import { Effect, Layer, Option } from "effect"
-import { Repositories } from "../src/db/Repositories.ts"
-import { DictionaryRepo } from "../src/features/dictionary/DictionaryRepo.ts"
-import { EnrichmentRepo } from "../src/features/enrichment/EnrichmentRepo.ts"
+import { Database } from "../src/db/Database.ts"
+import { insertEntries, saveTags } from "../src/features/dictionary/queries.ts"
 import { NuanceEnricher } from "../src/features/enrichment/NuanceEnricher.ts"
+import {
+  loanAnswersFor,
+  loanWordsFor,
+  nuanceFor,
+  similarFor,
+  updateLoanWord,
+  updateNuance
+} from "../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 
 const score = (value: number, confidence = 0.9) =>
@@ -73,7 +80,7 @@ const sense = (glosses: Array<string>, misc: Array<string> = []) => ({
 })
 
 const entry = (id: number, headword: string, reading: string, senses: EntryRecord["senses"]): EntryRecord => ({
-  id,
+  id: EntryId.make(id),
   language: "ja",
   headword,
   reading,
@@ -88,7 +95,7 @@ const entry = (id: number, headword: string, reading: string, senses: EntryRecor
 
 /** An English word with Japanese glosses: its IPA, when the dictionary has one, as its reading. */
 const english = (id: number, headword: string, glosses: Array<string>, xrefs: Array<string> = []): EntryRecord => ({
-  id,
+  id: EntryId.make(id),
   language: "en",
   headword,
   reading: headword === "eat" ? "/iːt/" : "",
@@ -107,24 +114,24 @@ const katakana = (id: number, headword: string, glosses: Array<string>): EntryRe
 })
 
 const TestLayer = NuanceEnricher.layer.pipe(
-  Layer.provideMerge(Layer.mergeAll(Repositories, NuanceJudge.layer.pipe(Layer.provide(FakeJev)))),
+  Layer.provideMerge(Layer.mergeAll(NuanceJudge.layer.pipe(Layer.provide(FakeJev)))),
   Layer.provideMerge(DatabaseMemory)
 )
 
 layer(TestLayer)("NuanceEnricher", (it) => {
   it.effect("classifies each sense and keeps near-synonyms", () =>
     Effect.gen(function* () {
-      const dictionary = yield* DictionaryRepo
-      yield* dictionary.insertEntries([
+      const db = yield* Database
+      yield* insertEntries(db, [
         entry(1, "食べる", "たべる", [sense(["to eat"]), sense(["to live on"])]),
         entry(2, "食う", "くう", [sense(["to eat"], ["male"])]),
         entry(3, "召し上がる", "めしあがる", [sense(["to eat", "to drink"], ["hon"])])
       ])
-      yield* dictionary.saveTags([{ code: "v1", label: "Ichidan verb" }])
+      yield* saveTags(db, [{ code: "v1", label: "Ichidan verb" }])
       requests.length = 0
 
       // One request for the whole entry: both senses' questions and the candidate comparisons.
-      const summary = yield* (yield* NuanceEnricher).enrich(1)
+      const summary = yield* (yield* NuanceEnricher).enrich(EntryId.make(1))
       assert.deepStrictEqual(summary, { senses: 2, similar: 1, loan: null, inputTokens: 100 })
       assert.strictEqual(requests.length, 1)
 
@@ -143,14 +150,13 @@ layer(TestLayer)("NuanceEnricher", (it) => {
       // Japanese words have no katakana loan to judge.
       assert.isUndefined(questions["loanword_0"])
 
-      const repo = yield* EnrichmentRepo
-      const saved = yield* repo.nuanceFor([1])
+      const saved = yield* nuanceFor(db, [EntryId.make(1)])
       assert.strictEqual(saved.length, 2)
       assert.strictEqual(saved[0]?.nuance.formality.value, "neutral")
       assert.strictEqual(saved[0]?.questionsVersion, 3)
-      assert.deepStrictEqual(yield* repo.loanWordsFor([1]), [])
+      assert.deepStrictEqual(yield* loanWordsFor(db, [EntryId.make(1)]), [])
 
-      const similar = yield* repo.similarFor(1)
+      const similar = yield* similarFor(db, EntryId.make(1))
       assert.deepStrictEqual(
         similar.map((row) => [row.similarId, row.difference]),
         [[2, "more_casual"]]
@@ -160,8 +166,8 @@ layer(TestLayer)("NuanceEnricher", (it) => {
 
   it.effect("judges English words in English terms, against other English words, with their loan", () =>
     Effect.gen(function* () {
-      const dictionary = yield* DictionaryRepo
-      yield* dictionary.insertEntries([
+      const db = yield* Database
+      yield* insertEntries(db, [
         english(100000001, "eat", ["食べる", "食事をする"], ["consume"]),
         english(100000002, "dine", ["食事をする"]),
         english(100000003, "consume", ["消費する"]),
@@ -171,7 +177,7 @@ layer(TestLayer)("NuanceEnricher", (it) => {
       requests.length = 0
 
       const enricher = yield* NuanceEnricher
-      yield* enricher.enrich(100000001)
+      yield* enricher.enrich(EntryId.make(100000001))
       const { state, questions } = requests[0]!
       assert.deepStrictEqual(state, { word: "eat", reading: "/iːt/", senses: ["食べる; 食事をする"] })
       const instructions = (key: string) => questions[key]?.instructions as Record<string, unknown>
@@ -185,8 +191,7 @@ layer(TestLayer)("NuanceEnricher", (it) => {
       assert.include(String(instructions("s0_formality")["focus"]), "translated into Japanese")
       for (const name of ["variety", "profanity", "textbook"]) assert.isDefined(questions[`s0_${name}`])
 
-      const repo = yield* EnrichmentRepo
-      const [nuance] = yield* repo.nuanceFor([100000001])
+      const [nuance] = yield* nuanceFor(db, [EntryId.make(100000001)])
       assert.strictEqual(nuance?.nuance.keigo.value, "none")
       assert.strictEqual(nuance?.nuance.variety?.value, "universal")
       assert.strictEqual(nuance?.nuance.profanity?.value, "none")
@@ -194,7 +199,7 @@ layer(TestLayer)("NuanceEnricher", (it) => {
 
       // "style" has a katakana loan in JMDict: judged once for the word, in a request of its own
       // beside the senses', whose state is the word without its Japanese senses.
-      const summary = yield* enricher.enrich(100000004)
+      const summary = yield* enricher.enrich(EntryId.make(100000004))
       assert.strictEqual(summary.loan, "スタイル")
       assert.strictEqual(summary.inputTokens, 200)
       const [senses, loans] = requests.slice(1)
@@ -203,7 +208,7 @@ layer(TestLayer)("NuanceEnricher", (it) => {
       assert.deepStrictEqual(Object.keys(loans!.questions), ["loanword_0", "loan_0", `loan_0${REVERSED}`])
       const loanAsked = loans!.questions["loan_0"]!.instructions as Record<string, unknown>
       assert.strictEqual(loanAsked["katakana_word"], "スタイル")
-      const [loan] = yield* repo.loanWordsFor([100000004])
+      const [loan] = yield* loanWordsFor(db, [EntryId.make(100000004)])
       assert.deepStrictEqual(loan?.verdict, { value: "divergent", probability: 0.9, source: "jev" })
       assert.deepStrictEqual([loan?.word, loan?.trap], ["スタイル", null])
     })
@@ -211,35 +216,34 @@ layer(TestLayer)("NuanceEnricher", (it) => {
 
   it.effect("reinterprets stored answers without calling Jev", () =>
     Effect.gen(function* () {
-      const dictionary = yield* DictionaryRepo
-      yield* dictionary.insertEntries([
+      const db = yield* Database
+      yield* insertEntries(db, [
         entry(4, "走る", "はしる", [sense(["to run"])]),
         english(100000005, "juice", ["果汁", "ジュース"]),
         katakana(9100002, "ジュース", ["juice", "soft drink (usu. fruit-based)"])
       ])
       const enricher = yield* NuanceEnricher
-      yield* enricher.enrich(4)
-      yield* enricher.enrich(100000005)
+      yield* enricher.enrich(EntryId.make(4))
+      yield* enricher.enrich(EntryId.make(100000005))
       const callsBefore = requests.length
 
-      const repo = yield* EnrichmentRepo
-      const [judged] = yield* repo.nuanceFor([4])
+      const [judged] = yield* nuanceFor(db, [EntryId.make(4)])
       // Corrupt the interpretations; a reinterpretation must rebuild them from the stored answers.
-      yield* repo.updateNuance(4, 0, {
+      yield* updateNuance(db, EntryId.make(4), 0, {
         ...judged!.nuance,
         formality: { value: "vulgar", position: 0, confidence: 1, source: "jev" }
       })
-      yield* repo.updateLoanWord(100000005, null, null)
+      yield* updateLoanWord(db, EntryId.make(100000005), null, null)
 
-      const summary = yield* enricher.reinterpret(4)
+      const summary = yield* enricher.reinterpret(EntryId.make(4))
       assert.strictEqual(summary.senses, 1)
-      const [restored] = yield* repo.nuanceFor([4])
+      const [restored] = yield* nuanceFor(db, [EntryId.make(4)])
       assert.deepStrictEqual(restored!.nuance, judged!.nuance)
-      yield* enricher.reinterpret(100000005)
-      const [loan] = yield* repo.loanWordsFor([100000005])
+      yield* enricher.reinterpret(EntryId.make(100000005))
+      const [loan] = yield* loanWordsFor(db, [EntryId.make(100000005)])
       assert.strictEqual(loan?.word, "ジュース")
       // Both orders' answers are kept, so the averaged verdict can be re-derived.
-      const stored = Option.getOrThrow(yield* repo.loanAnswersFor(100000005)) as Record<string, unknown>
+      const stored = Option.getOrThrow(yield* loanAnswersFor(db, EntryId.make(100000005))) as Record<string, unknown>
       assert.includeMembers(Object.keys(stored), ["loanword_0", "loan_0", `loan_0${REVERSED}`, "candidates"])
       assert.strictEqual(requests.length, callsBefore)
     })

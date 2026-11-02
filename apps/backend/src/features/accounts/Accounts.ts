@@ -1,15 +1,16 @@
-import { otherLanguage, type Profile, type UpdateProfileRequest, UserId } from "@kotori/contracts"
+import { otherLanguage, type Profile, type UpdateProfileRequest, type UserId } from "@kotori/contracts"
 import { Clock, Context, Effect, Layer, Option } from "effect"
 import { SqlClient } from "effect/sql"
+import { Database } from "../../db/Database.ts"
 import { Auth, type AuthUser } from "../../integrations/auth/Auth.ts"
+import { deleteUser, ensureUser, updateUser, type User } from "./queries.ts"
 import { isTimeZone } from "./timeZone.ts"
-import { type UserRow, UsersRepo } from "./UsersRepo.ts"
 
 /** What the profile shows from the auth user: contact details the row doesn't duplicate. */
 type Identity = Pick<AuthUser, "email" | "emailVerified">
 
-const toProfile = (who: Identity, row: UserRow): Profile => ({
-  id: UserId.make(row.id),
+const toProfile = (who: Identity, row: User): Profile => ({
+  id: row.id,
   email: who.email,
   emailVerified: who.emailVerified,
   status: row.status,
@@ -21,7 +22,7 @@ const toProfile = (who: Identity, row: UserRow): Profile => ({
   timezone: row.timezone,
   dailyNewLimit: row.dailyNewLimit,
   dailyReviewLimit: row.dailyReviewLimit,
-  createdAt: new Date(row.createdAt)
+  createdAt: row.createdAt
 })
 
 /** Learner profiles: identity comes from Managed Better Auth; approval, role and preferences live here. */
@@ -39,29 +40,22 @@ export class Accounts extends Context.Service<
     Accounts,
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient
-      const users = yield* UsersRepo
+      const db = yield* Database
       const auth = yield* Auth
 
       const profile = Effect.fn("Accounts.profile")(function* (user: AuthUser) {
-        const row = yield* users.ensure({
+        // The table's defaults make a pending learner of English speakers learning Japanese.
+        const row = yield* ensureUser(db, {
           id: user.id,
-          status: "pending",
-          role: "user",
-          nativeLanguage: "en",
-          targetLanguage: "ja",
-          onboardedAt: null,
           displayName: user.name.trim() || null,
-          timezone: "UTC",
-          dailyNewLimit: 20,
-          dailyReviewLimit: 200,
-          createdAt: yield* Clock.currentTimeMillis
+          createdAt: new Date(yield* Clock.currentTimeMillis)
         })
         return toProfile(user, row)
       })
 
       const update = Effect.fn("Accounts.update")(function* (current: Profile, request: UpdateProfileRequest) {
-        const now = yield* Clock.currentTimeMillis
-        const updated = yield* users.update(current.id, {
+        const now = new Date(yield* Clock.currentTimeMillis)
+        const updated = yield* updateUser(db, current.id, {
           nativeLanguage: request.nativeLanguage,
           targetLanguage: request.nativeLanguage === undefined ? undefined : otherLanguage(request.nativeLanguage),
           // Picking a language is what completes onboarding.
@@ -77,7 +71,7 @@ export class Accounts extends Context.Service<
       // One transaction: a profile deleted without its identity would be recreated, pending,
       // on the learner's next request.
       const del = Effect.fn("Accounts.delete")(function* (id: UserId) {
-        yield* sql.withTransaction(Effect.andThen(users.delete(id), auth.deleteUser(id))).pipe(Effect.orDie)
+        yield* sql.withTransaction(Effect.andThen(deleteUser(db, id), auth.deleteUser(id))).pipe(Effect.orDie)
       })
 
       return Accounts.of({ profile, update, delete: del })

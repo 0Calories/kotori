@@ -1,5 +1,6 @@
 import { foreignKey, index, integer, pgEnum, text } from "drizzle-orm/pg-core"
 import { createdAt, formality, table } from "./columns.ts"
+import { type EntryId } from "./entries.ts"
 import { senses } from "./senses.ts"
 
 export const speakerGender = pgEnum("speaker_gender", ["masculine", "feminine", "unspecified"])
@@ -14,7 +15,7 @@ export const examples = table(
   "examples",
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    entryId: integer().notNull(),
+    entryId: integer().$type<EntryId>().notNull(),
     sense: integer().notNull(),
     position: integer().notNull(),
     ja: text().notNull(),

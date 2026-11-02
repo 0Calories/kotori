@@ -1,8 +1,8 @@
 import { boolean, doublePrecision, index, integer, pgEnum, uuid } from "drizzle-orm/pg-core"
 import * as Schema from "effect/Schema"
 import { cardQueue, createdAt, table, timestamptz } from "./columns.ts"
-import { notes } from "./notes.ts"
-import { users } from "./users.ts"
+import { type NoteId, notes } from "./notes.ts"
+import { type UserId, users } from "./users.ts"
 
 export const cardTemplate = pgEnum("card_template", ["recognize", "produce"])
 
@@ -14,11 +14,13 @@ export type CardId = typeof CardId.Type
 export const cards = table(
   "cards",
   {
-    id: uuid().primaryKey().defaultRandom(),
+    id: uuid().primaryKey().defaultRandom().$type<CardId>(),
     noteId: uuid()
+      .$type<NoteId>()
       .notNull()
       .references(() => notes.id, { onDelete: "cascade" }),
     userId: uuid()
+      .$type<UserId>()
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     /** recognize shows the target language. produce remains in the enum; a migration deletes those rows. */

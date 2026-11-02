@@ -1,4 +1,4 @@
-import type { EntryRecord, FormRecord, SenseRecord } from "@kotori/contracts"
+import { EntryId, type EntryRecord, type FormRecord, type SenseRecord } from "@kotori/contracts"
 import { type EnglishInflection, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
 import type { FormOf, InflectedForm, References, Word } from "./words.ts"
 
@@ -243,7 +243,7 @@ export const toEntries = (
     if (common) commonSoFar++
     const spellings = [...word.spellings].filter((spelling) => !word.inflections.has(spelling))
     return {
-      id: existing.get(word.headword) ?? next++,
+      id: EntryId.make(existing.get(word.headword) ?? next++),
       language: "en" as const,
       source: word.source,
       headword: word.headword,

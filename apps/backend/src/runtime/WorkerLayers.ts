@@ -2,7 +2,6 @@ import { NodeHttpClient, NodeServices } from "@effect/platform-node"
 import { Claude, ElevenLabs, ExampleWriter, Jev, LoanWriter, NuanceJudge, Pronouncer } from "@kotori/ai"
 import { Layer } from "effect"
 import { DatabaseLive } from "../db/Database.ts"
-import { Repositories } from "../db/Repositories.ts"
 import { AudioStore } from "../features/audio/AudioStore.ts"
 import { Speech } from "../features/audio/Speech.ts"
 import { AudioEnricher } from "../features/enrichment/AudioEnricher.ts"
@@ -25,7 +24,6 @@ export const WorkerLive = Enrichers.layer.pipe(
   Layer.provideMerge(Speech.layer),
   Layer.provideMerge(Layer.mergeAll(AudioStore.layer, CapabilitiesLive)),
   Layer.provideMerge(ProvidersLive),
-  Layer.provideMerge(Repositories),
   Layer.provideMerge(DatabaseLive),
   Layer.provideMerge(Layer.mergeAll(NodeHttpClient.layerUndici, NodeServices.layer))
 )

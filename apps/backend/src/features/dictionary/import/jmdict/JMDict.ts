@@ -2,8 +2,9 @@ import type { EntryRecord } from "@kotori/contracts"
 import { Effect, FileSystem, Path, Schema, Stream } from "effect"
 import { HttpClient } from "effect/http"
 import { gunzipSync } from "node:zlib"
+import { Database } from "../../../../db/Database.ts"
 import { resolveFromRoot } from "../../../../runtime/Paths.ts"
-import { DictionaryRepo } from "../../DictionaryRepo.ts"
+import { insertEntries, saveTags } from "../../queries.ts"
 import { parseEntries, parseTags } from "./parse.ts"
 
 /** EDRDG's English-only JMdict, refreshed daily. Licensed CC BY-SA 4.0. */
@@ -44,7 +45,7 @@ export interface ImportOptions {
 /** Parses JMDict and loads it into the database, then rebuilds the gloss search index. */
 export const importFile = Effect.fn("JMDict.importFile")(function* (options: ImportOptions) {
   const fs = yield* FileSystem.FileSystem
-  const repo = yield* DictionaryRepo
+  const db = yield* Database
 
   const bytes = yield* fs
     .readFile(resolveFromRoot(options.file))
@@ -55,7 +56,7 @@ export const importFile = Effect.fn("JMDict.importFile")(function* (options: Imp
   })
 
   const tags = parseTags(xml)
-  yield* repo.saveTags(tags)
+  yield* saveTags(db, tags)
   yield* Effect.logInfo(`Loaded ${tags.length} JMDict tags`)
 
   const batchSize = options.batchSize ?? 500
@@ -69,12 +70,12 @@ export const importFile = Effect.fn("JMDict.importFile")(function* (options: Imp
     batch.push(entry)
     imported++
     if (batch.length >= batchSize) {
-      yield* repo.insertEntries(batch)
+      yield* insertEntries(db, batch)
       batch = []
       if (imported % 20_000 < batchSize) yield* Effect.logInfo(`Imported ${imported} entries`)
     }
   }
-  yield* repo.insertEntries(batch)
+  yield* insertEntries(db, batch)
   yield* Effect.logInfo(`Imported ${imported} entries`)
   return { entries: imported, tags: tags.length }
 })

@@ -31,7 +31,7 @@ import {
   senseTags,
   SIMILAR_KEPT
 } from "@kotori/ai"
-import { type EntryRecord, LOAN_SHOWN, loanShown } from "@kotori/contracts"
+import { EntryId, type EntryRecord, LOAN_SHOWN, loanShown } from "@kotori/contracts"
 import { normalizeGloss } from "@kotori/language"
 import { Console, Effect, FileSystem, Option, Schema } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
@@ -267,7 +267,7 @@ export const evaluate = Command.make(
     const tags = new Map(Object.entries(fixture.tags))
     const entries = new Map(fixture.entries.map((entry) => [entry.id, goldenEntry(entry)]))
     const entryOf = (id: number) => {
-      const entry = entries.get(id)
+      const entry = entries.get(EntryId.make(id))
       if (entry === undefined) throw new Error(`#${id} is not in ${GOLDEN_FIXTURE}; run \`pnpm golden\``)
       return entry
     }

@@ -1,6 +1,7 @@
 import { PgClient } from "@effect/sql-pg"
 import { PgliteClient } from "@effect/sql-pglite"
 import { assert, describe, it, layer } from "@effect/vitest"
+import { EntryId } from "@kotori/contracts"
 import { senses } from "@kotori/db"
 import { sql } from "drizzle-orm"
 import * as PgliteDrizzle from "drizzle-orm/effect-pglite"
@@ -80,7 +81,7 @@ describe("Database on Postgres", () => {
       )
       const { params } = db
         .insert(senses)
-        .values({ entryId: 1, position: 0, pos: ["v1", 'say "hi"\\'], misc: [] })
+        .values({ entryId: EntryId.make(1), position: 0, pos: ["v1", 'say "hi"\\'], misc: [] })
         .toSQL()
       assert.include(params, '{"v1","say \\"hi\\"\\\\"}')
       assert.include(params, "{}")

@@ -1,10 +1,17 @@
 import { assert, layer } from "@effect/vitest"
+import { EntryId } from "@kotori/contracts"
 import { Effect, FileSystem, Layer } from "effect"
-import { Repositories } from "../../src/db/Repositories.ts"
-import { DictionaryRepo } from "../../src/features/dictionary/DictionaryRepo.ts"
+import { Database } from "../../src/db/Database.ts"
 import * as JMDict from "../../src/features/dictionary/import/jmdict/JMDict.ts"
-import { EnrichmentRepo, type NuanceInput } from "../../src/features/enrichment/EnrichmentRepo.ts"
-import { JobsRepo } from "../../src/features/enrichment/JobsRepo.ts"
+import { entryCount, getEntries, tagLabels } from "../../src/features/dictionary/queries.ts"
+import { enqueueJob, jobStatusFor } from "../../src/features/enrichment/jobs.ts"
+import {
+  examplesFor,
+  nuanceFor,
+  saveExamples,
+  saveNuance,
+  type NuanceInput
+} from "../../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
 const release = (
@@ -39,9 +46,9 @@ const twoSenses =
 let current = release(twoSenses)
 const Files = FileSystem.layerNoop({ readFile: () => Effect.sync(() => new TextEncoder().encode(current)) })
 
-const TestLayer = Layer.mergeAll(Repositories, Files).pipe(Layer.provideMerge(DatabaseMemory))
+const TestLayer = Layer.mergeAll(Files).pipe(Layer.provideMerge(DatabaseMemory))
 
-const taberu = 1358280
+const taberu = EntryId.make(1358280)
 const judgment = { value: "neutral" as const, confidence: 0.9, source: "jev" as const }
 const nuance = (sense: number): NuanceInput => ({
   sense,
@@ -65,16 +72,15 @@ const nuance = (sense: number): NuanceInput => ({
 layer(TestLayer)("JMDict.importFile", (it) => {
   it.effect("seeding twice leaves the same dictionary, enrichment and queue", () =>
     Effect.gen(function* () {
-      const dictionary = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
-      const jobs = yield* JobsRepo
+      const db = yield* Database
 
       assert.deepStrictEqual(yield* JMDict.importFile({ file: "JMdict_e.gz" }), { entries: 2, tags: 3 })
-      const seeded = yield* dictionary.getEntries([taberu, 1001720])
+      const seeded = yield* getEntries(db, [taberu, EntryId.make(1001720)])
       assert.strictEqual(seeded[0]?.senses[1]?.glosses[1]?.type, "fig")
 
-      yield* enrichment.saveNuance(taberu, [nuance(0), nuance(1)], 1000)
-      yield* enrichment.saveExamples(
+      yield* saveNuance(db, taberu, [nuance(0), nuance(1)], new Date(1000))
+      yield* saveExamples(
+        db,
         taberu,
         [
           {
@@ -87,42 +93,41 @@ layer(TestLayer)("JMDict.importFile", (it) => {
             model: "m"
           }
         ],
-        1000
+        new Date(1000)
       )
-      yield* jobs.enqueue("audio", taberu, 10, 1000)
+      yield* enqueueJob(db, "audio", taberu, 10, new Date(1000))
 
       assert.deepStrictEqual(yield* JMDict.importFile({ file: "JMdict_e.gz" }), { entries: 2, tags: 3 })
-      assert.strictEqual(yield* dictionary.count, 2)
-      assert.deepStrictEqual(yield* dictionary.getEntries([taberu, 1001720]), seeded)
-      assert.strictEqual((yield* dictionary.tags).size, 3)
+      assert.strictEqual(yield* entryCount(db), 2)
+      assert.deepStrictEqual(yield* getEntries(db, [taberu, EntryId.make(1001720)]), seeded)
+      assert.strictEqual((yield* tagLabels(db)).size, 3)
       assert.deepStrictEqual(
-        (yield* enrichment.nuanceFor([taberu])).map((row) => row.sense).sort((a, b) => a - b),
+        (yield* nuanceFor(db, [taberu])).map((row) => row.sense).sort((a, b) => a - b),
         [0, 1]
       )
-      assert.strictEqual((yield* enrichment.examplesFor([taberu])).length, 1)
-      assert.strictEqual((yield* jobs.statusFor(taberu)).get("audio"), "queued")
+      assert.strictEqual((yield* examplesFor(db, [taberu])).length, 1)
+      assert.strictEqual((yield* jobStatusFor(db, taberu)).get("audio"), "queued")
     })
   )
 
   it.effect("a newer release updates in place and drops only the enrichment of senses it lost", () =>
     Effect.gen(function* () {
-      const dictionary = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
+      const db = yield* Database
       current = release("<sense><pos>&v1;</pos><gloss>to eat</gloss><gloss>to have a meal</gloss></sense>", "honorific")
 
       yield* JMDict.importFile({ file: "JMdict_e.gz" })
-      const [updated] = yield* dictionary.getEntries([taberu])
+      const [updated] = yield* getEntries(db, [taberu])
       assert.deepStrictEqual(
         updated?.senses.map((sense) => sense.glosses.map((gloss) => gloss.text)),
         [["to eat", "to have a meal"]]
       )
-      assert.strictEqual((yield* dictionary.tags).get("hon"), "honorific")
+      assert.strictEqual((yield* tagLabels(db)).get("hon"), "honorific")
       assert.deepStrictEqual(
-        (yield* enrichment.nuanceFor([taberu])).map((row) => row.sense),
+        (yield* nuanceFor(db, [taberu])).map((row) => row.sense),
         [0]
       )
-      assert.strictEqual((yield* enrichment.examplesFor([taberu])).length, 0)
-      assert.strictEqual(yield* dictionary.count, 2)
+      assert.strictEqual((yield* examplesFor(db, [taberu])).length, 0)
+      assert.strictEqual(yield* entryCount(db), 2)
     })
   )
 })

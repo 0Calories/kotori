@@ -2,10 +2,11 @@ import { Claude, Jev, Pronouncer } from "@kotori/ai"
 import { CurrentUser, InvalidRequest, KotoriApi, NotFound } from "@kotori/contracts"
 import { Effect, Layer, Option } from "effect"
 import { HttpApiBuilder } from "effect/http-api"
+import { Database } from "../db/Database.ts"
 import { Accounts } from "../features/accounts/Accounts.ts"
 import { Coaching } from "../features/coaching/Coaching.ts"
 import { Dictionary } from "../features/dictionary/Dictionary.ts"
-import { DictionaryRepo } from "../features/dictionary/DictionaryRepo.ts"
+import { entryCount } from "../features/dictionary/index.ts"
 import { Study } from "../features/study/Study.ts"
 import { Mailer } from "../integrations/email/Mailer.ts"
 
@@ -24,7 +25,7 @@ const SystemHandlers = HttpApiBuilder.group(
     const jev = yield* Jev
     const pronouncer = yield* Pronouncer
     const mailer = yield* Mailer
-    const dictionary = yield* DictionaryRepo
+    const db = yield* Database
     return handlers.handleAll({
       health: () =>
         Effect.gen(function* () {
@@ -37,7 +38,7 @@ const SystemHandlers = HttpApiBuilder.group(
               audio: pronouncer.configured,
               email: mailer.configured
             },
-            dictionary: { entries: yield* dictionary.count }
+            dictionary: { entries: yield* entryCount(db) }
           }
         })
     })

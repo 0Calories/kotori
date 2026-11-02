@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest"
-import { type EntryRecord, type LoanMeaning, loanShown } from "@kotori/contracts"
+import { EntryId, type EntryRecord, type LoanMeaning, loanShown } from "@kotori/contracts"
 import type { Question } from "@typesafe-ai/sdk"
 import {
   awaitsWarning,
@@ -217,7 +217,7 @@ const sense = (glosses: Array<string>, misc: Array<string> = []) => ({
 })
 
 const entry = (id: number, headword: string, reading: string, senses: EntryRecord["senses"]): EntryRecord => ({
-  id,
+  id: EntryId.make(id),
   language: "ja",
   headword,
   reading,
@@ -232,7 +232,7 @@ const entry = (id: number, headword: string, reading: string, senses: EntryRecor
 
 /** An English word with Japanese glosses: its IPA, when the dictionary has one, as its reading. */
 const english = (id: number, headword: string, glosses: Array<string>, xrefs: Array<string> = []): EntryRecord => ({
-  id,
+  id: EntryId.make(id),
   language: "en",
   headword,
   reading: headword === "eat" ? "/iːt/" : "",

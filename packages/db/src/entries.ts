@@ -10,7 +10,7 @@ export const entries = table(
   "entries",
   {
     /** JMDict's `ent_seq`; English entries are numbered from 100,000,000 (see packages/eiwa). */
-    id: integer().primaryKey(),
+    id: integer().primaryKey().$type<EntryId>(),
     /** The headword's language: Japanese for JMDict, English for the English dictionary. */
     language: language().notNull().default("ja"),
     headword: text().notNull(),

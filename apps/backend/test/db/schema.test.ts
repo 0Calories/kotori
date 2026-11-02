@@ -1,4 +1,5 @@
 import { assert, describe, it, layer } from "@effect/vitest"
+import { EntryId } from "@kotori/contracts"
 import { entries, forms, glosses, senses } from "@kotori/db"
 import { eq, sql } from "drizzle-orm"
 import { Effect } from "effect"
@@ -14,23 +15,23 @@ const seed = Effect.gen(function* () {
   const db = yield* Database
   yield* db.execute(sql`TRUNCATE ${entries} CASCADE`)
   yield* db.insert(entries).values([
-    { id: 1, headword: "食べる", reading: "たべる", common: true, priority: 90 },
-    { id: 2, headword: "食う", reading: "くう", common: false, priority: 10 }
+    { id: EntryId.make(1), headword: "食べる", reading: "たべる", common: true, priority: 90 },
+    { id: EntryId.make(2), headword: "食う", reading: "くう", common: false, priority: 10 }
   ])
   yield* db.insert(forms).values([
-    { entryId: 1, kind: "kanji", position: 0, text: "食べる", common: true, priorities: ["ichi1"] },
-    { entryId: 1, kind: "kana", position: 0, text: "たべる", common: true },
-    { entryId: 2, kind: "kanji", position: 0, text: "食う" },
-    { entryId: 2, kind: "kana", position: 0, text: "くう" }
+    { entryId: EntryId.make(1), kind: "kanji", position: 0, text: "食べる", common: true, priorities: ["ichi1"] },
+    { entryId: EntryId.make(1), kind: "kana", position: 0, text: "たべる", common: true },
+    { entryId: EntryId.make(2), kind: "kanji", position: 0, text: "食う" },
+    { entryId: EntryId.make(2), kind: "kana", position: 0, text: "くう" }
   ])
   yield* db.insert(senses).values([
-    { entryId: 1, position: 0, pos: ["v1", "vt"] },
-    { entryId: 2, position: 0, pos: ["v5u", "vt"], misc: ["male"] }
+    { entryId: EntryId.make(1), position: 0, pos: ["v1", "vt"] },
+    { entryId: EntryId.make(2), position: 0, pos: ["v5u", "vt"], misc: ["male"] }
   ])
   yield* db.insert(glosses).values([
-    { entryId: 1, sense: 0, position: 0, text: "to eat", norm: "eat" },
-    { entryId: 1, sense: 0, position: 1, text: "to live on (e.g. a salary)", norm: "live on" },
-    { entryId: 2, sense: 0, position: 0, text: "to eat", norm: "eat" }
+    { entryId: EntryId.make(1), sense: 0, position: 0, text: "to eat", norm: "eat" },
+    { entryId: EntryId.make(1), sense: 0, position: 1, text: "to live on (e.g. a salary)", norm: "live on" },
+    { entryId: EntryId.make(2), sense: 0, position: 0, text: "to eat", norm: "eat" }
   ])
 })
 
@@ -79,7 +80,7 @@ layer(DatabaseMemory)("schema", (it) => {
       const db = yield* Database
       yield* seed
       const entry = yield* db.query.entries.findFirst({
-        where: { id: 1 },
+        where: { id: EntryId.make(1) },
         with: {
           forms: { orderBy: { kind: "asc", position: "asc" } },
           senses: { with: { glosses: { orderBy: { position: "asc" } } } }
@@ -102,7 +103,7 @@ layer(DatabaseMemory)("schema", (it) => {
     Effect.gen(function* () {
       const db = yield* Database
       yield* seed
-      yield* db.delete(entries).where(eq(entries.id, 1))
+      yield* db.delete(entries).where(eq(entries.id, EntryId.make(1)))
       const left = yield* db.$count(glosses)
       assert.strictEqual(left, 1)
       assert.strictEqual(yield* db.$count(forms), 2)

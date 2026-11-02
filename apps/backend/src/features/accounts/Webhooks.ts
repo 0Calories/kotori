@@ -1,11 +1,13 @@
+import { UserId } from "@kotori/db"
 import { Clock, Context, Duration, Effect, Layer, Option, Schema } from "effect"
 import type { Headers } from "effect/http"
+import { Database } from "../../db/Database.ts"
 import { Auth, type AuthUpstreamError } from "../../integrations/auth/Auth.ts"
 import { signatureIsValid } from "../../integrations/auth/WebhookSignature.ts"
 import { type MailError, Mailer } from "../../integrations/email/Mailer.ts"
 import { type OneTime, templates } from "../../integrations/email/templates.ts"
 import { emailLanguage } from "./Approvals.ts"
-import { UsersRepo } from "./UsersRepo.ts"
+import { userById } from "./queries.ts"
 
 /** Neon's replay window: a correctly signed request older than this is still turned away. */
 const MAX_AGE = Duration.minutes(5)
@@ -31,7 +33,7 @@ const Envelope = Schema.Struct({
   event_type: Schema.String,
   user: Schema.optional(
     Schema.Struct({
-      id: Schema.optional(Schema.String),
+      id: Schema.optional(UserId),
       email: Schema.optional(Schema.String),
       name: Schema.optional(Schema.NullOr(Schema.String))
     })
@@ -75,7 +77,7 @@ export class AuthWebhooks extends Context.Service<
     AuthWebhooks,
     Effect.gen(function* () {
       const auth = yield* Auth
-      const users = yield* UsersRepo
+      const db = yield* Database
       const mailer = yield* Mailer
 
       // Neon retries with the same event id when a response is lost; this process doesn't send twice.
@@ -141,7 +143,7 @@ export class AuthWebhooks extends Context.Service<
           const to = event.user?.email
           if (to === undefined || to === "") return yield* unusable(`${event.event_type} has no email address`)
           // Same rule as the approval email: the learner's chosen language once they've onboarded.
-          const profile = event.user?.id === undefined ? Option.none() : yield* users.byId(event.user.id)
+          const profile = event.user?.id === undefined ? Option.none() : yield* userById(db, event.user.id)
           const language = emailLanguage(Option.getOrUndefined(profile))
           const name = event.user?.name?.trim() || null
 

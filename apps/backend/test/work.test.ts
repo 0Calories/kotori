@@ -10,18 +10,19 @@ import {
   NuanceJudge,
   Pronouncer
 } from "@kotori/ai"
-import type { EntryRecord } from "@kotori/contracts"
+import { EntryId, type EntryRecord } from "@kotori/contracts"
 import { Effect, Layer } from "effect"
 import { TestClock } from "effect/testing"
-import { Repositories } from "../src/db/Repositories.ts"
+import { Database } from "../src/db/Database.ts"
 import { AudioStore } from "../src/features/audio/AudioStore.ts"
+import { entryClips, exampleClips } from "../src/features/audio/queries.ts"
 import { Speech } from "../src/features/audio/Speech.ts"
-import { DictionaryRepo } from "../src/features/dictionary/DictionaryRepo.ts"
+import { insertEntries } from "../src/features/dictionary/queries.ts"
 import { AudioEnricher } from "../src/features/enrichment/AudioEnricher.ts"
 import { Enrichers } from "../src/features/enrichment/Enrichers.ts"
-import { EnrichmentRepo } from "../src/features/enrichment/EnrichmentRepo.ts"
-import { JobsRepo } from "../src/features/enrichment/JobsRepo.ts"
+import { enqueueJob, jobStatusFor, requeueJob } from "../src/features/enrichment/jobs.ts"
 import { NuanceEnricher } from "../src/features/enrichment/NuanceEnricher.ts"
+import { examplesFor, loanWordsFor, nuanceFor, similarFor } from "../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 import { makeJobRunner } from "../src/worker/JobRunner.ts"
 
@@ -148,7 +149,6 @@ const TestLayer = Enrichers.layer.pipe(
     Layer.mergeAll(AudioStore.layer, NuanceJudge.layer, ExampleWriter.layer, LoanWriter.layer, Pronouncer.layer)
   ),
   Layer.provideMerge(Layer.mergeAll(FakeJev, FakeClaude, FakeElevenLabs)),
-  Layer.provideMerge(Repositories),
   Layer.provideMerge(DatabaseMemory)
 )
 
@@ -168,7 +168,7 @@ const sense = (glosses: Array<string>) => ({
 })
 
 const entry = (id: number, headword: string, reading: string, senses: Array<Array<string>>): EntryRecord => ({
-  id,
+  id: EntryId.make(id),
   language: "ja",
   headword,
   reading,
@@ -181,10 +181,10 @@ const entry = (id: number, headword: string, reading: string, senses: Array<Arra
   senses: senses.map(sense)
 })
 
-const taberu = 1358280
-const kuu = 1269130
-const style = 1069520
-const styleEnglish = 100001699
+const taberu = EntryId.make(1358280)
+const kuu = EntryId.make(1269130)
+const style = EntryId.make(1069520)
+const styleEnglish = EntryId.make(100001699)
 
 /** Runs cycles until the queue has nothing runnable, returning how many jobs ran. */
 const drain = (step: Effect.Effect<boolean>) =>
@@ -197,10 +197,8 @@ const drain = (step: Effect.Effect<boolean>) =>
 layer(TestLayer)("the worker", (it) => {
   it.effect("runs queued enrichment into the new tables, voicing examples once they exist", () =>
     Effect.gen(function* () {
-      const dictionary = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
-      const jobs = yield* JobsRepo
-      yield* dictionary.insertEntries([
+      const db = yield* Database
+      yield* insertEntries(db, [
         entry(taberu, "食べる", "たべる", [["to eat"], ["to live on (e.g. a salary)"]]),
         entry(kuu, "食う", "くう", [["to eat"]])
       ])
@@ -210,22 +208,22 @@ layer(TestLayer)("the worker", (it) => {
       const step = yield* makeJobRunner(kinds)
 
       // What the API does when a learner opens an entry.
-      yield* jobs.enqueue("nuance", taberu, 100, 0)
-      yield* jobs.enqueue("examples", taberu, 100, 0)
+      yield* enqueueJob(db, "nuance", taberu, 100, new Date(0))
+      yield* enqueueJob(db, "examples", taberu, 100, new Date(0))
       assert.strictEqual(yield* drain(step), 3)
 
       assert.deepStrictEqual(
-        (yield* enrichment.nuanceFor([taberu])).map((row) => [row.sense, row.model]),
+        (yield* nuanceFor(db, [taberu])).map((row) => [row.sense, row.model]),
         [
           [0, "jev-test"],
           [1, "jev-test"]
         ]
       )
       assert.deepStrictEqual(
-        (yield* enrichment.similarFor(taberu)).map((row) => [row.sense, row.similarId, row.difference]),
+        (yield* similarFor(db, taberu)).map((row) => [row.sense, row.similarId, row.difference]),
         [[0, kuu, "more_casual"]]
       )
-      const [example] = yield* enrichment.examplesFor([taberu])
+      const [example] = yield* examplesFor(db, [taberu])
       assert.strictEqual(example?.furigana, "パンを{食|た}べる。")
       assert.strictEqual(example?.model, "claude-test")
 
@@ -233,11 +231,11 @@ layer(TestLayer)("the worker", (it) => {
       // the headword once per cast dictionary voice (Kyoko and the announcer), the sentence in
       // Japanese, which is what its learners are learning.
       assert.deepStrictEqual(spoken, ["たべる", "たべる", "パンを食べる。"])
-      assert.isTrue((yield* enrichment.entryAudio([taberu])).has(taberu))
-      const clips = yield* enrichment.exampleAudio([example!.id])
+      assert.isTrue((yield* entryClips(db, [taberu])).has(taberu))
+      const clips = yield* exampleClips(db, [example!.id])
       assert.deepStrictEqual([...clips.keys()], [`${example!.id}:ja`])
       assert.deepStrictEqual(
-        [...(yield* jobs.statusFor(taberu))].sort(([a], [b]) => a.localeCompare(b)),
+        [...(yield* jobStatusFor(db, taberu))].sort(([a], [b]) => a.localeCompare(b)),
         [
           ["audio", "done"],
           ["examples", "done"],
@@ -249,10 +247,8 @@ layer(TestLayer)("the worker", (it) => {
 
   it.effect("judges an English word with its katakana loan, naming a drifted one's trap once", () =>
     Effect.gen(function* () {
-      const dictionary = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
-      const jobs = yield* JobsRepo
-      yield* dictionary.insertEntries([
+      const db = yield* Database
+      yield* insertEntries(db, [
         {
           ...entry(styleEnglish, "style", "/staɪl/", [["型", "様式"], ["やり方"]]),
           language: "en",
@@ -278,19 +274,19 @@ layer(TestLayer)("the worker", (it) => {
       const step = yield* makeJobRunner(["nuance"])
 
       // What the API queues when a Japanese speaker opens the English word.
-      yield* jobs.enqueue("nuance", styleEnglish, 100, 0)
+      yield* enqueueJob(db, "nuance", styleEnglish, 100, new Date(0))
       assert.strictEqual(yield* drain(step), 1)
-      const judged = Effect.map(enrichment.loanWordsFor([styleEnglish]), (rows) =>
+      const judged = Effect.map(loanWordsFor(db, [styleEnglish]), (rows) =>
         rows.map((row) => [row.word, row.verdict?.value, row.trap])
       )
       // The dictionary has a katakana word for "style"; Jev judged that it drifted.
       const warned = ["スタイル", "divergent", WARNING]
       assert.deepStrictEqual(yield* judged, [warned])
-      assert.strictEqual((yield* enrichment.nuanceFor([styleEnglish])).length, 2)
+      assert.strictEqual((yield* nuanceFor(db, [styleEnglish])).length, 2)
       assert.strictEqual(loanRequests, 1)
 
       // Judging the word again keeps the warning instead of paying Claude for it twice.
-      yield* jobs.requeue("nuance", styleEnglish, 100, 0)
+      yield* requeueJob(db, "nuance", styleEnglish, 100, new Date(0))
       assert.strictEqual(yield* drain(step), 1)
       assert.deepStrictEqual(yield* judged, [warned])
       assert.strictEqual(loanRequests, 1)
@@ -299,11 +295,9 @@ layer(TestLayer)("the worker", (it) => {
 
   it.effect("writes a loan warning skipped while Claude was unavailable once it is back, without Jev", () =>
     Effect.gen(function* () {
-      const dictionary = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
-      const jobs = yield* JobsRepo
-      const mansion = 100001700
-      yield* dictionary.insertEntries([
+      const db = yield* Database
+      const mansion = EntryId.make(100001700)
+      yield* insertEntries(db, [
         {
           // Its seventh sense, beyond the six judged, is glossed with the loan itself.
           ...entry(mansion, "mansion", "/ˈmænʃən/", [
@@ -335,23 +329,23 @@ layer(TestLayer)("the worker", (it) => {
       ])
       const step = yield* makeJobRunner(["nuance"])
       const before = { jev: jevRequests, claude: loanRequests }
-      const trap = Effect.map(enrichment.loanWordsFor([mansion]), ([row]) => [row?.verdict?.value, row?.trap])
+      const trap = Effect.map(loanWordsFor(db, [mansion]), ([row]) => [row?.verdict?.value, row?.trap])
 
       // Judged while the Claude probe fails: the verdict is saved, the warning skipped.
       claudeUp = false
-      yield* jobs.enqueue("nuance", mansion, 100, 0)
+      yield* enqueueJob(db, "nuance", mansion, 100, new Date(0))
       assert.strictEqual(yield* drain(step), 1)
       assert.deepStrictEqual(yield* trap, ["divergent", null])
       assert.strictEqual(jevRequests - before.jev, 2)
 
       // Queued again while Claude is still away, the job leaves it to a later try.
-      yield* jobs.requeue("nuance", mansion, 100, 0)
+      yield* requeueJob(db, "nuance", mansion, 100, new Date(0))
       assert.strictEqual(yield* drain(step), 1)
       assert.deepStrictEqual(yield* trap, ["divergent", null])
 
       // Claude is back: the next run writes the warning, and doesn't ask Jev again.
       claudeUp = true
-      yield* jobs.requeue("nuance", mansion, 100, 0)
+      yield* requeueJob(db, "nuance", mansion, 100, new Date(0))
       assert.strictEqual(yield* drain(step), 1)
       assert.deepStrictEqual(yield* trap, ["divergent", WARNING])
       assert.strictEqual(jevRequests - before.jev, 2)
@@ -367,21 +361,20 @@ layer(TestLayer)("the worker", (it) => {
 
   it.effect("puts a failed job back with a delay and runs it once that has passed", () =>
     Effect.gen(function* () {
-      const enrichment = yield* EnrichmentRepo
-      const jobs = yield* JobsRepo
+      const db = yield* Database
       const step = yield* makeJobRunner(["nuance"])
 
       jevDown = true
-      yield* jobs.enqueue("nuance", kuu, 10, 0)
+      yield* enqueueJob(db, "nuance", kuu, 10, new Date(0))
       assert.isTrue(yield* step)
-      assert.strictEqual((yield* jobs.statusFor(kuu)).get("nuance"), "queued")
+      assert.strictEqual((yield* jobStatusFor(db, kuu)).get("nuance"), "queued")
       assert.isFalse(yield* step)
 
       jevDown = false
       yield* TestClock.adjust("61 seconds")
       assert.isTrue(yield* step)
-      assert.strictEqual((yield* jobs.statusFor(kuu)).get("nuance"), "done")
-      assert.strictEqual((yield* enrichment.nuanceFor([kuu])).length, 1)
+      assert.strictEqual((yield* jobStatusFor(db, kuu)).get("nuance"), "done")
+      assert.strictEqual((yield* nuanceFor(db, [kuu])).length, 1)
     })
   )
 })

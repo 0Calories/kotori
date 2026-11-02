@@ -1,4 +1,5 @@
 import { assert, layer } from "@effect/vitest"
+import { UserId } from "@kotori/contracts"
 import { ConfigProvider, Effect, Layer, Option } from "effect"
 import { Headers, HttpServerRequest, HttpServerResponse } from "effect/http"
 import { SqlClient } from "effect/sql"
@@ -6,7 +7,8 @@ import { TestClock } from "effect/testing"
 import { exportJWK, generateKeyPair, type JWK, SignJWT } from "jose"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import type { AddressInfo } from "node:net"
-import { UsersRepo } from "../src/features/accounts/UsersRepo.ts"
+import { Database } from "../src/db/Database.ts"
+import { deleteUser, ensureUser } from "../src/features/accounts/queries.ts"
 import { AuthWebhooks } from "../src/features/accounts/Webhooks.ts"
 import { Auth } from "../src/integrations/auth/Auth.ts"
 import { signWebhook } from "../src/integrations/auth/WebhookSignature.ts"
@@ -20,7 +22,7 @@ let keySet: { keys: Array<JWK> } | null = null
 let upstreamOrigin = ""
 
 const signedInUser = {
-  id: "00000000-0000-4000-8000-000000000001",
+  id: UserId.make("00000000-0000-4000-8000-000000000001"),
   email: "learner@example.com",
   emailVerified: true,
   name: "Learner",
@@ -190,11 +192,15 @@ const webhookKeys = await generateKeyPair("EdDSA", { crv: "Ed25519" })
 const webhookJwk: JWK = { ...(await exportJWK(webhookKeys.publicKey)), kid: "wh1", alg: "EdDSA", use: "sig" }
 
 const WebhooksAgainstUpstream = AuthWebhooks.layer.pipe(
-  Layer.provideMerge(Layer.mergeAll(UsersRepo.layer, MailerMemory)),
+  Layer.provideMerge(Layer.mergeAll(MailerMemory)),
   Layer.provideMerge(AuthAgainstUpstream)
 )
 
-const learner = { id: "00000000-0000-4000-8000-0000000000aa", email: "learner@example.com", name: "Learner" }
+const learner = {
+  id: UserId.make("00000000-0000-4000-8000-0000000000aa"),
+  email: "learner@example.com",
+  name: "Learner"
+}
 
 /** A `send.otp` (or other) event as Neon documents it, serialised the way it arrives. */
 const event = (type: string, data: object, id = crypto.randomUUID()) =>
@@ -241,19 +247,14 @@ layer(WebhooksAgainstUpstream)("Managed Auth webhooks", (it) => {
       keySet = { keys: [webhookJwk] }
       const mailbox = yield* Mailbox
       yield* mailbox.clear
-      const users = yield* UsersRepo
-      yield* users.ensure({
+      const db = yield* Database
+      yield* ensureUser(db, {
         id: learner.id,
-        status: "pending",
-        role: "user",
         nativeLanguage: "ja",
         targetLanguage: "en",
-        onboardedAt: Date.now(),
-        displayName: null,
+        onboardedAt: new Date(),
         timezone: "Asia/Tokyo",
-        dailyNewLimit: 20,
-        dailyReviewLimit: 200,
-        createdAt: Date.now()
+        createdAt: new Date()
       })
 
       const code = otp("forget-password", "777111")
@@ -270,7 +271,7 @@ layer(WebhooksAgainstUpstream)("Managed Auth webhooks", (it) => {
       assert.include(byCode?.text, "777111")
       assert.include(byLink?.text, "https://auth.test/reset-password/tok?callbackURL=%2F")
       assert.include(byLink?.html, 'href="https://auth.test/reset-password/tok?callbackURL=%2F"')
-      yield* users.delete(learner.id)
+      yield* deleteUser(db, learner.id)
     })
   )
 

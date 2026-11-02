@@ -1,7 +1,7 @@
 import { integer, jsonb, text } from "drizzle-orm/pg-core"
 import * as Schema from "effect/Schema"
 import { createdAt, table } from "./columns.ts"
-import { entries } from "./entries.ts"
+import { entries, type EntryId } from "./entries.ts"
 import { JudgmentSource } from "./senseNuance.ts"
 
 /**
@@ -31,6 +31,7 @@ export type LoanVerdict = typeof LoanVerdict.Type
  */
 export const loanWords = table("loan_words", {
   entryId: integer()
+    .$type<EntryId>()
     .primaryKey()
     .references(() => entries.id, { onDelete: "cascade" }),
   /** The katakana loan, as JMDict spells it; null when Jev judged none of the candidates its loan. */

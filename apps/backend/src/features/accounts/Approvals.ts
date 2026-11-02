@@ -1,12 +1,13 @@
 import type { AccountStatus, Language } from "@kotori/contracts"
 import { Clock, Context, Effect, Layer, Option, Schema } from "effect"
+import { Database } from "../../db/Database.ts"
 import { Auth, type AuthUser } from "../../integrations/auth/Auth.ts"
 import { Mailer } from "../../integrations/email/Mailer.ts"
 import { templates } from "../../integrations/email/templates.ts"
-import { type UserRow, UsersRepo } from "./UsersRepo.ts"
+import { ensureUser, updateUser, type User, usersByIds } from "./queries.ts"
 
 /** The language Kotori emails a learner in: the one they picked in the app, English until then. */
-export const emailLanguage = (profile: UserRow | undefined): Language =>
+export const emailLanguage = (profile: User | undefined): Language =>
   profile === undefined || profile.onboardedAt === null ? "en" : profile.nativeLanguage
 
 export class NoSuchUser extends Schema.TaggedError<NoSuchUser>()("NoSuchUser", { email: Schema.String }) {}
@@ -40,28 +41,24 @@ export class Approvals extends Context.Service<
     Approvals,
     Effect.gen(function* () {
       const auth = yield* Auth
-      const users = yield* UsersRepo
+      const db = yield* Database
       const mailer = yield* Mailer
 
-      const profileFor = (user: AuthUser) =>
-        Effect.gen(function* () {
-          return yield* users.ensure({
-            id: user.id,
-            status: "pending",
-            role: "user",
-            nativeLanguage: "en",
-            targetLanguage: "ja",
-            onboardedAt: null,
-            displayName: user.name.trim() || null,
-            timezone: "UTC",
-            dailyNewLimit: 20,
-            dailyReviewLimit: 200,
-            createdAt: yield* Clock.currentTimeMillis
-          })
+      const profileFor = Effect.fnUntraced(function* (user: AuthUser) {
+        return yield* ensureUser(db, {
+          id: user.id,
+          displayName: user.name.trim() || null,
+          createdAt: new Date(yield* Clock.currentTimeMillis)
         })
+      })
 
       const combine = Effect.fn("Approvals.combine")(function* (authUsers: ReadonlyArray<AuthUser>) {
-        const rows = new Map((yield* users.byIds(authUsers.map((u) => u.id))).map((row) => [row.id, row]))
+        const rows = new Map(
+          (yield* usersByIds(
+            db,
+            authUsers.map((u) => u.id)
+          )).map((row) => [row.id, row])
+        )
         return authUsers.map((user): Account => ({
           ...user,
           status: rows.get(user.id)?.status ?? "pending",
@@ -81,7 +78,7 @@ export class Approvals extends Context.Service<
           const account = yield* find(email)
           if (account.status === status) return account
           const profile = yield* profileFor(account)
-          yield* users.update(account.id, { status })
+          yield* updateUser(db, account.id, { status })
           if (status === "approved") {
             yield* mailer
               .send(
@@ -110,7 +107,7 @@ export class Approvals extends Context.Service<
         setRole: Effect.fn("Approvals.setRole")(function* (email: string, role: "admin" | "user") {
           const account = yield* find(email)
           yield* profileFor(account)
-          yield* users.update(account.id, { role })
+          yield* updateUser(db, account.id, { role })
           return { ...account, role }
         }),
         revoke: Effect.fn("Approvals.revoke")(function* (email: string) {

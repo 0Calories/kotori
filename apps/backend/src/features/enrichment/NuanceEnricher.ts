@@ -12,9 +12,19 @@ import {
   SIMILAR_SENSES
 } from "@kotori/ai"
 import type { EntryRecord } from "@kotori/contracts"
+import type { EntryId } from "@kotori/db"
 import { Clock, Context, Effect, Layer, Option, Schema } from "effect"
-import { DictionaryRepo } from "../dictionary/DictionaryRepo.ts"
-import { EnrichmentRepo } from "./EnrichmentRepo.ts"
+import { Database } from "../../db/Database.ts"
+import { findForms, getEntries, loanCandidates, sharedGlossCandidates, tagLabels } from "../dictionary/index.ts"
+import {
+  loanAnswersFor,
+  nuanceAnswersFor,
+  saveLoanWord,
+  saveNuance,
+  saveSimilar,
+  updateLoanWord,
+  updateNuance
+} from "./queries.ts"
 
 export class EntryNotFound extends Schema.TaggedError<EntryNotFound>()("EntryNotFound", { entryId: Schema.Int }) {}
 
@@ -30,17 +40,16 @@ export interface NuanceSummary {
 export class NuanceEnricher extends Context.Service<
   NuanceEnricher,
   {
-    enrich(entryId: number): Effect.Effect<NuanceSummary, JevError | EntryNotFound>
+    enrich(entryId: EntryId): Effect.Effect<NuanceSummary, JevError | EntryNotFound>
     /** Re-derives an entry's nuance and loan verdict from its stored answers and tags, without inference. */
-    reinterpret(entryId: number): Effect.Effect<{ readonly senses: number }, EntryNotFound>
+    reinterpret(entryId: EntryId): Effect.Effect<{ readonly senses: number }, EntryNotFound>
   }
 >()("@kotori/backend/NuanceEnricher") {
   static readonly layer = Layer.effect(
     NuanceEnricher,
     Effect.gen(function* () {
       const judge = yield* NuanceJudge
-      const dictionary = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
+      const db = yield* Database
 
       /**
        * The dictionary's own cross-references first (JMDict's "see also", Wiktionary's synonyms),
@@ -49,13 +58,13 @@ export class NuanceEnricher extends Context.Service<
       const candidatesFor = Effect.fnUntraced(function* (entry: EntryRecord, senseIndex: number) {
         const sense = entry.senses[senseIndex]!
         const xrefTexts = sense.xrefs.map((xref) => xref.split("・")[0]!).filter((text) => text.length > 0)
-        const xrefMatches = yield* dictionary.findForms(xrefTexts, entry.language)
-        const shared = yield* dictionary.sharedGlossCandidates(entry.id, senseIndex, MAX_CANDIDATES)
+        const xrefMatches = yield* findForms(db, xrefTexts, entry.language)
+        const shared = yield* sharedGlossCandidates(db, entry.id, senseIndex, MAX_CANDIDATES)
 
         const ids = [...new Set([...xrefMatches.map((match) => match.entryId), ...shared.map((c) => c.entryId)])]
           .filter((id) => id !== entry.id)
           .slice(0, MAX_CANDIDATES)
-        const entries = yield* dictionary.getEntries(ids)
+        const entries = yield* getEntries(db, ids)
 
         return entries.map((candidate) =>
           candidateOf(candidate, shared.find((c) => c.entryId === candidate.id)?.sense ?? 0)
@@ -65,9 +74,12 @@ export class NuanceEnricher extends Context.Service<
       /** An English word's katakana loan candidates from JMDict, most frequent first. */
       const loansFor = Effect.fnUntraced(function* (entry: EntryRecord) {
         if (entry.language !== "en") return []
-        const found = yield* dictionary.loanCandidates([entry.headword], MAX_LOANS)
+        const found = yield* loanCandidates(db, [entry.headword], MAX_LOANS)
         const entries = new Map(
-          (yield* dictionary.getEntries(found.map((candidate) => candidate.entryId))).map((e) => [e.id, e])
+          (yield* getEntries(
+            db,
+            found.map((candidate) => candidate.entryId)
+          )).map((e) => [e.id, e])
         )
         return found.flatMap((candidate) => {
           const loan = entries.get(candidate.entryId)
@@ -75,30 +87,32 @@ export class NuanceEnricher extends Context.Service<
         })
       })
 
-      const enrich = Effect.fn("NuanceEnricher.enrich")(function* (entryId: number) {
-        const [entry] = yield* dictionary.getEntries([entryId])
+      const enrich = Effect.fn("NuanceEnricher.enrich")(function* (entryId: EntryId) {
+        const [entry] = yield* getEntries(db, [entryId])
         if (entry === undefined) return yield* new EntryNotFound({ entryId })
         const senses = judgedSenses(entry)
         if (senses.length === 0) return { senses: 0, similar: 0, loan: null, inputTokens: 0 }
 
         const judgment = yield* judge.judge({
           entry,
-          tags: yield* dictionary.tags,
+          tags: yield* tagLabels(db),
           candidates: yield* Effect.forEach(senses, (_, index) =>
             index < SIMILAR_SENSES ? candidatesFor(entry, index) : Effect.succeed([])
           ),
           loans: yield* loansFor(entry)
         })
 
-        const now = yield* Clock.currentTimeMillis
+        const now = new Date(yield* Clock.currentTimeMillis)
         const { model, questionsVersion, loan } = judgment
-        yield* enrichment.saveNuance(
+        yield* saveNuance(
+          db,
           entryId,
           judgment.senses.map((sense) => ({ ...sense, model, questionsVersion })),
           now
         )
-        yield* enrichment.saveSimilar(entryId, judgment.similar)
-        yield* enrichment.saveLoanWord(
+        yield* saveSimilar(db, entryId, judgment.similar)
+        yield* saveLoanWord(
+          db,
           entryId,
           loan === null
             ? null
@@ -113,15 +127,16 @@ export class NuanceEnricher extends Context.Service<
         }
       })
 
-      const reinterpret = Effect.fn("NuanceEnricher.reinterpret")(function* (entryId: number) {
-        const [entry] = yield* dictionary.getEntries([entryId])
+      const reinterpret = Effect.fn("NuanceEnricher.reinterpret")(function* (entryId: EntryId) {
+        const [entry] = yield* getEntries(db, [entryId])
         if (entry === undefined) return yield* new EntryNotFound({ entryId })
-        const rows = yield* enrichment.nuanceAnswersFor(entryId)
+        const rows = yield* nuanceAnswersFor(db, entryId)
         yield* Effect.forEach(
           rows,
           (row) => {
             const sense = entry.senses[row.sense]
-            return enrichment.updateNuance(
+            return updateNuance(
+              db,
               entryId,
               row.sense,
               interpretSense(row.answers as SenseAnswers, sense === undefined ? [] : senseTags(sense), sense?.fields)
@@ -129,10 +144,10 @@ export class NuanceEnricher extends Context.Service<
           },
           { discard: true }
         )
-        const loanAnswers = yield* enrichment.loanAnswersFor(entryId)
+        const loanAnswers = yield* loanAnswersFor(db, entryId)
         if (Option.isSome(loanAnswers)) {
           const loan = reinterpretLoan(loanAnswers.value as Readonly<Record<string, unknown>>)
-          yield* enrichment.updateLoanWord(entryId, loan.word, loan.verdict)
+          yield* updateLoanWord(db, entryId, loan.word, loan.verdict)
         }
         return { senses: rows.length }
       })

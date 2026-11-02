@@ -1,11 +1,11 @@
 import { afterAll, assert, layer } from "@effect/vitest"
-import { Effect, Layer } from "effect"
+import { Effect } from "effect"
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { Repositories } from "../../src/db/Repositories.ts"
-import { DictionaryRepo } from "../../src/features/dictionary/DictionaryRepo.ts"
+import { Database } from "../../src/db/Database.ts"
 import * as Eiwa from "../../src/features/dictionary/import/eiwa/Eiwa.ts"
+import { findForms, getEntries, headwordIds, tagLabels } from "../../src/features/dictionary/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
 // The importer streams its sources from disk, so the fixtures are real files.
@@ -42,7 +42,7 @@ const files = (withWalk: boolean) => ({
 })
 const jmdictFile = file("JMdict.xml", [jmdict])
 
-const TestLayer = Repositories.pipe(Layer.provideMerge(DatabaseMemory))
+const TestLayer = DatabaseMemory
 
 layer(TestLayer)("Eiwa.importFiles", (it) => {
   it.effect("loads each word from the first source that has it, next to JMDict's", () =>
@@ -50,33 +50,33 @@ layer(TestLayer)("Eiwa.importFiles", (it) => {
       const result = yield* Eiwa.importFiles({ files: files(true), jmdict: jmdictFile })
       assert.deepStrictEqual(result, { removed: 0, entries: 4, wiktionary: 2, ejdict: 1, jmdict: 1 })
 
-      const repo = yield* DictionaryRepo
-      const ids = yield* repo.headwordIds("en")
+      const db = yield* Database
+      const ids = yield* headwordIds(db, "en")
       assert.sameMembers([...ids.keys()], ["eat", "walk", "team", "selfie"])
       // "ate" is eat's past, found through it.
-      const [ate] = yield* repo.findForms(["ate"], "en")
+      const [ate] = yield* findForms(db, ["ate"], "en")
       assert.deepStrictEqual([ate?.entryId, ate?.kind, ate?.tags], [ids.get("eat"), "inflection", ["past"]])
-      const [selfie] = yield* repo.getEntries([ids.get("selfie")!])
+      const [selfie] = yield* getEntries(db, [ids.get("selfie")!])
       assert.deepStrictEqual(
         selfie?.senses.map((sense) => sense.glosses[0]?.text),
         ["自撮り"]
       )
-      assert.strictEqual((yield* repo.tags).get("en-GB"), "British English")
+      assert.strictEqual((yield* tagLabels(db)).get("en-GB"), "British English")
     })
   )
 
   it.effect("keeps ids on a re-import and removes words the sources no longer have", () =>
     Effect.gen(function* () {
-      const repo = yield* DictionaryRepo
-      const before = yield* repo.headwordIds("en")
+      const db = yield* Database
+      const before = yield* headwordIds(db, "en")
 
       // A partial import never removes anything.
       assert.strictEqual((yield* Eiwa.importFiles({ files: files(false), jmdict: jmdictFile, limit: 1 })).removed, 0)
-      assert.strictEqual((yield* repo.headwordIds("en")).size, 4)
+      assert.strictEqual((yield* headwordIds(db, "en")).size, 4)
 
       const result = yield* Eiwa.importFiles({ files: files(false), jmdict: jmdictFile })
       assert.strictEqual(result.removed, 1)
-      const after = yield* repo.headwordIds("en")
+      const after = yield* headwordIds(db, "en")
       assert.isFalse(after.has("walk"))
       for (const [headword, id] of after) assert.strictEqual(id, before.get(headword))
     })

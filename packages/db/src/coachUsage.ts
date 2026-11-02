@@ -1,6 +1,6 @@
 import { index, integer, pgEnum, uuid } from "drizzle-orm/pg-core"
 import { createdAt, table } from "./columns.ts"
-import { users } from "./users.ts"
+import { type UserId, users } from "./users.ts"
 
 export const coachKind = pgEnum("coach_kind", ["naturalness", "how-to-say", "speak"])
 
@@ -10,6 +10,7 @@ export const coachUsage = table(
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     userId: uuid()
+      .$type<UserId>()
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     kind: coachKind().notNull(),

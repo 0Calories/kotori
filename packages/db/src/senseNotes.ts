@@ -1,12 +1,13 @@
 import { foreignKey, integer, primaryKey, text } from "drizzle-orm/pg-core"
 import { createdAt, table } from "./columns.ts"
+import { type EntryId } from "./entries.ts"
 import { senses } from "./senses.ts"
 
 /** Claude's usage note per sense, written alongside its example sentences. */
 export const senseNotes = table(
   "sense_notes",
   {
-    entryId: integer().notNull(),
+    entryId: integer().$type<EntryId>().notNull(),
     sense: integer().notNull(),
     /** On a Japanese word, for learners of Japanese, in English; null when the glosses say it all. */
     note: text(),

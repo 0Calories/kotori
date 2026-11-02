@@ -1,3 +1,4 @@
+import { UserId } from "@kotori/db"
 import { asc, eq, sql } from "drizzle-orm"
 import { Config, Context, Duration, Effect, Layer, Option, Schema } from "effect"
 import { Headers, HttpServerRequest, HttpServerResponse } from "effect/http"
@@ -19,7 +20,7 @@ import { ed25519Key, signWebhook } from "./WebhookSignature.ts"
 
 /** A Managed Better Auth user as Kotori reads it. Approval status and role live on the learner profile. */
 export interface AuthUser {
-  readonly id: string
+  readonly id: UserId
   readonly email: string
   readonly emailVerified: boolean
   readonly name: string
@@ -36,7 +37,7 @@ export interface Forwarded {
 
 // `createdAt` arrives as an ISO string from the auth server's JSON and as a Date from the SQL driver.
 const RawUser = Schema.Struct({
-  id: Schema.String,
+  id: UserId,
   email: Schema.String,
   emailVerified: Schema.Boolean,
   name: Schema.String,
@@ -49,7 +50,7 @@ const decodeSession = Schema.decodeUnknownSync(SessionResponse)
 
 /** The claims a managed JWT (`GET /token`) carries about its user. */
 const TokenClaims = Schema.Struct({
-  sub: Schema.String,
+  sub: UserId,
   email: Schema.String,
   emailVerified: Schema.Boolean,
   name: Schema.String,
@@ -115,7 +116,7 @@ export interface AuthService {
    * Managed Auth doesn't enable Better Auth's own `/delete-user`, and identity lives in
    * Kotori's database anyway, so this is a plain SQL delete.
    */
-  deleteUser(userId: string): Effect.Effect<void>
+  deleteUser(userId: UserId): Effect.Effect<void>
   /**
    * Creates an account with a password, as the sign-up screen does. Used by the CLI to
    * make the local development account; learners always go through the app.
@@ -129,12 +130,12 @@ export interface AuthService {
    * Marks the address confirmed without a code, for the development account. The real
    * path is the learner entering the code Managed Auth's webhook emailed them.
    */
-  setEmailVerified(userId: string): Effect.Effect<void>
+  setEmailVerified(userId: UserId): Effect.Effect<void>
   /** Every user in sign-up order. */
   readonly users: Effect.Effect<ReadonlyArray<AuthUser>>
   userByEmail(email: string): Effect.Effect<Option.Option<AuthUser>>
   /** Signs the user out everywhere. */
-  revokeSessions(userId: string): Effect.Effect<void>
+  revokeSessions(userId: UserId): Effect.Effect<void>
 }
 
 /** The origin a request reached us at, honouring the proxy headers Fly (and most hosts) set. */
@@ -234,7 +235,7 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/backend/
         Effect.tapError((error) => Effect.logWarning("Could not resolve the session", error))
       )
 
-      const hasSession = (userId: string) =>
+      const hasSession = (userId: UserId) =>
         db.$count(authSessions, eq(authSessions.userId, userId)).pipe(
           Effect.map((n) => n > 0),
           Effect.orDie
@@ -284,10 +285,10 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/backend/
         return Option.fromNullishOr(rows[0]).pipe(Option.map(decodeUser))
       }, Effect.orDie)
 
-      const revokeSessions = (userId: string) =>
+      const revokeSessions = (userId: UserId) =>
         db.delete(authSessions).where(eq(authSessions.userId, userId)).pipe(Effect.asVoid, Effect.orDie)
 
-      const deleteUser = (userId: string) =>
+      const deleteUser = (userId: UserId) =>
         db.delete(authUsers).where(eq(authUsers.id, userId)).pipe(Effect.asVoid, Effect.orDie)
 
       const signUp = Effect.fn("Auth.signUp")(function* (input: {
@@ -312,7 +313,7 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/backend/
         })
       })
 
-      const setEmailVerified = (userId: string) =>
+      const setEmailVerified = (userId: UserId) =>
         db
           .update(authUsers)
           .set({ emailVerified: true })
@@ -397,7 +398,7 @@ const distinguishOutages =
 const makeVerifyToken = (
   jwks: JWTVerifyGetKey,
   issuer: string,
-  hasSession: (userId: string) => Effect.Effect<boolean>
+  hasSession: (userId: UserId) => Effect.Effect<boolean>
 ) => {
   const keys = distinguishOutages(jwks)
   return Effect.fn("Auth.verifyToken")(
@@ -432,7 +433,7 @@ const makeVerifyToken = (
 }
 
 interface TestSignUp {
-  readonly id: string
+  readonly id: UserId
   /** A `cookie` header value the memory layer recognises. */
   readonly cookie: string
 }
@@ -450,19 +451,19 @@ export class TestAuth extends Context.Service<
     /** A short-lived JWT for the session, like `GET /token`. */
     token(cookie: string): Effect.Effect<string>
     /** Confirms the address, as `Auth.setEmailVerified` does upstream. */
-    setEmailVerified(userId: string): void
+    setEmailVerified(userId: UserId): void
     /** Headers that sign `body` as a Managed Auth webhook, sent `ageMs` ago. */
     signWebhook(body: string, options?: { readonly ageMs?: number }): Effect.Effect<Record<string, string>>
     webhookKey(kid: string): Option.Option<KeyObject>
     userForCookie(cookie: string | undefined): Option.Option<AuthUser>
-    hasSession(userId: string): boolean
+    hasSession(userId: UserId): boolean
     /** Simulates an outage: session checks and key-set fetches fail until switched back on. */
     setReachable(reachable: boolean): void
     reachable(): boolean
     byEmail(email: string): Option.Option<AuthUser>
     all(): ReadonlyArray<AuthUser>
-    revoke(userId: string): void
-    remove(userId: string): void
+    revoke(userId: UserId): void
+    remove(userId: UserId): void
   }
 >()("@kotori/backend/TestAuth") {
   static readonly layer = Layer.effect(
@@ -493,7 +494,7 @@ export class TestAuth extends Context.Service<
         signUp: (email, name) =>
           Effect.sync(() => {
             counter++
-            const id = `00000000-0000-4000-8000-${String(counter).padStart(12, "0")}`
+            const id = UserId.make(`00000000-0000-4000-8000-${String(counter).padStart(12, "0")}`)
             users.set(id, { id, email: email.toLowerCase(), emailVerified: false, name, createdAt: new Date() })
             const token = `session-${counter}`
             sessions.set(token, id)

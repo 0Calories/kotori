@@ -1,13 +1,14 @@
 import { assert, layer } from "@effect/vitest"
 import { ElevenLabs, ENGLISH_CAST, JAPANESE_CAST, Jev, Pronouncer, VoiceCasts } from "@kotori/ai"
-import type { EntryRecord } from "@kotori/contracts"
+import { EntryId, type EntryRecord } from "@kotori/contracts"
 import { ConfigProvider, Effect, Layer } from "effect"
-import { Repositories } from "../src/db/Repositories.ts"
+import { Database } from "../src/db/Database.ts"
 import { AudioStore, isAudioKey } from "../src/features/audio/AudioStore.ts"
+import { entryClips, exampleClips, linkEntryAudio, linkExampleAudio, saveAudio } from "../src/features/audio/queries.ts"
 import { Speech } from "../src/features/audio/Speech.ts"
-import { DictionaryRepo } from "../src/features/dictionary/DictionaryRepo.ts"
+import { insertEntries } from "../src/features/dictionary/queries.ts"
 import { AudioEnricher } from "../src/features/enrichment/AudioEnricher.ts"
-import { EnrichmentRepo } from "../src/features/enrichment/EnrichmentRepo.ts"
+import { examplesFor, saveExamples } from "../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 
 const calls: Array<{ text: string; voiceId: string }> = []
@@ -56,7 +57,6 @@ const TestLayer = AudioEnricher.layer.pipe(
   Layer.provideMerge(Speech.layer),
   Layer.provideMerge(
     Layer.mergeAll(
-      Repositories,
       AudioStore.layer,
       Pronouncer.layer.pipe(Layer.provide(Layer.mergeAll(FakeElevenLabs, FakeJev, FullCasts)))
     )
@@ -73,7 +73,7 @@ const TestLayer = AudioEnricher.layer.pipe(
 )
 
 const entry = (id: number, senses: Array<{ dialects?: Array<string>; misc?: Array<string> }>): EntryRecord => ({
-  id,
+  id: EntryId.make(id),
   language: "ja",
   headword: "食べる",
   reading: "たべる",
@@ -132,13 +132,14 @@ layer(TestLayer)("Speech and AudioEnricher", (it) => {
 
   it.effect("voices the headword once per dictionary voice, capped by KOTORI_HEADWORD_VOICES", () =>
     Effect.gen(function* () {
+      const db = yield* Database
       calls.length = 0
-      yield* (yield* DictionaryRepo).insertEntries([entry(1, [{}])])
-      const summary = yield* (yield* AudioEnricher).enrich(1)
+      yield* insertEntries(db, [entry(1, [{}])])
+      const summary = yield* (yield* AudioEnricher).enrich(EntryId.make(1))
       assert.strictEqual(summary.clips, 2)
       // Kyoko (already cached from the test above) and the announcer, the first two headword voices.
       assert.deepStrictEqual(voiceOf("たべる"), ["fake-ja-announcer"])
-      const clips = (yield* (yield* EnrichmentRepo).entryAudio([1])).get(1) ?? []
+      const clips = (yield* entryClips(db, [EntryId.make(1)])).get(EntryId.make(1)) ?? []
       assert.deepStrictEqual(
         clips.map((clip) => clip.voice).toSorted((a, b) => String(a).localeCompare(String(b))),
         ["ja-announcer", "ja-kyoko"]
@@ -149,11 +150,11 @@ layer(TestLayer)("Speech and AudioEnricher", (it) => {
   it.effect("voices a Japanese word's sentences in Japanese only", () =>
     Effect.gen(function* () {
       calls.length = 0
-      const dictionary = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
-      yield* dictionary.insertEntries([entry(2, [{}])])
-      yield* enrichment.saveExamples(
-        2,
+      const db = yield* Database
+      yield* insertEntries(db, [entry(2, [{}])])
+      yield* saveExamples(
+        db,
+        EntryId.make(2),
         [
           {
             ...example,
@@ -164,24 +165,23 @@ layer(TestLayer)("Speech and AudioEnricher", (it) => {
             medium: "announcement" as const
           }
         ],
-        1000
+        new Date(1000)
       )
-      yield* (yield* AudioEnricher).enrich(2)
+      yield* (yield* AudioEnricher).enrich(EntryId.make(2))
       // The announcer is the lone formal-announcement candidate: no Jev call.
       assert.deepStrictEqual(voiceOf("ニュースをお伝えします。"), ["fake-ja-announcer"])
       // English speakers learning the word don't need the translation read to them.
       assert.deepStrictEqual(voiceOf("Here is the news."), [])
-      const [row] = yield* enrichment.examplesFor([2])
-      assert.deepStrictEqual([...(yield* enrichment.exampleAudio([row!.id])).keys()], [`${row!.id}:ja`])
+      const [row] = yield* examplesFor(db, [EntryId.make(2)])
+      assert.deepStrictEqual([...(yield* exampleClips(db, [row!.id])).keys()], [`${row!.id}:ja`])
     })
   )
 
   it.effect("voices an English word and its sentences in English, the headword as written", () =>
     Effect.gen(function* () {
+      const db = yield* Database
       calls.length = 0
-      const dictionary = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
-      yield* dictionary.insertEntries([
+      yield* insertEntries(db, [
         {
           ...entry(100000001, [{ dialects: ["en-GB"] }]),
           language: "en",
@@ -192,8 +192,9 @@ layer(TestLayer)("Speech and AudioEnricher", (it) => {
           ]
         }
       ])
-      yield* enrichment.saveExamples(
-        100000001,
+      yield* saveExamples(
+        db,
+        EntryId.make(100000001),
         [
           {
             ...example,
@@ -203,9 +204,9 @@ layer(TestLayer)("Speech and AudioEnricher", (it) => {
             formality: "neutral" as const
           }
         ],
-        1000
+        new Date(1000)
       )
-      const summary = yield* (yield* AudioEnricher).enrich(100000001)
+      const summary = yield* (yield* AudioEnricher).enrich(EntryId.make(100000001))
       // Two English headword voices read "flat", never its IPA; the sentence goes to the British voice.
       assert.strictEqual(voiceOf("flat").length, 2)
       assert.isTrue(voiceOf("flat").every((voice) => voice.startsWith("fake-en-")))
@@ -218,18 +219,18 @@ layer(TestLayer)("Speech and AudioEnricher", (it) => {
 
   it.effect("sends ties to Jev and records the casting", () =>
     Effect.gen(function* () {
+      const db = yield* Database
       calls.length = 0
       votes.length = 0
-      const dictionary = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
-      yield* dictionary.insertEntries([entry(3, [{}])])
+      yield* insertEntries(db, [entry(3, [{}])])
       // Casual with no gender signal: the young casual voices tie, Jev votes casual-f.
-      yield* enrichment.saveExamples(
-        3,
+      yield* saveExamples(
+        db,
+        EntryId.make(3),
         [{ ...example, sense: 0, ja: "まじやばい。", en: "That's crazy.", formality: "casual" as const }],
-        1000
+        new Date(1000)
       )
-      yield* (yield* AudioEnricher).enrich(3)
+      yield* (yield* AudioEnricher).enrich(EntryId.make(3))
       assert.isAbove(votes.length, 0)
       assert.deepStrictEqual(voiceOf("まじやばい。"), ["fake-ja-casual-f"])
     })
@@ -237,13 +238,13 @@ layer(TestLayer)("Speech and AudioEnricher", (it) => {
 
   it.effect("falls back to standard voices when the sentence's variety has no cast voice", () =>
     Effect.gen(function* () {
+      const db = yield* Database
       calls.length = 0
-      const dictionary = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
-      yield* dictionary.insertEntries([entry(4, [{ dialects: ["thb"] }])])
+      yield* insertEntries(db, [entry(4, [{ dialects: ["thb"] }])])
       // Tohoku is a known variety, but nobody in the cast speaks it.
-      yield* enrichment.saveExamples(
-        4,
+      yield* saveExamples(
+        db,
+        EntryId.make(4),
         [
           {
             ...example,
@@ -254,9 +255,9 @@ layer(TestLayer)("Speech and AudioEnricher", (it) => {
             variety: "tohoku"
           }
         ],
-        1000
+        new Date(1000)
       )
-      yield* (yield* AudioEnricher).enrich(4)
+      yield* (yield* AudioEnricher).enrich(EntryId.make(4))
       assert.strictEqual(voiceOf("んだんだ。").length, 1)
       assert.isTrue(voiceOf("んだんだ。")[0]!.startsWith("fake-ja-casual"))
     })
@@ -264,18 +265,18 @@ layer(TestLayer)("Speech and AudioEnricher", (it) => {
 
   it.effect("voices only what is missing, leaving earlier clips and their voices alone", () =>
     Effect.gen(function* () {
-      const dictionary = yield* DictionaryRepo
-      const enrichment = yield* EnrichmentRepo
-      yield* dictionary.insertEntries([entry(5, [{}])])
-      yield* enrichment.saveExamples(
-        5,
+      const db = yield* Database
+      yield* insertEntries(db, [entry(5, [{}])])
+      yield* saveExamples(
+        db,
+        EntryId.make(5),
         [
           { ...example, sense: 0, ja: "めっちゃうまい。", en: "This is so good.", formality: "casual" as const },
           { ...example, sense: 0, ja: "もう食べた？", en: "Have you eaten yet?", formality: "casual" as const }
         ],
-        1000
+        new Date(1000)
       )
-      const [first] = yield* enrichment.examplesFor([5])
+      const [first] = yield* examplesFor(db, [EntryId.make(5)])
       // Voiced before casting: one uncast headword clip, and the first sentence.
       const old = (key: string, text: string) => ({
         key,
@@ -286,32 +287,32 @@ layer(TestLayer)("Speech and AudioEnricher", (it) => {
         modelId: "old-model",
         characters: text.length,
         bytes: 1,
-        createdAt: 0
+        createdAt: new Date(0)
       })
-      yield* enrichment.saveAudio(old("old-headword", "たべる"))
-      yield* enrichment.saveAudio(old("old-sentence", "めっちゃうまい。"))
-      yield* enrichment.linkEntryAudio(5, "old-headword")
-      yield* enrichment.linkExampleAudio(first!.id, "ja", "old-sentence")
+      yield* saveAudio(db, old("old-headword", "たべる"))
+      yield* saveAudio(db, old("old-sentence", "めっちゃうまい。"))
+      yield* linkEntryAudio(db, EntryId.make(5), "old-headword")
+      yield* linkExampleAudio(db, first!.id, "ja", "old-sentence")
 
       calls.length = 0
       const audio = yield* AudioEnricher
-      const summary = yield* audio.enrich(5)
+      const summary = yield* audio.enrich(EntryId.make(5))
       assert.deepStrictEqual(
         calls.map((call) => call.text),
         ["もう食べた？"]
       )
       assert.strictEqual(summary.clips, 1)
-      const linked = yield* enrichment.exampleAudio([first!.id])
+      const linked = yield* exampleClips(db, [first!.id])
       assert.strictEqual(linked.get(`${first!.id}:ja`), "old-sentence")
       assert.deepStrictEqual(
-        ((yield* enrichment.entryAudio([5])).get(5) ?? []).map((clip) => clip.key),
+        ((yield* entryClips(db, [EntryId.make(5)])).get(EntryId.make(5)) ?? []).map((clip) => clip.key),
         ["old-headword"]
       )
 
       // Nothing left to voice: no synthesis and no Jev tiebreak.
       calls.length = 0
       votes.length = 0
-      assert.deepStrictEqual(yield* audio.enrich(5), { clips: 0, characters: 0 })
+      assert.deepStrictEqual(yield* audio.enrich(EntryId.make(5)), { clips: 0, characters: 0 })
       assert.strictEqual(calls.length, 0)
       assert.strictEqual(votes.length, 0)
     })

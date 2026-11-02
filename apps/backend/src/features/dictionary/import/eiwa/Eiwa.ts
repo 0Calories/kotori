@@ -4,8 +4,9 @@ import { HttpClient } from "effect/http"
 import { createReadStream } from "node:fs"
 import { createInterface } from "node:readline"
 import { createGunzip } from "node:zlib"
+import { Database } from "../../../../db/Database.ts"
 import { resolveFromRoot } from "../../../../runtime/Paths.ts"
-import { DictionaryRepo } from "../../DictionaryRepo.ts"
+import { deleteEntries, headwordIds, insertEntries, saveTags } from "../../queries.ts"
 import { entrySplitter } from "../jmdict/parse.ts"
 import { mergeSources, type Source, toEntries } from "./build.ts"
 import { EJDICT_FILES, parseEjdict } from "./ejdict.ts"
@@ -166,14 +167,14 @@ export const buildEntries = (options: ImportOptions) => build(options, new Map()
  * updates words in place, keeping their ids, so enrichment and saved words survive.
  */
 export const importFiles = Effect.fn("Eiwa.importFiles")(function* (options: ImportOptions) {
-  const repo = yield* DictionaryRepo
-  const existing = yield* repo.headwordIds("en")
+  const db = yield* Database
+  const existing = yield* headwordIds(db, "en")
   const entries: ReadonlyArray<EntryRecord & { readonly source: Source }> = yield* build(options, existing)
 
-  yield* repo.saveTags(ENGLISH_TAGS)
+  yield* saveTags(db, ENGLISH_TAGS)
   const batchSize = options.batchSize ?? 500
   for (let start = 0; start < entries.length; start += batchSize) {
-    yield* repo.insertEntries(entries.slice(start, start + batchSize))
+    yield* insertEntries(db, entries.slice(start, start + batchSize))
     if (start % 20_000 < batchSize && start > 0) yield* Effect.logInfo(`Imported ${start} English words`)
   }
 
@@ -182,7 +183,7 @@ export const importFiles = Effect.fn("Eiwa.importFiles")(function* (options: Imp
   const complete = !options.commonOnly && options.limit === undefined
   const imported = new Set(entries.map((entry) => entry.headword))
   const stale = complete ? [...existing].filter(([headword]) => !imported.has(headword)).map(([, id]) => id) : []
-  yield* repo.deleteEntries(stale)
+  yield* deleteEntries(db, stale)
 
   const bySource = (source: Source) => entries.filter((entry) => entry.source === source).length
   return {

@@ -1,9 +1,11 @@
 import { ENGLISH_QUESTIONS_VERSION, QUESTIONS_VERSION } from "@kotori/ai"
+import { EntryId } from "@kotori/contracts"
 import { Console, Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
-import { DictionaryRepo } from "../features/dictionary/DictionaryRepo.ts"
+import { Database } from "../db/Database.ts"
+import { entriesByPriority } from "../features/dictionary/index.ts"
 import { Enrichers } from "../features/enrichment/Enrichers.ts"
-import { EnrichmentRepo } from "../features/enrichment/EnrichmentRepo.ts"
+import { nuanceEntryIds, outdatedNuanceEntryIds } from "../features/enrichment/index.ts"
 import { NuanceEnricher } from "../features/enrichment/NuanceEnricher.ts"
 
 export const enrich = Command.make(
@@ -40,11 +42,12 @@ export const enrich = Command.make(
     )
   },
   Effect.fn(function* ({ kind, entry, dictionary, limit, concurrency, commonOnly, outdated, reinterpret }) {
+    const db = yield* Database
     const language = dictionary === "all" ? undefined : dictionary === "jmdict" ? ("ja" as const) : ("en" as const)
     if (reinterpret) {
       if (kind !== "nuance") return yield* Console.error("--reinterpret only applies to nuance.")
       const nuance = yield* NuanceEnricher
-      const ids = Option.isSome(entry) ? [entry.value] : yield* (yield* EnrichmentRepo).nuanceEntryIds(language)
+      const ids = Option.isSome(entry) ? [EntryId.make(entry.value)] : yield* nuanceEntryIds(db, language)
       yield* Console.log(`Reinterpreting stored nuance for ${ids.length} entries…`)
       let senses = 0
       let failed = 0
@@ -71,13 +74,14 @@ export const enrich = Command.make(
 
     // Most frequent words first, skipping anything already enriched, so runs can be resumed.
     const ids = Option.isSome(entry)
-      ? [entry.value]
+      ? [EntryId.make(entry.value)]
       : outdated
-        ? yield* (yield* EnrichmentRepo).outdatedNuanceEntryIds(
+        ? yield* outdatedNuanceEntryIds(
+            db,
             { ja: QUESTIONS_VERSION, en: ENGLISH_QUESTIONS_VERSION },
             { commonOnly, limit, language }
           )
-        : yield* (yield* DictionaryRepo).entriesByPriority({ limit, missing: kind, commonOnly, language })
+        : yield* entriesByPriority(db, { limit, missing: kind, commonOnly, language })
     yield* Console.log(`Enriching ${ids.length} entries with ${kind}${outdated ? " (outdated)" : ""}…`)
 
     let done = 0

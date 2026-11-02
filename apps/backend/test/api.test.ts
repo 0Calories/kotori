@@ -1,13 +1,15 @@
 import { NodeServices } from "@effect/platform-node"
 import { assert, layer } from "@effect/vitest"
 import { Claude, ClaudeError, ElevenLabs, Jev, JevError, TtsError } from "@kotori/ai"
-import { Authorization, type EntryRecord, KotoriApi } from "@kotori/contracts"
+import { Authorization, EntryId, type EntryRecord, KotoriApi } from "@kotori/contracts"
 import { Effect, Layer, Option } from "effect"
 import { Headers, HttpClientRequest, HttpServer } from "effect/http"
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api"
-import { UsersRepo } from "../src/features/accounts/UsersRepo.ts"
-import { DictionaryRepo } from "../src/features/dictionary/DictionaryRepo.ts"
-import { StudyRepo } from "../src/features/study/StudyRepo.ts"
+import { Database } from "../src/db/Database.ts"
+import { scopedToUser } from "../src/db/scopedToUser.ts"
+import { updateUser, userById } from "../src/features/accounts/queries.ts"
+import { insertEntries } from "../src/features/dictionary/queries.ts"
+import { noteCount } from "../src/features/study/queries.ts"
 import { AuthorizationLive } from "../src/http/Authorization.ts"
 import { AllHandlers } from "../src/http/handlers.ts"
 import { Auth, TestAuth } from "../src/integrations/auth/Auth.ts"
@@ -78,7 +80,7 @@ const signedIn = (email: string) =>
     bearer = null
     // The profile row appears on first contact; approval is Kotori's own state.
     yield* api.account.me()
-    yield* Effect.flatMap(UsersRepo, (users) => users.update(user.id, { status: "approved" }))
+    yield* updateUser(yield* Database, user.id, { status: "approved" })
     return user
   })
 
@@ -104,7 +106,7 @@ const entry = (
   glosses: Array<string>,
   pos: Array<string>
 ): EntryRecord => ({
-  id,
+  id: EntryId.make(id),
   language: "ja",
   headword,
   reading,
@@ -121,7 +123,7 @@ layer(TestLayer)("Kotori API", (it) => {
   it.effect("signs up, waits for approval, then gets access", () =>
     Effect.gen(function* () {
       const api = yield* client
-      const users = yield* UsersRepo
+      const db = yield* Database
       const testAuth = yield* TestAuth
 
       cookie = null
@@ -147,11 +149,11 @@ layer(TestLayer)("Kotori API", (it) => {
       assert.strictEqual(gatedStudy._tag, "PendingApproval")
 
       // Archiving changes nothing for the learner.
-      yield* users.update(user.id, { status: "archived" })
+      yield* updateUser(db, user.id, { status: "archived" })
       assert.strictEqual((yield* api.account.me()).status, "archived")
       assert.strictEqual((yield* api.study.notes().pipe(Effect.flip))._tag, "PendingApproval")
 
-      yield* users.update(user.id, { status: "approved" })
+      yield* updateUser(db, user.id, { status: "approved" })
       assert.deepStrictEqual(yield* api.study.notes(), [])
 
       // The app authenticates with a managed JWT instead of the cookie.
@@ -188,9 +190,9 @@ layer(TestLayer)("Kotori API", (it) => {
 
   it.effect("searches in English, Japanese, romaji and conjugated forms", () =>
     Effect.gen(function* () {
+      const db = yield* Database
       yield* signedIn("search@example.com")
-      const repo = yield* DictionaryRepo
-      yield* repo.insertEntries([
+      yield* insertEntries(db, [
         entry(1, "食べる", "たべる", ["to eat"], ["v1", "vt"]),
         entry(2, "書く", "かく", ["to write"], ["v5k", "vt"]),
         entry(3, "猫", "ねこ", ["cat"], ["n"])
@@ -222,7 +224,7 @@ layer(TestLayer)("Kotori API", (it) => {
       assert.strictEqual(missing._tag, "NotFound")
 
       // Japanese speakers learning English search the English dictionary the same way round.
-      yield* repo.insertEntries([
+      yield* insertEntries(db, [
         {
           ...entry(100000001, "eat", "/iːt/", ["～を食べる"], ["v"]),
           language: "en",
@@ -317,10 +319,10 @@ layer(TestLayer)("Kotori API", (it) => {
 
   it.effect("deleting the account removes the profile and study data", () =>
     Effect.gen(function* () {
+      const db = yield* Database
       const user = yield* signedIn("leaving@example.com")
       const api = yield* client
       const auth = yield* Auth
-      const users = yield* UsersRepo
       yield* api.study.addNote({
         payload: {
           content: {
@@ -334,7 +336,7 @@ layer(TestLayer)("Kotori API", (it) => {
           }
         }
       })
-      assert.isTrue(Option.isSome(yield* users.byId(user.id)))
+      assert.isTrue(Option.isSome(yield* userById(db, user.id)))
 
       const token = yield* Effect.flatMap(TestAuth, (testAuth) => testAuth.token(user.cookie))
 
@@ -342,8 +344,8 @@ layer(TestLayer)("Kotori API", (it) => {
       yield* api.account.delete()
       assert.isTrue(Option.isNone(yield* auth.sessionFromCookies(Headers.fromInput({ cookie: user.cookie }))))
 
-      assert.isTrue(Option.isNone(yield* users.byId(user.id)))
-      assert.strictEqual(yield* Effect.flatMap(StudyRepo, (study) => study.noteCount(user.id)), 0)
+      assert.isTrue(Option.isNone(yield* userById(db, user.id)))
+      assert.strictEqual(yield* noteCount(scopedToUser(yield* Database, user.id)), 0)
       const gone = yield* api.account.me().pipe(Effect.flip)
       assert.strictEqual(gone._tag, "Unauthorized")
 
@@ -351,7 +353,7 @@ layer(TestLayer)("Kotori API", (it) => {
       cookie = null
       bearer = token
       assert.strictEqual((yield* api.account.me().pipe(Effect.flip))._tag, "Unauthorized")
-      assert.isTrue(Option.isNone(yield* users.byId(user.id)))
+      assert.isTrue(Option.isNone(yield* userById(db, user.id)))
       bearer = null
     }).pipe(Effect.provide(Session))
   )

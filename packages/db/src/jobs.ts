@@ -1,6 +1,6 @@
 import { index, integer, pgEnum, text, unique } from "drizzle-orm/pg-core"
 import { createdAt, table, timestamptz } from "./columns.ts"
-import { entries } from "./entries.ts"
+import { entries, type EntryId } from "./entries.ts"
 
 export const jobKind = pgEnum("job_kind", ["nuance", "examples", "audio"])
 
@@ -13,6 +13,7 @@ export const jobs = table(
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     kind: jobKind().notNull(),
     entryId: integer()
+      .$type<EntryId>()
       .notNull()
       .references(() => entries.id, { onDelete: "cascade" }),
     priority: integer().notNull().default(0),

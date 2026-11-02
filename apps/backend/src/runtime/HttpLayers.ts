@@ -2,7 +2,6 @@ import { Claude, Coach, ElevenLabs, Jev, Pronouncer } from "@kotori/ai"
 import { Layer } from "effect"
 import type { SqlClient } from "effect/sql"
 import { type Database, DatabaseLive } from "../db/Database.ts"
-import { Repositories } from "../db/Repositories.ts"
 import { Accounts } from "../features/accounts/Accounts.ts"
 import { AuthWebhooks } from "../features/accounts/Webhooks.ts"
 import { AudioStore } from "../features/audio/AudioStore.ts"
@@ -28,12 +27,6 @@ export const makeApp = <P, EP, RP, ED, RD, EA, RA>(
   providers: Layer.Layer<P, EP, RP>,
   database: Layer.Layer<Database | SqlClient.SqlClient, ED, RD>,
   auth: Layer.Layer<Auth, EA, RA>
-) =>
-  ServicesLive.pipe(
-    Layer.provideMerge(providers),
-    Layer.provideMerge(auth),
-    Layer.provideMerge(Repositories),
-    Layer.provideMerge(database)
-  )
+) => ServicesLive.pipe(Layer.provideMerge(providers), Layer.provideMerge(auth), Layer.provideMerge(database))
 
 export const AppLive = makeApp(ProvidersLive, DatabaseLive, Auth.layer)

@@ -10,7 +10,7 @@ import {
   MAX_LOANS,
   MAX_SENSES
 } from "@kotori/ai"
-import type { EntryRecord } from "@kotori/contracts"
+import { EntryId, type EntryRecord } from "@kotori/contracts"
 import { loanCandidatesIn, normalizeGloss } from "@kotori/language"
 import { Console, Effect, FileSystem } from "effect"
 import { Command } from "effect/cli"
@@ -106,7 +106,7 @@ export const golden = Command.make(
     const problems: Array<string> = []
     /** The entry, checked to be the word the golden set means and to have the sense as a judged one. */
     const judged = (entryId: number, word: string, sense: number) => {
-      const entry = found.get(entryId)
+      const entry = found.get(EntryId.make(entryId))
       if (entry === undefined) return void problems.push(`#${entryId} (${word}) is not in JMDict`)
       if (!entry.forms.some((form) => form.text === word)) problems.push(`#${entryId} has no form ${word}`)
       if (sense >= Math.min(entry.senses.length, MAX_SENSES))

@@ -1,7 +1,7 @@
 import { bigint, doublePrecision, index, integer, pgEnum, uuid } from "drizzle-orm/pg-core"
-import { cards } from "./cards.ts"
+import { type CardId, cards } from "./cards.ts"
 import { cardQueue, table, timestamptz } from "./columns.ts"
-import { users } from "./users.ts"
+import { type UserId, users } from "./users.ts"
 
 export const rating = pgEnum("rating", ["again", "hard", "good", "easy"])
 
@@ -11,9 +11,11 @@ export const reviewLogs = table(
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     cardId: uuid()
+      .$type<CardId>()
       .notNull()
       .references(() => cards.id, { onDelete: "cascade" }),
     userId: uuid()
+      .$type<UserId>()
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     rating: rating().notNull(),
