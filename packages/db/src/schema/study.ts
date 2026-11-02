@@ -87,6 +87,7 @@ export const cards = table(
     userId: uuid()
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    /** recognize shows the target language. produce remains in the enum; a migration deletes those rows. */
     template: cardTemplate().$type<CardTemplate>().notNull(),
     queue: cardQueue().$type<CardQueue>().notNull().default("new"),
     due: timestamptz().notNull(),

@@ -28,7 +28,7 @@ export const PhraseCard = ({
   readonly register: Register
   /** Supporting notes shown under the phrase, in the learner's language. The first sits with the phrase. */
   readonly lines: ReadonlyArray<{ readonly label?: string; readonly text: string }>
-  /** What the saved card asks the learner to produce. */
+  /** What the card asks the learner to recall, in their own language. */
   readonly meaning: string
   readonly source: "how-to-say" | "naturalness"
   /** The best answer: shown larger. */
@@ -84,8 +84,7 @@ export const PhraseCard = ({
                         note: lines.map((l) => l.text).join("\n") || null,
                         register,
                         source
-                      },
-                      templates: ["produce", "recognize"]
+                      }
                     })
             }
           />
