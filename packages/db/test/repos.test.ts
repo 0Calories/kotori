@@ -1,5 +1,10 @@
+import { readFileSync } from "node:fs"
+import { count, eq, sql } from "drizzle-orm"
 import { assert, describe, it, layer } from "@effect/vitest"
 import { Effect, Layer, Option } from "effect"
+import { Database } from "../src/Database.ts"
+import { migrationsFolder } from "../src/Migrate.ts"
+import { reviewLogs } from "../src/schema/index.ts"
 import {
   CoachRepo,
   DictionaryRepo,
@@ -580,7 +585,7 @@ layer(TestLayer)("StudyRepo", (it) => {
     })
   )
 
-  it.effect("keeps reverse cards for their history and leaves them out of the queue and the counts", () =>
+  it.effect("deletes reverse cards and their review logs, and leaves recognize cards", () =>
     Effect.gen(function* () {
       const users = yield* UsersRepo
       const study = yield* StudyRepo
@@ -635,23 +640,6 @@ layer(TestLayer)("StudyRepo", (it) => {
         ]
       )
 
-      // The reverse cards are still stored, so the review log that points at them can stay.
-      assert.strictEqual((yield* study.notes(U1)).find((row) => row.note.id === N2)?.cards.length, 4)
-      assert.strictEqual(Option.getOrThrow(yield* study.card(U1, C6)).template, "produce")
-
-      assert.deepStrictEqual(
-        (yield* study.newCards(U1, 10)).map((c) => c.id),
-        [C3]
-      )
-      assert.deepStrictEqual(yield* study.reviewDue(U1, 1_000, 10), [])
-      assert.deepStrictEqual(yield* study.learningDue(U1, 1_000), [])
-      assert.isTrue(Option.isNone(yield* study.nextLearningDue(U1)))
-      assert.deepStrictEqual(yield* study.reviewDueTimes(U1, 100_000), [])
-      assert.deepStrictEqual(
-        (yield* study.queueCounts(U1)).map((row) => `${row.queue}:${row.mature}:${row.n}`),
-        ["new:false:1"]
-      )
-
       const log = {
         userId: U1,
         intervalBefore: 0,
@@ -659,26 +647,84 @@ layer(TestLayer)("StudyRepo", (it) => {
         easeBefore: 0,
         ease: 0,
         delayMs: 0,
-        durationMs: null,
+        durationMs: null
+      }
+      yield* study.insertLog({
+        ...log,
+        cardId: C3,
+        rating: "good",
+        queueBefore: "new",
         reviewedAt: 30_000,
         studyDay: 30_000
-      }
-      yield* study.insertLog({ ...log, cardId: C3, rating: "good", queueBefore: "new" })
-      yield* study.insertLog({ ...log, cardId: C4, rating: "easy", queueBefore: "new" })
+      })
+      yield* study.insertLog({
+        ...log,
+        cardId: C4,
+        rating: "easy",
+        queueBefore: "new",
+        reviewedAt: 31_000,
+        studyDay: 31_000
+      })
       yield* study.insertLog({
         ...log,
         cardId: C6,
         rating: "again",
         queueBefore: "review",
         intervalBefore: 10,
-        interval: 1
+        interval: 1,
+        reviewedAt: 31_000,
+        studyDay: 31_000
       })
 
-      // New-card and review limits, and the day's count, follow the one scheduled card.
+      const db = yield* Database
+      const logsFor = (cardId: string) =>
+        db
+          .select({ n: count() })
+          .from(reviewLogs)
+          .where(eq(reviewLogs.cardId, cardId))
+          .pipe(Effect.map((rows) => rows[0]?.n ?? 0))
+
+      // The migration file itself, split the way the migrator runs it.
+      const dropReverseCards = Effect.gen(function* () {
+        const file = readFileSync(`${migrationsFolder}/20261102001220_drop_reverse_cards/migration.sql`, "utf8")
+        for (const statement of file.split("--> statement-breakpoint")) {
+          const text = statement.trim()
+          if (text.length > 0) yield* db.execute(sql.raw(text))
+        }
+      })
+
+      yield* dropReverseCards
+
+      assert.strictEqual(Option.getOrThrow(yield* study.card(U1, C3)).template, "recognize")
+      assert.isTrue(Option.isNone(yield* study.card(U1, C4)))
+      assert.isTrue(Option.isNone(yield* study.card(U1, C5)))
+      assert.isTrue(Option.isNone(yield* study.card(U1, C6)))
+      assert.strictEqual(yield* logsFor(C3), 1)
+      assert.strictEqual(yield* logsFor(C4), 0)
+      assert.strictEqual(yield* logsFor(C6), 0)
+      assert.deepStrictEqual(yield* study.studyDays(U1), [30_000])
       assert.strictEqual(yield* study.countAnswers(U1, 30_000), 1)
-      assert.strictEqual(yield* study.countAnswers(U1, 30_000, "new"), 1)
-      assert.strictEqual(yield* study.countAnswers(U1, 30_000, "review"), 0)
-      assert.deepStrictEqual(yield* study.retention(U1, 30_000), { total: 0, failed: 0 })
+      assert.strictEqual(yield* study.countAnswers(U1, 31_000), 0)
+      assert.deepStrictEqual(
+        (yield* study.newCards(U1, 10)).map((c) => c.id),
+        [C3]
+      )
+      assert.deepStrictEqual(yield* study.reviewDue(U1, 1_000, 10), [])
+      assert.deepStrictEqual(yield* study.learningDue(U1, 1_000), [])
+      assert.deepStrictEqual(
+        (yield* study.queueCounts(U1)).map((row) => `${row.queue}:${row.mature}:${row.n}`),
+        ["new:false:1"]
+      )
+      const note = (yield* study.notes(U1)).find((row) => row.note.id === N2)
+      assert.deepStrictEqual(
+        note?.cards.map((c) => c.id),
+        [C3]
+      )
+
+      // Idempotent: running it again does not touch the recognize card or its log.
+      yield* dropReverseCards
+      assert.strictEqual(Option.getOrThrow(yield* study.card(U1, C3)).template, "recognize")
+      assert.strictEqual(yield* logsFor(C3), 1)
 
       assert.isTrue(yield* study.deleteNote(U1, N2))
     })

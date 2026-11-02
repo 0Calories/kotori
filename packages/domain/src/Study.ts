@@ -17,7 +17,8 @@ export type CardQueue = typeof CardQueue.Type
 
 /**
  * recognize: show the word in the target language and ask for the meaning.
- * produce: the retired reverse direction. Rows stay so review history is kept; nothing schedules them.
+ * produce: the retired reverse direction. The column's enum still has the value; a migration
+ * deletes those cards and their review logs, and new notes are not given one.
  */
 export const CardTemplate = Schema.Literals(["recognize", "produce"])
 export type CardTemplate = typeof CardTemplate.Type

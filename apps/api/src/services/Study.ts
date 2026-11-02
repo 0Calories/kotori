@@ -69,8 +69,7 @@ const toNote = (note: NoteRow, cards: ReadonlyArray<CardRow>): Note => ({
   id: NoteId.make(note.id),
   content: note.content,
   createdAt: note.createdAt,
-  // Reverse cards stay in the database. Callers only see the target-language one.
-  cards: cards.filter((card) => card.template === "recognize").map(toSummary)
+  cards: cards.map(toSummary)
 })
 
 export class Study extends Context.Service<
