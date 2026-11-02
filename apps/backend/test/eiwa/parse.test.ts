@@ -1,4 +1,4 @@
-import type { EntryRecord } from "@kotori/domain"
+import type { EntryRecord } from "@kotori/contracts"
 import { describe, expect, it } from "vitest"
 import { commonestFirst, mergeSources, toEntries } from "../../src/features/dictionary/import/eiwa/build.ts"
 import { parseEjdict } from "../../src/features/dictionary/import/eiwa/ejdict.ts"

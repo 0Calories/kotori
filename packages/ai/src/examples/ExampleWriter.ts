@@ -1,4 +1,4 @@
-import { Formality, type Language, SentenceMedium, SentenceTone, SpeakerAge, SpeakerGender } from "@kotori/domain"
+import { Formality, type Language, SentenceMedium, SentenceTone, SpeakerAge, SpeakerGender } from "@kotori/contracts"
 import { furiganaToText, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
 import { Context, Effect, Layer, Schema } from "effect"
 import { Claude, type ClaudeError } from "../providers/Claude.ts"

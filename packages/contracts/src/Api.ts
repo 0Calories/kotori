@@ -27,7 +27,7 @@ export class CurrentUser extends Context.Service<
     readonly id: UserId
     readonly profile: Profile
   }
->()("@kotori/domain/CurrentUser") {}
+>()("@kotori/contracts/CurrentUser") {}
 
 /**
  * Session auth. Better Auth issues a session cookie at `/api/auth/*`; the app
@@ -40,7 +40,7 @@ export class Authorization extends HttpApiMiddleware.Service<
     provides: CurrentUser
     requires: never
   }
->()("@kotori/domain/Authorization", {
+>()("@kotori/contracts/Authorization", {
   requiredForClient: true,
   error: [Unauthorized, PendingApproval, AuthUnavailable]
 }) {}

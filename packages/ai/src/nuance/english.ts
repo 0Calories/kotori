@@ -1,4 +1,4 @@
-import type { EntryRecord } from "@kotori/domain"
+import type { EntryRecord } from "@kotori/contracts"
 import type { LoanCandidate } from "@kotori/language"
 import type { ChoiceQuestion, NoulQuestion, ScoreQuestion } from "@typesafe-ai/sdk"
 import { CONNOTATIONS, REVERSED, reversedChoice, SUBJECT_NOT_REGISTER } from "./questions.ts"

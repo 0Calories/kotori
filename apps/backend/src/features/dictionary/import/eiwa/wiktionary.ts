@@ -1,4 +1,4 @@
-import type { GlossRecord, SenseRecord } from "@kotori/domain"
+import type { GlossRecord, SenseRecord } from "@kotori/contracts"
 import type { EnglishInflection } from "@kotori/language"
 import { Option, Predicate, Schema } from "effect"
 import { FIELDS, PARTS_OF_SPEECH, REGIONS, TRANSITIVITY, USAGE } from "./tags.ts"

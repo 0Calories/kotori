@@ -1,4 +1,4 @@
-import type { Language, Nuance } from "@kotori/domain"
+import type { Language, Nuance } from "@kotori/contracts"
 import { Context, Effect, Layer, Option } from "effect"
 import { ElevenLabs, TtsError } from "../providers/ElevenLabs.ts"
 import { Jev } from "../providers/Jev.ts"

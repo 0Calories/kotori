@@ -1,4 +1,4 @@
-import { type Language, loanShown, type Loanword, type Nuance, type Sense, type SimilarWord } from "@kotori/domain"
+import { type Language, loanShown, type Loanword, type Nuance, type Sense, type SimilarWord } from "@kotori/contracts"
 import { Link, useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { Platform, Share, View } from "react-native"

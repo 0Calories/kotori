@@ -1,5 +1,5 @@
 import { Claude, Jev, Pronouncer } from "@kotori/ai"
-import { CurrentUser, InvalidRequest, KotoriApi, NotFound } from "@kotori/domain"
+import { CurrentUser, InvalidRequest, KotoriApi, NotFound } from "@kotori/contracts"
 import { Effect, Layer, Option } from "effect"
 import { HttpApiBuilder } from "effect/http-api"
 import { Accounts } from "../features/accounts/Accounts.ts"

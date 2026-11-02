@@ -1,4 +1,4 @@
-import type { AccountStatus, Language } from "@kotori/domain"
+import type { AccountStatus, Language } from "@kotori/contracts"
 import { Clock, Context, Effect, Layer, Option, Schema } from "effect"
 import { Auth, type AuthUser } from "../../integrations/auth/Auth.ts"
 import { Mailer } from "../../integrations/email/Mailer.ts"

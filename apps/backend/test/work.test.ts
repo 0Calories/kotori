@@ -10,7 +10,7 @@ import {
   NuanceJudge,
   Pronouncer
 } from "@kotori/ai"
-import type { EntryRecord } from "@kotori/domain"
+import type { EntryRecord } from "@kotori/contracts"
 import { Effect, Layer } from "effect"
 import { TestClock } from "effect/testing"
 import { Repositories } from "../src/db/Repositories.ts"

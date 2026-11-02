@@ -1,5 +1,5 @@
 import { Pronouncer, TtsError, type Voice } from "@kotori/ai"
-import type { Language } from "@kotori/domain"
+import type { Language } from "@kotori/contracts"
 import { Clock, Config, Context, Effect, Layer, Option } from "effect"
 import { createHash } from "node:crypto"
 import { EnrichmentRepo } from "../enrichment/EnrichmentRepo.ts"

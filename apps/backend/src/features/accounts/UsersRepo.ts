@@ -1,5 +1,5 @@
 import { userRole, users } from "@kotori/db"
-import type { AccountStatus, Language } from "@kotori/domain"
+import type { AccountStatus, Language } from "@kotori/contracts"
 import { eq, inArray } from "drizzle-orm"
 import { Context, Effect, Layer, Option } from "effect"
 import { Database } from "../../db/Database.ts"

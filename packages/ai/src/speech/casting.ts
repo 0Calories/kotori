@@ -1,4 +1,4 @@
-import type { Formality, Language, Nuance, SentenceTone } from "@kotori/domain"
+import type { Formality, Language, Nuance, SentenceTone } from "@kotori/contracts"
 import type { ChoiceQuestion } from "@typesafe-ai/sdk"
 import { Effect } from "effect"
 import type { Jev, JevError } from "../providers/Jev.ts"

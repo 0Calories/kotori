@@ -1,4 +1,4 @@
-import type { Language } from "@kotori/domain"
+import type { Language } from "@kotori/contracts"
 import { Clock, Console, Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { type Account, Approvals } from "../features/accounts/Approvals.ts"

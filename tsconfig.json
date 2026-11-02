@@ -9,9 +9,6 @@
       "path": "./packages/db"
     },
     {
-      "path": "./packages/domain"
-    },
-    {
       "path": "./packages/srs"
     },
     {
@@ -22,6 +19,9 @@
     },
     {
       "path": "./apps/backend"
+    },
+    {
+      "path": "./packages/contracts"
     }
   ]
 }

@@ -1,4 +1,4 @@
-import type { EntryRecord, Nuance } from "@kotori/domain"
+import type { EntryRecord, Nuance } from "@kotori/contracts"
 import { Context, Effect, Layer, Option, Schema } from "effect"
 import { Jev, type JevError } from "../providers/Jev.ts"
 import { answersOfLoans } from "./english.ts"

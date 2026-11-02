@@ -9,13 +9,16 @@ import {
   Keigo,
   LoanMeaning,
   LoanVerdict,
+  loanWords,
   Medium,
   Nuance,
   Profanity,
   RegisterShape,
   Variety
 } from "@kotori/db"
+import { createSelectSchema } from "drizzle-orm/effect-schema"
 import * as Schema from "effect/Schema"
+import * as Struct from "effect/Struct"
 
 export {
   AgeGroup,
@@ -120,8 +123,7 @@ export const Loanword = Schema.Struct({
   /** The katakana word, as JMDict spells it. */
   word: Schema.String,
   verdict: LoanVerdict,
-  /** Claude's one Japanese sentence on how the words differ, once the loan is shown diverging. */
-  trap: Schema.NullOr(Schema.String)
+  ...Struct.pick(createSelectSchema(loanWords).fields, ["trap"])
 })
 export type Loanword = typeof Loanword.Type
 
@@ -146,5 +148,5 @@ export const loanShown = (verdict: LoanVerdict): "warning" | "chip" | null =>
         : null
 
 /** How a similar word differs from the one being looked at. */
-export const Difference = Schema.Literals(difference.enumValues)
+export const Difference = createSelectSchema(difference)
 export type Difference = typeof Difference.Type

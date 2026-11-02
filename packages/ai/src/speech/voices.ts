@@ -1,4 +1,4 @@
-import type { Formality, Language } from "@kotori/domain"
+import type { Formality, Language } from "@kotori/contracts"
 
 /**
  * Trait tags describing how a curated voice sounds. Gender, age and variety are

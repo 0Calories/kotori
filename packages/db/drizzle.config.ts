@@ -19,7 +19,7 @@ for (const file of [".env.local", ".env"]) {
  */
 export default defineConfig({
   dialect: "postgresql",
-  schema: "./src/tables.ts",
+  schema: "./src/index.ts",
   out: "./migrations",
   schemaFilter: ["public"],
   dbCredentials: { url: process.env["DATABASE_URL"] ?? "postgres://kotori:kotori@localhost:5432/kotori" },

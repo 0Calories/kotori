@@ -1,4 +1,4 @@
-import type { Language } from "@kotori/domain"
+import type { Language } from "@kotori/contracts"
 import { Config, Context, Effect, Layer, Option, Redacted, Schedule, Schema } from "effect"
 import { HttpClient, HttpClientRequest } from "effect/http"
 

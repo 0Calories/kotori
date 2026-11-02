@@ -1,4 +1,4 @@
-import type { EntryRecord } from "@kotori/domain"
+import type { EntryRecord } from "@kotori/contracts"
 import type {
   AgeGroup,
   Connotation,
@@ -12,7 +12,7 @@ import type {
   Profanity,
   RegisterShape,
   Variety
-} from "@kotori/domain"
+} from "@kotori/contracts"
 import { Schema } from "effect"
 
 /**

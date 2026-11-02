@@ -1,6 +1,6 @@
 import { assert, describe, it, layer } from "@effect/vitest"
 import { reviewLogs } from "@kotori/db"
-import type { EntryRecord } from "@kotori/domain"
+import type { EntryRecord } from "@kotori/contracts"
 import { type LoanCandidate, loanCandidatesIn, normalizeGloss } from "@kotori/language"
 import { count, eq, sql } from "drizzle-orm"
 import { Effect, Layer, Option } from "effect"

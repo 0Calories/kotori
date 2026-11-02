@@ -1,5 +1,5 @@
-import type { EntryRecord } from "@kotori/domain"
-import type { Language } from "@kotori/domain"
+import type { EntryRecord } from "@kotori/contracts"
+import type { Language } from "@kotori/contracts"
 import type { ChoiceQuestion, EntryType, NoulQuestion, Question } from "@typesafe-ai/sdk"
 import { ENGLISH_QUESTIONS_VERSION, englishSenseQuestions, loanQuestions, MAX_LOANS } from "./english.ts"
 import { DIFFERENCES, QUESTIONS_VERSION, senseQuestions } from "./questions.ts"

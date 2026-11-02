@@ -11,7 +11,7 @@ import {
   senseTags,
   SIMILAR_SENSES
 } from "@kotori/ai"
-import type { EntryRecord } from "@kotori/domain"
+import type { EntryRecord } from "@kotori/contracts"
 import { Clock, Context, Effect, Layer, Option, Schema } from "effect"
 import { DictionaryRepo } from "../dictionary/DictionaryRepo.ts"
 import { EnrichmentRepo } from "./EnrichmentRepo.ts"

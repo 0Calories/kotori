@@ -1,5 +1,5 @@
 import { NodeHttpClient, NodeHttpServer, NodeRuntime, NodeServices } from "@effect/platform-node"
-import { KotoriApi } from "@kotori/domain"
+import { KotoriApi } from "@kotori/contracts"
 import { Config, Effect, Layer, Logger } from "effect"
 import { HttpRouter } from "effect/http"
 import { HttpApiBuilder, HttpApiScalar } from "effect/http-api"

@@ -1,4 +1,4 @@
-import type { EntryRecord, FormRecord, SenseRecord } from "@kotori/domain"
+import type { EntryRecord, FormRecord, SenseRecord } from "@kotori/contracts"
 import { type EnglishInflection, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
 import type { FormOf, InflectedForm, References, Word } from "./words.ts"
 

@@ -1,4 +1,4 @@
-import type { EntryRecord, FormRecord, SenseRecord } from "@kotori/domain"
+import type { EntryRecord, FormRecord, SenseRecord } from "@kotori/contracts"
 
 /**
  * A streaming-friendly parser for EDRDG's JMdict XML.

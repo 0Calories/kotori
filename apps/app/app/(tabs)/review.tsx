@@ -94,7 +94,7 @@ export default function ReviewScreen() {
 
   const counts = queue.data?.counts
   const due = counts ? counts.new + counts.learning + counts.review : 0
-  const nextDue = queue.data?.nextDue ?? null
+  const nextDue = queue.data?.nextDue?.getTime() ?? null
 
   return (
     <Screen

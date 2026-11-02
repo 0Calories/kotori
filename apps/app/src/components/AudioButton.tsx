@@ -1,4 +1,4 @@
-import type { Language } from "@kotori/domain"
+import type { Language } from "@kotori/contracts"
 import { type AudioPlayer, createAudioPlayer } from "expo-audio"
 import { useEffect, useState } from "react"
 import { apiAsset } from "../api/config.ts"

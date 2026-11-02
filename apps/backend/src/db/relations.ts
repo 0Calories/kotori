@@ -1,5 +1,5 @@
+import * as schema from "@kotori/db"
 import { defineRelations } from "drizzle-orm"
-import * as schema from "./tables.ts"
 
 /**
  * How the tables relate, for `db.query.<table>.findMany({ with: … })`. Foreign keys are

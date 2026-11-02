@@ -1,57 +1,64 @@
-import { NoteContent, PhraseNote, SavedExample, WordNote } from "@kotori/db"
+import {
+  CardId,
+  cardQueue,
+  cards,
+  cardTemplate,
+  NoteContent,
+  NoteId,
+  notes,
+  PhraseNote,
+  rating,
+  SavedExample,
+  UserId,
+  WordNote
+} from "@kotori/db"
+import { createSelectSchema } from "drizzle-orm/effect-schema"
 import * as Schema from "effect/Schema"
+import * as Struct from "effect/Struct"
 
-export { NoteContent, PhraseNote, SavedExample, WordNote }
+export { CardId, NoteContent, NoteId, PhraseNote, SavedExample, WordNote }
 
-export const NoteId = Schema.String.pipe(Schema.brand("NoteId"))
-export type NoteId = typeof NoteId.Type
-
-export const CardId = Schema.String.pipe(Schema.brand("CardId"))
-export type CardId = typeof CardId.Type
-
-export const Rating = Schema.Literals(["again", "hard", "good", "easy"])
+export const Rating = createSelectSchema(rating)
 export type Rating = typeof Rating.Type
 
-export const CardQueue = Schema.Literals(["new", "learning", "review", "relearning"])
+export const CardQueue = createSelectSchema(cardQueue)
 export type CardQueue = typeof CardQueue.Type
 
 /**
  * recognize: show the word in the target language and ask for the meaning.
  * produce: the retired reverse direction. The column's enum still has the value; a migration
- * deletes those cards and their review logs, and new notes are not given one.
+ * deleted those cards and their review logs, and new notes are not given one.
  */
-export const CardTemplate = Schema.Literals(["recognize", "produce"])
+export const CardTemplate = createSelectSchema(cardTemplate)
 export type CardTemplate = typeof CardTemplate.Type
 
-export const CardSummary = Schema.Struct({
-  id: CardId,
-  template: CardTemplate,
-  queue: CardQueue,
-  due: Schema.Number,
-  interval: Schema.Int,
-  leech: Schema.Boolean
-})
+const Card = createSelectSchema(cards, { id: CardId, noteId: NoteId, userId: UserId })
+const NoteRow = createSelectSchema(notes, { id: NoteId, userId: UserId, content: NoteContent })
+
+export const CardSummary = Schema.Struct(
+  Struct.pick(Card.fields, ["id", "template", "queue", "due", "interval", "leech"])
+)
 export type CardSummary = typeof CardSummary.Type
 
 export const Note = Schema.Struct({
-  id: NoteId,
-  content: NoteContent,
-  createdAt: Schema.Number,
+  ...Struct.pick(NoteRow.fields, ["id", "content", "createdAt"]),
   cards: Schema.Array(CardSummary)
 })
 export type Note = typeof Note.Type
 
 export const StudyCard = Schema.Struct({
-  id: CardId,
-  noteId: NoteId,
-  template: CardTemplate,
-  queue: CardQueue,
-  due: Schema.Number,
-  interval: Schema.Int,
-  ease: Schema.Number,
-  reps: Schema.Int,
-  lapses: Schema.Int,
-  leech: Schema.Boolean,
+  ...Struct.pick(Card.fields, [
+    "id",
+    "noteId",
+    "template",
+    "queue",
+    "due",
+    "interval",
+    "ease",
+    "reps",
+    "lapses",
+    "leech"
+  ]),
   content: NoteContent
 })
 export type StudyCard = typeof StudyCard.Type
@@ -79,19 +86,17 @@ export const ReviewQueue = Schema.Struct({
   items: Schema.Array(ReviewItem),
   counts: QueueCounts,
   /** When the next learning card becomes due, if nothing is due now. */
-  nextDue: Schema.NullOr(Schema.Number)
+  nextDue: Schema.NullOr(Card.fields.due)
 })
 export type ReviewQueue = typeof ReviewQueue.Type
 
-export const AddNoteRequest = Schema.Struct({
-  content: NoteContent,
-  /** Older clients asked for both directions. Saving always creates the one target-language card. */
-  templates: Schema.optional(Schema.Array(CardTemplate))
-})
+/** Saving creates the one target-language card. */
+export const AddNoteRequest = Schema.Struct({ content: NoteContent })
 export type AddNoteRequest = typeof AddNoteRequest.Type
 
 export const AnswerRequest = Schema.Struct({
   rating: Rating,
+  /** How long the learner took to answer, when the client measured it. */
   durationMs: Schema.optional(Schema.Int)
 })
 export type AnswerRequest = typeof AnswerRequest.Type

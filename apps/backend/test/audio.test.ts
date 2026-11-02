@@ -1,6 +1,6 @@
 import { assert, layer } from "@effect/vitest"
 import { ElevenLabs, ENGLISH_CAST, JAPANESE_CAST, Jev, Pronouncer, VoiceCasts } from "@kotori/ai"
-import type { EntryRecord } from "@kotori/domain"
+import type { EntryRecord } from "@kotori/contracts"
 import { ConfigProvider, Effect, Layer } from "effect"
 import { Repositories } from "../src/db/Repositories.ts"
 import { AudioStore, isAudioKey } from "../src/features/audio/AudioStore.ts"

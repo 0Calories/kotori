@@ -1,8 +1,8 @@
 {
-  "name": "@kotori/domain",
+  "name": "@kotori/contracts",
   "version": "0.1.0",
   "private": true,
-  "description": "Shared schemas and the HttpApi contract for Kotori",
+  "description": "Kotori's HTTP contract: KotoriApi, its request and response schemas derived from the @kotori/db tables, and its public errors",
   "type": "module",
   "exports": {
     ".": {
@@ -11,8 +11,12 @@
       "default": "./dist/index.js"
     }
   },
+  "scripts": {
+    "test": "vitest run"
+  },
   "dependencies": {
     "@kotori/db": "workspace:*",
+    "drizzle-orm": "catalog:",
     "effect": "catalog:"
   }
 }

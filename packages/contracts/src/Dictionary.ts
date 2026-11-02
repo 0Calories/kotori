@@ -1,19 +1,39 @@
-import { EntryId } from "@kotori/db"
+import {
+  castBy,
+  entries,
+  EntryId,
+  examples,
+  Formality,
+  forms,
+  Nuance,
+  senseNotes,
+  sentenceMedium,
+  sentenceTone,
+  similarWords,
+  speakerAge,
+  speakerGender,
+  tags
+} from "@kotori/db"
+import { createSelectSchema } from "drizzle-orm/effect-schema"
 import * as Schema from "effect/Schema"
-import { Language } from "./Language.ts"
-import { Difference, Formality, Loanword, Nuance } from "./Nuance.ts"
+import * as Struct from "effect/Struct"
+import { Loanword } from "./Nuance.ts"
 
 export { EntryId }
 
+const EntryRow = createSelectSchema(entries, { id: EntryId })
+// `text` is a bytewise-collated custom column, which derives as unknown.
+const FormRow = createSelectSchema(forms, { text: Schema.String })
+const SimilarRow = createSelectSchema(similarWords)
+const ExampleRow = createSelectSchema(examples)
+const SenseNoteRow = createSelectSchema(senseNotes)
+
 /** A JMDict tag such as `v5r` with its human-readable description. */
-export const Tag = Schema.Struct({ code: Schema.String, label: Schema.String })
+export const Tag = createSelectSchema(tags)
 export type Tag = typeof Tag.Type
 
 export const Form = Schema.Struct({
-  text: Schema.String,
-  /** Japanese words are written in kanji and kana; English ones have other spellings and inflections. */
-  kind: Schema.Literals(["kanji", "kana", "spelling", "inflection"]),
-  common: Schema.Boolean,
+  ...Struct.pick(FormRow.fields, ["text", "kind", "common"]),
   /** Usage tags for Japanese forms; what an English inflection is ("past", "plural"). */
   tags: Schema.Array(Tag)
 })
@@ -27,45 +47,34 @@ export type CrossReference = typeof CrossReference.Type
 
 export const SimilarWord = Schema.Struct({
   entryId: EntryId,
-  headword: Schema.String,
-  reading: Schema.String,
+  ...Struct.pick(EntryRow.fields, ["headword", "reading"]),
   meaning: Schema.String,
-  difference: Difference,
-  confidence: Schema.Number,
+  ...Struct.pick(SimilarRow.fields, ["difference", "confidence"]),
   formality: Schema.NullOr(Formality)
 })
 export type SimilarWord = typeof SimilarWord.Type
 
 /** Who would plausibly say an example sentence, as judged when it was written. */
-export const SpeakerGender = Schema.Literals(["masculine", "feminine", "unspecified"])
+export const SpeakerGender = createSelectSchema(speakerGender)
 export type SpeakerGender = typeof SpeakerGender.Type
 
-export const SpeakerAge = Schema.Literals(["child", "youth", "adult", "middle-aged", "older", "unspecified"])
+export const SpeakerAge = createSelectSchema(speakerAge)
 export type SpeakerAge = typeof SpeakerAge.Type
 
 /** Conversation (someone talking to someone), announcement (news, notices, mail read aloud) or narration (prose). */
-export const SentenceMedium = Schema.Literals(["conversation", "announcement", "narration"])
+export const SentenceMedium = createSelectSchema(sentenceMedium)
 export type SentenceMedium = typeof SentenceMedium.Type
 
 /** The dominant feel of the delivery; "humorous" sends a sentence to a comic voice, the rest is stored for voice settings. */
-export const SentenceTone = Schema.Literals(["neutral", "cheerful", "serious", "gentle", "rough", "humorous"])
+export const SentenceTone = createSelectSchema(sentenceTone)
 export type SentenceTone = typeof SentenceTone.Type
 
 /** How a clip's voice was chosen: scoring alone, Jev breaking a tie, or a person via the CLI. */
-export const CastBy = Schema.Literals(["rules", "jev", "manual"])
+export const CastBy = createSelectSchema(castBy)
 export type CastBy = typeof CastBy.Type
 
 export const Example = Schema.Struct({
-  id: Schema.Int,
-  /** The sentence in Japanese. */
-  ja: Schema.String,
-  /** The same sentence with `{base|reading}` furigana. */
-  furigana: Schema.String,
-  en: Schema.String,
-  formality: Formality,
-  note: Schema.NullOr(Schema.String),
-  /** A note on the English sentence for Japanese speakers, in Japanese. */
-  noteJa: Schema.NullOr(Schema.String),
+  ...Struct.pick(ExampleRow.fields, ["id", "ja", "furigana", "en", "formality", "note", "noteJa"]),
   /** The Japanese sentence, spoken. */
   audioUrl: Schema.NullOr(Schema.String),
   /** The English translation, spoken. */
@@ -87,10 +96,8 @@ export const Sense = Schema.Struct({
   related: Schema.Array(CrossReference),
   antonyms: Schema.Array(CrossReference),
   nuance: Schema.NullOr(Nuance),
-  /** Kotori's usage note on this sense for learners of Japanese, in English; on Japanese words. */
-  note: Schema.NullOr(Schema.String),
-  /** The same for learners of English, in Japanese; on English words. */
-  noteJa: Schema.NullOr(Schema.String),
+  /** Kotori's usage note for learners of Japanese, in English (on Japanese words), and for learners of English, in Japanese (on English words). */
+  ...Struct.pick(SenseNoteRow.fields, ["note", "noteJa"]),
   similar: Schema.Array(SimilarWord),
   examples: Schema.Array(Example)
 })
@@ -120,15 +127,9 @@ export type EntryAudio = typeof EntryAudio.Type
  * JMDict for English speakers, an English word for Japanese speakers.
  */
 export const Entry = Schema.Struct({
-  id: EntryId,
-  /** The headword's language. */
-  language: Language,
-  headword: Schema.String,
-  /** Kana for a Japanese word; IPA for an English one, or empty when the dictionary has none. */
-  reading: Schema.String,
+  ...Struct.pick(EntryRow.fields, ["id", "language", "headword", "reading", "common"]),
   /** The kana reading in rōmaji; empty for English words. */
   romaji: Schema.String,
-  common: Schema.Boolean,
   forms: Schema.Array(Form),
   senses: Schema.Array(Sense),
   /** The first headword clip; kept until the app plays from `audio`. */
@@ -142,12 +143,8 @@ export const Entry = Schema.Struct({
 export type Entry = typeof Entry.Type
 
 export const EntrySummary = Schema.Struct({
-  id: EntryId,
-  language: Language,
-  headword: Schema.String,
-  reading: Schema.String,
+  ...Struct.pick(EntryRow.fields, ["id", "language", "headword", "reading", "common"]),
   romaji: Schema.String,
-  common: Schema.Boolean,
   meanings: Schema.Array(Schema.String),
   partOfSpeech: Schema.NullOr(Schema.String),
   formality: Schema.NullOr(Formality),

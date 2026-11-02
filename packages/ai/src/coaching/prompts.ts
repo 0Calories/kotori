@@ -1,4 +1,4 @@
-import type { Language } from "@kotori/domain"
+import type { Language } from "@kotori/contracts"
 
 const NAMES: Record<Language, string> = { en: "English", ja: "Japanese" }
 

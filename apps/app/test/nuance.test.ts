@@ -1,4 +1,4 @@
-import type { Medium, Nuance, Sense } from "@kotori/domain"
+import type { Medium, Nuance, Sense } from "@kotori/contracts"
 import { assert, describe, it } from "vitest"
 import { strings } from "../src/i18n/strings.ts"
 import { dictionaryTags, registerDisplay, registers } from "../src/lib/nuance.ts"

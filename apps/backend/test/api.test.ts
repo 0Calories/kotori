@@ -1,7 +1,7 @@
 import { NodeServices } from "@effect/platform-node"
 import { assert, layer } from "@effect/vitest"
 import { Claude, ClaudeError, ElevenLabs, Jev, JevError, TtsError } from "@kotori/ai"
-import { Authorization, type EntryRecord, KotoriApi } from "@kotori/domain"
+import { Authorization, type EntryRecord, KotoriApi } from "@kotori/contracts"
 import { Effect, Layer, Option } from "effect"
 import { Headers, HttpClientRequest, HttpServer } from "effect/http"
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api"
@@ -288,9 +288,9 @@ layer(TestLayer)("Kotori API", (it) => {
     }).pipe(Effect.provide(Session))
   )
 
-  it.effect("saves one target-language card when a client asks for both directions", () =>
+  it.effect("saves one target-language card per note", () =>
     Effect.gen(function* () {
-      yield* signedIn("both-directions@example.com")
+      yield* signedIn("one-card@example.com")
       const api = yield* client
       const note = yield* api.study.addNote({
         payload: {
@@ -302,8 +302,7 @@ layer(TestLayer)("Kotori API", (it) => {
             note: null,
             register: null,
             source: "manual"
-          },
-          templates: ["produce", "recognize"]
+          }
         }
       })
       assert.deepStrictEqual(

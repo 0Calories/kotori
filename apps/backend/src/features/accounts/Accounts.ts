@@ -1,4 +1,4 @@
-import { otherLanguage, type Profile, type UpdateProfileRequest, UserId } from "@kotori/domain"
+import { otherLanguage, type Profile, type UpdateProfileRequest, UserId } from "@kotori/contracts"
 import { Clock, Context, Effect, Layer, Option } from "effect"
 import { SqlClient } from "effect/sql"
 import { Auth, type AuthUser } from "../../integrations/auth/Auth.ts"
@@ -21,7 +21,7 @@ const toProfile = (who: Identity, row: UserRow): Profile => ({
   timezone: row.timezone,
   dailyNewLimit: row.dailyNewLimit,
   dailyReviewLimit: row.dailyReviewLimit,
-  createdAt: row.createdAt
+  createdAt: new Date(row.createdAt)
 })
 
 /** Learner profiles: identity comes from Managed Better Auth; approval, role and preferences live here. */

@@ -9,7 +9,7 @@ import {
   RateLimited,
   type SpeakRequest,
   type SpeakResult
-} from "@kotori/domain"
+} from "@kotori/contracts"
 import { Clock, Config, Context, Effect, Layer, Option, Schema } from "effect"
 import { createHash } from "node:crypto"
 import { Speech } from "../audio/Speech.ts"

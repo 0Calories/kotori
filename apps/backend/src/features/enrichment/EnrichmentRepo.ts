@@ -20,7 +20,7 @@ import type {
   SentenceTone,
   SpeakerAge,
   SpeakerGender
-} from "@kotori/domain"
+} from "@kotori/contracts"
 import { and, asc, desc, eq, gte, inArray, lt, or, sql, sum } from "drizzle-orm"
 import { Context, Effect, Layer, Option } from "effect"
 import { Database } from "../../db/Database.ts"

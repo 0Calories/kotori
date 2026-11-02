@@ -11,7 +11,7 @@
       "path": "../language/tsconfig.lib.json"
     },
     {
-      "path": "../domain/tsconfig.lib.json"
+      "path": "../contracts/tsconfig.lib.json"
     }
   ]
 }

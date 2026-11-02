@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest"
-import { type EntryRecord, type LoanMeaning, loanShown } from "@kotori/domain"
+import { type EntryRecord, type LoanMeaning, loanShown } from "@kotori/contracts"
 import type { Question } from "@typesafe-ai/sdk"
 import {
   awaitsWarning,

@@ -12,7 +12,7 @@ import {
   type Sense,
   type SimilarWord,
   type Tag
-} from "@kotori/domain"
+} from "@kotori/contracts"
 import {
   deinflect,
   hasJapanese,

@@ -1,4 +1,4 @@
-import type { FormalityReading } from "@kotori/domain"
+import type { FormalityReading } from "@kotori/contracts"
 import type { ScoreQuestion } from "@typesafe-ai/sdk"
 import { Effect } from "effect"
 import type { Jev, JevError } from "../providers/Jev.ts"

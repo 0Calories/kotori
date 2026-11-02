@@ -1,6 +1,6 @@
 import { assert, layer } from "@effect/vitest"
 import { ENGLISH_QUESTIONS_VERSION, Jev, NuanceJudge, REVERSED } from "@kotori/ai"
-import type { EntryRecord, LoanMeaning } from "@kotori/domain"
+import type { EntryRecord, LoanMeaning } from "@kotori/contracts"
 import type { Question, Questions } from "@typesafe-ai/sdk"
 import { Effect, Layer, Option } from "effect"
 import { Repositories } from "../src/db/Repositories.ts"

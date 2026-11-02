@@ -14,10 +14,10 @@
       "path": "../../packages/language/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/domain/tsconfig.lib.json"
+      "path": "../../packages/db/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/db/tsconfig.lib.json"
+      "path": "../../packages/contracts/tsconfig.lib.json"
     },
     {
       "path": "../../packages/ai/tsconfig.lib.json"

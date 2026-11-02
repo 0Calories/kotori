@@ -12,7 +12,7 @@ import {
   type ReviewQueue,
   type StudyCard,
   type StudyStats
-} from "@kotori/domain"
+} from "@kotori/contracts"
 import {
   answer as answerCard,
   type CardState,
@@ -47,7 +47,7 @@ const toStudyCard = (card: CardWithContent): StudyCard => ({
   noteId: NoteId.make(card.noteId),
   template: card.template,
   queue: card.queue,
-  due: card.due,
+  due: new Date(card.due),
   interval: card.interval,
   ease: card.ease,
   reps: card.reps,
@@ -60,7 +60,7 @@ const toSummary = (card: CardRow): CardSummary => ({
   id: CardId.make(card.id),
   template: card.template,
   queue: card.queue,
-  due: card.due,
+  due: new Date(card.due),
   interval: card.interval,
   leech: card.leech
 })
@@ -68,7 +68,7 @@ const toSummary = (card: CardRow): CardSummary => ({
 const toNote = (note: NoteRow, cards: ReadonlyArray<CardRow>): Note => ({
   id: NoteId.make(note.id),
   content: note.content,
-  createdAt: note.createdAt,
+  createdAt: new Date(note.createdAt),
   cards: cards.map(toSummary)
 })
 
@@ -122,8 +122,7 @@ export class Study extends Context.Service<
           sense: word?.senseIndex ?? null,
           createdAt: now
         }
-        // One card per saved item: the target-language side. `request.templates` is ignored so
-        // older clients that asked for the reverse direction don't get a second card.
+        // One card per saved item: the target-language side.
         const cards: Array<CardRow> = [
           {
             id: randomUUID(),
@@ -181,7 +180,10 @@ export class Study extends Context.Service<
           labels: labelsFor(card, { now, ...clockFor(user, now), seed: card.seed })
         }))
         const queueCounts: QueueCounts = { new: fresh.length, learning: learning.length, review: reviews.length }
-        const nextDue = items.length === 0 ? Option.getOrNull(yield* repo.nextLearningDue(user.id)) : null
+        const nextDue =
+          items.length === 0
+            ? Option.getOrNull(Option.map(yield* repo.nextLearningDue(user.id), (ms) => new Date(ms)))
+            : null
         return { items, counts: queueCounts, nextDue }
       })
 

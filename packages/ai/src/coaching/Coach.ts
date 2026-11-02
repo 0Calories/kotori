@@ -1,4 +1,12 @@
-import { type HowToSayRequest, Issue, type NaturalnessRequest, Phrase, Pitfall, Rewrite, Verdict } from "@kotori/domain"
+import {
+  type HowToSayRequest,
+  Issue,
+  type NaturalnessRequest,
+  Phrase,
+  Pitfall,
+  Rewrite,
+  Verdict
+} from "@kotori/contracts"
 import { furiganaToText } from "@kotori/language"
 import { Context, Effect, Layer, Schema } from "effect"
 import { Claude, type ClaudeError } from "../providers/Claude.ts"

@@ -1,4 +1,4 @@
-import type { EntryId, Example, Formality, Language, Medium, NoteContent } from "@kotori/domain"
+import type { EntryId, Example, Formality, Language, Medium, NoteContent } from "@kotori/contracts"
 import type { Strings } from "../i18n/strings.ts"
 
 /** A dictionary word saved for review, from the entry page. */

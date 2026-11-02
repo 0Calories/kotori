@@ -1,4 +1,4 @@
-import type { SenseRecord } from "@kotori/domain"
+import type { SenseRecord } from "@kotori/contracts"
 import type { EnglishInflection } from "@kotori/language"
 
 /** An inflected form of a word and what it is: "ate", past. */

@@ -10,7 +10,7 @@ import {
   nuanceOutdated,
   Pronouncer
 } from "@kotori/ai"
-import type { EntryRecord } from "@kotori/domain"
+import type { EntryRecord } from "@kotori/contracts"
 import { Clock, Context, Effect, Layer } from "effect"
 import { DictionaryRepo } from "../dictionary/DictionaryRepo.ts"
 import { AudioEnricher } from "./AudioEnricher.ts"

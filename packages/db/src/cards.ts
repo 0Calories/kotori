@@ -1,9 +1,14 @@
 import { boolean, doublePrecision, index, integer, pgEnum, uuid } from "drizzle-orm/pg-core"
+import * as Schema from "effect/Schema"
 import { cardQueue, createdAt, table, timestamptz } from "./columns.ts"
 import { notes } from "./notes.ts"
 import { users } from "./users.ts"
 
 export const cardTemplate = pgEnum("card_template", ["recognize", "produce"])
+
+/** A review card's id. */
+export const CardId = Schema.String.pipe(Schema.brand("CardId"))
+export type CardId = typeof CardId.Type
 
 /** One side of a note to review, with its spaced-repetition state. */
 export const cards = table(

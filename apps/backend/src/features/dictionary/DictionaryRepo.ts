@@ -13,7 +13,7 @@ import {
   similarWords,
   tags
 } from "@kotori/db"
-import type { EntryRecord, Language } from "@kotori/domain"
+import type { EntryRecord, Language } from "@kotori/contracts"
 import { KATAKANA_WORD, type LoanCandidate, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
 import { and, asc, desc, eq, gte, inArray, isNotNull, lt, max, min, ne, notExists, sql } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"

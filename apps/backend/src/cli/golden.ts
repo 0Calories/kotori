@@ -10,7 +10,7 @@ import {
   MAX_LOANS,
   MAX_SENSES
 } from "@kotori/ai"
-import type { EntryRecord } from "@kotori/domain"
+import type { EntryRecord } from "@kotori/contracts"
 import { loanCandidatesIn, normalizeGloss } from "@kotori/language"
 import { Console, Effect, FileSystem } from "effect"
 import { Command } from "effect/cli"

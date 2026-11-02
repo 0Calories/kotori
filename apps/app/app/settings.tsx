@@ -1,4 +1,4 @@
-import type { Language } from "@kotori/domain"
+import type { Language } from "@kotori/contracts"
 import { useRouter } from "expo-router"
 import { Switch, View } from "react-native"
 import { apiUrl } from "../src/api/config.ts"

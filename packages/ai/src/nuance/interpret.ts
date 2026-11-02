@@ -14,7 +14,7 @@ import {
   SLANG_TAGS,
   TAG_JUDGMENTS,
   type Variety
-} from "@kotori/domain"
+} from "@kotori/contracts"
 import type { ChoiceResponse, NoulResponse, ScoreResponse } from "@typesafe-ai/sdk"
 import { PROFANITY_LEVELS } from "./english.ts"
 import { FORMALITY_LEVELS, MEDIUM_LEVELS, REVERSED } from "./questions.ts"

@@ -1,4 +1,4 @@
-import type { EntryRecord } from "@kotori/domain"
+import type { EntryRecord } from "@kotori/contracts"
 import type { ChoiceResponse, EntryType, Question } from "@typesafe-ai/sdk"
 import { REVERSED, reversedChoice } from "../nuance/questions.ts"
 import { entryRequest, loanRequest, sensePrefix } from "../nuance/request.ts"

@@ -1,4 +1,4 @@
-import type { EntryRecord } from "@kotori/domain"
+import type { EntryRecord } from "@kotori/contracts"
 import { romanize } from "@kotori/language"
 
 /** Senses beyond these rarely matter to learners and are left unclassified. */

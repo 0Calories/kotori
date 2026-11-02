@@ -31,7 +31,7 @@ import {
   senseTags,
   SIMILAR_KEPT
 } from "@kotori/ai"
-import { type EntryRecord, LOAN_SHOWN, loanShown } from "@kotori/domain"
+import { type EntryRecord, LOAN_SHOWN, loanShown } from "@kotori/contracts"
 import { normalizeGloss } from "@kotori/language"
 import { Console, Effect, FileSystem, Option, Schema } from "effect"
 import { Argument, Command, Flag } from "effect/cli"

@@ -1,4 +1,4 @@
-import { AuthUnavailable, Authorization, CurrentUser, PendingApproval, Unauthorized } from "@kotori/domain"
+import { AuthUnavailable, Authorization, CurrentUser, PendingApproval, Unauthorized } from "@kotori/contracts"
 import { Effect, Layer, Option } from "effect"
 import { HttpServerRequest } from "effect/http"
 import { Accounts } from "../features/accounts/Accounts.ts"

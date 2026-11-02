@@ -1,4 +1,4 @@
-import type { EntryRecord } from "@kotori/domain"
+import type { EntryRecord } from "@kotori/contracts"
 import { normalizeGloss, romanize, uninflect } from "@kotori/language"
 import { emptySense, isEnglish, type Word } from "./words.ts"
 

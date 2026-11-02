@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "catalog:",
-    "@kotori/domain": "workspace:*",
+    "@kotori/contracts": "workspace:*",
     "@kotori/language": "workspace:*",
     "@typesafe-ai/sdk": "catalog:",
     "effect": "catalog:"

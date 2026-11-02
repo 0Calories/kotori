@@ -12,7 +12,7 @@ import {
   type SenseAnswers,
   TtsError
 } from "@kotori/ai"
-import { EntryId, type EntryRecord } from "@kotori/domain"
+import { EntryId, type EntryRecord } from "@kotori/contracts"
 import { Effect, Layer, Option } from "effect"
 import { TestClock } from "effect/testing"
 import { Repositories } from "../src/db/Repositories.ts"

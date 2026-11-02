@@ -1,4 +1,4 @@
-import type { EntrySummary, Language } from "@kotori/domain"
+import type { EntrySummary, Language } from "@kotori/contracts"
 import { useRouter } from "expo-router"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Platform, TextInput, View } from "react-native"

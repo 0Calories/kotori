@@ -1,5 +1,5 @@
 import { cards, notes, reviewLogs } from "@kotori/db"
-import type { CardQueue, CardTemplate, NoteContent, Rating } from "@kotori/domain"
+import type { CardQueue, CardTemplate, NoteContent, Rating } from "@kotori/contracts"
 import { and, asc, count, countDistinct, desc, eq, getTableColumns, gte, inArray, lt, lte, min, sql } from "drizzle-orm"
 import { Context, Effect, Layer, Option } from "effect"
 import { Database } from "../../db/Database.ts"

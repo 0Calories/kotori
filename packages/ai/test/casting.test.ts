@@ -1,4 +1,4 @@
-import type { Language, Nuance } from "@kotori/domain"
+import type { Language, Nuance } from "@kotori/contracts"
 import { describe, expect, it } from "vitest"
 import { briefFor, CASTS, castVoices, ENGLISH_CAST, headwordVoices, JAPANESE_CAST, rank, tied } from "../src/index.ts"
 import type { CastingBrief, CastingInput, Casts, SenseSignals, SentenceSignals } from "../src/index.ts"

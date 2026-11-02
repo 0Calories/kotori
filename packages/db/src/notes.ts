@@ -56,6 +56,10 @@ export type NoteContent = typeof NoteContent.Type
 
 export const noteKind = pgEnum("note_kind", ["word", "phrase"])
 
+/** A saved note's id. */
+export const NoteId = Schema.String.pipe(Schema.brand("NoteId"))
+export type NoteId = typeof NoteId.Type
+
 /** Something a learner saved to study: a dictionary sense, or a phrase from the coach or typed by hand. */
 export const notes = table(
   "notes",
