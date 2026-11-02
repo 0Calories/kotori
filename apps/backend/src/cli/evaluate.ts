@@ -31,11 +31,11 @@ import {
   senseTags,
   SIMILAR_KEPT
 } from "@kotori/ai"
-import { resolveFromRoot } from "@kotori/db"
 import { type EntryRecord, LOAN_SHOWN, loanShown } from "@kotori/domain"
 import { normalizeGloss } from "@kotori/language"
 import { Console, Effect, FileSystem, Option, Schema } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
+import { resolveFromRoot } from "../runtime/Paths.ts"
 
 /** Booleans are judged where the app judges them: the display threshold. */
 const CAUTION_SHOWN = 0.6

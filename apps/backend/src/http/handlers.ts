@@ -1,11 +1,11 @@
 import { Claude, Jev, Pronouncer } from "@kotori/ai"
-import { DictionaryRepo } from "@kotori/db"
 import { CurrentUser, InvalidRequest, KotoriApi, NotFound } from "@kotori/domain"
 import { Effect, Layer, Option } from "effect"
 import { HttpApiBuilder } from "effect/http-api"
 import { Accounts } from "../features/accounts/Accounts.ts"
 import { Coaching } from "../features/coaching/Coaching.ts"
 import { Dictionary } from "../features/dictionary/Dictionary.ts"
+import { DictionaryRepo } from "../features/dictionary/DictionaryRepo.ts"
 import { Study } from "../features/study/Study.ts"
 import { Mailer } from "../integrations/email/Mailer.ts"
 

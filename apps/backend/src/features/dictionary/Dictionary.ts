@@ -1,5 +1,4 @@
 import { awaitsWarning, CASTS, Claude, Jev, nuanceOutdated, Pronouncer } from "@kotori/ai"
-import { DictionaryRepo, EnrichmentRepo, type ExampleRow, type FormMatch, type GlossMatch, JobsRepo } from "@kotori/db"
 import {
   type Enrichment,
   type EnrichmentStatus,
@@ -26,6 +25,9 @@ import {
   uninflect
 } from "@kotori/language"
 import { Clock, Context, Effect, Layer, Option } from "effect"
+import { EnrichmentRepo, type ExampleRow } from "../enrichment/EnrichmentRepo.ts"
+import { JobsRepo } from "../enrichment/JobsRepo.ts"
+import { DictionaryRepo, type FormMatch, type GlossMatch } from "./DictionaryRepo.ts"
 
 export const audioUrl = (key: string) => `/audio/${key}.mp3`
 

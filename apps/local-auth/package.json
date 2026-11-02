@@ -8,7 +8,6 @@
     "dev": "tsx watch --clear-screen=false -C @kotori/source src/main.ts"
   },
   "dependencies": {
-    "@kotori/db": "workspace:*",
     "better-auth": "catalog:",
     "pg": "catalog:"
   },

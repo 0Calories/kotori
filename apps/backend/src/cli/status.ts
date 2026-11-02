@@ -1,7 +1,8 @@
-import { DictionaryRepo, JobsRepo } from "@kotori/db"
 import { Console, Effect } from "effect"
 import { Command } from "effect/cli"
+import { DictionaryRepo } from "../features/dictionary/DictionaryRepo.ts"
 import { Enrichers } from "../features/enrichment/Enrichers.ts"
+import { JobsRepo } from "../features/enrichment/JobsRepo.ts"
 
 export const status = Command.make(
   "status",

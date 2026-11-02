@@ -1,9 +1,9 @@
 import { assert, describe, it, layer } from "@effect/vitest"
+import { entries, forms, glosses, senses } from "@kotori/db"
 import { eq, sql } from "drizzle-orm"
 import { Effect } from "effect"
-import { Database } from "../src/Database.ts"
-import { entries, forms, glosses, senses } from "../src/schema/index.ts"
-import { DatabaseMemory } from "../src/testing.ts"
+import { Database } from "../../src/db/Database.ts"
+import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
 // The schema's Postgres-level behaviour, on PGlite: the parts a repository can't
 // express and so can't test on its own. Generated full-text column, bytewise

@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { NodeRuntime, NodeServices } from "@effect/platform-node"
 import { Jev } from "@kotori/ai"
-import { DatabaseLive, loadDotEnv } from "@kotori/db"
 import { Effect } from "effect"
 import { Command } from "effect/cli"
 import { adminCommand, approve, archive, devAccount, requests, revoke, users } from "../cli/accounts.ts"
@@ -11,7 +10,9 @@ import { golden } from "../cli/golden.ts"
 import { migrate } from "../cli/migrate.ts"
 import { seed } from "../cli/seed.ts"
 import { status } from "../cli/status.ts"
+import { DatabaseLive } from "../db/Database.ts"
 import { AccountsLive, SeedLive } from "../runtime/CliLayers.ts"
+import { loadDotEnv } from "../runtime/Paths.ts"
 import { WorkerLive } from "../runtime/WorkerLayers.ts"
 
 loadDotEnv()

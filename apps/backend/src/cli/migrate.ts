@@ -1,6 +1,6 @@
-import { migrateDatabase, migrationsFolder } from "@kotori/db"
 import { Console, Effect } from "effect"
 import { Command } from "effect/cli"
+import { migrateDatabase, migrationsFolder } from "../db/Migrate.ts"
 
 /** What to do about a database from before the Drizzle rebuild. Its contents don't carry over. */
 const legacyHelp = `

@@ -10,16 +10,19 @@ import {
   NuanceJudge,
   Pronouncer
 } from "@kotori/ai"
-import { DictionaryRepo, EnrichmentRepo, JobsRepo, Repositories } from "@kotori/db"
-import { DatabaseMemory } from "@kotori/db/testing"
 import type { EntryRecord } from "@kotori/domain"
 import { Effect, Layer } from "effect"
 import { TestClock } from "effect/testing"
+import { Repositories } from "../src/db/Repositories.ts"
 import { AudioStore } from "../src/features/audio/AudioStore.ts"
 import { Speech } from "../src/features/audio/Speech.ts"
+import { DictionaryRepo } from "../src/features/dictionary/DictionaryRepo.ts"
 import { AudioEnricher } from "../src/features/enrichment/AudioEnricher.ts"
 import { Enrichers } from "../src/features/enrichment/Enrichers.ts"
+import { EnrichmentRepo } from "../src/features/enrichment/EnrichmentRepo.ts"
+import { JobsRepo } from "../src/features/enrichment/JobsRepo.ts"
 import { NuanceEnricher } from "../src/features/enrichment/NuanceEnricher.ts"
+import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 import { makeJobRunner } from "../src/worker/JobRunner.ts"
 
 // The worker's real enrichers and repositories on PGlite; only the paid providers are fakes.

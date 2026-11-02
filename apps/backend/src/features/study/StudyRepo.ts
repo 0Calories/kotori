@@ -1,9 +1,9 @@
+import { cards, notes, reviewLogs } from "@kotori/db"
 import type { CardQueue, CardTemplate, NoteContent, Rating } from "@kotori/domain"
 import { and, asc, count, countDistinct, desc, eq, getTableColumns, gte, inArray, lt, lte, min, sql } from "drizzle-orm"
 import { Context, Effect, Layer, Option } from "effect"
-import { Database } from "./Database.ts"
-import { at, atOrNull, millis, millisOrNull } from "./rows.ts"
-import { cards, notes, reviewLogs } from "./schema/index.ts"
+import { Database } from "../../db/Database.ts"
+import { at, atOrNull, millis, millisOrNull } from "../../db/rows.ts"
 
 export interface CardRow {
   readonly id: string

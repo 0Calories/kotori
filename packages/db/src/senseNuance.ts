@@ -1,0 +1,113 @@
+import { foreignKey, integer, jsonb, primaryKey, text } from "drizzle-orm/pg-core"
+import * as Schema from "effect/Schema"
+import { createdAt, Formality, table } from "./columns.ts"
+import { senses } from "./senses.ts"
+
+/** Japanese honorific language (敬語). */
+export const Keigo = Schema.Literals(["none", "teineigo", "sonkeigo", "kenjougo", "bikago"])
+export type Keigo = typeof Keigo.Type
+
+/** Whether a word lives mostly in conversation, in writing, or both. */
+export const Medium = Schema.Literals(["spoken", "both", "written"])
+export type Medium = typeof Medium.Type
+
+export const Gender = Schema.Literals(["neutral", "masculine", "feminine"])
+export type Gender = typeof Gender.Type
+
+export const AgeGroup = Schema.Literals(["any", "children", "youth", "older"])
+export type AgeGroup = typeof AgeGroup.Type
+
+/** How current a word feels. */
+export const Currency = Schema.Literals(["archaic", "dated", "current", "trendy"])
+export type Currency = typeof Currency.Type
+
+export const Connotation = Schema.Literals(["negative", "neutral", "positive"])
+export type Connotation = typeof Connotation.Type
+
+/**
+ * Where a judgment came from: a dictionary tag (authoritative), JMDict's or the English
+ * dictionary's in JMDict's codes, or Jev's classification.
+ */
+export const JudgmentSource = Schema.Literals(["jmdict", "jev"])
+export type JudgmentSource = typeof JudgmentSource.Type
+
+const judgment = <S extends Schema.Top>(value: S) =>
+  Schema.Struct({
+    value,
+    confidence: Schema.Number,
+    source: JudgmentSource
+  })
+
+const scale = <S extends Schema.Top>(value: S) =>
+  Schema.Struct({
+    value,
+    /** 0..1 position along the scale, for meters. */
+    position: Schema.Number,
+    confidence: Schema.Number,
+    source: JudgmentSource
+  })
+
+/**
+ * Whether a casual↔formal scale is the right model for the word at all:
+ * scaled words move along it, fixed words sit at one obvious register
+ * (insults, ceremonial words), split words live in two worlds at once
+ * (clinical in one, crude or joking in the other).
+ */
+export const RegisterShape = Schema.Literals(["scaled", "fixed", "split"])
+export type RegisterShape = typeof RegisterShape.Type
+
+// --- Judged on English words only, for Japanese speakers learning them --------
+
+/** Whose English a word is: everyone's, or mainly American or British. */
+export const Variety = Schema.Literals(["universal", "american", "british"])
+export type Variety = typeof Variety.Type
+
+/** How offensive an English word is; "avoid" marks slurs and words learners should not use. */
+export const Profanity = Schema.Literals(["none", "mild", "strong", "avoid"])
+export type Profanity = typeof Profanity.Type
+
+export const Nuance = Schema.Struct({
+  formality: scale(Formality),
+  medium: scale(Medium),
+  /** English has no keigo: English words carry "none", from the dictionary. */
+  keigo: judgment(Keigo),
+  gender: judgment(Gender),
+  age: judgment(AgeGroup),
+  currency: judgment(Currency),
+  connotation: judgment(Connotation),
+  /** Absent on judgments stored before questions version 2. */
+  registerShape: Schema.optional(judgment(RegisterShape)),
+  /** Probabilities of common pitfalls for learners. */
+  cautions: Schema.Struct({
+    rudeToSuperiors: Schema.Number,
+    stiffWithFriends: Schema.Number,
+    slang: Schema.Number,
+    /** English words: wording taught to learners that natives rarely use ("How do you do?"). */
+    textbook: Schema.optional(Schema.Number)
+  }),
+  /** English words only. */
+  variety: Schema.optional(judgment(Variety)),
+  /** English words only. */
+  profanity: Schema.optional(judgment(Profanity))
+})
+export type Nuance = typeof Nuance.Type
+
+/** Jev's nuance judgments per sense. */
+export const senseNuance = table(
+  "sense_nuance",
+  {
+    entryId: integer().notNull(),
+    sense: integer().notNull(),
+    nuance: jsonb().$type<Nuance>().notNull(),
+    /** The raw answer distributions, so thresholds and labels can be re-derived without paying for inference again. */
+    answers: jsonb().notNull(),
+    model: text().notNull(),
+    /** Which question set produced the answers (QUESTIONS_VERSION); old rows are refreshed on view. */
+    questionsVersion: integer().notNull().default(1),
+    createdAt: createdAt()
+  },
+  (t) => [
+    primaryKey({ columns: [t.entryId, t.sense] }),
+    foreignKey({ columns: [t.entryId, t.sense], foreignColumns: [senses.entryId, senses.position] }).onDelete("cascade")
+  ]
+)

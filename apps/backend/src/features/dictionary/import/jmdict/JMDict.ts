@@ -1,8 +1,9 @@
-import { DictionaryRepo, resolveFromRoot } from "@kotori/db"
 import type { EntryRecord } from "@kotori/domain"
 import { Effect, FileSystem, Path, Schema, Stream } from "effect"
 import { HttpClient } from "effect/http"
 import { gunzipSync } from "node:zlib"
+import { resolveFromRoot } from "../../../../runtime/Paths.ts"
+import { DictionaryRepo } from "../../DictionaryRepo.ts"
 import { parseEntries, parseTags } from "./parse.ts"
 
 /** EDRDG's English-only JMdict, refreshed daily. Licensed CC BY-SA 4.0. */

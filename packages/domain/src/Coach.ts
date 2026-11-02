@@ -1,9 +1,8 @@
+import { Register } from "@kotori/db"
 import * as Schema from "effect/Schema"
 import { EntryId } from "./Dictionary.ts"
 
-/** Speech register used across the coach features. */
-export const Register = Schema.Literals(["casual", "neutral", "polite", "formal"])
-export type Register = typeof Register.Type
+export { Register }
 
 const Text = (maxLength: number) =>
   Schema.String.pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(maxLength)))

@@ -1,24 +1,21 @@
 import { assert, describe, it, layer } from "@effect/vitest"
+import { reviewLogs } from "@kotori/db"
 import type { EntryRecord } from "@kotori/domain"
 import { type LoanCandidate, loanCandidatesIn, normalizeGloss } from "@kotori/language"
 import { count, eq, sql } from "drizzle-orm"
 import { Effect, Layer, Option } from "effect"
 import { readFileSync } from "node:fs"
-import { Database } from "../src/Database.ts"
-import {
-  CoachRepo,
-  DictionaryRepo,
-  EnrichmentRepo,
-  JobsRepo,
-  matchSenses,
-  Repositories,
-  StudyRepo,
-  type UserRow,
-  UsersRepo
-} from "../src/index.ts"
-import { migrationsFolder } from "../src/Migrate.ts"
-import { reviewLogs } from "../src/schema/index.ts"
-import { DatabaseMemory } from "../src/testing.ts"
+import { Database } from "../../src/db/Database.ts"
+import { migrationsFolder } from "../../src/db/Migrate.ts"
+import { Repositories } from "../../src/db/Repositories.ts"
+import { type UserRow, UsersRepo } from "../../src/features/accounts/UsersRepo.ts"
+import { CoachRepo } from "../../src/features/coaching/CoachRepo.ts"
+import { DictionaryRepo } from "../../src/features/dictionary/DictionaryRepo.ts"
+import { matchSenses } from "../../src/features/dictionary/import/matchSenses.ts"
+import { EnrichmentRepo } from "../../src/features/enrichment/EnrichmentRepo.ts"
+import { JobsRepo } from "../../src/features/enrichment/JobsRepo.ts"
+import { StudyRepo } from "../../src/features/study/StudyRepo.ts"
+import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
 const sense = (glosses: Array<string>, extra: Partial<EntryRecord["senses"][number]> = {}) => ({
   glosses: glosses.map((text) => ({ text, type: null })),

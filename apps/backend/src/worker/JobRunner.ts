@@ -1,6 +1,6 @@
-import { type Job, type JobKind, JobsRepo } from "@kotori/db"
 import { Cause, Clock, Effect, Exit, Option } from "effect"
 import { Enrichers } from "../features/enrichment/Enrichers.ts"
+import { type Job, type JobKind, JobsRepo } from "../features/enrichment/JobsRepo.ts"
 
 /** A job still `running` this long after its claim belongs to a worker that crashed or was killed. */
 const STALE_AFTER = 10 * 60_000

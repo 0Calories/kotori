@@ -1,18 +1,25 @@
 import { defineConfig } from "drizzle-kit"
-import { loadDotEnv } from "./src/Paths.ts"
 
-loadDotEnv()
+// The repository's `.env.local` (written by the Neon CLI) and then `.env`, for the commands that
+// connect (studio, introspect); variables already in the environment win, then the first file.
+for (const file of [".env.local", ".env"]) {
+  try {
+    process.loadEnvFile(new URL(`../../${file}`, import.meta.url))
+  } catch {
+    // Absent: nothing to load.
+  }
+}
 
 /**
- * drizzle-kit: `pnpm --filter @kotori/db generate` diffs `src/schema` against the last
- * migration and writes the next one to `migrations/`; `kotori migrate` applies them.
- * Only the `public` schema is ours. `neon_auth` belongs to Managed Better Auth; its
- * read-only declarations live outside the `schema` path below so `generate` never diffs
- * them (`schemaFilter` only applies to introspect and push).
+ * drizzle-kit: `pnpm --filter @kotori/db generate` diffs the tables in `src/` against the last
+ * migration and writes the next one to `migrations/`; `kotori migrate` applies them. Only the
+ * `public` schema is ours. `neon_auth` belongs to Managed Better Auth; the backend declares the
+ * columns it reads, outside this package, so `generate` never diffs them (`schemaFilter` only
+ * applies to introspect and push).
  */
 export default defineConfig({
   dialect: "postgresql",
-  schema: "./src/schema/index.ts",
+  schema: "./src/tables.ts",
   out: "./migrations",
   schemaFilter: ["public"],
   dbCredentials: { url: process.env["DATABASE_URL"] ?? "postgres://kotori:kotori@localhost:5432/kotori" },

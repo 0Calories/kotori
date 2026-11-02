@@ -1,8 +1,8 @@
+import { jobKind, jobs, jobStatus } from "@kotori/db"
 import { and, asc, count, desc, eq, inArray, lt, lte, sql } from "drizzle-orm"
 import { Context, Effect, Layer, Option } from "effect"
-import { Database } from "./Database.ts"
-import { at } from "./rows.ts"
-import { jobKind, jobs, jobStatus } from "./schema/index.ts"
+import { Database } from "../../db/Database.ts"
+import { at } from "../../db/rows.ts"
 
 export type JobKind = (typeof jobKind.enumValues)[number]
 export type JobStatus = (typeof jobStatus.enumValues)[number]

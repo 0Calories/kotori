@@ -1,6 +1,6 @@
 import { NodeRuntime } from "@effect/platform-node"
-import { loadDotEnv } from "@kotori/db"
 import { Effect } from "effect"
+import { loadDotEnv } from "../runtime/Paths.ts"
 import { WorkerLive } from "../runtime/WorkerLayers.ts"
 import { work } from "../worker/work.ts"
 

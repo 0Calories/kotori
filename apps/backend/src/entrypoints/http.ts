@@ -1,5 +1,4 @@
 import { NodeHttpClient, NodeHttpServer, NodeRuntime, NodeServices } from "@effect/platform-node"
-import { loadDotEnv } from "@kotori/db"
 import { KotoriApi } from "@kotori/domain"
 import { Config, Effect, Layer, Logger } from "effect"
 import { HttpRouter } from "effect/http"
@@ -12,6 +11,7 @@ import { AllHandlers } from "../http/handlers.ts"
 import { AuthRoute } from "../http/neon-auth.ts"
 import { WebhooksRoute } from "../http/webhooks.ts"
 import { AppLive } from "../runtime/HttpLayers.ts"
+import { loadDotEnv } from "../runtime/Paths.ts"
 
 loadDotEnv()
 

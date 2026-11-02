@@ -1,11 +1,3 @@
-import type { EntryRecord, Language } from "@kotori/domain"
-import { KATAKANA_WORD, type LoanCandidate, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
-import { and, asc, desc, eq, gte, inArray, isNotNull, lt, max, min, ne, notExists, sql } from "drizzle-orm"
-import { alias } from "drizzle-orm/pg-core"
-import { Context, Effect, Layer } from "effect"
-import { Database } from "./Database.ts"
-import { matchSenses } from "./records.ts"
-import { chunks } from "./rows.ts"
 import {
   entries,
   entryAudio,
@@ -20,7 +12,15 @@ import {
   senses,
   similarWords,
   tags
-} from "./schema/index.ts"
+} from "@kotori/db"
+import type { EntryRecord, Language } from "@kotori/domain"
+import { KATAKANA_WORD, type LoanCandidate, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
+import { and, asc, desc, eq, gte, inArray, isNotNull, lt, max, min, ne, notExists, sql } from "drizzle-orm"
+import { alias } from "drizzle-orm/pg-core"
+import { Context, Effect, Layer } from "effect"
+import { Database } from "../../db/Database.ts"
+import { chunks } from "../../db/rows.ts"
+import { matchSenses } from "./import/matchSenses.ts"
 
 export interface FormMatch {
   readonly entryId: number

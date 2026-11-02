@@ -11,9 +11,10 @@ import {
   senseTags,
   SIMILAR_SENSES
 } from "@kotori/ai"
-import { DictionaryRepo, EnrichmentRepo } from "@kotori/db"
 import type { EntryRecord } from "@kotori/domain"
 import { Clock, Context, Effect, Layer, Option, Schema } from "effect"
+import { DictionaryRepo } from "../dictionary/DictionaryRepo.ts"
+import { EnrichmentRepo } from "./EnrichmentRepo.ts"
 
 export class EntryNotFound extends Schema.TaggedError<EntryNotFound>()("EntryNotFound", { entryId: Schema.Int }) {}
 

@@ -1,12 +1,14 @@
 import { assert, layer } from "@effect/vitest"
 import { ElevenLabs, ENGLISH_CAST, JAPANESE_CAST, Jev, Pronouncer, VoiceCasts } from "@kotori/ai"
-import { DictionaryRepo, EnrichmentRepo, Repositories } from "@kotori/db"
-import { DatabaseMemory } from "@kotori/db/testing"
 import type { EntryRecord } from "@kotori/domain"
 import { ConfigProvider, Effect, Layer } from "effect"
+import { Repositories } from "../src/db/Repositories.ts"
 import { AudioStore, isAudioKey } from "../src/features/audio/AudioStore.ts"
 import { Speech } from "../src/features/audio/Speech.ts"
+import { DictionaryRepo } from "../src/features/dictionary/DictionaryRepo.ts"
 import { AudioEnricher } from "../src/features/enrichment/AudioEnricher.ts"
+import { EnrichmentRepo } from "../src/features/enrichment/EnrichmentRepo.ts"
+import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 
 const calls: Array<{ text: string; voiceId: string }> = []
 

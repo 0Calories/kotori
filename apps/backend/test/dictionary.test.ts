@@ -12,12 +12,15 @@ import {
   type SenseAnswers,
   TtsError
 } from "@kotori/ai"
-import { DictionaryRepo, EnrichmentRepo, type JobKind, JobsRepo, Repositories } from "@kotori/db"
-import { DatabaseMemory } from "@kotori/db/testing"
 import { EntryId, type EntryRecord } from "@kotori/domain"
 import { Effect, Layer, Option } from "effect"
 import { TestClock } from "effect/testing"
+import { Repositories } from "../src/db/Repositories.ts"
 import { Dictionary } from "../src/features/dictionary/Dictionary.ts"
+import { DictionaryRepo } from "../src/features/dictionary/DictionaryRepo.ts"
+import { EnrichmentRepo } from "../src/features/enrichment/EnrichmentRepo.ts"
+import { type JobKind, JobsRepo } from "../src/features/enrichment/JobsRepo.ts"
+import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 
 // The dictionary service on PGlite with audio configured, so it queues audio jobs; nothing is synthesised.
 

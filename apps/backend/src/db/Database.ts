@@ -1,9 +1,9 @@
 import { PgClient } from "@effect/sql-pg"
+import { relations } from "@kotori/db"
 import * as PgDrizzle from "drizzle-orm/effect-postgres"
 import { makePgArray, type PgCodecs, type PgQueryResultHKT } from "drizzle-orm/pg-core"
 import type { PgEffectDatabase } from "drizzle-orm/pg-core/effect"
 import { Config, Context, Effect, Layer, Redacted } from "effect"
-import { relations } from "./schema/relations.ts"
 
 /**
  * Drizzle over Postgres on the Effect `PgClient`, or over PGlite in tests. The two drivers

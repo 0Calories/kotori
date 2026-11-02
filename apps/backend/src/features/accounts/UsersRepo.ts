@@ -1,9 +1,9 @@
+import { userRole, users } from "@kotori/db"
 import type { AccountStatus, Language } from "@kotori/domain"
 import { eq, inArray } from "drizzle-orm"
 import { Context, Effect, Layer, Option } from "effect"
-import { Database } from "./Database.ts"
-import { at, atOrNull, millis, millisOrNull } from "./rows.ts"
-import { userRole, users } from "./schema/index.ts"
+import { Database } from "../../db/Database.ts"
+import { at, atOrNull, millis, millisOrNull } from "../../db/rows.ts"
 
 export type UserRole = (typeof userRole.enumValues)[number]
 

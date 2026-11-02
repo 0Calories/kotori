@@ -1,7 +1,7 @@
+import { NoteContent, PhraseNote, SavedExample, WordNote } from "@kotori/db"
 import * as Schema from "effect/Schema"
-import { Register } from "./Coach.ts"
-import { EntryId } from "./Dictionary.ts"
-import { Language } from "./Language.ts"
+
+export { NoteContent, PhraseNote, SavedExample, WordNote }
 
 export const NoteId = Schema.String.pipe(Schema.brand("NoteId"))
 export type NoteId = typeof NoteId.Type
@@ -22,51 +22,6 @@ export type CardQueue = typeof CardQueue.Type
  */
 export const CardTemplate = Schema.Literals(["recognize", "produce"])
 export type CardTemplate = typeof CardTemplate.Type
-
-export const SavedExample = Schema.Struct({
-  ja: Schema.String,
-  furigana: Schema.String,
-  en: Schema.String,
-  audioUrl: Schema.NullOr(Schema.String),
-  /** The English sentence, spoken; absent on notes saved before English was voiced. */
-  translationAudioUrl: Schema.optional(Schema.NullOr(Schema.String))
-})
-export type SavedExample = typeof SavedExample.Type
-
-export const WordNote = Schema.Struct({
-  kind: Schema.Literal("word"),
-  entryId: EntryId,
-  senseIndex: Schema.Int,
-  /** The headword's language; absent on notes saved before the English dictionary, all of them Japanese words. */
-  language: Schema.optional(Language),
-  headword: Schema.String,
-  reading: Schema.String,
-  /** The glosses of the saved sense, in the other language from the headword. */
-  meaning: Schema.String,
-  /** A short nuance hint shown on production cards, e.g. "Casual · Speech". */
-  hint: Schema.NullOr(Schema.String),
-  /** The sense's usage note, shown on the card back; absent on notes saved before it existed. */
-  note: Schema.optional(Schema.NullOr(Schema.String)),
-  example: Schema.NullOr(SavedExample),
-  audioUrl: Schema.NullOr(Schema.String)
-})
-export type WordNote = typeof WordNote.Type
-
-export const PhraseNote = Schema.Struct({
-  kind: Schema.Literal("phrase"),
-  /** The phrase in the target language. */
-  text: Schema.String,
-  furigana: Schema.NullOr(Schema.String),
-  /** What it means or when to use it, in the learner's native language. */
-  meaning: Schema.String,
-  note: Schema.NullOr(Schema.String),
-  register: Schema.NullOr(Register),
-  source: Schema.Literals(["how-to-say", "naturalness", "manual"])
-})
-export type PhraseNote = typeof PhraseNote.Type
-
-export const NoteContent = Schema.Union([WordNote, PhraseNote])
-export type NoteContent = typeof NoteContent.Type
 
 export const CardSummary = Schema.Struct({
   id: CardId,

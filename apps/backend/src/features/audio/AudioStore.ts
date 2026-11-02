@@ -1,6 +1,7 @@
-import { Database, schema } from "@kotori/db"
+import { audioFiles } from "@kotori/db"
 import { eq } from "drizzle-orm"
 import { Context, Effect, Layer, Option } from "effect"
+import { Database } from "../../db/Database.ts"
 
 /** Audio keys are sha256 hex digests, which also makes them safe to use in paths and URLs. */
 export const isAudioKey = (key: string) => /^[a-f0-9]{64}$/.test(key)
@@ -19,7 +20,6 @@ export class AudioStore extends Context.Service<
     AudioStore,
     Effect.gen(function* () {
       const db = yield* Database
-      const { audioFiles } = schema
 
       const put = Effect.fn("AudioStore.put")(function* (key: string, bytes: Uint8Array) {
         // `bytea` travels as a Buffer; the view shares the bytes without copying them.

@@ -1,17 +1,19 @@
 import { NodeServices } from "@effect/platform-node"
 import { assert, layer } from "@effect/vitest"
 import { Claude, ClaudeError, ElevenLabs, Jev, JevError, TtsError } from "@kotori/ai"
-import { DictionaryRepo, StudyRepo, UsersRepo } from "@kotori/db"
-import { DatabaseMemory } from "@kotori/db/testing"
 import { Authorization, type EntryRecord, KotoriApi } from "@kotori/domain"
 import { Effect, Layer, Option } from "effect"
 import { Headers, HttpClientRequest, HttpServer } from "effect/http"
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api"
+import { UsersRepo } from "../src/features/accounts/UsersRepo.ts"
+import { DictionaryRepo } from "../src/features/dictionary/DictionaryRepo.ts"
+import { StudyRepo } from "../src/features/study/StudyRepo.ts"
 import { AuthorizationLive } from "../src/http/Authorization.ts"
 import { AllHandlers } from "../src/http/handlers.ts"
 import { Auth, TestAuth } from "../src/integrations/auth/Auth.ts"
 import { MailerMemory } from "../src/integrations/email/Mailer.ts"
 import { makeApp } from "../src/runtime/HttpLayers.ts"
+import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 
 // No AI providers are configured in tests: the app must degrade gracefully. Mail is captured.
 const OfflineProviders = Layer.mergeAll(

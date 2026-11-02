@@ -1,5 +1,4 @@
 import { type ClaudeError, Coach, type HowToSayOutput, Jev, type NaturalnessOutput, readFormality } from "@kotori/ai"
-import { type CoachKind, CoachRepo } from "@kotori/db"
 import {
   AiUnavailable,
   type HowToSayRequest,
@@ -15,6 +14,7 @@ import { Clock, Config, Context, Effect, Layer, Option, Schema } from "effect"
 import { createHash } from "node:crypto"
 import { Speech } from "../audio/Speech.ts"
 import { audioUrl, Dictionary } from "../dictionary/Dictionary.ts"
+import { type CoachKind, CoachRepo } from "./CoachRepo.ts"
 
 const HOUR = 60 * 60 * 1000
 

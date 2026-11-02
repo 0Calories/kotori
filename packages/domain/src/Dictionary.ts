@@ -1,10 +1,9 @@
+import { EntryId } from "@kotori/db"
 import * as Schema from "effect/Schema"
 import { Language } from "./Language.ts"
 import { Difference, Formality, Loanword, Nuance } from "./Nuance.ts"
 
-/** JMDict's `ent_seq` for Japanese words; English words are numbered from 100,000,000. */
-export const EntryId = Schema.Int.pipe(Schema.brand("EntryId"))
-export type EntryId = typeof EntryId.Type
+export { EntryId }
 
 /** A JMDict tag such as `v5r` with its human-readable description. */
 export const Tag = Schema.Struct({ code: Schema.String, label: Schema.String })

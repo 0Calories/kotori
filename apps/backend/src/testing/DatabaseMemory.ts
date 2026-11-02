@@ -1,9 +1,9 @@
 import { PgliteClient } from "@effect/sql-pglite"
+import { relations } from "@kotori/db"
 import * as PgliteDrizzle from "drizzle-orm/effect-pglite"
 import { Layer } from "effect"
-import { Database } from "./Database.ts"
-import { migrateDatabase } from "./Migrate.ts"
-import { relations } from "./schema/relations.ts"
+import { Database } from "../db/Database.ts"
+import { migrateDatabase } from "../db/Migrate.ts"
 
 /**
  * A fresh in-memory Postgres (PGlite) for tests, migrated from `packages/db/migrations`

@@ -10,7 +10,7 @@
 import { type ChildProcess, spawn, spawnSync } from "node:child_process"
 import { copyFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
-import { loadDotEnv, workspaceRoot } from "../packages/db/src/Paths.ts"
+import { loadDotEnv, workspaceRoot } from "../apps/backend/src/runtime/Paths.ts"
 
 const LOCAL = new Set(["localhost", "127.0.0.1"])
 

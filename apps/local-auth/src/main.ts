@@ -1,4 +1,3 @@
-import { loadDotEnv } from "@kotori/db"
 import { betterAuth, type BetterAuthOptions } from "better-auth"
 import { getMigrations } from "better-auth/db/migration"
 import { toNodeHandler } from "better-auth/node"
@@ -19,7 +18,14 @@ import pg from "pg"
  * dependency of the API or the worker, so it never reaches the deployed image.
  */
 
-loadDotEnv()
+// The repository's `.env.local` (the Neon CLI's) and then `.env`; variables already set win, then the first file.
+for (const file of [".env.local", ".env"]) {
+  try {
+    process.loadEnvFile(new URL(`../../../${file}`, import.meta.url))
+  } catch {
+    // Absent: nothing to load.
+  }
+}
 
 /** Same as the API's CORS check: this machine or the local network. */
 const LOCAL_HOST =

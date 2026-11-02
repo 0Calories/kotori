@@ -10,7 +10,6 @@ import {
   MAX_LOANS,
   MAX_SENSES
 } from "@kotori/ai"
-import { workspaceRoot } from "@kotori/db"
 import type { EntryRecord } from "@kotori/domain"
 import { loanCandidatesIn, normalizeGloss } from "@kotori/language"
 import { Console, Effect, FileSystem } from "effect"
@@ -21,6 +20,7 @@ import { gunzipSync } from "node:zlib"
 import { buildEntries } from "../features/dictionary/import/eiwa/Eiwa.ts"
 import { ENGLISH_TAGS } from "../features/dictionary/import/eiwa/tags.ts"
 import { parseEntries, parseTags } from "../features/dictionary/import/jmdict/parse.ts"
+import { workspaceRoot } from "../runtime/Paths.ts"
 
 const data = (path: string) => join(workspaceRoot, "data", path)
 

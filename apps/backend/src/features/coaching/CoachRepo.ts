@@ -1,8 +1,8 @@
+import { coachCache, coachKind, coachUsage } from "@kotori/db"
 import { and, count, eq, gte, inArray } from "drizzle-orm"
 import { Context, Effect, Layer, Option } from "effect"
-import { Database } from "./Database.ts"
-import { at } from "./rows.ts"
-import { coachCache, coachKind, coachUsage } from "./schema/index.ts"
+import { Database } from "../../db/Database.ts"
+import { at } from "../../db/rows.ts"
 
 /** What a coach request asked for, recorded with its usage. */
 export type CoachKind = (typeof coachKind.enumValues)[number]

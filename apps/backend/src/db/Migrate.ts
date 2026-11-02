@@ -1,13 +1,17 @@
-import { fileURLToPath } from "node:url"
 import { and, eq, or } from "drizzle-orm"
 import { readMigrationFiles } from "drizzle-orm/migrator"
 import { pgSchema, text } from "drizzle-orm/pg-core"
 import { migrate } from "drizzle-orm/pg-core/effect"
 import { Effect, Schema } from "effect"
+import { createRequire } from "node:module"
+import { dirname, join } from "node:path"
 import { Database } from "./Database.ts"
 
-/** `packages/db/migrations`, next to both `src/` and the built `dist/`. */
-export const migrationsFolder = fileURLToPath(new URL("../migrations", import.meta.url))
+/** `@kotori/db`'s `migrations/`, wherever the package is installed: beside its sources here, beside its build in the image. */
+export const migrationsFolder = join(
+  dirname(createRequire(import.meta.url).resolve("@kotori/db/package.json")),
+  "migrations"
+)
 
 /**
  * The database still has the hand-written schema from before the Drizzle rebuild, which

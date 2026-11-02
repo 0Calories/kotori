@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm"
-import { type AnyPgColumn, customType, snakeCase, timestamp } from "drizzle-orm/pg-core"
+import { type AnyPgColumn, customType, pgEnum, snakeCase, timestamp } from "drizzle-orm/pg-core"
+import * as Schema from "effect/Schema"
 
 /** Table constructor for every table in this schema: camelCase fields, snake_case columns. */
 export const { table } = snakeCase
@@ -29,3 +30,17 @@ export const tsvector = customType<{ data: string }>({
 
 /** `to_tsvector('english', column)`, for generated full-text columns. */
 export const englishDocument = (column: AnyPgColumn) => sql`to_tsvector('english', ${column})`
+
+export const language = pgEnum("language", ["en", "ja"])
+
+export const cardQueue = pgEnum("card_queue", ["new", "learning", "review", "relearning"])
+
+export const formality = pgEnum("formality", ["vulgar", "casual", "neutral", "polite", "formal"])
+
+/** Kotori teaches in both directions: English speakers learning Japanese and Japanese speakers learning English. */
+export const Language = Schema.Literals(language.enumValues)
+export type Language = typeof Language.Type
+
+/** How formal a word or sentence sounds, from crude to ceremonious. */
+export const Formality = Schema.Literals(formality.enumValues)
+export type Formality = typeof Formality.Type

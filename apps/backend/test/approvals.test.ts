@@ -1,11 +1,12 @@
 import { assert, layer } from "@effect/vitest"
-import { Repositories, UsersRepo } from "@kotori/db"
-import { DatabaseMemory } from "@kotori/db/testing"
 import { Effect, Layer, Option } from "effect"
 import { Headers } from "effect/http"
+import { Repositories } from "../src/db/Repositories.ts"
 import { Approvals } from "../src/features/accounts/Approvals.ts"
+import { UsersRepo } from "../src/features/accounts/UsersRepo.ts"
 import { Auth, TestAuth } from "../src/integrations/auth/Auth.ts"
 import { Mailbox, MailerMemory } from "../src/integrations/email/Mailer.ts"
+import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 
 const TestLayer = Approvals.layer.pipe(
   Layer.provideMerge(Auth.layerMemory),

@@ -1,8 +1,9 @@
-import { DictionaryRepo, resolveFromRoot } from "@kotori/db"
 import { Console, Effect, FileSystem, Option } from "effect"
 import { Command, Flag } from "effect/cli"
+import { DictionaryRepo } from "../features/dictionary/DictionaryRepo.ts"
 import * as Eiwa from "../features/dictionary/import/eiwa/Eiwa.ts"
 import * as JMDict from "../features/dictionary/import/jmdict/JMDict.ts"
+import { resolveFromRoot } from "../runtime/Paths.ts"
 
 export const seed = Command.make(
   "seed",

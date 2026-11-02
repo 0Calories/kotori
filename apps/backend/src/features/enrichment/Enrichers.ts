@@ -10,10 +10,12 @@ import {
   nuanceOutdated,
   Pronouncer
 } from "@kotori/ai"
-import { DictionaryRepo, EnrichmentRepo, type JobKind } from "@kotori/db"
 import type { EntryRecord } from "@kotori/domain"
 import { Clock, Context, Effect, Layer } from "effect"
+import { DictionaryRepo } from "../dictionary/DictionaryRepo.ts"
 import { AudioEnricher } from "./AudioEnricher.ts"
+import { EnrichmentRepo } from "./EnrichmentRepo.ts"
+import type { JobKind } from "./JobsRepo.ts"
 import { NuanceEnricher } from "./NuanceEnricher.ts"
 
 /** Senses that get example sentences; later senses are rarely what learners look for. */

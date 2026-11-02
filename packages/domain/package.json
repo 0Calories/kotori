@@ -12,6 +12,7 @@
     }
   },
   "dependencies": {
+    "@kotori/db": "workspace:*",
     "effect": "catalog:"
   }
 }

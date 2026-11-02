@@ -1,8 +1,8 @@
 import { Pronouncer, TtsError, type Voice } from "@kotori/ai"
-import { EnrichmentRepo } from "@kotori/db"
 import type { Language } from "@kotori/domain"
 import { Clock, Config, Context, Effect, Layer, Option } from "effect"
 import { createHash } from "node:crypto"
+import { EnrichmentRepo } from "../enrichment/EnrichmentRepo.ts"
 import { AudioStore } from "./AudioStore.ts"
 
 const MONTH = 30 * 24 * 60 * 60 * 1000

@@ -1,4 +1,3 @@
-import { type CardRow, type CardWithContent, type NoteRow, StudyRepo } from "@kotori/db"
 import {
   type AddNoteRequest,
   type AnswerLabels,
@@ -27,6 +26,7 @@ import {
 import { Clock, Context, Effect, Layer, Option } from "effect"
 import { randomInt, randomUUID } from "node:crypto"
 import { gatherQueue } from "./gather.ts"
+import { type CardRow, type CardWithContent, type NoteRow, StudyRepo } from "./StudyRepo.ts"
 import { utcOffsetMinutes } from "./time.ts"
 
 /** Learning cards due within this window can be shown early, as in Anki. */

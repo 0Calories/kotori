@@ -1,8 +1,11 @@
 import { assert, layer } from "@effect/vitest"
-import { DictionaryRepo, EnrichmentRepo, JobsRepo, type NuanceInput, Repositories } from "@kotori/db"
-import { DatabaseMemory } from "@kotori/db/testing"
 import { Effect, FileSystem, Layer } from "effect"
+import { Repositories } from "../../src/db/Repositories.ts"
+import { DictionaryRepo } from "../../src/features/dictionary/DictionaryRepo.ts"
 import * as JMDict from "../../src/features/dictionary/import/jmdict/JMDict.ts"
+import { EnrichmentRepo, type NuanceInput } from "../../src/features/enrichment/EnrichmentRepo.ts"
+import { JobsRepo } from "../../src/features/enrichment/JobsRepo.ts"
+import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
 const release = (
   taberuSenses: string,

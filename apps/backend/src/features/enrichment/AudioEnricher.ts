@@ -1,7 +1,8 @@
 import { Pronouncer, type TtsError } from "@kotori/ai"
-import { DictionaryRepo, EnrichmentRepo } from "@kotori/db"
 import { Config, Context, Effect, Layer, Option } from "effect"
 import { Speech } from "../audio/Speech.ts"
+import { DictionaryRepo } from "../dictionary/DictionaryRepo.ts"
+import { EnrichmentRepo } from "./EnrichmentRepo.ts"
 
 export interface AudioSummary {
   readonly clips: number

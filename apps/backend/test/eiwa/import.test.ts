@@ -1,11 +1,12 @@
 import { afterAll, assert, layer } from "@effect/vitest"
-import { DictionaryRepo, Repositories } from "@kotori/db"
-import { DatabaseMemory } from "@kotori/db/testing"
 import { Effect, Layer } from "effect"
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { Repositories } from "../../src/db/Repositories.ts"
+import { DictionaryRepo } from "../../src/features/dictionary/DictionaryRepo.ts"
 import * as Eiwa from "../../src/features/dictionary/import/eiwa/Eiwa.ts"
+import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
 // The importer streams its sources from disk, so the fixtures are real files.
 const directory = mkdtempSync(join(tmpdir(), "eiwa-"))

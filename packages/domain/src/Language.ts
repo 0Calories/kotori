@@ -1,7 +1,5 @@
-import * as Schema from "effect/Schema"
+import { Language } from "@kotori/db"
 
-/** Kotori teaches in both directions: English speakers learning Japanese and Japanese speakers learning English. */
-export const Language = Schema.Literals(["en", "ja"])
-export type Language = typeof Language.Type
+export { Language }
 
 export const otherLanguage = (language: Language): Language => (language === "en" ? "ja" : "en")

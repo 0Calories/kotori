@@ -1,3 +1,14 @@
+import {
+  audio,
+  entries,
+  entryAudio,
+  exampleAudio,
+  examples,
+  loanWords,
+  senseNotes,
+  senseNuance,
+  similarWords
+} from "@kotori/db"
 import type {
   CastBy,
   Difference,
@@ -12,19 +23,8 @@ import type {
 } from "@kotori/domain"
 import { and, asc, desc, eq, gte, inArray, lt, or, sql, sum } from "drizzle-orm"
 import { Context, Effect, Layer, Option } from "effect"
-import { Database } from "./Database.ts"
-import { at, millis } from "./rows.ts"
-import {
-  audio,
-  entries,
-  entryAudio,
-  exampleAudio,
-  examples,
-  loanWords,
-  senseNotes,
-  senseNuance,
-  similarWords
-} from "./schema/index.ts"
+import { Database } from "../../db/Database.ts"
+import { at, millis } from "../../db/rows.ts"
 
 export interface NuanceRow {
   readonly entryId: number

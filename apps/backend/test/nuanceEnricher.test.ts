@@ -1,11 +1,13 @@
 import { assert, layer } from "@effect/vitest"
 import { ENGLISH_QUESTIONS_VERSION, Jev, NuanceJudge, REVERSED } from "@kotori/ai"
-import { DictionaryRepo, EnrichmentRepo, Repositories } from "@kotori/db"
-import { DatabaseMemory } from "@kotori/db/testing"
 import type { EntryRecord, LoanMeaning } from "@kotori/domain"
 import type { Question, Questions } from "@typesafe-ai/sdk"
 import { Effect, Layer, Option } from "effect"
+import { Repositories } from "../src/db/Repositories.ts"
+import { DictionaryRepo } from "../src/features/dictionary/DictionaryRepo.ts"
+import { EnrichmentRepo } from "../src/features/enrichment/EnrichmentRepo.ts"
 import { NuanceEnricher } from "../src/features/enrichment/NuanceEnricher.ts"
+import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 
 const score = (value: number, confidence = 0.9) =>
   ({ type: "score", score: value, confidence, legend: {}, probabilities: {} }) as const

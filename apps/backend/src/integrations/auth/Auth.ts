@@ -1,4 +1,3 @@
-import { authSessions, authUsers, Database } from "@kotori/db"
 import { asc, eq, sql } from "drizzle-orm"
 import { Config, Context, Duration, Effect, Layer, Option, Schema } from "effect"
 import { Headers, HttpServerRequest, HttpServerResponse } from "effect/http"
@@ -14,6 +13,8 @@ import {
   SignJWT
 } from "jose"
 import { KeyObject } from "node:crypto"
+import { Database } from "../../db/Database.ts"
+import { authSessions, authUsers } from "../../db/neonAuth.ts"
 import { ed25519Key, signWebhook } from "./WebhookSignature.ts"
 
 /** A Managed Better Auth user as Kotori reads it. Approval status and role live on the learner profile. */
