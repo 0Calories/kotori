@@ -1,6 +1,6 @@
-import { Auth } from "../integrations/auth/Auth.ts"
 import { Effect } from "effect"
 import { HttpRouter } from "effect/http"
+import { Auth } from "../integrations/auth/Auth.ts"
 
 const PREFIX = "/api/auth"
 

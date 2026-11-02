@@ -1,9 +1,9 @@
 import { NodeHttpClient } from "@effect/platform-node"
+import { DatabaseLive, Repositories } from "@kotori/db"
+import { Layer } from "effect"
 import { Approvals } from "../features/accounts/Approvals.ts"
 import { Auth } from "../integrations/auth/Auth.ts"
-import { DatabaseLive, Repositories } from "@kotori/db"
 import { MailerLive } from "../integrations/email/live.ts"
-import { Layer } from "effect"
 
 /** What `kotori seed` needs: the repositories, and an HTTP client to download the sources. */
 export const SeedLive = Repositories.pipe(

@@ -1,9 +1,9 @@
 import { type UserRow, UsersRepo } from "@kotori/db"
 import type { AccountStatus, Language } from "@kotori/domain"
-import { Mailer } from "../../integrations/email/Mailer.ts"
-import { templates } from "../../integrations/email/templates.ts"
 import { Clock, Context, Effect, Layer, Option, Schema } from "effect"
 import { Auth, type AuthUser } from "../../integrations/auth/Auth.ts"
+import { Mailer } from "../../integrations/email/Mailer.ts"
+import { templates } from "../../integrations/email/templates.ts"
 
 /** The language Kotori emails a learner in: the one they picked in the app, English until then. */
 export const emailLanguage = (profile: UserRow | undefined): Language =>

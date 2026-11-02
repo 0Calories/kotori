@@ -1,8 +1,8 @@
-import { Auth, type AuthUser } from "../../integrations/auth/Auth.ts"
 import { type UserRow, UsersRepo } from "@kotori/db"
 import { otherLanguage, type Profile, type UpdateProfileRequest, UserId } from "@kotori/domain"
 import { Clock, Context, Effect, Layer, Option } from "effect"
 import { SqlClient } from "effect/sql"
+import { Auth, type AuthUser } from "../../integrations/auth/Auth.ts"
 import { isTimeZone } from "./timeZone.ts"
 
 /** What the profile shows from the auth user: contact details the row doesn't duplicate. */

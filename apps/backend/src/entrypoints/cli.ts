@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { NodeRuntime, NodeServices } from "@effect/platform-node"
+import { Jev } from "@kotori/ai"
 import { DatabaseLive, loadDotEnv } from "@kotori/db"
-import { Jev } from "@kotori/nuance"
 import { Effect } from "effect"
 import { Command } from "effect/cli"
 import { adminCommand, approve, archive, devAccount, requests, revoke, users } from "../cli/accounts.ts"

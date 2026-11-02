@@ -1,17 +1,20 @@
 import { assert, layer } from "@effect/vitest"
-import { Claude, ClaudeError } from "@kotori/ai"
-import { DictionaryRepo, EnrichmentRepo, type EntryRecord, type JobKind, JobsRepo, Repositories } from "@kotori/db"
-import { DatabaseMemory } from "@kotori/db/testing"
-import { EntryId } from "@kotori/domain"
 import {
+  Claude,
+  ClaudeError,
+  ElevenLabs,
   ENGLISH_QUESTIONS_VERSION,
   interpretSense,
   Jev,
   JevError,
+  Pronouncer,
   QUESTIONS_VERSION,
-  type SenseAnswers
-} from "@kotori/nuance"
-import { Pronouncer, TtsError } from "@kotori/tts"
+  type SenseAnswers,
+  TtsError
+} from "@kotori/ai"
+import { DictionaryRepo, EnrichmentRepo, type JobKind, JobsRepo, Repositories } from "@kotori/db"
+import { DatabaseMemory } from "@kotori/db/testing"
+import { EntryId, type EntryRecord } from "@kotori/domain"
 import { Effect, Layer, Option } from "effect"
 import { TestClock } from "effect/testing"
 import { Dictionary } from "../src/features/dictionary/Dictionary.ts"
@@ -28,21 +31,27 @@ const providers = (jevConfigured: boolean, claudeAvailable = false) =>
         generate: () => Effect.fail(new ClaudeError({ reason: "unconfigured", message: "not configured" }))
       })
     ),
-    Layer.succeed(
-      Jev,
-      Jev.of({
-        configured: jevConfigured,
-        model: "test",
-        ask: () => Effect.fail(new JevError({ message: "not called in tests" }))
-      })
-    ),
-    Layer.succeed(
-      Pronouncer,
-      Pronouncer.of({
-        configured: true,
-        speak: () => Effect.fail(new TtsError({ reason: "unconfigured", message: "not in tests" })),
-        enrichEntry: () => Effect.succeed({ clips: 0, characters: 0 })
-      })
+    Pronouncer.layer
+  ).pipe(
+    Layer.provideMerge(
+      Layer.mergeAll(
+        Layer.succeed(
+          Jev,
+          Jev.of({
+            configured: jevConfigured,
+            model: "test",
+            ask: () => Effect.fail(new JevError({ message: "not called in tests" }))
+          })
+        ),
+        Layer.succeed(
+          ElevenLabs,
+          ElevenLabs.of({
+            configured: true,
+            model: "test",
+            synthesize: () => Effect.fail(new TtsError({ reason: "unconfigured", message: "not in tests" }))
+          })
+        )
+      )
     )
   )
 

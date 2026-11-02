@@ -1,5 +1,3 @@
-import { type EntryRecord, workspaceRoot } from "@kotori/db"
-import { loanCandidatesIn, normalizeGloss } from "@kotori/language"
 import {
   fixtureEntry,
   GOLDEN_ENGLISH_PAIRS,
@@ -11,7 +9,10 @@ import {
   type GoldenFixture,
   MAX_LOANS,
   MAX_SENSES
-} from "@kotori/nuance"
+} from "@kotori/ai"
+import { workspaceRoot } from "@kotori/db"
+import type { EntryRecord } from "@kotori/domain"
+import { loanCandidatesIn, normalizeGloss } from "@kotori/language"
 import { Console, Effect, FileSystem } from "effect"
 import { Command } from "effect/cli"
 import { spawnSync } from "node:child_process"

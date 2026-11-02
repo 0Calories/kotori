@@ -1,10 +1,10 @@
-import type { Language } from "@kotori/domain"
+import type { EntryRecord, Language } from "@kotori/domain"
+import { KATAKANA_WORD, type LoanCandidate, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
 import { and, asc, desc, eq, gte, inArray, isNotNull, lt, max, min, ne, notExists, sql } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import { Context, Effect, Layer } from "effect"
 import { Database } from "./Database.ts"
-import { KATAKANA_WORD, type LoanCandidate, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
-import { type EntryRecord, matchSenses } from "./records.ts"
+import { matchSenses } from "./records.ts"
 import { chunks } from "./rows.ts"
 import {
   entries,

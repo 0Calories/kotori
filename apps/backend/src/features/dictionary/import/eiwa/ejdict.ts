@@ -1,6 +1,6 @@
-import type { GlossRecord, SenseRecord } from "@kotori/db"
-import { asideOnly, splitOutside } from "./text.ts"
+import type { GlossRecord, SenseRecord } from "@kotori/domain"
 import { REGIONS, USAGE } from "./tags.ts"
+import { asideOnly, splitOutside } from "./text.ts"
 import { emptySense, type FormOf, formOf, isEnglish, type Word } from "./words.ts"
 
 /**

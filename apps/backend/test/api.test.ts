@@ -1,18 +1,16 @@
 import { NodeServices } from "@effect/platform-node"
 import { assert, layer } from "@effect/vitest"
-import { Claude, ClaudeError } from "@kotori/ai"
-import { DictionaryRepo, type EntryRecord, StudyRepo, UsersRepo } from "@kotori/db"
+import { Claude, ClaudeError, ElevenLabs, Jev, JevError, TtsError } from "@kotori/ai"
+import { DictionaryRepo, StudyRepo, UsersRepo } from "@kotori/db"
 import { DatabaseMemory } from "@kotori/db/testing"
-import { Authorization, KotoriApi } from "@kotori/domain"
-import { MailerMemory } from "../src/integrations/email/Mailer.ts"
-import { Jev, JevError } from "@kotori/nuance"
-import { Pronouncer, TtsError } from "@kotori/tts"
+import { Authorization, type EntryRecord, KotoriApi } from "@kotori/domain"
 import { Effect, Layer, Option } from "effect"
 import { Headers, HttpClientRequest, HttpServer } from "effect/http"
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api"
-import { Auth, TestAuth } from "../src/integrations/auth/Auth.ts"
 import { AuthorizationLive } from "../src/http/Authorization.ts"
 import { AllHandlers } from "../src/http/handlers.ts"
+import { Auth, TestAuth } from "../src/integrations/auth/Auth.ts"
+import { MailerMemory } from "../src/integrations/email/Mailer.ts"
 import { makeApp } from "../src/runtime/HttpLayers.ts"
 
 // No AI providers are configured in tests: the app must degrade gracefully. Mail is captured.
@@ -35,11 +33,11 @@ const OfflineProviders = Layer.mergeAll(
     })
   ),
   Layer.succeed(
-    Pronouncer,
-    Pronouncer.of({
+    ElevenLabs,
+    ElevenLabs.of({
       configured: false,
-      speak: () => Effect.fail(new TtsError({ reason: "unconfigured", message: "not configured" })),
-      enrichEntry: () => Effect.succeed({ clips: 0, characters: 0 })
+      model: "test",
+      synthesize: () => Effect.fail(new TtsError({ reason: "unconfigured", message: "not configured" }))
     })
   )
 )

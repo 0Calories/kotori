@@ -1,4 +1,4 @@
-import { Coach, type ClaudeError, type HowToSayOutput, type NaturalnessOutput } from "@kotori/ai"
+import { type ClaudeError, Coach, type HowToSayOutput, Jev, type NaturalnessOutput, readFormality } from "@kotori/ai"
 import { type CoachKind, CoachRepo } from "@kotori/db"
 import {
   AiUnavailable,
@@ -11,10 +11,9 @@ import {
   type SpeakRequest,
   type SpeakResult
 } from "@kotori/domain"
-import { Jev, readFormality } from "@kotori/nuance"
-import { Pronouncer } from "@kotori/tts"
 import { Clock, Config, Context, Effect, Layer, Option, Schema } from "effect"
 import { createHash } from "node:crypto"
+import { Speech } from "../audio/Speech.ts"
 import { audioUrl, Dictionary } from "../dictionary/Dictionary.ts"
 
 const HOUR = 60 * 60 * 1000
@@ -52,7 +51,7 @@ export class Coaching extends Context.Service<
     Effect.gen(function* () {
       const coach = yield* Coach
       const jev = yield* Jev
-      const pronouncer = yield* Pronouncer
+      const speech = yield* Speech
       const dictionary = yield* Dictionary
       const repo = yield* CoachRepo
       const hourlyLimit = yield* Config.Int("KOTORI_COACH_HOURLY_LIMIT").pipe(Config.withDefault(60))
@@ -137,7 +136,7 @@ export class Coaching extends Context.Service<
       })
 
       const speak = Effect.fn("Coaching.speak")(function* (user: Profile, request: SpeakRequest) {
-        if (!pronouncer.configured) {
+        if (!speech.configured) {
           return yield* new AiUnavailable({ message: "Audio isn't set up on this server (missing ElevenLabs key)." })
         }
         const now = yield* Clock.currentTimeMillis
@@ -145,7 +144,7 @@ export class Coaching extends Context.Service<
         if ((yield* repo.usageSince(user.id, now - HOUR, ["speak"])) >= hourlyLimit * 3) {
           return yield* new RateLimited({ message: "Too many audio requests this hour.", retryAfterSeconds: 600 })
         }
-        const key = yield* pronouncer
+        const key = yield* speech
           .speak(request.text, request.language)
           .pipe(
             Effect.mapError((error) =>

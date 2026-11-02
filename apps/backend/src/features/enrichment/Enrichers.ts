@@ -1,8 +1,20 @@
-import { Claude, ExampleWriter, LoanWriter } from "@kotori/ai"
-import { DictionaryRepo, EnrichmentRepo, type EntryRecord, type JobKind } from "@kotori/db"
-import { awaitsWarning, Jev, loanScope, MAX_LOANS, MAX_SENSES, NuanceEnricher, nuanceOutdated } from "@kotori/nuance"
-import { Pronouncer } from "@kotori/tts"
+import {
+  awaitsWarning,
+  Claude,
+  ExampleWriter,
+  Jev,
+  loanScope,
+  LoanWriter,
+  MAX_LOANS,
+  MAX_SENSES,
+  nuanceOutdated,
+  Pronouncer
+} from "@kotori/ai"
+import { DictionaryRepo, EnrichmentRepo, type JobKind } from "@kotori/db"
+import type { EntryRecord } from "@kotori/domain"
 import { Clock, Context, Effect, Layer } from "effect"
+import { AudioEnricher } from "./AudioEnricher.ts"
+import { NuanceEnricher } from "./NuanceEnricher.ts"
 
 /** Senses that get example sentences; later senses are rarely what learners look for. */
 const EXAMPLE_SENSES = 4
@@ -46,6 +58,7 @@ export class Enrichers extends Context.Service<
       const writer = yield* ExampleWriter
       const loanWriter = yield* LoanWriter
       const pronouncer = yield* Pronouncer
+      const audio = yield* AudioEnricher
       const dictionary = yield* DictionaryRepo
       const enrichment = yield* EnrichmentRepo
       const jev = yield* Jev
@@ -166,7 +179,7 @@ export class Enrichers extends Context.Service<
           case "examples":
             return examples(entryId)
           case "audio":
-            return pronouncer.enrichEntry(entryId).pipe(Effect.map((s) => `${s.clips} clips, ${s.characters} chars`))
+            return audio.enrich(entryId).pipe(Effect.map((s) => `${s.clips} clips, ${s.characters} chars`))
         }
       }
 

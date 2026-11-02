@@ -1,8 +1,8 @@
-import type { GlossRecord, SenseRecord } from "@kotori/db"
-import { Option, Predicate, Schema } from "effect"
-import { splitDefinition, leadingAside } from "./text.ts"
+import type { GlossRecord, SenseRecord } from "@kotori/domain"
 import type { EnglishInflection } from "@kotori/language"
+import { Option, Predicate, Schema } from "effect"
 import { FIELDS, PARTS_OF_SPEECH, REGIONS, TRANSITIVITY, USAGE } from "./tags.ts"
+import { leadingAside, splitDefinition } from "./text.ts"
 import {
   emptySense,
   type FormOf,

@@ -1,18 +1,11 @@
-import { Claude } from "@kotori/ai"
-import {
-  DictionaryRepo,
-  EnrichmentRepo,
-  type EntryRecord,
-  type ExampleRow,
-  type FormMatch,
-  type GlossMatch,
-  JobsRepo
-} from "@kotori/db"
+import { awaitsWarning, CASTS, Claude, Jev, nuanceOutdated, Pronouncer } from "@kotori/ai"
+import { DictionaryRepo, EnrichmentRepo, type ExampleRow, type FormMatch, type GlossMatch, JobsRepo } from "@kotori/db"
 import {
   type Enrichment,
   type EnrichmentStatus,
   type Entry,
   EntryId,
+  type EntryRecord,
   type EntrySummary,
   type Example,
   type Language,
@@ -25,15 +18,13 @@ import {
   deinflect,
   hasJapanese,
   katakanaToHiragana,
+  matchesPartOfSpeech,
   normalizeGloss,
   normalizeJapaneseGloss,
-  uninflect,
-  matchesPartOfSpeech,
   romajiToKana,
-  romanize
+  romanize,
+  uninflect
 } from "@kotori/language"
-import { awaitsWarning, Jev, nuanceOutdated } from "@kotori/nuance"
-import { CASTS, Pronouncer } from "@kotori/tts"
 import { Clock, Context, Effect, Layer, Option } from "effect"
 
 export const audioUrl = (key: string) => `/audio/${key}.mp3`

@@ -12,13 +12,7 @@
       "path": "./packages/domain"
     },
     {
-      "path": "./packages/nuance"
-    },
-    {
       "path": "./packages/srs"
-    },
-    {
-      "path": "./packages/tts"
     },
     {
       "path": "./apps/local-auth"

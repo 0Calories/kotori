@@ -1,11 +1,11 @@
 import { UsersRepo } from "@kotori/db"
-import { type MailError, Mailer } from "../../integrations/email/Mailer.ts"
-import { type OneTime, templates } from "../../integrations/email/templates.ts"
 import { Clock, Context, Duration, Effect, Layer, Option, Schema } from "effect"
 import type { Headers } from "effect/http"
-import { emailLanguage } from "./Approvals.ts"
 import { Auth, type AuthUpstreamError } from "../../integrations/auth/Auth.ts"
 import { signatureIsValid } from "../../integrations/auth/WebhookSignature.ts"
+import { type MailError, Mailer } from "../../integrations/email/Mailer.ts"
+import { type OneTime, templates } from "../../integrations/email/templates.ts"
+import { emailLanguage } from "./Approvals.ts"
 
 /** Neon's replay window: a correctly signed request older than this is still turned away. */
 const MAX_AGE = Duration.minutes(5)

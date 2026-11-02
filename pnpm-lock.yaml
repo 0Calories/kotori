@@ -434,15 +434,9 @@ importers:
       '@kotori/language':
         specifier: workspace:*
         version: link:../../packages/language
-      '@kotori/nuance':
-        specifier: workspace:*
-        version: link:../../packages/nuance
       '@kotori/srs':
         specifier: workspace:*
         version: link:../../packages/srs
-      '@kotori/tts':
-        specifier: workspace:*
-        version: link:../../packages/tts
       drizzle-orm:
         specifier: 'catalog:'
         version: 1.0.0-rc.5(@effect/sql-pg@4.0.3(effect@4.0.3))(@effect/sql-pglite@4.0.3(effect@4.0.3))(@electric-sql/pglite@0.5.11)(@types/pg@8.23.1)(effect@4.0.3)(pg@8.23.1)(zod@4.6.7)
@@ -480,6 +474,9 @@ importers:
       '@kotori/language':
         specifier: workspace:*
         version: link:../language
+      '@typesafe-ai/sdk':
+        specifier: 'catalog:'
+        version: 0.6.0
       effect:
         specifier: 'catalog:'
         version: 4.0.3
@@ -521,47 +518,7 @@ importers:
         specifier: 'catalog:'
         version: 5.3.1
 
-  packages/nuance:
-    dependencies:
-      '@kotori/db':
-        specifier: workspace:*
-        version: link:../db
-      '@kotori/domain':
-        specifier: workspace:*
-        version: link:../domain
-      '@kotori/language':
-        specifier: workspace:*
-        version: link:../language
-      '@typesafe-ai/sdk':
-        specifier: 'catalog:'
-        version: 0.6.0
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.3
-
   packages/srs: {}
-
-  packages/tts:
-    dependencies:
-      '@kotori/db':
-        specifier: workspace:*
-        version: link:../db
-      '@kotori/domain':
-        specifier: workspace:*
-        version: link:../domain
-      '@kotori/nuance':
-        specifier: workspace:*
-        version: link:../nuance
-      drizzle-orm:
-        specifier: 'catalog:'
-        version: 1.0.0-rc.5(@effect/sql-pg@4.0.3(effect@4.0.3))(@effect/sql-pglite@4.0.3(effect@4.0.3))(@electric-sql/pglite@0.5.11)(@types/pg@8.23.1)(effect@4.0.3)(pg@8.23.1)(zod@4.6.7)
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.3
-    devDependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.3(effect@4.0.3)(redis@6.3.0)
 
 packages:
 

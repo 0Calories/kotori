@@ -1,7 +1,3 @@
-import type { EntryRecord } from "@kotori/db"
-import { resolveFromRoot } from "@kotori/db"
-import { normalizeGloss } from "@kotori/language"
-import { LOAN_SHOWN, loanShown } from "@kotori/domain"
 import {
   answersForCandidates,
   ENGLISH_QUESTIONS_VERSION,
@@ -13,9 +9,9 @@ import {
   GOLDEN_PAIRS,
   GOLDEN_SENSES,
   goldenEnglishEntry,
+  goldenEntry,
   type GoldenExpectation,
   GoldenFixture,
-  goldenEntry,
   goldenLoanRequest,
   type GoldenPairExpectation,
   goldenPairRequest,
@@ -34,7 +30,10 @@ import {
   type SenseAnswers,
   senseTags,
   SIMILAR_KEPT
-} from "@kotori/nuance"
+} from "@kotori/ai"
+import { resolveFromRoot } from "@kotori/db"
+import { type EntryRecord, LOAN_SHOWN, loanShown } from "@kotori/domain"
+import { normalizeGloss } from "@kotori/language"
 import { Console, Effect, FileSystem, Option, Schema } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 

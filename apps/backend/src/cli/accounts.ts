@@ -1,9 +1,9 @@
-import { type Account, Approvals } from "../features/accounts/Approvals.ts"
-import { Auth } from "../integrations/auth/Auth.ts"
 import { UsersRepo } from "@kotori/db"
 import type { Language } from "@kotori/domain"
 import { Clock, Console, Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
+import { type Account, Approvals } from "../features/accounts/Approvals.ts"
+import { Auth } from "../integrations/auth/Auth.ts"
 
 const email = Argument.String("email").pipe(Argument.withDescription("The learner's email address"))
 

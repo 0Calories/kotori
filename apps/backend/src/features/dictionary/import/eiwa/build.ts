@@ -1,6 +1,5 @@
-import type { EntryRecord, FormRecord, SenseRecord } from "@kotori/db"
-import type { EnglishInflection } from "@kotori/language"
-import { normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
+import type { EntryRecord, FormRecord, SenseRecord } from "@kotori/domain"
+import { type EnglishInflection, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
 import type { FormOf, InflectedForm, References, Word } from "./words.ts"
 
 /** English entries are numbered from here, well above JMDict's sequence numbers (at most 9,999,999). */

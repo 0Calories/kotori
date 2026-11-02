@@ -1,4 +1,5 @@
-import { DictionaryRepo, type EntryRecord, resolveFromRoot } from "@kotori/db"
+import { DictionaryRepo, resolveFromRoot } from "@kotori/db"
+import type { EntryRecord } from "@kotori/domain"
 import { Effect, FileSystem, Path, Schema, Stream } from "effect"
 import { HttpClient } from "effect/http"
 import { gunzipSync } from "node:zlib"

@@ -19,9 +19,7 @@
     "@kotori/db": "workspace:*",
     "@kotori/domain": "workspace:*",
     "@kotori/language": "workspace:*",
-    "@kotori/nuance": "workspace:*",
     "@kotori/srs": "workspace:*",
-    "@kotori/tts": "workspace:*",
     "drizzle-orm": "catalog:",
     "effect": "catalog:",
     "jose": "catalog:"

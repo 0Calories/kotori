@@ -1,16 +1,14 @@
-import { readFileSync } from "node:fs"
-import { count, eq, sql } from "drizzle-orm"
 import { assert, describe, it, layer } from "@effect/vitest"
-import { Effect, Layer, Option } from "effect"
+import type { EntryRecord } from "@kotori/domain"
 import { type LoanCandidate, loanCandidatesIn, normalizeGloss } from "@kotori/language"
+import { count, eq, sql } from "drizzle-orm"
+import { Effect, Layer, Option } from "effect"
+import { readFileSync } from "node:fs"
 import { Database } from "../src/Database.ts"
-import { migrationsFolder } from "../src/Migrate.ts"
-import { reviewLogs } from "../src/schema/index.ts"
 import {
   CoachRepo,
   DictionaryRepo,
   EnrichmentRepo,
-  type EntryRecord,
   JobsRepo,
   matchSenses,
   Repositories,
@@ -18,6 +16,8 @@ import {
   type UserRow,
   UsersRepo
 } from "../src/index.ts"
+import { migrationsFolder } from "../src/Migrate.ts"
+import { reviewLogs } from "../src/schema/index.ts"
 import { DatabaseMemory } from "../src/testing.ts"
 
 const sense = (glosses: Array<string>, extra: Partial<EntryRecord["senses"][number]> = {}) => ({

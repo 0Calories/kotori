@@ -1,12 +1,25 @@
 import { assert, layer } from "@effect/vitest"
-import { Claude, ExampleWriter, LoanOutput, LoanWriter } from "@kotori/ai"
-import { DictionaryRepo, EnrichmentRepo, type EntryRecord, JobsRepo, Repositories } from "@kotori/db"
+import {
+  Claude,
+  ElevenLabs,
+  ExampleWriter,
+  Jev,
+  JevError,
+  LoanOutput,
+  LoanWriter,
+  NuanceJudge,
+  Pronouncer
+} from "@kotori/ai"
+import { DictionaryRepo, EnrichmentRepo, JobsRepo, Repositories } from "@kotori/db"
 import { DatabaseMemory } from "@kotori/db/testing"
-import { Jev, JevError, NuanceEnricher } from "@kotori/nuance"
-import { AudioStore, ElevenLabs, Pronouncer } from "@kotori/tts"
+import type { EntryRecord } from "@kotori/domain"
 import { Effect, Layer } from "effect"
 import { TestClock } from "effect/testing"
+import { AudioStore } from "../src/features/audio/AudioStore.ts"
+import { Speech } from "../src/features/audio/Speech.ts"
+import { AudioEnricher } from "../src/features/enrichment/AudioEnricher.ts"
 import { Enrichers } from "../src/features/enrichment/Enrichers.ts"
+import { NuanceEnricher } from "../src/features/enrichment/NuanceEnricher.ts"
 import { makeJobRunner } from "../src/worker/JobRunner.ts"
 
 // The worker's real enrichers and repositories on PGlite; only the paid providers are fakes.
@@ -126,13 +139,12 @@ const FakeElevenLabs = Layer.succeed(
 )
 
 const TestLayer = Enrichers.layer.pipe(
+  Layer.provideMerge(Layer.mergeAll(NuanceEnricher.layer, AudioEnricher.layer)),
+  Layer.provideMerge(Speech.layer),
   Layer.provideMerge(
-    Layer.mergeAll(
-      NuanceEnricher.layer.pipe(Layer.provideMerge(FakeJev)),
-      Layer.mergeAll(ExampleWriter.layer, LoanWriter.layer).pipe(Layer.provideMerge(FakeClaude)),
-      Pronouncer.layer.pipe(Layer.provideMerge(Layer.mergeAll(FakeElevenLabs, AudioStore.layer, FakeJev)))
-    )
+    Layer.mergeAll(AudioStore.layer, NuanceJudge.layer, ExampleWriter.layer, LoanWriter.layer, Pronouncer.layer)
   ),
+  Layer.provideMerge(Layer.mergeAll(FakeJev, FakeClaude, FakeElevenLabs)),
   Layer.provideMerge(Repositories),
   Layer.provideMerge(DatabaseMemory)
 )

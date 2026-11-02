@@ -1,8 +1,8 @@
-import { Auth } from "../integrations/auth/Auth.ts"
 import { AuthUnavailable, Authorization, CurrentUser, PendingApproval, Unauthorized } from "@kotori/domain"
 import { Effect, Layer, Option } from "effect"
 import { HttpServerRequest } from "effect/http"
 import { Accounts } from "../features/accounts/Accounts.ts"
+import { Auth } from "../integrations/auth/Auth.ts"
 
 /** Groups a signed-in but unapproved learner may still call. */
 const OPEN_TO_PENDING = new Set(["account"])

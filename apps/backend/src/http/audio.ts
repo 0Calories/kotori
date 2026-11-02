@@ -1,6 +1,6 @@
-import { AudioStore, isAudioKey } from "@kotori/tts"
 import { Effect, Option } from "effect"
 import { HttpRouter, HttpServerResponse } from "effect/http"
+import { AudioStore, isAudioKey } from "../features/audio/AudioStore.ts"
 
 /** Serves generated pronunciation clips. Keys are content hashes, so responses can be cached forever. */
 export const AudioRoute = HttpRouter.add(

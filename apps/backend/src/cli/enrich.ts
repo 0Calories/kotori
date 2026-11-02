@@ -1,8 +1,9 @@
+import { ENGLISH_QUESTIONS_VERSION, QUESTIONS_VERSION } from "@kotori/ai"
 import { DictionaryRepo, EnrichmentRepo } from "@kotori/db"
-import { ENGLISH_QUESTIONS_VERSION, NuanceEnricher, QUESTIONS_VERSION } from "@kotori/nuance"
 import { Console, Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { Enrichers } from "../features/enrichment/Enrichers.ts"
+import { NuanceEnricher } from "../features/enrichment/NuanceEnricher.ts"
 
 export const enrich = Command.make(
   "enrich",

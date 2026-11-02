@@ -1,12 +1,12 @@
 import { assert, layer } from "@effect/vitest"
-import { AuthWebhooks } from "../src/features/accounts/Webhooks.ts"
-import { Auth, TestAuth } from "../src/integrations/auth/Auth.ts"
 import { UsersRepo } from "@kotori/db"
 import { DatabaseMemory } from "@kotori/db/testing"
-import { Mailbox, MailerMemory } from "../src/integrations/email/Mailer.ts"
 import { Effect, Layer } from "effect"
 import { HttpRouter } from "effect/http"
+import { AuthWebhooks } from "../src/features/accounts/Webhooks.ts"
 import { WebhooksRoute } from "../src/http/webhooks.ts"
+import { Auth, TestAuth } from "../src/integrations/auth/Auth.ts"
+import { Mailbox, MailerMemory } from "../src/integrations/email/Mailer.ts"
 
 const TestAuthLive = TestAuth.layer
 const TestLayer = AuthWebhooks.layer.pipe(
