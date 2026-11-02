@@ -1,5 +1,4 @@
 import {
-  furiganaToText,
   type HowToSayRequest,
   Issue,
   type NaturalnessRequest,
@@ -8,6 +7,7 @@ import {
   Rewrite,
   Verdict
 } from "@kotori/domain"
+import { furiganaToText } from "@kotori/language"
 import { Context, Effect, Layer, Schema } from "effect"
 import { Claude, type ClaudeError } from "./Claude.ts"
 import { howToSayPrompt, howToSaySystem, type Learner, naturalnessPrompt, naturalnessSystem } from "./prompts.ts"

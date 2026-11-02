@@ -1,4 +1,12 @@
-import type { Inflection } from "./tags.ts"
+/** What an inflected English form is. The codes are the app's labels: "past" → 過去形. */
+export type EnglishInflection =
+  | "plural"
+  | "third-person"
+  | "past"
+  | "past-participle"
+  | "present-participle"
+  | "comparative"
+  | "superlative"
 
 /**
  * The words an English word could be an inflection of, by the regular rules: "parties" →
@@ -9,17 +17,17 @@ import type { Inflection } from "./tags.ts"
 export interface Uninflected {
   readonly base: string
   /** What the word would be: "-s" is a plural for nouns and the third person for verbs. */
-  readonly tags: ReadonlyArray<Inflection>
+  readonly tags: ReadonlyArray<EnglishInflection>
 }
 
-const S: ReadonlyArray<Inflection> = ["plural", "third-person"]
-const ED: ReadonlyArray<Inflection> = ["past", "past-participle"]
-const ING: ReadonlyArray<Inflection> = ["present-participle"]
-const ER: ReadonlyArray<Inflection> = ["comparative"]
-const EST: ReadonlyArray<Inflection> = ["superlative"]
+const S: ReadonlyArray<EnglishInflection> = ["plural", "third-person"]
+const ED: ReadonlyArray<EnglishInflection> = ["past", "past-participle"]
+const ING: ReadonlyArray<EnglishInflection> = ["present-participle"]
+const ER: ReadonlyArray<EnglishInflection> = ["comparative"]
+const EST: ReadonlyArray<EnglishInflection> = ["superlative"]
 
 /** Suffix, what replaces it, and what the suffix makes. */
-const RULES: ReadonlyArray<readonly [string, string, ReadonlyArray<Inflection>]> = [
+const RULES: ReadonlyArray<readonly [string, string, ReadonlyArray<EnglishInflection>]> = [
   ["ies", "y", S],
   ["es", "", S],
   ["s", "", S],

@@ -20,6 +20,7 @@
     "@expo/metro-runtime": "~57.0.16",
     "@expo/vector-icons": "^15.0.2",
     "@kotori/domain": "workspace:*",
+    "@kotori/language": "workspace:*",
     "@kotori/srs": "workspace:*",
     "@tanstack/react-query": "^5.104.2",
     "effect": "catalog:",

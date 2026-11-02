@@ -17,13 +17,10 @@
       "path": "../../packages/nuance/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/japanese/tsconfig.lib.json"
+      "path": "../../packages/language/tsconfig.lib.json"
     },
     {
       "path": "../../packages/email/tsconfig.lib.json"
-    },
-    {
-      "path": "../../packages/eiwa/tsconfig.lib.json"
     },
     {
       "path": "../../packages/domain/tsconfig.lib.json"

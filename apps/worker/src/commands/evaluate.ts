@@ -1,5 +1,6 @@
 import type { EntryRecord } from "@kotori/db"
-import { normalizeGloss, resolveFromRoot } from "@kotori/db"
+import { resolveFromRoot } from "@kotori/db"
+import { normalizeGloss } from "@kotori/language"
 import { LOAN_SHOWN, loanShown } from "@kotori/domain"
 import {
   answersForCandidates,

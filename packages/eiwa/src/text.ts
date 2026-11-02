@@ -1,4 +1,4 @@
-import { normalizeJapaneseGloss } from "@kotori/db"
+import { normalizeJapaneseGloss } from "@kotori/language"
 
 /**
  * Japanese definitions as both dictionaries write them: several glosses to a line,

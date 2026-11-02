@@ -230,13 +230,3 @@ export const ENGLISH_TAGS: ReadonlyArray<{ readonly code: string; readonly label
   { code: "en-SG", label: "Singapore English" },
   { code: "en-ZA", label: "South African English" }
 ]
-
-/** What an inflected form is. The codes are the app's labels: "past" → 過去形. */
-export type Inflection =
-  | "plural"
-  | "third-person"
-  | "past"
-  | "past-participle"
-  | "present-participle"
-  | "comparative"
-  | "superlative"

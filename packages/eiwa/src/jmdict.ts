@@ -1,6 +1,5 @@
-import { type EntryRecord, normalizeGloss } from "@kotori/db"
-import { romanize } from "@kotori/japanese"
-import { uninflect } from "./inflect.ts"
+import type { EntryRecord } from "@kotori/db"
+import { normalizeGloss, romanize, uninflect } from "@kotori/language"
 import { emptySense, isEnglish, type Word } from "./words.ts"
 
 /**

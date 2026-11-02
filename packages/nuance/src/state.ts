@@ -1,5 +1,5 @@
 import type { EntryRecord } from "@kotori/db"
-import { romanize } from "@kotori/japanese"
+import { romanize } from "@kotori/language"
 
 /** Senses beyond these rarely matter to learners and are left unclassified. */
 export const MAX_SENSES = 6

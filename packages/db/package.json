@@ -24,6 +24,7 @@
   "dependencies": {
     "@effect/sql-pg": "catalog:",
     "@kotori/domain": "workspace:*",
+    "@kotori/language": "workspace:*",
     "drizzle-orm": "catalog:",
     "effect": "catalog:"
   },

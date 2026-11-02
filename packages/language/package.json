@@ -1,8 +1,8 @@
 {
-  "name": "@kotori/japanese",
+  "name": "@kotori/language",
   "version": "0.1.0",
   "private": true,
-  "description": "Japanese text utilities: script detection, romaji, deinflection",
+  "description": "Pure Japanese and English text utilities: script, deinflection, furigana, inflection, glosses",
   "type": "module",
   "exports": {
     ".": {

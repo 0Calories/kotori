@@ -1,5 +1,6 @@
-import { type EntryRecord, type FormRecord, normalizeGloss, normalizeJapaneseGloss, type SenseRecord } from "@kotori/db"
-import type { Inflection } from "./tags.ts"
+import type { EntryRecord, FormRecord, SenseRecord } from "@kotori/db"
+import type { EnglishInflection } from "@kotori/language"
+import { normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
 import type { FormOf, InflectedForm, References, Word } from "./words.ts"
 
 /** English entries are numbered from here, well above JMDict's sequence numbers (at most 9,999,999). */
@@ -16,7 +17,7 @@ interface Built {
   readonly source: Source
   ipa: string | null
   readonly spellings: Set<string>
-  readonly inflections: Map<string, Set<Inflection>>
+  readonly inflections: Map<string, Set<EnglishInflection>>
   readonly senses: Word["senses"]
   readonly references: ReadonlyArray<References>
   readonly mayBeName: boolean
@@ -35,7 +36,7 @@ const built = (word: Word, source: Source): Built => ({
 
 const addInflection = (word: Built, form: InflectedForm) => {
   if (form.text === word.headword) return
-  const tags = word.inflections.get(form.text) ?? new Set<Inflection>()
+  const tags = word.inflections.get(form.text) ?? new Set<EnglishInflection>()
   for (const tag of form.tags) tags.add(tag)
   word.inflections.set(form.text, tags)
 }

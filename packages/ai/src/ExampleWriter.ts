@@ -1,13 +1,5 @@
-import {
-  Formality,
-  furiganaToText,
-  type Language,
-  SentenceMedium,
-  SentenceTone,
-  SpeakerAge,
-  SpeakerGender
-} from "@kotori/domain"
-import { normalizeGloss, normalizeJapaneseGloss } from "@kotori/db"
+import { Formality, type Language, SentenceMedium, SentenceTone, SpeakerAge, SpeakerGender } from "@kotori/domain"
+import { furiganaToText, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
 import { Context, Effect, Layer, Schema } from "effect"
 import { Claude, type ClaudeError } from "./Claude.ts"
 import { englishExamplesSystem, examplesSystem } from "./prompts.ts"

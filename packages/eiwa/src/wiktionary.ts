@@ -1,7 +1,8 @@
 import type { GlossRecord, SenseRecord } from "@kotori/db"
 import { Option, Predicate, Schema } from "effect"
 import { splitDefinition, leadingAside } from "./text.ts"
-import { FIELDS, type Inflection, PARTS_OF_SPEECH, REGIONS, TRANSITIVITY, USAGE } from "./tags.ts"
+import type { EnglishInflection } from "@kotori/language"
+import { FIELDS, PARTS_OF_SPEECH, REGIONS, TRANSITIVITY, USAGE } from "./tags.ts"
 import {
   emptySense,
   type FormOf,
@@ -171,7 +172,7 @@ const readSense = (
   }
 }
 
-const INFLECTION_TAGS: ReadonlyArray<readonly [ReadonlyArray<string>, Inflection]> = [
+const INFLECTION_TAGS: ReadonlyArray<readonly [ReadonlyArray<string>, EnglishInflection]> = [
   [["third-person"], "third-person"],
   [["present", "participle"], "present-participle"],
   [["past", "participle"], "past-participle"],
@@ -182,7 +183,7 @@ const INFLECTION_TAGS: ReadonlyArray<readonly [ReadonlyArray<string>, Inflection
 ]
 
 /** "bluer" and "bluest" come untagged; their endings say what they are. */
-const byEnding = (word: string, form: string): Inflection | null => {
+const byEnding = (word: string, form: string): EnglishInflection | null => {
   const stem = word.replace(/e$/, "").replace(/y$/, "i")
   if (!form.startsWith(stem.slice(0, Math.max(1, stem.length - 1)))) return null
   if (form.endsWith("est")) return "superlative"
@@ -336,9 +337,9 @@ export const parseWiktionary = (lines: Iterable<string>) => {
 
 /** One form per spelling, with every inflection it is: "read" is both past and past participle. */
 const mergeInflections = (forms: ReadonlyArray<InflectedForm>): Array<InflectedForm> => {
-  const merged = new Map<string, Set<Inflection>>()
+  const merged = new Map<string, Set<EnglishInflection>>()
   for (const form of forms) {
-    const tags = merged.get(form.text) ?? new Set<Inflection>()
+    const tags = merged.get(form.text) ?? new Set<EnglishInflection>()
     for (const tag of form.tags) tags.add(tag)
     merged.set(form.text, tags)
   }

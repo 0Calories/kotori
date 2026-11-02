@@ -11,7 +11,7 @@
       "path": "../jmdict/tsconfig.lib.json"
     },
     {
-      "path": "../japanese/tsconfig.lib.json"
+      "path": "../language/tsconfig.lib.json"
     },
     {
       "path": "../db/tsconfig.lib.json"

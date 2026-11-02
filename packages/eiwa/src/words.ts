@@ -1,10 +1,10 @@
 import type { SenseRecord } from "@kotori/db"
-import type { Inflection } from "./tags.ts"
+import type { EnglishInflection } from "@kotori/language"
 
 /** An inflected form of a word and what it is: "ate", past. */
 export interface InflectedForm {
   readonly text: string
-  readonly tags: ReadonlyArray<Inflection>
+  readonly tags: ReadonlyArray<EnglishInflection>
 }
 
 /**
@@ -43,7 +43,7 @@ export interface Word {
 export interface FormOf {
   readonly text: string
   readonly base: string
-  readonly tags: ReadonlyArray<Inflection>
+  readonly tags: ReadonlyArray<EnglishInflection>
 }
 
 /** A sense with nothing but glosses filled in; parsers add the rest. */
@@ -63,8 +63,8 @@ export const emptySense = (): SenseRecord => ({
 })
 
 /** The inflections a gloss such as "tireの過去形・過去分詞" or "beの過去分詞形" names. */
-export const inflectionsNamed = (text: string): Array<Inflection> => {
-  const tags: Array<Inflection> = []
+export const inflectionsNamed = (text: string): Array<EnglishInflection> => {
+  const tags: Array<EnglishInflection> = []
   if (/複数/.test(text)) tags.push("plural")
   // "the third person singular" is the -s form; "一人称および三人称単数過去形" is a past.
   if (/三人称/.test(text) && !text.includes("過去")) tags.push("third-person")
@@ -91,7 +91,7 @@ const SPELLING_OF = new RegExp(`${BASE.source}(?:異綴り?|別綴り|旧綴り|
  * The word a gloss says this one is a form of, and which inflections it is (none for another
  * spelling), or null for a gloss that is a meaning.
  */
-export const formOf = (gloss: string): { readonly base: string; readonly tags: ReadonlyArray<Inflection> } | null => {
+export const formOf = (gloss: string): { readonly base: string; readonly tags: ReadonlyArray<EnglishInflection> } | null => {
   const text = gloss.trim()
   const spelling = SPELLING_OF.exec(text)
   if (spelling !== null) return { base: spelling[1]!.trim(), tags: [] }

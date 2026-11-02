@@ -1,4 +1,5 @@
-import type { EntryRecord, LoanCandidate } from "@kotori/db"
+import type { EntryRecord } from "@kotori/db"
+import type { LoanCandidate } from "@kotori/language"
 import type { ChoiceQuestion, NoulQuestion, ScoreQuestion } from "@typesafe-ai/sdk"
 import { CONNOTATIONS, REVERSED, reversedChoice, SUBJECT_NOT_REGISTER } from "./questions.ts"
 import { judgedSenses } from "./state.ts"

@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest"
 import { commonestFirst, mergeSources, toEntries } from "../src/build.ts"
 import { parseEjdict } from "../src/ejdict.ts"
 import { parseFrequency } from "../src/frequency.ts"
-import { uninflect } from "../src/inflect.ts"
 import { jmdictReader, wordsFromJmdict } from "../src/jmdict.ts"
 import { splitDefinition } from "../src/text.ts"
 import { cleanIpa, parseWiktionary } from "../src/wiktionary.ts"
@@ -244,27 +243,6 @@ describe("parseEjdict", () => {
       { text: "okay", base: "O.K.", tags: [] }
     ])
     expect(word("was")).toBeUndefined()
-  })
-})
-
-describe("uninflect", () => {
-  it.each([
-    ["parties", "party"],
-    ["boxes", "box"],
-    ["teams", "team"],
-    ["stopped", "stop"],
-    ["baked", "bake"],
-    ["running", "run"],
-    ["making", "make"],
-    ["lying", "lie"],
-    ["bigger", "big"],
-    ["happiest", "happy"]
-  ])("%s -> %s", (word, base) => {
-    expect(uninflect(word).map((candidate) => candidate.base)).toContain(base)
-  })
-
-  it("leaves -ss words whole", () => {
-    expect(uninflect("glass").map((candidate) => candidate.base)).not.toContain("glas")
   })
 })
 

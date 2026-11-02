@@ -12,6 +12,9 @@
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
   "references": [
     {
+      "path": "../../packages/language"
+    },
+    {
       "path": "../../packages/srs"
     },
     {

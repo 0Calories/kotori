@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs"
 import { count, eq, sql } from "drizzle-orm"
 import { assert, describe, it, layer } from "@effect/vitest"
 import { Effect, Layer, Option } from "effect"
+import { type LoanCandidate, loanCandidatesIn, normalizeGloss } from "@kotori/language"
 import { Database } from "../src/Database.ts"
 import { migrationsFolder } from "../src/Migrate.ts"
 import { reviewLogs } from "../src/schema/index.ts"
@@ -11,11 +12,7 @@ import {
   EnrichmentRepo,
   type EntryRecord,
   JobsRepo,
-  type LoanCandidate,
-  loanCandidatesIn,
   matchSenses,
-  normalizeGloss,
-  normalizeJapaneseGloss,
   Repositories,
   StudyRepo,
   type UserRow,
@@ -156,33 +153,6 @@ const C3 = "00000000-0000-4000-8000-0000000000c3"
 const C4 = "00000000-0000-4000-8000-0000000000c4"
 const C5 = "00000000-0000-4000-8000-0000000000c5"
 const C6 = "00000000-0000-4000-8000-0000000000c6"
-
-describe("normalizeGloss", () => {
-  layer(Layer.empty)((it) => {
-    it.effect("strips infinitive markers, articles and parentheticals", () =>
-      Effect.sync(() => {
-        assert.strictEqual(normalizeGloss("to eat (a meal)"), "eat")
-        assert.strictEqual(normalizeGloss("The Sun"), "sun")
-        assert.strictEqual(normalizeGloss("(of a person) to be late"), "be late")
-      })
-    )
-  })
-})
-
-describe("normalizeJapaneseGloss", () => {
-  layer(Layer.empty)((it) => {
-    it.effect("strips asides, the object marker and closing punctuation", () =>
-      Effect.sync(() => {
-        assert.strictEqual(normalizeJapaneseGloss("～を食べる。"), "食べる")
-        assert.strictEqual(normalizeJapaneseGloss("（資源や金銭を）消費する"), "消費する")
-        assert.strictEqual(normalizeJapaneseGloss("…に『火をつける』"), "火をつける")
-        assert.strictEqual(normalizeJapaneseGloss("〈C〉『明かり』(太陽・灯火など光を出すもの)"), "明かり")
-        // Only after a tilde is a leading particle the object marker; とても keeps its と.
-        assert.strictEqual(normalizeJapaneseGloss("とても"), "とても")
-      })
-    )
-  })
-})
 
 layer(TestLayer)("DictionaryRepo", (it) => {
   it.effect("imports entries and reads them back in order", () =>

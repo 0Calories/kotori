@@ -11,9 +11,6 @@
       "default": "./dist/index.js"
     }
   },
-  "scripts": {
-    "test": "vitest run"
-  },
   "dependencies": {
     "effect": "catalog:"
   }

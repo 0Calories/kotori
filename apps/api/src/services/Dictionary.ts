@@ -6,9 +6,7 @@ import {
   type ExampleRow,
   type FormMatch,
   type GlossMatch,
-  JobsRepo,
-  normalizeGloss,
-  normalizeJapaneseGloss
+  JobsRepo
 } from "@kotori/db"
 import {
   type Enrichment,
@@ -23,15 +21,17 @@ import {
   type SimilarWord,
   type Tag
 } from "@kotori/domain"
-import { uninflect } from "@kotori/eiwa"
 import {
   deinflect,
   hasJapanese,
   katakanaToHiragana,
+  normalizeGloss,
+  normalizeJapaneseGloss,
+  uninflect,
   matchesPartOfSpeech,
   romajiToKana,
   romanize
-} from "@kotori/japanese"
+} from "@kotori/language"
 import { awaitsWarning, Jev, nuanceOutdated } from "@kotori/nuance"
 import { CASTS, Pronouncer } from "@kotori/tts"
 import { Clock, Context, Effect, Layer, Option } from "effect"
