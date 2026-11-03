@@ -17,6 +17,7 @@ import { Snow } from "../../src/components/Snow.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { posLabel, strings } from "../../src/i18n/strings.ts"
+import { useSearchMascotPhase } from "../../src/lib/searchMascot.ts"
 import { formalityTone } from "../../src/lib/tones.ts"
 import { usePreference } from "../../src/session/preferences.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
@@ -147,8 +148,10 @@ export default function LookUpScreen() {
   const target = profile?.targetLanguage ?? "ja"
   const search = useSearch(debounced, target)
   const searching = query.trim().length > 0
-  // Kotori thinks until the results for what's typed arrive, including the debounce before the request.
+  // True from the first keystroke until this text's results arrive, debounce included.
+  // The pose stays curious until that wait is long enough to be worth a change.
   const loading = searching && (debounced !== query.trim() || search.isFetching)
+  const mascot = useSearchMascotPhase(loading)
 
   const remember = (term: string) => setRecent([term, ...recent.filter((r) => r !== term)].slice(0, 8))
 
@@ -282,7 +285,7 @@ export default function LookUpScreen() {
             ) : null}
           </View>
           <View pointerEvents="none" style={{ position: "absolute", right: 62, top: -58 }}>
-            <Mascot size={70} mood={loading ? "thinking" : "curious"} />
+            <Mascot size={70} mood={mascot === "thinking" ? "thinking" : "curious"} />
           </View>
         </View>
 
