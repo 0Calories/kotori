@@ -26,24 +26,24 @@ Kotori is an [Nx](https://nx.dev) workspace managed with `pnpm`. The backend and
 
 ```text
 apps/
-  api/        HTTP API (Effect HttpApi): dictionary, coach, study, audio
-  worker/     CLI and background worker: dictionary seeding and AI enrichment
   app/        Expo (Router) app for iOS, Android, and web
-  local-auth/ Local development stand-in for Neon Managed Better Auth
+  backend/    HTTP API, enrichment worker and `kotori` CLI: one deployable, three entry points
 packages/
-  domain/     Shared schemas and HttpApi contract used by the API and app
-  db/         Drizzle schema, migrations, repositories, and full-text search
-  auth/       Neon Managed Better Auth proxy, session verification, signup approval
-  email/      Transactional email via Resend (or console logging in development)
-  jmdict/     Downloads, parses, and imports EDRDG's JMdict_e
-  eiwa/       Builds and imports the English dictionary for Japanese speakers
-  japanese/   Rōmaji ↔ kana conversion, script detection, Yomichan-style deinflection
-  nuance/     Jev prompts, scoring, and interpretation for nuance and similar words
-  ai/         Claude coaching services and example-sentence generation
-  tts/        ElevenLabs client, content-addressed audio store, monthly budget guard
+  db/         The data model: Drizzle tables and the migrations generated from them
+  contracts/  The HTTP contract (KotoriApi), its schemas derived from the tables
+  ai/         Claude, Jev and ElevenLabs: coaching, examples, nuance, speech, golden evals
+  language/   Japanese and English text: rōmaji ↔ kana, deinflection, furigana, glosses
   srs/        Pure, fully tested implementation of Anki's SM-2 scheduler
-tools/        Local setup script; mascot asset and animation renderers
+tools/
+  local-auth/ Local development stand-in for Neon Managed Better Auth
+  *.ts        Local setup script; mascot asset and animation renderers
 ```
+
+Everything follows from the tables in `packages/db`: the backend's queries infer their rows from
+them, `packages/contracts` derives the wire schemas from them, and the app is typed by the
+contract. Change a column and typechecking fails wherever the change matters.
+[`docs/monorepo-rearchitecture.md`](docs/monorepo-rearchitecture.md) explains the layout and the
+boundaries `pnpm lint` enforces between projects.
 
 Run `pnpm graph` (`nx graph`) to explore how the packages fit together.
 
@@ -118,7 +118,7 @@ pnpm kotori status                          # check coverage and queue depth
 All enrichment commands skip entries that are already complete, so they can be interrupted and re-run safely.
 
 - **Nuance (Jev)** — TypeSafe's Jev (`jev-1.14.0`) evaluates an entry in a single pass, scoring formality and spoken vs. written register alongside keigo, speaker gender/age, currency, connotation, learner cautions, and candidate synonyms. Explicit dictionary usage tags (such as `hon`, `col`, or `male`) take precedence over model guesses, and low-confidence judgments are hidden. Raw probability distributions are stored in Postgres so display labels can be re-derived without re-running inference (`pnpm kotori enrich nuance --reinterpret`) and benchmarked against a golden set (`pnpm kotori eval nuance` and `pnpm kotori eval english`). See [`docs/nuance-rework.md`](docs/nuance-rework.md) and [`docs/nuance-on-english-entries.md`](docs/nuance-on-english-entries.md).
-- **English dictionary & katakana loans** — For Japanese speakers learning English, `packages/eiwa` assembles ~65k English headwords from [Japanese Wiktionary](https://ja.wiktionary.org), [EJDict-hand](https://github.com/kujirahand/EJDict), and attested English glosses in JMDict, ranked by [OpenSubtitles word frequency](https://github.com/hermitdave/FrequencyWords). In addition to register and US/UK variety, Jev checks whether an English word's katakana loanword has drifted in meaning — warning Japanese learners when a familiar katakana word like スタイル (*body figure*) doesn't match English *style*.
+- **English dictionary & katakana loans** — For Japanese speakers learning English, the backend's dictionary import (`features/dictionary/import/eiwa`) assembles ~65k English headwords from [Japanese Wiktionary](https://ja.wiktionary.org), [EJDict-hand](https://github.com/kujirahand/EJDict), and attested English glosses in JMDict, ranked by [OpenSubtitles word frequency](https://github.com/hermitdave/FrequencyWords). In addition to register and US/UK variety, Jev checks whether an English word's katakana loanword has drifted in meaning — warning Japanese learners when a familiar katakana word like スタイル (*body figure*) doesn't match English *style*.
 - **Examples (Claude)** — Generated via structured outputs validated with Effect Schema. Furigana is written inline as `{漢字|かんじ}` and verified against the Japanese text before saving.
 - **Audio (ElevenLabs)** — Cached by content hash `(voice, model, text)` so each clip is synthesized once, guarded by a 30-day character budget (`KOTORI_AUDIO_MONTHLY_CHARS`, default `50000`). See [`docs/voice-casting.md`](docs/voice-casting.md).
 
@@ -137,7 +137,7 @@ pnpm kotori revoke user@example.com   # revoke sessions across all devices
 
 ### Local auth setup
 
-For day-to-day development, `pnpm dev` runs `apps/local-auth` on port 4001 to emulate Neon Managed Auth locally, and the app signs in automatically as `dev@kotori.test`.
+For day-to-day development, `pnpm dev` runs `tools/local-auth` on port 4001 to emulate Neon Managed Auth locally, and the app signs in automatically as `dev@kotori.test`.
 
 - To test the real sign-up, sign-in, and pending screens locally, set `EXPO_PUBLIC_DEV_SIGN_IN=off`. Verification and password-reset codes are printed to the console when `RESEND_API_KEY` is unset.
 - To run against a live Neon branch instead of local Docker, run `neon checkout <branch>` (which writes `DATABASE_URL` and `NEON_AUTH_BASE_URL` to `.env.local`).
@@ -164,4 +164,4 @@ CI (`.github/workflows/ci.yml`) checks project references, formatting, linting, 
 - **Japanese dictionary:** [JMDict](https://www.edrdg.org/jmdict/j_jmdict.html) by the Electronic Dictionary Research and Development Group ([CC BY-SA 4.0](https://www.edrdg.org/edrdg/licence.html)).
 - **English dictionary:** [Japanese Wiktionary](https://ja.wiktionary.org) via [Wiktextract](https://github.com/tatuylonen/wiktextract) / [kaikki.org](https://kaikki.org/jawiktionary/) (CC BY-SA 4.0) and [EJDict-hand](https://github.com/kujirahand/EJDict) (CC0 public domain).
 - **Word frequencies:** [FrequencyWords](https://github.com/hermitdave/FrequencyWords) from OpenSubtitles 2018 (CC BY-SA 4.0).
-- **Evaluation fixture:** [`packages/nuance/golden/entries.json`](packages/nuance/golden/entries.json) contains excerpts from the sources above and is shared under CC BY-SA 4.0 (see [`packages/nuance/golden/NOTICE.md`](packages/nuance/golden/NOTICE.md)).
+- **Evaluation fixture:** [`packages/ai/golden/entries.json`](packages/ai/golden/entries.json) contains excerpts from the sources above and is shared under CC BY-SA 4.0 (see [`packages/ai/golden/NOTICE.md`](packages/ai/golden/NOTICE.md)).

@@ -1,4 +1,4 @@
-import type { CardId, EntryId, NoteId, ReviewItem } from "@kotori/domain"
+import type { CardId, EntryId, NoteId, ReviewItem } from "@kotori/contracts"
 import { assert, describe, it } from "vitest"
 import { shownReviewCard } from "../src/lib/review.ts"
 
@@ -8,7 +8,7 @@ const item = (id: string, good = "1d"): ReviewItem => ({
     noteId: "note" as NoteId,
     template: "recognize",
     queue: "review",
-    due: 0,
+    due: new Date(0),
     interval: 1,
     ease: 2.5,
     reps: 1,

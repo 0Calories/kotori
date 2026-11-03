@@ -1,4 +1,4 @@
-import type { Language, Register } from "@kotori/domain"
+import type { Language, Register } from "@kotori/contracts"
 import * as Clipboard from "expo-clipboard"
 import { useState } from "react"
 import { View } from "react-native"

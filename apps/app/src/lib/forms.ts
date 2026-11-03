@@ -1,4 +1,4 @@
-import type { Language } from "@kotori/domain"
+import type { Language } from "@kotori/contracts"
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 

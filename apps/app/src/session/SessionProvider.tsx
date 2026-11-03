@@ -1,4 +1,4 @@
-import type { Language, Profile, UpdateProfileRequest } from "@kotori/domain"
+import type { Language, Profile, UpdateProfileRequest } from "@kotori/contracts"
 import { useQueryClient } from "@tanstack/react-query"
 import { getLocales } from "expo-localization"
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react"

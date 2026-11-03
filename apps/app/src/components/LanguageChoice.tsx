@@ -1,4 +1,4 @@
-import type { Language } from "@kotori/domain"
+import type { Language } from "@kotori/contracts"
 import { View } from "react-native"
 import { useT } from "../session/SessionProvider.tsx"
 import { useTheme } from "../theme/ThemeProvider.tsx"

@@ -8,9 +8,9 @@
 
 Steps 1–5 of `docs/voice-casting.md` are implemented and committed on
 `voice-casting` (commits `881f213^..728622b`, plus review fixes). Backend is
-complete: tag vocabulary and casts (`packages/tts/src/voices.ts`), pure selector
+complete: tag vocabulary and casts (`packages/ai/src/speech/voices.ts`), pure selector
 (`casting.ts`: `briefFor` → `rank` → `tied`), Claude writes casting signals per example,
-Jev tiebreaker (`packages/nuance/src/casting.ts`, `castVoice`), and the Pronouncer casts
+Jev tiebreaker (`packages/ai/src/speech/casting.ts`, `castVoice`), and the Pronouncer casts
 per sentence, voices headwords with every dictionary voice (capped by
 `KOTORI_HEADWORD_VOICES`, default 3), and records `castBy`/`score` on `example_audio`.
 Migration `20261028181415_voice_casting` has NOT been applied anywhere yet; `kotori
@@ -22,8 +22,8 @@ under the new system; Kotori is not live, so nothing needs regenerating wholesal
 ## Remaining: step 6 — app plays one of several headword clips
 
 - The entry payload already returns `audio: Array<{ url, voice, voiceName }>`
-  (`packages/domain/src/Dictionary.ts`, `EntryAudio`), assembled in
-  `apps/api/src/services/Dictionary.ts`. `audioUrl` still carries the first clip for
+  (`packages/contracts/src/Dictionary.ts`, `EntryAudio`), assembled in
+  `apps/backend/src/features/dictionary/Dictionary.ts`. `audioUrl` still carries the first clip for
   compatibility — remove it (from `Entry`, the assembly, and the app) once the app reads
   `audio`.
 - Change `apps/app/src/components/AudioButton.tsx` to accept a list of clips and pick one
@@ -38,11 +38,11 @@ under the new system; Kotori is not live, so nothing needs regenerating wholesal
 
 New command group, spec in `docs/voice-casting.md` section 8. Implementation notes:
 
-- Register next to `enrich` in `apps/worker/src/commands/` (pattern: `enrich.ts`, wired in
-  the worker CLI; `pnpm kotori …` runs it).
+- Register next to `enrich` in `apps/backend/src/cli/` (pattern: `enrich.ts`, wired in
+  `apps/backend/src/entrypoints/cli.ts`; `pnpm kotori …` runs it).
 - `regen` must run the same path as the worker: build the brief exactly as
-  `Pronouncer.enrichEntry` does, call `rank`/`tied`/`castVoice`. The decide logic lives
-  inside `Pronouncer.layer` (`decide` closure in `packages/tts/src/Pronouncer.ts`) — either
+  `AudioEnricher.enrich` does, call `rank`/`tied`/`castVoice`. The decide logic lives
+  inside `Pronouncer.layer` (`Pronouncer.cast` in `packages/ai/src/speech/Pronouncer.ts`) — either
   export a `regenExample`/`regenHeadwords` method on the Pronouncer service (preferred;
   keeps `decide` private) or extract `decide` to a shared module.
 - `--voice <kotori-id>` resolves from `CASTS`; `--provider-voice <elevenlabs-id>` builds an
@@ -50,14 +50,14 @@ New command group, spec in `docs/voice-casting.md` section 8. Implementation not
   candidates). Both record `castBy: "manual"` via `linkExampleAudio`'s casting argument.
 - "Always synthesises fresh": delete the old `audio` row when no other `entry_audio` /
   `example_audio` row references it (cascade removes `audio_files`); needs a small
-  EnrichmentRepo method (`deleteOrphanAudio(key)` or similar) — none exists yet.
+  audio query (`deleteOrphanAudio(db, key)` or similar, in `apps/backend/src/features/audio/queries.ts`) — none exists yet.
 - `--dry-run` should print the brief, the ranking with scores, and Jev's pick without
   writes; budget checks still apply to real runs (reuse `Pronouncer.speak`'s quota path).
-- `kotori status` (apps/worker/src/commands/status.ts) gains clip counts per `audio.voice`.
+- `kotori status` (apps/backend/src/cli/status.ts) gains clip counts per `audio.voice`.
 
 ## Remaining: step 8 — cast the voices
 
-- Every voice in `packages/tts/src/voices.ts` has an initial ElevenLabs library voice, picked
+- Every voice in `packages/ai/src/speech/voices.ts` has an initial ElevenLabs library voice, picked
   from library metadata (labels, descriptions, usage) without listening. They still need
   auditioning; recasting = paste a new id. Setting a `providerId` back to `null` uncasts a
   role safely: the selector skips uncast voices (`rank` filters `providerId !== null`) and
@@ -72,8 +72,8 @@ New command group, spec in `docs/voice-casting.md` section 8. Implementation not
 - `entry_audio` ordering ties: clips created in the same millisecond order by key, not
   insertion — don't assume Kyoko is first in the `audio` array.
 - The casts are read through the `VoiceCasts` context reference
-  (`packages/tts/src/Pronouncer.ts`), defaulting to `CASTS`; tests override it with a
-  fully-cast lineup (see `packages/tts/test/pronouncer.test.ts`). The CLI should read the
+  (`packages/ai/src/speech/Pronouncer.ts`), defaulting to `CASTS`; tests override it with a
+  fully-cast lineup (see `apps/backend/test/audio.test.ts`). The CLI should read the
   same reference so `--dry-run` matches the worker.
 - `castVoice` self-guards: 1 candidate → returned without a Jev call; 0 → defect.
 - The monorepo rearchitecture (`docs/monorepo-rearchitecture.md`) will move these files;

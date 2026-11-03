@@ -11,7 +11,7 @@ import type {
   ReviewQueue,
   SpeakRequest,
   StudyStats
-} from "@kotori/domain"
+} from "@kotori/contracts"
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { queueWithoutNote, statsWithoutNote, withoutNote } from "../lib/collection.ts"
 import { call } from "./client.ts"

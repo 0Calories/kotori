@@ -1,4 +1,4 @@
-import type { Issue, NaturalnessResult } from "@kotori/domain"
+import type { Issue, NaturalnessResult } from "@kotori/contracts"
 import { useState } from "react"
 import { View } from "react-native"
 import Animated, { FadeInDown } from "react-native-reanimated"

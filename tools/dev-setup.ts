@@ -9,8 +9,18 @@
  */
 import { type ChildProcess, spawn, spawnSync } from "node:child_process"
 import { copyFileSync, existsSync } from "node:fs"
-import { join } from "node:path"
-import { loadDotEnv, workspaceRoot } from "../packages/db/src/Paths.ts"
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
+
+const workspaceRoot = dirname(dirname(fileURLToPath(import.meta.url)))
+
+/** `.env.local` (the Neon CLI's), then `.env`: the first file to set a variable wins, and the environment beats both. */
+const loadDotEnv = () => {
+  for (const name of [".env.local", ".env"]) {
+    const file = join(workspaceRoot, name)
+    if (existsSync(file)) process.loadEnvFile(file)
+  }
+}
 
 const LOCAL = new Set(["localhost", "127.0.0.1"])
 
@@ -86,7 +96,7 @@ process.on("exit", () => localAuth?.kill("SIGTERM"))
 if (LOCAL.has(new URL(authUrl).hostname) && !(await reachable(`${authUrl}/ok`))) {
   localAuth = spawn(
     process.execPath,
-    ["--conditions=@kotori/source", "--import", "tsx", "apps/local-auth/src/main.ts"],
+    ["--conditions=@kotori/source", "--import", "tsx", "tools/local-auth/src/main.ts"],
     { cwd: workspaceRoot, stdio: "inherit" }
   )
   const server = localAuth

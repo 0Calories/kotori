@@ -8,7 +8,7 @@ that mirrors the English speaker's on a Japanese word as closely as possible.
 
 PR #36 gave Japanese natives English nuance by reading JMDict backwards: an `english` job judged
 the English glosses of Japanese entries, shown on `/english/[term]`. PR #34 replaced that page
-with an English dictionary of their own (`packages/eiwa`, ~65k words explained in Japanese,
+with an English dictionary of their own (the backend's `features/dictionary/import/eiwa`, ~65k words explained in Japanese,
 `entries.language = 'en'`), on the same screens as JMDict's words. So the English side is now
 judged on English entries, by the same job and in the same request as their senses, and everything
 PR #36 built only for the English page is gone: the page, the `english` job and `job_kind` value,
@@ -56,7 +56,7 @@ Remaining gaps:
    show. Its own request, because its state must not hold the word's Japanese senses: see
    "Why false friends scored low" below.
 3. **Candidates come from JMDict**, as in PR #36: common katakana-only words with the English
-   word as a gloss, or as their `lsource` (`DictionaryRepo.loanCandidates`, now limited to
+   word as a gloss, or as their `lsource` (`loanCandidates` in the backend's dictionary queries, now limited to
    `language = 'ja'`).
 4. **The loan Noul names the English word in its own instructions** (`english_word`) and no longer
    says "or is only another translation". On an English entry the katakana word is usually one of
@@ -93,7 +93,7 @@ for "coffee", a guy-rope for "guy", a speech sound for "phone", 痛む (to smart
 autumn twelfth for "fall". Only the first six senses are judged and the first four get examples,
 so the main sense of such a word got no nuance or examples, and the entry page opened on an odd one.
 
-**The rule** (`commonestFirst` in `packages/eiwa/src/build.ts`):
+**The rule** (`commonestFirst` in `apps/backend/src/features/dictionary/import/eiwa/build.ts`):
 
 - While reading JMDict backwards, the importer collects, for each English word the dictionary
   already has, the common Japanese words that gloss it among their first four glosses in their
@@ -144,7 +144,7 @@ senses' glosses, so 子供 is unattested and からかう leads.
 
 Enrichment is keyed by sense position. The import used to upsert senses by position, so a
 re-import that reordered or dropped senses left each row on whatever sense now sat there.
-`DictionaryRepo.insertEntries` now matches each entry's stored senses to the incoming ones by
+`insertEntries` (the backend's dictionary queries) now matches each entry's stored senses to the incoming ones by
 their glosses (`matchSenses`): the same glosses in order, or failing that at least half of them
 shared. A sense that matches nothing stays at its position unless another sense moved there,
 because JMDict rewords glosses in place far more often than it moves senses. It then moves every
@@ -203,7 +203,7 @@ inference, and `--outdated` re-judges entries behind their language's question s
 
 ## Evals
 
-`pnpm golden` cuts both dictionaries' golden entries into `packages/nuance/golden/entries.json`. It
+`pnpm golden` cuts both dictionaries' golden entries into `packages/ai/golden/entries.json`. It
 builds the English dictionary in memory from `data/eiwa` with `Eiwa.buildEntries`. All runs are on
 jev-1.14.0, in production's option order, and every Choice is asked again with its options
 reversed. Recordings are in `data/eval/`, which is gitignored.
@@ -384,7 +384,7 @@ meaning altogether?", answered same, divergent or not English. Only `loan_{k}` c
 its own request without the senses, and `loanword_{k}` still picks which candidate is the loan,
 the companion Noul the Choice docs recommend over relying on a "none of the above" option.
 
-**The question** (`loan` in `packages/nuance/src/english.ts`), with `katakana_word`,
+**The question** (`loan` in `packages/ai/src/nuance/english.ts`), with `katakana_word`,
 `katakana_meanings` and the evidence beside it as before:
 
 > Does the katakana loanword `katakana_word` share the same meaning as the original word it's
@@ -397,7 +397,7 @@ the companion Noul the Choice docs recommend over relying on a "none of the abov
 | `divergent` | A common use of `katakana_word` means something `english_word` doesn't, or carries a clearly different feeling, even where they share a meaning, so a Japanese speaker who uses `english_word` that way misleads English speakers, e.g. トレーナー (a sweatshirt, as well as a trainer), サービス ('free of charge', as well as service), コンセント (a power socket, not 'consent') |
 | `not_english` | `katakana_word` was borrowed from another language, not from English, e.g. アルバイト (from German Arbeit), パン (from Portuguese pão) |
 
-**The rule** (`loanShown` in `packages/domain/src/Nuance.ts`): a warning at p(divergent) ≥ 0.7, a
+**The rule** (`loanShown` in `packages/contracts/src/Nuance.ts`): a warning at p(divergent) ≥ 0.7, a
 "same meaning" chip at p(same) ≥ 0.7, nothing otherwise, including when `not_english` leads. Each p
 is averaged over the Choice asked in both option orders (see "Both option orders" below). The
 app's `LoanNote`, `awaitsWarning` (the API's missing-warning re-queue and the worker's `trap`)

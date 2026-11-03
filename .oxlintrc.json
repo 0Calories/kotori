@@ -1,8 +1,13 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "unicorn", "oxc", "import", "react"],
-  "env": { "node": true, "es2024": true },
-  "options": { "typeAware": true },
+  "env": {
+    "node": true,
+    "es2024": true
+  },
+  "options": {
+    "typeAware": true
+  },
   "categories": {
     "correctness": "error",
     "suspicious": "error",
@@ -10,16 +15,32 @@
   },
   "rules": {
     "import/no-cycle": "error",
-    "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
-
-    "typescript/switch-exhaustiveness-check": ["error", { "considerDefaultExhaustiveForUnions": true }],
-    "typescript/no-misused-promises": ["error", { "checksVoidReturn": { "attributes": false } }],
+    "no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
+    ],
+    "typescript/switch-exhaustiveness-check": [
+      "error",
+      {
+        "considerDefaultExhaustiveForUnions": true
+      }
+    ],
+    "typescript/no-misused-promises": [
+      "error",
+      {
+        "checksVoidReturn": {
+          "attributes": false
+        }
+      }
+    ],
     "typescript/only-throw-error": "error",
     "typescript/prefer-promise-reject-errors": "error",
     "typescript/no-deprecated": "warn",
     "typescript/consistent-return": "off",
     "typescript/no-unsafe-type-assertion": "off",
-
     "react/react-in-jsx-scope": "off",
     "no-underscore-dangle": "off",
     "no-shadow": "off",
@@ -27,13 +48,94 @@
     "unicorn/consistent-function-scoping": "off",
     "unicorn/no-array-sort": "off",
     "unicorn/prefer-set-has": "off",
-    "oxc/no-map-spread": "off"
+    "oxc/no-map-spread": "off",
+    "@nx/enforce-module-boundaries": [
+      "error",
+      {
+        "allow": [],
+        "checkNestedExternalImports": false,
+        "depConstraints": [
+          {
+            "sourceTag": "scope:shared",
+            "onlyDependOnLibsWithTags": ["scope:shared"],
+            "bannedExternalImports": [
+              "pg",
+              "@effect/sql-*",
+              "@effect/platform-node",
+              "@electric-sql/*",
+              "drizzle-kit",
+              "drizzle-orm/effect-postgres",
+              "drizzle-orm/effect-pglite",
+              "drizzle-orm/node-postgres",
+              "drizzle-orm/pg-core/effect",
+              "drizzle-orm/migrator"
+            ]
+          },
+          {
+            "sourceTag": "scope:client",
+            "onlyDependOnLibsWithTags": ["scope:shared", "scope:client"],
+            "notDependOnLibsWithTags": ["scope:backend", "scope:dev"],
+            "bannedExternalImports": [
+              "pg",
+              "@effect/sql-*",
+              "@effect/platform-node",
+              "@electric-sql/*",
+              "drizzle-kit",
+              "drizzle-orm/effect-postgres",
+              "drizzle-orm/effect-pglite",
+              "drizzle-orm/node-postgres",
+              "drizzle-orm/pg-core/effect",
+              "drizzle-orm/migrator"
+            ]
+          },
+          {
+            "sourceTag": "scope:backend",
+            "onlyDependOnLibsWithTags": ["scope:shared", "scope:backend"],
+            "notDependOnLibsWithTags": ["scope:client", "scope:dev"]
+          },
+          {
+            "sourceTag": "scope:dev",
+            "onlyDependOnLibsWithTags": ["scope:shared", "scope:dev"]
+          },
+          {
+            "sourceTag": "type:db",
+            "onlyDependOnLibsWithTags": [],
+            "allowedExternalImports": ["drizzle-orm", "drizzle-orm/pg-core", "effect", "effect/*"]
+          },
+          {
+            "sourceTag": "type:contract",
+            "onlyDependOnLibsWithTags": ["type:db", "type:util"],
+            "allowedExternalImports": ["drizzle-orm", "drizzle-orm/*", "effect", "effect/*", "vitest", "@effect/vitest"]
+          },
+          {
+            "sourceTag": "type:util",
+            "onlyDependOnLibsWithTags": ["type:contract", "type:util"],
+            "allowedExternalImports": ["effect", "effect/*", "wanakana", "vitest", "@effect/vitest"]
+          },
+          {
+            "sourceTag": "type:ai",
+            "onlyDependOnLibsWithTags": ["type:contract", "type:util"]
+          },
+          {
+            "sourceTag": "type:app",
+            "onlyDependOnLibsWithTags": ["type:contract", "type:util", "type:db", "type:ai"]
+          },
+          {
+            "sourceTag": "type:tool",
+            "onlyDependOnLibsWithTags": ["type:contract", "type:util", "type:db"]
+          }
+        ]
+      }
+    ]
   },
   "ignorePatterns": ["**/dist/**", "**/out-tsc/**", "**/.expo/**", "data/**", "**/*.d.ts"],
   "overrides": [
     {
       "files": ["apps/app/**"],
-      "env": { "browser": true, "node": false },
+      "env": {
+        "browser": true,
+        "node": false
+      },
       "rules": {
         "no-unused-vars": "warn",
         "no-unused-expressions": "warn",
@@ -45,6 +147,26 @@
         "react/memo-dependencies": "warn",
         "react-hooks/exhaustive-deps": "warn"
       }
+    },
+    {
+      "files": ["**/drizzle.config.ts", "**/vitest.config.ts"],
+      "rules": {
+        "@nx/enforce-module-boundaries": "off"
+      }
+    },
+    {
+      "files": [
+        "packages/db/src/**",
+        "packages/contracts/src/**",
+        "packages/language/src/**",
+        "packages/srs/src/**",
+        "apps/app/app/**",
+        "apps/app/src/**"
+      ],
+      "rules": {
+        "import/no-nodejs-modules": "error"
+      }
     }
-  ]
+  ],
+  "jsPlugins": ["@nx/oxlint/boundaries-plugin"]
 }

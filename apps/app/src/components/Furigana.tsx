@@ -1,4 +1,4 @@
-import { furiganaToText, parseFurigana } from "@kotori/domain"
+import { furiganaToText, parseFurigana } from "@kotori/language"
 import { View } from "react-native"
 import { usePreference } from "../session/preferences.ts"
 import { useTheme } from "../theme/ThemeProvider.tsx"

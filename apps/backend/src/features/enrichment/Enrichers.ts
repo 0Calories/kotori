@@ -1,0 +1,195 @@
+import {
+  awaitsWarning,
+  Claude,
+  ExampleWriter,
+  Jev,
+  loanScope,
+  LoanWriter,
+  MAX_LOANS,
+  MAX_SENSES,
+  nuanceOutdated,
+  Pronouncer
+} from "@kotori/ai"
+import type { EntryRecord } from "@kotori/contracts"
+import type { EntryId } from "@kotori/db"
+import { Clock, Context, Effect, Layer } from "effect"
+import { Database } from "../../db/Database.ts"
+import { getEntries, loanCandidates, tagLabels } from "../dictionary/index.ts"
+import { AudioEnricher } from "./AudioEnricher.ts"
+import type { JobKind } from "./jobs.ts"
+import { NuanceEnricher } from "./NuanceEnricher.ts"
+import { loanWordsFor, nuanceFor, saveExamples, saveLoanTrap, saveSenseNotes } from "./queries.ts"
+
+/** Senses that get example sentences; later senses are rarely what learners look for. */
+const EXAMPLE_SENSES = 4
+
+type Sense = EntryRecord["senses"][number]
+
+/** A sense as a writer reads it: its leading glosses, and its usage labels in brackets. */
+const described = (sense: Sense, tags: ReadonlyMap<string, string>) => {
+  const glosses = sense.glosses
+    .slice(0, 3)
+    .map((gloss) => gloss.text)
+    .join("; ")
+  const labels = [...sense.misc, ...sense.fields, ...sense.dialects].map((code) => tags.get(code) ?? code)
+  return labels.length > 0 ? `${glosses} [${labels.join("; ")}]` : glosses
+}
+
+/**
+ * The English word's senses that bear on its loan's warning: the judged ones, which the import
+ * ranks commonest first, and any glossed with the loan itself (「スマートな」 for "smart"),
+ * wherever it is. Judged in an older order, "smart" led with six senses of pain, and the warning
+ * said smart meant to throb; the writer is also told the order isn't always by frequency.
+ */
+const loanSenses = (entry: EntryRecord, loanWord: string) =>
+  entry.senses.filter(
+    (sense, index) => index < MAX_SENSES || sense.glosses.some((gloss) => gloss.text.includes(loanWord))
+  )
+
+export class Enrichers extends Context.Service<
+  Enrichers,
+  {
+    /** Which kinds of enrichment have a configured provider. */
+    readonly available: Effect.Effect<ReadonlyArray<JobKind>>
+    /** Runs one kind of enrichment for an entry, returning a short description of what was done. */
+    run(kind: JobKind, entryId: EntryId): Effect.Effect<string, unknown>
+  }
+>()("@kotori/backend/Enrichers") {
+  static readonly layer = Layer.effect(
+    Enrichers,
+    Effect.gen(function* () {
+      const nuance = yield* NuanceEnricher
+      const writer = yield* ExampleWriter
+      const loanWriter = yield* LoanWriter
+      const pronouncer = yield* Pronouncer
+      const audio = yield* AudioEnricher
+      const db = yield* Database
+      const jev = yield* Jev
+      const claude = yield* Claude
+
+      const available = Effect.gen(function* () {
+        const kinds: Array<JobKind> = []
+        if (jev.configured) kinds.push("nuance")
+        if (yield* claude.available) kinds.push("examples")
+        if (pronouncer.configured) kinds.push("audio")
+        return kinds
+      })
+
+      const examples = Effect.fn("Enrichers.examples")(function* (entryId: EntryId) {
+        const [entry] = yield* getEntries(db, [entryId])
+        if (entry === undefined) return "missing entry"
+        const tags = yield* tagLabels(db)
+        const label = (code: string) => tags.get(code) ?? code
+        const judged = new Map((yield* nuanceFor(db, [entryId])).map((row) => [row.sense, row.nuance]))
+
+        const senses = entry.senses.slice(0, EXAMPLE_SENSES).map((sense, index) => {
+          const nuance = judged.get(index)
+          return {
+            index,
+            glosses: sense.glosses.map((gloss) => gloss.text),
+            partsOfSpeech: sense.pos.map(label),
+            dialects: sense.dialects.map(label),
+            notes: [
+              ...[...sense.misc, ...sense.fields].map(label),
+              ...sense.info,
+              ...(nuance ? [`register: ${nuance.formality.value}, ${nuance.medium.value}`] : [])
+            ]
+          }
+        })
+        const written = yield* writer.write({
+          language: entry.language,
+          headword: entry.headword,
+          reading: entry.reading,
+          otherForms: entry.forms
+            .map((form) => form.text)
+            .filter((text) => text !== entry.headword)
+            .slice(0, 4),
+          senses,
+          perSense: senses.length > 2 ? 2 : 3
+        })
+        const now = new Date(yield* Clock.currentTimeMillis)
+        yield* saveExamples(
+          db,
+          entryId,
+          written.examples.map((example) => ({ ...example, model: writer.model })),
+          now
+        )
+        yield* saveSenseNotes(
+          db,
+          entryId,
+          written.notes.map(({ sense, note, noteJa }) => ({ sense, note, noteJa, model: writer.model })),
+          now
+        )
+        const dropped = written.dropped > 0 ? `, ${written.dropped} dropped for using another sense` : ""
+        return `${written.examples.length} examples${dropped}, ${written.notes.filter((note) => note.note ?? note.noteJa).length} notes`
+      })
+
+      /**
+       * Claude writes the warning for an English word's katakana loan that Jev confidently judged
+       * to diverge, right after the verdict. A warning already written survives a re-judge that
+       * names the same loan, so it is paid for once.
+       */
+      const trap = Effect.fn("Enrichers.loanTrap")(function* (entryId: EntryId) {
+        const [loan] = yield* loanWordsFor(db, [entryId])
+        if (loan?.word == null || !awaitsWarning(loan) || !(yield* claude.available)) return false
+        const [entry] = yield* getEntries(db, [entryId])
+        if (entry === undefined) return false
+        const tags = yield* tagLabels(db)
+        // The katakana word's own meanings, as Jev saw them: JMDict's, with their usage notes.
+        const candidates = yield* loanCandidates(db, [entry.headword], MAX_LOANS)
+        const katakana = (yield* getEntries(
+          db,
+          candidates.map((candidate) => candidate.entryId)
+        )).find((candidate) => candidate.headword === loan.word)
+        const written = yield* loanWriter.write({
+          headword: entry.headword,
+          reading: entry.reading,
+          meanings: loanSenses(entry, loan.word).map((sense) => described(sense, tags)),
+          loanWord: loan.word,
+          loanMeanings: katakana === undefined ? [] : loanScope(katakana, tags).katakana_meanings
+        })
+        if (written === null) return false
+        yield* saveLoanTrap(db, entryId, loan.word, written)
+        return true
+      })
+
+      /**
+       * Whether a nuance job has nothing left to do but the loan warning: the entry's judgments are
+       * current, and Claude was unavailable when its loan was judged (no key, a bad one, or a
+       * probe that timed out). The API queues such a job when the entry is viewed with Claude back.
+       */
+      const onlyWarningMissing = Effect.fnUntraced(function* (entryId: EntryId) {
+        const [entry] = yield* getEntries(db, [entryId])
+        const rows = yield* nuanceFor(db, [entryId])
+        const [loan] = yield* loanWordsFor(db, [entryId])
+        return entry !== undefined && rows.length > 0 && !nuanceOutdated(entry, rows) && awaitsWarning(loan)
+      })
+
+      // A Claude failure fails the job after Jev's answers are saved; the retry asks Jev again,
+      // which costs a fraction of a cent and keeps the warning from being silently skipped. A
+      // job queued for a missing warning alone writes it without asking Jev again.
+      const judge = Effect.fn("Enrichers.nuance")(function* (entryId: EntryId) {
+        if (yield* onlyWarningMissing(entryId)) {
+          return (yield* trap(entryId)) ? "loan warning written" : "loan warning still missing: Claude is unavailable"
+        }
+        const summary = yield* nuance.enrich(entryId)
+        const warned = yield* trap(entryId)
+        const loan = summary.loan === null ? "" : `, loan ${summary.loan}${warned ? " (warning written)" : ""}`
+        return `${summary.senses} senses, ${summary.similar} similar words${loan}, ${summary.inputTokens} tokens`
+      })
+
+      const run = (kind: JobKind, entryId: EntryId): Effect.Effect<string, unknown> => {
+        switch (kind) {
+          case "nuance":
+            return judge(entryId)
+          case "examples":
+            return examples(entryId)
+          case "audio":
+            return audio.enrich(entryId).pipe(Effect.map((s) => `${s.clips} clips, ${s.characters} chars`))
+        }
+      }
+
+      return Enrichers.of({ available, run })
+    })
+  )
+}

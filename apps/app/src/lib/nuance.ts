@@ -1,4 +1,4 @@
-import { type Formality, type Medium, type Nuance, type Sense, TAG_JUDGMENTS } from "@kotori/domain"
+import { type Formality, type Medium, type Nuance, type Sense, TAG_JUDGMENTS } from "@kotori/contracts"
 import type { IconName } from "../components/Icon.tsx"
 import type { ScaleRow } from "../components/NuanceScales.tsx"
 import type { Strings } from "../i18n/strings.ts"

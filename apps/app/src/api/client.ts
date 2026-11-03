@@ -1,4 +1,4 @@
-import { Authorization, KotoriApi } from "@kotori/domain"
+import { Authorization, KotoriApi } from "@kotori/contracts"
 import * as Cause from "effect/Cause"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"

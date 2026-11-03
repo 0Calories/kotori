@@ -1,4 +1,4 @@
-import type { Note } from "@kotori/domain"
+import type { Note } from "@kotori/contracts"
 import { useRouter } from "expo-router"
 import { useState } from "react"
 import { View } from "react-native"

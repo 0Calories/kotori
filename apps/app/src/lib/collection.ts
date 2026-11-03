@@ -1,6 +1,6 @@
-import type { Note, NoteId, QueueCounts, ReviewQueue, StudyStats } from "@kotori/domain"
+import type { Note, NoteId, QueueCounts, ReviewQueue, StudyStats } from "@kotori/contracts"
 
-/** A review card counts as mature once its interval reaches this many days. Same cut as `StudyRepo`. */
+/** A review card counts as mature once its interval reaches this many days. Same cut as the study queries. */
 const MATURE_DAYS = 21
 
 /** The collection with one saved note taken out. */

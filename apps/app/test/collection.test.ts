@@ -1,4 +1,4 @@
-import type { CardId, CardSummary, Note, NoteId, ReviewItem, ReviewQueue, StudyStats } from "@kotori/domain"
+import type { CardId, CardSummary, Note, NoteId, ReviewItem, ReviewQueue, StudyStats } from "@kotori/contracts"
 import { assert, describe, it } from "vitest"
 import { queueWithoutNote, statsWithoutNote, withoutNote } from "../src/lib/collection.ts"
 
@@ -8,14 +8,14 @@ const card = (id: string, queue: CardSummary["queue"], interval = 0): CardSummar
   id: id as CardId,
   template: "recognize",
   queue,
-  due: 0,
+  due: new Date(0),
   interval,
   leech: false
 })
 
 const phrase = (id: string, cards: ReadonlyArray<CardSummary>): Note => ({
   id: noteId(id),
-  createdAt: 0,
+  createdAt: new Date(0),
   content: {
     kind: "phrase",
     text: id,
@@ -43,7 +43,7 @@ const item = (id: string, note: string, queue: CardSummary["queue"], interval = 
 const queue = (items: ReadonlyArray<ReviewItem>, counts = { new: 1, learning: 1, review: 1 }): ReviewQueue => ({
   items,
   counts,
-  nextDue: 50
+  nextDue: new Date(50)
 })
 
 const stats = (over: Partial<StudyStats> = {}): StudyStats => ({
@@ -84,7 +84,7 @@ describe("removing a saved note from the cached collection", () => {
       ["c-review"]
     )
     assert.deepStrictEqual(after.counts, { new: 0, learning: 0, review: 1 })
-    assert.strictEqual(after.nextDue, 50)
+    assert.deepStrictEqual(after.nextDue, new Date(50))
   })
 
   it("does not lower due counts for a card that was not in the queue", () => {

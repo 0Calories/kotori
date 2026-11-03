@@ -127,13 +127,13 @@ data/
 flowchart LR
   subgraph App["Expo app (iOS / Android / web)"]
     AC[Better Auth client<br/>+ expo plugin<br/>SecureStore / browser cookies]
-    KC[Kotori API client<br/>typed from @kotori/domain]
+    KC[Kotori API client<br/>typed from @kotori/contracts]
     SP[SessionProvider<br/>signedOut · pending · ready]
     SP --> AC
     SP --> KC
   end
 
-  subgraph API["apps/api (Effect, one Node process)"]
+  subgraph API["apps/backend: HTTP entry point (Effect)"]
     BA["/api/auth/*<br/>Better Auth handler"]
     MW["Authorization middleware<br/>getSession → JIT profile → approval gate"]
     H["KotoriApi handlers<br/>account · dictionary · coach · study · audio"]
@@ -142,7 +142,7 @@ flowchart LR
     MW --> H
   end
 
-  subgraph Worker["apps/worker"]
+  subgraph Worker["apps/backend: kotori CLI"]
     CLI[kotori requests / approve / archive]
     APR[Approvals service]
     CLI --> APR --> MAIL
