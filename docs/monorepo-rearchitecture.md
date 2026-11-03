@@ -221,7 +221,7 @@ The six repositories are gone. Their SQL lives beside the feature that uses it, 
 functions taking the database handle, so a query's result type comes straight from the
 table. Three guardrails replace what the repositories bought:
 
-- **Tenancy.** A learner's queries take a `Learner` from `scopedToUser(db, userId)` and filter every table they touch with `learner.owns(table, …)`. Whose data a query reads is in its signature, and writes that name a row check it is the learner's (answering another learner's card writes nothing). Tests pin that one learner can't read, answer or delete another's data.
+- **Tenancy.** A learner's queries take a `Learner` from `scopedToUser(db, userId)` and filter by its user id: `learner.owns(table, …)` in the SQL builder, `where: { userId: learner.userId }` in the two relational reads of notes with their cards. Whose data a query reads is in its signature, and writes that name a row check it is the learner's (answering another learner's card writes nothing). Tests pin that one learner can't read, answer or delete another's data.
 - **Feature encapsulation.** Each feature's `index.ts` lists what other features and the entry points may call; nothing outside a feature imports its `queries.ts`. This is a review convention: features are folders in one project, so no lint rule can see them.
 - **Transactions.** Multi-table writes run in one transaction at the query: a note with its card, an answer with its review log, an account's profile with its Managed Auth identity, and coach usage, where the learner's row is locked so concurrent requests can't both take the last slot. Each has a rollback test.
 

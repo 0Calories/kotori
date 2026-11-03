@@ -7,8 +7,9 @@ type LearnerTable = typeof notes | typeof cards | typeof reviewLogs | typeof coa
 
 /**
  * The database as one learner sees it. Queries on a learner's data take this instead of the bare
- * handle and filter each table they touch through `owns`, so whose data a query reads is in its
- * signature, and forgetting the condition takes deliberately reaching past it.
+ * handle and filter each table they touch through `owns` (relational reads by `userId`), so whose
+ * data a query reads is in its signature, and forgetting the condition takes deliberately reaching
+ * past it.
  */
 export interface Learner {
   readonly db: DatabaseShape
