@@ -146,7 +146,8 @@ export class StudyApi extends HttpApiGroup.make("study")
   .prefix("/study") {}
 
 export const SpeakRequest = Schema.Struct({
-  text: Schema.String.pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(200))),
+  // Long enough for a dictionary example, short enough that one tap can't read a page aloud.
+  text: Schema.String.pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(1000))),
   language: Language
 })
 export type SpeakRequest = typeof SpeakRequest.Type

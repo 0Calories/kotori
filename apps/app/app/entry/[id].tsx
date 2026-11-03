@@ -20,6 +20,7 @@ import { Snow } from "../../src/components/Snow.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { posLabel, tagLabel } from "../../src/i18n/strings.ts"
+import { spokenHeadword } from "../../src/lib/audio.ts"
 import { findForm } from "../../src/lib/forms.ts"
 import { wordNote } from "../../src/lib/notes.ts"
 import { CONFIDENT, dictionaryTags, nuanceNotes, registerDisplay, registers } from "../../src/lib/nuance.ts"
@@ -431,6 +432,8 @@ export default function EntryScreen() {
   const forms = [data.headword, ...data.forms.map((form) => form.text), ...(language === "ja" ? [data.reading] : [])]
   const size = headwordSize(data.headword, language)
   const headwordAudio = data.audioUrl
+  const spoken = spokenHeadword(data)
+  const canListen = headwordAudio !== null || spoken.length > 0
   // Words with nothing from Kotori yet get a plain header, with the part of speech among the details.
   const plain = !byAi && !waiting
   const meta = [reading, data.common ? t.dictionary.common : null, plain ? partOfSpeech : null].filter(
@@ -538,9 +541,15 @@ export default function EntryScreen() {
             {t.entry.inflections}: {inflections.map((form) => form.text).join(", ")}
           </Text>
         ) : null}
-        {plain && !headwordAudio ? null : (
+        {plain && !canListen ? null : (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14, minHeight: 44 }}>
-            {headwordAudio ? <AudioButton url={headwordAudio} label={t.common.listen} /> : null}
+            {canListen ? (
+              <AudioButton
+                url={headwordAudio}
+                label={t.common.listen}
+                {...(headwordAudio === null ? { speak: { text: spoken, language } } : {})}
+              />
+            ) : null}
             <View style={{ flex: 1 }} />
             {partOfSpeech && !plain ? (
               <Text variant="caption" size={13.5} color="textMuted">

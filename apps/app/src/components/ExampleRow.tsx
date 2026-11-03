@@ -1,5 +1,6 @@
 import type { Example, Language } from "@kotori/contracts"
 import { View } from "react-native"
+import { spokenExample } from "../lib/audio.ts"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { AudioButton } from "./AudioButton.tsx"
 import { Furigana } from "./Furigana.tsx"
@@ -25,6 +26,8 @@ export const ExampleRow = ({
   const theme = useTheme()
   const english = language === "en"
   const note = english ? example.noteJa : example.note
+  const clip = english ? example.translationAudioUrl : example.audioUrl
+  const spoken = spokenExample(example, language)
   return (
     <View
       style={{
@@ -71,7 +74,7 @@ export const ExampleRow = ({
           </View>
         ) : null}
       </View>
-      <AudioButton url={english ? example.translationAudioUrl : example.audioUrl} />
+      <AudioButton url={clip} {...(clip === null && spoken.length > 0 ? { speak: { text: spoken, language } } : {})} />
     </View>
   )
 }
