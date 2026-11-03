@@ -27,7 +27,7 @@ import {
 import { Clock, Context, Effect, Layer, Option } from "effect"
 import { Database } from "../../db/Database.ts"
 import { entryClips, exampleClips } from "../audio/index.ts"
-import type { ExampleRow } from "../enrichment/index.ts"
+import type { ExampleRow, JobKind } from "../enrichment/index.ts"
 import { examplesFor, loanWordsFor, nuanceFor, senseNotesFor, similarFor } from "../enrichment/index.ts"
 import { enqueueJob, jobStatusFor, refillJob, requeueJob } from "../enrichment/index.ts"
 import type { FormMatch, GlossMatch } from "./queries.ts"
@@ -477,20 +477,28 @@ export class Dictionary extends Context.Service<
 
         if (enqueue) {
           const before = yield* jobStatusFor(db, entry.id)
+          const retryWindow = new Date(now.getTime() - WARNING_RETRY_AFTER)
+          // A job that already ran out of attempts stays `failed` while the entry is polled so its
+          // status reports `unavailable` and the app stops polling; a later look gives it a new try.
+          const queueOrRetry = (kind: JobKind) =>
+            before.get(kind) === "failed"
+              ? refillJob(db, kind, entry.id, retryWindow, ON_DEMAND, now)
+              : enqueueJob(db, kind, entry.id, ON_DEMAND, now)
+
           if (jev.configured) {
             // Enqueueing a finished job is a no-op, so one that judged with an older question set is
             // queued again; saving replaces every row of the entry, so it runs once per version.
             if (outdated && before.get("nuance") === "done") {
               yield* requeueJob(db, "nuance", entry.id, ON_DEMAND, now)
             } else if (!hasNuance || outdated) {
-              yield* enqueueJob(db, "nuance", entry.id, ON_DEMAND, now)
+              yield* queueOrRetry("nuance")
             } else if (coachAvailable && awaitsWarning(loan) && before.get("nuance") === "done") {
               // A drifted loan judged while Claude was unavailable has no warning: the job writes
               // just that, without Jev. Not on every look, in case Claude still can't write it.
-              yield* refillJob(db, "nuance", entry.id, new Date(now.getTime() - WARNING_RETRY_AFTER), ON_DEMAND, now)
+              yield* refillJob(db, "nuance", entry.id, retryWindow, ON_DEMAND, now)
             }
           }
-          if (!hasExamples && coachAvailable) yield* enqueueJob(db, "examples", entry.id, ON_DEMAND, now)
+          if (!hasExamples && coachAvailable) yield* queueOrRetry("examples")
           // The worker re-runs audio once example sentences exist, so they get voiced too. A finished
           // job can still leave gaps (sentences written after it ran), so it runs again to fill
           // them, but at most once an hour, in case the gap is one the worker can't fill.
@@ -499,7 +507,7 @@ export class Dictionary extends Context.Service<
             if (before.get("audio") === "done") {
               yield* refillJob(db, "audio", entry.id, new Date(now.getTime() - REFILL_AFTER), ON_DEMAND, now)
             } else {
-              yield* enqueueJob(db, "audio", entry.id, ON_DEMAND, now)
+              yield* queueOrRetry("audio")
             }
           }
         }

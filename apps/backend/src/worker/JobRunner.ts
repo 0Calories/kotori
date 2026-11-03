@@ -37,11 +37,12 @@ export const makeJobRunner = Effect.fn("makeJobRunner")(function* (kinds: Readon
         const finishedAt = yield* Clock.currentTimeMillis
         const finished = new Date(finishedAt)
         if (Exit.isSuccess(exit)) {
-          yield* completeJob(db, id, finished)
-          yield* Effect.logInfo(`${kind} ${entryId}: ${exit.value}`)
-          // New example sentences need voicing too.
+          // New example sentences need voicing too; queue audio before marking examples done so a
+          // concurrent poll never sees the new examples with audio already settled.
           if (kind === "examples" && kinds.includes("audio"))
             yield* requeueJob(db, "audio", entryId, priority, finished)
+          yield* completeJob(db, id, finished)
+          yield* Effect.logInfo(`${kind} ${entryId}: ${exit.value}`)
         } else if (Cause.hasInterrupts(exit.cause)) {
           yield* releaseJob(db, id, finished)
           yield* Effect.logInfo(`${kind} ${entryId}: interrupted, back in the queue`)

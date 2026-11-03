@@ -19,7 +19,14 @@ import { Database } from "../src/db/Database.ts"
 import { linkEntryAudio, linkExampleAudio, saveAudio } from "../src/features/audio/queries.ts"
 import { Dictionary } from "../src/features/dictionary/Dictionary.ts"
 import { insertEntries, saveTags } from "../src/features/dictionary/queries.ts"
-import { claimJob, completeJob, type JobKind, enqueueJob, jobStatusFor } from "../src/features/enrichment/jobs.ts"
+import {
+  claimJob,
+  completeJob,
+  type JobKind,
+  enqueueJob,
+  failJob,
+  jobStatusFor
+} from "../src/features/enrichment/jobs.ts"
 import {
   examplesFor,
   saveExamples,
@@ -403,6 +410,35 @@ layer(testLayer(false))("Dictionary", (it) => {
       yield* TestClock.setTime(10 * hour)
       assert.strictEqual(yield* audioStatus, "ready")
       assert.strictEqual((yield* jobStatusFor(db, EntryId.make(20))).get("audio"), "done")
+    })
+  )
+
+  it.effect("reports a failed audio job as unavailable so polling stops, then retries after ten minutes", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      const id = EntryId.make(21)
+      const minute = 60 * 1000
+      const audioStatus = Effect.map(dictionary.requestEnrichment(id), (s) => Option.getOrThrow(s).audio)
+      yield* insertEntries(db, [entry(21, "爆睡", "ばくすい", [sense(["sleeping like a log"], ["n", "vs"])])])
+
+      // First look queues audio; all three worker attempts fail.
+      yield* TestClock.setTime(0)
+      assert.strictEqual(yield* audioStatus, "queued")
+      for (const tick of [1000, 2000, 3000]) {
+        const claimed = Option.getOrThrow(yield* claimJob(db, ["audio"], new Date(tick)))
+        yield* failJob(db, claimed.id, "budget reached", new Date(tick + 500), new Date(tick))
+      }
+
+      // A poll 3 seconds later sees unavailable instead of reviving the failed job in a loop.
+      yield* TestClock.setTime(6000)
+      assert.strictEqual(yield* audioStatus, "unavailable")
+      assert.strictEqual((yield* jobStatusFor(db, id)).get("audio"), "failed")
+
+      // Ten minutes later, a fresh visit gives the job another try.
+      yield* TestClock.setTime(11 * minute)
+      assert.strictEqual(yield* audioStatus, "queued")
+      assert.strictEqual((yield* jobStatusFor(db, id)).get("audio"), "queued")
     })
   )
 })

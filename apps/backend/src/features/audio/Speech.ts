@@ -6,7 +6,8 @@ import { Database } from "../../db/Database.ts"
 import { AudioStore } from "./AudioStore.ts"
 import { audioCharactersSince, findAudio, saveAudio } from "./queries.ts"
 
-const MONTH = 30 * 24 * 60 * 60 * 1000
+export const AUDIO_BUDGET_WINDOW = 30 * 24 * 60 * 60 * 1000
+export const DEFAULT_AUDIO_MONTHLY_CHARS = 500_000
 
 /**
  * Kotori's library of speech clips. A clip is content-addressed by voice, model, language and
@@ -30,7 +31,9 @@ export class Speech extends Context.Service<
       const pronouncer = yield* Pronouncer
       const store = yield* AudioStore
       const db = yield* Database
-      const budget = yield* Config.Int("KOTORI_AUDIO_MONTHLY_CHARS").pipe(Config.withDefault(50_000))
+      const budget = yield* Config.Int("KOTORI_AUDIO_MONTHLY_CHARS").pipe(
+        Config.withDefault(DEFAULT_AUDIO_MONTHLY_CHARS)
+      )
 
       const keyFor = (text: string, language: Language, providerId: string) =>
         createHash("sha256").update([providerId, pronouncer.model, language, text].join("\n")).digest("hex")
@@ -46,7 +49,7 @@ export class Speech extends Context.Service<
         if (Option.isSome(cached) && (yield* store.exists(key))) return key
 
         const now = yield* Clock.currentTimeMillis
-        const used = yield* audioCharactersSince(db, new Date(now - MONTH))
+        const used = yield* audioCharactersSince(db, new Date(now - AUDIO_BUDGET_WINDOW))
         if (used + normalized.length > budget) {
           return yield* new TtsError({
             reason: "quota",
