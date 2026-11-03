@@ -152,10 +152,12 @@ const runViewport = async (browser, viewport, touch) => {
   try {
     await openSignUp(page)
     for (const [name, step] of steps) {
+      const label = typeof name === "string" ? name : "step"
       try {
         await step(page)
       } catch (error) {
-        fail(`${viewport.name} / ${name}: ${error instanceof Error ? error.message : String(error)}`)
+        const message = error instanceof Error ? error.message : String(error)
+        fail(`${viewport.name} / ${label}: ${message}`)
       }
     }
   } finally {
