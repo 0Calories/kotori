@@ -42,6 +42,7 @@ import {
   nextPosition,
   noteCount,
   type NoteRow,
+  type NoteDeletion,
   notesWithCards,
   noteWithCards,
   queueCounts,
@@ -103,7 +104,7 @@ export class Study extends Context.Service<
   {
     notes(user: Profile): Effect.Effect<ReadonlyArray<Note>>
     addNote(user: Profile, request: AddNoteRequest): Effect.Effect<Note>
-    removeNote(user: Profile, id: NoteId): Effect.Effect<boolean>
+    removeNote(user: Profile, id: NoteId): Effect.Effect<NoteDeletion>
     queue(user: Profile, limit: number): Effect.Effect<ReviewQueue>
     answer(
       user: Profile,
@@ -203,7 +204,8 @@ export class Study extends Context.Service<
         }))
         const queueCounts: QueueCounts = { new: fresh.length, learning: learning.length, review: reviews.length }
         const nextDue = items.length === 0 ? Option.getOrNull(yield* nextLearningDue(learnerOf(user))) : null
-        return { items, counts: queueCounts, nextDue }
+        const dueCards = ordered.map(({ noteId, queue }) => ({ noteId, queue }))
+        return { items, counts: queueCounts, dueCards, nextDue }
       })
 
       const answer = Effect.fn("Study.answer")(function* (

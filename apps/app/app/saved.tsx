@@ -9,6 +9,7 @@ import { Card } from "../src/components/Card.tsx"
 import { Chip } from "../src/components/Chip.tsx"
 import { Headword } from "../src/components/Headword.tsx"
 import { PressableScale } from "../src/components/PressableScale.tsx"
+import { removalErrorText, RemoveNoteConfirm } from "../src/components/RemoveNote.tsx"
 import { Header, Screen } from "../src/components/Screen.tsx"
 import { Segmented } from "../src/components/Segmented.tsx"
 import { ErrorState, MascotMessage } from "../src/components/States.tsx"
@@ -20,42 +21,78 @@ const NoteRow = ({ note }: { readonly note: Note }) => {
   const router = useRouter()
   const { t } = useSession()
   const remove = useRemoveNote()
+  const [confirming, setConfirming] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const content = note.content
   const learning = note.cards.some((card) => card.queue !== "new")
   const leech = note.cards.some((card) => card.leech)
+
+  const confirm = async () => {
+    setError(null)
+    try {
+      await remove.mutateAsync(note.id)
+    } catch (caught) {
+      setError(removalErrorText(t, caught))
+    }
+  }
+
   return (
     <Animated.View exiting={FadeOut.duration(180)} layout={LinearTransition.duration(200)}>
-      <PressableScale
-        scaleTo={0.985}
-        disabled={content.kind !== "word"}
-        onPress={() =>
-          content.kind === "word" && router.push({ pathname: "/entry/[id]", params: { id: String(content.entryId) } })
-        }
-      >
-        <Card style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <View style={{ flex: 1, gap: 4 }}>
+      <Card style={confirming ? { gap: theme.space.md } : { flexDirection: "row", alignItems: "center", gap: 12 }}>
+        {confirming ? (
+          <>
             {content.kind === "word" ? (
-              <Headword
-                language={content.language ?? "ja"}
-                size={content.language === "en" ? 21 : 24}
-                style={{ lineHeight: 30 }}
-              >
+              <Headword language={content.language ?? "ja"} size={content.language === "en" ? 21 : 24}>
                 {content.headword}
               </Headword>
             ) : (
               <Text variant="heading">{content.text}</Text>
             )}
-            <Text variant="small" color="textMuted" numberOfLines={2}>
-              {content.meaning}
-            </Text>
-            <View style={{ flexDirection: "row", gap: 6 }}>
-              <Chip tone={learning ? "primary" : "neutral"} label={learning ? t.review.learning : t.review.new} />
-              {leech ? <Chip tone="accent" icon="error" label="leech" /> : null}
-            </View>
-          </View>
-          <IconButton icon="delete" label={t.saved.remove} size={40} onPress={() => remove.mutate(note.id)} />
-        </Card>
-      </PressableScale>
+            <RemoveNoteConfirm
+              busy={remove.isPending}
+              error={error}
+              onConfirm={() => void confirm()}
+              onCancel={() => {
+                if (remove.isPending) return
+                setConfirming(false)
+                setError(null)
+              }}
+            />
+          </>
+        ) : (
+          <>
+            <PressableScale
+              scaleTo={0.985}
+              disabled={content.kind !== "word"}
+              onPress={() =>
+                content.kind === "word" &&
+                router.push({ pathname: "/entry/[id]", params: { id: String(content.entryId) } })
+              }
+              style={{ flex: 1, gap: 4 }}
+            >
+              {content.kind === "word" ? (
+                <Headword
+                  language={content.language ?? "ja"}
+                  size={content.language === "en" ? 21 : 24}
+                  style={{ lineHeight: 30 }}
+                >
+                  {content.headword}
+                </Headword>
+              ) : (
+                <Text variant="heading">{content.text}</Text>
+              )}
+              <Text variant="small" color="textMuted" numberOfLines={2}>
+                {content.meaning}
+              </Text>
+              <View style={{ flexDirection: "row", gap: 6 }}>
+                <Chip tone={learning ? "primary" : "neutral"} label={learning ? t.review.learning : t.review.new} />
+                {leech ? <Chip tone="accent" icon="error" label="leech" /> : null}
+              </View>
+            </PressableScale>
+            <IconButton icon="delete" label={t.saved.remove} size={40} onPress={() => setConfirming(true)} />
+          </>
+        )}
+      </Card>
     </Animated.View>
   )
 }

@@ -5,11 +5,15 @@ import type {
   HowToSayRequest,
   Language,
   NaturalnessRequest,
+  Note,
   NoteId,
   Rating,
-  SpeakRequest
+  ReviewQueue,
+  SpeakRequest,
+  StudyStats
 } from "@kotori/contracts"
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { queueWithoutNote, statsWithoutNote, withoutNote } from "../lib/collection.ts"
 import { call } from "./client.ts"
 
 export const keys = {
@@ -66,10 +70,30 @@ export const useAddNote = () => {
 }
 
 export const useRemoveNote = () => {
+  const client = useQueryClient()
   const invalidate = useInvalidateStudy()
   return useMutation({
     mutationFn: (id: NoteId) => call((api) => api.study.removeNote({ params: { id } })),
-    onSuccess: invalidate
+    onSuccess: async (_result, id) => {
+      // Drop the note before the refetch returns, so the collection, the queue
+      // and the due counts move together. Cancel in-flight reads first: one that
+      // started before the delete would put the note back.
+      await Promise.all([
+        client.cancelQueries({ queryKey: keys.notes }),
+        client.cancelQueries({ queryKey: keys.queue }),
+        client.cancelQueries({ queryKey: keys.stats })
+      ])
+      const notes = client.getQueryData<ReadonlyArray<Note>>(keys.notes)
+      const note = notes?.find((row) => row.id === id)
+      const queue = client.getQueryData<ReviewQueue>(keys.queue)
+      if (notes !== undefined) client.setQueryData(keys.notes, withoutNote(notes, id))
+      if (queue !== undefined) client.setQueryData(keys.queue, queueWithoutNote(queue, id))
+      if (note !== undefined) {
+        const stats = client.getQueryData<StudyStats>(keys.stats)
+        if (stats !== undefined) client.setQueryData(keys.stats, statsWithoutNote(stats, note, queue))
+      }
+      invalidate()
+    }
   })
 }
 

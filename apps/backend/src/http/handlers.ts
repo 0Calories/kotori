@@ -116,7 +116,9 @@ const StudyHandlers = HttpApiBuilder.group(
       removeNote: ({ params }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          if (!(yield* study.removeNote(user.profile, params.id))) {
+          // Already gone is success, so deleting twice does not fail. Someone else's
+          // note is NotFound and is left in place.
+          if ((yield* study.removeNote(user.profile, params.id)) === "forbidden") {
             return yield* new NotFound({ message: "No such note" })
           }
         }),

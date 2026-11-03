@@ -9,7 +9,7 @@ import { Database } from "../src/db/Database.ts"
 import { scopedToUser } from "../src/db/scopedToUser.ts"
 import { updateUser, userById } from "../src/features/accounts/queries.ts"
 import { insertEntries } from "../src/features/dictionary/queries.ts"
-import { noteCount } from "../src/features/study/queries.ts"
+import { cardWithContent, noteCount, studyDays } from "../src/features/study/queries.ts"
 import { AuthorizationLive } from "../src/http/Authorization.ts"
 import { AllHandlers } from "../src/http/handlers.ts"
 import { Auth, TestAuth } from "../src/integrations/auth/Auth.ts"
@@ -287,6 +287,100 @@ layer(TestLayer)("Kotori API", (it) => {
 
       yield* api.study.removeNote({ params: { id: note.id } })
       assert.deepStrictEqual(yield* api.study.notes(), [])
+    }).pipe(Effect.provide(Session))
+  )
+
+  it.effect("returns every counted card even when the queue page is smaller", () =>
+    Effect.gen(function* () {
+      yield* signedIn("queue-membership@example.com")
+      const api = yield* client
+      yield* api.account.update({ payload: { dailyNewLimit: 2 } })
+      const saved = []
+      for (const text of ["first", "second", "limited out"]) {
+        saved.push(
+          yield* api.study.addNote({
+            payload: {
+              content: {
+                kind: "phrase",
+                text,
+                meaning: text,
+                furigana: null,
+                note: null,
+                register: null,
+                source: "manual"
+              }
+            }
+          })
+        )
+      }
+      const queue = yield* api.study.queue({ query: { limit: 1 } })
+      assert.strictEqual(queue.items.length, 1)
+      assert.deepStrictEqual(queue.counts, { new: 2, learning: 0, review: 0 })
+      assert.deepStrictEqual(
+        queue.dueCards,
+        saved.slice(0, 2).map((note) => ({ noteId: note.id, queue: "new" }))
+      )
+    }).pipe(Effect.provide(Session))
+  )
+
+  it.effect("deletes a note for its owner only, along with the card and review log", () =>
+    Effect.gen(function* () {
+      const owner = yield* signedIn("remove-owner@example.com")
+      const api = yield* client
+      const db = yield* Database
+      const own = scopedToUser(db, owner.id)
+      const phrase = {
+        kind: "phrase" as const,
+        text: "お邪魔します",
+        furigana: null,
+        meaning: "excuse me",
+        note: null,
+        register: "polite" as const,
+        source: "manual" as const
+      }
+      const note = yield* api.study.addNote({ payload: { content: phrase } })
+      const cardId = note.cards[0]!.id
+      yield* api.study.answer({ params: { id: cardId }, payload: { rating: "good" } })
+      assert.isAtLeast((yield* studyDays(own)).length, 1)
+
+      // No session: refused before the note is looked up.
+      const ownerCookie = owner.cookie
+      cookie = null
+      bearer = null
+      assert.strictEqual(
+        (yield* api.study.removeNote({ params: { id: note.id } }).pipe(Effect.flip))._tag,
+        "Unauthorized"
+      )
+
+      // A different learner gets NotFound, and the note is still there.
+      const other = yield* signedIn("remove-other@example.com")
+      const denied = yield* api.study.removeNote({ params: { id: note.id } }).pipe(Effect.flip)
+      assert.strictEqual(denied._tag, "NotFound")
+      const kept = yield* api.study.addNote({ payload: { content: { ...phrase, text: "失礼します" } } })
+
+      cookie = ownerCookie
+      assert.strictEqual((yield* api.study.notes()).map((row) => row.id).join(), note.id)
+      yield* api.study.removeNote({ params: { id: note.id } })
+      assert.deepStrictEqual(yield* api.study.notes(), [])
+      assert.deepStrictEqual((yield* api.study.queue({ query: {} })).counts, { new: 0, learning: 0, review: 0 })
+      const stats = yield* api.study.stats()
+      assert.strictEqual(stats.notes, 0)
+      assert.strictEqual(stats.cards, 0)
+      assert.deepStrictEqual(stats.due, { new: 0, learning: 0, review: 0 })
+      assert.isTrue(Option.isNone(yield* cardWithContent(own, cardId)))
+      assert.deepStrictEqual(yield* studyDays(own), [])
+      assert.strictEqual(yield* noteCount(own), 0)
+
+      // Deleting again, or deleting an id that was never saved, is a success.
+      yield* api.study.removeNote({ params: { id: note.id } })
+      yield* api.study.removeNote({ params: { id: "00000000-0000-4000-8000-000000000099" as typeof note.id } })
+
+      cookie = other.cookie
+      assert.deepStrictEqual(
+        (yield* api.study.notes()).map((row) => row.id),
+        [kept.id]
+      )
+      assert.isTrue(Option.isSome(yield* cardWithContent(scopedToUser(db, other.id), kept.cards[0]!.id)))
     }).pipe(Effect.provide(Session))
   )
 

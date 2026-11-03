@@ -297,7 +297,12 @@ const en = {
     title: "Saved",
     words: "Words",
     phrases: "Phrases",
-    remove: "Remove"
+    remove: "Remove from deck",
+    removeTitle: "Remove this from your deck?",
+    removeBody: "Its cards and the review history for them are deleted. This can't be undone.",
+    removeConfirm: "Remove",
+    removing: "Removing…",
+    removeFailed: "Couldn't remove it. Try again."
   },
   settings: {
     title: "Settings",
@@ -670,7 +675,17 @@ const ja: Strings = {
     finish: "終わる",
     remaining: "残り"
   },
-  saved: { title: "保存済み", words: "単語", phrases: "フレーズ", remove: "削除" },
+  saved: {
+    title: "保存済み",
+    words: "単語",
+    phrases: "フレーズ",
+    remove: "デッキから削除",
+    removeTitle: "デッキから削除しますか？",
+    removeBody: "このノートのカードと、その復習の記録も削除されます。元に戻せません。",
+    removeConfirm: "削除する",
+    removing: "削除しています…",
+    removeFailed: "削除できませんでした。もう一度お試しください。"
+  },
   settings: {
     title: "設定",
     learning: "勉強している言語",

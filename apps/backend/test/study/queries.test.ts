@@ -1,5 +1,5 @@
 import { assert, layer } from "@effect/vitest"
-import { CardId, UserId } from "@kotori/contracts"
+import { CardId, NoteId, UserId } from "@kotori/contracts"
 import { reviewLogs } from "@kotori/db"
 import { count, eq, sql } from "drizzle-orm"
 import { Effect, Exit, Option } from "effect"
@@ -126,7 +126,7 @@ layer(DatabaseMemory)("study queries", (it) => {
       assert.strictEqual(yield* nextPosition(own), 1)
       assert.deepStrictEqual(yield* reviewDueTimes(own, at(100_000)), [at(99_999)])
 
-      assert.isTrue(yield* deleteNote(own, N1))
+      assert.strictEqual(yield* deleteNote(own, N1), "deleted")
       assert.isTrue(Option.isNone(yield* cardWithContent(own, C2)))
       assert.strictEqual(yield* noteCount(own), 0)
     })
@@ -150,13 +150,59 @@ layer(DatabaseMemory)("study queries", (it) => {
       assert.deepStrictEqual(yield* reviewDue(other, at(1000), 10), [])
       assert.strictEqual(yield* noteCount(other), 0)
       // Neither deleting nor answering reaches another learner's data.
-      assert.isFalse(yield* deleteNote(other, N1))
+      assert.strictEqual(yield* deleteNote(other, N1), "forbidden")
       assert.isFalse(yield* answerCard(other, C1, { interval: 30 }, answer))
       assert.strictEqual(Option.getOrThrow(yield* cardWithContent(own, C1)).interval, 3)
       assert.strictEqual(yield* countAnswers(other, answer.studyDay), 0)
       assert.strictEqual(yield* countAnswers(own, answer.studyDay), 0)
 
-      assert.isTrue(yield* deleteNote(own, N1))
+      assert.strictEqual(yield* deleteNote(own, N1), "deleted")
+    })
+  )
+
+  it.effect("deletes every card and review log only for the owner, and accepts missing notes", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      yield* ensureUser(db, learner)
+      yield* ensureUser(db, { ...learner, id: U2 })
+      const own = scopedToUser(db, U1)
+      const other = scopedToUser(db, U2)
+      const removedId = NoteId.make("00000000-0000-4000-8000-00000000000d")
+      const keptId = NoteId.make("00000000-0000-4000-8000-00000000000e")
+      const removedCards = [
+        CardId.make("00000000-0000-4000-8000-0000000000c7"),
+        CardId.make("00000000-0000-4000-8000-0000000000c8")
+      ]
+      const keptCard = CardId.make("00000000-0000-4000-8000-0000000000c9")
+      yield* insertNote(own, { id: removedId, kind: "phrase", content: phrase("いただきます"), createdAt: at(0) }, [
+        card(removedCards[0]!, "review", 0),
+        card(removedCards[1]!, "review", 0, "produce")
+      ])
+      yield* insertNote(other, { id: keptId, kind: "phrase", content: phrase("ごちそうさま"), createdAt: at(0) }, [
+        card(keptCard, "review", 0)
+      ])
+      for (const cardId of removedCards) yield* answerCard(own, cardId, { reps: 1 }, answer)
+      yield* answerCard(other, keptCard, { reps: 1 }, answer)
+      const logsFor = (cardId: CardId) => db.$count(reviewLogs, eq(reviewLogs.cardId, cardId))
+
+      assert.strictEqual(yield* deleteNote(other, removedId), "forbidden")
+      assert.isTrue((yield* notesWithCards(own)).some((note) => note.id === removedId))
+      for (const cardId of removedCards) {
+        assert.isTrue(Option.isSome(yield* cardWithContent(own, cardId)))
+        assert.strictEqual(yield* logsFor(cardId), 1)
+      }
+
+      assert.strictEqual(yield* deleteNote(own, removedId), "deleted")
+      assert.isFalse((yield* notesWithCards(own)).some((note) => note.id === removedId))
+      for (const cardId of removedCards) {
+        assert.isTrue(Option.isNone(yield* cardWithContent(own, cardId)))
+        assert.strictEqual(yield* logsFor(cardId), 0)
+      }
+      assert.isTrue(Option.isSome(yield* cardWithContent(other, keptCard)))
+      assert.strictEqual(yield* logsFor(keptCard), 1)
+      assert.strictEqual(yield* deleteNote(own, removedId), "absent")
+      assert.strictEqual(yield* deleteNote(own, NoteId.make("00000000-0000-4000-8000-000000000099")), "absent")
+      yield* deleteNote(other, keptId)
     })
   )
 
@@ -194,7 +240,7 @@ layer(DatabaseMemory)("study queries", (it) => {
       assert.strictEqual(Option.getOrThrow(yield* cardWithContent(own, C1)).interval, 3)
       assert.strictEqual(yield* countAnswers(own, answer.studyDay), 0)
 
-      assert.isTrue(yield* deleteNote(own, N1))
+      assert.strictEqual(yield* deleteNote(own, N1), "deleted")
     })
   )
 
@@ -282,7 +328,7 @@ layer(DatabaseMemory)("study queries", (it) => {
       assert.strictEqual(Option.getOrThrow(yield* cardWithContent(own, C3)).template, "recognize")
       assert.strictEqual(yield* logsFor(C3), 1)
 
-      assert.isTrue(yield* deleteNote(own, N2))
+      assert.strictEqual(yield* deleteNote(own, N2), "deleted")
     })
   )
 })

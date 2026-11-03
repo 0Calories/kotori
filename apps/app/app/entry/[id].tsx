@@ -3,7 +3,7 @@ import { Link, useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { Platform, Share, View } from "react-native"
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated"
-import { useAddNote, useEnrich, useEntry, useNotes } from "../../src/api/queries.ts"
+import { useAddNote, useEnrich, useEntry, useNotes, useRemoveNote } from "../../src/api/queries.ts"
 import { AudioButton } from "../../src/components/AudioButton.tsx"
 import { Button, IconButton } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
@@ -14,6 +14,7 @@ import { Icon } from "../../src/components/Icon.tsx"
 import { Mascot } from "../../src/components/Mascot.tsx"
 import { NuanceScales } from "../../src/components/NuanceScales.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
+import { removalErrorText, RemoveNoteDialog } from "../../src/components/RemoveNote.tsx"
 import { Header, Screen, Section } from "../../src/components/Screen.tsx"
 import { Snow } from "../../src/components/Snow.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
@@ -134,7 +135,9 @@ const SenseCard = ({
   showScales,
   saved,
   onSave,
-  saving
+  saving,
+  removing,
+  onRemove
 }: {
   readonly sense: Sense
   readonly number: number
@@ -150,6 +153,8 @@ const SenseCard = ({
   readonly saved: boolean
   readonly onSave: () => void
   readonly saving: boolean
+  readonly removing: boolean
+  readonly onRemove: () => void
 }) => {
   const theme = useTheme()
   const { t } = useSession()
@@ -198,8 +203,8 @@ const SenseCard = ({
               icon="bookmark"
               filled={saved}
               size={40}
-              label={saved ? t.entry.saved : t.entry.save}
-              onPress={saved || saving ? undefined : onSave}
+              label={saved ? t.saved.remove : t.entry.save}
+              onPress={removing ? undefined : saved ? onRemove : saving ? undefined : onSave}
             />
           </View>
         </View>
@@ -328,9 +333,12 @@ export default function EntryScreen() {
   const entry = useEntry(id ?? 0)
   const notes = useNotes()
   const addNote = useAddNote()
+  const removeNote = useRemoveNote()
   const enrich = useEnrich(id ?? 0)
   const [showAll, setShowAll] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [removingSense, setRemovingSense] = useState<number | null>(null)
+  const [removeError, setRemoveError] = useState<string | null>(null)
   const back = () => (router.canGoBack() ? router.back() : router.replace("/"))
 
   if (id === null || entry.isError) {
@@ -355,6 +363,30 @@ export default function EntryScreen() {
       note.content.kind === "word" && note.content.entryId === data.id ? [note.content.senseIndex] : []
     )
   )
+  const savedNote = (senseIndex: number) =>
+    (notes.data ?? []).find(
+      (note) =>
+        note.content.kind === "word" && note.content.entryId === data.id && note.content.senseIndex === senseIndex
+    )
+  const beginRemove = (senseIndex: number) => {
+    setRemoveError(null)
+    setRemovingSense(senseIndex)
+  }
+  const confirmRemove = async () => {
+    if (removingSense === null || removeNote.isPending) return
+    const note = savedNote(removingSense)
+    if (note === undefined) {
+      setRemovingSense(null)
+      return
+    }
+    setRemoveError(null)
+    try {
+      await removeNote.mutateAsync(note.id)
+      setRemovingSense(null)
+    } catch (error) {
+      setRemoveError(removalErrorText(t, error))
+    }
+  }
   const save = (sense: Sense) => {
     const formality = sense.nuance && sense.nuance.formality.confidence >= CONFIDENT ? sense.nuance.formality : null
     const medium = sense.nuance && sense.nuance.medium.confidence >= CONFIDENT ? sense.nuance.medium : null
@@ -424,9 +456,13 @@ export default function EntryScreen() {
               <IconButton
                 icon="bookmark"
                 filled={savedSenses.has(0)}
-                label={savedSenses.has(0) ? t.entry.saved : t.entry.save}
+                label={savedSenses.has(0) ? t.saved.remove : t.entry.save}
                 onPress={
-                  savedSenses.has(0) || addNote.isPending || !data.senses[0] ? undefined : () => save(data.senses[0]!)
+                  removeNote.isPending || addNote.isPending || !data.senses[0]
+                    ? undefined
+                    : savedSenses.has(0)
+                      ? () => beginRemove(0)
+                      : () => save(data.senses[0]!)
                 }
               />
               {canShare ? (
@@ -441,6 +477,16 @@ export default function EntryScreen() {
         />
       }
     >
+      <RemoveNoteDialog
+        note={removingSense === null ? undefined : savedNote(removingSense)}
+        busy={removeNote.isPending}
+        error={removeError}
+        onConfirm={() => void confirmRemove()}
+        onCancel={() => {
+          setRemovingSense(null)
+          setRemoveError(null)
+        }}
+      />
       <Animated.View
         entering={FadeInDown.duration(350)}
         style={
@@ -557,7 +603,9 @@ export default function EntryScreen() {
               showScales={ownLine(sense)}
               saved={savedSenses.has(sense.index)}
               saving={addNote.isPending}
+              removing={removeNote.isPending}
               onSave={() => save(sense)}
+              onRemove={() => beginRemove(sense.index)}
             />
           </Animated.View>
         ))}

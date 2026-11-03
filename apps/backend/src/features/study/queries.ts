@@ -50,16 +50,35 @@ export const noteWithCards = (learner: Learner, noteId: NoteId) =>
     .findFirst({ where: { userId: learner.userId, id: noteId }, with: withCards })
     .pipe(Effect.map(Option.fromNullishOr), Effect.orDie)
 
-/** Whether a note was deleted; its cards and their reviews go with it. */
-export const deleteNote = (learner: Learner, noteId: NoteId) =>
-  learner.db
-    .delete(notes)
-    .where(learner.owns(notes, eq(notes.id, noteId)))
-    .returning({ id: notes.id })
-    .pipe(
-      Effect.map((rows) => rows.length > 0),
-      Effect.orDie
-    )
+/** The outcome of deleting a note: missing notes are already successfully removed. */
+export type NoteDeletion = "deleted" | "absent" | "forbidden"
+
+/** Deletes an owned note, all of its cards and their logs in one transaction. */
+export const deleteNote = Effect.fn("study.deleteNote")(function* (learner: Learner, noteId: NoteId) {
+  const { db, userId } = learner
+  return yield* db.transaction(() =>
+    Effect.gen(function* () {
+      // Inspect ownership to distinguish another learner's note from one already gone.
+      const [found] = yield* db.select({ userId: notes.userId }).from(notes).where(eq(notes.id, noteId)).limit(1)
+      if (found === undefined) return "absent" as const
+      if (found.userId !== userId) return "forbidden" as const
+
+      // The foreign keys also cascade; explicitly remove children to preserve this operation
+      // if those constraints change later. Every card on the note goes, including old reverse cards.
+      const cardRows = yield* db.select({ id: cards.id }).from(cards).where(eq(cards.noteId, noteId))
+      const cardIds = cardRows.map((row) => row.id)
+      if (cardIds.length > 0) {
+        yield* db.delete(reviewLogs).where(inArray(reviewLogs.cardId, cardIds))
+        yield* db.delete(cards).where(eq(cards.noteId, noteId))
+      }
+      const removed = yield* db
+        .delete(notes)
+        .where(learner.owns(notes, eq(notes.id, noteId)))
+        .returning({ id: notes.id })
+      return removed.length > 0 ? ("deleted" as const) : ("absent" as const)
+    })
+  )
+}, Effect.orDie)
 
 /** The learner's word notes for the given entries. */
 export const savedWords = Effect.fn("study.savedWords")(function* (learner: Learner, entryIds: ReadonlyArray<EntryId>) {
