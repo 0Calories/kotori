@@ -211,25 +211,9 @@ export const JAPANESE_CAST: ReadonlyArray<Voice<"ja">> = [
 
 export const ENGLISH_CAST: ReadonlyArray<Voice<"en">> = [
   {
-    id: "en-sarah",
-    language: "en",
-    providerId: "EXAVITQu4vr4xnSDxMaL",
-    name: "Sarah",
-    tags: {
-      gender: "feminine",
-      age: "adult",
-      variety: "american",
-      formality: ["neutral", "polite"],
-      medium: ["conversation", "narration"],
-      tone: ["warm"],
-      headword: true
-    },
-    description: "A warm adult woman with clear American English; everyday neutral and polite speech."
-  },
-  {
     id: "en-announcer",
     language: "en",
-    providerId: "9ZbFvrGBxO3uSmsw6wdI", // Walter, news anchor
+    providerId: null,
     name: "Announcer",
     tags: {
       gender: "masculine",
@@ -245,7 +229,7 @@ export const ENGLISH_CAST: ReadonlyArray<Voice<"en">> = [
   {
     id: "en-casual-f",
     language: "en",
-    providerId: "cgSgspJ2msm6clMCkdW9", // Jessica
+    providerId: "BZgkqPqms7Kj9ulSkVzn", // Eve
     name: "Casual young woman",
     tags: {
       gender: "feminine",
@@ -256,12 +240,28 @@ export const ENGLISH_CAST: ReadonlyArray<Voice<"en">> = [
       tone: ["bright"],
       headword: false
     },
-    description: "A bright young American woman chatting with friends; relaxed, slangy speech."
+    description: "A bright young American woman chatting with friends; relaxed, energetic, slangy speech."
   },
   {
     id: "en-casual-m",
     language: "en",
-    providerId: "bIHbv24MWmeRgasZH58o", // Will
+    providerId: "3LPKEa2TICTsITcoxL7H", // Arthur
+    name: "Casual man",
+    tags: {
+      gender: "masculine",
+      age: "adult",
+      variety: "american",
+      formality: ["casual", "neutral"],
+      medium: ["conversation", "narration"],
+      tone: ["warm"],
+      headword: true
+    },
+    description: "A warm adult American man in everyday conversation; relaxed, friendly speech."
+  },
+  {
+    id: "en-casual-m2",
+    language: "en",
+    providerId: "876MHA6EtWKaHTEGzjy5", // Murph
     name: "Casual young man",
     tags: {
       gender: "masculine",
@@ -269,7 +269,7 @@ export const ENGLISH_CAST: ReadonlyArray<Voice<"en">> = [
       variety: "american",
       formality: ["vulgar", "casual", "neutral"],
       medium: ["conversation"],
-      tone: ["rough"],
+      tone: ["calm"],
       headword: false
     },
     description: "An easygoing young American man talking with friends; relaxed, slangy speech."
@@ -277,23 +277,72 @@ export const ENGLISH_CAST: ReadonlyArray<Voice<"en">> = [
   {
     id: "en-british-m",
     language: "en",
-    providerId: "JBFqnCBsd6RMkjVDRZzb", // George
+    providerId: "NNl6r8mD7vthiJatiJt1", // Bradford
     name: "British narrator",
     tags: {
       gender: "masculine",
       age: "adult",
       variety: "british",
-      formality: ["neutral", "polite", "formal"],
+      formality: ["casual", "neutral", "polite"],
       medium: ["conversation", "narration"],
       tone: ["calm"],
       headword: true
     },
-    description: "A calm adult British man; for British-English sentences and measured narration."
+    description: "An articulate adult British man; for British-English sentences and expressive narration."
+  },
+  {
+    id: "en-british-m2",
+    language: "en",
+    providerId: "AeRdCCKzvd23BpJoofzx", // Nathaniel
+    name: "British storyteller",
+    tags: {
+      gender: "masculine",
+      age: "middle-aged",
+      variety: "british",
+      formality: ["neutral", "polite", "formal"],
+      medium: ["narration"],
+      tone: ["calm", "serious"],
+      headword: false
+    },
+    description:
+      "A calm middle-aged British man with a measured, reflective delivery; prose and formal British English."
+  },
+  {
+    id: "en-british-f",
+    language: "en",
+    providerId: "exsUS4vynmxd379XN4yO", // Blondie
+    name: "British woman",
+    tags: {
+      gender: "feminine",
+      age: "middle-aged",
+      variety: "british",
+      formality: ["casual", "neutral", "polite"],
+      medium: ["conversation", "narration"],
+      tone: ["warm"],
+      headword: false
+    },
+    description: "A warm middle-aged British woman in everyday conversation and friendly narration."
+  },
+  {
+    id: "en-australian-f",
+    language: "en",
+    providerId: "eR40ATw9ArzDf9h3v7t7", // Addison
+    name: "Australian woman",
+    tags: {
+      gender: "feminine",
+      age: "adult",
+      variety: "australian",
+      formality: ["casual", "neutral", "polite"],
+      medium: ["conversation", "narration"],
+      tone: ["warm"],
+      headword: true
+    },
+    description: "A relaxed, clear adult Australian woman; for Australian-English sentences and narration."
   },
   {
     id: "en-elder-f",
     language: "en",
-    providerId: "wGcFBfKz5yUQqhqr0mVy", // Maria Moody
+    providerId: null,
     name: "Elder narrator",
     tags: {
       gender: "feminine",

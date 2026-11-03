@@ -9,10 +9,10 @@ const FULL_CASTS: Casts = {
   en: ENGLISH_CAST.map((voice) => ({ ...voice, providerId: `fake-${voice.id}` }))
 }
 
-/** Only the two original dictionary voices cast, as before the rest of the cast was chosen. */
+/** Only one dictionary voice per language cast, as before the rest of the cast was chosen. */
 const DICTIONARY_ONLY: Casts = {
   ja: FULL_CASTS.ja.map((voice) => (voice.id === "ja-kyoko" ? voice : { ...voice, providerId: null })),
-  en: FULL_CASTS.en.map((voice) => (voice.id === "en-sarah" ? voice : { ...voice, providerId: null }))
+  en: FULL_CASTS.en.map((voice) => (voice.id === "en-casual-m" ? voice : { ...voice, providerId: null }))
 }
 
 const sense = (overrides: Partial<SenseSignals> = {}): SenseSignals => ({
@@ -118,12 +118,22 @@ describe("rank", () => {
   it("never casts a regional voice for a default-variety sentence", () => {
     const ranked = rank(briefFor(input({ formality: "casual" })), "ja", FULL_CASTS)
     expect(ranked.map(({ voice }) => voice.id)).not.toContain("ja-kansai-m")
-    const english = rank(briefFor(input({ formality: "neutral" })), "en", FULL_CASTS)
-    expect(english.map(({ voice }) => voice.id)).not.toContain("en-british-m")
+    const english = rank(briefFor(input({ formality: "neutral" })), "en", FULL_CASTS).map(({ voice }) => voice.id)
+    expect(english).not.toContain("en-british-m")
+    expect(english).not.toContain("en-british-m2")
+    expect(english).not.toContain("en-british-f")
+    expect(english).not.toContain("en-australian-f")
   })
 
-  it("reaches a British voice only when the sentence asks for it", () => {
+  it("reaches a British or Australian voice only when the sentence asks for it", () => {
     expect(topVoice(briefFor(input({ variety: "british", formality: "neutral" })), "en")).toBe("en-british-m")
+    expect(topVoice(briefFor(input({ variety: "british", formality: "formal", medium: "narration" })), "en")).toBe(
+      "en-british-m2"
+    )
+    expect(
+      topVoice(briefFor(input({ variety: "british", formality: "casual", speakerGender: "feminine" })), "en")
+    ).toBe("en-british-f")
+    expect(topVoice(briefFor(input({ variety: "australian", formality: "casual" })), "en")).toBe("en-australian-f")
   })
 
   it("the variety filter beats soft signals: a formal Kansai line still goes Kansai", () => {
@@ -193,13 +203,13 @@ describe("rank", () => {
   it("casts both languages from one brief onto matching speakers", () => {
     const brief = briefFor(input({ formality: "casual", speakerGender: "masculine", speakerAge: "youth" }))
     expect(topVoice(brief, "ja")).toBe("ja-casual-m2")
-    expect(topVoice(brief, "en")).toBe("en-casual-m")
+    expect(topVoice(brief, "en")).toBe("en-casual-m2")
   })
 
   it("only considers cast voices", () => {
     const casual = briefFor(input({ formality: "casual" }))
     expect(rank(casual, "ja", DICTIONARY_ONLY).map(({ voice }) => voice.id)).toEqual(["ja-kyoko"])
-    expect(rank(casual, "en", DICTIONARY_ONLY).map(({ voice }) => voice.id)).toEqual(["en-sarah"])
+    expect(rank(casual, "en", DICTIONARY_ONLY).map(({ voice }) => voice.id)).toEqual(["en-casual-m"])
   })
 
   it("prefers a voice that lists the register over one let in by the relaxed filter", () => {
@@ -228,7 +238,7 @@ describe("tied", () => {
 describe("casts", () => {
   it("castVoices returns only cast voices of the language", () => {
     expect(castVoices("ja", DICTIONARY_ONLY).map((voice) => voice.id)).toEqual(["ja-kyoko"])
-    expect(castVoices("en", DICTIONARY_ONLY).map((voice) => voice.id)).toEqual(["en-sarah"])
+    expect(castVoices("en", DICTIONARY_ONLY).map((voice) => voice.id)).toEqual(["en-casual-m"])
     expect(castVoices("ja", FULL_CASTS).length).toBeGreaterThan(1)
   })
 
