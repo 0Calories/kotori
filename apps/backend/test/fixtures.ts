@@ -79,7 +79,7 @@ export const spelling = (text: string, common = false) => ({
   kind: "spelling" as const,
   priorities: []
 })
-export const inflection = (text: string, tags: Array<string>) => ({
+const inflection = (text: string, tags: Array<string>) => ({
   ...spelling(text),
   kind: "inflection" as const,
   tags

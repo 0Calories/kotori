@@ -7,7 +7,6 @@ import type { DatabaseShape } from "../../db/Database.ts"
 // claims the most urgent job and settles it. One job per kind and entry.
 
 export type JobKind = (typeof jobs.$inferSelect)["kind"]
-export type JobStatus = (typeof jobs.$inferSelect)["status"]
 
 /** Attempts before a job is marked failed for good. */
 const MAX_ATTEMPTS = 3

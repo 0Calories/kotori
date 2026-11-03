@@ -15,14 +15,20 @@
     }
   ],
   "namedInputs": {
-    "sharedGlobals": ["{workspaceRoot}/tsconfig.base.json", "{workspaceRoot}/pnpm-lock.yaml"],
+    "sharedGlobals": [
+      "{workspaceRoot}/tsconfig.base.json",
+      "{workspaceRoot}/pnpm-lock.yaml",
+      "{workspaceRoot}/pnpm-workspace.yaml"
+    ],
     "default": ["{projectRoot}/**/*", "sharedGlobals"],
     "production": [
       "default",
       "!{projectRoot}/**/*.test.ts",
+      "!{projectRoot}/**/*.test.tsx",
       "!{projectRoot}/test/**/*",
       "!{projectRoot}/tsconfig.spec.json",
-      "!{projectRoot}/vitest.config.ts"
+      "!{projectRoot}/vitest.config.ts",
+      "!{projectRoot}/golden/**/*"
     ]
   },
   "targetDefaults": {

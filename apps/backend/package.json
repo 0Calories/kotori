@@ -26,9 +26,14 @@
     "jose": "catalog:"
   },
   "devDependencies": {
-    "@effect/sql-pglite": "catalog:"
+    "@effect/sql-pglite": "catalog:",
+    "@typesafe-ai/sdk": "catalog:"
   },
   "nx": {
+    "tags": [
+      "scope:backend",
+      "type:app"
+    ],
     "targets": {
       "dev": {
         "executor": "nx:run-commands",

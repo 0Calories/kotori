@@ -20,5 +20,11 @@
     "@kotori/language": "workspace:*",
     "@typesafe-ai/sdk": "catalog:",
     "effect": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:backend",
+      "type:ai"
+    ]
   }
 }

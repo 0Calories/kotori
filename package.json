@@ -26,6 +26,7 @@
     "@effect/vitest": "catalog:",
     "@neon/config": "catalog:",
     "@nx/js": "catalog:",
+    "@nx/oxlint": "catalog:",
     "@resvg/resvg-js": "^2.6.2",
     "@types/node": "catalog:",
     "@typescript/native": "npm:typescript@~7.0.2",

@@ -3,7 +3,7 @@ import { and, eq, type SQL } from "drizzle-orm"
 import type { DatabaseShape } from "./Database.ts"
 
 /** The tables whose every row belongs to one learner, named by its `user_id`. */
-export type LearnerTable = typeof notes | typeof cards | typeof reviewLogs | typeof coachUsage
+type LearnerTable = typeof notes | typeof cards | typeof reviewLogs | typeof coachUsage
 
 /**
  * The database as one learner sees it. Queries on a learner's data take this instead of the bare

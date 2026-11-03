@@ -18,5 +18,11 @@
     "@kotori/db": "workspace:*",
     "drizzle-orm": "catalog:",
     "effect": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:shared",
+      "type:contract"
+    ]
   }
 }

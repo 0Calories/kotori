@@ -22,5 +22,11 @@
   },
   "devDependencies": {
     "drizzle-kit": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:shared",
+      "type:db"
+    ]
   }
 }

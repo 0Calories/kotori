@@ -16,5 +16,11 @@
   },
   "dependencies": {
     "@kotori/contracts": "workspace:*"
+  },
+  "nx": {
+    "tags": [
+      "scope:shared",
+      "type:util"
+    ]
   }
 }

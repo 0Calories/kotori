@@ -56,6 +56,10 @@
     "vitest": "catalog:"
   },
   "nx": {
+    "tags": [
+      "scope:client",
+      "type:app"
+    ],
     "targets": {
       "typecheck": {
         "dependsOn": [

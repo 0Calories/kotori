@@ -30,6 +30,9 @@ catalog:
   tsx: "^4.23.15"
   nx: "24.0.0"
   "@nx/js": "24.0.0"
+  # Module boundaries as an Oxlint JS plugin; tracks `nx`. The rule rides Oxlint's JS plugin API, outside
+  # Oxlint's semver promise, so treat any `oxlint` bump as a change to check against it.
+  "@nx/oxlint": "24.0.0"
   oxlint: "1.89.0"
   # Oxlint's type-aware backend; its version tracks the TypeScript 7 release it embeds (7.0.2 + patch 004).
   oxlint-tsgolint: "7.0.2004"

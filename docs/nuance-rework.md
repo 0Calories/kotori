@@ -85,7 +85,7 @@ Jev's model is pinned so stored confidences stay comparable; all question change
 ship together as **one** versioned change, followed by one corpus re-enrichment.
 
 **B1. Golden set + eval harness (prerequisite).**
-`packages/nuance/test/golden.ts`: ~80–120 words with expected labels and caution outcomes,
+`packages/ai/src/eval/golden.ts` (planned as `packages/nuance/test/golden.ts`): ~80–120 words with expected labels and caution outcomes,
 seeded from the failures we've already caught (妊娠, 勃起, 性交 vs セックス, 了解,
 ご苦労様, めっちゃ, 鑑みる…) plus a spread of ordinary words. A `kotori eval nuance`
 command runs the current questions against the set and reports per-question accuracy and
