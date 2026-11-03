@@ -1,6 +1,12 @@
-import { type ReactNode } from "react"
+import { type ReactNode, useEffect, useRef } from "react"
 import { Platform, type RefreshControlProps, ScrollView, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import {
+  blurActiveTextField,
+  blurFocusedOnScroll,
+  keyboardDismissModeFor,
+  pointerMovedEnough
+} from "../lib/keyboard.ts"
 import { useT } from "../session/SessionProvider.tsx"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { IconButton } from "./Button.tsx"
@@ -27,6 +33,51 @@ export const Screen = ({
   const theme = useTheme()
   const insets = useSafeAreaInsets()
   const column = { width: "100%" as const, maxWidth: theme.maxWidth, alignSelf: "center" as const }
+  const scrollerRef = useRef<HTMLElement | null>(null)
+  // Web only, on the DOM node. react-native-web's "on-drag" blurs on every
+  // scroll, including the ones iOS uses to follow the caret, and its pointer
+  // props do not see the gesture that actually scrolls. A vertical drag sets
+  // the flag; wheel, trackpad, and caret scrolls do not.
+  useEffect(() => {
+    const node = scrollerRef.current
+    if (Platform.OS !== "web" || node === null) return
+    let dragging = false
+    let x = 0
+    let y = 0
+    const start = (event: PointerEvent) => {
+      dragging = false
+      x = event.clientX
+      y = event.clientY
+      window.addEventListener("pointermove", move)
+      window.addEventListener("pointerup", end)
+      window.addEventListener("pointercancel", end)
+    }
+    const move = (event: PointerEvent) => {
+      if (event.pointerType === "mouse" && event.buttons === 0) return
+      if (pointerMovedEnough(event.clientX - x, event.clientY - y)) dragging = true
+    }
+    const end = () => {
+      window.removeEventListener("pointermove", move)
+      window.removeEventListener("pointerup", end)
+      window.removeEventListener("pointercancel", end)
+      // The scroll event for this drag can land in the same frame as the release.
+      requestAnimationFrame(() => {
+        dragging = false
+      })
+    }
+    const onDragScroll = () => {
+      if (blurFocusedOnScroll(dragging)) blurActiveTextField()
+    }
+    node.addEventListener("pointerdown", start)
+    node.addEventListener("scroll", onDragScroll)
+    return () => {
+      node.removeEventListener("pointerdown", start)
+      node.removeEventListener("scroll", onDragScroll)
+      window.removeEventListener("pointermove", move)
+      window.removeEventListener("pointerup", end)
+      window.removeEventListener("pointercancel", end)
+    }
+  }, [])
   const content = {
     ...column,
     paddingTop: header ? theme.space.xs : insets.top + theme.space.sm,
@@ -45,8 +96,11 @@ export const Screen = ({
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.color.background }}
       contentContainerStyle={content}
+      ref={(node) => {
+        scrollerRef.current = node instanceof HTMLElement ? node : null
+      }}
       keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
+      keyboardDismissMode={keyboardDismissModeFor(Platform.OS)}
       refreshControl={refreshControl}
       onScroll={onScroll ? (event) => onScroll(event.nativeEvent.contentOffset.y) : undefined}
       scrollEventThrottle={onScroll ? 32 : undefined}
