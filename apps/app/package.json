@@ -74,7 +74,8 @@
         ],
         "inputs": [
           "production",
-          "^production"
+          "^production",
+          "{workspaceRoot}/tools/upload-web-sourcemaps.sh"
         ],
         "outputs": [
           "{projectRoot}/dist"
@@ -85,7 +86,8 @@
         "inputs": [
           "production",
           "^production",
-          "{workspaceRoot}/vercel.json"
+          "{workspaceRoot}/vercel.json",
+          "{workspaceRoot}/tools/upload-web-sourcemaps.sh"
         ],
         "options": {
           "commands": [
