@@ -78,7 +78,7 @@ neon neon-auth config webhook get          # enabled, the URL, both events
 
 To check it, trigger a code (request a verification email from the app) and watch `fly logs --process-group api` for `Sent the email-verification email`; a `Managed Auth webhook not delivered` warning names the reason. `neon neon-auth config webhook update --no-enabled` returns delivery to Managed Auth's own emails.
 
-Local development: by default `pnpm dev` runs `apps/local-auth`, a stand-in for Managed Auth on the Docker Postgres from `compose.yaml` (see the README). To test against Managed Auth itself, `neon checkout <branch>` writes that branch's `DATABASE_URL`, `NEON_AUTH_BASE_URL` and `NEON_AUTH_JWKS_URL` into `.env.local` (loaded after `.env`), and the stand-in stays off.
+Local development: by default `pnpm dev` runs `tools/local-auth`, a stand-in for Managed Auth on the Docker Postgres from `compose.yaml` (see the README). To test against Managed Auth itself, `neon checkout <branch>` writes that branch's `DATABASE_URL`, `NEON_AUTH_BASE_URL` and `NEON_AUTH_JWKS_URL` into `.env.local` (loaded after `.env`), and the stand-in stays off.
 
 ## CI and deploys
 

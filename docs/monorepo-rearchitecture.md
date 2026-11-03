@@ -8,7 +8,7 @@
 
 One definition of the data model, propagating automatically to every consumer, with no
 hand-maintained shadow copies anywhere. Along the way, the workspace went from
-**15 projects (4 apps, 11 packages) to 8 projects (3 apps, 5 packages)**.
+**15 projects (4 apps, 11 packages) to 8 projects (2 apps, 5 packages, 1 development tool)**.
 
 ### The chain of truth
 
@@ -97,7 +97,6 @@ apps/
       runtime/                  HttpLayers, WorkerLayers, CliLayers, Paths
       testing/                  DatabaseMemory: PGlite, migrated as production is
     test/                       Per feature, with shared fixtures
-  local-auth/                   Development-only Better Auth stand-in
 packages/
   ai/
     golden/                     Offline golden fixture (`kotori golden` rebuilds it), NOTICE.md
@@ -117,6 +116,10 @@ packages/
     src/                        One file per table, columns.ts, index.ts (every table, for drizzle-kit)
   language/                     japanese/ (script, deinflect, furigana), english/ (inflect, gloss)
   srs/                          SM-2 v3 scheduler and interval formatting
+tools/
+  local-auth/                   @kotori/local-auth: development-only Better Auth stand-in
+  dev-setup.ts                  `pnpm dev:setup`
+  render-*.ts                   Mascot asset and animation renderers
 ```
 
 `apps/backend` replaced `apps/api` and `apps/worker`. Its entry points still run
@@ -150,7 +153,10 @@ flowchart TD
   subgraph Apps ["apps/ (Deployables)"]
     App["@kotori/app<br/>(scope:client, type:app)"]
     Backend["@kotori/backend<br/>(scope:backend, type:app)"]
-    LocalAuth["@kotori/local-auth<br/>(scope:dev, type:app)"]
+  end
+
+  subgraph Tools ["tools/ (Development only, never deployed)"]
+    LocalAuth["@kotori/local-auth<br/>(scope:dev, type:tool)"]
   end
 
   subgraph BackendLibs ["packages/ (scope:backend — Node only)"]
@@ -289,7 +295,7 @@ policy excludes, so `oxlint` stays pinned and any bump is a change to check agai
 | --- | --- |
 | `@kotori/app` | `["scope:client", "type:app"]` |
 | `@kotori/backend` | `["scope:backend", "type:app"]` |
-| `@kotori/local-auth` | `["scope:dev", "type:app"]` |
+| `@kotori/local-auth` | `["scope:dev", "type:tool"]` |
 | `@kotori/ai` | `["scope:backend", "type:ai"]` |
 | `@kotori/db` | `["scope:shared", "type:db"]` |
 | `@kotori/contracts` | `["scope:shared", "type:contract"]` |
@@ -302,6 +308,7 @@ policy excludes, so `oxlint` stays pinned and any bump is a change to check agai
 - `scope:shared` and `scope:client` can't import the database drivers the backend actually uses (`drizzle-orm/effect-postgres`, `effect-pglite`, `pg-core/effect`, `drizzle-orm/migrator`), nor `drizzle-orm/node-postgres`, `drizzle-kit`, `pg`, `@effect/sql-*`, `@electric-sql/*` or `@effect/platform-node`. This is what keeps `@kotori/db` driver-free, which everything above rests on.
 - `type:db` depends on no workspace library and only on `drizzle-orm`, `drizzle-orm/pg-core` and `effect`.
 - `type:contract` depends only on `type:db` and `type:util`; `type:util` only on `type:contract` and `type:util`; `type:ai` only on `type:contract` and `type:util`, so the AI can't reach the database.
+- `scope:dev` (the development tools) can't be imported by the app or the backend, and `type:tool` depends only on `type:db`, `type:contract` and `type:util`, never on the AI or an app.
 - Shared packages may import `vitest` and `@effect/vitest` (their tests do). `drizzle.config.ts` and the `vitest.config.ts` files are exempt: the first is the schema package's one touchpoint with its toolchain, the others import the workspace's shared config.
 - `import/no-nodejs-modules` applies to the shared packages' sources and to the app, because the Nx rule only checks npm packages, not Node builtins.
 - An untagged project can depend on nothing, so a new package that forgets its tags fails loudly.

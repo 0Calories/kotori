@@ -96,7 +96,7 @@ process.on("exit", () => localAuth?.kill("SIGTERM"))
 if (LOCAL.has(new URL(authUrl).hostname) && !(await reachable(`${authUrl}/ok`))) {
   localAuth = spawn(
     process.execPath,
-    ["--conditions=@kotori/source", "--import", "tsx", "apps/local-auth/src/main.ts"],
+    ["--conditions=@kotori/source", "--import", "tsx", "tools/local-auth/src/main.ts"],
     { cwd: workspaceRoot, stdio: "inherit" }
   )
   const server = localAuth

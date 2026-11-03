@@ -12,7 +12,7 @@
       "path": "./packages/srs"
     },
     {
-      "path": "./apps/local-auth"
+      "path": "./tools/local-auth"
     },
     {
       "path": "./packages/language"
