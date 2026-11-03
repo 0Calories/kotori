@@ -1,7 +1,7 @@
 import { assert, describe, it, layer } from "@effect/vitest"
 import { EntryId, type EntryRecord, NoteId } from "@kotori/contracts"
 import { type LoanCandidate, loanCandidatesIn, normalizeGloss } from "@kotori/language"
-import { Effect } from "effect"
+import { Effect, Exit } from "effect"
 import { Database } from "../../src/db/Database.ts"
 import { scopedToUser } from "../../src/db/scopedToUser.ts"
 import { ensureUser } from "../../src/features/accounts/queries.ts"
@@ -55,6 +55,24 @@ layer(TestLayer)("dictionary queries", (it) => {
         ["食べる", "たべる"]
       )
       assert.strictEqual(taberu?.senses[1]?.glosses[0]?.text, "to live on (e.g. a salary)")
+    })
+  )
+
+  it.effect("imports a batch completely or not at all", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const before = yield* entryCount(db)
+      const fine: EntryRecord = { ...entries[0]!, id: EntryId.make(9_000_000) }
+      // A form the database refuses (no such form kind), written after the batch's entries.
+      const broken: EntryRecord = {
+        ...entries[0]!,
+        id: EntryId.make(9_000_001),
+        forms: [{ ...kanji("壊れる"), kind: "scribble" as never }]
+      }
+      const imported = yield* insertEntries(db, [fine, broken]).pipe(Effect.exit)
+      assert.isTrue(Exit.isFailure(imported))
+      assert.strictEqual(yield* entryCount(db), before)
+      assert.deepStrictEqual(yield* getEntries(db, [fine.id]), [])
     })
   )
 
