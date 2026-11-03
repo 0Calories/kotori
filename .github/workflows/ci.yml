@@ -78,12 +78,12 @@ jobs:
       # The API before the web app: the app decodes responses with the shared schemas, so a
       # build expecting a new field can't read the old API's responses until Fly has finished.
       - name: Deploy the API and worker
-        run: pnpm nx affected -t deploy --exclude=@kotori/app
+        run: pnpm nx affected -t deploy --exclude=@kotori/app --outputStyle=static
         env:
           NX_DAEMON: "false"
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       - name: Deploy the web app
-        run: pnpm nx affected -t deploy --exclude='*,!@kotori/app'
+        run: pnpm nx affected -t deploy --exclude='*,!@kotori/app' --outputStyle=static
         env:
           NX_DAEMON: "false"
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -92,3 +92,4 @@ jobs:
           # Tags web errors with the commit and uploads the source maps (tools/upload-web-sourcemaps.sh).
           EXPO_PUBLIC_SENTRY_RELEASE: ${{ github.sha }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_UPLOAD: required
