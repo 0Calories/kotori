@@ -1,4 +1,4 @@
-import { Cause, Clock, Effect, Exit, Option } from "effect"
+import { Cause, Clock, Effect, ErrorReporter, Exit, Option } from "effect"
 import { Database } from "../db/Database.ts"
 import { Enrichers } from "../features/enrichment/Enrichers.ts"
 import type { Job, JobKind } from "../features/enrichment/index.ts"
@@ -54,6 +54,7 @@ export const makeJobRunner = Effect.fn("makeJobRunner")(function* (kinds: Readon
             new Date(finishedAt + RETRY_AFTER * 2 ** attempts),
             finished
           )
+          yield* ErrorReporter.report(exit.cause)
           yield* Effect.logWarning(`${kind} ${entryId} failed (attempt ${attempts})`, exit.cause)
         }
       })

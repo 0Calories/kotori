@@ -42,9 +42,12 @@ catalog:
   knip: ^6.42.1
   typescript: npm:@typescript/typescript6@~6.0.2
   vercel: ^65.5.0
+  "@sentry/react-native": ~8.33.0
+  "@sentry/effect": ^11.10.0
 
 allowBuilds:
   "@resvg/resvg-js": true
+  "@sentry/cli": true
   esbuild: true
   nx: true
 

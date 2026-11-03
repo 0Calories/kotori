@@ -38,6 +38,10 @@
       "expo-audio",
       "expo-font",
       [
+        "@sentry/react-native/expo",
+        { "organization": "sparkwright", "project": "kotori-app", "url": "https://sentry.io/" }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
