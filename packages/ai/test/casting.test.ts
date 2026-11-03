@@ -204,6 +204,9 @@ describe("rank", () => {
     const brief = briefFor(input({ formality: "casual", speakerGender: "masculine", speakerAge: "youth" }))
     expect(topVoice(brief, "ja")).toBe("ja-casual-m2")
     expect(topVoice(brief, "en")).toBe("en-casual-m2")
+    expect(
+      topVoice(briefFor(input({ formality: "casual", speakerGender: "masculine", speakerAge: "middle-aged" })), "en")
+    ).toBe("en-casual-m3")
   })
 
   it("only considers cast voices", () => {
