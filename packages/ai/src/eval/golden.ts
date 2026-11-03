@@ -233,7 +233,7 @@ export const GOLDEN_PAIRS: ReadonlyArray<GoldenPair> = [
 //
 // Senses of the English dictionary, named by headword: its ids are numbered at import. Each
 // names how its sense's Japanese glosses start, so a re-import that reorders senses is caught.
-// Senses are ranked at import (`commonestFirst` in packages/eiwa), and only the first
+// Senses are ranked at import (`commonestFirst` in the backend's English dictionary import), and only the first
 // `MAX_SENSES` are judged, so every golden is one of those. None
 // is an example in its own question's criteria.
 

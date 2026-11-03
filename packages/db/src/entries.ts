@@ -9,7 +9,7 @@ export type EntryId = typeof EntryId.Type
 export const entries = table(
   "entries",
   {
-    /** JMDict's `ent_seq`; English entries are numbered from 100,000,000 (see packages/eiwa). */
+    /** JMDict's `ent_seq`; English entries are numbered from 100,000,000 (see the backend's English dictionary import). */
     id: integer().primaryKey().$type<EntryId>(),
     /** The headword's language: Japanese for JMDict, English for the English dictionary. */
     language: language().notNull().default("ja"),

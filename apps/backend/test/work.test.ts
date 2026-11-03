@@ -26,7 +26,7 @@ import { examplesFor, loanWordsFor, nuanceFor, similarFor } from "../src/feature
 import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 import { makeJobRunner } from "../src/worker/JobRunner.ts"
 
-// The worker's real enrichers and repositories on PGlite; only the paid providers are fakes.
+// The worker's real enrichers and queries on PGlite; only the paid providers are fakes.
 
 let jevDown = false
 let jevRequests = 0

@@ -10,12 +10,12 @@ export const isAudioKey = (key: string) => /^[a-f0-9]{64}$/.test(key)
 export class AudioStore extends Context.Service<
   AudioStore,
   {
-    /** Stores the bytes of a clip whose row `EnrichmentRepo.saveAudio` has already written. */
+    /** Stores the bytes of a clip whose row `saveAudio` has already written. */
     put(key: string, bytes: Uint8Array): Effect.Effect<void>
     read(key: string): Effect.Effect<Option.Option<Uint8Array>>
     exists(key: string): Effect.Effect<boolean>
   }
->()("@kotori/tts/AudioStore") {
+>()("@kotori/backend/AudioStore") {
   static readonly layer = Layer.effect(
     AudioStore,
     Effect.gen(function* () {

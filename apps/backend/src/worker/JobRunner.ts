@@ -21,7 +21,7 @@ const RETRY_AFTER = 30_000
 /**
  * One cycle of the enrichment queue for the given kinds: puts stale jobs back when a sweep
  * is due, claims the most urgent runnable job, runs it and settles it. Succeeds with whether
- * there was a job, so the caller knows when to wait. the worker runs it forever.
+ * there was a job, so the caller knows when to wait. The worker runs it forever.
  */
 export const makeJobRunner = Effect.fn("makeJobRunner")(function* (kinds: ReadonlyArray<JobKind>) {
   const db = yield* Database

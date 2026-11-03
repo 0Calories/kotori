@@ -18,7 +18,7 @@ export const work = Effect.fn("work")(function* (idle: Duration.Input) {
   )
   const step = yield* makeJobRunner(kinds)
 
-  // A failed cycle (repository errors are defects) backs off and tries again instead of ending
+  // A failed cycle (query errors are defects) backs off and tries again instead of ending
   // the process: a brief database outage shouldn't use up the machine's restart budget.
   return yield* step.pipe(
     Effect.flatMap((worked) => (worked ? Effect.void : Effect.sleep(idle))),

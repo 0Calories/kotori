@@ -63,7 +63,7 @@ export interface LoanCandidate {
 /**
  * The loan candidates of English words among `entries`: common katakana words with the word as
  * a gloss or as their JMDict source, most frequent first, at most `limit` per word.
- * `DictionaryRepo.loanCandidates` is the same search in SQL; the golden fixture is cut with this.
+ * The backend's `loanCandidates` query is the same search in SQL; the golden fixture is cut with this.
  */
 export const loanCandidatesIn = (
   entries: Iterable<GlossedEntry>,

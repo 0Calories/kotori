@@ -5,7 +5,7 @@ import * as Schema from "effect/Schema"
 /** Table constructor for every table in this schema: camelCase fields, snake_case columns. */
 export const { table } = snakeCase
 
-/** A moment in time. Millisecond precision is plenty, and the SRS code converts at the repository boundary. */
+/** A moment in time. Millisecond precision is plenty, and Study converts for the SRS code, which works in epoch milliseconds. */
 export const timestamptz = () => timestamp({ withTimezone: true, precision: 3 })
 
 /** `created_at`, set by the database when a row is inserted. */

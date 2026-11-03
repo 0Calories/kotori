@@ -27,12 +27,13 @@ export const pgCodecs: PgCodecs = {
 }
 
 /**
- * The application database as a Drizzle instance. Repositories take this and build
- * typed queries from the tables in `./schema`. Transactions are `db.transaction(tx => …)`;
- * they run on the underlying client's `withTransaction`, so Effect SQL and Drizzle
- * share one connection and one transaction.
+ * The application database as a Drizzle instance. Each feature's queries take it (or a
+ * learner's view of it, `scopedToUser`) and build typed queries from the `@kotori/db`
+ * tables. Transactions are `db.transaction(() => …)`; they run on the underlying client's
+ * `withTransaction`, so queries inside join them, and Effect SQL and Drizzle share one
+ * connection and one transaction.
  */
-export class Database extends Context.Service<Database, DatabaseShape>()("@kotori/db/Database") {
+export class Database extends Context.Service<Database, DatabaseShape>()("@kotori/backend/Database") {
   /** Drizzle over whichever `PgClient` is in scope; see `DatabaseLive` and `DatabaseMemory`. */
   static readonly layer = Layer.effect(Database, PgDrizzle.makeWithDefaults({ relations, codecs: pgCodecs }))
 }

@@ -16,7 +16,7 @@ const CapabilitiesLive = Layer.mergeAll(NuanceJudge.layer, ExampleWriter.layer, 
 
 /**
  * The enrichment worker's services: the enrichers over the AI capabilities, the clip library and
- * the repositories over `DATABASE_URL`. No HTTP server, auth or mail; `kotori enrich` and
+ * the database at `DATABASE_URL`. No HTTP server, auth or mail; `kotori enrich` and
  * `kotori status` share it.
  */
 export const WorkerLive = Enrichers.layer.pipe(

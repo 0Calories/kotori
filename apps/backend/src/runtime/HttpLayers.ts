@@ -15,14 +15,14 @@ import { MailerLive } from "../integrations/email/live.ts"
 /** Providers that talk to external services: the AI providers and email. */
 const ProvidersLive = Layer.mergeAll(Claude.layer, Jev.layer, ElevenLabs.layer, MailerLive)
 
-/** Application services on top of the repositories, the AI capabilities and the providers. */
+/** Application services on top of the AI capabilities and the providers. */
 const ServicesLive = Layer.mergeAll(Accounts.layer, Study.layer, Coaching.layer, AuthWebhooks.layer).pipe(
   Layer.provideMerge(Dictionary.layer),
   Layer.provideMerge(Speech.layer),
   Layer.provideMerge(Layer.mergeAll(AudioStore.layer, Coach.layer, Pronouncer.layer))
 )
 
-/** The services wired to repositories over the given database, with the given providers and auth. */
+/** The services over the given database, with the given providers and auth. */
 export const makeApp = <P, EP, RP, ED, RD, EA, RA>(
   providers: Layer.Layer<P, EP, RP>,
   database: Layer.Layer<Database | SqlClient.SqlClient, ED, RD>,

@@ -7,9 +7,8 @@ import { relations } from "../db/relations.ts"
 
 /**
  * A fresh in-memory Postgres (PGlite) for tests, migrated from `packages/db/migrations`
- * exactly as production is, with Drizzle and the Effect SQL client over it. Lives in its
- * own entry point so `@electric-sql/pglite` never enters the production module graph;
- * import it as `@kotori/db/testing`.
+ * exactly as production is, with Drizzle and the Effect SQL client over it. Only tests
+ * import it, so `@electric-sql/pglite` never enters an entry point's module graph.
  */
 export const DatabaseMemory = Layer.effectDiscard(migrateDatabase()).pipe(
   Layer.provideMerge(Layer.effect(Database, PgliteDrizzle.makeWithDefaults({ relations }))),

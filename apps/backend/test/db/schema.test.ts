@@ -6,7 +6,7 @@ import { Effect } from "effect"
 import { Database } from "../../src/db/Database.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
-// The schema's Postgres-level behaviour, on PGlite: the parts a repository can't
+// The schema's Postgres-level behaviour, on PGlite: the parts a query can't
 // express and so can't test on its own. Generated full-text column, bytewise
 // collation for the prefix scan, cascades, and relational reads.
 
