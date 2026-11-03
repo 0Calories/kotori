@@ -8,12 +8,14 @@ import { HinaMincho_400Regular } from "@expo-google-fonts/hina-mincho/400Regular
 import { Murecho_400Regular } from "@expo-google-fonts/murecho/400Regular"
 import { Murecho_500Medium } from "@expo-google-fonts/murecho/500Medium"
 import { Murecho_700Bold } from "@expo-google-fonts/murecho/700Bold"
+import * as Sentry from "@sentry/react-native"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { setAudioModeAsync } from "expo-audio"
 import { FontDisplay, useFonts } from "expo-font"
 import { Stack } from "expo-router"
 import * as SplashScreen from "expo-splash-screen"
 import { StatusBar } from "expo-status-bar"
+import { isRunningInExpoGo } from "expo"
 import { useEffect } from "react"
 import { Platform } from "react-native"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
@@ -24,6 +26,23 @@ import { Screen } from "../src/components/Screen.tsx"
 import { MascotMessage } from "../src/components/States.tsx"
 import { SessionProvider, useSession } from "../src/session/SessionProvider.tsx"
 import { ThemeProvider, useTheme } from "../src/theme/ThemeProvider.tsx"
+
+// Errors and traces go to Sentry (project `sparkwright/kotori-app`). The DSN only allows sending
+// events, and every shipped bundle contains it anyway. Development builds stay quiet unless
+// EXPO_PUBLIC_SENTRY_IN_DEV=on.
+Sentry.init({
+  dsn: "https://545a5bb03825fe26735e49c85aa3fbff@o4511310091124736.ingest.us.sentry.io/4512368599564288",
+  enabled: !__DEV__ || process.env.EXPO_PUBLIC_SENTRY_IN_DEV === "on",
+  environment: __DEV__ ? "development" : "production",
+  // The commit for web builds (set by CI); native builds default to the app version and build number.
+  release: process.env.EXPO_PUBLIC_SENTRY_RELEASE,
+  tracesSampleRate: __DEV__ ? 1 : 0.2,
+  // Native replay of the moments before an error, with all text and images masked.
+  replaysOnErrorSampleRate: 1,
+  replaysSessionSampleRate: 0,
+  integrations: [Sentry.mobileReplayIntegration()],
+  enableNativeFramesTracking: !isRunningInExpoGo()
+})
 
 SplashScreen.preventAutoHideAsync().catch(() => {})
 // Pronunciation should play even when the phone's ring switch is on silent.
@@ -90,7 +109,7 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
   )
 }
 
-export default function RootLayout() {
+function RootLayout() {
   const [latinLoaded, latinError] = useFonts({
     Gabarito_400Regular,
     Gabarito_500Medium,
@@ -121,3 +140,5 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   )
 }
+
+export default Sentry.wrap(RootLayout)

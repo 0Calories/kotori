@@ -21,6 +21,7 @@
     "@kotori/db": "workspace:*",
     "@kotori/language": "workspace:*",
     "@kotori/srs": "workspace:*",
+    "@sentry/effect": "catalog:",
     "drizzle-orm": "catalog:",
     "effect": "catalog:",
     "jose": "catalog:"
@@ -61,7 +62,7 @@
           "{workspaceRoot}/.dockerignore",
           "{workspaceRoot}/fly.toml"
         ],
-        "command": "flyctl deploy --remote-only"
+        "command": "flyctl deploy --remote-only --env SENTRY_RELEASE=$(git rev-parse HEAD)"
       }
     }
   }

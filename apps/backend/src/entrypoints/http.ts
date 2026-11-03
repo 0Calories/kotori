@@ -12,6 +12,7 @@ import { AuthRoute } from "../http/neon-auth.ts"
 import { WebhooksRoute } from "../http/webhooks.ts"
 import { AppLive } from "../runtime/HttpLayers.ts"
 import { loadDotEnv } from "../runtime/Paths.ts"
+import { loggerLayer, SentryLive } from "../runtime/Sentry.ts"
 
 loadDotEnv()
 
@@ -41,13 +42,14 @@ const ServerLive = Layer.unwrap(
   })
 )
 
-// JSON lines in production for the host's log viewer; development keeps the pretty logger.
-const LoggerLive = process.env.NODE_ENV === "production" ? Logger.layer([Logger.consoleJson]) : Layer.empty
+// JSON lines in production for the host's log viewer; development keeps the pretty logger. Both also go to Sentry.
+const LoggerLive = loggerLayer(process.env.NODE_ENV === "production" ? [Logger.consoleJson] : [])
 
 Layer.launch(ServerLive).pipe(
   Effect.provide(AppLive),
   Effect.provide(NodeHttpClient.layerUndici),
   Effect.provide(NodeServices.layer),
   Effect.provide(LoggerLive),
+  Effect.provide(SentryLive("api")),
   NodeRuntime.runMain
 )

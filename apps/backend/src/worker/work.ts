@@ -1,4 +1,4 @@
-import { Cause, Console, Duration, Effect, Schedule } from "effect"
+import { Cause, Console, Duration, Effect, ErrorReporter, Schedule } from "effect"
 import { Enrichers } from "../features/enrichment/Enrichers.ts"
 import { makeJobRunner } from "./JobRunner.ts"
 
@@ -24,7 +24,9 @@ export const work = Effect.fn("work")(function* (idle: Duration.Input) {
     Effect.flatMap((worked) => (worked ? Effect.void : Effect.sleep(idle))),
     Effect.sandbox,
     Effect.tapError((cause) =>
-      Cause.hasInterrupts(cause) ? Effect.void : Effect.logError("Work cycle failed; backing off", cause)
+      Cause.hasInterrupts(cause)
+        ? Effect.void
+        : Effect.andThen(ErrorReporter.report(cause), Effect.logError("Work cycle failed; backing off", cause))
     ),
     Effect.retry({ schedule: BACKOFF, while: (cause) => !Cause.hasInterrupts(cause) }),
     Effect.catch(Effect.failCause),
