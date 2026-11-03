@@ -3,7 +3,6 @@ import { useRouter } from "expo-router"
 import { useEffect, useRef, useState } from "react"
 import { Platform, TextInput, View } from "react-native"
 import Animated, { FadeIn, FadeInDown, LinearTransition } from "react-native-reanimated"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useQueue, useSearch, useStats } from "../../src/api/queries.ts"
 import { Button } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
@@ -140,7 +139,6 @@ export default function LookUpScreen() {
   const theme = useTheme()
   const { t, profile } = useSession()
   const router = useRouter()
-  const insets = useSafeAreaInsets()
   const input = useRef<TextInput>(null)
   const [query, setQuery] = useState("")
   const [recent, setRecent] = usePreference<ReadonlyArray<string>>("recent-searches", [])
@@ -178,13 +176,9 @@ export default function LookUpScreen() {
     <Screen>
       <View
         style={{
-          marginHorizontal: -theme.space.lg,
-          marginTop: -(insets.top + theme.space.sm),
-          paddingTop: insets.top + theme.space.md,
           paddingBottom: 22,
           backgroundColor: theme.color.primaryTint,
-          borderBottomLeftRadius: 40,
-          borderBottomRightRadius: 40,
+          borderRadius: theme.radius.xl,
           overflow: "hidden"
         }}
       >
