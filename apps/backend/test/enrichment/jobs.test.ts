@@ -9,6 +9,7 @@ import {
   enqueueJob,
   failJob,
   jobStatusFor,
+  refillJob,
   releaseJob
 } from "../../src/features/enrichment/jobs.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
@@ -73,6 +74,37 @@ layer(DatabaseMemory)("the job queue", (it) => {
       const again = Option.getOrThrow(yield* claimJob(db, ["nuance"], at(3000)))
       assert.strictEqual(again.id, claimed.id)
       assert.strictEqual(again.attempts, 1)
+    })
+  )
+
+  it.effect("revives a failed job right away when re-enqueued, and after its cool-off when refilled", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      yield* stubEntries([20])
+      const id = EntryId.make(20)
+      yield* enqueueJob(db, "nuance", id, 0, at(1000))
+
+      for (const tick of [1000, 2000, 3000]) {
+        const claimed = Option.getOrThrow(yield* claimJob(db, ["nuance"], at(tick)))
+        yield* failJob(db, claimed.id, "quota", at(tick + 500), at(tick))
+      }
+      assert.strictEqual((yield* jobStatusFor(db, id)).get("nuance"), "failed")
+
+      // A soon refill leaves the failed job alone; once the cool-off passes, it queues again.
+      yield* refillJob(db, "nuance", id, at(2500), 0, at(4000))
+      assert.strictEqual((yield* jobStatusFor(db, id)).get("nuance"), "failed")
+      yield* refillJob(db, "nuance", id, at(3500), 0, at(4000))
+      assert.strictEqual((yield* jobStatusFor(db, id)).get("nuance"), "queued")
+
+      // Failing all three attempts again leaves a future retry timestamp, which enqueueJob clears.
+      for (const tick of [4000, 5000, 6000]) {
+        const claimed = Option.getOrThrow(yield* claimJob(db, ["nuance"], at(tick)))
+        yield* failJob(db, claimed.id, "quota", at(tick === 6000 ? 240_000 : tick + 500), at(tick))
+      }
+      assert.strictEqual((yield* jobStatusFor(db, id)).get("nuance"), "failed")
+      yield* enqueueJob(db, "nuance", id, 0, at(7000))
+      const revived = Option.getOrThrow(yield* claimJob(db, ["nuance"], at(7000)))
+      assert.strictEqual(revived.attempts, 1)
     })
   )
 })

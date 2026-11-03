@@ -34,7 +34,8 @@ export const enqueueJob = (db: DatabaseShape, kind: JobKind, entryId: EntryId, p
         priority: sql`greatest(${jobs.priority}, excluded.priority)`,
         status: sql`CASE WHEN ${jobs.status} = 'failed' THEN 'queued'::job_status ELSE ${jobs.status} END`,
         attempts: sql`CASE WHEN ${jobs.status} = 'failed' THEN 0 ELSE ${jobs.attempts} END`,
-        updatedAt: sql`excluded.updated_at`
+        runAfter: sql`CASE WHEN ${jobs.status} = 'failed' THEN excluded.run_after ELSE ${jobs.runAfter} END`,
+        updatedAt: sql`CASE WHEN ${jobs.status} = 'running' THEN ${jobs.updatedAt} ELSE excluded.updated_at END`
       }
     })
     .pipe(Effect.asVoid, Effect.orDie)
@@ -57,14 +58,14 @@ export const requeueJob = (db: DatabaseShape, kind: JobKind, entryId: EntryId, p
     .pipe(Effect.asVoid, Effect.orDie)
 
 /**
- * Queues a finished job again only if it finished before `finishedBefore`, so a gap the job
- * can't fill is retried at most once per interval.
+ * Queues a settled job (`done` or `failed`) again only if it settled before `settledBefore`,
+ * so a gap or failure is retried at most once per interval rather than on every poll.
  */
 export const refillJob = (
   db: DatabaseShape,
   kind: JobKind,
   entryId: EntryId,
-  finishedBefore: Date,
+  settledBefore: Date,
   priority: number,
   now: Date
 ) =>
@@ -72,7 +73,12 @@ export const refillJob = (
     .update(jobs)
     .set({ status: "queued", priority, attempts: 0, runAfter: now, updatedAt: now })
     .where(
-      and(eq(jobs.kind, kind), eq(jobs.entryId, entryId), eq(jobs.status, "done"), lt(jobs.updatedAt, finishedBefore))
+      and(
+        eq(jobs.kind, kind),
+        eq(jobs.entryId, entryId),
+        inArray(jobs.status, ["done", "failed"]),
+        lt(jobs.updatedAt, settledBefore)
+      )
     )
     .pipe(Effect.asVoid, Effect.orDie)
 
