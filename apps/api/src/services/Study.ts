@@ -1,4 +1,4 @@
-import { type CardRow, type CardWithContent, type NoteRow, StudyRepo } from "@kotori/db"
+import { type CardRow, type CardWithContent, type NoteDeletion, type NoteRow, StudyRepo } from "@kotori/db"
 import {
   type AddNoteRequest,
   type AnswerLabels,
@@ -77,7 +77,7 @@ export class Study extends Context.Service<
   {
     notes(user: Profile): Effect.Effect<ReadonlyArray<Note>>
     addNote(user: Profile, request: AddNoteRequest): Effect.Effect<Note>
-    removeNote(user: Profile, id: NoteId): Effect.Effect<boolean>
+    removeNote(user: Profile, id: NoteId): Effect.Effect<NoteDeletion>
     queue(user: Profile, limit: number): Effect.Effect<ReviewQueue>
     answer(
       user: Profile,

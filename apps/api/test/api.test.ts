@@ -288,6 +288,66 @@ layer(TestLayer)("Kotori API", (it) => {
     }).pipe(Effect.provide(Session))
   )
 
+  it.effect("deletes a note for its owner only, along with the card and review log", () =>
+    Effect.gen(function* () {
+      const owner = yield* signedIn("remove-owner@example.com")
+      const api = yield* client
+      const study = yield* StudyRepo
+      const phrase = {
+        kind: "phrase" as const,
+        text: "お邪魔します",
+        furigana: null,
+        meaning: "excuse me",
+        note: null,
+        register: "polite" as const,
+        source: "manual" as const
+      }
+      const note = yield* api.study.addNote({ payload: { content: phrase } })
+      const cardId = note.cards[0]!.id
+      yield* api.study.answer({ params: { id: cardId }, payload: { rating: "good" } })
+      assert.isAtLeast((yield* study.studyDays(owner.id)).length, 1)
+
+      // No session: refused before the note is looked up.
+      const ownerCookie = owner.cookie
+      cookie = null
+      bearer = null
+      assert.strictEqual(
+        (yield* api.study.removeNote({ params: { id: note.id } }).pipe(Effect.flip))._tag,
+        "Unauthorized"
+      )
+
+      // A different learner gets NotFound, and the note is still there.
+      const other = yield* signedIn("remove-other@example.com")
+      const denied = yield* api.study.removeNote({ params: { id: note.id } }).pipe(Effect.flip)
+      assert.strictEqual(denied._tag, "NotFound")
+      const kept = yield* api.study.addNote({ payload: { content: { ...phrase, text: "失礼します" } } })
+
+      cookie = ownerCookie
+      assert.strictEqual((yield* api.study.notes()).map((row) => row.id).join(), note.id)
+      yield* api.study.removeNote({ params: { id: note.id } })
+      assert.deepStrictEqual(yield* api.study.notes(), [])
+      assert.deepStrictEqual((yield* api.study.queue({ query: {} })).counts, { new: 0, learning: 0, review: 0 })
+      const stats = yield* api.study.stats()
+      assert.strictEqual(stats.notes, 0)
+      assert.strictEqual(stats.cards, 0)
+      assert.deepStrictEqual(stats.due, { new: 0, learning: 0, review: 0 })
+      assert.isTrue(Option.isNone(yield* study.card(owner.id, cardId)))
+      assert.deepStrictEqual(yield* study.studyDays(owner.id), [])
+      assert.strictEqual(yield* study.noteCount(owner.id), 0)
+
+      // Deleting again, or deleting an id that was never saved, is a success.
+      yield* api.study.removeNote({ params: { id: note.id } })
+      yield* api.study.removeNote({ params: { id: "00000000-0000-4000-8000-000000000099" as typeof note.id } })
+
+      cookie = other.cookie
+      assert.deepStrictEqual(
+        (yield* api.study.notes()).map((row) => row.id),
+        [kept.id]
+      )
+      assert.isTrue(Option.isSome(yield* study.card(other.id, kept.cards[0]!.id)))
+    }).pipe(Effect.provide(Session))
+  )
+
   it.effect("saves one target-language card when a client asks for both directions", () =>
     Effect.gen(function* () {
       yield* signedIn("both-directions@example.com")

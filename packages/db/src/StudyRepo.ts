@@ -58,6 +58,13 @@ export interface NoteWithCards {
   readonly cards: ReadonlyArray<CardRow>
 }
 
+/**
+ * `deleted`: the note, its cards and their review logs were removed.
+ * `absent`: nothing to delete (already gone, or never saved). Repeating a delete is safe.
+ * `forbidden`: the note belongs to someone else and was left in place.
+ */
+export type NoteDeletion = "deleted" | "absent" | "forbidden"
+
 const toCard = (card: typeof cards.$inferSelect): CardRow => ({
   ...card,
   due: millis(card.due),
@@ -88,8 +95,11 @@ export class StudyRepo extends Context.Service<
     /** The learner's notes, newest first, each with its cards. */
     notes(userId: string): Effect.Effect<ReadonlyArray<NoteWithCards>>
     note(userId: string, noteId: string): Effect.Effect<Option.Option<NoteWithCards>>
-    /** Returns whether a note was deleted. */
-    deleteNote(userId: string, noteId: string): Effect.Effect<boolean>
+    /**
+     * Deletes the note when `userId` owns it. Cards and review logs go with it,
+     * in one transaction. See `NoteDeletion` for the other outcomes.
+     */
+    deleteNote(userId: string, noteId: string): Effect.Effect<NoteDeletion>
     /** Saved word notes for the given entries. */
     savedWords(
       userId: string,
@@ -149,11 +159,30 @@ export class StudyRepo extends Context.Service<
       }, Effect.orDie)
 
       const deleteNote = Effect.fn("StudyRepo.deleteNote")(function* (userId: string, noteId: string) {
-        const rows = yield* db
-          .delete(notes)
-          .where(and(eq(notes.userId, userId), eq(notes.id, noteId)))
-          .returning({ id: notes.id })
-        return rows.length > 0
+        // cards.note_id → notes.id and review_logs.card_id → cards.id are both ON DELETE CASCADE.
+        // The children are still deleted explicitly, logs first, so a later change to those
+        // foreign keys cannot leave a card or a review behind. Ownership is checked in the
+        // same transaction as the deletes.
+        return yield* db.transaction((tx) =>
+          Effect.gen(function* () {
+            const found = yield* tx.select({ userId: notes.userId }).from(notes).where(eq(notes.id, noteId)).limit(1)
+            const owner = found[0]?.userId
+            if (owner === undefined) return "absent" as const
+            if (owner !== userId) return "forbidden" as const
+
+            const cardRows = yield* tx.select({ id: cards.id }).from(cards).where(eq(cards.noteId, noteId))
+            const cardIds = cardRows.map((row) => row.id)
+            if (cardIds.length > 0) {
+              yield* tx.delete(reviewLogs).where(inArray(reviewLogs.cardId, cardIds))
+              yield* tx.delete(cards).where(eq(cards.noteId, noteId))
+            }
+            const removed = yield* tx
+              .delete(notes)
+              .where(and(eq(notes.userId, userId), eq(notes.id, noteId)))
+              .returning({ id: notes.id })
+            return removed.length > 0 ? ("deleted" as const) : ("absent" as const)
+          })
+        )
       }, Effect.orDie)
 
       const savedWords = Effect.fn("StudyRepo.savedWords")(function* (userId: string, entryIds: ReadonlyArray<number>) {

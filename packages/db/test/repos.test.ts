@@ -148,6 +148,7 @@ const TestLayer = Repositories.pipe(Layer.provideMerge(DatabaseMemory))
 
 // Study ids are uuids, as Better Auth's user ids and the API's note and card ids are.
 const U1 = "00000000-0000-4000-8000-000000000001"
+const U2 = "00000000-0000-4000-8000-000000000002"
 const N1 = "00000000-0000-4000-8000-00000000000a"
 const C1 = "00000000-0000-4000-8000-0000000000c1"
 const C2 = "00000000-0000-4000-8000-0000000000c2"
@@ -579,7 +580,7 @@ layer(TestLayer)("StudyRepo", (it) => {
       assert.strictEqual(yield* study.nextPosition(U1), 1)
       assert.deepStrictEqual(yield* study.reviewDueTimes(U1, 100_000), [99_999])
 
-      assert.isTrue(yield* study.deleteNote(U1, N1))
+      assert.strictEqual(yield* study.deleteNote(U1, N1), "deleted")
       assert.isTrue(Option.isNone(yield* study.card(U1, C2)))
       assert.strictEqual(yield* study.noteCount(U1), 0)
     })
@@ -726,7 +727,101 @@ layer(TestLayer)("StudyRepo", (it) => {
       assert.strictEqual(Option.getOrThrow(yield* study.card(U1, C3)).template, "recognize")
       assert.strictEqual(yield* logsFor(C3), 1)
 
-      assert.isTrue(yield* study.deleteNote(U1, N2))
+      assert.strictEqual(yield* study.deleteNote(U1, N2), "deleted")
+    })
+  )
+
+  it.effect("deletes a note with its cards and review logs, and only for the owner", () =>
+    Effect.gen(function* () {
+      const users = yield* UsersRepo
+      const study = yield* StudyRepo
+      const db = yield* Database
+      yield* users.ensure(learner)
+      yield* users.ensure({ ...learner, id: U2 })
+
+      const N3 = "00000000-0000-4000-8000-00000000000d"
+      const N4 = "00000000-0000-4000-8000-00000000000e"
+      const C7 = "00000000-0000-4000-8000-0000000000c7"
+      const C8 = "00000000-0000-4000-8000-0000000000c8"
+      const phrase = {
+        kind: "phrase" as const,
+        text: "いただきます",
+        furigana: null,
+        meaning: "let's eat",
+        note: null,
+        register: "polite" as const,
+        source: "manual" as const
+      }
+      const card = (id: string, noteId: string, userId: string) => ({
+        id,
+        noteId,
+        userId,
+        template: "recognize" as const,
+        queue: "review" as const,
+        due: 1_000,
+        interval: 30,
+        ease: 2.5,
+        step: 0,
+        reps: 2,
+        lapses: 0,
+        leech: false,
+        lastReview: 500,
+        seed: 1,
+        position: 0,
+        createdAt: 0
+      })
+      const log = (cardId: string, userId: string) => ({
+        cardId,
+        userId,
+        rating: "good" as const,
+        queueBefore: "review" as const,
+        intervalBefore: 10,
+        interval: 30,
+        easeBefore: 2.5,
+        ease: 2.5,
+        delayMs: 0,
+        durationMs: 1000,
+        reviewedAt: 1_000,
+        studyDay: 20_100
+      })
+
+      yield* study.insertNote({ id: N3, userId: U1, content: phrase, entryId: null, sense: null, createdAt: 0 }, [
+        card(C7, N3, U1)
+      ])
+      yield* study.insertLog(log(C7, U1))
+      yield* study.insertNote(
+        { id: N4, userId: U2, content: { ...phrase, text: "ごちそうさま" }, entryId: null, sense: null, createdAt: 1 },
+        [card(C8, N4, U2)]
+      )
+      yield* study.insertLog(log(C8, U2))
+
+      const logsFor = (cardId: string) =>
+        db
+          .select({ n: count() })
+          .from(reviewLogs)
+          .where(eq(reviewLogs.cardId, cardId))
+          .pipe(Effect.map((rows) => rows[0]?.n ?? 0))
+
+      // Another learner cannot delete it, and nothing is removed.
+      assert.strictEqual(yield* study.deleteNote(U2, N3), "forbidden")
+      assert.isTrue(Option.isSome(yield* study.note(U1, N3)))
+      assert.isTrue(Option.isSome(yield* study.card(U1, C7)))
+      assert.strictEqual(yield* logsFor(C7), 1)
+
+      assert.strictEqual(yield* study.deleteNote(U1, N3), "deleted")
+      assert.isTrue(Option.isNone(yield* study.note(U1, N3)))
+      assert.isTrue(Option.isNone(yield* study.card(U1, C7)))
+      assert.strictEqual(yield* logsFor(C7), 0)
+
+      // The other learner's note, card and review log are untouched.
+      assert.isTrue(Option.isSome(yield* study.note(U2, N4)))
+      assert.isTrue(Option.isSome(yield* study.card(U2, C8)))
+      assert.strictEqual(yield* logsFor(C8), 1)
+
+      // Repeating the delete, or deleting an id that was never saved, changes nothing.
+      assert.strictEqual(yield* study.deleteNote(U1, N3), "absent")
+      assert.strictEqual(yield* study.deleteNote(U1, "00000000-0000-4000-8000-000000000099"), "absent")
+      assert.strictEqual(yield* logsFor(C8), 1)
     })
   )
 })
