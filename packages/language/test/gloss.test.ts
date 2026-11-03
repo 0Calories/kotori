@@ -6,6 +6,7 @@ describe("normalizeGloss", () => {
     expect(normalizeGloss("to eat (a meal)")).toBe("eat")
     expect(normalizeGloss("The Sun")).toBe("sun")
     expect(normalizeGloss("(of a person) to be late")).toBe("be late")
+    expect(normalizeGloss("to rattle one’s nerves")).toBe("rattle one's nerves")
   })
 })
 

@@ -1,6 +1,6 @@
-import { sql } from "drizzle-orm"
+import { type SQL, sql } from "drizzle-orm"
 import { boolean, index, integer, pgEnum, primaryKey, text } from "drizzle-orm/pg-core"
-import { bytewiseText, table } from "./columns.ts"
+import { bytewiseText, englishDocument, table, tsvector } from "./columns.ts"
 import { entries, type EntryId } from "./entries.ts"
 
 /**
@@ -26,12 +26,18 @@ export const forms = table(
     priorities: text().array().notNull().default([]),
     /** For kana forms: the kanji forms this reading belongs to; empty means all. */
     restrictions: text().array().notNull().default([]),
-    noKanji: boolean().notNull().default(false)
+    noKanji: boolean().notNull().default(false),
+    /** Full-text index over `text`, maintained by Postgres, so English phrases match by stemmed words. */
+    document: tsvector()
+      .notNull()
+      .generatedAlwaysAs((): SQL => englishDocument(forms.text))
   },
   (t) => [
     primaryKey({ columns: [t.entryId, t.kind, t.position] }),
     index("forms_text").on(t.text),
     // English is looked up regardless of case ("polish" finds Polish); bytewise, like `text`, for prefixes.
-    index("forms_folded").on(sql`lower(${t.text})`)
+    index("forms_folded").on(sql`lower(${t.text})`),
+    index("forms_document").using("gin", t.document),
+    index("forms_trgm").using("gin", t.text.op("gin_trgm_ops"))
   ]
 )

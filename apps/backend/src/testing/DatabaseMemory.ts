@@ -1,3 +1,4 @@
+import { pg_trgm } from "@electric-sql/pglite/contrib/pg_trgm"
 import { PgliteClient } from "@effect/sql-pglite"
 import * as PgliteDrizzle from "drizzle-orm/effect-pglite"
 import { Layer } from "effect"
@@ -12,5 +13,5 @@ import { relations } from "../db/relations.ts"
  */
 export const DatabaseMemory = Layer.effectDiscard(migrateDatabase()).pipe(
   Layer.provideMerge(Layer.effect(Database, PgliteDrizzle.makeWithDefaults({ relations }))),
-  Layer.provideMerge(PgliteClient.layer({ dataDir: "memory://" }))
+  Layer.provideMerge(PgliteClient.layer({ dataDir: "memory://", extensions: { pg_trgm } }))
 )

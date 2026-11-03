@@ -18,7 +18,10 @@ import {
   headwordIds,
   insertEntries,
   loanCandidates,
+  searchForms,
+  searchFormsFuzzy,
   searchGlosses,
+  searchGlossesFuzzy,
   searchJapaneseGlosses,
   sharedGlossCandidates
 } from "../../src/features/dictionary/queries.ts"
@@ -101,7 +104,7 @@ layer(TestLayer)("dictionary queries", (it) => {
   it.effect("searches English glosses with stemming and exact matching", () =>
     Effect.gen(function* () {
       const db = yield* Database
-      const fts = yield* searchGlosses(db, "eating", 20)
+      const fts = yield* searchGlosses(db, ["eating"], 20)
       assert.includeMembers(
         fts.map((match) => match.entryId),
         [1358280, 1269130, 1594790]
@@ -111,6 +114,18 @@ layer(TestLayer)("dictionary queries", (it) => {
       assert.deepStrictEqual(
         exact.map((match) => match.entryId),
         [1358280, 1269130, 1594790]
+      )
+
+      const relaxed = yield* searchGlosses(db, ["pancake jam", "pancake soup"], 20)
+      assert.include(
+        relaxed.map((match) => match.entryId),
+        EntryId.make(1000000)
+      )
+
+      const fuzzy = yield* searchGlossesFuzzy(db, "pancak filled with bean jam", 20)
+      assert.include(
+        fuzzy.map((match) => match.entryId),
+        EntryId.make(1000000)
       )
     })
   )
@@ -176,6 +191,14 @@ layer(TestLayer)("dictionary queries", (it) => {
       assert.deepStrictEqual(yield* findFormPrefix(db, "Po", 10, "en"), [100000003, 100000002])
       assert.deepStrictEqual(yield* findFormPrefix(db, "eate", 10, "en"), [])
       assert.deepStrictEqual(yield* findFormPrefix(db, "た", 10, "en"), [])
+      assert.sameMembers(
+        (yield* searchForms(db, ["polishing"], 10)).map((match) => match.entryId),
+        [100000002, 100000003]
+      )
+      assert.sameMembers(
+        (yield* searchFormsFuzzy(db, "polsh", 10)).map((match) => match.entryId),
+        [100000002, 100000003]
+      )
     })
   )
 

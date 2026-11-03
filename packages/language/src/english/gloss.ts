@@ -5,6 +5,7 @@
 export const normalizeGloss = (text: string) =>
   text
     .toLowerCase()
+    .replace(/’/g, "'")
     .replace(/\([^)]*\)/g, " ")
     .replace(/[^\p{L}\p{N}' -]/gu, " ")
     .replace(/\s+/g, " ")
