@@ -1,10 +1,9 @@
-import { Console, Effect, FileSystem, Option } from "effect"
+import { Console, Effect, Option } from "effect"
 import { Command, Flag } from "effect/cli"
 import { Database } from "../db/Database.ts"
 import * as Eiwa from "../features/dictionary/import/eiwa/Eiwa.ts"
 import * as JMDict from "../features/dictionary/import/jmdict/JMDict.ts"
 import { countOf, entryCount } from "../features/dictionary/index.ts"
-import { resolveFromRoot } from "../runtime/Paths.ts"
 
 export const seed = Command.make(
   "seed",
@@ -34,25 +33,14 @@ export const seed = Command.make(
   },
   Effect.fn(function* ({ dictionary: which, file, limit, commonOnly, ifEmpty }) {
     const db = yield* Database
-    const fs = yield* FileSystem.FileSystem
     const seconds = (started: number) => ((Date.now() - started) / 1000).toFixed(1)
-
-    // The English dictionary reads JMDict too, so the file is shared: the one given, the last
-    // download, or a fresh one.
-    let jmdictFile = Option.getOrUndefined(file)
-    const jmdict = Effect.gen(function* () {
-      if (jmdictFile !== undefined) return jmdictFile
-      const previous = resolveFromRoot("data/jmdict/JMdict_e.gz")
-      jmdictFile = which !== "jmdict" && (yield* fs.exists(previous)) ? previous : yield* JMDict.download("data/jmdict")
-      return jmdictFile
-    })
 
     if (which !== "english") {
       const existing = yield* countOf(db, "ja")
       if (ifEmpty && existing > 0) {
         yield* Console.log(`JMDict already has ${existing.toLocaleString()} entries.`)
       } else {
-        jmdictFile ??= yield* JMDict.download("data/jmdict")
+        const jmdictFile = Option.getOrUndefined(file) ?? (yield* JMDict.download("data/jmdict"))
         const started = Date.now()
         const result = yield* JMDict.importFile({ file: jmdictFile, limit: Option.getOrUndefined(limit), commonOnly })
         yield* Console.log(`Imported ${result.entries.toLocaleString()} JMDict entries in ${seconds(started)}s.`)
@@ -68,14 +56,11 @@ export const seed = Command.make(
         const started = Date.now()
         const result = yield* Eiwa.importFiles({
           files,
-          jmdict: yield* jmdict,
           limit: Option.getOrUndefined(limit),
           commonOnly
         })
         yield* Console.log(
-          `Imported ${result.entries.toLocaleString()} English words in ${seconds(started)}s ` +
-            `(${result.wiktionary.toLocaleString()} from Wiktionary, ${result.ejdict.toLocaleString()} from EJDict, ` +
-            `${result.jmdict.toLocaleString()} read backwards from JMDict)` +
+          `Imported ${result.entries.toLocaleString()} English words in ${seconds(started)}s` +
             (result.removed > 0 ? `, and removed ${result.removed.toLocaleString()} it no longer has.` : ".")
         )
       }
@@ -84,6 +69,6 @@ export const seed = Command.make(
   })
 ).pipe(
   Command.withDescription(
-    "Download JMDict and the English dictionary's sources (Japanese Wiktionary, EJDict) and load them into the database"
+    "Download JMDict and load JMDict and the consolidated English dictionary into the database"
   )
 )

@@ -11,11 +11,15 @@
     "adv-to": "adverb taking the 'to' particle",
     "anat": "anatomy",
     "arch": "archaic",
+    "archit": "architecture",
     "aux-v": "auxiliary verb",
     "aviat": "aviation",
     "baseb": "baseball",
+    "biol": "biology",
     "bot": "botany",
+    "bus": "business",
     "cards": "card games",
+    "chem": "chemistry",
     "chn": "children's language",
     "cloth": "clothing",
     "col": "colloquial",
@@ -29,11 +33,12 @@
     "en-CA": "Canadian English",
     "en-GB": "British English",
     "en-IE": "Irish English",
+    "en-IN": "Indian English",
     "en-NZ": "New Zealand English",
     "en-PH": "Philippine English",
     "en-SG": "Singapore English",
     "en-US": "American English",
-    "en-scotland": "Scottish English",
+    "engr": "engineering",
     "euph": "euphemistic",
     "exp": "expressions (phrases, clauses, etc.)",
     "fam": "familiar language",
@@ -41,34 +46,44 @@
     "figskt": "figure skating",
     "food": "food, cooking",
     "form": "formal or literary term",
+    "gramm": "grammar",
     "hist": "historical term",
     "hon": "honorific or respectful (sonkeigo) language",
     "hum": "humble (kenjougo) language",
+    "id": "idiomatic expression",
     "int": "interjection (kandoushi)",
     "internet": "Internet",
     "joc": "jocular, humorous term",
     "law": "law",
-    "logic": "logic",
+    "ling": "linguistics",
     "male": "male term or language",
     "math": "mathematics",
+    "med": "medicine",
     "mil": "military",
     "music": "music",
     "n": "noun (common) (futsuumeishi)",
+    "n-pr": "proper noun",
     "n-pref": "noun, used as a prefix",
     "n-suf": "noun, used as a suffix",
+    "net-sl": "Internet slang",
     "obs": "obsolete term",
     "on-mim": "onomatopoeic or mimetic word",
+    "photo": "photography",
     "physics": "physics",
     "physiol": "physiology",
     "pn": "pronoun",
     "poet": "poetical term",
     "pol": "polite (teineigo) language",
+    "politics": "politics",
     "pref": "prefix",
+    "print": "printing",
     "prt": "particle",
+    "psych": "psychology",
+    "rail": "railway",
     "rare": "rare term",
+    "relig": "religion",
     "sl": "slang",
     "sports": "sports",
-    "stat": "statistics",
     "suf": "suffix",
     "sumo": "sumo",
     "uk": "word usually written using kana alone",
@@ -88,7 +103,8 @@
     "vidg": "video games",
     "vs": "noun or participle which takes the aux. verb suru",
     "vt": "transitive verb",
-    "vulg": "vulgar expression or word"
+    "vulg": "vulgar expression or word",
+    "zool": "zoology"
   },
   "entries": [
     {
@@ -3422,128 +3438,164 @@
       ]
     },
     {
-      "id": 100000080,
+      "id": 100000001,
       "language": "en",
       "headword": "okay",
-      "reading": "/ˌəʊˈkeɪ/",
+      "reading": "/ˌoʊˈkeɪ/",
       "common": true,
-      "spellings": ["okay"],
+      "spellings": ["okay", "OK", "O.K.", "o.k.", "ok"],
       "senses": [
         {
-          "glosses": ["（賛同・許可の意を示す）よろしい", "いいよ", "オーケイ", "オッケイ"],
+          "glosses": ["オーケー", "わかった", "了解"],
           "pos": ["int"]
         },
         {
-          "glosses": ["了承", "賛成", "賛同"],
-          "pos": ["n"]
+          "glosses": ["大丈夫な", "構わない", "許される"],
+          "pos": ["adj"],
+          "info": ["Is it okay if ...? の形でよく使う"]
         },
         {
-          "glosses": ["～するのに支障・問題がない"],
-          "pos": ["adj"]
+          "glosses": ["まあまあの", "悪くない", "まずまず"],
+          "pos": ["adj", "adv"]
         },
         {
-          "glosses": ["よい", "悪くない"],
-          "pos": ["adj"]
+          "glosses": ["大丈夫な", "元気な", "無事な"],
+          "pos": ["adj"],
+          "info": ["Are you okay? の形で"]
         },
         {
-          "glosses": ["（体調等が）よい", "快調である"],
-          "pos": ["adj"]
+          "glosses": ["納得している", "受け入れている"],
+          "pos": ["adj"],
+          "info": ["be okay with ... の形で"]
         },
         {
-          "glosses": ["十分である"],
-          "pos": ["adv"]
+          "glosses": ["承認", "許可", "承認する"],
+          "pos": ["n", "v", "vt", "int"],
+          "info": ["get the okay（許可を得る）；文頭の「さて」「よし」としても使う"]
         }
       ]
     },
     {
-      "id": 100000097,
+      "id": 100000002,
       "language": "en",
       "headword": "hey",
-      "reading": "",
+      "reading": "/heɪ/",
       "common": true,
       "spellings": ["hey"],
       "senses": [
         {
-          "glosses": [
-            "おや",
-            "おい",
-            "へえ",
-            "ちょっと(注意を促したり,喜び・驚き・困惑などの突然わき起こった感情の発声)"
-          ],
-          "pos": []
+          "glosses": ["やあ", "よう", "ねえ"],
+          "pos": ["int", "v"],
+          "misc": ["col"]
+        },
+        {
+          "glosses": ["おい", "ねえ", "ちょっと"],
+          "pos": ["int"],
+          "misc": ["col"]
+        },
+        {
+          "glosses": ["おい", "こら"],
+          "pos": ["int"],
+          "misc": ["col"]
+        },
+        {
+          "glosses": ["おや", "へえ"],
+          "pos": ["int"],
+          "misc": ["col"]
+        },
+        {
+          "glosses": ["ね", "だろ"],
+          "pos": ["int"],
+          "misc": ["col"],
+          "info": ["文末で付加疑問として"]
         }
       ]
     },
     {
-      "id": 100000107,
+      "id": 100000003,
       "language": "en",
       "headword": "talk",
-      "reading": "/ˈtɔk/",
+      "reading": "/tɔk/",
       "common": true,
       "spellings": ["talk"],
       "senses": [
         {
-          "glosses": ["話す"],
-          "pos": ["v", "vi"]
+          "glosses": ["話す", "しゃべる"],
+          "pos": ["v", "vi"],
+          "info": ["talk to/with ～"]
         },
         {
-          "glosses": ["会話"],
-          "pos": ["n"]
+          "glosses": ["話", "話し合い"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "info": ["have a talk"]
         },
         {
-          "glosses": ["～を話す"],
-          "pos": ["v", "vt"]
+          "glosses": ["会談", "協議"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "info": ["通例 talks の形で"]
         },
         {
-          "glosses": ["話し合う"],
-          "pos": ["v", "vi"]
+          "glosses": ["講演", "トーク"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["相談する"],
-          "pos": ["v", "vi"]
+          "glosses": ["噂", "話題"],
+          "pos": ["n", "v", "vi"],
+          "misc": ["uncountable", "countable"],
+          "info": ["the talk of the town"]
         },
         {
-          "glosses": ["～を説得する", "～を説得して～させる"],
-          "pos": ["v", "vt"]
+          "glosses": ["口先だけ"],
+          "pos": ["n"],
+          "misc": ["uncountable"],
+          "info": ["all talk の形で"]
         }
       ]
     },
     {
-      "id": 100000124,
+      "id": 100000004,
       "language": "en",
       "headword": "sorry",
-      "reading": "/ˈsɒri/",
+      "reading": "/ˈsɑɹi/",
       "common": true,
       "spellings": ["sorry"],
       "senses": [
         {
-          "glosses": ["申し訳なく思って"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["気の毒な"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["残念な"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["後悔して"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["ごめんなさい"],
+          "glosses": ["ごめんなさい", "すみません"],
           "pos": ["int"]
         },
         {
-          "glosses": ["何と言いましたか"],
-          "pos": ["int"]
+          "glosses": ["申し訳なく思う", "すまない"],
+          "pos": ["adj"],
+          "info": ["be sorry for/that ～ の形で"]
+        },
+        {
+          "glosses": ["気の毒に思う", "残念に思う"],
+          "pos": ["adj"],
+          "info": ["feel sorry for ～ の形で"]
+        },
+        {
+          "glosses": ["え？", "もう一度お願いします"],
+          "pos": ["int"],
+          "info": ["上昇調で聞き返す"]
+        },
+        {
+          "glosses": ["みじめな", "お粗末な"],
+          "pos": ["adj"],
+          "info": ["a sorry state など"]
+        },
+        {
+          "glosses": ["失礼", "いや"],
+          "pos": ["int"],
+          "info": ["言い直しや前置きに"]
         }
       ]
     },
     {
-      "id": 100000129,
+      "id": 100000005,
       "language": "en",
       "headword": "help",
       "reading": "/hɛlp/",
@@ -3551,72 +3603,78 @@
       "spellings": ["help"],
       "senses": [
         {
-          "glosses": ["手伝う"],
-          "pos": ["v"]
+          "glosses": ["助ける", "手伝う"],
+          "pos": ["v", "vt", "vi"],
+          "info": ["help + 人 + (to) do の形で"]
         },
         {
-          "glosses": ["救済"],
-          "pos": ["n"]
+          "glosses": ["助け", "手伝い", "援助"],
+          "pos": ["n"],
+          "misc": ["uncountable"]
         },
         {
-          "glosses": ["手助け", "手伝い"],
-          "pos": ["n"]
+          "glosses": ["助けて！"],
+          "pos": ["int"]
         },
         {
-          "glosses": ["助ける"],
-          "pos": ["v"]
+          "glosses": ["（～せずには）いられない", "避ける"],
+          "pos": ["v", "vt"],
+          "info": ["can't help doing の形で"]
         },
         {
-          "glosses": ["役に立つ"],
-          "pos": ["v"]
+          "glosses": ["役立つ", "促進する"],
+          "pos": ["v", "vt"]
         },
         {
-          "glosses": [
-            "（一般にcannot/can't help +(目的語/再帰代名詞/～ing)の形で）我慢する",
-            "耐える",
-            "避ける",
-            "しないですませる"
-          ],
-          "pos": ["v"]
+          "glosses": ["ウケる", "笑いが止まらない"],
+          "pos": ["int"],
+          "misc": ["net-sl"],
+          "info": ["SNSで「笑い死にそう」の意"]
         }
       ]
     },
     {
-      "id": 100000170,
+      "id": 100000006,
       "language": "en",
       "headword": "live",
-      "reading": "/lɪv/",
+      "reading": "/ˈlɪv/",
       "common": true,
       "spellings": ["live"],
       "senses": [
         {
-          "glosses": ["生きる"],
+          "glosses": ["住む", "暮らす"],
+          "pos": ["v", "vi"],
+          "misc": ["col"]
+        },
+        {
+          "glosses": ["生きる", "生き延びる"],
           "pos": ["v", "vi"]
         },
         {
-          "glosses": ["住む"],
-          "pos": ["v", "vi"]
+          "glosses": ["（～な）生活を送る", "生計を立てる"],
+          "pos": ["v", "vi", "vt"],
+          "misc": ["col"],
+          "info": ["live on ～（～で暮らす）"]
         },
         {
-          "glosses": ["実況の", "ライブ（放送）の", "なまの"],
-          "pos": ["adj"]
+          "glosses": ["生の", "ライブの", "生中継で"],
+          "pos": ["adj", "adv"],
+          "info": ["形容詞・副詞は /laɪv/"]
         },
         {
-          "glosses": ["（音楽や演説が）実演の", "ライブの"],
-          "pos": ["adj"]
+          "glosses": ["生きている", "電気が通った", "実弾の"],
+          "pos": ["adj"],
+          "info": ["/laɪv/"]
         },
         {
-          "glosses": ["生ける", "現実の"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["あり続ける", "居続ける", "残る"],
-          "pos": ["v", "vi"]
+          "glosses": ["我慢する", "受け入れる"],
+          "pos": ["v", "vi"],
+          "info": ["live with ～ の形で"]
         }
       ]
     },
     {
-      "id": 100000176,
+      "id": 100000007,
       "language": "en",
       "headword": "friend",
       "reading": "/fɹɛnd/",
@@ -3628,97 +3686,145 @@
           "pos": ["n"]
         },
         {
-          "glosses": ["同盟者", "協力者", "味方"],
+          "glosses": ["知り合い"],
+          "pos": ["n"],
+          "info": ["a friend of a friend"]
+        },
+        {
+          "glosses": ["友達申請する", "友達に追加する"],
+          "pos": ["v", "vt"],
+          "info": ["SNSで"]
+        },
+        {
+          "glosses": ["支持者", "味方"],
           "pos": ["n"]
         },
         {
-          "glosses": ["交際している異性", "恋人", "ボーイフレンド又はガールフレンド"],
-          "pos": ["n"]
+          "glosses": ["味方", "強い味方"],
+          "pos": ["n"],
+          "misc": ["col"],
+          "info": ["～ is your friend の形で"]
         },
         {
-          "glosses": ["知り合い", "知己", "(特に、a friend又はa friend of a friend)匿名者"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["支持者", "応援者"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["よく使うもの"],
-          "pos": ["n"]
+          "glosses": ["おい、あんた"],
+          "pos": ["n"],
+          "misc": ["col"],
+          "info": ["警告の呼びかけ"]
         }
       ]
     },
     {
-      "id": 100000184,
+      "id": 100000008,
       "language": "en",
       "headword": "start",
-      "reading": "/stɑːt/",
+      "reading": "/stɑɹt/",
       "common": true,
       "spellings": ["start"],
       "senses": [
         {
-          "glosses": ["始まる"],
-          "pos": ["v"]
-        },
-        {
           "glosses": ["始める", "開始する"],
-          "pos": ["v", "vt"]
+          "pos": ["v"],
+          "info": ["start doing / to do"]
         },
         {
-          "glosses": ["開始"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["始め"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["出発する"],
+          "glosses": ["始まる"],
           "pos": ["v", "vi"]
         },
         {
-          "glosses": ["はっとする"],
-          "pos": ["v"]
+          "glosses": ["始まり", "スタート"],
+          "pos": ["n"],
+          "info": ["from start to finish"]
+        },
+        {
+          "glosses": ["始動させる", "かける"],
+          "pos": ["v"],
+          "info": ["start the engine"]
+        },
+        {
+          "glosses": ["びくっとする", "驚き"],
+          "pos": ["n", "v", "vi"],
+          "info": ["with a start"]
+        },
+        {
+          "glosses": ["先発", "有利なスタート"],
+          "pos": ["n"]
         }
       ]
     },
     {
-      "id": 100000192,
+      "id": 100000009,
+      "language": "en",
+      "headword": "big",
+      "reading": "/bɪɡ/",
+      "common": true,
+      "spellings": ["big"],
+      "senses": [
+        {
+          "glosses": ["大きい", "大きな"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["重要な", "大事な"],
+          "pos": ["adj"],
+          "misc": ["col"]
+        },
+        {
+          "glosses": ["人気のある", "流行っている"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["年上の", "大人の"],
+          "pos": ["adj"],
+          "misc": ["col"],
+          "info": ["big brother/sister など"]
+        },
+        {
+          "glosses": ["大好きな", "夢中の"],
+          "pos": ["adj", "adv"],
+          "misc": ["col"],
+          "info": ["be big on/into ～ の形で"]
+        },
+        {
+          "glosses": ["大々的に", "大きく"],
+          "pos": ["adv"],
+          "info": ["win big, think big など"]
+        }
+      ]
+    },
+    {
+      "id": 100000010,
       "language": "en",
       "headword": "money",
-      "reading": "/ˈmʌni/",
+      "reading": "/ˈmʌn.i/",
       "common": true,
       "spellings": ["money"],
       "senses": [
         {
-          "glosses": ["（最も一般的な意味で）金銭", "お金"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["金銭の", "類義語: monetary."],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["（実体としての）貨幣", "現金", "類義語:cash"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["（流通価値としての）通貨", "類義語:currency"],
-          "pos": ["n"]
+          "glosses": ["お金", "金銭"],
+          "pos": ["n"],
+          "misc": ["uncountable"]
         },
         {
           "glosses": ["財産", "富"],
-          "pos": ["n"]
+          "pos": ["n"],
+          "misc": ["uncountable"]
         },
         {
-          "glosses": ["二者間において物やサービスの対価とする有価物"],
-          "pos": ["n"]
+          "glosses": ["金持ち", "富裕層"],
+          "pos": ["n"],
+          "misc": ["uncountable"],
+          "info": ["born into money"]
+        },
+        {
+          "glosses": ["最高の", "イケてる"],
+          "pos": ["adj"],
+          "misc": ["sl"],
+          "dialects": ["en-US"]
         }
       ]
     },
     {
-      "id": 100000199,
+      "id": 100000011,
       "language": "en",
       "headword": "kid",
       "reading": "/ˈkɪd/",
@@ -3726,224 +3832,240 @@
       "spellings": ["kid"],
       "senses": [
         {
-          "glosses": ["からかう", "ふざける"],
-          "pos": ["v"]
+          "glosses": ["子供", "若者"],
+          "pos": ["n"],
+          "misc": ["countable", "col", "uncountable"]
         },
         {
-          "glosses": ["仔やぎ"],
-          "pos": ["n"]
+          "glosses": ["子", "うちの子"],
+          "pos": ["n"],
+          "misc": ["countable", "col", "uncountable"]
         },
         {
-          "glosses": ["仔やぎの革"],
-          "pos": ["n"]
+          "glosses": ["冗談を言う", "からかう"],
+          "pos": ["v", "vi", "vt"],
+          "misc": ["col"],
+          "info": ["You're kidding! / Are you kidding me?"]
         },
         {
-          "glosses": ["子供"],
-          "pos": ["n"]
+          "glosses": ["自分をごまかす", "甘い考えを持つ"],
+          "pos": ["v", "vt"],
+          "misc": ["col"],
+          "info": ["kid oneself の形で"]
         },
         {
-          "glosses": ["冗談を言う"],
-          "pos": ["v"]
+          "glosses": ["（人を）からかう", "ひやかす"],
+          "pos": ["v", "vt"],
+          "misc": ["col"]
+        },
+        {
+          "glosses": ["子ヤギ", "キッド革"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         }
       ]
     },
     {
-      "id": 100000202,
-      "language": "en",
-      "headword": "big",
-      "reading": "/ˈbɪɡ/",
-      "common": true,
-      "spellings": ["big"],
-      "senses": [
-        {
-          "glosses": ["大きい"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["年上の"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["人気がある", "流行の"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["寛大な", "立派な"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["熱中した"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["うまく"],
-          "pos": ["adv"]
-        }
-      ]
-    },
-    {
-      "id": 100000212,
+      "id": 100000012,
       "language": "en",
       "headword": "understand",
-      "reading": "/ˌʌndə(r)ˈstænd/",
+      "reading": "/ˌʌndɚˈstænd/",
       "common": true,
       "spellings": ["understand"],
       "senses": [
         {
           "glosses": ["分かる", "理解する"],
-          "pos": ["v"]
+          "pos": ["v", "vi", "vt"]
         },
         {
-          "glosses": ["確信する"],
-          "pos": ["v"]
+          "glosses": ["（人の気持ちを）理解する", "分かってあげる"],
+          "pos": ["v", "vt"]
         },
         {
-          "glosses": ["（語句などを補って）解釈する"],
-          "pos": ["v"]
+          "glosses": ["（～と）承知している", "聞いている"],
+          "pos": ["v", "vt"],
+          "info": ["I understand that ～ の形で"]
+        },
+        {
+          "glosses": ["（言葉を）省略されたものとみなす"],
+          "pos": ["v", "vt"],
+          "fields": ["gramm", "ling"],
+          "info": ["受け身で"]
         }
       ]
     },
     {
-      "id": 100000219,
+      "id": 100000013,
       "language": "en",
       "headword": "house",
-      "reading": "",
+      "reading": "/haʊ̯s/",
       "common": true,
       "spellings": ["house"],
       "senses": [
         {
-          "glosses": ["家"],
-          "pos": ["n"]
+          "glosses": ["家", "住宅", "一戸建て"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["家の"],
-          "pos": ["adj"]
+          "glosses": ["～館", "会社", "店"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "info": ["publishing house, on the house(店のおごり)など"]
         },
         {
-          "glosses": ["議院"],
-          "pos": ["n"]
+          "glosses": ["議院", "議会"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "fields": ["politics"]
         },
         {
-          "glosses": ["家族"],
-          "pos": ["n"]
+          "glosses": ["収容する", "住まわせる", "格納する"],
+          "pos": ["v", "vt"]
         },
         {
-          "glosses": ["学寮"],
-          "pos": ["n"]
+          "glosses": ["観客", "客席"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["商店"],
-          "pos": ["n"]
+          "glosses": ["ハウスミュージック"],
+          "pos": ["n"],
+          "misc": ["uncountable"],
+          "fields": ["music"]
         }
       ]
     },
     {
-      "id": 100000263,
+      "id": 100000014,
       "language": "en",
       "headword": "drink",
-      "reading": "",
+      "reading": "/ˈdɹɪŋk/",
       "common": true,
-      "spellings": ["drink", "drinke"],
+      "spellings": ["drink"],
       "senses": [
         {
-          "glosses": ["飲む", "特に容器に口をつけて飲む"],
-          "pos": ["v"]
+          "glosses": ["飲む", "飲み干す"],
+          "pos": ["v", "vt"]
         },
         {
-          "glosses": ["飲み物"],
-          "pos": ["n"]
+          "glosses": ["酒を飲む", "飲酒する"],
+          "pos": ["v", "vi"]
         },
         {
-          "glosses": ["祝杯を上げる", "乾杯する"],
-          "pos": ["v"]
+          "glosses": ["飲み物", "ドリンク"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["酒を飲む"],
-          "pos": ["v"]
+          "glosses": ["酒", "お酒"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "info": ["Can I buy you a drink? などの形で"]
         },
         {
-          "glosses": ["吸い上げる", "吸い込む", "吸収する"],
-          "pos": ["v"]
+          "glosses": ["一口", "一杯"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "info": ["take/have a drink の形で"]
         },
         {
-          "glosses": ["（比喩的に。知覚などによって）賞味する", "味わう", "鑑賞する", "愛でる"],
-          "pos": ["v"]
+          "glosses": ["海", "水の中"],
+          "pos": ["n"],
+          "misc": ["col", "countable", "uncountable"],
+          "info": ["the drink の形で"]
         }
       ]
     },
     {
-      "id": 100000276,
+      "id": 100000015,
       "language": "en",
       "headword": "child",
-      "reading": "/t͡ʃaɪld/",
+      "reading": "/tʃaɪld/",
       "common": true,
       "spellings": ["child"],
       "senses": [
         {
-          "glosses": ["子供", "子"],
+          "glosses": ["子供", "児童"],
           "pos": ["n"]
+        },
+        {
+          "glosses": ["（親から見た）子", "息子・娘"],
+          "pos": ["n"],
+          "info": ["年齢に関係なく使う"]
+        },
+        {
+          "glosses": ["子供っぽい人", "幼稚な人"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["（ある土地・時代の）申し子", "産物"],
+          "pos": ["n"],
+          "info": ["the children of ～ の形で"]
+        },
+        {
+          "glosses": ["子要素", "子ノード"],
+          "pos": ["n"],
+          "fields": ["comp", "engr", "math"]
         }
       ]
     },
     {
-      "id": 100000277,
+      "id": 100000016,
       "language": "en",
       "headword": "speak",
-      "reading": "/spiːk/",
+      "reading": "/spik/",
       "common": true,
       "spellings": ["speak"],
       "senses": [
         {
-          "glosses": ["話す"],
-          "pos": ["v"]
+          "glosses": ["話す", "しゃべる"],
+          "pos": ["v", "vi"],
+          "info": ["speak to/with ～"]
         },
         {
-          "glosses": ["しゃべる", "会話する"],
-          "pos": ["v"]
-        },
-        {
-          "glosses": ["口頭以外の手段で意思を伝える、意見を述べる"],
-          "pos": ["v"]
-        },
-        {
-          "glosses": ["講演する", "演説する"],
-          "pos": ["v"]
-        },
-        {
-          "glosses": ["ある言語が話せる"],
+          "glosses": ["（言語を）話す"],
           "pos": ["v", "vt"]
         },
         {
-          "glosses": ["用語"],
+          "glosses": ["演説する", "講演する"],
+          "pos": ["v", "vi"]
+        },
+        {
+          "glosses": ["～用語", "～語"],
           "pos": ["n"],
-          "misc": ["uncountable"]
+          "misc": ["uncountable"],
+          "info": ["corporate speak のように複合語で"]
+        },
+        {
+          "glosses": ["理解する", "通じる"],
+          "pos": ["v", "vt"],
+          "misc": ["joc", "col"],
+          "info": ["I don't speak ～ の形で冗談として"]
         }
       ]
     },
     {
-      "id": 100000279,
+      "id": 100000017,
       "language": "en",
       "headword": "morning",
-      "reading": "/ˈmɔːnɪŋ/",
+      "reading": "/ˈmoɹnɪŋ/",
       "common": true,
       "spellings": ["morning"],
       "senses": [
         {
-          "glosses": ["午前", "午前0時から正午まで"],
-          "pos": ["n"]
+          "glosses": ["朝", "午前"],
+          "pos": ["n"],
+          "info": ["Good morning, 略して Morning! とも"]
         },
         {
-          "glosses": ["朝", "夜明けから正午まで"],
+          "glosses": ["初期", "黎明"],
           "pos": ["n"]
-        },
-        {
-          "glosses": ["おはよう", "good morning の簡略形"],
-          "pos": ["int"]
         }
       ]
     },
     {
-      "id": 100000281,
+      "id": 100000018,
       "language": "en",
       "headword": "hell",
       "reading": "/hɛl/",
@@ -3952,89 +4074,110 @@
       "senses": [
         {
           "glosses": ["地獄"],
-          "pos": ["n"]
+          "pos": ["n-pr"]
         },
         {
-          "glosses": ["生き地獄"],
-          "pos": ["n"]
+          "glosses": ["地獄のような状況", "生き地獄", "ひどい苦痛"],
+          "pos": ["n"],
+          "misc": ["countable", "col", "uncountable"],
+          "info": ["be hell on ～ で「～にひどくこたえる」"]
         },
         {
-          "glosses": ["一体全体"],
-          "pos": ["n"]
+          "glosses": ["ちくしょう", "くそっ"],
+          "pos": ["int"],
+          "misc": ["col", "vulg"]
         },
         {
-          "glosses": ["ちくしょう"],
-          "pos": ["int"]
+          "glosses": ["もちろん", "マジで"],
+          "pos": ["int"],
+          "misc": ["col", "id", "vulg"],
+          "info": ["Hell yeah! / Hell no! の形で"]
+        },
+        {
+          "glosses": ["一体", "ものすごく"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable", "vulg"],
+          "info": ["what the hell, as ～ as hell, a hell of a ～ などの形で"]
+        },
+        {
+          "glosses": ["それどころか", "いや"],
+          "pos": ["int"],
+          "misc": ["col", "vulg"]
         }
       ]
     },
     {
-      "id": 100000288,
+      "id": 100000019,
       "language": "en",
       "headword": "eat",
-      "reading": "/iːt/",
+      "reading": "/it/",
       "common": true,
       "spellings": ["eat"],
       "senses": [
         {
-          "glosses": ["～を食べる"],
-          "pos": ["v"]
+          "glosses": ["食べる", "食事する"],
+          "pos": ["v", "vi"]
         },
         {
-          "glosses": ["（資源や金銭を）消費する", "浪費する", "食う"],
-          "pos": ["v"]
+          "glosses": ["完璧にこなす", "圧倒的にやってのける"],
+          "pos": ["v", "vt"],
+          "misc": ["sl"],
+          "info": ["You ate that! の形で"]
         },
         {
-          "glosses": ["スプーンですくって飲む"],
-          "pos": ["v"]
+          "glosses": ["食いつぶす", "侵食する"],
+          "pos": ["v", "vt"],
+          "info": ["eat up, eat away の形で"]
         },
         {
-          "glosses": ["食事をする"],
-          "pos": ["v"]
+          "glosses": ["（人を）悩ませる"],
+          "pos": ["v", "vt"],
+          "misc": ["col"],
+          "info": ["What's eating you? の形で"]
         },
         {
-          "glosses": ["穴を開ける", "蝕む", "腐食させる"],
-          "pos": ["v"]
-        },
-        {
-          "glosses": ["やつれさせる", "心配させる"],
-          "pos": ["v"],
+          "glosses": ["（機械が）飲み込む"],
+          "pos": ["v", "vt"],
           "misc": ["col"]
+        },
+        {
+          "glosses": ["（損失を）かぶる"],
+          "pos": ["v", "vt"],
+          "fields": ["bus"]
         }
       ]
     },
     {
-      "id": 100000298,
+      "id": 100000020,
       "language": "en",
       "headword": "door",
-      "reading": "/dɔː(ɹ)/",
+      "reading": "/doɹ/",
       "common": true,
       "spellings": ["door"],
       "senses": [
         {
-          "glosses": ["ドア", "戸", "扉"],
-          "pos": ["n"]
+          "glosses": ["ドア", "扉", "戸"],
+          "pos": ["n"],
+          "fields": ["archit"]
         },
         {
-          "glosses": ["戸口", "玄関"],
-          "pos": ["n"]
+          "glosses": ["一軒", "戸"],
+          "pos": ["n"],
+          "info": ["three doors down で「3軒先」"]
         },
         {
-          "glosses": ["1戸", "1軒"],
-          "pos": ["n"]
+          "glosses": ["道", "可能性"],
+          "pos": ["n"],
+          "info": ["leave the door open で「可能性を残す」"]
         },
         {
-          "glosses": ["道", "方法"],
+          "glosses": ["入場料収入"],
           "pos": ["n"]
-        },
-        {
-          "glosses": ["自転車や歩行者が差し掛かる直前で車両のドアを突然開き、衝突を引き起こす"],
-          "pos": ["v", "vt"]
         }
       ]
     },
     {
-      "id": 100000306,
+      "id": 100000021,
       "language": "en",
       "headword": "happy",
       "reading": "/ˈhæpi/",
@@ -4042,316 +4185,411 @@
       "spellings": ["happy"],
       "senses": [
         {
-          "glosses": ["うれしい"],
+          "glosses": ["幸せな", "嬉しい"],
           "pos": ["adj"]
         },
         {
-          "glosses": ["楽しい"],
-          "pos": ["adj"]
+          "glosses": ["満足している", "喜んで～する"],
+          "pos": ["adj"],
+          "info": ["be happy to do / with ～"]
         },
         {
-          "glosses": ["幸せな"],
-          "pos": ["adj"]
+          "glosses": ["おめでとう"],
+          "pos": ["adj"],
+          "info": ["Happy birthday! など"]
         },
         {
-          "glosses": ["幸運な"],
-          "pos": ["adj"]
+          "glosses": ["幸運な", "うまい"],
+          "pos": ["adj"],
+          "info": ["a happy coincidence"]
         },
         {
-          "glosses": ["適切な"],
-          "pos": ["adj"]
+          "glosses": ["～したがる", "～狂の"],
+          "pos": ["adj"],
+          "info": ["trigger-happy など複合語で"]
         }
       ]
     },
     {
-      "id": 100000332,
+      "id": 100000022,
       "language": "en",
       "headword": "school",
-      "reading": "/ˈskuːl/",
+      "reading": "/skul/",
       "common": true,
       "spellings": ["school"],
       "senses": [
         {
-          "glosses": ["学校"],
+          "glosses": ["学校", "スクール"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "dialects": ["en-CA", "en-IN", "en-US", "en-GB"]
+        },
+        {
+          "glosses": ["授業", "学校（の時間）"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "info": ["after school などの形で"]
+        },
+        {
+          "glosses": ["学部", "大学院"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
+        },
+        {
+          "glosses": ["学派", "流派"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "info": ["school of thought, old school などの形で"]
+        },
+        {
+          "glosses": ["（魚の）群れ", "魚群"],
           "pos": ["n"]
         },
         {
-          "glosses": ["（大学等における）学部"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["（米国） 大学など高等教育機関"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["学派", "一派"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["（old schoolで）昔ながらの"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["（一般的に学校において）～を教育する", "～を訓練する"],
-          "pos": ["v"]
+          "glosses": ["教育する", "（相手を）こてんぱんにやっつける"],
+          "pos": ["v", "vt"],
+          "info": ["get schooled で「思い知らされる」"]
         }
       ]
     },
     {
-      "id": 100000340,
+      "id": 100000023,
       "language": "en",
       "headword": "walk",
-      "reading": "/wɔːk/",
+      "reading": "/wɔk/",
       "common": true,
       "spellings": ["walk"],
       "senses": [
         {
-          "glosses": ["歩く"],
-          "pos": ["v", "vi"]
+          "glosses": ["歩く", "歩いて行く"],
+          "pos": ["v", "vi", "vt"]
         },
         {
-          "glosses": ["散歩する"],
-          "pos": ["v", "vi"]
-        },
-        {
-          "glosses": ["散歩"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["歩行"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["フォアボール", "敬遠"],
+          "glosses": ["散歩", "歩く道のり"],
           "pos": ["n"],
-          "fields": ["baseb"]
+          "info": ["take a walk の形で"]
         },
         {
-          "glosses": ["（ある場所や距離を）歩いて進む", "（ある時間を）歩いて過ごす"],
+          "glosses": ["散歩させる", "（人を）歩いて送る"],
           "pos": ["v", "vt"]
+        },
+        {
+          "glosses": ["辞める", "立ち去る"],
+          "pos": ["v", "vi"],
+          "misc": ["col"]
+        },
+        {
+          "glosses": ["無罪放免になる"],
+          "pos": ["v", "vi"],
+          "misc": ["col"],
+          "fields": ["law"]
+        },
+        {
+          "glosses": ["楽勝", "職業・身分"],
+          "pos": ["n"],
+          "misc": ["col"],
+          "info": ["walk in the park／walks of life"]
         }
       ]
     },
     {
-      "id": 100000361,
+      "id": 100000024,
       "language": "en",
       "headword": "buy",
-      "reading": "",
+      "reading": "[baɪ]",
       "common": true,
       "spellings": ["buy"],
       "senses": [
         {
-          "glosses": ["～を買う", "購入する"],
+          "glosses": ["買う", "購入する"],
+          "pos": ["v", "vt", "vi"]
+        },
+        {
+          "glosses": ["信じる", "真に受ける"],
+          "pos": ["v", "vt"],
+          "misc": ["col"],
+          "info": ["I don't buy it. など"]
+        },
+        {
+          "glosses": ["買い物", "お買い得品"],
+          "pos": ["n"],
+          "info": ["a good buy の形で"]
+        },
+        {
+          "glosses": ["（犠牲を払って）手に入れる"],
+          "pos": ["v", "vt"],
+          "info": ["buy time（時間を稼ぐ）"]
+        },
+        {
+          "glosses": ["（金で）買える"],
           "pos": ["v", "vt"]
         },
         {
-          "glosses": ["～を～に買ってやる", "おごる"],
+          "glosses": ["買収する"],
           "pos": ["v", "vt"]
-        },
-        {
-          "glosses": ["～を買収する"],
-          "pos": ["v", "vt"]
-        },
-        {
-          "glosses": ["（何かを代償に）～を獲得する"],
-          "pos": ["v", "vt"]
-        },
-        {
-          "glosses": ["～を受け入れる", "～を信じる", "〜にだまされる"],
-          "pos": ["v", "vt"]
-        },
-        {
-          "glosses": ["買ったもの", "購入物"],
-          "pos": ["n"]
         }
       ]
     },
     {
-      "id": 100000375,
+      "id": 100000025,
       "language": "en",
       "headword": "police",
-      "reading": "/pəˈliːs/",
+      "reading": "/pəˈlis/",
       "common": true,
       "spellings": ["police"],
       "senses": [
         {
-          "glosses": ["（通常 the をつけて複数扱い）警察"],
+          "glosses": ["警察"],
+          "pos": ["n"],
+          "dialects": ["en-CA", "en-US", "en-GB", "en-AU", "en-NZ"],
+          "info": ["the police で複数扱い"]
+        },
+        {
+          "glosses": ["警官", "警察官"],
           "pos": ["n"]
         },
         {
-          "glosses": ["（しばしば the をつけて、複数扱い）警察官"],
-          "pos": ["n"]
+          "glosses": ["取り締まる人", "～警察"],
+          "pos": ["n"],
+          "misc": ["derog"],
+          "info": ["fashion police など"]
         },
         {
-          "glosses": ["（ルールなどを）強制する"],
-          "pos": ["v"]
-        },
-        {
-          "glosses": ["（警察力などで）治安を保つ"],
-          "pos": ["v"]
+          "glosses": ["取り締まる", "監視する"],
+          "pos": ["v", "vt"]
         }
       ]
     },
     {
-      "id": 100000390,
+      "id": 100000026,
       "language": "en",
       "headword": "water",
-      "reading": "/ˈwɔːtə(r)/",
+      "reading": "/ˈwɔ.tɚ/",
       "common": true,
       "spellings": ["water"],
       "senses": [
         {
           "glosses": ["水"],
           "pos": ["n"],
-          "misc": ["uncountable"]
+          "misc": ["uncountable", "countable"]
         },
         {
-          "glosses": ["給水"],
+          "glosses": ["水域", "海", "状況"],
           "pos": ["n"],
-          "misc": ["countable"]
+          "misc": ["uncountable", "countable"],
+          "info": ["waters の形で"]
         },
         {
-          "glosses": ["海域", "領海"],
+          "glosses": ["水をやる", "水をまく"],
+          "pos": ["v", "vt"]
+        },
+        {
+          "glosses": ["涙が出る", "よだれが出る"],
+          "pos": ["v", "vi"],
+          "info": ["eyes water, mouth waters の形で"]
+        },
+        {
+          "glosses": ["水で薄める", "水で割る"],
+          "pos": ["v", "vi", "vt"],
+          "info": ["water down の形でも"]
+        },
+        {
+          "glosses": ["水道"],
           "pos": ["n"],
-          "misc": ["countable"]
-        },
-        {
-          "glosses": ["水をまく"],
-          "pos": ["v"]
-        },
-        {
-          "glosses": ["水を与える"],
-          "pos": ["v"]
-        },
-        {
-          "glosses": ["水で薄める"],
-          "pos": ["v"]
+          "misc": ["countable", "uncountable"],
+          "fields": ["bus"]
         }
       ]
     },
     {
-      "id": 100000409,
+      "id": 100000027,
       "language": "en",
       "headword": "game",
-      "reading": "/ɡeɪm/",
+      "reading": "[ɡeɪ̯m]",
       "common": true,
-      "spellings": ["game", "gm"],
+      "spellings": ["game"],
       "senses": [
         {
-          "glosses": ["ゲーム"],
-          "pos": ["n"]
+          "glosses": ["ゲーム", "遊び"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["獲物"],
-          "pos": ["n"]
+          "glosses": ["試合", "対戦"],
+          "pos": ["n"],
+          "misc": ["countable"]
+        },
+        {
+          "glosses": ["口説きのテク", "モテ力", "実力"],
+          "pos": ["n"],
+          "misc": ["col", "uncountable", "sl"]
+        },
+        {
+          "glosses": ["乗り気な", "やる気がある"],
+          "pos": ["adj"],
+          "misc": ["col"],
+          "info": ["I'm game. / be game for ～"]
+        },
+        {
+          "glosses": ["ゲームをする", "（制度を）悪用する"],
+          "pos": ["v", "vi", "vt"],
+          "info": ["game the system"]
+        },
+        {
+          "glosses": ["業界", "獲物"],
+          "pos": ["n"],
+          "misc": ["countable", "col", "uncountable"]
         }
       ]
     },
     {
-      "id": 100000415,
+      "id": 100000028,
       "language": "en",
       "headword": "chance",
-      "reading": "/tʃɑːns/",
+      "reading": "/t͡ʃæns/ [t͡ʃʰæns/",
       "common": true,
       "spellings": ["chance"],
       "senses": [
         {
-          "glosses": ["チャンス", "機会", "好機"],
+          "glosses": ["機会", "チャンス"],
           "pos": ["n"],
           "misc": ["countable"]
+        },
+        {
+          "glosses": ["可能性", "見込み", "確率"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
           "glosses": ["偶然", "運"],
           "pos": ["n"],
-          "misc": ["uncountable"]
+          "misc": ["uncountable"],
+          "info": ["by chance の形で"]
         },
         {
-          "glosses": ["可能性", "見込み"],
-          "pos": ["n"],
-          "misc": ["countable"]
+          "glosses": ["偶然の"],
+          "pos": ["adj"]
         },
         {
-          "glosses": ["賭け"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["たからくじ"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["偶然～する"],
+          "glosses": ["一か八かやってみる", "賭ける"],
           "pos": ["v"]
+        },
+        {
+          "glosses": ["偶然見つける"],
+          "pos": ["v"],
+          "info": ["chance upon/on の形で"]
         }
       ]
     },
     {
-      "id": 100000422,
+      "id": 100000029,
       "language": "en",
       "headword": "whatever",
-      "reading": "/ʍɒtˈɛvə/",
+      "reading": "/wʌtˈɛv.ɚ/",
       "common": true,
-      "spellings": ["whatever", "whate'er"],
+      "spellings": ["whatever"],
       "senses": [
         {
-          "glosses": ["（譲歩節を導いて）たとえ～であっても"],
-          "pos": ["det"]
-        },
-        {
-          "glosses": ["～であるものは全て"],
-          "pos": ["det"]
-        },
-        {
-          "glosses": ["～であるすべてのこと"],
-          "pos": ["pn"]
-        },
-        {
-          "glosses": ["どんな～でも", "なんでも良い"],
-          "pos": ["adj"],
+          "glosses": ["何でも", "～するものは何でも"],
+          "pos": ["pn"],
           "misc": ["col"]
         },
         {
-          "glosses": ["不承不承従うときの返答"],
+          "glosses": ["何が～しても", "たとえ何であれ"],
+          "pos": ["pn", "det"]
+        },
+        {
+          "glosses": ["どうでもいい", "勝手にすれば", "はいはい"],
           "pos": ["int"],
           "misc": ["col"]
+        },
+        {
+          "glosses": ["どんな～でも"],
+          "pos": ["det"]
+        },
+        {
+          "glosses": ["少しも", "まったく"],
+          "pos": ["adv"],
+          "info": ["否定文で名詞の後に置く"]
+        },
+        {
+          "glosses": ["一体何", "一体全体"],
+          "pos": ["pn", "det", "adv"],
+          "info": ["疑問の強調"]
         }
       ]
     },
     {
-      "id": 100000460,
+      "id": 100000030,
       "language": "en",
       "headword": "dog",
-      "reading": "/dɔg/",
+      "reading": "/dɒɡ/",
       "common": true,
       "spellings": ["dog"],
       "senses": [
         {
-          "glosses": ["犬"],
+          "glosses": ["犬", "イヌ科の動物"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
+        },
+        {
+          "glosses": ["やつ", "男"],
+          "pos": ["n"],
+          "misc": ["countable", "sl", "uncountable"],
+          "info": ["You lucky dog! などの形で"]
+        },
+        {
+          "glosses": ["最悪な", "ひどい"],
+          "pos": ["adj"],
+          "misc": ["sl"]
+        },
+        {
+          "glosses": ["（人に）付きまとう", "（問題などが人を）悩ませ続ける"],
+          "pos": ["v", "vt"],
+          "info": ["主に受け身や trouble dogged him の形で"]
+        },
+        {
+          "glosses": ["卑劣なやつ", "ろくでなし"],
+          "pos": ["n"],
+          "misc": ["countable", "derog", "uncountable"]
+        },
+        {
+          "glosses": ["駄作", "失敗作"],
+          "pos": ["n"],
+          "misc": ["countable", "col", "uncountable"]
+        }
+      ]
+    },
+    {
+      "id": 100000031,
+      "language": "en",
+      "headword": "team",
+      "reading": "/ˈtiːm/",
+      "common": true,
+      "spellings": ["team"],
+      "senses": [
+        {
+          "glosses": ["チーム", "団"],
           "pos": ["n"]
         },
         {
-          "glosses": ["イヌ科動物全般", "イヌに似た動物"],
-          "pos": ["n"]
+          "glosses": ["チームを組む", "協力する"],
+          "pos": ["v", "vi", "vt"],
+          "info": ["team up with の形で"]
         },
         {
-          "glosses": ["雄イヌ"],
-          "pos": ["n"]
+          "glosses": ["派", "〜派"],
+          "pos": ["n"],
+          "info": ["Team cats のように"]
         },
         {
-          "glosses": ["不美人", "ブス"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["やつ"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["最低な男", "裏切り者", "ひどいやつ", "卑劣漢"],
+          "glosses": ["（牛馬の）一組"],
           "pos": ["n"]
         }
       ]
     },
     {
-      "id": 100000502,
+      "id": 100000032,
       "language": "en",
       "headword": "sign",
       "reading": "/saɪn/",
@@ -4359,63 +4597,73 @@
       "spellings": ["sign"],
       "senses": [
         {
+          "glosses": ["しるし", "兆し", "兆候"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
+        },
+        {
+          "glosses": ["看板", "標識"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
+        },
+        {
+          "glosses": ["署名する", "サインする"],
+          "pos": ["v", "vt", "vi"]
+        },
+        {
           "glosses": ["記号", "符号"],
-          "pos": ["n"]
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["標識"],
-          "pos": ["n"]
+          "glosses": ["契約する", "（選手などと）契約を結ぶ"],
+          "pos": ["v", "vi", "vt"]
         },
         {
-          "glosses": ["（に～するよう）合図する"],
-          "pos": ["v", "vt"]
-        },
-        {
-          "glosses": ["合図する"],
-          "pos": ["v", "vi"]
-        },
-        {
-          "glosses": ["しるし", "様子"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["に署名する", "サインする"],
-          "pos": ["v", "vt"]
+          "glosses": ["合図する", "手話で話す"],
+          "pos": ["v", "vi", "n"],
+          "misc": ["uncountable"]
         }
       ]
     },
     {
-      "id": 100000504,
+      "id": 100000033,
       "language": "en",
       "headword": "free",
-      "reading": "/fɹiː/",
+      "reading": "/fɹi/",
       "common": true,
       "spellings": ["free"],
       "senses": [
         {
-          "glosses": ["無料の", "無償の"],
+          "glosses": ["無料の", "タダの", "無料で"],
+          "pos": ["adj", "adv"]
+        },
+        {
+          "glosses": ["自由な", "束縛されない"],
           "pos": ["adj"]
         },
         {
-          "glosses": ["自由な", "自由に～できる"],
+          "glosses": ["暇な", "空いている"],
           "pos": ["adj"]
         },
         {
-          "glosses": ["暇な"],
-          "pos": ["adj"]
+          "glosses": ["〜のない", "〜を含まない"],
+          "pos": ["adj"],
+          "info": ["free of/from ～, sugar-free のように"]
         },
         {
-          "glosses": ["無料で"],
-          "pos": ["adv"]
+          "glosses": ["解放する", "自由にする"],
+          "pos": ["v", "vt"]
         },
         {
-          "glosses": ["自由にする", "解放する"],
-          "pos": ["v"]
+          "glosses": ["気前のよい"],
+          "pos": ["adj"],
+          "info": ["be free with ～"]
         }
       ]
     },
     {
-      "id": 100000523,
+      "id": 100000034,
       "language": "en",
       "headword": "front",
       "reading": "/fɹʌnt/",
@@ -4423,69 +4671,40 @@
       "spellings": ["front"],
       "senses": [
         {
-          "glosses": ["前", "表", "前面", "前部", "前方"],
-          "pos": ["n"]
+          "glosses": ["前", "正面", "表側"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "info": ["in front of ～"]
         },
         {
           "glosses": ["前の", "正面の"],
           "pos": ["adj"]
         },
         {
-          "glosses": ["前線", "戦線", "戦地"],
+          "glosses": ["見せかけ", "虚勢", "取り繕う"],
+          "pos": ["n", "v", "vi"],
+          "misc": ["countable", "col", "uncountable", "sl"]
+        },
+        {
+          "glosses": ["隠れみの", "表看板"],
+          "pos": ["n", "v", "vi"],
+          "misc": ["countable", "uncountable", "sl"]
+        },
+        {
+          "glosses": ["前線", "戦線", "分野"],
           "pos": ["n"],
-          "fields": ["mil"]
+          "misc": ["countable", "uncountable"],
+          "fields": ["mil", "politics"]
         },
         {
-          "glosses": ["前線"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["～に面する", "向く"],
-          "pos": ["v", "vt"]
-        },
-        {
-          "glosses": ["前舌の"],
-          "pos": ["adj"]
+          "glosses": ["前線", "気象の前線"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         }
       ]
     },
     {
-      "id": 100000531,
-      "language": "en",
-      "headword": "team",
-      "reading": "",
-      "common": true,
-      "spellings": ["team"],
-      "senses": [
-        {
-          "glosses": ["(スポーツの)チーム"],
-          "pos": []
-        },
-        {
-          "glosses": ["(共に仕事などをする)一団", "一組"],
-          "pos": []
-        },
-        {
-          "glosses": ["(荷車を引く2頭以上の牛馬などの)一組"],
-          "pos": []
-        },
-        {
-          "glosses": ["〈動物〉を一組にする"],
-          "pos": ["v", "vt"]
-        },
-        {
-          "glosses": ["…を一組の動物で運ぶ"],
-          "pos": ["v", "vt"]
-        },
-        {
-          "glosses": ["(…と)チームを作る", "チームを組む", "協力する"],
-          "pos": [],
-          "info": ["+up with+名"]
-        }
-      ]
-    },
-    {
-      "id": 100000582,
+      "id": 100000035,
       "language": "en",
       "headword": "company",
       "reading": "/ˈkʌmpəni/",
@@ -4493,112 +4712,123 @@
       "spellings": ["company"],
       "senses": [
         {
-          "glosses": ["会社"],
-          "pos": ["n"]
+          "glosses": ["会社", "企業"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "fields": ["law", "bus"]
         },
         {
-          "glosses": ["交際"],
-          "pos": ["n"]
+          "glosses": ["一緒にいること", "付き合い"],
+          "pos": ["n"],
+          "misc": ["uncountable"],
+          "info": ["keep ～ company の形で"]
         },
         {
-          "glosses": ["仲間"],
-          "pos": ["n"]
+          "glosses": ["来客", "お客"],
+          "pos": ["n"],
+          "misc": ["uncountable"],
+          "info": ["無冠詞で"]
         },
         {
-          "glosses": ["団体"],
-          "pos": ["n"]
+          "glosses": ["誰か（が来ている）", "招かれざる客"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "info": ["we've got company の形で"]
         },
         {
-          "glosses": ["来客"],
-          "pos": ["n"]
+          "glosses": ["劇団", "一座"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
+        },
+        {
+          "glosses": ["中隊"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "fields": ["mil", "politics"]
         }
       ]
     },
     {
-      "id": 100000594,
+      "id": 100000036,
       "language": "en",
       "headword": "gentleman",
-      "reading": "/ˈʤɛntlmən/",
+      "reading": "[ˈd͡ʒɛɾ̃.ɫ̩.mən]",
       "common": true,
       "spellings": ["gentleman"],
       "senses": [
         {
-          "glosses": ["紳士"],
+          "glosses": ["男性", "男の方", "殿方"],
+          "pos": ["n"],
+          "info": ["man の丁寧な言い方。Ladies and gentlemen（皆様）の形で頻出"]
+        },
+        {
+          "glosses": ["紳士", "ジェントルマン"],
           "pos": ["n"]
         },
         {
-          "glosses": ["（英史）ジェントリ階級に属する地主", "郷紳"],
-          "pos": ["n"]
+          "glosses": ["気取った男", "上品ぶった男"],
+          "pos": ["n"],
+          "misc": ["derog"]
         },
         {
-          "glosses": ["男性の上品な表現"],
-          "pos": ["n"]
+          "glosses": ["郷紳", "紳士階級の人"],
+          "pos": ["n"],
+          "misc": ["hist"],
+          "info": ["歴史的用法"]
+        },
+        {
+          "glosses": ["アマチュア選手", "道楽で取り組む人"],
+          "pos": ["n"],
+          "misc": ["derog", "hist"],
+          "fields": ["sports"]
         }
       ]
     },
     {
-      "id": 100000600,
+      "id": 100000037,
       "language": "en",
       "headword": "bitch",
       "reading": "/bɪt͡ʃ/",
       "common": true,
-      "spellings": [
-        "bitch",
-        "betch",
-        "biatch",
-        "biotch",
-        "beatch",
-        "beotch",
-        "bih",
-        "binch",
-        "bish",
-        "biyatch",
-        "biyotch",
-        "beeyatch",
-        "beeyotch",
-        "bizatch",
-        "biz-atch",
-        "biznatch",
-        "b-word",
-        "rhymes-with-rich"
-      ],
+      "spellings": ["bitch"],
       "senses": [
         {
-          "glosses": ["嫌な女", "くそばばあ"],
+          "glosses": ["嫌な女", "性悪女", "あばずれ"],
           "pos": ["n"],
-          "misc": ["X", "sl", "vulg"],
-          "info": ["15世紀より"]
+          "misc": ["countable", "X", "uncountable", "vulg"]
         },
         {
-          "glosses": ["女"],
-          "pos": ["n"],
-          "misc": ["X", "sl", "vulg"]
+          "glosses": ["文句を言う", "愚痴をこぼす"],
+          "pos": ["v", "vi"],
+          "misc": ["vulg"],
+          "info": ["bitch about ～ の形で"]
         },
         {
-          "glosses": ["女女しい男"],
+          "glosses": ["厄介なもの", "ひどいもの", "難題"],
           "pos": ["n"],
-          "misc": ["X", "vulg"]
+          "misc": ["col", "countable", "uncountable", "vulg"],
+          "info": ["a real bitch, Karma's a bitch などの形で"]
         },
         {
-          "glosses": ["友達"],
+          "glosses": ["言いなりになるやつ", "腰抜け", "弱虫"],
           "pos": ["n"],
-          "misc": ["joc", "col", "vulg"],
-          "info": ["20世紀より"]
+          "misc": ["countable", "X", "uncountable", "vulg"]
         },
         {
-          "glosses": ["不平", "不満"],
+          "glosses": ["お前", "ダチ", "親しい友人への乱暴な呼びかけ"],
           "pos": ["n"],
-          "misc": ["col", "vulg"]
+          "misc": ["countable", "joc", "sl", "uncountable", "vulg"],
+          "info": ["What's up, bitch? のように冗談めかして"]
         },
         {
-          "glosses": ["困難な問題"],
+          "glosses": ["雌犬"],
           "pos": ["n"],
-          "misc": ["col", "vulg"]
+          "misc": ["countable", "uncountable"]
         }
       ]
     },
     {
-      "id": 100000643,
+      "id": 100000038,
       "language": "en",
       "headword": "glad",
       "reading": "/ɡlæd/",
@@ -4606,25 +4836,19 @@
       "spellings": ["glad"],
       "senses": [
         {
-          "glosses": ["嬉しい"],
-          "pos": ["adj"]
+          "glosses": ["嬉しい", "よかった"],
+          "pos": ["adj"],
+          "info": ["be glad to do / that ～"]
         },
         {
-          "glosses": ["喜ばしい"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["喜こんで～する"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["～を喜ばせる"],
-          "pos": ["v", "vt"]
+          "glosses": ["グラジオラス"],
+          "pos": ["n"],
+          "misc": ["col"]
         }
       ]
     },
     {
-      "id": 100000648,
+      "id": 100000039,
       "language": "en",
       "headword": "test",
       "reading": "/tɛst/",
@@ -4632,400 +4856,435 @@
       "spellings": ["test"],
       "senses": [
         {
-          "glosses": ["試験", "検査", "テスト"],
+          "glosses": ["テスト", "試験"],
+          "pos": ["n"],
+          "fields": ["psych"]
+        },
+        {
+          "glosses": ["検査", "試験"],
           "pos": ["n"]
         },
         {
-          "glosses": ["試験する", "検査する"],
-          "pos": ["v", "vt"]
+          "glosses": ["試す", "検査する", "テストする"],
+          "pos": ["v"],
+          "fields": ["chem"]
         },
         {
-          "glosses": ["試験", "検査で〜の結果になる"],
-          "pos": ["v", "vi"]
+          "glosses": ["試練", "（限界を）試す"],
+          "pos": ["n", "v"]
         },
         {
-          "glosses": ["試練"],
-          "pos": ["n"]
+          "glosses": ["検査で～と出る"],
+          "pos": ["v"],
+          "info": ["test positive で「陽性と出る」"]
         },
         {
-          "glosses": ["無脊椎動物の外殻"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["試験を受ける"],
-          "pos": ["v", "vi"]
+          "glosses": ["けんかを売る", "挑発する"],
+          "pos": ["v", "vi", "vt"],
+          "misc": ["sl"],
+          "info": ["Don't test me. の形で"]
         }
       ]
     },
     {
-      "id": 100000684,
+      "id": 100000040,
       "language": "en",
       "headword": "ball",
-      "reading": "/bɔːl/",
+      "reading": "/bɔl/",
       "common": true,
       "spellings": ["ball"],
       "senses": [
         {
-          "glosses": ["ボール"],
-          "pos": ["n"]
+          "glosses": ["ボール", "球"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "fields": ["sports"]
         },
         {
-          "glosses": ["球", "球体"],
-          "pos": ["n"]
+          "glosses": ["玉", "球状のもの"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "fields": ["food"],
+          "info": ["a ball of wool で「毛糸玉」"]
         },
         {
-          "glosses": ["弾丸"],
-          "pos": ["n"]
+          "glosses": ["とても楽しい時間"],
+          "pos": ["n"],
+          "misc": ["col"],
+          "info": ["have a ball の形で"]
         },
         {
-          "glosses": ["丸める"],
-          "pos": ["v", "vt"]
+          "glosses": ["度胸", "睾丸"],
+          "pos": ["n"],
+          "misc": ["countable", "sl", "uncountable", "vulg"],
+          "info": ["複数形 balls で"]
         },
         {
-          "glosses": ["球形にする"],
-          "pos": ["v", "vt"]
+          "glosses": ["バスケをする", "派手に金を使う"],
+          "pos": ["v"],
+          "misc": ["sl"],
+          "info": ["ballin' の形でも"]
         },
         {
-          "glosses": ["混乱させる"],
-          "pos": ["v", "vt"]
+          "glosses": ["母指球", "足の裏の付け根"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "fields": ["anat", "med"],
+          "info": ["the ball of the foot"]
         }
       ]
     },
     {
-      "id": 100000694,
+      "id": 100000041,
       "language": "en",
       "headword": "coffee",
-      "reading": "",
+      "reading": "/ˈkɔfi/",
       "common": true,
       "spellings": ["coffee"],
       "senses": [
         {
-          "glosses": ["コーヒー", "焙煎したコーヒー豆から抽出した飲料"],
+          "glosses": ["コーヒー", "コーヒー一杯"],
           "pos": ["n"],
-          "misc": ["uncountable"]
+          "misc": ["uncountable", "countable"]
         },
         {
-          "glosses": ["コーヒーノキ"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["一杯のコーヒー"],
+          "glosses": ["コーヒー豆", "コーヒー粉"],
           "pos": ["n"],
-          "misc": ["countable", "col"]
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["コーヒー豆(coffee beans)"],
-          "pos": ["n"]
+          "glosses": ["コーヒー色", "薄茶色の"],
+          "pos": ["n", "adj"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["コーヒー粉"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["食後のコーヒー"],
-          "pos": ["n"]
+          "glosses": ["コーヒーの木"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         }
       ]
     },
     {
-      "id": 100000722,
+      "id": 100000042,
       "language": "en",
       "headword": "card",
-      "reading": "/kɑːd/",
+      "reading": "/kɑɹd/",
       "common": true,
       "spellings": ["card"],
       "senses": [
         {
-          "glosses": ["カード", "紙片状の物"],
-          "pos": ["n"]
+          "glosses": ["カード", "厚紙"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["トランプ"],
-          "pos": ["n"]
+          "glosses": ["トランプ", "トランプゲーム"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "info": ["play cards の形で「トランプをする」"]
         },
         {
-          "glosses": ["カルタ"],
-          "pos": ["n"]
+          "glosses": ["グリーティングカード", "名刺"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["カルテ"],
-          "pos": ["n"]
+          "glosses": ["キャッシュカード", "カード払い"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "info": ["Cash or card? のように支払い方法で"]
         },
         {
-          "glosses": ["名刺"],
-          "pos": ["n"]
+          "glosses": ["切り札", "手段"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "info": ["play the ... card の形で"]
         },
         {
-          "glosses": ["厚紙", "ボール紙"],
-          "pos": ["n"]
+          "glosses": ["身分証を確認する", "年齢確認をする"],
+          "pos": ["v", "vt"],
+          "dialects": ["en-US"]
         }
       ]
     },
     {
-      "id": 100000735,
+      "id": 100000043,
       "language": "en",
       "headword": "handle",
-      "reading": "/ˈhæn.dl/",
+      "reading": "/ˈhæn.d(ə)l/",
       "common": true,
       "spellings": ["handle"],
       "senses": [
         {
-          "glosses": ["取っ手", "柄", "ハンドル"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["扱う", "操る"],
+          "glosses": ["対処する", "扱う", "処理する"],
           "pos": ["v", "vt"]
         },
         {
-          "glosses": ["（目標達成の）手段"],
+          "glosses": ["取っ手", "ハンドル", "柄"],
           "pos": ["n"]
         },
         {
-          "glosses": ["きっかけ", "機会", "口実"],
-          "pos": ["n"]
+          "glosses": ["耐える", "我慢する"],
+          "pos": ["v", "vt"],
+          "info": ["主に否定文で（I can't handle ...）"]
         },
         {
-          "glosses": ["掛け金の総額"],
-          "pos": ["n"]
+          "glosses": ["手で触る", "手に取る", "手で扱う"],
+          "pos": ["v", "vt"]
         },
         {
-          "glosses": ["（布地などの）手触り"],
-          "pos": ["n"]
+          "glosses": ["ハンドルネーム", "ユーザー名"],
+          "pos": ["n"],
+          "misc": ["sl"]
+        },
+        {
+          "glosses": ["操縦性がある", "（車などが）扱いやすい"],
+          "pos": ["v", "vi"],
+          "info": ["the car handles well のように"]
         }
       ]
     },
     {
-      "id": 100000807,
+      "id": 100000044,
       "language": "en",
       "headword": "hotel",
-      "reading": "/həʊˈtɛl/",
+      "reading": "/ˈhoʊ.tɛl/",
       "common": true,
       "spellings": ["hotel"],
       "senses": [
         {
-          "glosses": ["ホテル", "旅館"],
+          "glosses": ["ホテル", "宿"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["パブ", "酒場"],
+          "pos": ["n"],
+          "dialects": ["en-AU", "en-CA"],
+          "info": ["豪・加で"]
+        },
+        {
+          "glosses": ["（モノポリーの）ホテル"],
           "pos": ["n"]
         }
       ]
     },
     {
-      "id": 100000809,
+      "id": 100000045,
       "language": "en",
       "headword": "idiot",
-      "reading": "/ˈidiət/",
+      "reading": "/ˈɪdiət/",
       "common": true,
       "spellings": ["idiot"],
       "senses": [
         {
-          "glosses": ["（略語・時に侮蔑）大ばか", "間抜け"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["（古・侮蔑）白痴", "（心理学用語）白痴"],
-          "pos": ["n"]
+          "glosses": ["馬鹿", "あほ", "まぬけ"],
+          "pos": ["n"],
+          "misc": ["derog"]
         }
       ]
     },
     {
-      "id": 100000811,
+      "id": 100000046,
       "language": "en",
       "headword": "table",
-      "reading": "",
+      "reading": "[ˈtʰeɪb(ə)ɫ]",
       "common": true,
       "spellings": ["table"],
       "senses": [
         {
-          "glosses": ["テーブル", "食卓"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["テーブル", "複数の配列を組み合わせたもの"],
+          "glosses": ["テーブル", "机", "台"],
           "pos": ["n"],
-          "fields": ["comp"]
+          "misc": ["countable"]
         },
         {
-          "glosses": ["表", "九九の各段"],
+          "glosses": ["表", "一覧表"],
           "pos": ["n"],
-          "fields": ["math"]
+          "info": ["multiplication table で「九九の表」"]
         },
         {
-          "glosses": ["表甲"],
+          "glosses": ["（食卓の）客", "同席者"],
           "pos": ["n"]
         },
         {
-          "glosses": ["バックギャモンのボードの片方"],
-          "pos": ["n"]
+          "glosses": ["交渉の場", "議題"],
+          "pos": ["n"],
+          "info": ["on the table で「検討中」"]
         },
         {
-          "glosses": ["～をテーブルに置く"],
-          "pos": ["v"]
+          "glosses": ["議題にする", "棚上げにする"],
+          "pos": ["v"],
+          "dialects": ["en-US"],
+          "info": ["英では提出、米では延期の意"]
+        },
+        {
+          "glosses": ["順位表"],
+          "pos": ["n"],
+          "fields": ["sports"]
         }
       ]
     },
     {
-      "id": 100000812,
+      "id": 100000047,
       "language": "en",
       "headword": "buddy",
-      "reading": "/ˈbʌd.i/",
+      "reading": "/ˈbʌdi/",
       "common": true,
       "spellings": ["buddy"],
       "senses": [
         {
-          "glosses": ["友人", "友達"],
+          "glosses": ["友達", "仲間", "相棒"],
           "pos": ["n"]
         },
         {
-          "glosses": ["仲間", "相棒"],
-          "pos": ["n"]
+          "glosses": ["おい君", "兄ちゃん"],
+          "pos": ["n"],
+          "info": ["見知らぬ男性への呼びかけ"]
         },
         {
-          "glosses": ["（主に男性への呼びかけ）おい", "お前"],
-          "pos": ["n"]
+          "glosses": ["相棒", "パートナー"],
+          "pos": ["n"],
+          "info": ["drinking buddy, study buddy など"]
         },
         {
-          "glosses": ["友達になる"],
+          "glosses": ["ペアを組ませる"],
           "pos": ["v", "vt"]
-        },
-        {
-          "glosses": ["芽のような"],
-          "pos": ["adj"]
         }
       ]
     },
     {
-      "id": 100000817,
+      "id": 100000048,
       "language": "en",
       "headword": "camera",
-      "reading": "/ˈkæm.ɹə/",
+      "reading": "/ˈkæməɹə/",
       "common": true,
       "spellings": ["camera"],
       "senses": [
         {
-          "glosses": ["カメラ", "写真機"],
-          "pos": ["n"]
+          "glosses": ["カメラ", "写真機", "ビデオカメラ"],
+          "pos": ["n"],
+          "fields": ["photo"]
+        },
+        {
+          "glosses": ["カメラ視点", "（ゲームの）視点"],
+          "pos": ["n"],
+          "fields": ["comp", "engr", "math"]
+        },
+        {
+          "glosses": ["判事室"],
+          "pos": ["n"],
+          "info": ["in camera で「非公開で」"]
         }
       ]
     },
     {
-      "id": 100000846,
+      "id": 100000049,
       "language": "en",
       "headword": "smart",
-      "reading": "/smɑːt/",
+      "reading": "/smɑɹt/",
       "common": true,
       "spellings": ["smart"],
       "senses": [
         {
-          "glosses": ["利発な", "利口な", "敏い"],
+          "glosses": ["頭がいい", "賢い"],
+          "pos": ["adj"],
+          "misc": ["col"],
+          "info": ["細い体形の意味はない（slim を使う）"]
+        },
+        {
+          "glosses": ["スマート（機器）", "高機能の"],
+          "pos": ["adj"],
+          "info": ["smartphone, smart TV など"]
+        },
+        {
+          "glosses": ["きちんとした", "おしゃれな"],
           "pos": ["adj"]
         },
         {
-          "glosses": ["洒脱な", "粋な"],
-          "pos": ["adj"]
+          "glosses": ["生意気な", "口が減らない"],
+          "pos": ["adj"],
+          "info": ["smart remark, smart mouth など"]
         },
         {
-          "glosses": ["見た目の良い", "格好良い（かっこいい）", "スマートな"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["知的な", "賢い"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["痛む", "痛める"],
-          "pos": ["v", "vi"]
-        },
-        {
-          "glosses": ["心が痛む", "苦悩する"],
+          "glosses": ["ひりひり痛む", "（心が）傷つく"],
           "pos": ["v", "vi"]
         }
       ]
     },
     {
-      "id": 100000933,
+      "id": 100000050,
       "language": "en",
       "headword": "lunch",
-      "reading": "/lʌnʧ/",
+      "reading": "/lʌnt͡ʃ/",
       "common": true,
       "spellings": ["lunch"],
       "senses": [
         {
-          "glosses": ["昼御飯", "昼食", "ランチ"],
-          "pos": ["n"]
+          "glosses": ["昼食", "昼ご飯", "ランチ"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
           "glosses": ["昼食をとる"],
-          "pos": ["v"]
+          "pos": ["v", "vi"]
+        },
+        {
+          "glosses": ["昼食をごちそうする"],
+          "pos": ["v", "vt"]
         }
       ]
     },
     {
-      "id": 100000938,
+      "id": 100000051,
       "language": "en",
       "headword": "cat",
-      "reading": "/kæt/",
+      "reading": "/ˈkæt/",
       "common": true,
       "spellings": ["cat"],
       "senses": [
         {
-          "glosses": ["猫"],
-          "pos": ["n"]
+          "glosses": ["猫", "ネコ"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["ネコ科動物全般"],
-          "pos": ["n"]
+          "glosses": ["ネコ科の動物", "ライオン・トラなど"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["意地悪女"],
-          "pos": ["n"]
+          "glosses": ["やつ", "男"],
+          "pos": ["n"],
+          "misc": ["countable", "dated", "sl", "uncountable"],
+          "info": ["cool cat など。元はジャズ界の言葉"]
         },
         {
-          "glosses": ["人", "奴"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["ジャズファン", "ジャズ奏者"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["懲罰用の鞭"],
-          "pos": ["n"]
+          "glosses": ["cat コマンド", "ファイル内容を表示するUnixコマンド"],
+          "pos": ["n", "v", "vt"],
+          "fields": ["comp", "engr", "math"]
         }
       ]
     },
     {
-      "id": 100001044,
+      "id": 100000052,
       "language": "en",
       "headword": "computer",
-      "reading": "/kəmˈpjuːtə/",
+      "reading": "/kəmˈpju.tɚ/",
       "common": true,
       "spellings": ["computer"],
       "senses": [
         {
-          "glosses": [
-            "コンピュータ",
-            "典型的には、情報を処理するプログラムを動かすことのできる、モニターやキーボードといった入出力装置と通信機能が備えられた電子機械",
-            "パソコン",
-            "電子計算機"
-          ],
+          "glosses": ["コンピューター", "パソコン"],
           "pos": ["n"]
         },
         {
-          "glosses": ["計算機", "コンピュータ", "与えられたプログラムにしたがって、計算をおこなう装置"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["（古い用法）職業として計算する人"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["（やや古い用法）コンピュータを扱って計算する人"],
-          "pos": ["n"]
+          "glosses": ["計算手"],
+          "pos": ["n"],
+          "misc": ["hist"]
         }
       ]
     },
     {
-      "id": 100001045,
+      "id": 100000053,
       "language": "en",
       "headword": "apartment",
       "reading": "/əˈpɑɹt.mənt/",
@@ -5033,106 +5292,122 @@
       "spellings": ["apartment"],
       "senses": [
         {
-          "glosses": [
-            "共同住宅内の１世帯分の区画された居住空間",
-            "または、そのような居住空間から構成された建物",
-            "アパルトマン（日本のアパートよりはマンションと呼ばれるものにイメージは近い）"
-          ],
+          "glosses": ["アパート", "マンション"],
+          "pos": ["n"],
+          "dialects": ["en-AU", "en-CA", "en-PH", "en-US"],
+          "info": ["英国では flat が一般的"]
+        },
+        {
+          "glosses": ["部屋", "居室"],
           "pos": ["n"]
+        },
+        {
+          "glosses": ["（特定の人用の）居住区画", "続き部屋"],
+          "pos": ["n"],
+          "misc": ["arch"],
+          "info": ["通例 apartments の形で"]
         }
       ]
     },
     {
-      "id": 100001075,
+      "id": 100000054,
       "language": "en",
       "headword": "large",
-      "reading": "/ˈlɑː(ɹ)ʤ/",
+      "reading": "/lɑɹd͡ʒ/",
       "common": true,
       "spellings": ["large"],
       "senses": [
         {
-          "glosses": ["大きい"],
+          "glosses": ["大きい", "大規模な"],
           "pos": ["adj"]
         },
         {
-          "glosses": ["多量の", "大量の"],
-          "pos": ["adj"]
+          "glosses": ["Lサイズ", "大サイズ"],
+          "pos": ["adj", "n"],
+          "misc": ["uncountable", "countable"],
+          "fields": ["bus", "cloth"]
+        },
+        {
+          "glosses": ["千ドル", "千ポンド"],
+          "pos": ["n"],
+          "misc": ["countable", "sl", "uncountable"],
+          "info": ["50 large のように数詞の後で"]
         }
       ]
     },
     {
-      "id": 100001096,
+      "id": 100000055,
       "language": "en",
       "headword": "member",
-      "reading": "/ˈmɛmbə/",
+      "reading": "/ˈmɛm.bɚ/",
       "common": true,
       "spellings": ["member"],
       "senses": [
         {
-          "glosses": ["メンバー", "一員", "会員"],
+          "glosses": ["メンバー", "会員", "一員"],
           "pos": ["n"]
         },
         {
-          "glosses": ["元", "要素"],
+          "glosses": ["部材", "構成要素"],
           "pos": ["n"]
         },
         {
-          "glosses": ["一部"],
+          "glosses": ["手足", "器官"],
           "pos": ["n"]
         },
         {
-          "glosses": ["手足", "四肢"],
-          "pos": ["n"],
-          "fields": ["anat"]
-        },
-        {
-          "glosses": ["陰茎", "ペニス"],
+          "glosses": ["男性器"],
           "pos": ["n"],
           "misc": ["euph"]
         },
         {
-          "glosses": ["（三段論法の）命題"],
+          "glosses": ["（集合の）要素"],
           "pos": ["n"],
-          "fields": ["logic"]
+          "fields": ["math"]
         }
       ]
     },
     {
-      "id": 100001132,
+      "id": 100000056,
       "language": "en",
       "headword": "level",
-      "reading": "/ˈlɛv.əl/",
+      "reading": "/ˈlɛvəl/",
       "common": true,
       "spellings": ["level"],
       "senses": [
         {
-          "glosses": ["平らな", "水平な"],
-          "pos": ["adj"]
+          "glosses": ["レベル", "水準", "程度"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["水準", "レベル"],
-          "pos": ["n"]
+          "glosses": ["高さ", "階"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["水平", "水平面", "水平線"],
-          "pos": ["n"]
+          "glosses": ["水平な", "平らな", "同じ高さの"],
+          "pos": ["adj"],
+          "info": ["level with の形で"]
         },
         {
-          "glosses": ["高さ", "高度"],
-          "pos": ["n"]
+          "glosses": ["（ゲームの）ステージ", "レベル", "レベルアップする"],
+          "pos": ["n", "v", "vi"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["擦り切り1杯の"],
-          "pos": ["adj"]
+          "glosses": ["平らにする", "（建物などを）倒壊させる"],
+          "pos": ["v", "vt"]
         },
         {
-          "glosses": ["平静な"],
-          "pos": ["adj"]
+          "glosses": ["正直に話す", "腹を割って話す"],
+          "pos": ["v", "vi"],
+          "info": ["level with someone の形で"]
         }
       ]
     },
     {
-      "id": 100001189,
+      "id": 100000058,
       "language": "en",
       "headword": "piss",
       "reading": "/pɪs/",
@@ -5140,74 +5415,86 @@
       "spellings": ["piss"],
       "senses": [
         {
-          "glosses": ["小便"],
+          "glosses": ["小便をする", "おしっこする"],
+          "pos": ["v", "vi", "vt"],
+          "misc": ["vulg"]
+        },
+        {
+          "glosses": ["小便", "おしっこ"],
           "pos": ["n"],
           "misc": ["uncountable", "vulg"]
         },
         {
-          "glosses": ["小便をする", "放尿する"],
-          "pos": ["v", "vi"],
-          "misc": ["vulg"]
-        },
-        {
-          "glosses": ["放尿"],
+          "glosses": ["小便をすること"],
           "pos": ["n"],
-          "misc": ["countable", "vulg"]
+          "misc": ["countable", "vulg"],
+          "info": ["have/take a piss の形で"]
         },
         {
-          "glosses": ["アルコール飲料"],
+          "glosses": ["土砂降りになる"],
+          "pos": ["v"],
+          "misc": ["sl", "vulg"],
+          "info": ["it's pissing (down) の形で"]
+        },
+        {
+          "glosses": ["ひどく", "すごく"],
           "pos": ["n"],
-          "misc": ["countable", "sl", "uncountable", "vulg"]
+          "misc": ["countable", "uncountable", "vulg"],
+          "info": ["piss-poor などの複合語で"]
         },
         {
-          "glosses": ["小便とともに出す"],
-          "pos": ["v", "vt"],
-          "misc": ["vulg"]
-        },
-        {
-          "glosses": ["〜に小便をかける"],
-          "pos": ["v", "vt"],
+          "glosses": ["くそっ", "ちくしょう"],
+          "pos": ["int"],
           "misc": ["vulg"]
         }
       ]
     },
     {
-      "id": 100001207,
+      "id": 100000059,
       "language": "en",
       "headword": "yep",
-      "reading": "",
+      "reading": "/jɛp/",
       "common": true,
       "spellings": ["yep"],
       "senses": [
         {
-          "glosses": ["うん(yes)"],
-          "pos": []
+          "glosses": ["うん", "そう", "ああ"],
+          "pos": ["int", "n"],
+          "misc": ["col"]
         }
       ]
     },
     {
-      "id": 100001242,
+      "id": 100000060,
       "language": "en",
       "headword": "asshole",
-      "reading": "/ˈæsˌhoʊl/",
+      "reading": "/æshoʊl/",
       "common": true,
       "spellings": ["asshole"],
       "senses": [
         {
-          "glosses": ["尻穴, 肛門"],
+          "glosses": ["クソ野郎", "嫌なやつ", "最低なやつ"],
           "pos": ["n"],
-          "misc": ["vulg"],
-          "fields": ["anat"]
+          "misc": ["derog", "X", "vulg"],
+          "dialects": ["en-US"]
         },
         {
-          "glosses": ["ばか"],
+          "glosses": ["けつの穴", "肛門"],
           "pos": ["n"],
-          "misc": ["X"]
+          "misc": ["vulg"],
+          "dialects": ["en-US"]
+        },
+        {
+          "glosses": ["最悪な場所", "ひどいところ"],
+          "pos": ["n"],
+          "misc": ["vulg"],
+          "dialects": ["en-US"],
+          "info": ["the asshole of ～ の形で"]
         }
       ]
     },
     {
-      "id": 100001302,
+      "id": 100000061,
       "language": "en",
       "headword": "claim",
       "reading": "/kleɪm/",
@@ -5215,33 +5502,38 @@
       "spellings": ["claim"],
       "senses": [
         {
-          "glosses": ["主張する"],
-          "pos": ["v"]
+          "glosses": ["主張する", "言い張る"],
+          "pos": ["v"],
+          "info": ["claim to do / claim that ～ の形で"]
         },
         {
-          "glosses": ["主張"],
-          "pos": ["n"]
+          "glosses": ["主張", "申し立て"],
+          "pos": ["n"],
+          "info": ["日本語の「クレーム（苦情）」は complaint"]
         },
         {
-          "glosses": ["断言する"],
-          "pos": ["v"]
+          "glosses": ["権利を主張する", "要求する"],
+          "pos": ["v", "n"]
         },
         {
-          "glosses": ["要求する"],
-          "pos": ["v"]
+          "glosses": ["請求", "請求する"],
+          "pos": ["n", "v"],
+          "fields": ["law"],
+          "info": ["insurance claim など"]
         },
         {
-          "glosses": ["（手間などを）要する"],
-          "pos": ["v"]
+          "glosses": ["（命を）奪う"],
+          "pos": ["v"],
+          "info": ["claim lives の形で"]
         },
         {
-          "glosses": ["命を奪う", "犠牲にする"],
+          "glosses": ["獲得する", "勝ち取る"],
           "pos": ["v"]
         }
       ]
     },
     {
-      "id": 100001367,
+      "id": 100000062,
       "language": "en",
       "headword": "dick",
       "reading": "/dɪk/",
@@ -5249,43 +5541,39 @@
       "spellings": ["dick"],
       "senses": [
         {
-          "glosses": ["陰茎"],
+          "glosses": ["嫌なやつ", "クソ野郎"],
           "pos": ["n"],
-          "misc": ["sl", "vulg"]
+          "misc": ["countable", "derog", "X", "sl", "vulg"]
         },
         {
-          "glosses": ["価値のないもの"],
+          "glosses": ["ちんこ", "陰茎"],
           "pos": ["n"],
-          "misc": ["sl"]
+          "misc": ["countable", "col", "sl", "uncountable", "vulg"]
         },
         {
-          "glosses": ["刑事", "探偵"],
+          "glosses": ["（人を）ひどい目に遭わせる", "もてあそぶ"],
+          "pos": ["v", "vt"],
+          "misc": ["sl", "vulg"],
+          "info": ["dick around で「だらだらする・ふざける」"]
+        },
+        {
+          "glosses": ["何も（ない）", "まったく何も"],
           "pos": ["n"],
-          "misc": ["sl"]
+          "misc": ["sl", "uncountable", "vulg"],
+          "dialects": ["en-CA", "en-US"],
+          "info": ["did dick, know dick の形で"]
+        },
+        {
+          "glosses": ["探偵", "刑事"],
+          "pos": ["n", "vt"],
+          "misc": ["dated", "sl", "vulg"],
+          "dialects": ["en-US"],
+          "info": ["private dick の形で"]
         }
       ]
     },
     {
-      "id": 100001676,
-      "language": "en",
-      "headword": "borrow",
-      "reading": "/ˈbɒrəʊ/",
-      "common": true,
-      "spellings": ["borrow"],
-      "senses": [
-        {
-          "glosses": ["借りる"],
-          "pos": ["v"]
-        },
-        {
-          "glosses": ["繰り下げる"],
-          "pos": ["v"],
-          "fields": ["math"]
-        }
-      ]
-    },
-    {
-      "id": 100001699,
+      "id": 100000063,
       "language": "en",
       "headword": "style",
       "reading": "/staɪl/",
@@ -5293,131 +5581,231 @@
       "spellings": ["style"],
       "senses": [
         {
-          "glosses": ["型", "様式"],
-          "pos": ["n"]
+          "glosses": ["スタイル", "様式"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["格好"],
-          "pos": ["n"]
+          "glosses": ["センス", "おしゃれ"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "info": ["in style で「流行して」"]
         },
         {
-          "glosses": ["やり方"],
-          "pos": ["n"]
+          "glosses": ["文体", "話し方"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
+        },
+        {
+          "glosses": ["スタイリングする", "デザインする"],
+          "pos": ["v", "vt"],
+          "misc": ["col"]
+        },
+        {
+          "glosses": ["書式", "表記規則"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "fields": ["comp", "engr", "math", "print"]
         },
         {
           "glosses": ["花柱"],
           "pos": ["n"],
-          "fields": ["bot"]
+          "misc": ["countable", "uncountable"],
+          "fields": ["biol", "bot"]
         }
       ]
     },
     {
-      "id": 100001750,
+      "id": 100000064,
+      "language": "en",
+      "headword": "thou",
+      "reading": "/ðaʊ/",
+      "common": false,
+      "spellings": ["thou"],
+      "senses": [
+        {
+          "glosses": ["汝", "そなた", "お前"],
+          "pos": ["pn"],
+          "misc": ["arch", "form"],
+          "fields": ["relig"],
+          "info": ["古語・聖書や詩で使われる二人称単数主格"]
+        },
+        {
+          "glosses": ["1000ドル", "1000ポンド", "千"],
+          "pos": ["n"],
+          "misc": ["sl"],
+          "info": ["a few thou などの形で"]
+        },
+        {
+          "glosses": ["1000分の1インチ", "ミル"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["thouで呼ぶ", "なれなれしく呼ぶ"],
+          "pos": ["v", "vt", "vi"]
+        }
+      ]
+    },
+    {
+      "id": 100000065,
+      "language": "en",
+      "headword": "borrow",
+      "reading": "/ˈbɑɹ.oʊ/",
+      "common": true,
+      "spellings": ["borrow"],
+      "senses": [
+        {
+          "glosses": ["借りる"],
+          "pos": ["v"],
+          "misc": ["col"]
+        },
+        {
+          "glosses": ["（金を）借りる", "借金する"],
+          "pos": ["v"]
+        },
+        {
+          "glosses": ["取り入れる", "借用する"],
+          "pos": ["v"],
+          "fields": ["ling"]
+        },
+        {
+          "glosses": ["（人を）ちょっと借りる"],
+          "pos": ["v"],
+          "misc": ["col"],
+          "info": ["Can I borrow you? の形で"]
+        }
+      ]
+    },
+    {
+      "id": 100000066,
       "language": "en",
       "headword": "bike",
-      "reading": "",
+      "reading": "/baɪk/",
       "common": true,
       "spellings": ["bike"],
       "senses": [
         {
-          "glosses": ["自転車"],
-          "pos": ["n"]
+          "glosses": ["自転車", "チャリ"],
+          "pos": ["n"],
+          "misc": ["abbr"]
         },
         {
-          "glosses": ["オートバイ", "自動二輪車"],
+          "glosses": ["バイク", "オートバイ"],
+          "pos": ["n"],
+          "misc": ["abbr"]
+        },
+        {
+          "glosses": ["自転車で行く", "自転車に乗る"],
+          "pos": ["v", "vi"],
+          "misc": ["col"]
+        },
+        {
+          "glosses": ["（自転車型の）乗り物", "エアロバイク"],
           "pos": ["n"]
         }
       ]
     },
     {
-      "id": 100001757,
+      "id": 100000067,
       "language": "en",
       "headword": "loose",
-      "reading": "/luːs/",
+      "reading": "/lus/",
       "common": true,
       "spellings": ["loose"],
       "senses": [
         {
-          "glosses": ["緩い", "ぐらつく"],
+          "glosses": ["緩い", "ぐらぐらした"],
           "pos": ["adj"]
         },
         {
-          "glosses": ["解放する", "自由にする"],
-          "pos": ["v"]
-        },
-        {
-          "glosses": ["緩める", "解く"],
-          "pos": ["v"]
-        },
-        {
-          "glosses": ["放つ", "発射する"],
-          "pos": ["v"]
-        },
-        {
-          "glosses": ["結んでいない", "束ねていない"],
+          "glosses": ["ゆったりした", "だぶだぶの"],
           "pos": ["adj"]
         },
         {
-          "glosses": ["ゆったりした"],
+          "glosses": ["放たれた", "逃げ出した"],
+          "pos": ["adj"],
+          "info": ["be/get loose, on the loose"]
+        },
+        {
+          "glosses": ["ばらの", "包装されていない"],
           "pos": ["adj"]
+        },
+        {
+          "glosses": ["大まかな", "曖昧な"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["解き放つ", "放す"],
+          "pos": ["v", "vt"]
         }
       ]
     },
     {
-      "id": 100001805,
+      "id": 100000068,
       "language": "en",
       "headword": "nope",
-      "reading": "",
+      "reading": "/noʊp/",
       "common": true,
       "spellings": ["nope"],
       "senses": [
         {
-          "glosses": ["いいや", "いえ(no)"],
-          "pos": []
+          "glosses": ["いや", "ううん", "ちがう"],
+          "pos": ["prt", "n"],
+          "misc": ["col"]
+        },
+        {
+          "glosses": ["無理なもの", "絶対いやなもの", "見ただけで拒絶したくなるもの"],
+          "pos": ["n"],
+          "misc": ["sl"],
+          "info": ["full of nope などの形で"]
         }
       ]
     },
     {
-      "id": 100001824,
+      "id": 100000069,
       "language": "en",
       "headword": "jerk",
-      "reading": "/ˈdʒɜːk/",
+      "reading": "/ˈd͡ʒɝk/",
       "common": true,
-      "spellings": ["jerk", "yark"],
+      "spellings": ["jerk"],
       "senses": [
         {
-          "glosses": ["痙攣"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["引っ張り"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["自己中心的で性格が悪い人"],
+          "glosses": ["嫌なやつ", "最低なやつ"],
           "pos": ["n"],
-          "misc": ["X", "sl"],
+          "misc": ["derog", "sl"],
           "dialects": ["en-US"]
         },
         {
-          "glosses": ["馬鹿"],
+          "glosses": ["馬鹿", "まぬけ"],
           "pos": ["n"],
-          "misc": ["X", "sl"],
+          "misc": ["derog", "sl"],
           "dialects": ["en-US"]
         },
         {
-          "glosses": ["バーベルを肩から頭上へ上げる動き", "ジャーク"],
-          "pos": ["n"]
+          "glosses": ["ぴくっと動く", "急な動き"],
+          "pos": ["n", "v", "vi"]
         },
         {
-          "glosses": ["自慰行為"],
+          "glosses": ["ぐいっと引く", "急に引っ張る"],
+          "pos": ["n", "v", "vt"]
+        },
+        {
+          "glosses": ["ジャーク", "ジャマイカ風スパイス料理"],
           "pos": ["n"],
-          "misc": ["sl"]
+          "misc": ["uncountable"],
+          "info": ["jerk chicken など"]
+        },
+        {
+          "glosses": ["自慰をする"],
+          "pos": ["v"],
+          "misc": ["sl", "vulg"],
+          "dialects": ["en-US"],
+          "info": ["jerk off の形で"]
         }
       ]
     },
     {
-      "id": 100001883,
+      "id": 100000070,
       "language": "en",
       "headword": "seal",
       "reading": "/siːl/",
@@ -5425,191 +5813,216 @@
       "spellings": ["seal"],
       "senses": [
         {
-          "glosses": ["（もとは、蝋の封緘に押したもの）判"],
+          "glosses": ["アザラシ", "アシカ"],
           "pos": ["n"]
         },
         {
-          "glosses": ["海豹", "膃肭臍"],
+          "glosses": ["封をする", "密封する"],
+          "pos": ["v", "vt"]
+        },
+        {
+          "glosses": ["印章", "はんこ", "紋章"],
           "pos": ["n"]
         },
         {
-          "glosses": ["アザラシ狩りをする"],
-          "pos": ["v"]
-        },
-        {
-          "glosses": ["封印, 封緘, シール"],
+          "glosses": ["封", "封印", "密閉材"],
           "pos": ["n"]
         },
         {
-          "glosses": ["～に判を押す", "押印する"],
-          "pos": ["v"]
+          "glosses": ["決定づける", "確実にする"],
+          "pos": ["v", "vt"],
+          "info": ["seal the deal で「話をまとめる」"]
         },
         {
-          "glosses": ["～を封印する", "密閉する"],
-          "pos": ["v"]
+          "glosses": ["お墨付き", "（境界を）封鎖する"],
+          "pos": ["n", "v", "vt"],
+          "info": ["seal of approval の形で"]
         }
       ]
     },
     {
-      "id": 100001906,
+      "id": 100000071,
       "language": "en",
       "headword": "talent",
-      "reading": "/ˈtælənt/",
+      "reading": "/ˈtæl.ənt/",
       "common": true,
       "spellings": ["talent"],
       "senses": [
         {
-          "glosses": ["才能", "素質", "天分"],
+          "glosses": ["才能", "素質"],
           "pos": ["n"],
-          "info": ["15世紀より"]
+          "misc": ["countable", "uncountable"],
+          "info": ["a talent for ～ の形で"]
         },
         {
-          "glosses": ["タレント", "タラント"],
+          "glosses": ["人材", "才能ある人"],
           "pos": ["n"],
-          "info": ["9世紀より"]
+          "misc": ["countable", "uncountable"],
+          "fields": ["bus", "sports"],
+          "info": ["「タレント（芸能人）」は celebrity"]
         },
         {
-          "glosses": ["才能のある人々"],
+          "glosses": ["いい女", "いい男"],
           "pos": ["n"],
-          "info": ["19世紀より"]
-        },
-        {
-          "glosses": ["性的魅力のある人々"],
-          "pos": ["n"],
-          "misc": ["sl"],
-          "info": ["20世紀より"]
+          "misc": ["countable", "sl", "uncountable"]
         }
       ]
     },
     {
-      "id": 100001946,
+      "id": 100000072,
       "language": "en",
       "headword": "motherfucker",
-      "reading": "",
+      "reading": "/mʌðɚˌfʌkɚ/",
       "common": true,
       "spellings": ["motherfucker", "mother-fucker"],
       "senses": [
         {
-          "glosses": ["マザーファッカー", "下衆野郎"],
+          "glosses": ["クソ野郎", "くそったれ", "下衆野郎"],
           "pos": ["n"],
           "misc": ["X", "vulg"]
         },
         {
-          "glosses": ["母親と近親相姦する人"],
+          "glosses": ["やつ", "野郎"],
           "pos": ["n"],
           "misc": ["vulg"]
         },
         {
-          "glosses": ["非常に素晴らしいもの"],
+          "glosses": ["ひどいもの", "強烈なもの"],
           "pos": ["n"],
-          "misc": ["sl"]
+          "misc": ["vulg"],
+          "info": ["like a motherfucker で「めちゃくちゃ」"]
+        },
+        {
+          "glosses": ["くそっ", "ちくしょう"],
+          "pos": ["int"],
+          "misc": ["vulg"]
+        },
+        {
+          "glosses": ["お前", "親友への乱暴な呼びかけ"],
+          "pos": ["n"],
+          "misc": ["vulg"]
         }
       ]
     },
     {
-      "id": 100002042,
+      "id": 100000073,
       "language": "en",
       "headword": "vacation",
-      "reading": "/vəˈkeɪʃn/",
+      "reading": "/veɪˈkeɪ.ʃən/",
       "common": true,
       "spellings": ["vacation"],
       "senses": [
         {
-          "glosses": ["休暇", "バカンス"],
+          "glosses": ["休暇", "休み", "バケーション"],
           "pos": ["n"],
-          "dialects": ["en-US"]
+          "misc": ["countable", "uncountable"],
+          "info": ["on vacation（休暇中で）の形で。主に米国、英国では holiday"]
         },
         {
-          "glosses": ["撤回", "取消"],
+          "glosses": ["休暇を過ごす", "休暇を取る"],
+          "pos": ["v", "vi"],
+          "info": ["vacation in ～ の形で"]
+        },
+        {
+          "glosses": ["休廷期間", "（大学の）休暇期間"],
           "pos": ["n"],
+          "misc": ["countable", "uncountable"]
+        },
+        {
+          "glosses": ["明け渡し", "退去"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
+        },
+        {
+          "glosses": ["無効化", "取り消し"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
           "fields": ["law"],
-          "dialects": ["en-US"]
-        },
-        {
-          "glosses": ["明け渡し"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["休廷期間", "大学の期末休暇"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["休暇を取る（楽しむ）"],
-          "pos": ["v"]
+          "dialects": ["en-US"],
+          "info": ["法律用語"]
         }
       ]
     },
     {
-      "id": 100002151,
+      "id": 100000074,
       "language": "en",
       "headword": "launch",
-      "reading": "/lɔːntʃ/, /lɑːntʃ/",
+      "reading": "/lɔnt͡ʃ/",
       "common": true,
       "spellings": ["launch"],
       "senses": [
         {
-          "glosses": ["発射する", "打ち上げる"],
-          "pos": ["v"]
-        },
-        {
-          "glosses": [
-            "始める",
-            "開始する",
-            "スタートさせる",
-            "着手する",
-            "やり出す",
-            "乗り出す",
-            "うって出る",
-            "起こす",
-            "踏み切る",
-            "仕掛ける",
-            "展開する",
-            "進める",
-            "推進する",
-            "軌道に乗せる",
-            "進出する",
-            "動かし始める",
-            "発足させる",
-            "設置する",
-            "旗揚げする",
-            "誕生させる",
-            "登場させる",
-            "開く",
-            "興す",
-            "導入する",
-            "加える",
-            "行う",
-            "実行する",
-            "実施する",
-            "取り組む",
-            "講じる",
-            "制定する",
-            "施行する",
-            "（交渉などに）入る",
-            "（手段などに）出る"
-          ],
+          "glosses": ["開始する", "発売する", "立ち上げる"],
           "pos": ["v", "vt"]
         },
         {
-          "glosses": ["開始", "着手", "立ち上げ", "始動", "発足", "実行"],
-          "pos": ["n"]
+          "glosses": ["発売", "開始", "発表会"],
+          "pos": ["n"],
+          "info": ["product launch の形で"]
         },
         {
-          "glosses": ["発射", "打ち上げ", "発射台"],
-          "pos": ["n"]
+          "glosses": ["発射する", "打ち上げる"],
+          "pos": ["v", "vt", "vi"]
         },
         {
-          "glosses": ["（プログラムを）起動する", "立ち上げる", "（ウィンドウを）開く"],
-          "pos": ["v"]
+          "glosses": ["起動する"],
+          "pos": ["v", "vt", "vi"],
+          "fields": ["comp", "engr", "math"]
         },
         {
-          "glosses": ["進水する", "水に浮かべる", "水面に降ろす"],
-          "pos": ["v"]
+          "glosses": ["進水させる"],
+          "pos": ["v", "vt"]
+        },
+        {
+          "glosses": ["投げつける", "浴びせる"],
+          "pos": ["v", "vt"],
+          "info": ["launch an attack の形でも"]
         }
       ]
     },
     {
-      "id": 100002256,
+      "id": 100000075,
+      "language": "en",
+      "headword": "juice",
+      "reading": "/d͡ʒus/",
+      "common": true,
+      "spellings": ["juice"],
+      "senses": [
+        {
+          "glosses": ["ジュース", "果汁", "汁"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
+        },
+        {
+          "glosses": ["ゴシップ", "面白いうわさ話"],
+          "pos": ["n"],
+          "misc": ["sl", "uncountable"]
+        },
+        {
+          "glosses": ["電気", "バッテリー残量"],
+          "pos": ["n"],
+          "misc": ["sl", "uncountable"]
+        },
+        {
+          "glosses": ["活力", "影響力", "権力"],
+          "pos": ["n"],
+          "misc": ["sl", "uncountable"]
+        },
+        {
+          "glosses": ["果汁を搾る", "ジュースにする"],
+          "pos": ["v", "vt"]
+        },
+        {
+          "glosses": ["活気づける", "ステロイドを使う"],
+          "pos": ["v", "vt", "vi"],
+          "misc": ["sl"],
+          "fields": ["sports"],
+          "info": ["juice up の形でも"]
+        }
+      ]
+    },
+    {
+      "id": 100000076,
       "language": "en",
       "headword": "pen",
       "reading": "/pɛn/",
@@ -5617,98 +6030,73 @@
       "spellings": ["pen"],
       "senses": [
         {
-          "glosses": ["（家畜用の）囲い"],
+          "glosses": ["ペン", "ボールペン"],
           "pos": ["n"]
         },
         {
-          "glosses": ["（家畜を）囲う"],
+          "glosses": ["書く", "執筆する"],
           "pos": ["v", "vt"]
         },
         {
-          "glosses": ["筆記具", "ペン"],
-          "pos": ["n"]
+          "glosses": ["囲い", "（動物を）囲いに入れる"],
+          "pos": ["n", "v", "vt"]
         },
         {
-          "glosses": ["執筆する"],
-          "pos": ["v", "vt"]
-        }
-      ]
-    },
-    {
-      "id": 100002273,
-      "language": "en",
-      "headword": "thou",
-      "reading": "/ðaʊ/",
-      "common": true,
-      "spellings": ["thou"],
-      "senses": [
-        {
-          "glosses": ["（ごく稀）二人称単数の主格形", "汝"],
-          "pos": ["pn"]
-        }
-      ]
-    },
-    {
-      "id": 100002276,
-      "language": "en",
-      "headword": "juice",
-      "reading": "",
-      "common": true,
-      "spellings": ["juice"],
-      "senses": [
-        {
-          "glosses": ["果物や植物から絞った汁", "果汁", "ジュース"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["果物や植物の汁から作った飲料"],
+          "glosses": ["刑務所", "ムショ"],
           "pos": ["n"],
-          "misc": ["countable"]
+          "misc": ["sl"]
         },
         {
-          "glosses": ["分泌液", "抽出液"],
+          "glosses": ["PK", "ペナルティキック"],
+          "pos": ["n"],
+          "misc": ["sl"],
+          "fields": ["sports"],
+          "info": ["on pens で「PK戦で」"]
+        },
+        {
+          "glosses": ["ペン型注射器"],
           "pos": ["n"]
         }
       ]
     },
     {
-      "id": 100002277,
+      "id": 100000077,
       "language": "en",
       "headword": "range",
-      "reading": "/ɹeɪndʒ/",
+      "reading": "/ˈɹeɪnd͡ʒ/",
       "common": true,
       "spellings": ["range"],
       "senses": [
         {
-          "glosses": ["かまど", "レンジ"],
+          "glosses": ["品ぞろえ", "幅", "種類"],
           "pos": ["n"],
-          "fields": ["food"]
+          "info": ["a wide range of ～"]
         },
         {
-          "glosses": ["射程", "距離"],
+          "glosses": ["範囲", "幅"],
           "pos": ["n"]
         },
         {
-          "glosses": ["範囲", "幅", "領域"],
+          "glosses": ["及ぶ", "わたる"],
+          "pos": ["v", "vi"],
+          "info": ["range from A to B"]
+        },
+        {
+          "glosses": ["射程", "航続距離"],
           "pos": ["n"]
         },
         {
-          "glosses": ["（分布の）範囲"],
-          "pos": ["n"],
-          "fields": ["stat"]
-        },
-        {
-          "glosses": ["山脈", "山並み"],
+          "glosses": ["山脈", "連なり"],
           "pos": ["n"]
         },
         {
-          "glosses": ["列", "並び"],
+          "glosses": ["射撃場", "レンジ（調理用）"],
           "pos": ["n"]
         }
       ]
     },
     {
-      "id": 100002301,
+      "id": 100000078,
       "language": "en",
       "headword": "sharp",
       "reading": "/ʃɑɹp/",
@@ -5716,55 +6104,68 @@
       "spellings": ["sharp"],
       "senses": [
         {
-          "glosses": ["(刃物が) 鋭い", "よく切れる"],
+          "glosses": ["鋭い", "よく切れる", "尖った"],
           "pos": ["adj"]
         },
         {
-          "glosses": ["(感覚や知力が) 鋭い", "敏い"],
+          "glosses": ["頭が切れる", "賢い", "鋭敏な"],
           "pos": ["adj"],
           "misc": ["col"]
         },
         {
-          "glosses": ["（変化などが）急な", "急激な"],
+          "glosses": ["急な", "激しい", "鋭い（痛み）"],
           "pos": ["adj"]
         },
         {
-          "glosses": ["シャープの", "嬰音の", "半音高い"],
+          "glosses": ["ちょうど", "きっかり"],
+          "pos": ["adv"],
+          "info": ["時刻の後に置く（at noon sharp）"]
+        },
+        {
+          "glosses": ["おしゃれな", "洗練された"],
           "pos": ["adj"],
-          "fields": ["music"]
+          "misc": ["col"]
         },
         {
-          "glosses": ["シャープ", "嬰音(記号:♯)"],
-          "pos": ["n"],
+          "glosses": ["シャープ", "嬰音"],
+          "pos": ["n", "adj"],
           "fields": ["music"]
-        },
-        {
-          "glosses": ["（カーブが）急な"],
-          "pos": ["adj"]
         }
       ]
     },
     {
-      "id": 100002304,
+      "id": 100000079,
       "language": "en",
       "headword": "elevator",
-      "reading": "/ˈɛləveɪtə/",
+      "reading": "/ˈɛləˌveɪtɚ/",
       "common": true,
       "spellings": ["elevator"],
       "senses": [
         {
           "glosses": ["エレベーター"],
           "pos": ["n"],
+          "dialects": ["en-AU", "en-CA", "en-PH", "en-US"],
+          "info": ["英国では lift"]
+        },
+        {
+          "glosses": ["穀物倉庫"],
+          "pos": ["n"],
           "dialects": ["en-US"]
         },
         {
-          "glosses": ["穀物用のサイロ（grain elevator）"],
-          "pos": ["n"]
+          "glosses": ["昇降舵"],
+          "pos": ["n"],
+          "fields": ["bus", "engr"]
+        },
+        {
+          "glosses": ["シークレットシューズ"],
+          "pos": ["n"],
+          "info": ["elevator shoes の形で"]
         }
       ]
     },
     {
-      "id": 100002349,
+      "id": 100000080,
       "language": "en",
       "headword": "cookie",
       "reading": "/ˈkʊki/",
@@ -5772,136 +6173,156 @@
       "spellings": ["cookie"],
       "senses": [
         {
-          "glosses": ["クッキー"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["丸形パン"],
+          "glosses": ["クッキー", "ビスケット"],
           "pos": ["n"],
-          "fields": ["food"],
-          "dialects": ["en-scotland"]
+          "dialects": ["en-CA", "en-PH", "en-US", "en-GB"]
         },
         {
-          "glosses": ["(特定の人を指して)やつ"],
-          "pos": ["n"]
+          "glosses": ["クッキー", "ウェブサイトが閲覧者の情報を保存する仕組み"],
+          "pos": ["n"],
+          "misc": ["net-sl"],
+          "fields": ["comp", "engr", "math"],
+          "info": ["HTTP cookie のこと"]
+        },
+        {
+          "glosses": ["食べた物", "胃の中身"],
+          "pos": ["n"],
+          "misc": ["col"],
+          "info": ["lose/toss one's cookies（吐く）の形で"]
+        },
+        {
+          "glosses": ["フォーチュンクッキー"],
+          "pos": ["n"],
+          "misc": ["abbr", "col"]
+        },
+        {
+          "glosses": ["コックさん"],
+          "pos": ["n"],
+          "misc": ["col", "dated"],
+          "info": ["料理人への愛称"]
+        },
+        {
+          "glosses": ["かわいい女の子"],
+          "pos": ["n"],
+          "misc": ["dated", "sl"]
         }
       ]
     },
     {
-      "id": 100002516,
+      "id": 100000082,
       "language": "en",
       "headword": "thee",
-      "reading": "",
-      "common": true,
+      "reading": "/ðiː/",
+      "common": false,
       "spellings": ["thee"],
       "senses": [
         {
-          "glosses": ["（古語、雅語）汝を", "汝に", "あなたを", "あんたに"],
+          "glosses": ["汝を", "汝に", "そなた"],
           "pos": ["pn"],
-          "dialects": ["en-GB"]
+          "misc": ["arch", "form"],
+          "info": ["thou の目的格"]
         },
         {
-          "glosses": ["（古語、雅語） 汝が", "あなたが", "あんたが"],
-          "pos": ["pn"]
-        },
-        {
-          "glosses": ["育つ"],
-          "pos": ["v"],
-          "misc": ["form"]
+          "glosses": ["theeで呼ぶ", "theeを使う"],
+          "pos": ["v", "vt", "vi"]
         }
       ]
     },
     {
-      "id": 100002755,
+      "id": 100000084,
       "language": "en",
       "headword": "appeal",
-      "reading": "/əˈpɪəl/",
+      "reading": "/əˈpiːl/",
       "common": true,
       "spellings": ["appeal"],
       "senses": [
         {
-          "glosses": ["懇願する"],
-          "pos": ["v"]
+          "glosses": ["魅力がある", "心に訴える", "魅力"],
+          "pos": ["v", "vi", "n"],
+          "misc": ["countable", "uncountable"],
+          "info": ["appeal to ～"]
         },
         {
-          "glosses": ["抗議する"],
-          "pos": ["v"]
+          "glosses": ["呼びかける", "懇願する", "訴え"],
+          "pos": ["v", "vi", "n"],
+          "misc": ["countable", "uncountable"],
+          "info": ["appeal to 人 for ～"]
         },
         {
-          "glosses": ["控訴する"],
-          "pos": ["v"]
+          "glosses": ["控訴する", "上訴", "上告"],
+          "pos": ["v", "vi", "vt", "n"],
+          "misc": ["countable", "uncountable"],
+          "fields": ["law"]
         },
         {
-          "glosses": ["訴える"],
-          "pos": ["v"]
-        },
-        {
-          "glosses": ["気に入る"],
-          "pos": ["v"]
-        },
-        {
-          "glosses": ["懇願"],
-          "pos": ["n"]
+          "glosses": ["（感情・理性に）訴えること"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         }
       ]
     },
     {
-      "id": 100003061,
+      "id": 100000087,
       "language": "en",
       "headword": "awkward",
-      "reading": "/ˈɔːkwəd/",
+      "reading": "/ˈɔk.wɚd/",
       "common": true,
       "spellings": ["awkward"],
       "senses": [
         {
-          "glosses": ["不器用な"],
+          "glosses": ["気まずい", "ばつが悪い"],
           "pos": ["adj"]
         },
         {
-          "glosses": ["ぎこちない", "はずかしい"],
+          "glosses": ["人付き合いが苦手な", "ぎこちない"],
           "pos": ["adj"]
         },
         {
-          "glosses": ["使いにくい", "不便な"],
+          "glosses": ["不器用な", "ぎこちない"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["扱いにくい", "厄介な"],
           "pos": ["adj"]
         }
       ]
     },
     {
-      "id": 100003191,
+      "id": 100000088,
       "language": "en",
       "headword": "confident",
-      "reading": "/ˈkɒnfɪdənt/",
+      "reading": "/ˈkɑnfɪdənt/",
       "common": true,
       "spellings": ["confident"],
       "senses": [
         {
-          "glosses": ["確信して"],
+          "glosses": ["自信のある", "自信に満ちた"],
           "pos": ["adj"]
         },
         {
-          "glosses": ["自信に満ちた"],
-          "pos": ["adj"]
+          "glosses": ["確信している", "自信がある"],
+          "pos": ["adj"],
+          "info": ["be confident that ～ / be confident of ～ の形で"]
         }
       ]
     },
     {
-      "id": 100003245,
+      "id": 100000089,
       "language": "en",
       "headword": "penis",
-      "reading": "/ˈpiːnɪs/",
+      "reading": "/ˈpi.nɪs/",
       "common": true,
       "spellings": ["penis"],
       "senses": [
         {
           "glosses": ["陰茎", "ペニス"],
           "pos": ["n"],
-          "fields": ["anat"]
+          "fields": ["anat", "med", "biol", "zool"]
         }
       ]
     },
     {
-      "id": 100003251,
+      "id": 100000090,
       "language": "en",
       "headword": "dine",
       "reading": "/daɪn/",
@@ -5909,43 +6330,49 @@
       "spellings": ["dine"],
       "senses": [
         {
-          "glosses": ["食事をとる"],
-          "pos": ["v"]
+          "glosses": ["食事をする", "夕食をとる"],
+          "pos": ["v", "vi"],
+          "info": ["dine out（外食する）"]
         },
         {
-          "glosses": ["ごちそうする"],
-          "pos": ["v"]
+          "glosses": ["ごちそうする", "もてなす"],
+          "pos": ["v", "vt"],
+          "info": ["wine and dine"]
         }
       ]
     },
     {
-      "id": 100003339,
+      "id": 100000091,
       "language": "en",
       "headword": "pierce",
-      "reading": "",
+      "reading": "/pɪɹs/",
       "common": true,
       "spellings": ["pierce"],
       "senses": [
         {
-          "glosses": ["突き通す", "貫通させる"],
+          "glosses": ["突き刺す", "貫く"],
           "pos": ["v", "vt"]
         },
         {
-          "glosses": ["穴を開ける"],
+          "glosses": ["ピアスの穴を開ける"],
           "pos": ["v", "vt"]
         },
         {
-          "glosses": ["見抜く", "洞察する"],
+          "glosses": ["（静けさなどを）破る", "つんざく"],
           "pos": ["v", "vt"]
         },
         {
-          "glosses": ["（寒さ・痛み・悲しみなどが）身に染みる"],
+          "glosses": ["（心に）しみる", "深く突き刺さる"],
+          "pos": ["v", "vt"]
+        },
+        {
+          "glosses": ["見抜く", "核心に迫る"],
           "pos": ["v", "vt"]
         }
       ]
     },
     {
-      "id": 100003435,
+      "id": 100000092,
       "language": "en",
       "headword": "rubbish",
       "reading": "/ˈɹʌbɪʃ/",
@@ -5953,47 +6380,73 @@
       "spellings": ["rubbish"],
       "senses": [
         {
-          "glosses": ["ごみ"],
-          "pos": ["n"]
+          "glosses": ["ゴミ", "廃棄物"],
+          "pos": ["n"],
+          "misc": ["uncountable"],
+          "dialects": ["en-GB"],
+          "info": ["英国用法、米国では garbage/trash"]
+        },
+        {
+          "glosses": ["くだらないこと", "ばかばかしい"],
+          "pos": ["n", "int"],
+          "misc": ["uncountable", "col"],
+          "dialects": ["en-GB", "en-IE"],
+          "info": ["間投詞として「そんなのでたらめだ！」"]
+        },
+        {
+          "glosses": ["くだらない物", "がらくた"],
+          "pos": ["n"],
+          "misc": ["uncountable"],
+          "dialects": ["en-GB"]
+        },
+        {
+          "glosses": ["最悪の", "ひどい"],
+          "pos": ["adj", "int"],
+          "misc": ["col"],
+          "dialects": ["en-GB", "en-IE"],
+          "info": ["be rubbish at ～（～が下手だ）の形でも"]
+        },
+        {
+          "glosses": ["こき下ろす", "酷評する"],
+          "pos": ["v", "vt"],
+          "misc": ["col"],
+          "dialects": ["en-GB", "en-IE"]
         }
       ]
     },
     {
-      "id": 100003586,
+      "id": 100000095,
       "language": "en",
       "headword": "purchase",
-      "reading": "/ˈpɝ.t͡ʃəs/",
+      "reading": "/ˈpɜɹ.tʃəs/",
       "common": true,
       "spellings": ["purchase"],
       "senses": [
         {
+          "glosses": ["購入する", "買う"],
+          "pos": ["v"]
+        },
+        {
           "glosses": ["購入"],
-          "pos": ["n"]
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["買う"],
-          "pos": ["v"]
+          "glosses": ["買った物", "購入品"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["購入品"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["買い物"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["手がかり"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["（努力などにより）獲得する"],
-          "pos": ["v"]
+          "glosses": ["手がかり", "足がかり"],
+          "pos": ["n"],
+          "misc": ["uncountable"],
+          "fields": ["sports"],
+          "info": ["get purchase on ～"]
         }
       ]
     },
     {
-      "id": 100003965,
+      "id": 100000096,
       "language": "en",
       "headword": "tension",
       "reading": "/ˈtɛnʃən/",
@@ -6001,35 +6454,31 @@
       "spellings": ["tension"],
       "senses": [
         {
-          "glosses": ["（精神的な）緊張", "不安"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["ぴんと張ること", "伸張"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["（人間関係・国家間などの）緊張状態"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["張力"],
+          "glosses": ["緊張", "ストレス"],
           "pos": ["n"],
-          "fields": ["physics"]
+          "misc": ["countable", "uncountable"],
+          "info": ["日本語の「テンション（高揚）」の意味はない"]
         },
         {
-          "glosses": ["電圧"],
+          "glosses": ["緊張関係", "対立"],
           "pos": ["n"],
-          "fields": ["physics"]
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["ぴんと張る"],
-          "pos": ["v"]
+          "glosses": ["緊迫感", "サスペンス"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
+        },
+        {
+          "glosses": ["張力", "張り"],
+          "pos": ["n", "v"],
+          "misc": ["countable", "uncountable"],
+          "fields": ["engr", "physics"]
         }
       ]
     },
     {
-      "id": 100004033,
+      "id": 100000097,
       "language": "en",
       "headword": "hint",
       "reading": "/hɪnt/",
@@ -6037,199 +6486,223 @@
       "spellings": ["hint"],
       "senses": [
         {
-          "glosses": ["てがかり", "ヒント"],
+          "glosses": ["ヒント", "手がかり"],
           "pos": ["n"]
         },
         {
-          "glosses": ["兆候", "気配"],
-          "pos": ["n"]
+          "glosses": ["ほのめかし", "暗示"],
+          "pos": ["n"],
+          "info": ["drop a hint の形で"]
         },
         {
-          "glosses": ["暗示", "ほのめかし", "示唆"],
-          "pos": ["n"]
+          "glosses": ["ほのめかす", "それとなく言う"],
+          "pos": ["v", "vi", "vt"],
+          "info": ["hint at の形で"]
         },
         {
-          "glosses": ["暗示する", "ほのめかす", "示唆する", "におわせる"],
-          "pos": ["v"]
+          "glosses": ["かすかな気配", "少量"],
+          "pos": ["n"],
+          "info": ["a hint of の形で"]
         },
         {
-          "glosses": ["指示", "てびき", "秘訣", "こつ"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["少量", "すこし", "わずか"],
-          "pos": ["n"]
+          "glosses": ["察してよ", "わかるよね"],
+          "pos": ["int"],
+          "info": ["Hint, hint. の形で"]
         }
       ]
     },
     {
-      "id": 100004415,
+      "id": 100000098,
       "language": "en",
       "headword": "mansion",
-      "reading": "/ˈmænʃən/",
+      "reading": "/ˈmæn.ʃən/",
       "common": true,
       "spellings": ["mansion"],
       "senses": [
         {
-          "glosses": ["大邸宅"],
-          "pos": ["n"]
+          "glosses": ["豪邸", "大邸宅"],
+          "pos": ["n"],
+          "info": ["日本語の「マンション」は apartment / condo"]
         },
         {
-          "glosses": ["(月の)宿"],
-          "pos": ["n"]
+          "glosses": ["高級アパート", "集合住宅"],
+          "pos": ["n"],
+          "dialects": ["en-GB"],
+          "info": ["主に英国で mansions として建物名に"]
         }
       ]
     },
     {
-      "id": 100004541,
+      "id": 100000099,
       "language": "en",
       "headword": "naive",
-      "reading": "/naɪˈiːv/",
+      "reading": "/naɪˈiv/",
       "common": true,
-      "spellings": ["naive", "naif"],
+      "spellings": ["naive"],
       "senses": [
         {
-          "glosses": ["世間知らずな", "無思慮な"],
+          "glosses": ["世間知らずの", "甘い"],
+          "pos": ["adj", "n"],
+          "info": ["日本語の「ナイーブ（繊細）」とは異なる"]
+        },
+        {
+          "glosses": ["素朴な", "ナイーブアートの"],
           "pos": ["adj"]
         },
         {
-          "glosses": ["単純な", "無邪気な", "技巧を凝らさない"],
+          "glosses": ["未経験の", "未処置の"],
           "pos": ["adj"]
+        },
+        {
+          "glosses": ["単純な", "素朴な（手法）"],
+          "pos": ["adj"],
+          "fields": ["comp", "engr", "math"]
         }
       ]
     },
     {
-      "id": 100004610,
+      "id": 100000100,
       "language": "en",
       "headword": "biscuit",
-      "reading": "/ˈbɪskɪt/",
+      "reading": "/ˈbɪs.kɪt/",
       "common": true,
       "spellings": ["biscuit"],
       "senses": [
         {
-          "glosses": ["ビスケット", "小麦粉を主原料とした、サクサクとした食感の菓子"],
+          "glosses": ["ビスケット", "クッキー"],
           "pos": ["n"],
-          "dialects": ["en-IE", "en-NZ", "en-GB", "en-AU"]
+          "misc": ["countable", "uncountable"],
+          "dialects": ["en-AU", "en-CA", "en-IN", "en-IE", "en-NZ", "en-GB"],
+          "info": ["主に英国英語"]
         },
         {
-          "glosses": [
-            "小麦粉を主原料とし、その生地にショートニングやラードを加え、重曹とベーキングパウダーで膨らませたもの",
-            "イギリスのスコーンに近い"
-          ],
+          "glosses": ["ビスケット（米国式）", "スコーンに似た甘くない小型パン"],
           "pos": ["n"],
-          "dialects": ["en-US"]
+          "misc": ["countable", "uncountable"],
+          "dialects": ["en-CA", "en-US"],
+          "info": ["主に米国英語"]
         },
         {
           "glosses": ["クラッカー"],
           "pos": ["n"],
-          "dialects": ["en-PH", "en-SG", "en-GB"]
+          "misc": ["countable", "uncountable"],
+          "dialects": ["en-IE", "en-PH", "en-SG", "en-GB"],
+          "info": ["cheese and biscuits など"]
         },
         {
-          "glosses": ["保存食用の堅パン"],
-          "pos": ["n"]
+          "glosses": ["乾パン", "堅パン"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["焼成をしているが、釉薬を塗るに至っていない陶器", "また、単に素焼きのみで完成した陶器"],
-          "pos": ["n"]
+          "glosses": ["淡褐色", "ビスケット色"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["薄茶色を帯びた色の一種"],
-          "pos": ["n"]
+          "glosses": ["素焼き", "素焼きにする"],
+          "pos": ["n", "v", "vt"],
+          "misc": ["countable", "uncountable"]
         }
       ]
     },
     {
-      "id": 100004765,
+      "id": 100000101,
       "language": "en",
       "headword": "reform",
-      "reading": "/rɪ.ˈfɔrm/",
+      "reading": "/ˌɹiːˈfɔɹm/",
       "common": true,
-      "spellings": ["reform"],
+      "spellings": ["reform", "re-form"],
       "senses": [
         {
-          "glosses": ["改善", "改革", "刷新"],
-          "pos": ["n"]
+          "glosses": ["改革", "改正"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["改善する"],
-          "pos": ["v"]
+          "glosses": ["改革する", "改善する", "更生させる"],
+          "pos": ["v", "vt"]
         },
         {
-          "glosses": ["改心する"],
-          "pos": ["v"]
+          "glosses": ["改心する", "更生する"],
+          "pos": ["v", "vi"]
         },
         {
-          "glosses": ["改心させる"],
-          "pos": ["v"]
-        },
-        {
-          "glosses": ["矯正する"],
-          "pos": ["v"]
-        },
-        {
-          "glosses": ["矯正", "修正"],
-          "pos": ["n"]
+          "glosses": ["再結成する", "再形成する"],
+          "pos": ["v", "vi", "vt"],
+          "info": ["この意味では re-form とも"]
         }
       ]
     },
     {
-      "id": 100004926,
+      "id": 100000102,
       "language": "en",
       "headword": "trousers",
-      "reading": "/ˈtɹaʊzəz/",
+      "reading": "/ˈtɹaʊzɚz/",
       "common": true,
       "spellings": ["trousers"],
       "senses": [
         {
-          "glosses": ["ズボン"],
+          "glosses": ["ズボン", "パンツ"],
           "pos": ["n"],
-          "fields": ["cloth"]
+          "info": ["複数扱い、a pair of trousers"]
         }
       ]
     },
     {
-      "id": 100005067,
+      "id": 100000103,
       "language": "en",
       "headword": "cooler",
-      "reading": "/ˈkuːl.ə(ɹ)/",
+      "reading": "/ˈku.lɚ/",
       "common": true,
       "spellings": ["cooler"],
       "senses": [
         {
-          "glosses": ["冷却に使うもの"],
-          "pos": ["n"],
-          "misc": ["countable"]
-        },
-        {
-          "glosses": ["保冷容器"],
-          "pos": ["n"],
-          "misc": ["countable"]
-        },
-        {
-          "glosses": ["遺体安置所(morgue)で遺体を冷蔵するための装置"],
+          "glosses": ["クーラーボックス", "保冷箱"],
           "pos": ["n"]
         },
         {
-          "glosses": ["冷やしたミックス・ドリンク"],
+          "glosses": ["クーラー", "ワインクーラー"],
           "pos": ["n"],
           "misc": ["countable", "uncountable"],
-          "dialects": ["en-US"]
+          "dialects": ["en-CA"]
         },
         {
-          "glosses": ["刑務所"],
+          "glosses": ["刑務所", "ブタ箱"],
           "pos": ["n"],
           "misc": ["sl"],
           "dialects": ["en-US"]
         },
         {
-          "glosses": ["コールドデック"],
-          "pos": ["n"],
-          "misc": ["countable", "col"]
+          "glosses": ["冷却器"],
+          "pos": ["n"]
         }
       ]
     },
     {
-      "id": 100005343,
+      "id": 100000105,
+      "language": "en",
+      "headword": "stove",
+      "reading": "/stoʊv/",
+      "common": true,
+      "spellings": ["stove"],
+      "senses": [
+        {
+          "glosses": ["コンロ", "レンジ"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["ストーブ", "暖房器具"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["（指を）突き指する"],
+          "pos": ["v", "vt"]
+        }
+      ]
+    },
+    {
+      "id": 100000106,
       "language": "en",
       "headword": "trump",
       "reading": "/tɹʌmp/",
@@ -6237,78 +6710,56 @@
       "spellings": ["trump"],
       "senses": [
         {
-          "glosses": ["切り札"],
-          "pos": ["n"],
-          "fields": ["cards"]
+          "glosses": ["勝る", "優先する"],
+          "pos": ["v", "vt"],
+          "info": ["X trumps Y の形で"]
         },
         {
-          "glosses": ["奥の手"],
+          "glosses": ["切り札", "トランプの切り札"],
+          "pos": ["n"],
+          "info": ["「トランプ」(カード)は cards"]
+        },
+        {
+          "glosses": ["奥の手", "切り札"],
           "pos": ["n"]
         },
         {
-          "glosses": ["立派な人"],
-          "pos": ["n"],
-          "misc": ["col"]
+          "glosses": ["切り札で勝つ", "出し抜く"],
+          "pos": ["v", "vt", "vi"]
         },
         {
-          "glosses": ["切り札を出す"],
-          "pos": ["v", "vt"],
-          "fields": ["cards"]
-        },
-        {
-          "glosses": ["奥の手で勝つ"],
-          "pos": ["v", "vt"]
-        },
-        {
-          "glosses": ["取って代わる"],
-          "pos": ["v", "vt"]
+          "glosses": ["おなら", "おならをする"],
+          "pos": ["n", "v", "vi"],
+          "misc": ["col"],
+          "dialects": ["en-GB"]
         }
       ]
     },
     {
-      "id": 100005446,
-      "language": "en",
-      "headword": "stove",
-      "reading": "",
-      "common": true,
-      "spellings": ["stove"],
-      "senses": [
-        {
-          "glosses": ["ストーブ", "暖炉"],
-          "pos": []
-        },
-        {
-          "glosses": ["料理用レンジ(cooker)"],
-          "pos": []
-        }
-      ]
-    },
-    {
-      "id": 100005495,
+      "id": 100000107,
       "language": "en",
       "headword": "whereas",
-      "reading": "",
+      "reading": "/(h)wɛɹˈæz/",
       "common": true,
       "spellings": ["whereas"],
       "senses": [
         {
-          "glosses": ["…であるのに反して", "なのに対して"],
-          "pos": [],
-          "info": ["対立・対照などの副詞節を導く"]
+          "glosses": ["～であるのに対して", "一方"],
+          "pos": ["conj"]
         },
         {
-          "glosses": ["…なるがゆえに"],
-          "pos": [],
-          "misc": ["form"],
-          "info": ["理由の副詞節を導く"]
+          "glosses": ["～であるがゆえに"],
+          "pos": ["conj"],
+          "fields": ["law"],
+          "info": ["法律文書で"]
         }
       ]
     },
     {
-      "id": 100005508,
+      "id": 100000108,
       "language": "en",
       "headword": "shallow",
-      "reading": "/ˈʃaləʊ/",
+      "reading": "/ˈʃæloʊ/",
       "common": true,
       "spellings": ["shallow"],
       "senses": [
@@ -6317,47 +6768,36 @@
           "pos": ["adj"]
         },
         {
-          "glosses": ["上辺の", "表層的な"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["浅薄な"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["（知的に）表面的な、内容を十分に理解していない"],
+          "glosses": ["浅はかな", "薄っぺらい"],
           "pos": ["adj"]
         },
         {
           "glosses": ["浅瀬"],
-          "pos": ["n"]
+          "pos": ["n"],
+          "info": ["通例 shallows"]
         },
         {
-          "glosses": ["浅くなる"],
-          "pos": ["v", "vi"]
+          "glosses": ["緩やかな", "傾斜の浅い"],
+          "pos": ["adj"]
         }
       ]
     },
     {
-      "id": 100005630,
+      "id": 100000109,
       "language": "en",
       "headword": "nevertheless",
-      "reading": "/ˌnɛ.və(r).ðə.ˈlɛs/",
+      "reading": "/ˌnɛvɚðəˈlɛs/",
       "common": true,
       "spellings": ["nevertheless"],
       "senses": [
         {
-          "glosses": ["～にもかかわらず"],
-          "pos": ["adv"]
-        },
-        {
-          "glosses": ["～とは言っても"],
+          "glosses": ["それにもかかわらず", "それでも", "しかしながら"],
           "pos": ["adv"]
         }
       ]
     },
     {
-      "id": 100005829,
+      "id": 100000110,
       "language": "en",
       "headword": "clumsy",
       "reading": "/ˈklʌmzi/",
@@ -6365,26 +6805,22 @@
       "spellings": ["clumsy"],
       "senses": [
         {
-          "glosses": ["不器用な", "ぎこちない"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["（物が）不細工な", "不格好な"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["扱いにくい"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["不器用な人"],
-          "pos": ["n"],
+          "glosses": ["不器用な", "ドジな"],
+          "pos": ["adj", "n"],
           "misc": ["col"]
+        },
+        {
+          "glosses": ["下手な", "気の利かない"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["扱いにくい", "不格好な"],
+          "pos": ["adj"]
         }
       ]
     },
     {
-      "id": 100005861,
+      "id": 100000111,
       "language": "en",
       "headword": "petrol",
       "reading": "/ˈpɛt.ɹəl/",
@@ -6392,47 +6828,50 @@
       "spellings": ["petrol"],
       "senses": [
         {
-          "glosses": ["（主に）ガソリン"],
+          "glosses": ["ガソリン"],
           "pos": ["n"],
-          "dialects": ["en-NZ", "en-GB", "en-AU"]
+          "misc": ["uncountable"],
+          "dialects": ["en-GB"],
+          "info": ["英国用法、米国では gas/gasoline"]
+        },
+        {
+          "glosses": ["ガソリン車"],
+          "pos": ["n"],
+          "misc": ["col", "uncountable"]
+        },
+        {
+          "glosses": ["給油する"],
+          "pos": ["v", "vt"],
+          "misc": ["dated"]
         }
       ]
     },
     {
-      "id": 100005967,
+      "id": 100000112,
       "language": "en",
       "headword": "Viking",
-      "reading": "",
+      "reading": "/ˈvaɪkɪŋ/",
       "common": true,
       "spellings": ["Viking"],
       "senses": [
         {
-          "glosses": ["(歴史) ヴァイキング"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["(転じて) 海賊"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["ノース人"],
+          "glosses": ["バイキング", "ヴァイキング", "北欧の海賊"],
           "pos": ["n"],
-          "misc": ["col"]
+          "misc": ["hist", "col"]
         },
         {
-          "glosses": [
-            "(口語, 蔑称) スウェーデン人",
-            "ノルウェー人",
-            "デンマーク人",
-            "アイスランド人",
-            "フェロー諸島人"
-          ],
+          "glosses": ["（ファンタジーの）バイキング戦士"],
           "pos": ["n"]
+        },
+        {
+          "glosses": ["北欧人"],
+          "pos": ["n"],
+          "misc": ["col", "joc", "X"]
         }
       ]
     },
     {
-      "id": 100006103,
+      "id": 100000113,
       "language": "en",
       "headword": "commence",
       "reading": "/kəˈmɛns/",
@@ -6440,48 +6879,42 @@
       "spellings": ["commence"],
       "senses": [
         {
-          "glosses": ["開始する", "着手する"],
-          "pos": ["v"]
+          "glosses": ["始まる", "開始する"],
+          "pos": ["v", "vi", "vt"],
+          "info": ["start より改まった語"]
         }
       ]
     },
     {
-      "id": 100006180,
+      "id": 100000114,
       "language": "en",
       "headword": "terminate",
-      "reading": "/ˈtɝmɪneɪt/",
+      "reading": "/ˈtɝmɪneɪ̯t/",
       "common": true,
       "spellings": ["terminate"],
       "senses": [
         {
-          "glosses": ["止める", "打ち切る", "途中のまま終わらせる"],
-          "pos": ["v"]
+          "glosses": ["終わらせる", "打ち切る", "終わる"],
+          "pos": ["v", "vt", "vi"]
         },
         {
-          "glosses": ["（契約などを）解約する、解雇する、期限が来ないまま終わらせる"],
-          "pos": ["v"]
+          "glosses": ["解雇する"],
+          "pos": ["v", "vt"]
         },
         {
-          "glosses": ["（空間や小数などの）連続を止める", "～で末端とする"],
-          "pos": ["v"]
+          "glosses": ["終点に着く"],
+          "pos": ["v", "vi"],
+          "info": ["電車などが"]
         },
         {
-          "glosses": ["殺害する"],
-          "pos": ["v"],
+          "glosses": ["消す", "抹殺する"],
+          "pos": ["v", "vt"],
           "misc": ["euph"]
-        },
-        {
-          "glosses": ["妊娠中絶する"],
-          "pos": ["v"]
-        },
-        {
-          "glosses": ["（電車やバスなどが）終着する", "〜で終点となる"],
-          "pos": ["v"]
         }
       ]
     },
     {
-      "id": 100006228,
+      "id": 100000115,
       "language": "en",
       "headword": "cunning",
       "reading": "/ˈkʌnɪŋ/",
@@ -6489,132 +6922,114 @@
       "spellings": ["cunning"],
       "senses": [
         {
-          "glosses": ["ずるい", "狡猾な", "狡賢い"],
-          "pos": ["adj"]
+          "glosses": ["ずる賢い", "狡猾な"],
+          "pos": ["adj"],
+          "info": ["「カンニング」は cheating"]
         },
         {
-          "glosses": ["狡猾", "陰険", "ずるさ"],
-          "pos": ["n"]
+          "glosses": ["ずる賢さ", "悪知恵"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["熟練"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["技量", "匠"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["本能"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["巧みな"],
+          "glosses": ["巧妙な", "よく考えられた"],
           "pos": ["adj"],
           "misc": ["obs"]
         }
       ]
     },
     {
-      "id": 100006448,
+      "id": 100000116,
       "language": "en",
       "headword": "gasoline",
       "reading": "/ˈɡæs.ə.liːn/",
       "common": true,
-      "spellings": ["gasoline", "gasolene", "petrol"],
+      "spellings": ["gasoline"],
       "senses": [
         {
-          "glosses": ["ガソリン"],
+          "glosses": ["ガソリン", "揮発油"],
           "pos": ["n"],
-          "misc": ["uncountable"],
-          "dialects": ["en-CA", "en-PH", "en-US"]
+          "misc": ["uncountable", "countable"],
+          "dialects": ["en-CA", "en-PH", "en-US"],
+          "info": ["主に米国。英国では petrol"]
         },
         {
-          "glosses": ["ガソリンの類の燃料"],
-          "pos": ["n"],
-          "misc": ["countable"]
-        },
-        {
-          "glosses": ["マリファナ"],
-          "pos": ["n"],
-          "misc": ["sl"]
-        },
-        {
-          "glosses": ["ウォッカとエナジードリンクで作った飲料"],
-          "pos": ["n"],
-          "misc": ["sl"]
-        },
-        {
-          "glosses": ["ガソリンを用いる"],
+          "glosses": ["ガソリン式の", "ガソリン車の"],
           "pos": ["adj"]
+        },
+        {
+          "glosses": ["上質な大麻", "強力なマリファナ"],
+          "pos": ["n"],
+          "misc": ["sl", "uncountable"]
+        },
+        {
+          "glosses": ["ウォッカのエナジードリンク割り"],
+          "pos": ["n"],
+          "misc": ["sl", "uncountable"]
         }
       ]
     },
     {
-      "id": 100006747,
+      "id": 100000117,
       "language": "en",
       "headword": "queue",
-      "reading": "/kjuː/",
+      "reading": "/kju/",
       "common": true,
       "spellings": ["queue"],
       "senses": [
         {
-          "glosses": ["（何かを待つ）行列", "列", "類義語:（米）line"],
+          "glosses": ["列", "行列"],
           "pos": ["n"],
-          "dialects": ["en-GB"]
+          "dialects": ["en-GB", "en-IE"],
+          "info": ["主に英国英語（米国では line）"]
         },
         {
-          "glosses": ["順番待ちを記載するリスト、ウェイティングリスト"],
-          "pos": ["n"],
-          "dialects": ["en-GB"]
+          "glosses": ["列に並ぶ", "順番を待つ"],
+          "pos": ["v", "vi"],
+          "info": ["queue up の形でも"]
         },
         {
-          "glosses": [
-            "待ち行列",
-            "データ構造の一つで、データを先入れ先出し（FIFO）のリスト構造で保持するもの",
-            "キュー (コンピュータ)参照"
-          ],
-          "pos": ["n"],
-          "fields": ["comp"]
-        },
-        {
-          "glosses": [
-            "データの到着の先後に応じ、処理を先後させるデータ構造の総称",
-            "語義3のものに、後入れ先出し（LIFO）のもの（スタック）等を含む"
-          ],
-          "pos": ["n"],
-          "fields": ["comp"]
-        },
-        {
-          "glosses": ["弁髪"],
+          "glosses": ["順番待ちリスト", "待ち行列"],
           "pos": ["n"]
         },
         {
-          "glosses": ["行列に並ぶ"],
-          "pos": ["v"]
+          "glosses": ["マッチングを待つ", "キューに入れる"],
+          "pos": ["v"],
+          "info": ["オンラインゲームで queue into a game など"]
+        },
+        {
+          "glosses": ["キュー", "待ち行列（データ構造）"],
+          "pos": ["n", "v", "vt"],
+          "fields": ["comp", "engr", "math"]
+        },
+        {
+          "glosses": ["辮髪", "弁髪"],
+          "pos": ["n", "v"],
+          "misc": ["hist"]
         }
       ]
     },
     {
-      "id": 100006829,
+      "id": 100000118,
       "language": "en",
       "headword": "sidewalk",
-      "reading": "/ˈsaɪdwɔːk/",
+      "reading": "/ˈsaɪdwɔk/",
       "common": true,
-      "spellings": ["sidewalk"],
+      "spellings": ["sidewalk", "side-walk"],
       "senses": [
         {
-          "glosses": ["歩道", "人道"],
+          "glosses": ["歩道", "舗道"],
           "pos": ["n"],
-          "dialects": ["en-US"]
+          "dialects": ["en-CA", "en-PH", "en-US"],
+          "info": ["主に米国。英国では pavement"]
         }
       ]
     },
     {
-      "id": 100007688,
+      "id": 100000120,
       "language": "en",
       "headword": "reside",
-      "reading": "",
+      "reading": "/ɹɪˈzaɪd/",
       "common": true,
       "spellings": ["reside"],
       "senses": [
@@ -6623,31 +7038,61 @@
           "pos": ["v"]
         },
         {
-          "glosses": ["存在する"],
-          "pos": ["v"]
-        },
-        {
-          "glosses": ["（権力・権限などが）属する"],
-          "pos": ["v"]
+          "glosses": ["（～に）ある", "存在する"],
+          "pos": ["v"],
+          "info": ["reside in ～ の形で"]
         }
       ]
     },
     {
-      "id": 100007710,
+      "id": 100000121,
       "language": "en",
       "headword": "furthermore",
-      "reading": "/ˈfɚː.ðɚ.ˌmɔːɹ/",
+      "reading": "/ˈfɝ.ðɚˌmoɹ/",
       "common": true,
       "spellings": ["furthermore"],
       "senses": [
         {
-          "glosses": ["（重要なことを付け加える時）その上", "おまけに"],
+          "glosses": ["さらに", "そのうえ"],
           "pos": ["adv"]
         }
       ]
     },
     {
-      "id": 100008674,
+      "id": 100000122,
+      "language": "en",
+      "headword": "jug",
+      "reading": "/d͡ʒʌɡ/",
+      "common": true,
+      "spellings": ["jug"],
+      "senses": [
+        {
+          "glosses": ["水差し", "ピッチャー", "ジャグ"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "info": ["米では大きな瓶状の容器も指す"]
+        },
+        {
+          "glosses": ["電気ケトル"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "dialects": ["en-AU", "en-NZ"]
+        },
+        {
+          "glosses": ["刑務所", "ムショ"],
+          "pos": ["n", "v", "vt"],
+          "misc": ["countable", "sl", "uncountable"]
+        },
+        {
+          "glosses": ["おっぱい"],
+          "pos": ["n"],
+          "misc": ["countable", "sl", "uncountable", "vulg"],
+          "info": ["複数形 jugs で"]
+        }
+      ]
+    },
+    {
+      "id": 100000123,
       "language": "en",
       "headword": "smug",
       "reading": "/smʌɡ/",
@@ -6655,171 +7100,140 @@
       "spellings": ["smug"],
       "senses": [
         {
-          "glosses": ["自惚れた", "独り善がりの"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["こぎれいな"],
+          "glosses": ["独りよがりの", "得意げな", "したり顔の"],
           "pos": ["adj"],
-          "misc": ["obs"]
+          "info": ["a smug look/smile などの形で"]
         },
         {
-          "glosses": ["こぎれいにする"],
-          "pos": ["v", "vt"],
-          "misc": ["obs"]
+          "glosses": ["したり顔をする", "得意げな顔をする"],
+          "pos": ["v", "vi"]
         }
       ]
     },
     {
-      "id": 100009169,
-      "language": "en",
-      "headword": "jug",
-      "reading": "",
-      "common": true,
-      "spellings": ["jug"],
-      "senses": [
-        {
-          "glosses": ["(陶製・ガラス製などでコルク栓の付いた取っ手付きの細口の)水入れ", "かめ", "つぼ"],
-          "pos": []
-        },
-        {
-          "glosses": ["(取っ手付きの広口の)水差し(pitcher)"],
-          "pos": [],
-          "dialects": ["en-GB", "en-US"]
-        },
-        {
-          "glosses": ["水差し(かめ)一杯(の…)(jugful)"],
-          "pos": [],
-          "info": ["+of+名"]
-        },
-        {
-          "glosses": ["刑務所(prison)"],
-          "pos": [],
-          "misc": ["sl"],
-          "info": ["「the jug」の形で"]
-        },
-        {
-          "glosses": ["〈肉など〉を陶製のつぼでとろ火で煮る"],
-          "pos": ["v", "vt"]
-        },
-        {
-          "glosses": ["…を刑務所に入る"],
-          "pos": ["v", "vt"],
-          "misc": ["sl"]
-        }
-      ]
-    },
-    {
-      "id": 100009774,
+      "id": 100000124,
       "language": "en",
       "headword": "stingy",
-      "reading": "/ˈstɪndʒi/",
+      "reading": "/ˈstɪnd͡ʒi/",
       "common": true,
       "spellings": ["stingy"],
       "senses": [
         {
-          "glosses": ["けちな", "しみったれの"],
-          "pos": ["adj"]
+          "glosses": ["けちな", "しみったれた", "出し惜しみする"],
+          "pos": ["adj"],
+          "info": ["be stingy with ～ の形で"]
         },
         {
-          "glosses": ["僅かな", "乏しい"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["刺がある"],
+          "glosses": ["乏しい", "わずかな"],
           "pos": ["adj"]
         }
       ]
     },
     {
-      "id": 100010596,
+      "id": 100000125,
       "language": "en",
       "headword": "henceforth",
       "reading": "/hɛnsˈfɔɹθ/",
-      "common": false,
-      "spellings": ["henceforth", "henceforward"],
+      "common": true,
+      "spellings": ["henceforth"],
       "senses": [
         {
-          "glosses": ["今後は", "これからは"],
+          "glosses": ["今後", "これ以後", "今後は"],
           "pos": ["adv"],
           "misc": ["form"]
+        },
+        {
+          "glosses": ["以下", "本書では以降"],
+          "pos": ["adv"],
+          "info": ["契約書・文書で「以下〜と称する」の意で"]
         }
       ]
     },
     {
-      "id": 100010604,
+      "id": 100000126,
       "language": "en",
       "headword": "faucet",
-      "reading": "/ˈfɔːsɪt/",
-      "common": false,
+      "reading": "/ˈfɔsɪt/",
+      "common": true,
       "spellings": ["faucet"],
       "senses": [
         {
-          "glosses": ["（水道や樽の）蛇口", "栓", "コック"],
+          "glosses": ["蛇口", "水栓"],
           "pos": ["n"],
-          "dialects": ["en-US"]
+          "dialects": ["en-CA", "en-US"],
+          "info": ["主に米国。英国では tap"]
+        },
+        {
+          "glosses": ["樽の注ぎ口", "呑み口"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["通貨供給源", "ゲーム内に通貨を流入させる仕組み"],
+          "pos": ["n"],
+          "info": ["ゲーム経済の用語"]
         }
       ]
     },
     {
-      "id": 100011286,
+      "id": 100000127,
       "language": "en",
       "headword": "thereby",
       "reading": "/ðɛɹˈbaɪ/",
-      "common": false,
+      "common": true,
       "spellings": ["thereby"],
       "senses": [
         {
-          "glosses": ["それによって", "従って"],
+          "glosses": ["それによって", "その結果"],
           "pos": ["adv"],
           "misc": ["form"]
         }
       ]
     },
     {
-      "id": 100012222,
+      "id": 100000131,
       "language": "en",
       "headword": "ascertain",
-      "reading": "/æsəˈteɪn/",
-      "common": false,
+      "reading": "/ˌæsɚˈteɪn/",
+      "common": true,
       "spellings": ["ascertain"],
       "senses": [
         {
-          "glosses": ["確かめる", "確認する", "突き止める"],
-          "pos": ["v"]
+          "glosses": ["確かめる", "突き止める"],
+          "pos": ["v", "vt"]
         }
       ]
     },
     {
-      "id": 100012667,
+      "id": 100000132,
       "language": "en",
       "headword": "hither",
-      "reading": "/ˈhɪðə/",
+      "reading": "/ˈhɪðɚ/",
       "common": false,
       "spellings": ["hither"],
       "senses": [
         {
           "glosses": ["ここへ", "こちらへ"],
-          "pos": ["adv"],
-          "misc": ["arch", "form"]
+          "pos": ["adv", "v"],
+          "misc": ["arch", "form"],
+          "info": ["hither and thither（あちこちに）の形で"]
         },
         {
-          "glosses": ["こちら側の"],
+          "glosses": ["こちら側の", "手前の"],
           "pos": ["adj"],
           "misc": ["arch"]
         }
       ]
     },
     {
-      "id": 100014835,
+      "id": 100000133,
       "language": "en",
       "headword": "gramophone",
-      "reading": "/ˈɡɹæm.ə.ˌfəʊn/",
+      "reading": "[ˈɡɹæ.məˌfoʊn]",
       "common": false,
       "spellings": ["gramophone"],
       "senses": [
         {
-          "glosses": ["蓄音機"],
+          "glosses": ["蓄音機", "レコードプレーヤー"],
           "pos": ["n"],
           "misc": ["dated"],
           "dialects": ["en-GB"]
@@ -6827,25 +7241,26 @@
       ]
     },
     {
-      "id": 100018279,
+      "id": 100000134,
       "language": "en",
       "headword": "thrifty",
       "reading": "/ˈθɹɪfti/",
-      "common": false,
+      "common": true,
       "spellings": ["thrifty"],
       "senses": [
         {
-          "glosses": ["倹しい", "倹約している"],
+          "glosses": ["倹約的な", "質素な", "節約家の"],
           "pos": ["adj"]
         },
         {
-          "glosses": ["繁栄する", "繁盛する"],
-          "pos": ["adj"]
+          "glosses": ["繁盛している", "よく育つ"],
+          "pos": ["adj"],
+          "misc": ["dated"]
         }
       ]
     },
     {
-      "id": 100019858,
+      "id": 100000135,
       "language": "en",
       "headword": "motorcar",
       "reading": "",
@@ -6853,9 +7268,15 @@
       "spellings": ["motorcar"],
       "senses": [
         {
-          "glosses": ["自動車automobile"],
-          "pos": [],
-          "dialects": ["en-GB", "en-US"]
+          "glosses": ["自動車", "乗用車"],
+          "pos": ["n"],
+          "misc": ["dated"]
+        },
+        {
+          "glosses": ["気動車", "自走式鉄道車両"],
+          "pos": ["n"],
+          "fields": ["rail"],
+          "dialects": ["en-US"]
         }
       ]
     }

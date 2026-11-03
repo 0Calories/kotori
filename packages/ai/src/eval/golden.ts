@@ -255,37 +255,37 @@ const en = (word: string, sense: number, gloss: string, expect: GoldenExpectatio
 
 export const GOLDEN_ENGLISH_SENSES: ReadonlyArray<GoldenEnglishSense> = [
   // --- Crude and rude words: register, the cautions and how offensive ---------------------
-  en("asshole", 1, "ばか", {
+  en("asshole", 0, "クソ野郎", {
     formality: ["vulgar"],
     rudeToSuperiors: true,
     profanity: "strong",
     registerShape: "fixed"
   }),
-  en("bitch", 0, "嫌な女、くそばばあ", { formality: ["vulgar"], profanity: "strong", connotation: "negative" }),
-  en("motherfucker", 0, "マザーファッカー、下衆野郎", { formality: ["vulgar"], profanity: "strong" }),
-  en("piss", 1, "小便をする、放尿する", { formality: ["vulgar", "casual"], profanity: "mild" }),
-  en("hell", 3, "ちくしょう", { profanity: "mild", rudeToSuperiors: true }),
-  en("idiot", 0, "（略語・時に侮蔑）大ばか、間抜け", {
+  en("bitch", 0, "嫌な女、性悪女", { formality: ["vulgar"], profanity: "strong", connotation: "negative" }),
+  en("motherfucker", 0, "クソ野郎、くそったれ、下衆野郎", { formality: ["vulgar"], profanity: "strong" }),
+  en("piss", 0, "小便をする、おしっこする", { formality: ["vulgar", "casual"], profanity: "mild" }),
+  en("hell", 2, "ちくしょう", { profanity: "mild", rudeToSuperiors: true }),
+  en("idiot", 0, "馬鹿、あほ、まぬけ", {
     registerShape: "fixed",
     rudeToSuperiors: true,
     connotation: "negative"
   }),
-  en("jerk", 2, "自己中心的で性格が悪い人", { slang: true, registerShape: "fixed", connotation: "negative" }),
-  en("dick", 2, "刑事、探偵", { slang: true }),
+  en("jerk", 0, "嫌なやつ、最低なやつ", { slang: true, registerShape: "fixed", connotation: "negative" }),
+  en("dick", 4, "探偵、刑事", { slang: true }),
   // --- Casual everyday speech -------------------------------------------------------------
-  en("yep", 0, "うん(yes)", { formality: ["casual"], medium: ["spoken"], rudeToSuperiors: true }),
-  en("nope", 0, "いいや、いえ(no)", { formality: ["casual"], medium: ["spoken"], rudeToSuperiors: true }),
-  en("okay", 0, "（賛同・許可の意を示す）よろしい、いいよ、オーケイ、オッケイ", {
+  en("yep", 0, "うん、そう", { formality: ["casual"], medium: ["spoken"], rudeToSuperiors: true }),
+  en("nope", 0, "いや、ううん", { formality: ["casual"], medium: ["spoken"], rudeToSuperiors: true }),
+  en("okay", 0, "オーケー、わかった", {
     formality: ["casual", "neutral"],
     medium: ["spoken"],
     stiffWithFriends: false
   }),
-  en("hey", 0, "おや、おい、へえ、ちょっと(注意を促したり,喜び・驚き・困惑などの突然わき起こった感情の発声)", {
+  en("hey", 1, "おい、ねえ、ちょっと", {
     formality: ["casual"],
     medium: ["spoken"]
   }),
-  en("buddy", 2, "（主に男性への呼びかけ）おい、お前", { formality: ["casual"], rudeToSuperiors: true }),
-  en("whatever", 4, "不承不承従うときの返答", { rudeToSuperiors: true, formality: ["casual"] }),
+  en("buddy", 1, "おい君、兄ちゃん", { formality: ["casual"], rudeToSuperiors: true }),
+  en("whatever", 2, "どうでもいい、勝手にすれば", { rudeToSuperiors: true, formality: ["casual"] }),
   // --- Plain words, as controls --------------------------------------------------------------
   en("house", 0, "家", {
     formality: ["neutral"],
@@ -297,61 +297,54 @@ export const GOLDEN_ENGLISH_SENSES: ReadonlyArray<GoldenEnglishSense> = [
     slang: false
   }),
   en("water", 0, "水", { formality: ["neutral"], connotation: "neutral", variety: "universal", profanity: "none" }),
-  en("eat", 0, "～を食べる", { formality: ["neutral"], medium: ["both"], stiffWithFriends: false, profanity: "none" }),
-  en("help", 0, "手伝う", { rudeToSuperiors: false, stiffWithFriends: false, registerShape: "scaled" }),
+  en("eat", 0, "食べる", { formality: ["neutral"], medium: ["both"], stiffWithFriends: false, profanity: "none" }),
+  en("help", 0, "助ける、手伝う", { rudeToSuperiors: false, stiffWithFriends: false, registerShape: "scaled" }),
   en("understand", 0, "分かる、理解する", { formality: ["neutral"], rudeToSuperiors: false }),
-  en("sorry", 0, "申し訳なく思って", { rudeToSuperiors: false }),
-  en("buy", 0, "～を買う、購入する", { formality: ["neutral"], stiffWithFriends: false }),
-  en("live", 1, "住む", { formality: ["neutral"], stiffWithFriends: false }),
+  en("sorry", 1, "申し訳なく思う", { rudeToSuperiors: false }),
+  en("buy", 0, "買う、購入する", { formality: ["neutral"], stiffWithFriends: false }),
+  en("live", 0, "住む", { formality: ["neutral"], stiffWithFriends: false }),
   en("friend", 0, "友達、友人", { slang: false, formality: ["neutral"] }),
-  en("money", 0, "（最も一般的な意味で）金銭、お金", { slang: false }),
-  en("police", 0, "（通常 the をつけて複数扱い）警察", { slang: false, rudeToSuperiors: false }),
+  en("money", 0, "お金、金銭", { slang: false }),
+  en("police", 0, "警察", { slang: false, rudeToSuperiors: false }),
   // Everyday words for the body are everyday vocabulary, not stiff and not offensive.
   en("penis", 0, "陰茎、ペニス", { medium: ["both"], profanity: "none", rudeToSuperiors: false }),
   // --- Formal and written words: the stiff-between-friends caution ----------------------------
   en("reside", 0, "住む、居住する", { formality: ["formal"], stiffWithFriends: true }),
-  en("terminate", 0, "止める、打ち切る、途中のまま終わらせる", { formality: ["formal"], stiffWithFriends: true }),
-  en("ascertain", 0, "確かめる、確認する、突き止める", {
+  en("terminate", 0, "終わらせる、打ち切る", { formality: ["formal"], stiffWithFriends: true }),
+  en("ascertain", 0, "確かめる、突き止める", {
     formality: ["formal"],
     medium: ["written"],
     stiffWithFriends: true
   }),
-  en("purchase", 1, "買う", { formality: ["formal", "polite"], stiffWithFriends: true }),
-  en("furthermore", 0, "（重要なことを付け加える時）その上、おまけに", { medium: ["written"], stiffWithFriends: true }),
-  en("whereas", 0, "…であるのに反して、なのに対して", { medium: ["written"], formality: ["formal"] }),
-  en("thereby", 0, "それによって、従って", { formality: ["formal"], medium: ["written"], stiffWithFriends: true }),
-  en("henceforth", 0, "今後は、これからは", { medium: ["written"], stiffWithFriends: true }),
-  en("nevertheless", 0, "～にもかかわらず", { formality: ["formal", "neutral"], medium: ["written", "both"] }),
-  en("gentleman", 2, "男性の上品な表現", { formality: ["polite", "formal"] }),
+  en("purchase", 0, "購入する、買う", { formality: ["formal", "polite"], stiffWithFriends: true }),
+  en("furthermore", 0, "さらに、そのうえ", { medium: ["written"], stiffWithFriends: true }),
+  en("whereas", 0, "～であるのに対して、一方", { medium: ["written"], formality: ["formal"] }),
+  en("thereby", 0, "それによって、その結果", { formality: ["formal"], medium: ["written"], stiffWithFriends: true }),
+  en("henceforth", 0, "今後、これ以後", { medium: ["written"], stiffWithFriends: true }),
+  en("nevertheless", 0, "それにもかかわらず", { formality: ["formal", "neutral"], medium: ["written", "both"] }),
+  en("gentleman", 0, "男性、男の方", { formality: ["polite", "formal"] }),
   // --- How current ---------------------------------------------------------------------------
-  en("thou", 0, "（ごく稀）二人称単数の主格形、汝", { currency: "archaic" }),
+  en("thou", 0, "汝、そなた", { currency: "archaic" }),
   en("hither", 0, "ここへ、こちらへ", { currency: "archaic" }),
-  en("thee", 0, "（古語、雅語）汝を、汝に、あなたを、あんたに", { currency: "archaic" }),
+  en("thee", 0, "汝を、汝に", { currency: "archaic" }),
   en("gramophone", 0, "蓄音機", { currency: "dated" }),
-  en("motorcar", 0, "自動車automobile", { currency: "dated" }),
+  en("motorcar", 0, "自動車", { currency: "dated" }),
   // --- Feeling ---------------------------------------------------------------------------------
-  en("stingy", 0, "けちな、しみったれの", { connotation: "negative" }),
-  en("smug", 0, "自惚れた、独り善がりの", { connotation: "negative" }),
-  en("thrifty", 0, "倹しい、倹約している", { connotation: "positive" }),
-  en("confident", 1, "自信に満ちた", { connotation: "positive" }),
+  en("stingy", 0, "けちな、しみったれた", { connotation: "negative" }),
+  en("smug", 0, "独りよがりの、得意げな", { connotation: "negative" }),
+  en("thrifty", 0, "倹約的な、質素な", { connotation: "positive" }),
+  en("confident", 0, "自信のある、自信に満ちた", { connotation: "positive" }),
   // --- Whose English ---------------------------------------------------------------------------
-  en("sidewalk", 0, "歩道、人道", { variety: "american" }),
-  en("faucet", 0, "（水道や樽の）蛇口、栓、コック", { variety: "american" }),
+  en("sidewalk", 0, "歩道、舗道", { variety: "american" }),
+  en("faucet", 0, "蛇口、水栓", { variety: "american" }),
   en("gasoline", 0, "ガソリン", { variety: "american" }),
-  en("vacation", 0, "休暇、バカンス", { variety: "american" }),
+  en("vacation", 0, "休暇、休み", { variety: "american" }),
   en("cookie", 0, "クッキー", { variety: "american" }),
-  en(
-    "apartment",
-    0,
-    "共同住宅内の１世帯分の区画された居住空間、または、そのような居住空間から構成された建物、アパルトマン（日本のアパートよりはマンションと呼ばれるものにイメージは近い）",
-    {
-      variety: "american"
-    }
-  ),
-  en("petrol", 0, "（主に）ガソリン", { variety: "british" }),
-  en("queue", 0, "（何かを待つ）行列、列、類義語:（米）line", { variety: "british" }),
-  en("rubbish", 0, "ごみ", { variety: "british" }),
-  en("biscuit", 0, "ビスケット、小麦粉を主原料とした、サクサクとした食感の菓子", { variety: "british" }),
+  en("apartment", 0, "アパート、マンション", { variety: "american" }),
+  en("petrol", 0, "ガソリン", { variety: "british" }),
+  en("queue", 0, "列、行列", { variety: "british" }),
+  en("rubbish", 0, "ゴミ、廃棄物", { variety: "british" }),
+  en("biscuit", 0, "ビスケット、クッキー", { variety: "british" }),
   en("trousers", 0, "ズボン", { variety: "british" })
 ]
 
@@ -374,12 +367,12 @@ const ep = (
 export const GOLDEN_ENGLISH_PAIRS: ReadonlyArray<GoldenEnglishPair> = [
   ep("big", 0, "large", 0, { similar: true }),
   ep("talk", 0, "speak", 0, { similar: true }),
-  ep("happy", 2, "glad", 0, { similar: true }),
-  ep("buy", 0, "purchase", 1, { similar: true, difference: ["more_formal"] }),
+  ep("happy", 0, "glad", 0, { similar: true }),
+  ep("buy", 0, "purchase", 0, { similar: true, difference: ["more_formal"] }),
   ep("start", 1, "commence", 0, { similar: true, difference: ["more_formal"] }),
-  ep("eat", 3, "dine", 0, { similar: true, difference: ["more_formal", "more_specific"] }),
-  ep("child", 0, "kid", 3, { similar: true, difference: ["more_casual", "more_colloquial"] }),
-  ep("awkward", 0, "clumsy", 0, { similar: true }),
+  ep("eat", 0, "dine", 0, { similar: true, difference: ["more_formal", "more_specific"] }),
+  ep("child", 0, "kid", 0, { similar: true, difference: ["more_casual", "more_colloquial"] }),
+  ep("awkward", 2, "clumsy", 0, { similar: true }),
   ep("dog", 0, "cat", 0, { similar: false }),
   ep("eat", 0, "drink", 0, { similar: false }),
   ep("school", 0, "company", 0, { similar: false }),

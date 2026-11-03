@@ -8,7 +8,6 @@ import * as Eiwa from "../../src/features/dictionary/import/eiwa/Eiwa.ts"
 import { findForms, getEntries, headwordIds, tagLabels } from "../../src/features/dictionary/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
-// The importer streams its sources from disk, so the fixtures are real files.
 const directory = mkdtempSync(join(tmpdir(), "eiwa-"))
 afterAll(() => rmSync(directory, { recursive: true, force: true }))
 const file = (name: string, lines: ReadonlyArray<string>) => {
@@ -17,64 +16,80 @@ const file = (name: string, lines: ReadonlyArray<string>) => {
   return path
 }
 
-const line = (word: string, pos: string, glosses: Array<string>, extra: object = {}) =>
-  JSON.stringify({ word, lang_code: "en", pos, senses: glosses.map((gloss) => ({ glosses: [gloss] })), ...extra })
+const consolidatedLine = (
+  headword: string,
+  pos: string,
+  glosses: Array<string>,
+  extra: object = {}
+) =>
+  JSON.stringify({
+    headword,
+    ipa: null,
+    familiarity: 4,
+    senses: [{ pos: [pos], glosses }],
+    ...extra
+  })
 
 const wiktionary = (withWalk: boolean) => [
-  line("eat", "verb", ["～を食べる。"], { forms: [{ form: "eats", tags: ["third-person", "singular", "present"] }] }),
-  line("ate", "verb", ["eatの過去形"]),
-  ...(withWalk ? [line("walk", "verb", ["歩く。"])] : []),
-  JSON.stringify({ word: "eat", lang_code: "de", pos: "verb", senses: [{ glosses: ["食べる。"] }] })
+  consolidatedLine("eat", "v", ["～を食べる"], {
+    ipa: "/iːt/",
+    inflections: [
+      { text: "eats", tags: ["third-person"] },
+      { text: "ate", tags: ["past"] }
+    ]
+  }),
+  ...(withWalk ? [consolidatedLine("walk", "v", ["歩く"])] : []),
+  consolidatedLine("keep it real", "v", ["ありのままでいる", "本音で話す"], {
+    ipa: "/ˈkiːp ɪt ˈɹiːl/",
+    inflections: [{ text: "kept it real", tags: ["past", "past-participle"] }]
+  })
 ]
-
-const jmdict = `<?xml version="1.0"?>
-<!DOCTYPE JMdict [
-<!ENTITY n "noun (common) (futsuumeishi)">
-]>
-<JMdict>
-<entry><ent_seq>1000010</ent_seq><k_ele><keb>自撮り</keb></k_ele><r_ele><reb>じどり</reb></r_ele><sense><pos>&n;</pos><gloss>selfie</gloss></sense></entry>
-</JMdict>`
 
 const files = (withWalk: boolean) => ({
   wiktionary: file(`wiktionary-${withWalk}.jsonl`, wiktionary(withWalk)),
-  ejdict: file("ejdict.txt", ["team\t『チーム』", "eat\t…を『食べる』"]),
-  frequency: file("en_50k.txt", ["eat 5000", "ate 3000", "team 4000", "walk 2000", "selfie 900"])
+  frequency: file("en_50k.txt", ["eat 5000", "ate 3000", "walk 2000"])
 })
-const jmdictFile = file("JMdict.xml", [jmdict])
 
 const TestLayer = DatabaseMemory
 
 layer(TestLayer)("Eiwa.importFiles", (it) => {
-  it.effect("loads each word from the first source that has it, next to JMDict's", () =>
+  it.effect("loads consolidated enwiktionary entries and their inflections into the database", () =>
     Effect.gen(function* () {
-      const result = yield* Eiwa.importFiles({ files: files(true), jmdict: jmdictFile })
-      assert.deepStrictEqual(result, { removed: 0, entries: 4, wiktionary: 2, ejdict: 1, jmdict: 1 })
+      const result = yield* Eiwa.importFiles({ files: files(true) })
+      assert.deepStrictEqual(result, { removed: 0, entries: 3 })
 
       const db = yield* Database
       const ids = yield* headwordIds(db, "en")
-      assert.sameMembers([...ids.keys()], ["eat", "walk", "team", "selfie"])
-      // "ate" is eat's past, found through it.
+      assert.sameMembers([...ids.keys()], ["eat", "walk", "keep it real"])
+
       const [ate] = yield* findForms(db, ["ate"], "en")
       assert.deepStrictEqual([ate?.entryId, ate?.kind, ate?.tags], [ids.get("eat"), "inflection", ["past"]])
-      const [selfie] = yield* getEntries(db, [ids.get("selfie")!])
+
+      const [keptItReal] = yield* findForms(db, ["kept it real"], "en")
       assert.deepStrictEqual(
-        selfie?.senses.map((sense) => sense.glosses[0]?.text),
-        ["自撮り"]
+        [keptItReal?.entryId, keptItReal?.kind, keptItReal?.tags],
+        [ids.get("keep it real"), "inflection", ["past", "past-participle"]]
+      )
+
+      const [keepItReal] = yield* getEntries(db, [ids.get("keep it real")!])
+      assert.deepStrictEqual(
+        keepItReal?.senses.map((sense) => sense.glosses.map((g) => g.text)),
+        [["ありのままでいる", "本音で話す"]]
       )
       assert.strictEqual((yield* tagLabels(db)).get("en-GB"), "British English")
     })
   )
 
-  it.effect("keeps ids on a re-import and removes words the sources no longer have", () =>
+  it.effect("keeps ids on a re-import and removes words the source no longer has", () =>
     Effect.gen(function* () {
       const db = yield* Database
       const before = yield* headwordIds(db, "en")
 
       // A partial import never removes anything.
-      assert.strictEqual((yield* Eiwa.importFiles({ files: files(false), jmdict: jmdictFile, limit: 1 })).removed, 0)
-      assert.strictEqual((yield* headwordIds(db, "en")).size, 4)
+      assert.strictEqual((yield* Eiwa.importFiles({ files: files(false), limit: 1 })).removed, 0)
+      assert.strictEqual((yield* headwordIds(db, "en")).size, 3)
 
-      const result = yield* Eiwa.importFiles({ files: files(false), jmdict: jmdictFile })
+      const result = yield* Eiwa.importFiles({ files: files(false) })
       assert.strictEqual(result.removed, 1)
       const after = yield* headwordIds(db, "en")
       assert.isFalse(after.has("walk"))

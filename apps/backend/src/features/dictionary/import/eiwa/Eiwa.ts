@@ -1,5 +1,5 @@
 import type { EntryRecord } from "@kotori/contracts"
-import { Effect, FileSystem, Path, Schema, Stream } from "effect"
+import { Effect, FileSystem, Path, Schema } from "effect"
 import { HttpClient } from "effect/http"
 import { createReadStream } from "node:fs"
 import { createInterface } from "node:readline"
@@ -7,60 +7,56 @@ import { createGunzip } from "node:zlib"
 import { Database } from "../../../../db/Database.ts"
 import { resolveFromRoot } from "../../../../runtime/Paths.ts"
 import { deleteEntries, headwordIds, insertEntries, saveTags } from "../../queries.ts"
-import { entrySplitter } from "../jmdict/parse.ts"
-import { mergeSources, type Source, toEntries } from "./build.ts"
-import { EJDICT_FILES, parseEjdict } from "./ejdict.ts"
+import { mergeSources, toEntries } from "./build.ts"
 import { FREQUENCY_URL, parseFrequency } from "./frequency.ts"
-import { jmdictReader, type KnownEnglish } from "./jmdict.ts"
 import { ENGLISH_TAGS } from "./tags.ts"
-import { WIKTIONARY_URL, wiktionaryParser } from "./wiktionary.ts"
-import type { FormOf, Word } from "./words.ts"
+import { wiktionaryParser } from "./wiktionary.ts"
 
 export class EiwaError extends Schema.TaggedError<EiwaError>()("EiwaError", {
   message: Schema.String,
   cause: Schema.optional(Schema.Defect())
 }) {}
 
-/** The downloaded sources, as paths relative to the repo root or absolute. */
+/** The English dictionary's sources, as paths relative to the repo root or absolute. */
 export interface Files {
-  /** Wiktextract's extraction of Japanese Wiktionary, gzipped JSON lines (or plain). */
+  /** Consolidated English Wiktionary entries with Japanese glosses (`enwiktionary-ja.jsonl`). */
   readonly wiktionary: string
-  /** EJDict, its letters joined into one file. */
-  readonly ejdict: string
-  /** FrequencyWords' English list. */
+  /** FrequencyWords' English list (`en_50k.txt`). */
   readonly frequency: string
 }
 
-/** Downloads the English dictionary's sources into `directory` (~65 MB, mostly Wiktionary). */
+export const defaultFiles = (directory = "data/eiwa"): Files => {
+  const root = resolveFromRoot(directory)
+  return {
+    wiktionary: `${root}/enwiktionary-ja.jsonl`,
+    frequency: `${root}/en_50k.txt`
+  }
+}
+
+/** Ensures the English dictionary's frequency list is present in `directory` and returns its source paths. */
 export const download = Effect.fn("Eiwa.download")(
   function* (directory: string) {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const client = (yield* HttpClient.HttpClient).pipe(HttpClient.filterStatusOk)
     const root = resolveFromRoot(directory)
     yield* fs.makeDirectory(root, { recursive: true })
 
     const files: Files = {
-      wiktionary: path.join(root, "ja-wiktionary.jsonl.gz"),
-      ejdict: path.join(root, "ejdict.txt"),
+      wiktionary: path.join(root, "enwiktionary-ja.jsonl"),
       frequency: path.join(root, "en_50k.txt")
     }
-    yield* Effect.logInfo(`Downloading ${WIKTIONARY_URL}`)
-    yield* (yield* client.get(WIKTIONARY_URL)).stream.pipe(Stream.run(fs.sink(files.wiktionary)))
-    yield* Effect.logInfo("Downloading EJDict")
-    const letters = yield* Effect.forEach(EJDICT_FILES, (url) => Effect.flatMap(client.get(url), (r) => r.text), {
-      concurrency: 4
-    })
-    yield* fs.writeFileString(files.ejdict, letters.join("\n"))
-    yield* Effect.logInfo(`Downloading ${FREQUENCY_URL}`)
-    yield* fs.writeFileString(files.frequency, yield* Effect.flatMap(client.get(FREQUENCY_URL), (r) => r.text))
+    if (!(yield* fs.exists(files.frequency))) {
+      const client = (yield* HttpClient.HttpClient).pipe(HttpClient.filterStatusOk)
+      yield* Effect.logInfo(`Downloading ${FREQUENCY_URL}`)
+      yield* fs.writeFileString(files.frequency, yield* Effect.flatMap(client.get(FREQUENCY_URL), (r) => r.text))
+    }
     return files
   },
   Effect.mapError((cause) => new EiwaError({ message: "Could not download the English dictionary", cause }))
 )
 
 /** Feeds each line of a text file, gzipped or not, to `read`, streaming it rather than loading it whole. */
-const eachLine = (file: string, read: (line: string) => void) =>
+export const eachLine = (file: string, read: (line: string) => void) =>
   Effect.tryPromise({
     try: async () => {
       const input = createReadStream(resolveFromRoot(file))
@@ -73,7 +69,7 @@ const eachLine = (file: string, read: (line: string) => void) =>
     catch: (cause) => new EiwaError({ message: `Could not read ${file}`, cause })
   })
 
-const readLines = (file: string) =>
+export const readLines = (file: string) =>
   Effect.suspend(() => {
     const lines: Array<string> = []
     return Effect.as(
@@ -82,46 +78,8 @@ const readLines = (file: string) =>
     )
   })
 
-/**
- * Each entry of a JMdict file, gzipped or not, as the text streams in: the whole document
- * would be ~120 MB in memory, more than the worker's machine spares for a seed.
- */
-const eachJmdictEntry = (file: string, read: (entry: EntryRecord) => void) =>
-  Effect.tryPromise({
-    try: async () => {
-      const input = createReadStream(resolveFromRoot(file))
-      const split = entrySplitter()
-      for await (const chunk of (file.endsWith(".gz") ? input.pipe(createGunzip()) : input).setEncoding("utf8")) {
-        for (const entry of split(chunk as string)) read(entry)
-      }
-    },
-    catch: (cause) => new EiwaError({ message: `Could not read ${file}`, cause })
-  })
-
-/** What the dictionary already knows before JMDict is read backwards for what is missing. */
-const knownEnglish = (
-  sources: ReadonlyArray<{ readonly words: ReadonlyArray<Word>; readonly formsOf: ReadonlyArray<FormOf> }>,
-  phrases: ReadonlySet<string>,
-  frequency: ReadonlyMap<string, number>
-): KnownEnglish => {
-  const words = new Set<string>()
-  const verbs = new Set<string>()
-  for (const source of sources) {
-    for (const word of source.words) {
-      for (const text of [word.headword, ...word.spellings, ...word.inflections.map((form) => form.text)]) {
-        words.add(text.toLowerCase())
-      }
-      if (word.senses.some((sense) => sense.pos.includes("v"))) verbs.add(word.headword.toLowerCase())
-    }
-    for (const form of source.formsOf) words.add(form.text.toLowerCase())
-  }
-  return { words, verbs, phrases, frequency }
-}
-
 export interface ImportOptions {
   readonly files: Files
-  /** JMdict_e.gz (or uncompressed XML), read backwards for words the other sources lack. */
-  readonly jmdict: string
   /** Keep only this many words, the most used first, for quick local setups. */
   readonly limit?: number | undefined
   /** Only words common enough to be marked common (~10k). */
@@ -137,20 +95,10 @@ const build = Effect.fnUntraced(function* (options: ImportOptions, existing: Rea
   const parser = wiktionaryParser()
   yield* eachLine(options.files.wiktionary, parser.add)
   const wiktionary = parser.finish()
-  const ejdict = parseEjdict(yield* readLines(options.files.ejdict))
   const frequency = parseFrequency(yield* readLines(options.files.frequency))
-  yield* Effect.logInfo(`Read ${wiktionary.words.length} words from Wiktionary and ${ejdict.words.length} from EJDict`)
+  yield* Effect.logInfo(`Read ${wiktionary.words.length} consolidated words from English Wiktionary`)
 
-  const reader = jmdictReader(knownEnglish([wiktionary, ejdict], wiktionary.phrases, frequency))
-  yield* eachJmdictEntry(options.jmdict, reader.add)
-  const jmdict = reader.finish()
-
-  let entries = toEntries(
-    mergeSources({ wiktionary, ejdict, jmdict, frequency }),
-    frequency,
-    existing,
-    reader.backTranslations()
-  )
+  let entries = toEntries(mergeSources({ wiktionary }), frequency, existing)
   if (options.commonOnly) entries = entries.filter((entry) => entry.common)
   if (options.limit !== undefined) entries = entries.slice(0, options.limit)
   return entries
@@ -169,7 +117,7 @@ export const buildEntries = (options: ImportOptions) => build(options, new Map()
 export const importFiles = Effect.fn("Eiwa.importFiles")(function* (options: ImportOptions) {
   const db = yield* Database
   const existing = yield* headwordIds(db, "en")
-  const entries: ReadonlyArray<EntryRecord & { readonly source: Source }> = yield* build(options, existing)
+  const entries: ReadonlyArray<EntryRecord> = yield* build(options, existing)
 
   yield* saveTags(db, ENGLISH_TAGS)
   const batchSize = options.batchSize ?? 500
@@ -185,12 +133,8 @@ export const importFiles = Effect.fn("Eiwa.importFiles")(function* (options: Imp
   const stale = complete ? [...existing].filter(([headword]) => !imported.has(headword)).map(([, id]) => id) : []
   yield* deleteEntries(db, stale)
 
-  const bySource = (source: Source) => entries.filter((entry) => entry.source === source).length
   return {
     removed: stale.length,
-    entries: entries.length,
-    wiktionary: bySource("wiktionary"),
-    ejdict: bySource("ejdict"),
-    jmdict: bySource("jmdict")
+    entries: entries.length
   }
 })

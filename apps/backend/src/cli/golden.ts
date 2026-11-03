@@ -40,14 +40,13 @@ export const golden = Command.make(
     const fs = yield* FileSystem.FileSystem
     const files = {
       jmdict: data("jmdict/JMdict_e.gz"),
-      wiktionary: data("eiwa/ja-wiktionary.jsonl.gz"),
-      ejdict: data("eiwa/ejdict.txt"),
+      wiktionary: data("eiwa/enwiktionary-ja.jsonl"),
       frequency: data("eiwa/en_50k.txt")
     }
     for (const file of Object.values(files)) {
       if (!(yield* fs.exists(file))) {
         yield* Console.error(
-          `${file} is missing; \`pnpm kotori seed\` downloads JMDict to data/jmdict and the English sources to data/eiwa.`
+          `${file} is missing; \`pnpm kotori seed\` downloads JMDict to data/jmdict and the frequency list to data/eiwa.`
         )
         process.exitCode = 1
         return
@@ -89,8 +88,7 @@ export const golden = Command.make(
     // --- The English dictionary ---------------------------------------------------------------
 
     const english = yield* buildEntries({
-      files: { wiktionary: files.wiktionary, ejdict: files.ejdict, frequency: files.frequency },
-      jmdict: files.jmdict
+      files: { wiktionary: files.wiktionary, frequency: files.frequency }
     })
     const englishWanted = new Set([
       ...GOLDEN_ENGLISH_SENSES.map((golden) => golden.word),
