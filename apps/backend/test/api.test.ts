@@ -290,6 +290,39 @@ layer(TestLayer)("Kotori API", (it) => {
     }).pipe(Effect.provide(Session))
   )
 
+  it.effect("returns every counted card even when the queue page is smaller", () =>
+    Effect.gen(function* () {
+      yield* signedIn("queue-membership@example.com")
+      const api = yield* client
+      yield* api.account.update({ payload: { dailyNewLimit: 2 } })
+      const saved = []
+      for (const text of ["first", "second", "limited out"]) {
+        saved.push(
+          yield* api.study.addNote({
+            payload: {
+              content: {
+                kind: "phrase",
+                text,
+                meaning: text,
+                furigana: null,
+                note: null,
+                register: null,
+                source: "manual"
+              }
+            }
+          })
+        )
+      }
+      const queue = yield* api.study.queue({ query: { limit: 1 } })
+      assert.strictEqual(queue.items.length, 1)
+      assert.deepStrictEqual(queue.counts, { new: 2, learning: 0, review: 0 })
+      assert.deepStrictEqual(
+        queue.dueCards,
+        saved.slice(0, 2).map((note) => ({ noteId: note.id, queue: "new" }))
+      )
+    }).pipe(Effect.provide(Session))
+  )
+
   it.effect("deletes a note for its owner only, along with the card and review log", () =>
     Effect.gen(function* () {
       const owner = yield* signedIn("remove-owner@example.com")

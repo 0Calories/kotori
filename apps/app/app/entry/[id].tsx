@@ -14,7 +14,7 @@ import { Icon } from "../../src/components/Icon.tsx"
 import { Mascot } from "../../src/components/Mascot.tsx"
 import { NuanceScales } from "../../src/components/NuanceScales.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
-import { removalErrorText, RemoveNoteConfirm } from "../../src/components/RemoveNote.tsx"
+import { removalErrorText, RemoveNoteDialog } from "../../src/components/RemoveNote.tsx"
 import { Header, Screen, Section } from "../../src/components/Screen.tsx"
 import { Snow } from "../../src/components/Snow.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
@@ -136,12 +136,8 @@ const SenseCard = ({
   saved,
   onSave,
   saving,
-  confirming,
   removing,
-  removeError,
-  onRemove,
-  onConfirmRemove,
-  onCancelRemove
+  onRemove
 }: {
   readonly sense: Sense
   readonly number: number
@@ -157,12 +153,8 @@ const SenseCard = ({
   readonly saved: boolean
   readonly onSave: () => void
   readonly saving: boolean
-  readonly confirming: boolean
   readonly removing: boolean
-  readonly removeError: string | null
   readonly onRemove: () => void
-  readonly onConfirmRemove: () => void
-  readonly onCancelRemove: () => void
 }) => {
   const theme = useTheme()
   const { t } = useSession()
@@ -216,14 +208,6 @@ const SenseCard = ({
             />
           </View>
         </View>
-        {confirming ? (
-          <RemoveNoteConfirm
-            busy={removing}
-            error={removeError}
-            onConfirm={onConfirmRemove}
-            onCancel={onCancelRemove}
-          />
-        ) : null}
         {pos.length + tags.length > 0 ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
             {pos.map((label) => (
@@ -493,6 +477,16 @@ export default function EntryScreen() {
         />
       }
     >
+      <RemoveNoteDialog
+        note={removingSense === null ? undefined : savedNote(removingSense)}
+        busy={removeNote.isPending}
+        error={removeError}
+        onConfirm={() => void confirmRemove()}
+        onCancel={() => {
+          setRemovingSense(null)
+          setRemoveError(null)
+        }}
+      />
       <Animated.View
         entering={FadeInDown.duration(350)}
         style={
@@ -609,17 +603,9 @@ export default function EntryScreen() {
               showScales={ownLine(sense)}
               saved={savedSenses.has(sense.index)}
               saving={addNote.isPending}
-              confirming={removingSense === sense.index}
               removing={removeNote.isPending}
-              removeError={removingSense === sense.index ? removeError : null}
               onSave={() => save(sense)}
               onRemove={() => beginRemove(sense.index)}
-              onConfirmRemove={() => void confirmRemove()}
-              onCancelRemove={() => {
-                if (removeNote.isPending) return
-                setRemovingSense(null)
-                setRemoveError(null)
-              }}
             />
           </Animated.View>
         ))}

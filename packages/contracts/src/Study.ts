@@ -85,6 +85,9 @@ export type QueueCounts = typeof QueueCounts.Type
 export const ReviewQueue = Schema.Struct({
   items: Schema.Array(ReviewItem),
   counts: QueueCounts,
+  /** All cards included in the counts, including those beyond `items`' page limit.
+   * Optional so clients can still read queues from servers predating this field. */
+  dueCards: Schema.optional(Schema.Array(Schema.Struct(Struct.pick(Card.fields, ["noteId", "queue"])))),
   /** When the next learning card becomes due, if nothing is due now. */
   nextDue: Schema.NullOr(Card.fields.due)
 })

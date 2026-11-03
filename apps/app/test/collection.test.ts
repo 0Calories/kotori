@@ -43,6 +43,7 @@ const item = (id: string, note: string, queue: CardSummary["queue"], interval = 
 const queue = (items: ReadonlyArray<ReviewItem>, counts = { new: 1, learning: 1, review: 1 }): ReviewQueue => ({
   items,
   counts,
+  dueCards: items.map(({ card }) => ({ noteId: card.noteId, queue: card.queue })),
   nextDue: new Date(50)
 })
 
@@ -72,6 +73,26 @@ describe("removing a saved note from the cached collection", () => {
     assert.strictEqual(withoutNote([saved], noteId("missing")).length, 1)
   })
 
+  it("updates counts for a due note beyond the first 100 queue items", () => {
+    const eligible = Array.from({ length: 200 }, (_, i) => item(`c${i}`, `n${i}`, "review", 30))
+    const before = {
+      ...queue(eligible.slice(0, 100), { new: 0, learning: 0, review: 200 }),
+      dueCards: eligible.map(({ card }) => ({ noteId: card.noteId, queue: card.queue }))
+    }
+    const removed = phrase("n150", [card("c150", "review", 30)])
+    const after = queueWithoutNote(before, removed.id)
+    assert.strictEqual(after.items.length, 100)
+    assert.deepStrictEqual(after.counts, { new: 0, learning: 0, review: 199 })
+    assert.strictEqual(after.dueCards?.length, 199)
+    assert.isFalse(after.dueCards?.some((card) => card.noteId === removed.id))
+    const totals = statsWithoutNote(stats({ due: before.counts, notes: 200, cards: 200 }), removed, before)
+    assert.deepStrictEqual(totals.due, after.counts)
+    assert.strictEqual(totals.notes, 199)
+    assert.strictEqual(totals.cards, 199)
+    // A duplicate success cannot subtract this note's due cards a second time.
+    assert.deepStrictEqual(queueWithoutNote(after, removed.id).counts, after.counts)
+  })
+
   it("drops the note's due cards and no one else's", () => {
     const before = queue([
       item("c-new", "n1", "new"),
@@ -85,6 +106,15 @@ describe("removing a saved note from the cached collection", () => {
     )
     assert.deepStrictEqual(after.counts, { new: 0, learning: 0, review: 1 })
     assert.deepStrictEqual(after.nextDue, new Date(50))
+  })
+
+  it("still removes visible due cards from an older server response", () => {
+    const before: ReviewQueue = {
+      items: [item("c1", "n1", "new")],
+      counts: { new: 1, learning: 0, review: 0 },
+      nextDue: null
+    }
+    assert.deepStrictEqual(queueWithoutNote(before, noteId("n1")).counts, { new: 0, learning: 0, review: 0 })
   })
 
   it("does not lower due counts for a card that was not in the queue", () => {

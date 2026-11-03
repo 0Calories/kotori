@@ -204,7 +204,8 @@ export class Study extends Context.Service<
         }))
         const queueCounts: QueueCounts = { new: fresh.length, learning: learning.length, review: reviews.length }
         const nextDue = items.length === 0 ? Option.getOrNull(yield* nextLearningDue(learnerOf(user))) : null
-        return { items, counts: queueCounts, nextDue }
+        const dueCards = ordered.map(({ noteId, queue }) => ({ noteId, queue }))
+        return { items, counts: queueCounts, dueCards, nextDue }
       })
 
       const answer = Effect.fn("Study.answer")(function* (

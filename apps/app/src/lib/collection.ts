@@ -10,14 +10,16 @@ export const withoutNote = (notes: ReadonlyArray<Note>, id: NoteId): ReadonlyArr
 const dueKey = (queue: Note["cards"][number]["queue"]): keyof QueueCounts =>
   queue === "review" ? "review" : queue === "new" ? "new" : "learning"
 
-/** How many of a note's cards are in this queue, which is the set currently counted as due. */
+/** Count against the full eligible set, not the page of review items. */
 const droppedDue = (queue: ReviewQueue, id: NoteId): QueueCounts => {
   let fresh = 0
   let learning = 0
   let review = 0
-  for (const item of queue.items) {
-    if (item.card.noteId !== id) continue
-    const key = dueKey(item.card.queue)
+  // Older servers lack membership metadata; only subtract cards we can establish are due.
+  const dueCards = queue.dueCards ?? queue.items.map(({ card }) => card)
+  for (const card of dueCards) {
+    if (card.noteId !== id) continue
+    const key = dueKey(card.queue)
     if (key === "new") fresh += 1
     else if (key === "learning") learning += 1
     else review += 1
@@ -33,11 +35,12 @@ const subtract = (counts: QueueCounts, dropped: QueueCounts): QueueCounts => ({
 
 /**
  * The review queue without that note's cards. Due counts shrink only for cards
- * that were actually in the queue: a card scheduled for later was not due.
+ * in the server's complete eligible set: future or daily-limited cards stay out.
  */
 export const queueWithoutNote = (queue: ReviewQueue, id: NoteId): ReviewQueue => ({
   ...queue,
   items: queue.items.filter((item) => item.card.noteId !== id),
+  dueCards: queue.dueCards?.filter((card) => card.noteId !== id),
   counts: subtract(queue.counts, droppedDue(queue, id))
 })
 

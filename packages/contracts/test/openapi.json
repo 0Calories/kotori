@@ -4076,6 +4076,38 @@
                       ],
                       "additionalProperties": false
                     },
+                    "dueCards": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "noteId": {
+                                "type": "string"
+                              },
+                              "queue": {
+                                "type": "string",
+                                "enum": [
+                                  "new",
+                                  "learning",
+                                  "review",
+                                  "relearning"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "noteId",
+                              "queue"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "nextDue": {
                       "anyOf": [
                         {
