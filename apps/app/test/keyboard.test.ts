@@ -1,11 +1,20 @@
 import { assert, describe, it } from "vitest"
-import { keyboardDismissModeFor } from "../src/lib/keyboard.ts"
+import { blurFocusedOnScroll, keyboardDismissModeFor, pointerMovedEnough } from "../src/lib/keyboard.ts"
 
 describe("dismissing the keyboard from a scrolling screen", () => {
-  it("does not blur on web scrolls, so iOS Safari keeps a field focused while typing", () => {
-    // "on-drag" on web blurs the focused field on every scroll. iOS Safari emits
-    // that scroll to keep the caret visible, once per character.
+  it("does not blur a web field when the scroller moves without a drag", () => {
+    // Caret reveal on iOS Safari, and a mouse wheel or trackpad flick, are
+    // scrolls with no vertical drag. "on-drag" on web would blur on all of them.
     assert.strictEqual(keyboardDismissModeFor("web"), "none")
+    assert.strictEqual(blurFocusedOnScroll(false), false)
+    assert.strictEqual(pointerMovedEnough(0, 0), false)
+    assert.strictEqual(pointerMovedEnough(40, 2), false)
+  })
+
+  it("blurs a web field once a finger or mouse button has dragged vertically", () => {
+    assert.strictEqual(pointerMovedEnough(0, 9), true)
+    assert.strictEqual(pointerMovedEnough(4, -12), true)
+    assert.strictEqual(blurFocusedOnScroll(true), true)
   })
 
   it("still dismisses when a native scroll view is dragged", () => {
