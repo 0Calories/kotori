@@ -1,5 +1,9 @@
 .git
 .claude
+.agents
+.beads
+.codex
+.cursor
 node_modules
 **/node_modules
 **/dist
