@@ -104,7 +104,7 @@ layer(TestLayer)("dictionary queries", (it) => {
   it.effect("searches English glosses with stemming and exact matching", () =>
     Effect.gen(function* () {
       const db = yield* Database
-      const fts = yield* searchGlosses(db, "eating", 20)
+      const fts = yield* searchGlosses(db, ["eating"], 20)
       assert.includeMembers(
         fts.map((match) => match.entryId),
         [1358280, 1269130, 1594790]
@@ -192,11 +192,11 @@ layer(TestLayer)("dictionary queries", (it) => {
       assert.deepStrictEqual(yield* findFormPrefix(db, "eate", 10, "en"), [])
       assert.deepStrictEqual(yield* findFormPrefix(db, "た", 10, "en"), [])
       assert.sameMembers(
-        (yield* searchForms(db, "polishing", 10, "en")).map((match) => match.entryId),
+        (yield* searchForms(db, ["polishing"], 10)).map((match) => match.entryId),
         [100000002, 100000003]
       )
       assert.sameMembers(
-        (yield* searchFormsFuzzy(db, "polsh", 10, "en")).map((match) => match.entryId),
+        (yield* searchFormsFuzzy(db, "polsh", 10)).map((match) => match.entryId),
         [100000002, 100000003]
       )
     })

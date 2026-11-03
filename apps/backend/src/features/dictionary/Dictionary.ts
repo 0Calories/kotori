@@ -16,12 +16,14 @@ import {
 import {
   deinflect,
   englishPhraseVariants,
+  englishSearchTerms,
   hasJapanese,
   katakanaToHiragana,
   matchesPartOfSpeech,
   normalizeEnglishPhrase,
   normalizeGloss,
   normalizeJapaneseGloss,
+  relaxedEnglishSearchTerms,
   romajiToKana,
   romanize,
   uninflect
@@ -101,92 +103,33 @@ const TAG_PENALTY: Record<string, number> = {
 
 const tagPenalty = (misc: ReadonlyArray<string>) => misc.reduce((sum, tag) => sum + (TAG_PENALTY[tag] ?? 0), 0)
 
-/** Idiom placeholders Postgres doesn't treat as stopwords; stripped when content words remain. */
-const FTS_PLACEHOLDERS = new Set([
-  "one's",
-  "ones",
-  "oneself",
-  "someone's",
-  "someones",
-  "someone",
-  "somebody's",
-  "somebodys",
-  "somebody",
-  "something",
-  "sb",
-  "sb's",
-  "sth",
-  "sth's"
-])
-
-/** Common English stopwords, ignored when building (k-1)-of-k relaxed token combinations. */
-const FTS_STOPWORDS = new Set([
-  ...FTS_PLACEHOLDERS,
-  "a",
-  "an",
-  "the",
-  "to",
-  "of",
-  "in",
-  "on",
-  "at",
-  "by",
-  "for",
-  "with",
-  "from",
-  "as",
-  "into",
-  "about",
-  "my",
-  "your",
-  "his",
-  "her",
-  "its",
-  "our",
-  "their",
-  "me",
-  "you",
-  "him",
-  "us",
-  "them",
-  "is",
-  "are",
-  "was",
-  "were",
-  "be",
-  "been",
-  "being"
-])
-
-const queryWords = (query: string) =>
-  query
-    .toLowerCase()
-    .replace(/’/g, "'")
-    .match(/[\p{L}\p{N}']+/gu) ?? []
-
-/** A full-text expression requiring every content word of the query, with idiom placeholders stripped when other words remain. */
-const ftsExpression = (query: string) => {
-  const words = queryWords(query)
-  if (words.length === 0) return null
-  const content = words.filter((word) => !FTS_PLACEHOLDERS.has(word)).flatMap((word) => word.split("'").filter(Boolean))
-  const chosen = content.length > 0 ? content : words.flatMap((word) => word.split("'").filter(Boolean))
-  return chosen.length === 0 ? null : chosen.map((word) => `"${word}"`).join(" ")
-}
+/**
+ * The searches an English query falls back on when the searches for all its words found fewer than
+ * three entries: the phrase with one word left out (`relaxedEnglishSearchTerms`), then, only if
+ * still nothing, trigram similarity for typos. Japanese text never gets here, and fallback hits
+ * never outrank the word a romaji query spells (see `englishGlossHits`, `searchEnglish`).
+ */
+const englishFallback = <Relaxed, Fuzzy>(
+  query: string,
+  found: number,
+  search: {
+    readonly relaxed: (terms: ReadonlyArray<string>) => Effect.Effect<ReadonlyArray<Relaxed>>
+    readonly fuzzy: () => Effect.Effect<ReadonlyArray<Fuzzy>>
+  }
+) =>
+  Effect.gen(function* () {
+    const terms = found < 3 ? relaxedEnglishSearchTerms(query) : []
+    const relaxed = terms.length === 0 ? [] : yield* search.relaxed(terms)
+    const fuzzy = found === 0 && relaxed.length === 0 ? yield* search.fuzzy() : []
+    return { relaxed, fuzzy }
+  })
 
 /**
- * For a 3–6 content-word phrase where one word was altered or omitted ("walk on thin ice" for
- * "skate on thin ice"), the (k-1)-word subqueries: each drops one content word.
+ * Up to 10 points for how close a relaxed match's words sit, from its full-text rank (negated
+ * `ts_rank_cd`, 0.1 for adjacent words): "thin ice" in "skate on thin ice" scores 10, three words
+ * apart 3. With one word of the phrase missing, order is most of what's left to go on.
  */
-const relaxedFtsExpressions = (query: string): Array<string> => {
-  const content = unique(
-    queryWords(query)
-      .filter((word) => !FTS_STOPWORDS.has(word))
-      .map((word) => word.replace(/'s$/, ""))
-      .filter((word) => word.length > 1)
-  )
-  if (content.length < 3 || content.length > 6) return []
-  return content.map((_, drop) => content.filter((__, index) => index !== drop).join(" "))
-}
+const proximity = (rank: number) => Math.min(10, Math.round(-100 * rank))
 
 /** How well a gloss answers a query in the glosses' language, normalised as that language is. */
 const glossScore = (
@@ -337,24 +280,27 @@ export class Dictionary extends Context.Service<
         return keepBest([...exact, ...prefix])
       })
 
-      /** Japanese words whose English glosses match an English query. */
+      /**
+       * Japanese words whose English glosses match an English query, and `directScore`: the best
+       * score among glosses with every word of the query. Fallback hits never count there, so a
+       * near-miss English gloss can't outrank the word a romaji query spells ("taberu" vs "table").
+       */
       const englishGlossHits = Effect.fnUntraced(function* (query: string) {
-        const expression = ftsExpression(query)
+        const terms = englishSearchTerms(query)
         const exact = yield* findGlossesExact(db, query, 300)
-        const strict = expression === null ? [] : yield* searchGlosses(db, expression, 600)
-        // When exact and all-words FTS find little, fall back to (k-1)-of-k token matches and trigram similarity.
-        const needFallback = exact.length === 0 && strict.length < 3
-        const relaxedQueries = needFallback ? relaxedFtsExpressions(query) : []
-        const [relaxed, trgm] = needFallback
-          ? yield* Effect.all([
-              relaxedQueries.length === 0 ? Effect.succeed([]) : searchGlosses(db, relaxedQueries, 200),
-              searchGlossesFuzzy(db, query, 200)
-            ])
-          : [[], []]
+        const strict = terms === null ? [] : yield* searchGlosses(db, [terms], 600)
+        const { relaxed, fuzzy } = yield* englishFallback(
+          query,
+          unique([...exact, ...strict].map((m) => m.entryId)).length,
+          {
+            relaxed: (relaxedTerms) => searchGlosses(db, relaxedTerms, 200),
+            fuzzy: () => searchGlossesFuzzy(db, query, 200)
+          }
+        )
 
         const norm = normalizeGloss(query)
         const phraseNorm = normalizeEnglishPhrase(query)
-        const allMatches = [...exact, ...strict, ...relaxed, ...trgm]
+        const allMatches = [...exact, ...strict, ...relaxed, ...fuzzy]
         const ranks = yield* entryRanks(db, unique(allMatches.map((match) => match.entryId)))
         const score = (match: GlossMatch, isExact: boolean, penalty = 0): Hit => {
           const phraseExact = isExact || (phraseNorm.length > 0 && normalizeEnglishPhrase(match.text) === phraseNorm)
@@ -368,21 +314,24 @@ export class Dictionary extends Context.Service<
             inflection: []
           }
         }
-        return keepBest([
-          ...exact.map((m) => score(m, true)),
-          ...strict.map((m) => score(m, false)),
-          ...relaxed.map((m) => score(m, false, 15)),
-          ...trgm.map((m) => score(m, false, 20))
-        ])
+        const direct = [...exact.map((m) => score(m, true)), ...strict.map((m) => score(m, false))]
+        return {
+          hits: keepBest([
+            ...direct,
+            ...relaxed.map((m) => score(m, false, 15 - proximity(m.rank))),
+            ...fuzzy.map((m) => score(m, false, 20))
+          ]),
+          directScore: Math.max(0, ...direct.map((hit) => hit.score))
+        }
       })
 
       const searchJapanese = Effect.fnUntraced(function* (query: string) {
         if (hasJapanese(query)) return { mode: "japanese" as const, reading: null, hits: yield* japaneseHits(query) }
 
-        const english = yield* englishGlossHits(query)
+        const { hits: english, directScore } = yield* englishGlossHits(query)
         const kana = romajiToKana(query)
         const romaji = kana === null ? [] : (yield* japaneseHits(kana)).filter((hit) => hit.score >= 700)
-        const englishIsStrong = (english[0]?.score ?? 0) >= 150
+        const englishIsStrong = directScore >= 150
         const preferRomaji = romaji.length > 0 && !englishIsStrong
         const hits = preferRomaji
           ? keepBest([...romaji, ...english.map((h) => ({ ...h, score: h.score - 1000 }))])
@@ -418,24 +367,17 @@ export class Dictionary extends Context.Service<
               )
         ])
         const prefixIds = yield* findFormPrefix(db, query, 40, "en")
-        const expression = ftsExpression(query)
+        const terms = englishSearchTerms(query)
         const isPhrase = /\s/.test(query)
         const hasDirect = matches.length > 0 || guessed.length > 0 || prefixIds.length > 0
-        const strict =
-          expression !== null && (isPhrase || !hasDirect) ? yield* searchForms(db, expression, 60, "en") : []
-        const needFallback = !hasDirect && strict.length === 0
-        const relaxedQueries = needFallback ? relaxedFtsExpressions(query) : []
-        const [relaxed, trgm] = needFallback
-          ? yield* Effect.all([
-              relaxedQueries.length === 0 ? Effect.succeed([]) : searchForms(db, relaxedQueries, 40, "en"),
-              searchFormsFuzzy(db, query, 40, "en")
-            ])
-          : [[], []]
+        const strict = terms !== null && (isPhrase || !hasDirect) ? yield* searchForms(db, [terms], 60) : []
+        const found = unique([...matches, ...guessed, ...strict].map((m) => m.entryId).concat(prefixIds))
+        const { relaxed, fuzzy } = yield* englishFallback(query, found.length, {
+          relaxed: (relaxedTerms) => searchForms(db, relaxedTerms, 40),
+          fuzzy: () => searchFormsFuzzy(db, query, 40)
+        })
 
-        const ranks = yield* entryRanks(
-          db,
-          unique([...matches, ...guessed, ...strict, ...relaxed, ...trgm].map((m) => m.entryId).concat(prefixIds))
-        )
+        const ranks = yield* entryRanks(db, unique([...found, ...[...relaxed, ...fuzzy].map((m) => m.entryId)]))
         const guessedEntries = new Map(
           (yield* getEntries(db, unique(guessed.map((match) => match.entryId)))).map((entry) => [entry.id, entry])
         )
@@ -480,10 +422,10 @@ export class Dictionary extends Context.Service<
         })
         const byRelaxed = relaxed.map((match): Hit => ({
           entryId: match.entryId,
-          score: formScore(320, false, ranks.get(match.entryId)) + Math.min(10, -match.rank),
+          score: formScore(320, false, ranks.get(match.entryId)) + proximity(match.rank),
           inflection: []
         }))
-        const byFuzzy = trgm.map((match): Hit => ({
+        const byFuzzy = fuzzy.map((match): Hit => ({
           entryId: match.entryId,
           score: formScore(250 + Math.round(match.similarity * 100), false, ranks.get(match.entryId)),
           inflection: []

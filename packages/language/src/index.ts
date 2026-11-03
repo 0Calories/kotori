@@ -1,5 +1,6 @@
 export * from "./english/gloss.ts"
 export * from "./english/inflect.ts"
+export * from "./english/phrase.ts"
 export * from "./japanese/deinflect.ts"
 export * from "./japanese/furigana.ts"
 export * from "./japanese/script.ts"

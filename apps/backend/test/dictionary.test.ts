@@ -483,6 +483,54 @@ layer(testLayer(false))("Dictionary", (it) => {
       assert.include(yield* headwords("peice of cake", "en"), "piece of cake")
     })
   )
+
+  it.effect("corrects typos in English words and phrases without drowning romaji or adding noise", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      yield* insertEntries(db, [
+        entry(1900000, "傘", "かさ", [sense(["umbrella"], ["n"])]),
+        entry(1900001, "食べる", "たべる", [sense(["to eat"], ["v1"])]),
+        entry(1900002, "テーブル", "てーぶる", [sense(["table"], ["n"])]),
+        entry(1900003, "神経に障る", "しんけいにさわる", [sense(["to get on one's nerves"], ["exp", "v5r"])]),
+        word(100000080, "umbrella", [sense(["傘"], ["n"])]),
+        word(100000081, "umbra", [sense(["本影"], ["n"])]),
+        word(100000082, "get on one's nerves", [sense(["神経に障る"], ["v"])]),
+        word(100000083, "neck", [sense(["首"], ["n"])])
+      ])
+      const search = (query: string, language: "ja" | "en") =>
+        Effect.map(dictionary.search(query, language, 10), (res) => ({
+          mode: res.mode,
+          headwords: res.entries.map((e) => e.headword)
+        }))
+
+      assert.include((yield* search("get on my nervs", "ja")).headwords, "神経に障る")
+      assert.include((yield* search("get on one's nervs", "en")).headwords, "get on one's nerves")
+      assert.include((yield* search("umbrela", "ja")).headwords, "傘")
+      // umbra is a trigram match too, but too far below umbrella to show.
+      assert.deepStrictEqual((yield* search("umbrela", "en")).headwords, ["umbrella"])
+
+      // "taberu" is near "table", but a word it spells in romaji comes first.
+      const taberu = yield* search("taberu", "ja")
+      assert.strictEqual(taberu.mode, "romaji")
+      assert.strictEqual(taberu.headwords[0], "食べる")
+      const neko = yield* search("neko", "en")
+      assert.notInclude(neko.headwords, "neck")
+
+      // With a word of the phrase swapped, the gloss with the rest side by side ranks first.
+      yield* insertEntries(db, [
+        entry(1900004, "かき氷", "かきごおり", [sense(["ice shaved into thin flakes"], ["n"])]),
+        // A second gloss costs 薄氷 4 points, which only proximity makes up.
+        entry(1900005, "薄氷", "はくひょう", [sense(["thin ice", "precarious situation"], ["n"])])
+      ])
+      const thinIce = (yield* search("walk on thin ice", "ja")).headwords
+      assert.isBelow(thinIce.indexOf("薄氷"), thinIce.indexOf("かき氷"))
+      assert.notStrictEqual(thinIce.indexOf("薄氷"), -1)
+
+      assert.deepStrictEqual((yield* search("xqzvy", "ja")).headwords, [])
+      assert.deepStrictEqual((yield* search("xqzvy", "en")).headwords, [])
+    })
+  )
 })
 
 layer(testLayer(false))("Dictionary: what Kotori wrote on an English word", (it) => {
