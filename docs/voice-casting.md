@@ -113,21 +113,25 @@ Japanese:
 | ja-announcer | masculine, middle-aged, standard, polite, formal, announcement, narration, serious, headword | News, notices, business mail |
 | ja-polite-f | feminine, adult, standard, polite, formal, conversation, gentle | Service counter, teineigo |
 | ja-casual-f | feminine, youth, standard, casual, neutral, vulgar, conversation, bright | Banter, feminine speech |
-| ja-casual-m | masculine, youth, standard, casual, neutral, vulgar, conversation, rough | Banter, masculine speech (ぜ/ぞ/おれ) |
+| ja-casual-m | masculine, adult, standard, casual, neutral, conversation, calm | Everyday masculine conversation |
+| ja-casual-m2 | masculine, youth, standard, casual, neutral, vulgar, conversation, calm | Banter, masculine speech (ぜ/ぞ/おれ) |
 | ja-casual-f2 | feminine, middle-aged, standard, casual, neutral, conversation, warm | Casual but not young; shows the tag model's reach |
-| ja-kansai-m | masculine, adult, kansai, casual, neutral, polite, conversation | Audition community Kansai voices carefully |
+| ja-kansai-m | masculine, adult, kansai, casual, neutral, polite, conversation, bright, comic | Kansai dialect and comic lines |
 | ja-elder-m | masculine, older, standard, neutral, polite, formal, narration, calm, headword | Proverbs, archaic and dated words |
 
 English:
 
 | id | Tags | Notes |
 |---|---|---|
-| en-sarah | feminine, adult, american, neutral, polite, conversation, narration, warm, headword | Today's default |
-| en-announcer | masculine, middle-aged, american, polite, formal, announcement, narration, serious, headword | |
-| en-casual-f | feminine, youth, american, casual, neutral, vulgar, conversation, bright | |
-| en-casual-m | masculine, youth, american, casual, neutral, vulgar, conversation, rough | |
-| en-british-m | masculine, adult, british, neutral, polite, formal, conversation, narration, calm, headword | Variety coverage for the English dictionary |
-| en-elder-f | feminine, older, american, neutral, polite, narration, gentle | |
+| en-announcer | masculine, middle-aged, american, polite, formal, announcement, narration, serious, headword | News, notices, formal writing |
+| en-casual-f | feminine, youth, american, casual, neutral, vulgar, conversation, bright | Banter, energetic young woman |
+| en-casual-m | masculine, adult, american, casual, neutral, conversation, narration, warm, headword | Everyday American conversation and headwords |
+| en-casual-m2 | masculine, youth, american, casual, neutral, vulgar, conversation, calm | Banter, young man |
+| en-british-m | masculine, adult, british, casual, neutral, polite, conversation, narration, calm, headword | British English conversation, narration and headwords |
+| en-british-m2 | masculine, middle-aged, british, neutral, polite, formal, narration, calm, serious | Reflective British narration and formal writing |
+| en-british-f | feminine, middle-aged, british, casual, neutral, polite, conversation, narration, warm | British conversational woman |
+| en-australian-f | feminine, adult, australian, casual, neutral, polite, conversation, narration, warm, headword | Australian English and headwords |
+| en-elder-f | feminine, older, american, neutral, polite, narration, gentle | Storytelling, prose and proverbs |
 
 The cast lives in code, not env vars. `KOTORI_VOICE_JA` / `KOTORI_VOICE_EN` are removed;
 `.env.example` and `docs/operations.md` are updated. The cast is read through the
