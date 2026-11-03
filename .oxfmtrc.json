@@ -8,6 +8,11 @@
   "ignorePatterns": [
     "**/*.md",
     "pnpm-lock.yaml",
+    ".beads/**",
+    ".agents/**",
+    ".claude/**",
+    ".codex/**",
+    ".cursor/**",
     "data/**",
     "docs/**",
     "**/.expo/**",
