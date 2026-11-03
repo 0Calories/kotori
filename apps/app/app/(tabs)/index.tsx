@@ -1,6 +1,6 @@
 import type { EntrySummary, Language } from "@kotori/contracts"
 import { useRouter } from "expo-router"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Platform, TextInput, View } from "react-native"
 import Animated, { FadeIn, FadeInDown, LinearTransition } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -12,7 +12,7 @@ import { Headword } from "../../src/components/Headword.tsx"
 import { Icon } from "../../src/components/Icon.tsx"
 import { Mascot } from "../../src/components/Mascot.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
-import { Screen, Section } from "../../src/components/Screen.tsx"
+import { Screen } from "../../src/components/Screen.tsx"
 import { Snow } from "../../src/components/Snow.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
@@ -40,7 +40,8 @@ const greeting = (target: Language, name: string | null) => {
   return name === null ? hello : `${hello}${target === "ja" ? "、" : ", "}${name}`
 }
 
-const JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/
+/** How many recent searches to keep and show as chips under the search field. */
+const MAX_RECENT = 6
 
 const LANGUAGE_NAMES: Record<Language, { readonly short: string; readonly long: string }> = {
   en: { short: "EN", long: "English" },
@@ -153,7 +154,9 @@ export default function LookUpScreen() {
   const loading = searching && (debounced !== query.trim() || search.isFetching)
   const mascot = useSearchMascotPhase(loading)
 
-  const remember = (term: string) => setRecent([term, ...recent.filter((r) => r !== term)].slice(0, 8))
+  const history = recent.slice(0, MAX_RECENT)
+  const remember = (term: string) => setRecent([term, ...recent.filter((r) => r !== term)].slice(0, MAX_RECENT))
+  const forget = (term: string) => setRecent(recent.filter((r) => r !== term))
 
   const open = (entry: EntrySummary) => {
     remember(debounced)
@@ -161,7 +164,6 @@ export default function LookUpScreen() {
   }
 
   const results = search.data
-  const tips = useMemo(() => t.dictionary.tips, [t])
   const pill = {
     backgroundColor: "rgba(255, 255, 255, 0.66)",
     borderWidth: 1,
@@ -289,26 +291,57 @@ export default function LookUpScreen() {
           </View>
         </View>
 
-        {searching ? null : (
+        {searching || history.length === 0 ? null : (
           <>
-            <Text variant="caption" color="textMuted" style={{ paddingHorizontal: 22, paddingTop: 16 }}>
-              {t.dictionary.tipsTitle}
-            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingHorizontal: 22,
+                paddingTop: 16
+              }}
+            >
+              <Text variant="caption" color="textMuted">
+                {t.dictionary.recent}
+              </Text>
+              <PressableScale onPress={() => setRecent([])} accessibilityRole="button" hitSlop={12}>
+                <Text variant="caption" size={13} color="textMuted">
+                  {t.dictionary.clearRecent}
+                </Text>
+              </PressableScale>
+            </View>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16, paddingTop: 10 }}>
-              {tips.map((tip) => (
-                <PressableScale
-                  key={tip}
-                  onPress={() => setQuery(tip)}
-                  accessibilityRole="button"
-                  style={[pill, { gap: 7, paddingLeft: 12, paddingRight: 15 }]}
+              {history.map((term) => (
+                <Animated.View
+                  key={term}
+                  entering={FadeIn.duration(180)}
+                  layout={LinearTransition.duration(180)}
+                  style={[pill, { paddingLeft: 12, paddingRight: 4, maxWidth: "100%" }]}
                 >
-                  <View style={{ opacity: 0.85 }}>
-                    <Icon name="menu_book" size={18} color={theme.color.text} />
-                  </View>
-                  <Text variant="caption" size={14}>
-                    {tip}
-                  </Text>
-                </PressableScale>
+                  <PressableScale
+                    onPress={() => setQuery(term)}
+                    accessibilityRole="button"
+                    accessibilityLabel={term}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 7, flexShrink: 1, height: "100%" }}
+                  >
+                    <View style={{ opacity: 0.85 }}>
+                      <Icon name="search" size={18} color={theme.color.text} />
+                    </View>
+                    <Text variant="caption" size={14} numberOfLines={1} style={{ flexShrink: 1, maxWidth: 180 }}>
+                      {term}
+                    </Text>
+                  </PressableScale>
+                  <PressableScale
+                    onPress={() => forget(term)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t.dictionary.removeRecent(term)}
+                    hitSlop={6}
+                    style={{ width: 30, height: 30, alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Icon name="close" size={16} color={theme.color.textMuted} />
+                  </PressableScale>
+                </Animated.View>
               ))}
             </View>
           </>
@@ -341,50 +374,7 @@ export default function LookUpScreen() {
           ) : null}
         </View>
       ) : (
-        <>
-          <ReviewTeaser />
-          {recent.length > 0 ? (
-            <Section
-              title={t.dictionary.recent}
-              action={
-                <PressableScale onPress={() => setRecent([])} accessibilityRole="button" hitSlop={12}>
-                  <Text variant="caption" size={13} color="textMuted">
-                    {t.dictionary.clearRecent}
-                  </Text>
-                </PressableScale>
-              }
-            >
-              <Card list padded={false} style={{ paddingHorizontal: theme.space.lg }}>
-                {recent.map((term, index) => (
-                  <PressableScale
-                    key={term}
-                    onPress={() => setQuery(term)}
-                    accessibilityRole="button"
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 12,
-                      height: 56,
-                      borderTopWidth: index === 0 ? 0 : 1,
-                      borderTopColor: theme.color.divider
-                    }}
-                  >
-                    <Text
-                      mincho={JAPANESE.test(term)}
-                      variant="strong"
-                      size={JAPANESE.test(term) ? 22 : 17}
-                      style={{ flex: 1, lineHeight: 28 }}
-                      numberOfLines={1}
-                    >
-                      {term}
-                    </Text>
-                    <Icon name="chevron_right" size={20} color={theme.color.textMuted} />
-                  </PressableScale>
-                ))}
-              </Card>
-            </Section>
-          ) : null}
-        </>
+        <ReviewTeaser />
       )}
     </Screen>
   )
