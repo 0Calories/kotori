@@ -317,6 +317,8 @@ export const enwiktionaryParser = () => {
           allTags.includes("acronym") ||
           allTags.includes("initialism") ||
           allTags.includes("clipping") ||
+          allTags.includes("ellipsis") ||
+          allTags.includes("abbreviation") ||
           allTags.includes("contraction") ||
           entry.pos === "contraction" ||
           (entry.pos === "pron" && !allTags.includes("misspelling") && !allTags.includes("obsolete"))

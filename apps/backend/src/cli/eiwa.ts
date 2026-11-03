@@ -149,9 +149,12 @@ export const eiwa = Command.make(
         { concurrency: 8 }
       )
       const initialParsed = parseEnWiktionary(fetchedLines.flat())
+      const initialByHeadword = new Map(initialParsed.words.map((w) => [w.headword, w]))
       const redirectBases = new Map<string, string>()
       for (const w of targets) {
-        const redirect = initialParsed.formsOf.find((f) => f.text === w && f.tags.length === 0 && !targets.includes(f.base))
+        const redirect = initialParsed.formsOf.find(
+          (f) => f.text === w && !targets.includes(f.base) && (f.tags.length === 0 || !initialByHeadword.has(w))
+        )
         if (redirect !== undefined) redirectBases.set(w, redirect.base)
       }
       const baseLines =
