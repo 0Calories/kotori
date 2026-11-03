@@ -169,7 +169,7 @@ export const golden = Command.make(
     const created = /JMdict created: (\d{4}-\d{2}-\d{2})/.exec(xml)?.[1] ?? "an unknown date"
 
     const fixture: GoldenFixture = {
-      about: `The entries the golden set names, cut from JMdict_e.gz (created ${created}) and the English dictionary built from data/eiwa, by \`kotori golden\`. Regenerate it; don't edit it. Excerpts of JMdict (© EDRDG), Japanese Wiktionary and FrequencyWords, shared under CC BY-SA 4.0, and of EJDict-hand (CC0): see NOTICE.md beside this file.`,
+      about: `The entries the golden set names, cut from JMdict_e.gz (created ${created}) and the English dictionary built from data/eiwa, by \`kotori golden\`. Regenerate it; don't edit it. Excerpts of JMdict (© EDRDG), English and Japanese Wiktionary, and FrequencyWords, shared under CC BY-SA 4.0, and of EJDict-hand (CC0): see NOTICE.md beside this file.`,
       tags: Object.fromEntries([...codes].sort().map((code) => [code, labels.get(code) ?? code])),
       entries,
       loans
