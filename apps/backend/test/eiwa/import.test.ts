@@ -36,6 +36,15 @@ const jmdict = `<?xml version="1.0"?>
 </JMdict>`
 
 const files = (withWalk: boolean) => ({
+  curated: file("curated.jsonl", [
+    JSON.stringify({
+      headword: "twerk",
+      ipa: "/twɜɹk/",
+      familiarity: 3,
+      inflections: [{ text: "twerking", tags: ["present-participle"] }],
+      senses: [{ pos: ["v"], glosses: ["トゥワークする"] }]
+    })
+  ]),
   wiktionary: file(`wiktionary-${withWalk}.jsonl`, wiktionary(withWalk)),
   ejdict: file("ejdict.txt", ["team\t『チーム』", "eat\t…を『食べる』"]),
   frequency: file("en_50k.txt", ["eat 5000", "ate 3000", "team 4000", "walk 2000", "selfie 900"])
@@ -48,11 +57,11 @@ layer(TestLayer)("Eiwa.importFiles", (it) => {
   it.effect("loads each word from the first source that has it, next to JMDict's", () =>
     Effect.gen(function* () {
       const result = yield* Eiwa.importFiles({ files: files(true), jmdict: jmdictFile })
-      assert.deepStrictEqual(result, { removed: 0, entries: 4, wiktionary: 2, ejdict: 1, jmdict: 1 })
+      assert.deepStrictEqual(result, { removed: 0, entries: 5, curated: 1, wiktionary: 2, ejdict: 1, jmdict: 1 })
 
       const db = yield* Database
       const ids = yield* headwordIds(db, "en")
-      assert.sameMembers([...ids.keys()], ["eat", "walk", "team", "selfie"])
+      assert.sameMembers([...ids.keys()], ["twerk", "eat", "walk", "team", "selfie"])
       // "ate" is eat's past, found through it.
       const [ate] = yield* findForms(db, ["ate"], "en")
       assert.deepStrictEqual([ate?.entryId, ate?.kind, ate?.tags], [ids.get("eat"), "inflection", ["past"]])
@@ -72,7 +81,7 @@ layer(TestLayer)("Eiwa.importFiles", (it) => {
 
       // A partial import never removes anything.
       assert.strictEqual((yield* Eiwa.importFiles({ files: files(false), jmdict: jmdictFile, limit: 1 })).removed, 0)
-      assert.strictEqual((yield* headwordIds(db, "en")).size, 4)
+      assert.strictEqual((yield* headwordIds(db, "en")).size, 5)
 
       const result = yield* Eiwa.importFiles({ files: files(false), jmdict: jmdictFile })
       assert.strictEqual(result.removed, 1)

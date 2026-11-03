@@ -1,7 +1,7 @@
 import type { EntryRecord } from "@kotori/contracts"
 import { Effect, FileSystem, Path, Schema, Stream } from "effect"
 import { HttpClient } from "effect/http"
-import { createReadStream } from "node:fs"
+import { createReadStream, existsSync } from "node:fs"
 import { createInterface } from "node:readline"
 import { createGunzip } from "node:zlib"
 import { Database } from "../../../../db/Database.ts"
@@ -13,7 +13,7 @@ import { EJDICT_FILES, parseEjdict } from "./ejdict.ts"
 import { FREQUENCY_URL, parseFrequency } from "./frequency.ts"
 import { jmdictReader, type KnownEnglish } from "./jmdict.ts"
 import { ENGLISH_TAGS } from "./tags.ts"
-import { WIKTIONARY_URL, wiktionaryParser } from "./wiktionary.ts"
+import { curatedParser, WIKTIONARY_URL, wiktionaryParser } from "./wiktionary.ts"
 import type { FormOf, Word } from "./words.ts"
 
 export class EiwaError extends Schema.TaggedError<EiwaError>()("EiwaError", {
@@ -21,8 +21,10 @@ export class EiwaError extends Schema.TaggedError<EiwaError>()("EiwaError", {
   cause: Schema.optional(Schema.Defect())
 }) {}
 
-/** The downloaded sources, as paths relative to the repo root or absolute. */
+/** The downloaded and curated sources, as paths relative to the repo root or absolute. */
 export interface Files {
+  /** Curated English Wiktionary entries with Japanese glosses (`enwiktionary-ja.jsonl`), optional in tests. */
+  readonly curated?: string | undefined
   /** Wiktextract's extraction of Japanese Wiktionary, gzipped JSON lines (or plain). */
   readonly wiktionary: string
   /** EJDict, its letters joined into one file. */
@@ -41,19 +43,26 @@ export const download = Effect.fn("Eiwa.download")(
     yield* fs.makeDirectory(root, { recursive: true })
 
     const files: Files = {
+      curated: path.join(root, "enwiktionary-ja.jsonl"),
       wiktionary: path.join(root, "ja-wiktionary.jsonl.gz"),
       ejdict: path.join(root, "ejdict.txt"),
       frequency: path.join(root, "en_50k.txt")
     }
-    yield* Effect.logInfo(`Downloading ${WIKTIONARY_URL}`)
-    yield* (yield* client.get(WIKTIONARY_URL)).stream.pipe(Stream.run(fs.sink(files.wiktionary)))
-    yield* Effect.logInfo("Downloading EJDict")
-    const letters = yield* Effect.forEach(EJDICT_FILES, (url) => Effect.flatMap(client.get(url), (r) => r.text), {
-      concurrency: 4
-    })
-    yield* fs.writeFileString(files.ejdict, letters.join("\n"))
-    yield* Effect.logInfo(`Downloading ${FREQUENCY_URL}`)
-    yield* fs.writeFileString(files.frequency, yield* Effect.flatMap(client.get(FREQUENCY_URL), (r) => r.text))
+    if (!(yield* fs.exists(files.wiktionary))) {
+      yield* Effect.logInfo(`Downloading ${WIKTIONARY_URL}`)
+      yield* (yield* client.get(WIKTIONARY_URL)).stream.pipe(Stream.run(fs.sink(files.wiktionary)))
+    }
+    if (!(yield* fs.exists(files.ejdict))) {
+      yield* Effect.logInfo("Downloading EJDict")
+      const letters = yield* Effect.forEach(EJDICT_FILES, (url) => Effect.flatMap(client.get(url), (r) => r.text), {
+        concurrency: 4
+      })
+      yield* fs.writeFileString(files.ejdict, letters.join("\n"))
+    }
+    if (!(yield* fs.exists(files.frequency))) {
+      yield* Effect.logInfo(`Downloading ${FREQUENCY_URL}`)
+      yield* fs.writeFileString(files.frequency, yield* Effect.flatMap(client.get(FREQUENCY_URL), (r) => r.text))
+    }
     return files
   },
   Effect.mapError((cause) => new EiwaError({ message: "Could not download the English dictionary", cause }))
@@ -134,19 +143,28 @@ export interface ImportOptions {
  * parsed along the way can be let go before the entries are written.
  */
 const build = Effect.fnUntraced(function* (options: ImportOptions, existing: ReadonlyMap<string, number>) {
+  const curatedReader = curatedParser()
+  const curatedPath = options.files.curated
+  if (curatedPath !== undefined && existsSync(resolveFromRoot(curatedPath))) {
+    yield* eachLine(curatedPath, curatedReader.add)
+  }
+  const curated = curatedReader.finish()
+
   const parser = wiktionaryParser()
   yield* eachLine(options.files.wiktionary, parser.add)
   const wiktionary = parser.finish()
   const ejdict = parseEjdict(yield* readLines(options.files.ejdict))
   const frequency = parseFrequency(yield* readLines(options.files.frequency))
-  yield* Effect.logInfo(`Read ${wiktionary.words.length} words from Wiktionary and ${ejdict.words.length} from EJDict`)
+  yield* Effect.logInfo(
+    `Read ${curated.words.length} curated words, ${wiktionary.words.length} from Wiktionary and ${ejdict.words.length} from EJDict`
+  )
 
-  const reader = jmdictReader(knownEnglish([wiktionary, ejdict], wiktionary.phrases, frequency))
+  const reader = jmdictReader(knownEnglish([curated, wiktionary, ejdict], wiktionary.phrases, frequency))
   yield* eachJmdictEntry(options.jmdict, reader.add)
   const jmdict = reader.finish()
 
   let entries = toEntries(
-    mergeSources({ wiktionary, ejdict, jmdict, frequency }),
+    mergeSources({ curated, wiktionary, ejdict, jmdict, frequency }),
     frequency,
     existing,
     reader.backTranslations()
@@ -189,6 +207,7 @@ export const importFiles = Effect.fn("Eiwa.importFiles")(function* (options: Imp
   return {
     removed: stale.length,
     entries: entries.length,
+    curated: bySource("curated"),
     wiktionary: bySource("wiktionary"),
     ejdict: bySource("ejdict"),
     jmdict: bySource("jmdict")

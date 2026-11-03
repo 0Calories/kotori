@@ -131,7 +131,7 @@ const en = {
     sourceDictionaryJa:
       "Meanings, parts of speech and usage notes are from JMDict by the Electronic Dictionary Research and Development Group (CC BY-SA 4.0).",
     sourceDictionaryEn:
-      "Meanings are from Japanese Wiktionary via Wiktextract (CC BY-SA 4.0), EJDict-hand (public domain), or JMDict read backwards (CC BY-SA 4.0), whichever listed the word. How often it is used is from OpenSubtitles via FrequencyWords (CC BY-SA 4.0).",
+      "Meanings are adapted from English and Japanese Wiktionary via Wiktextract (CC BY-SA 4.0), EJDict-hand (public domain), or JMDict read backwards (CC BY-SA 4.0), whichever listed the word. How often it is used is from OpenSubtitles via FrequencyWords (CC BY-SA 4.0).",
     sourceNuance: "Nuance",
     sourceNuanceBody:
       "Register and cautions are judged by TypeSafe's Jev. Where the dictionary already marks them, that mark is what you see.",
@@ -525,7 +525,7 @@ const ja: Strings = {
     sourceDictionaryJa:
       "意味、品詞、用法は JMDict（Electronic Dictionary Research and Development Group、CC BY-SA 4.0）によります。",
     sourceDictionaryEn:
-      "意味は、その単語を載せている出典によります。ウィクショナリー日本語版（Wiktextract 経由、CC BY-SA 4.0）、EJDict-hand（パブリックドメイン）、または JMDict の逆引き（CC BY-SA 4.0）です。使用頻度は OpenSubtitles（FrequencyWords、CC BY-SA 4.0）によります。",
+      "意味は、その単語を載せている出典によります。ウィクショナリー英語版・日本語版（Wiktextract 経由、CC BY-SA 4.0）、EJDict-hand（パブリックドメイン）、または JMDict の逆引き（CC BY-SA 4.0）をもとに編集・翻訳しています。使用頻度は OpenSubtitles（FrequencyWords、CC BY-SA 4.0）によります。",
     sourceNuance: "ニュアンス",
     sourceNuanceBody:
       "丁寧さなどの判定は TypeSafe の Jev によるものです。辞書に記載がある項目は、その記載が優先されます。",

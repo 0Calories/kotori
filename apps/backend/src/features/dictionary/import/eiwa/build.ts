@@ -8,7 +8,10 @@ const FIRST_ENGLISH_ID = 100_000_000
 /** How many of the most used words count as common, as JMDict's markers make about a tenth of its words common. */
 const COMMON_WORDS = 10_000
 
-export type Source = "wiktionary" | "ejdict" | "jmdict"
+/** Baseline usage count for curated idioms/slang that don't appear in `en_50k.txt` unigrams. */
+const CURATED_FLOOR = 1_000
+
+export type Source = "curated" | "wiktionary" | "ejdict" | "jmdict"
 
 /** A word as the dictionary will hold it, with where it came from. */
 interface Built {
@@ -41,23 +44,38 @@ const addInflection = (word: Built, form: InflectedForm) => {
 }
 
 export interface Sources {
-  /** Japanese Wiktionary first: it has parts of speech, IPA and inflections. */
+  /** Curated English Wiktionary entries (`enwiktionary-ja.jsonl`), consolidated and learner-ordered. */
+  readonly curated?: { readonly words: ReadonlyArray<Word>; readonly formsOf?: ReadonlyArray<FormOf> } | undefined
+  /** Japanese Wiktionary next: it has parts of speech, IPA and inflections. */
   readonly wiktionary: { readonly words: ReadonlyArray<Word>; readonly formsOf: ReadonlyArray<FormOf> }
   readonly ejdict: { readonly words: ReadonlyArray<Word>; readonly formsOf: ReadonlyArray<FormOf> }
-  /** Built knowing the other two, so it only has words they lack. */
+  /** Built knowing the other sources, so it only has words they lack. */
   readonly jmdict: ReadonlyArray<Word>
   readonly frequency: ReadonlyMap<string, number>
 }
 
 /**
- * One dictionary from the three sources: each headword from the first source that has
- * it, with the forms the others point at it. Case tells words apart ("Polish", "polish").
+ * One dictionary from the sources: each headword from the first source that has it,
+ * with the forms the others point at it. Case tells words apart ("Polish", "polish").
  */
 export const mergeSources = (sources: Sources): Array<Built> => {
   const words = new Map<string, Built>()
   const add = (word: Word, source: Source) => {
-    if (!words.has(word.headword)) words.set(word.headword, built(word, source))
+    const existing = words.get(word.headword)
+    if (existing === undefined) {
+      words.set(word.headword, built(word, source))
+      return
+    }
+    // If a curated entry lacks IPA or an inflection that Wiktionary has, inherit those forms.
+    if (existing.source === "curated") {
+      existing.ipa ??= word.ipa
+      for (const spelling of word.spellings) {
+        if (spelling !== existing.headword) existing.spellings.add(spelling)
+      }
+      for (const form of word.inflections) addInflection(existing, form)
+    }
   }
+  for (const word of sources.curated?.words ?? []) add(word, "curated")
   for (const word of sources.wiktionary.words) add(word, "wiktionary")
   for (const word of sources.ejdict.words) add(word, "ejdict")
   for (const word of sources.jmdict) add(word, "jmdict")
@@ -65,7 +83,8 @@ export const mergeSources = (sources: Sources): Array<Built> => {
   const folded = new Map<string, Built>()
   for (const word of words.values())
     if (!folded.has(word.headword.toLowerCase())) folded.set(word.headword.toLowerCase(), word)
-  for (const form of [...sources.wiktionary.formsOf, ...sources.ejdict.formsOf]) {
+  const formsOf = [...(sources.curated?.formsOf ?? []), ...sources.wiktionary.formsOf, ...sources.ejdict.formsOf]
+  for (const form of formsOf) {
     const base = words.get(form.base) ?? folded.get(form.base.toLowerCase())
     if (base === undefined || form.text === base.headword) continue
     if (form.tags.length === 0) base.spellings.add(form.text)
@@ -196,6 +215,7 @@ const usage = (word: Built, frequency: ReadonlyMap<string, number>, lowercase: R
   const forms = new Set([word.headword, ...word.inflections.keys()].map((form) => form.toLowerCase()))
   let count = 0
   for (const form of forms) count += frequency.get(form) ?? 0
+  if (count === 0 && word.source === "curated") return CURATED_FLOOR
   return count
 }
 
@@ -242,6 +262,7 @@ export const toEntries = (
     const common = !word.mayBeName && count > 0 && commonSoFar < COMMON_WORDS
     if (common) commonSoFar++
     const spellings = [...word.spellings].filter((spelling) => !word.inflections.has(spelling))
+    const placedSenses = sensesOf(word)
     return {
       id: EntryId.make(existing.get(word.headword) ?? next++),
       language: "en" as const,
@@ -255,11 +276,17 @@ export const toEntries = (
         ...spellings.map((spelling) => form(spelling, "spelling", false, [])),
         ...[...word.inflections].map(([text, tags]) => form(text, "inflection", false, [...tags]))
       ],
-      // Back-translations name lowercase words; a capitalised headword is a name or a title.
-      senses: commonestFirst(
-        sensesOf(word),
-        word.headword === word.headword.toLowerCase() ? translations.get(normalizeGloss(word.headword)) : undefined
-      )
+      // Curated entries already have senses consolidated and ordered for learners;
+      // open-source entries use JMdict back-translations to promote attested everyday senses.
+      senses:
+        word.source === "curated"
+          ? [...placedSenses]
+          : commonestFirst(
+              placedSenses,
+              word.headword === word.headword.toLowerCase()
+                ? translations.get(normalizeGloss(word.headword))
+                : undefined
+            )
     }
   })
 }

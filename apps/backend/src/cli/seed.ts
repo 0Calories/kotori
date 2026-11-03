@@ -74,8 +74,8 @@ export const seed = Command.make(
         })
         yield* Console.log(
           `Imported ${result.entries.toLocaleString()} English words in ${seconds(started)}s ` +
-            `(${result.wiktionary.toLocaleString()} from Wiktionary, ${result.ejdict.toLocaleString()} from EJDict, ` +
-            `${result.jmdict.toLocaleString()} read backwards from JMDict)` +
+            `(${result.curated.toLocaleString()} curated, ${result.wiktionary.toLocaleString()} from Wiktionary, ` +
+            `${result.ejdict.toLocaleString()} from EJDict, ${result.jmdict.toLocaleString()} read backwards from JMDict)` +
             (result.removed > 0 ? `, and removed ${result.removed.toLocaleString()} it no longer has.` : ".")
         )
       }

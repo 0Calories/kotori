@@ -5,7 +5,7 @@ import { parseEjdict } from "../../src/features/dictionary/import/eiwa/ejdict.ts
 import { parseFrequency } from "../../src/features/dictionary/import/eiwa/frequency.ts"
 import { jmdictReader, wordsFromJmdict } from "../../src/features/dictionary/import/eiwa/jmdict.ts"
 import { splitDefinition } from "../../src/features/dictionary/import/eiwa/text.ts"
-import { cleanIpa, parseWiktionary } from "../../src/features/dictionary/import/eiwa/wiktionary.ts"
+import { cleanIpa, parseCurated, parseWiktionary } from "../../src/features/dictionary/import/eiwa/wiktionary.ts"
 import { emptySense, formOf } from "../../src/features/dictionary/import/eiwa/words.ts"
 
 // Lines as Wiktextract writes them for Japanese Wiktionary, trimmed to the fields read.
@@ -188,6 +188,27 @@ describe("parseWiktionary", () => {
     expect(word("eaten")?.senses.map((sense) => sense.glosses[0]?.text)).toEqual(["（特に複合語で）食べられる"])
   })
 
+  it("keeps standalone abbreviation, acronym, clipping and ellipsis senses even when form_of is present", () => {
+    const { words: parsed } = parseWiktionary([
+      line({
+        word: "goat",
+        pos: "noun",
+        senses: [
+          { glosses: ["ヤギ。"] },
+          {
+            glosses: ["Greatest Of All Time（史上最高）の頭字語。"],
+            tags: ["abbreviation", "alt-of", "form-of", "initialism", "slang"],
+            form_of: [{ word: "Greatest Of All Time" }]
+          }
+        ]
+      })
+    ])
+    expect(parsed[0]?.senses.map((s) => s.glosses[0]?.text)).toEqual([
+      "ヤギ",
+      "Greatest Of All Time（史上最高）の頭字語"
+    ])
+  })
+
   it("skips lines that aren't entries", () => {
     expect(word("broken")).toBeUndefined()
     expect(word("mistyped")).toBeUndefined()
@@ -363,6 +384,45 @@ describe("toEntries", () => {
     expect(sources.get("team")).toBe("ejdict")
     expect(merged.find((word) => word.headword === "be")?.inflections.get("was")).toEqual(new Set(["past"]))
     expect(merged.find((word) => word.headword === "tire")?.inflections.has("tired")).toBe(true)
+  })
+
+  it("prefers curated entries over wiktionary and preserves their learner-ordered senses", () => {
+    const curated = parseCurated([
+      JSON.stringify({
+        headword: "kid",
+        ipa: "/kɪd/",
+        familiarity: 5,
+        inflections: [{ text: "kids", tags: ["plural", "third-person"] }],
+        senses: [
+          { pos: ["n"], misc: ["col"], glosses: ["子供", "若者"] },
+          { pos: ["v"], misc: ["col"], glosses: ["冗談を言う", "からかう"] },
+          { pos: ["n"], glosses: ["子ヤギ"] }
+        ]
+      }),
+      JSON.stringify({
+        headword: "keep it real",
+        ipa: "/ˈkiːp ɪt ˈɹiːl/",
+        familiarity: 4,
+        senses: [{ pos: ["v"], misc: ["col"], glosses: ["ありのままでいる", "本音で話す"] }]
+      })
+    ])
+    const withCurated = mergeSources({
+      curated,
+      wiktionary: parseWiktionary([
+        line({ word: "kid", pos: "noun", senses: [{ glosses: ["子山羊。"] }, { glosses: ["子供。"] }] })
+      ]),
+      ejdict: { words: [], formsOf: [] },
+      jmdict: [],
+      frequency
+    })
+    const entries = toEntries(withCurated, frequency, new Map(), new Map([["kid", new Map([["子ヤギ", 99]])]]))
+    const kid = entries.find((e) => e.headword === "kid")
+    expect(kid?.source).toBe("curated")
+    // Curated sense order stands even if backTranslations weights another sense higher.
+    expect(kid?.senses.map((s) => s.glosses[0]?.text)).toEqual(["子供", "冗談を言う", "子ヤギ"])
+    // Curated multi-word idioms receive the baseline priority floor (20 * log10(1000) = 60).
+    const keepItReal = entries.find((e) => e.headword === "keep it real")
+    expect(keepItReal?.priority).toBe(60)
   })
 
   it("places synonyms on the sense they share a meaning with, and leaves out the rest", () => {

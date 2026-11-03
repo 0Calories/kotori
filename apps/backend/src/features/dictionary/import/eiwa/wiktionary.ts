@@ -10,6 +10,7 @@ import {
   type InflectedForm,
   inflectionsNamed,
   isEnglish,
+  parseConsolidatedLine,
   type References,
   type Word
 } from "./words.ts"
@@ -109,6 +110,12 @@ const classifyKnown = (labels: ReadonlyArray<string>, into: Labels) => {
 const unique = <A>(items: ReadonlyArray<A>) => [...new Set(items)]
 
 /**
+ * Tags that mark a `form_of` sense as a standalone word sense (such as "goat" = Greatest Of All Time,
+ * "ad" = advertisement) rather than an inflection or spelling redirect.
+ */
+const STANDALONE_FORM_TAGS = new Set(["abbreviation", "acronym", "initialism", "clipping", "contraction", "ellipsis"])
+
+/**
  * One sense, and the forms it points at when it says "the past tense of …", which are
  * forms of that word rather than meanings: "ate" is no word of its own but eat's past,
  * as 食べた is 食べる's. Leading labels such as "(米話)" or "(他動詞)" become tags; asides
@@ -121,7 +128,8 @@ const readSense = (
   pos: string | undefined
 ): { readonly sense: SenseRecord | null; readonly formsOf: ReadonlyArray<FormOf> } => {
   const bases = (raw.form_of ?? []).map((target) => target.word?.trim() ?? "").filter((base) => base.length > 0)
-  if (bases.length > 0 || raw.tags?.includes("form-of")) {
+  const isStandalone = raw.tags?.some((tag) => STANDALONE_FORM_TAGS.has(tag)) ?? false
+  if ((bases.length > 0 || raw.tags?.includes("form-of")) && !isStandalone) {
     const tags = inflectionsNamed((raw.glosses ?? []).join(" "))
     return { sense: null, formsOf: bases.filter((base) => base !== word).map((base) => ({ text: word, base, tags })) }
   }
@@ -223,8 +231,8 @@ const readForms = (word: string, raw: ReadonlyArray<RawForm>) => {
 }
 
 /**
- * A transcription as it should be shown, or null for template debris the extraction keeps
- * as IPA ("/en/", "/lang-en/", "[list]"): one pair of slashes, and ' written as the stress mark.
+ * Cleans up an IPA string: strips unparsed wiki templates ("en", "lang=en"), turns ASCII "'"
+ * into the IPA primary-stress mark "ˈ", and wraps bare transcriptions in slashes.
  */
 export const cleanIpa = (raw: string): string | null => {
   const bracket = raw.trim().startsWith("[") ? ["[", "]"] : ["/", "/"]
@@ -344,4 +352,29 @@ const mergeInflections = (forms: ReadonlyArray<InflectedForm>): Array<InflectedF
     merged.set(form.text, tags)
   }
   return [...merged].map(([text, tags]) => ({ text, tags: [...tags] }))
+}
+
+/**
+ * Reads `data/eiwa/enwiktionary-ja.jsonl`: curated English Wiktionary entries whose senses
+ * have been consolidated and ordered for Japanese learners.
+ */
+export const curatedParser = () => {
+  const byHeadword = new Map<string, Word>()
+  const add = (line: string) => {
+    const word = parseConsolidatedLine(line)
+    if (word !== null && isEnglish(word.headword) && word.senses.length > 0) {
+      byHeadword.set(word.headword, word)
+    }
+  }
+  const finish = () => ({
+    words: [...byHeadword.values()],
+    formsOf: [] as Array<FormOf>
+  })
+  return { add, finish }
+}
+
+export const parseCurated = (lines: Iterable<string>) => {
+  const parser = curatedParser()
+  for (const line of lines) parser.add(line)
+  return parser.finish()
 }
