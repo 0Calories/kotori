@@ -1,6 +1,7 @@
 import { type ReactNode } from "react"
 import { Platform, type RefreshControlProps, ScrollView, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { keyboardDismissModeFor } from "../lib/keyboard.ts"
 import { useT } from "../session/SessionProvider.tsx"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { IconButton } from "./Button.tsx"
@@ -46,7 +47,7 @@ export const Screen = ({
       style={{ flex: 1, backgroundColor: theme.color.background }}
       contentContainerStyle={content}
       keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
+      keyboardDismissMode={keyboardDismissModeFor(Platform.OS)}
       refreshControl={refreshControl}
       onScroll={onScroll ? (event) => onScroll(event.nativeEvent.contentOffset.y) : undefined}
       scrollEventThrottle={onScroll ? 32 : undefined}
