@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { NodeRuntime, NodeServices } from "@effect/platform-node"
 import { Jev } from "@kotori/ai"
-import { Effect } from "effect"
+import { Effect, Layer } from "effect"
 import { Command } from "effect/cli"
 import { adminCommand, approve, archive, devAccount, requests, revoke, users } from "../cli/accounts.ts"
 import { enrich } from "../cli/enrich.ts"
@@ -13,6 +13,7 @@ import { status } from "../cli/status.ts"
 import { DatabaseLive } from "../db/Database.ts"
 import { AccountsLive, SeedLive } from "../runtime/CliLayers.ts"
 import { loadDotEnv } from "../runtime/Paths.ts"
+import { loggerLayer, SentryLive } from "../runtime/Sentry.ts"
 import { WorkerLive } from "../runtime/WorkerLayers.ts"
 
 loadDotEnv()
@@ -38,4 +39,9 @@ const kotori = Command.make("kotori").pipe(
   ])
 )
 
-kotori.pipe(Command.run({ version: "0.1.0" }), Effect.provide(NodeServices.layer), NodeRuntime.runMain)
+kotori.pipe(
+  Command.run({ version: "0.1.0" }),
+  Effect.provide(NodeServices.layer),
+  Effect.provide(Layer.merge(loggerLayer(), SentryLive("cli"))),
+  NodeRuntime.runMain
+)
