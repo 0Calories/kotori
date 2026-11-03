@@ -1,11 +1,54 @@
 import { describe, expect, it } from "vitest"
-import { type GlossedEntry, loanCandidatesIn, normalizeGloss, normalizeJapaneseGloss } from "../src/index.ts"
+import {
+  englishPhraseVariants,
+  type GlossedEntry,
+  loanCandidatesIn,
+  normalizeEnglishPhrase,
+  normalizeGloss,
+  normalizeJapaneseGloss
+} from "../src/index.ts"
 
 describe("normalizeGloss", () => {
   it("strips infinitive markers, articles and parentheticals", () => {
     expect(normalizeGloss("to eat (a meal)")).toBe("eat")
     expect(normalizeGloss("The Sun")).toBe("sun")
     expect(normalizeGloss("(of a person) to be late")).toBe("be late")
+    expect(normalizeGloss("to rattle one’s nerves")).toBe("rattle one's nerves")
+  })
+})
+
+describe("normalizeEnglishPhrase", () => {
+  it("strips idiom placeholders and articles while keeping single filler words intact", () => {
+    expect(normalizeEnglishPhrase("to get on one's nerves")).toBe("get on nerves")
+    expect(normalizeEnglishPhrase("to get on someone's nerves")).toBe("get on nerves")
+    expect(normalizeEnglishPhrase("get on my nerves")).toBe("get on nerves")
+    expect(normalizeEnglishPhrase("get on nerves")).toBe("get on nerves")
+    expect(normalizeEnglishPhrase("let the cat out of the bag")).toBe("let cat out of bag")
+    expect(normalizeEnglishPhrase("someone")).toBe("someone")
+  })
+})
+
+describe("englishPhraseVariants", () => {
+  it("connects pronoun, placeholder and omitted-pronoun forms of idioms", () => {
+    expect(englishPhraseVariants("eat")).toEqual(["eat"])
+    expect(englishPhraseVariants("get on my nerves")).toEqual(
+      expect.arrayContaining([
+        "get on my nerves",
+        "get on nerves",
+        "get on one's nerves",
+        "get on someone's nerves",
+        "get on somebody's nerves"
+      ])
+    )
+    expect(englishPhraseVariants("get on nerves")).toEqual(
+      expect.arrayContaining(["get on nerves", "get on one's nerves", "get on someone's nerves"])
+    )
+    expect(englishPhraseVariants("wrap head around")).toEqual(
+      expect.arrayContaining(["wrap head around", "wrap one's head around"])
+    )
+    expect(englishPhraseVariants("beat around bush")).toEqual(
+      expect.arrayContaining(["beat around bush", "beat around the bush"])
+    )
   })
 })
 

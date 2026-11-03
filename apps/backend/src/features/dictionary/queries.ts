@@ -15,7 +15,14 @@ import {
   similarWords,
   tags
 } from "@kotori/db"
-import { KATAKANA_WORD, type LoanCandidate, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
+import {
+  englishPhraseVariants,
+  KATAKANA_WORD,
+  type LoanCandidate,
+  normalizeEnglishPhrase,
+  normalizeGloss,
+  normalizeJapaneseGloss
+} from "@kotori/language"
 import { and, asc, desc, eq, gte, inArray, isNotNull, lt, max, min, ne, notExists, sql } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import { Effect } from "effect"
@@ -381,7 +388,9 @@ export const getEntries = Effect.fn("dictionary.getEntries")(function* (
     return [
       {
         ...entry,
-        forms: formRows.filter((form) => form.entryId === id).map(({ entryId: _, position: __, ...form }) => form),
+        forms: formRows
+          .filter((form) => form.entryId === id)
+          .map(({ entryId: _, position: __, document: ___, ...form }) => form),
         senses: senseRows
           .filter((sense) => sense.entryId === id)
           .map(({ entryId: _, position, ...sense }) => ({
@@ -397,6 +406,12 @@ export const getEntries = Effect.fn("dictionary.getEntries")(function* (
 
 /** `lower(text)`, which `forms_folded` indexes, so English matches whatever the case. */
 const folded = sql<string>`lower(${forms.text})`
+
+const toTsquery = (queries: ReadonlyArray<string>) =>
+  sql`(${sql.join(
+    queries.map((query) => sql`plainto_tsquery('english', ${query})`),
+    sql` || `
+  )})`
 
 /** Entries in one dictionary with a form equal to one of `texts`; English ignores case. */
 export const findForms = Effect.fn("dictionary.findForms")(function* (
@@ -449,6 +464,72 @@ export const findFormPrefix = Effect.fn("dictionary.findFormPrefix")(function* (
   return rows.map((row) => row.id)
 }, Effect.orDie)
 
+/** Full-text search over English forms; a list of queries matches when any of them does. */
+export const searchForms = Effect.fn("dictionary.searchForms")(function* (
+  db: DatabaseShape,
+  query: string | ReadonlyArray<string>,
+  limit: number,
+  language: Language = "en"
+) {
+  const queries = typeof query === "string" ? [query] : query
+  if (queries.length === 0) return []
+  const tsquery = toTsquery(queries)
+  return yield* db
+    .select({
+      entryId: forms.entryId,
+      text: forms.text,
+      kind: forms.kind,
+      tags: forms.tags,
+      rank: sql<number>`-ts_rank(${forms.document}, ${tsquery})`.mapWith(Number)
+    })
+    .from(forms)
+    .innerJoin(entries, eq(entries.id, forms.entryId))
+    .where(and(eq(entries.language, language), ne(forms.kind, "inflection"), sql`${forms.document} @@ ${tsquery}`))
+    .orderBy(
+      sql`-ts_rank(${forms.document}, ${tsquery})`,
+      desc(entries.common),
+      desc(entries.priority),
+      sql`length(${forms.text})`
+    )
+    .limit(limit)
+}, Effect.orDie)
+
+/** Trigram similarity search over forms, for typos and phrases with missing or altered words. */
+export const searchFormsFuzzy = Effect.fn("dictionary.searchFormsFuzzy")(function* (
+  db: DatabaseShape,
+  query: string,
+  limit: number,
+  language: Language = "en"
+) {
+  const norms = [...new Set([query.trim().toLowerCase(), normalizeEnglishPhrase(query)])].filter((n) => n.length >= 3)
+  if (norms.length === 0) return []
+  const condition = sql.join(
+    norms.map((norm) => sql`${forms.text} % ${norm}`),
+    sql` OR `
+  )
+  const similarity = (
+    norms.length === 1
+      ? sql<number>`similarity(${forms.text}, ${norms[0]!})`
+      : sql<number>`greatest(${sql.join(
+          norms.map((norm) => sql`similarity(${forms.text}, ${norm})`),
+          sql`, `
+        )})`
+  ).mapWith(Number)
+  return yield* db
+    .select({
+      entryId: forms.entryId,
+      text: forms.text,
+      kind: forms.kind,
+      tags: forms.tags,
+      similarity
+    })
+    .from(forms)
+    .innerJoin(entries, eq(entries.id, forms.entryId))
+    .where(and(eq(entries.language, language), ne(forms.kind, "inflection"), sql`(${condition})`))
+    .orderBy(desc(similarity), desc(entries.common), desc(entries.priority), sql`length(${forms.text})`)
+    .limit(limit)
+}, Effect.orDie)
+
 const glossMatch = {
   entryId: glosses.entryId,
   sense: glosses.sense,
@@ -460,13 +541,15 @@ const glossMatch = {
 
 // `rank` is negated ts_rank so it keeps the old FTS5 bm25 shape: ascending, more negative = better.
 
-/** Full-text search over the English glosses of Japanese words; every word of the plain-text query must match. */
+/** Full-text search over the English glosses of Japanese words; a list of queries matches when any of them does. */
 export const searchGlosses = Effect.fn("dictionary.searchGlosses")(function* (
   db: DatabaseShape,
-  query: string,
+  query: string | ReadonlyArray<string>,
   limit: number
 ) {
-  const tsquery = sql`plainto_tsquery('english', ${query})`
+  const queries = typeof query === "string" ? [query] : query
+  if (queries.length === 0) return []
+  const tsquery = toTsquery(queries)
   return yield* db
     .select({ ...glossMatch, rank: sql<number>`-ts_rank(${glosses.document}, ${tsquery})`.mapWith(Number) })
     .from(glosses)
@@ -474,6 +557,35 @@ export const searchGlosses = Effect.fn("dictionary.searchGlosses")(function* (
     .innerJoin(senses, and(eq(senses.entryId, glosses.entryId), eq(senses.position, glosses.sense)))
     .where(and(eq(entries.language, "ja"), sql`${glosses.document} @@ ${tsquery}`))
     .orderBy(sql`-ts_rank(${glosses.document}, ${tsquery})`)
+    .limit(limit)
+}, Effect.orDie)
+
+/** Trigram similarity search over the normalised English glosses of Japanese words, for typos and partial phrases. */
+export const searchGlossesFuzzy = Effect.fn("dictionary.searchGlossesFuzzy")(function* (
+  db: DatabaseShape,
+  query: string,
+  limit: number
+) {
+  const norms = [...new Set([normalizeGloss(query), normalizeEnglishPhrase(query)])].filter((n) => n.length >= 3)
+  if (norms.length === 0) return []
+  const condition = sql.join(
+    norms.map((norm) => sql`${glosses.norm} % ${norm}`),
+    sql` OR `
+  )
+  const similarity =
+    norms.length === 1
+      ? sql<number>`similarity(${glosses.norm}, ${norms[0]!})`
+      : sql<number>`greatest(${sql.join(
+          norms.map((norm) => sql`similarity(${glosses.norm}, ${norm})`),
+          sql`, `
+        )})`
+  return yield* db
+    .select({ ...glossMatch, rank: sql<number>`-(${similarity}) * 10`.mapWith(Number) })
+    .from(glosses)
+    .innerJoin(entries, eq(entries.id, glosses.entryId))
+    .innerJoin(senses, and(eq(senses.entryId, glosses.entryId), eq(senses.position, glosses.sense)))
+    .where(and(eq(entries.language, "ja"), sql`(${condition})`))
+    .orderBy(desc(similarity), desc(entries.common), desc(entries.priority))
     .limit(limit)
 }, Effect.orDie)
 
@@ -487,15 +599,15 @@ const glossesWithNorm = (db: DatabaseShape, norms: ReadonlyArray<string>, langua
     .orderBy(desc(entries.common), desc(entries.priority))
     .limit(limit)
 
-/** English glosses of Japanese words whose normalised text equals `normalizeGloss(query)`. */
+/** English glosses of Japanese words matching `query` or its pronoun/placeholder variants (`englishPhraseVariants`). */
 export const findGlossesExact = Effect.fn("dictionary.findGlossesExact")(function* (
   db: DatabaseShape,
   query: string,
   limit: number
 ) {
-  const norm = normalizeGloss(query)
-  if (norm.length === 0) return []
-  return yield* glossesWithNorm(db, [norm], "ja", limit)
+  const norms = englishPhraseVariants(query)
+  if (norms.length === 0) return []
+  return yield* glossesWithNorm(db, norms, "ja", limit)
 }, Effect.orDie)
 
 /** Japanese glosses of English words whose normalised text is one of `norms` (see `normalizeJapaneseGloss`). */

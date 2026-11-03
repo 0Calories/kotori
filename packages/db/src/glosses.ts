@@ -30,6 +30,7 @@ export const glosses = table(
     ),
     index("glosses_sense").on(t.entryId, t.sense),
     index("glosses_norm").on(t.norm),
-    index("glosses_document").using("gin", t.document)
+    index("glosses_document").using("gin", t.document),
+    index("glosses_trgm").using("gin", t.norm.op("gin_trgm_ops"))
   ]
 )

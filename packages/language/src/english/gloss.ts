@@ -5,11 +5,111 @@
 export const normalizeGloss = (text: string) =>
   text
     .toLowerCase()
+    .replace(/’/g, "'")
     .replace(/\([^)]*\)/g, " ")
     .replace(/[^\p{L}\p{N}' -]/gu, " ")
     .replace(/\s+/g, " ")
     .trim()
     .replace(/^(to|a|an|the) /, "")
+
+const POSSESSIVES = new Set([
+  "my",
+  "your",
+  "his",
+  "her",
+  "its",
+  "our",
+  "their",
+  "one's",
+  "ones",
+  "someone's",
+  "someones",
+  "somebody's",
+  "somebodys",
+  "sb's"
+])
+
+const OBJECTS = new Set(["me", "you", "him", "us", "them", "someone", "somebody", "sb"])
+
+const REFLEXIVES = new Set([
+  "myself",
+  "yourself",
+  "yourselves",
+  "himself",
+  "herself",
+  "ourselves",
+  "themselves",
+  "oneself"
+])
+
+const ARTICLES = new Set(["a", "an", "the"])
+
+/** Idiom placeholders and articles that vary or drop out when learners look up a phrase. */
+const PHRASE_FILLERS = new Set([...POSSESSIVES, ...OBJECTS, ...REFLEXIVES, ...ARTICLES, "something", "sth", "sth's"])
+
+const CANONICAL_POSSESSIVES = ["one's", "someone's", "somebody's", ""] as const
+const CANONICAL_OBJECTS = ["someone", "somebody", "one", "one's", "someone's", "somebody's", ""] as const
+const INSERTED_FILLERS = ["one's", "someone's", "somebody's", "the", "a"] as const
+
+/**
+ * Normalises an English phrase with variable pronouns and articles stripped out, so
+ * "get on my nerves", "get on nerves" and "to get on one's nerves" all become "get on nerves".
+ * When every word is a filler ("someone", "myself"), the normalised word itself is kept.
+ */
+export const normalizeEnglishPhrase = (text: string) => {
+  const norm = normalizeGloss(text)
+  const words = norm.split(" ").filter((word) => word.length > 0 && !PHRASE_FILLERS.has(word))
+  return words.length > 0 ? words.join(" ") : norm
+}
+
+/**
+ * The ways a dictionary may write an English phrase looked up as `text`: as typed, without
+ * pronouns or articles, with "my" / "me" / "myself" replaced by "one's" / "someone's" /
+ * "oneself", or with an omitted placeholder restored ("get on nerves" -> "get on one's nerves").
+ */
+export const englishPhraseVariants = (text: string): Array<string> => {
+  const norm = normalizeGloss(text)
+  if (norm.length === 0) return []
+  const variants = new Set<string>([norm, normalizeEnglishPhrase(text)])
+  const words = norm.split(" ")
+  if (words.length < 2) return [...variants]
+
+  const replaceAt = (index: number, replacements: ReadonlyArray<string>) => {
+    for (const replacement of replacements) {
+      const next = [...words.slice(0, index), ...(replacement === "" ? [] : [replacement]), ...words.slice(index + 1)]
+      if (next.length > 0) variants.add(next.join(" "))
+    }
+  }
+
+  let hadPronoun = false
+  words.forEach((word, index) => {
+    if (POSSESSIVES.has(word)) {
+      hadPronoun = true
+      replaceAt(index, CANONICAL_POSSESSIVES)
+    }
+    if (OBJECTS.has(word)) {
+      hadPronoun = true
+      replaceAt(index, CANONICAL_OBJECTS)
+    }
+    if (REFLEXIVES.has(word)) {
+      hadPronoun = true
+      replaceAt(index, ["oneself"])
+    }
+  })
+
+  // When no pronoun was typed ("get on nerves", "wrap head around", "beat around bush"),
+  // try the two slots idioms put one: before the last word and after the first.
+  if (!hadPronoun && words.length <= 5) {
+    for (const filler of INSERTED_FILLERS) {
+      variants.add([...words.slice(0, -1), filler, words[words.length - 1]!].join(" "))
+      if (words.length >= 3) {
+        variants.add([words[0]!, filler, ...words.slice(1)].join(" "))
+      }
+    }
+  }
+
+  return [...variants]
+}
 
 /** Bracketed asides in a gloss, innermost first: (…), 〈…〉, 《…》, 〔…〕 and […] after NFKC. */
 const ASIDE = /\([^()]*\)|〈[^〈〉]*〉|《[^《》]*》|〔[^〔〕]*〕|\[[^[\]]*\]/g

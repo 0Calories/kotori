@@ -1,0 +1,147 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "c37516c6-f207-4215-9a98-45733eb354ee",
+  "prevIds": ["47c2d11a-ba08-4441-82f8-a03a8abab308"],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "forms", "document"],
+      "writes": ["s|col|public.forms.document", "n|col|public.forms.document", "e|col|public.forms.document"],
+      "reads": ["n|tbl|public.forms", "n|sch|public"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "forms", "forms_document"],
+      "writes": [
+        "s|idx|public.forms_document",
+        "n|idx|public.forms_document",
+        "e|idx|public.forms_document",
+        "n|rel|public.forms_document"
+      ],
+      "reads": ["n|tbl|public.forms", "n|sch|public", "n|col|public.forms.document"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "forms", "forms_trgm"],
+      "writes": [
+        "s|idx|public.forms_trgm",
+        "n|idx|public.forms_trgm",
+        "e|idx|public.forms_trgm",
+        "n|rel|public.forms_trgm"
+      ],
+      "reads": ["n|tbl|public.forms", "n|sch|public", "n|col|public.forms.text"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "glosses", "glosses_trgm"],
+      "writes": [
+        "s|idx|public.glosses_trgm",
+        "n|idx|public.glosses_trgm",
+        "e|idx|public.glosses_trgm",
+        "n|rel|public.glosses_trgm"
+      ],
+      "reads": ["n|tbl|public.glosses", "n|sch|public", "n|col|public.glosses.norm"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "forms",
+        "name": "document",
+        "type": "tsvector",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": {
+          "as": "to_tsvector('english', \"forms\".\"text\")",
+          "type": "stored"
+        },
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "forms",
+        "name": "forms_document",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "document",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "gin",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "forms",
+        "name": "forms_trgm",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "text",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": {
+              "name": "gin_trgm_ops",
+              "default": false
+            }
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "gin",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "glosses",
+        "name": "glosses_trgm",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "norm",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": {
+              "name": "gin_trgm_ops",
+              "default": false
+            }
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "gin",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    }
+  ]
+}

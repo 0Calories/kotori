@@ -15,9 +15,11 @@ import {
 } from "@kotori/contracts"
 import {
   deinflect,
+  englishPhraseVariants,
   hasJapanese,
   katakanaToHiragana,
   matchesPartOfSpeech,
+  normalizeEnglishPhrase,
   normalizeGloss,
   normalizeJapaneseGloss,
   romajiToKana,
@@ -38,7 +40,10 @@ import {
   findJapaneseGlosses,
   getEntries,
   entryRanks,
+  searchForms,
+  searchFormsFuzzy,
   searchGlosses,
+  searchGlossesFuzzy,
   searchJapaneseGlosses,
   tagLabels
 } from "./queries.ts"
@@ -96,10 +101,91 @@ const TAG_PENALTY: Record<string, number> = {
 
 const tagPenalty = (misc: ReadonlyArray<string>) => misc.reduce((sum, tag) => sum + (TAG_PENALTY[tag] ?? 0), 0)
 
-/** An FTS5 expression requiring every word of the query, each quoted so user input can't be parsed as syntax. */
+/** Idiom placeholders Postgres doesn't treat as stopwords; stripped when content words remain. */
+const FTS_PLACEHOLDERS = new Set([
+  "one's",
+  "ones",
+  "oneself",
+  "someone's",
+  "someones",
+  "someone",
+  "somebody's",
+  "somebodys",
+  "somebody",
+  "something",
+  "sb",
+  "sb's",
+  "sth",
+  "sth's"
+])
+
+/** Common English stopwords, ignored when building (k-1)-of-k relaxed token combinations. */
+const FTS_STOPWORDS = new Set([
+  ...FTS_PLACEHOLDERS,
+  "a",
+  "an",
+  "the",
+  "to",
+  "of",
+  "in",
+  "on",
+  "at",
+  "by",
+  "for",
+  "with",
+  "from",
+  "as",
+  "into",
+  "about",
+  "my",
+  "your",
+  "his",
+  "her",
+  "its",
+  "our",
+  "their",
+  "me",
+  "you",
+  "him",
+  "us",
+  "them",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "being"
+])
+
+const queryWords = (query: string) =>
+  query
+    .toLowerCase()
+    .replace(/’/g, "'")
+    .match(/[\p{L}\p{N}']+/gu) ?? []
+
+/** A full-text expression requiring every content word of the query, with idiom placeholders stripped when other words remain. */
 const ftsExpression = (query: string) => {
-  const words = query.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []
-  return words.length === 0 ? null : words.map((word) => `"${word}"`).join(" ")
+  const words = queryWords(query)
+  if (words.length === 0) return null
+  const content = words.filter((word) => !FTS_PLACEHOLDERS.has(word)).flatMap((word) => word.split("'").filter(Boolean))
+  const chosen = content.length > 0 ? content : words.flatMap((word) => word.split("'").filter(Boolean))
+  return chosen.length === 0 ? null : chosen.map((word) => `"${word}"`).join(" ")
+}
+
+/**
+ * For a 3–6 content-word phrase where one word was altered or omitted ("walk on thin ice" for
+ * "skate on thin ice"), the (k-1)-word subqueries: each drops one content word.
+ */
+const relaxedFtsExpressions = (query: string): Array<string> => {
+  const content = unique(
+    queryWords(query)
+      .filter((word) => !FTS_STOPWORDS.has(word))
+      .map((word) => word.replace(/'s$/, ""))
+      .filter((word) => word.length > 1)
+  )
+  if (content.length < 3 || content.length > 6) return []
+  return content.map((_, drop) => content.filter((__, index) => index !== drop).join(" "))
 }
 
 /** How well a gloss answers a query in the glosses' language, normalised as that language is. */
@@ -255,15 +341,39 @@ export class Dictionary extends Context.Service<
       const englishGlossHits = Effect.fnUntraced(function* (query: string) {
         const expression = ftsExpression(query)
         const exact = yield* findGlossesExact(db, query, 300)
-        const fuzzy = expression === null ? [] : yield* searchGlosses(db, expression, 600)
+        const strict = expression === null ? [] : yield* searchGlosses(db, expression, 600)
+        // When exact and all-words FTS find little, fall back to (k-1)-of-k token matches and trigram similarity.
+        const needFallback = exact.length === 0 && strict.length < 3
+        const relaxedQueries = needFallback ? relaxedFtsExpressions(query) : []
+        const [relaxed, trgm] = needFallback
+          ? yield* Effect.all([
+              relaxedQueries.length === 0 ? Effect.succeed([]) : searchGlosses(db, relaxedQueries, 200),
+              searchGlossesFuzzy(db, query, 200)
+            ])
+          : [[], []]
+
         const norm = normalizeGloss(query)
-        const ranks = yield* entryRanks(db, unique([...exact, ...fuzzy].map((match) => match.entryId)))
-        const score = (match: GlossMatch, isExact: boolean): Hit => ({
-          entryId: match.entryId,
-          score: glossScore(match, isExact, norm, normalizeGloss, ranks.get(match.entryId)),
-          inflection: []
-        })
-        return keepBest([...exact.map((m) => score(m, true)), ...fuzzy.map((m) => score(m, false))])
+        const phraseNorm = normalizeEnglishPhrase(query)
+        const allMatches = [...exact, ...strict, ...relaxed, ...trgm]
+        const ranks = yield* entryRanks(db, unique(allMatches.map((match) => match.entryId)))
+        const score = (match: GlossMatch, isExact: boolean, penalty = 0): Hit => {
+          const phraseExact = isExact || (phraseNorm.length > 0 && normalizeEnglishPhrase(match.text) === phraseNorm)
+          const literalBonus = phraseExact && normalizeGloss(match.text) === norm ? 5 : 0
+          return {
+            entryId: match.entryId,
+            score:
+              glossScore(match, phraseExact, phraseNorm || norm, normalizeEnglishPhrase, ranks.get(match.entryId)) +
+              literalBonus -
+              penalty,
+            inflection: []
+          }
+        }
+        return keepBest([
+          ...exact.map((m) => score(m, true)),
+          ...strict.map((m) => score(m, false)),
+          ...relaxed.map((m) => score(m, false, 15)),
+          ...trgm.map((m) => score(m, false, 20))
+        ])
       })
 
       const searchJapanese = Effect.fnUntraced(function* (query: string) {
@@ -290,13 +400,15 @@ export class Dictionary extends Context.Service<
 
       /**
        * English words by their spelling, the way Japanese words are found by their forms:
-       * as written, through their inflections ("ate" finds eat, marked past), and by prefix.
+       * as written, through their inflections ("ate" finds eat, marked past), by prefix,
+       * and for phrases or typos by stemmed tokens and trigram similarity.
        * Words whose sources list no inflections are reached by the regular rules ("teams").
        */
       const englishWordHits = Effect.fnUntraced(function* (query: string) {
         const guesses = uninflect(query)
+        const variants = unique([query, ...englishPhraseVariants(query)])
         const [matches, guessed] = yield* Effect.all([
-          findForms(db, [query], "en"),
+          findForms(db, variants, "en"),
           guesses.length === 0
             ? Effect.succeed([])
             : findForms(
@@ -306,18 +418,39 @@ export class Dictionary extends Context.Service<
               )
         ])
         const prefixIds = yield* findFormPrefix(db, query, 40, "en")
-        const ranks = yield* entryRanks(db, unique([...matches, ...guessed].map((m) => m.entryId).concat(prefixIds)))
+        const expression = ftsExpression(query)
+        const isPhrase = /\s/.test(query)
+        const hasDirect = matches.length > 0 || guessed.length > 0 || prefixIds.length > 0
+        const strict =
+          expression !== null && (isPhrase || !hasDirect) ? yield* searchForms(db, expression, 60, "en") : []
+        const needFallback = !hasDirect && strict.length === 0
+        const relaxedQueries = needFallback ? relaxedFtsExpressions(query) : []
+        const [relaxed, trgm] = needFallback
+          ? yield* Effect.all([
+              relaxedQueries.length === 0 ? Effect.succeed([]) : searchForms(db, relaxedQueries, 40, "en"),
+              searchFormsFuzzy(db, query, 40, "en")
+            ])
+          : [[], []]
+
+        const ranks = yield* entryRanks(
+          db,
+          unique([...matches, ...guessed, ...strict, ...relaxed, ...trgm].map((m) => m.entryId).concat(prefixIds))
+        )
         const guessedEntries = new Map(
           (yield* getEntries(db, unique(guessed.map((match) => match.entryId)))).map((entry) => [entry.id, entry])
         )
+        const lowerQuery = query.toLowerCase()
+        const phraseNorm = normalizeEnglishPhrase(query)
 
         const exact = matches.map((match): Hit => {
           const inflected = match.kind === "inflection"
+          const isDirect = match.text.toLowerCase() === lowerQuery
           // An acronym spelled like the word looked up ("EAT" for "eat") is another word altogether.
           const acronym = match.text !== query && isAcronym(match.text)
+          const base = acronym ? 350 : inflected ? 800 : isDirect ? 1000 : 900
           return {
             entryId: match.entryId,
-            score: formScore(acronym ? 350 : inflected ? 800 : 1000, match.text === query, ranks.get(match.entryId)),
+            score: formScore(base, match.text === query, ranks.get(match.entryId)),
             inflection: inflected ? match.tags : []
           }
         })
@@ -337,7 +470,25 @@ export class Dictionary extends Context.Service<
           score: 400 - index + (ranks.get(entryId)?.common ? 50 : 0),
           inflection: []
         }))
-        return keepBest([...exact, ...byRule, ...prefix])
+        const byTokens = strict.map((match): Hit => {
+          const phraseExact = phraseNorm.length > 0 && normalizeEnglishPhrase(match.text) === phraseNorm
+          return {
+            entryId: match.entryId,
+            score: formScore(phraseExact ? 720 : 500, false, ranks.get(match.entryId)) + Math.min(10, -match.rank),
+            inflection: []
+          }
+        })
+        const byRelaxed = relaxed.map((match): Hit => ({
+          entryId: match.entryId,
+          score: formScore(320, false, ranks.get(match.entryId)) + Math.min(10, -match.rank),
+          inflection: []
+        }))
+        const byFuzzy = trgm.map((match): Hit => ({
+          entryId: match.entryId,
+          score: formScore(250 + Math.round(match.similarity * 100), false, ranks.get(match.entryId)),
+          inflection: []
+        }))
+        return keepBest([...exact, ...byRule, ...byTokens, ...prefix, ...byRelaxed, ...byFuzzy])
       })
 
       /**
