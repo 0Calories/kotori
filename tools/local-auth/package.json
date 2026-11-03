@@ -4,6 +4,7 @@
   "private": true,
   "description": "A stand-in for Neon's Managed Better Auth, so the API runs locally without a Neon branch",
   "type": "module",
+  "main": "./src/main.ts",
   "scripts": {
     "dev": "tsx watch --clear-screen=false -C @kotori/source src/main.ts"
   },

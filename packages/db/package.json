@@ -27,6 +27,21 @@
     "tags": [
       "scope:shared",
       "type:db"
-    ]
+    ],
+    "targets": {
+      "check": {
+        "cache": true,
+        "inputs": [
+          "{projectRoot}/drizzle.config.ts",
+          "{projectRoot}/src/**/*",
+          "{projectRoot}/migrations/**/*",
+          {
+            "externalDependencies": [
+              "drizzle-kit"
+            ]
+          }
+        ]
+      }
+    }
   }
 }
