@@ -179,7 +179,8 @@ export default function LookUpScreen() {
           paddingBottom: 22,
           backgroundColor: theme.color.primaryTint,
           borderRadius: theme.radius.xl,
-          overflow: "hidden"
+          overflow: "hidden",
+          marginTop: theme.space.md
         }}
       >
         <Snow />
