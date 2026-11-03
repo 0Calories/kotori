@@ -41,9 +41,8 @@ tools/
 
 Everything follows from the tables in `packages/db`: the backend's queries infer their rows from
 them, `packages/contracts` derives the wire schemas from them, and the app is typed by the
-contract. Change a column and typechecking fails wherever the change matters.
-[`docs/monorepo-rearchitecture.md`](docs/monorepo-rearchitecture.md) explains the layout and the
-boundaries `pnpm lint` enforces between projects.
+contract. Change a column and typechecking fails wherever the change matters. Boundaries between
+projects are enforced by `pnpm lint` (`.oxlintrc.json`).
 
 Run `pnpm graph` (`nx graph`) to explore how the packages fit together.
 
@@ -117,10 +116,10 @@ pnpm kotori status                          # check coverage and queue depth
 
 All enrichment commands skip entries that are already complete, so they can be interrupted and re-run safely.
 
-- **Nuance (Jev)** — TypeSafe's Jev (`jev-1.14.0`) evaluates an entry in a single pass, scoring formality and spoken vs. written register alongside keigo, speaker gender/age, currency, connotation, learner cautions, and candidate synonyms. Explicit dictionary usage tags (such as `hon`, `col`, or `male`) take precedence over model guesses, and low-confidence judgments are hidden. Raw probability distributions are stored in Postgres so display labels can be re-derived without re-running inference (`pnpm kotori enrich nuance --reinterpret`) and benchmarked against a golden set (`pnpm kotori eval nuance` and `pnpm kotori eval english`). See [`docs/nuance-rework.md`](docs/nuance-rework.md) and [`docs/nuance-on-english-entries.md`](docs/nuance-on-english-entries.md).
+- **Nuance (Jev)** — TypeSafe's Jev (`jev-1.14.0`) evaluates an entry in a single pass, scoring formality and spoken vs. written register alongside keigo, speaker gender/age, currency, connotation, learner cautions, and candidate synonyms. Explicit dictionary usage tags (such as `hon`, `col`, or `male`) take precedence over model guesses, and low-confidence judgments are hidden. Raw probability distributions are stored in Postgres so display labels can be re-derived without re-running inference (`pnpm kotori enrich nuance --reinterpret`) and benchmarked against a golden set (`pnpm kotori eval nuance` and `pnpm kotori eval english`).
 - **English dictionary & katakana loans** — For Japanese speakers learning English, the backend's dictionary import (`features/dictionary/import/eiwa`) assembles ~65k English headwords from [Japanese Wiktionary](https://ja.wiktionary.org), [EJDict-hand](https://github.com/kujirahand/EJDict), and attested English glosses in JMDict, ranked by [OpenSubtitles word frequency](https://github.com/hermitdave/FrequencyWords). In addition to register and US/UK variety, Jev checks whether an English word's katakana loanword has drifted in meaning — warning Japanese learners when a familiar katakana word like スタイル (*body figure*) doesn't match English *style*.
 - **Examples (Claude)** — Generated via structured outputs validated with Effect Schema. Furigana is written inline as `{漢字|かんじ}` and verified against the Japanese text before saving.
-- **Audio (ElevenLabs)** — Cached by content hash `(voice, model, text)` so each clip is synthesized once, guarded by a 30-day character budget (`KOTORI_AUDIO_MONTHLY_CHARS`, default `500000`). See [`docs/voice-casting.md`](docs/voice-casting.md).
+- **Audio (ElevenLabs)** — Cached by content hash `(voice, model, text)` so each clip is synthesized once, guarded by a 30-day character budget (`KOTORI_AUDIO_MONTHLY_CHARS`, default `500000`).
 
 ## Accounts and authentication
 
@@ -142,8 +141,6 @@ For day-to-day development, `pnpm dev` runs `tools/local-auth` on port 4001 to e
 - To test the real sign-up, sign-in, and pending screens locally, set `EXPO_PUBLIC_DEV_SIGN_IN=off`. Verification and password-reset codes are printed to the console when `RESEND_API_KEY` is unset.
 - To run against a live Neon branch instead of local Docker, run `neon checkout <branch>` (which writes `DATABASE_URL` and `NEON_AUTH_BASE_URL` to `.env.local`).
 
-See [`docs/operations.md`](docs/operations.md) for production architecture and webhook details.
-
 ## Development commands
 
 ```sh
@@ -157,7 +154,22 @@ pnpm assets        # re-render app icons and splash screen from the mascot geome
 pnpm motion        # preview a mascot animation clip, e.g. `pnpm motion celebrate`
 ```
 
-CI (`.github/workflows/ci.yml`) checks project references, formatting, linting, types, tests, and builds on every push, then runs `nx affected -t deploy` on `main` to deploy the API/worker to Fly.io and the web app to Vercel. See [`docs/operations.md`](docs/operations.md) and [`docs/deploy.md`](docs/deploy.md).
+## Deploying
+
+Production runs on **Fly.io** (compute), **Neon** (Postgres 18 + Managed Better Auth), and **Vercel** (static Expo web bundle).
+
+- **CI/CD** (`.github/workflows/ci.yml`) runs `nx sync:check`, `pnpm format:check`, `pnpm lint`, and `nx affected -t typecheck test build` on every push. On `main`, it runs `nx affected -t deploy`:
+  - `@kotori/backend:deploy` (`flyctl deploy --remote-only`, using `FLY_API_TOKEN`) deploys one Docker image for the `api` and `worker` process groups (`fly.toml`), running `kotori migrate` as Fly's `release_command` before rolling new machines.
+  - `@kotori/app:deploy` (`vercel pull && vercel build --prod && vercel deploy --prebuilt --prod`, using `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`) deploys the static web bundle (`vercel.json`).
+  - Manual deploys: `pnpm nx run @kotori/backend:deploy` or `pnpm nx run @kotori/app:deploy`.
+- **Database migrations** (`packages/db/migrations`, generated via `pnpm --filter @kotori/db generate`) are forward-only. Because `release_command` migrates before new machines roll, destructive schema changes must use two deploys (expand first, contract in a later release).
+- **Seeding production dictionaries**: `pnpm kotori seed` (`--dictionary jmdict|english`) imports or updates dictionaries in place while preserving sense-linked enrichment and saved notes. Because the English Wiktionary stream peaks around ~500 MB RAM, run `pnpm kotori seed --dictionary english` from a local machine with the production `DATABASE_URL` rather than on the 512 MB Fly worker.
+- **Managed Auth & webhooks**: The API proxies `/api/auth/*` to `NEON_AUTH_BASE_URL` and verifies 15-minute EdDSA JWTs against Neon's JWKS (plus checking `neon_auth.session` for immediate revocation). Both the API and web origins must be registered as Neon Auth trusted domains (`KOTORI_WEB_ORIGINS` in `fly.toml` controls CORS for browser cookies). Verification and password-reset codes are delivered by Neon to `POST /webhooks/neon-auth` (verified via `X-Neon-Signature-Kid` and sent via Resend):
+  ```sh
+  neon neon-auth config email-password update --email-verification-method otp
+  neon neon-auth config webhook update --enabled --url https://<api-host>/webhooks/neon-auth \
+    --enabled-events send.otp send.magic_link --timeout 10
+  ```
 
 ## Data sources and credits
 
