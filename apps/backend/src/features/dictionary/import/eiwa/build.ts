@@ -1,5 +1,5 @@
 import { EntryId, type EntryRecord, type FormRecord, type SenseRecord } from "@kotori/contracts"
-import { type EnglishInflection, normalizeJapaneseGloss } from "@kotori/language"
+import { type EnglishInflection, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
 import type { FormOf, InflectedForm, References, Word } from "./words.ts"
 
 /** English entries are numbered from here, well above JMDict's sequence numbers (at most 9,999,999). */
@@ -8,25 +8,32 @@ const FIRST_ENGLISH_ID = 100_000_000
 /** How many of the most used words count as common, as JMDict's markers make about a tenth of its words common. */
 const COMMON_WORDS = 10_000
 
-/** A word as the dictionary will hold it. */
-export interface Built {
+/** Baseline usage count for curated idioms/slang that don't appear in `en_50k.txt` unigrams. */
+const CURATED_FLOOR = 1_000
+
+export type Source = "curated" | "wiktionary" | "ejdict" | "jmdict"
+
+/** A word as the dictionary will hold it, with where it came from. */
+interface Built {
   readonly headword: string
+  readonly source: Source
   ipa: string | null
-  readonly familiarity?: number | undefined
   readonly spellings: Set<string>
   readonly inflections: Map<string, Set<EnglishInflection>>
   readonly senses: Word["senses"]
   readonly references: ReadonlyArray<References>
+  readonly mayBeName: boolean
 }
 
-const built = (word: Word): Built => ({
+const built = (word: Word, source: Source): Built => ({
   headword: word.headword,
+  source,
   ipa: word.ipa,
-  familiarity: word.familiarity,
   spellings: new Set(word.spellings.filter((spelling) => spelling !== word.headword)),
   inflections: new Map(word.inflections.map((form) => [form.text, new Set(form.tags)])),
   senses: word.senses,
-  references: word.references ?? []
+  references: word.references ?? [],
+  mayBeName: word.mayBeName ?? false
 })
 
 const addInflection = (word: Built, form: InflectedForm) => {
@@ -37,27 +44,47 @@ const addInflection = (word: Built, form: InflectedForm) => {
 }
 
 export interface Sources {
-  readonly wiktionary: {
-    readonly words: ReadonlyArray<Word>
-    readonly formsOf?: ReadonlyArray<FormOf> | undefined
-  }
+  /** Curated English Wiktionary entries (`enwiktionary-ja.jsonl`), consolidated and learner-ordered. */
+  readonly curated?: { readonly words: ReadonlyArray<Word>; readonly formsOf?: ReadonlyArray<FormOf> } | undefined
+  /** Japanese Wiktionary next: it has parts of speech, IPA and inflections. */
+  readonly wiktionary: { readonly words: ReadonlyArray<Word>; readonly formsOf: ReadonlyArray<FormOf> }
+  readonly ejdict: { readonly words: ReadonlyArray<Word>; readonly formsOf: ReadonlyArray<FormOf> }
+  /** Built knowing the other sources, so it only has words they lack. */
+  readonly jmdict: ReadonlyArray<Word>
+  readonly frequency: ReadonlyMap<string, number>
 }
 
 /**
- * Prepares the dictionary's words and attaches any standalone `form-of` entries onto
- * their base headwords. Case tells words apart ("Polish", "polish", "GOAT", "goat").
+ * One dictionary from the sources: each headword from the first source that has it,
+ * with the forms the others point at it. Case tells words apart ("Polish", "polish").
  */
 export const mergeSources = (sources: Sources): Array<Built> => {
   const words = new Map<string, Built>()
-  for (const word of sources.wiktionary.words) {
-    if (!words.has(word.headword)) words.set(word.headword, built(word))
+  const add = (word: Word, source: Source) => {
+    const existing = words.get(word.headword)
+    if (existing === undefined) {
+      words.set(word.headword, built(word, source))
+      return
+    }
+    // If a curated entry lacks IPA or an inflection that Wiktionary has, inherit those forms.
+    if (existing.source === "curated") {
+      existing.ipa ??= word.ipa
+      for (const spelling of word.spellings) {
+        if (spelling !== existing.headword) existing.spellings.add(spelling)
+      }
+      for (const form of word.inflections) addInflection(existing, form)
+    }
   }
+  for (const word of sources.curated?.words ?? []) add(word, "curated")
+  for (const word of sources.wiktionary.words) add(word, "wiktionary")
+  for (const word of sources.ejdict.words) add(word, "ejdict")
+  for (const word of sources.jmdict) add(word, "jmdict")
 
   const folded = new Map<string, Built>()
-  for (const word of words.values()) {
+  for (const word of words.values())
     if (!folded.has(word.headword.toLowerCase())) folded.set(word.headword.toLowerCase(), word)
-  }
-  for (const form of sources.wiktionary.formsOf ?? []) {
+  const formsOf = [...(sources.curated?.formsOf ?? []), ...sources.wiktionary.formsOf, ...sources.ejdict.formsOf]
+  for (const form of formsOf) {
     const base = words.get(form.base) ?? folded.get(form.base.toLowerCase())
     if (base === undefined || form.text === base.headword) continue
     if (form.tags.length === 0) base.spellings.add(form.text)
@@ -127,6 +154,7 @@ const placeReferences = (words: ReadonlyArray<Built>) => {
         if (best !== -1 && !into[best]!.includes(other)) into[best]!.push(other)
       }
       for (const synonym of synonyms) place(synonym, xrefs, true)
+      // Opposites rarely share a gloss, so only a part of speech with one sense places them.
       for (const antonym of opposites) place(antonym, antonyms, false)
     }
     return word.senses.map((sense, index) => ({ ...sense, xrefs: xrefs[index]!, antonyms: antonyms[index]! }))
@@ -137,42 +165,58 @@ const placeReferences = (words: ReadonlyArray<Built>) => {
 const LITTLE_USED = new Set(["arch", "obs", "rare", "dated", "hist"])
 
 /**
- * Keeps the consolidated sense order while placing any archaic, obsolete, rare, or dated
- * senses after current ones.
+ * The Japanese words a gloss may name, for matching it to JMDict's spellings: the gloss as
+ * looked up ("～を食べる" -> "食べる"), and without a な, の, に, と, だ or する ending, as
+ * JMDict writes na-adjectives, adverbs and suru verbs bare ("利口な", "勉強する").
  */
-export const commonestFirst = (senses: ReadonlyArray<SenseRecord>): Array<SenseRecord> => {
+const namedWords = (gloss: string) => {
+  const word = normalizeJapaneseGloss(gloss)
+  const bare = word.replace(/(?:をする|する|な|の|に|と|だ)$/u, "")
+  return bare.length > 0 && bare !== word ? [word, bare] : [word]
+}
+
+/**
+ * Senses commonest first, as JMDict lists them. Wiktionary often lists the oldest or most
+ * literal senses first ("kid": a young goat; "coffee": the coffee plant; "smart": to sting),
+ * and no common Japanese word translates those. So a sense is attested when it names, among
+ * its glosses, a common Japanese word that JMDict translates with the English word
+ * (`backTranslations`), weighted by that word's best weight. The first attested sense leads;
+ * the other attested senses follow by weight ("fall": 秋 rises from twelfth to sixth); the rest
+ * keep Wiktionary's order after them; and archaic, obsolete, rare and dated senses go last
+ * ("sad": 満足した, obsolete). A sense's weight is its heaviest word's, not their sum: summed,
+ * senses listing more synonyms won ("cool" led with 冷淡な, "kid" with からかう).
+ */
+export const commonestFirst = (
+  senses: ReadonlyArray<SenseRecord>,
+  attested: ReadonlyMap<string, number> = new Map()
+): Array<SenseRecord> => {
   const littleUsed = (sense: SenseRecord) => sense.misc.some((tag) => LITTLE_USED.has(tag))
-  return senses
-    .map((sense, index) => ({ sense, index, little: littleUsed(sense) ? 1 : 0 }))
-    .toSorted((a, b) => a.little - b.little || a.index - b.index)
+  const weight = (sense: SenseRecord) =>
+    Math.max(0, ...sense.glosses.flatMap((gloss) => namedWords(gloss.text).map((word) => attested.get(word) ?? 0)))
+  const ranked = senses.map((sense, index) => ({ sense, index, weight: weight(sense), little: littleUsed(sense) }))
+  const lead = ranked.find((sense) => !sense.little && sense.weight > 0)
+  const rank = (sense: (typeof ranked)[number]) => (sense.little ? 3 : sense === lead ? 0 : sense.weight > 0 ? 1 : 2)
+  return ranked
+    .toSorted((a, b) => rank(a) - rank(b) || (rank(a) === 1 ? b.weight - a.weight : 0) || a.index - b.index)
     .map(({ sense }) => sense)
 }
 
 const pronoun = (word: Built) => word.senses.some((sense) => sense.pos.includes("pn"))
 
-const FAMILIARITY_COUNTS: Readonly<Record<number, number>> = {
-  5: 10_000,
-  4: 1_000,
-  3: 100,
-  2: 10,
-  1: 0
-}
-
 /**
  * How often a word is used: its own count and its inflections', since "ate" is "eat" being
- * used. When a multi-word idiom ("keep it real", "under the weather", "hang out") or modern
- * slang ("no cap", "rizz", "GOAT") has no count in the single-word subtitle corpus, its
- * consolidated familiarity rating provides a fallback usage weight.
+ * used. The counts are of lowercased text, so where a capitalised word has a lowercase twin
+ * the count is the twin's: "a", not the letter "A"; "may", not the month. Only the pronoun
+ * "I" outranks its twin, the letter "i".
  */
 const usage = (word: Built, frequency: ReadonlyMap<string, number>, lowercase: ReadonlyMap<string, Built>) => {
   const twin = lowercase.get(word.headword.toLowerCase())
-  const isAcronym = word.senses.some((s) => s.misc.includes("abbr"))
-  if (twin !== undefined && twin !== word && !isAcronym && !(pronoun(word) && !pronoun(twin))) return 0
+  if (twin !== undefined && twin !== word && !(pronoun(word) && !pronoun(twin))) return 0
   const forms = new Set([word.headword, ...word.inflections.keys()].map((form) => form.toLowerCase()))
   let count = 0
   for (const form of forms) count += frequency.get(form) ?? 0
-  if (count > 0) return count
-  return word.familiarity !== undefined ? (FAMILIARITY_COUNTS[word.familiarity] ?? 0) : 0
+  if (count === 0 && word.source === "curated") return CURATED_FLOOR
+  return count
 }
 
 /** Usage folded into a priority on the scale of JMDict's (about 0–150), so ranking treats both alike. */
@@ -194,14 +238,15 @@ const form = (
 })
 
 /**
- * Entry records for the consolidated words, most used first. Words already in the database keep
+ * Entry records for the merged words, most used first. Words already in the database keep
  * their ids, so saved words and enrichment survive a re-import; new words are numbered on.
  */
 export const toEntries = (
   words: ReadonlyArray<Built>,
   frequency: ReadonlyMap<string, number>,
-  existing: ReadonlyMap<string, number>
-): Array<EntryRecord> => {
+  existing: ReadonlyMap<string, number>,
+  translations: ReadonlyMap<string, ReadonlyMap<string, number>> = new Map()
+): Array<EntryRecord & { readonly source: Source }> => {
   const lowercase = new Map(
     words.filter((word) => word.headword === word.headword.toLowerCase()).map((word) => [word.headword, word])
   )
@@ -214,13 +259,14 @@ export const toEntries = (
   const sensesOf = placeReferences(words)
   let commonSoFar = 0
   return ranked.map(({ word, count }) => {
-    const common =
-      word.familiarity !== undefined ? word.familiarity >= 4 : count > 0 && commonSoFar < COMMON_WORDS
-    if (count > 0) commonSoFar++
+    const common = !word.mayBeName && count > 0 && commonSoFar < COMMON_WORDS
+    if (common) commonSoFar++
     const spellings = [...word.spellings].filter((spelling) => !word.inflections.has(spelling))
+    const placedSenses = sensesOf(word)
     return {
       id: EntryId.make(existing.get(word.headword) ?? next++),
       language: "en" as const,
+      source: word.source,
       headword: word.headword,
       reading: word.ipa ?? "",
       common,
@@ -230,7 +276,17 @@ export const toEntries = (
         ...spellings.map((spelling) => form(spelling, "spelling", false, [])),
         ...[...word.inflections].map(([text, tags]) => form(text, "inflection", false, [...tags]))
       ],
-      senses: word.familiarity !== undefined ? [...sensesOf(word)] : commonestFirst(sensesOf(word))
+      // Curated entries already have senses consolidated and ordered for learners;
+      // open-source entries use JMdict back-translations to promote attested everyday senses.
+      senses:
+        word.source === "curated"
+          ? [...placedSenses]
+          : commonestFirst(
+              placedSenses,
+              word.headword === word.headword.toLowerCase()
+                ? translations.get(normalizeGloss(word.headword))
+                : undefined
+            )
     }
   })
 }

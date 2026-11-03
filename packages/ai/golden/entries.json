@@ -3438,7 +3438,7 @@
       ]
     },
     {
-      "id": 100000001,
+      "id": 100000080,
       "language": "en",
       "headword": "okay",
       "reading": "/ˌoʊˈkeɪ/",
@@ -3476,7 +3476,7 @@
       ]
     },
     {
-      "id": 100000002,
+      "id": 100000097,
       "language": "en",
       "headword": "hey",
       "reading": "/heɪ/",
@@ -3512,7 +3512,7 @@
       ]
     },
     {
-      "id": 100000003,
+      "id": 100000107,
       "language": "en",
       "headword": "talk",
       "reading": "/tɔk/",
@@ -3556,7 +3556,7 @@
       ]
     },
     {
-      "id": 100000004,
+      "id": 100000124,
       "language": "en",
       "headword": "sorry",
       "reading": "/ˈsɑɹi/",
@@ -3595,7 +3595,7 @@
       ]
     },
     {
-      "id": 100000005,
+      "id": 100000129,
       "language": "en",
       "headword": "help",
       "reading": "/hɛlp/",
@@ -3634,7 +3634,7 @@
       ]
     },
     {
-      "id": 100000006,
+      "id": 100000171,
       "language": "en",
       "headword": "live",
       "reading": "/ˈlɪv/",
@@ -3674,7 +3674,7 @@
       ]
     },
     {
-      "id": 100000007,
+      "id": 100000177,
       "language": "en",
       "headword": "friend",
       "reading": "/fɹɛnd/",
@@ -3714,7 +3714,7 @@
       ]
     },
     {
-      "id": 100000008,
+      "id": 100000184,
       "language": "en",
       "headword": "start",
       "reading": "/stɑɹt/",
@@ -3752,7 +3752,7 @@
       ]
     },
     {
-      "id": 100000009,
+      "id": 100000189,
       "language": "en",
       "headword": "big",
       "reading": "/bɪɡ/",
@@ -3792,7 +3792,7 @@
       ]
     },
     {
-      "id": 100000010,
+      "id": 100000195,
       "language": "en",
       "headword": "money",
       "reading": "/ˈmʌn.i/",
@@ -3824,7 +3824,7 @@
       ]
     },
     {
-      "id": 100000011,
+      "id": 100000201,
       "language": "en",
       "headword": "kid",
       "reading": "/ˈkɪd/",
@@ -3866,7 +3866,7 @@
       ]
     },
     {
-      "id": 100000012,
+      "id": 100000213,
       "language": "en",
       "headword": "understand",
       "reading": "/ˌʌndɚˈstænd/",
@@ -3895,7 +3895,7 @@
       ]
     },
     {
-      "id": 100000013,
+      "id": 100000219,
       "language": "en",
       "headword": "house",
       "reading": "/haʊ̯s/",
@@ -3937,12 +3937,12 @@
       ]
     },
     {
-      "id": 100000014,
+      "id": 100000263,
       "language": "en",
       "headword": "drink",
       "reading": "/ˈdɹɪŋk/",
       "common": true,
-      "spellings": ["drink"],
+      "spellings": ["drink", "drinke"],
       "senses": [
         {
           "glosses": ["飲む", "飲み干す"],
@@ -3978,7 +3978,7 @@
       ]
     },
     {
-      "id": 100000015,
+      "id": 100000275,
       "language": "en",
       "headword": "child",
       "reading": "/tʃaɪld/",
@@ -4011,7 +4011,7 @@
       ]
     },
     {
-      "id": 100000016,
+      "id": 100000277,
       "language": "en",
       "headword": "speak",
       "reading": "/spik/",
@@ -4046,7 +4046,7 @@
       ]
     },
     {
-      "id": 100000017,
+      "id": 100000279,
       "language": "en",
       "headword": "morning",
       "reading": "/ˈmoɹnɪŋ/",
@@ -4065,7 +4065,7 @@
       ]
     },
     {
-      "id": 100000018,
+      "id": 100000281,
       "language": "en",
       "headword": "hell",
       "reading": "/hɛl/",
@@ -4107,7 +4107,7 @@
       ]
     },
     {
-      "id": 100000019,
+      "id": 100000288,
       "language": "en",
       "headword": "eat",
       "reading": "/it/",
@@ -4148,7 +4148,7 @@
       ]
     },
     {
-      "id": 100000020,
+      "id": 100000300,
       "language": "en",
       "headword": "door",
       "reading": "/doɹ/",
@@ -4177,7 +4177,7 @@
       ]
     },
     {
-      "id": 100000021,
+      "id": 100000308,
       "language": "en",
       "headword": "happy",
       "reading": "/ˈhæpi/",
@@ -4211,7 +4211,7 @@
       ]
     },
     {
-      "id": 100000022,
+      "id": 100000333,
       "language": "en",
       "headword": "school",
       "reading": "/skul/",
@@ -4253,7 +4253,7 @@
       ]
     },
     {
-      "id": 100000023,
+      "id": 100000340,
       "language": "en",
       "headword": "walk",
       "reading": "/wɔk/",
@@ -4293,7 +4293,7 @@
       ]
     },
     {
-      "id": 100000024,
+      "id": 100000361,
       "language": "en",
       "headword": "buy",
       "reading": "[baɪ]",
@@ -4331,7 +4331,7 @@
       ]
     },
     {
-      "id": 100000025,
+      "id": 100000375,
       "language": "en",
       "headword": "police",
       "reading": "/pəˈlis/",
@@ -4361,7 +4361,7 @@
       ]
     },
     {
-      "id": 100000026,
+      "id": 100000390,
       "language": "en",
       "headword": "water",
       "reading": "/ˈwɔ.tɚ/",
@@ -4402,12 +4402,12 @@
       ]
     },
     {
-      "id": 100000027,
+      "id": 100000408,
       "language": "en",
       "headword": "game",
       "reading": "[ɡeɪ̯m]",
       "common": true,
-      "spellings": ["game"],
+      "spellings": ["game", "gm"],
       "senses": [
         {
           "glosses": ["ゲーム", "遊び"],
@@ -4443,7 +4443,7 @@
       ]
     },
     {
-      "id": 100000028,
+      "id": 100000415,
       "language": "en",
       "headword": "chance",
       "reading": "/t͡ʃæns/ [t͡ʃʰæns/",
@@ -4482,12 +4482,12 @@
       ]
     },
     {
-      "id": 100000029,
+      "id": 100000422,
       "language": "en",
       "headword": "whatever",
       "reading": "/wʌtˈɛv.ɚ/",
       "common": true,
-      "spellings": ["whatever"],
+      "spellings": ["whatever", "whate'er"],
       "senses": [
         {
           "glosses": ["何でも", "～するものは何でも"],
@@ -4520,7 +4520,7 @@
       ]
     },
     {
-      "id": 100000030,
+      "id": 100000460,
       "language": "en",
       "headword": "dog",
       "reading": "/dɒɡ/",
@@ -4561,7 +4561,7 @@
       ]
     },
     {
-      "id": 100000031,
+      "id": 100000497,
       "language": "en",
       "headword": "team",
       "reading": "/ˈtiːm/",
@@ -4589,7 +4589,7 @@
       ]
     },
     {
-      "id": 100000032,
+      "id": 100000503,
       "language": "en",
       "headword": "sign",
       "reading": "/saɪn/",
@@ -4627,7 +4627,7 @@
       ]
     },
     {
-      "id": 100000033,
+      "id": 100000505,
       "language": "en",
       "headword": "free",
       "reading": "/fɹi/",
@@ -4663,7 +4663,7 @@
       ]
     },
     {
-      "id": 100000034,
+      "id": 100000524,
       "language": "en",
       "headword": "front",
       "reading": "/fɹʌnt/",
@@ -4704,7 +4704,7 @@
       ]
     },
     {
-      "id": 100000035,
+      "id": 100000583,
       "language": "en",
       "headword": "company",
       "reading": "/ˈkʌmpəni/",
@@ -4749,7 +4749,7 @@
       ]
     },
     {
-      "id": 100000036,
+      "id": 100000594,
       "language": "en",
       "headword": "gentleman",
       "reading": "[ˈd͡ʒɛɾ̃.ɫ̩.mən]",
@@ -4785,12 +4785,31 @@
       ]
     },
     {
-      "id": 100000037,
+      "id": 100000600,
       "language": "en",
       "headword": "bitch",
       "reading": "/bɪt͡ʃ/",
       "common": true,
-      "spellings": ["bitch"],
+      "spellings": [
+        "bitch",
+        "betch",
+        "biatch",
+        "biotch",
+        "beatch",
+        "beotch",
+        "bih",
+        "binch",
+        "bish",
+        "biyatch",
+        "biyotch",
+        "beeyatch",
+        "beeyotch",
+        "bizatch",
+        "biz-atch",
+        "biznatch",
+        "b-word",
+        "rhymes-with-rich"
+      ],
       "senses": [
         {
           "glosses": ["嫌な女", "性悪女", "あばずれ"],
@@ -4828,7 +4847,7 @@
       ]
     },
     {
-      "id": 100000038,
+      "id": 100000643,
       "language": "en",
       "headword": "glad",
       "reading": "/ɡlæd/",
@@ -4848,7 +4867,7 @@
       ]
     },
     {
-      "id": 100000039,
+      "id": 100000648,
       "language": "en",
       "headword": "test",
       "reading": "/tɛst/",
@@ -4887,7 +4906,7 @@
       ]
     },
     {
-      "id": 100000040,
+      "id": 100000684,
       "language": "en",
       "headword": "ball",
       "reading": "/bɔl/",
@@ -4935,7 +4954,7 @@
       ]
     },
     {
-      "id": 100000041,
+      "id": 100000694,
       "language": "en",
       "headword": "coffee",
       "reading": "/ˈkɔfi/",
@@ -4965,7 +4984,7 @@
       ]
     },
     {
-      "id": 100000042,
+      "id": 100000723,
       "language": "en",
       "headword": "card",
       "reading": "/kɑɹd/",
@@ -5008,7 +5027,7 @@
       ]
     },
     {
-      "id": 100000043,
+      "id": 100000735,
       "language": "en",
       "headword": "handle",
       "reading": "/ˈhæn.d(ə)l/",
@@ -5045,7 +5064,7 @@
       ]
     },
     {
-      "id": 100000044,
+      "id": 100000807,
       "language": "en",
       "headword": "hotel",
       "reading": "/ˈhoʊ.tɛl/",
@@ -5069,7 +5088,7 @@
       ]
     },
     {
-      "id": 100000045,
+      "id": 100000809,
       "language": "en",
       "headword": "idiot",
       "reading": "/ˈɪdiət/",
@@ -5084,7 +5103,7 @@
       ]
     },
     {
-      "id": 100000046,
+      "id": 100000812,
       "language": "en",
       "headword": "table",
       "reading": "[ˈtʰeɪb(ə)ɫ]",
@@ -5124,7 +5143,7 @@
       ]
     },
     {
-      "id": 100000047,
+      "id": 100000814,
       "language": "en",
       "headword": "buddy",
       "reading": "/ˈbʌdi/",
@@ -5152,7 +5171,7 @@
       ]
     },
     {
-      "id": 100000048,
+      "id": 100000818,
       "language": "en",
       "headword": "camera",
       "reading": "/ˈkæməɹə/",
@@ -5177,7 +5196,7 @@
       ]
     },
     {
-      "id": 100000049,
+      "id": 100000846,
       "language": "en",
       "headword": "smart",
       "reading": "/smɑɹt/",
@@ -5211,7 +5230,7 @@
       ]
     },
     {
-      "id": 100000050,
+      "id": 100000934,
       "language": "en",
       "headword": "lunch",
       "reading": "/lʌnt͡ʃ/",
@@ -5234,7 +5253,7 @@
       ]
     },
     {
-      "id": 100000051,
+      "id": 100000939,
       "language": "en",
       "headword": "cat",
       "reading": "/ˈkæt/",
@@ -5265,7 +5284,7 @@
       ]
     },
     {
-      "id": 100000052,
+      "id": 100001044,
       "language": "en",
       "headword": "computer",
       "reading": "/kəmˈpju.tɚ/",
@@ -5284,7 +5303,7 @@
       ]
     },
     {
-      "id": 100000053,
+      "id": 100001045,
       "language": "en",
       "headword": "apartment",
       "reading": "/əˈpɑɹt.mənt/",
@@ -5310,7 +5329,7 @@
       ]
     },
     {
-      "id": 100000054,
+      "id": 100001075,
       "language": "en",
       "headword": "large",
       "reading": "/lɑɹd͡ʒ/",
@@ -5336,7 +5355,7 @@
       ]
     },
     {
-      "id": 100000055,
+      "id": 100001096,
       "language": "en",
       "headword": "member",
       "reading": "/ˈmɛm.bɚ/",
@@ -5368,7 +5387,7 @@
       ]
     },
     {
-      "id": 100000056,
+      "id": 100001132,
       "language": "en",
       "headword": "level",
       "reading": "/ˈlɛvəl/",
@@ -5407,7 +5426,7 @@
       ]
     },
     {
-      "id": 100000058,
+      "id": 100001189,
       "language": "en",
       "headword": "piss",
       "reading": "/pɪs/",
@@ -5450,7 +5469,7 @@
       ]
     },
     {
-      "id": 100000059,
+      "id": 100001207,
       "language": "en",
       "headword": "yep",
       "reading": "/jɛp/",
@@ -5465,7 +5484,7 @@
       ]
     },
     {
-      "id": 100000060,
+      "id": 100001242,
       "language": "en",
       "headword": "asshole",
       "reading": "/æshoʊl/",
@@ -5494,7 +5513,7 @@
       ]
     },
     {
-      "id": 100000061,
+      "id": 100001302,
       "language": "en",
       "headword": "claim",
       "reading": "/kleɪm/",
@@ -5533,7 +5552,7 @@
       ]
     },
     {
-      "id": 100000062,
+      "id": 100001360,
       "language": "en",
       "headword": "dick",
       "reading": "/dɪk/",
@@ -5573,7 +5592,7 @@
       ]
     },
     {
-      "id": 100000063,
+      "id": 100001664,
       "language": "en",
       "headword": "style",
       "reading": "/staɪl/",
@@ -5616,11 +5635,11 @@
       ]
     },
     {
-      "id": 100000064,
+      "id": 100001673,
       "language": "en",
       "headword": "thou",
       "reading": "/ðaʊ/",
-      "common": false,
+      "common": true,
       "spellings": ["thou"],
       "senses": [
         {
@@ -5647,7 +5666,7 @@
       ]
     },
     {
-      "id": 100000065,
+      "id": 100001680,
       "language": "en",
       "headword": "borrow",
       "reading": "/ˈbɑɹ.oʊ/",
@@ -5677,7 +5696,7 @@
       ]
     },
     {
-      "id": 100000066,
+      "id": 100001730,
       "language": "en",
       "headword": "bike",
       "reading": "/baɪk/",
@@ -5706,7 +5725,7 @@
       ]
     },
     {
-      "id": 100000067,
+      "id": 100001761,
       "language": "en",
       "headword": "loose",
       "reading": "/lus/",
@@ -5741,7 +5760,7 @@
       ]
     },
     {
-      "id": 100000068,
+      "id": 100001809,
       "language": "en",
       "headword": "nope",
       "reading": "/noʊp/",
@@ -5762,12 +5781,12 @@
       ]
     },
     {
-      "id": 100000069,
+      "id": 100001828,
       "language": "en",
       "headword": "jerk",
       "reading": "/ˈd͡ʒɝk/",
       "common": true,
-      "spellings": ["jerk"],
+      "spellings": ["jerk", "yark"],
       "senses": [
         {
           "glosses": ["嫌なやつ", "最低なやつ"],
@@ -5805,7 +5824,7 @@
       ]
     },
     {
-      "id": 100000070,
+      "id": 100001888,
       "language": "en",
       "headword": "seal",
       "reading": "/siːl/",
@@ -5841,7 +5860,7 @@
       ]
     },
     {
-      "id": 100000071,
+      "id": 100001911,
       "language": "en",
       "headword": "talent",
       "reading": "/ˈtæl.ənt/",
@@ -5869,7 +5888,7 @@
       ]
     },
     {
-      "id": 100000072,
+      "id": 100001950,
       "language": "en",
       "headword": "motherfucker",
       "reading": "/mʌðɚˌfʌkɚ/",
@@ -5905,7 +5924,7 @@
       ]
     },
     {
-      "id": 100000073,
+      "id": 100002048,
       "language": "en",
       "headword": "vacation",
       "reading": "/veɪˈkeɪ.ʃən/",
@@ -5944,7 +5963,7 @@
       ]
     },
     {
-      "id": 100000074,
+      "id": 100002157,
       "language": "en",
       "headword": "launch",
       "reading": "/lɔnt͡ʃ/",
@@ -5981,7 +6000,7 @@
       ]
     },
     {
-      "id": 100000075,
+      "id": 100002245,
       "language": "en",
       "headword": "juice",
       "reading": "/d͡ʒus/",
@@ -6022,7 +6041,7 @@
       ]
     },
     {
-      "id": 100000076,
+      "id": 100002263,
       "language": "en",
       "headword": "pen",
       "reading": "/pɛn/",
@@ -6060,7 +6079,7 @@
       ]
     },
     {
-      "id": 100000077,
+      "id": 100002282,
       "language": "en",
       "headword": "range",
       "reading": "/ˈɹeɪnd͡ʒ/",
@@ -6096,7 +6115,7 @@
       ]
     },
     {
-      "id": 100000078,
+      "id": 100002308,
       "language": "en",
       "headword": "sharp",
       "reading": "/ʃɑɹp/",
@@ -6134,7 +6153,7 @@
       ]
     },
     {
-      "id": 100000079,
+      "id": 100002311,
       "language": "en",
       "headword": "elevator",
       "reading": "/ˈɛləˌveɪtɚ/",
@@ -6165,12 +6184,12 @@
       ]
     },
     {
-      "id": 100000080,
+      "id": 100002355,
       "language": "en",
       "headword": "cookie",
       "reading": "/ˈkʊki/",
       "common": true,
-      "spellings": ["cookie"],
+      "spellings": ["cookie", "cooky"],
       "senses": [
         {
           "glosses": ["クッキー", "ビスケット"],
@@ -6209,11 +6228,11 @@
       ]
     },
     {
-      "id": 100000082,
+      "id": 100002525,
       "language": "en",
       "headword": "thee",
       "reading": "/ðiː/",
-      "common": false,
+      "common": true,
       "spellings": ["thee"],
       "senses": [
         {
@@ -6229,7 +6248,7 @@
       ]
     },
     {
-      "id": 100000084,
+      "id": 100002762,
       "language": "en",
       "headword": "appeal",
       "reading": "/əˈpiːl/",
@@ -6262,7 +6281,7 @@
       ]
     },
     {
-      "id": 100000087,
+      "id": 100003070,
       "language": "en",
       "headword": "awkward",
       "reading": "/ˈɔk.wɚd/",
@@ -6288,7 +6307,7 @@
       ]
     },
     {
-      "id": 100000088,
+      "id": 100003199,
       "language": "en",
       "headword": "confident",
       "reading": "/ˈkɑnfɪdənt/",
@@ -6307,7 +6326,7 @@
       ]
     },
     {
-      "id": 100000089,
+      "id": 100003253,
       "language": "en",
       "headword": "penis",
       "reading": "/ˈpi.nɪs/",
@@ -6322,7 +6341,7 @@
       ]
     },
     {
-      "id": 100000090,
+      "id": 100003259,
       "language": "en",
       "headword": "dine",
       "reading": "/daɪn/",
@@ -6342,7 +6361,7 @@
       ]
     },
     {
-      "id": 100000091,
+      "id": 100003346,
       "language": "en",
       "headword": "pierce",
       "reading": "/pɪɹs/",
@@ -6372,7 +6391,7 @@
       ]
     },
     {
-      "id": 100000092,
+      "id": 100003442,
       "language": "en",
       "headword": "rubbish",
       "reading": "/ˈɹʌbɪʃ/",
@@ -6415,7 +6434,7 @@
       ]
     },
     {
-      "id": 100000095,
+      "id": 100003596,
       "language": "en",
       "headword": "purchase",
       "reading": "/ˈpɜɹ.tʃəs/",
@@ -6446,7 +6465,7 @@
       ]
     },
     {
-      "id": 100000096,
+      "id": 100003976,
       "language": "en",
       "headword": "tension",
       "reading": "/ˈtɛnʃən/",
@@ -6478,7 +6497,7 @@
       ]
     },
     {
-      "id": 100000097,
+      "id": 100004043,
       "language": "en",
       "headword": "hint",
       "reading": "/hɪnt/",
@@ -6512,7 +6531,7 @@
       ]
     },
     {
-      "id": 100000098,
+      "id": 100004425,
       "language": "en",
       "headword": "mansion",
       "reading": "/ˈmæn.ʃən/",
@@ -6533,12 +6552,12 @@
       ]
     },
     {
-      "id": 100000099,
+      "id": 100004552,
       "language": "en",
       "headword": "naive",
       "reading": "/naɪˈiv/",
       "common": true,
-      "spellings": ["naive"],
+      "spellings": ["naive", "naif"],
       "senses": [
         {
           "glosses": ["世間知らずの", "甘い"],
@@ -6561,7 +6580,7 @@
       ]
     },
     {
-      "id": 100000100,
+      "id": 100004621,
       "language": "en",
       "headword": "biscuit",
       "reading": "/ˈbɪs.kɪt/",
@@ -6607,7 +6626,7 @@
       ]
     },
     {
-      "id": 100000101,
+      "id": 100004775,
       "language": "en",
       "headword": "reform",
       "reading": "/ˌɹiːˈfɔɹm/",
@@ -6635,7 +6654,7 @@
       ]
     },
     {
-      "id": 100000102,
+      "id": 100004937,
       "language": "en",
       "headword": "trousers",
       "reading": "/ˈtɹaʊzɚz/",
@@ -6650,7 +6669,7 @@
       ]
     },
     {
-      "id": 100000103,
+      "id": 100005078,
       "language": "en",
       "headword": "cooler",
       "reading": "/ˈku.lɚ/",
@@ -6680,7 +6699,7 @@
       ]
     },
     {
-      "id": 100000105,
+      "id": 100005270,
       "language": "en",
       "headword": "stove",
       "reading": "/stoʊv/",
@@ -6702,7 +6721,7 @@
       ]
     },
     {
-      "id": 100000106,
+      "id": 100005355,
       "language": "en",
       "headword": "trump",
       "reading": "/tɹʌmp/",
@@ -6736,7 +6755,7 @@
       ]
     },
     {
-      "id": 100000107,
+      "id": 100005507,
       "language": "en",
       "headword": "whereas",
       "reading": "/(h)wɛɹˈæz/",
@@ -6756,7 +6775,7 @@
       ]
     },
     {
-      "id": 100000108,
+      "id": 100005520,
       "language": "en",
       "headword": "shallow",
       "reading": "/ˈʃæloʊ/",
@@ -6783,7 +6802,7 @@
       ]
     },
     {
-      "id": 100000109,
+      "id": 100005642,
       "language": "en",
       "headword": "nevertheless",
       "reading": "/ˌnɛvɚðəˈlɛs/",
@@ -6797,7 +6816,7 @@
       ]
     },
     {
-      "id": 100000110,
+      "id": 100005842,
       "language": "en",
       "headword": "clumsy",
       "reading": "/ˈklʌmzi/",
@@ -6820,7 +6839,7 @@
       ]
     },
     {
-      "id": 100000111,
+      "id": 100005874,
       "language": "en",
       "headword": "petrol",
       "reading": "/ˈpɛt.ɹəl/",
@@ -6847,7 +6866,7 @@
       ]
     },
     {
-      "id": 100000112,
+      "id": 100005980,
       "language": "en",
       "headword": "Viking",
       "reading": "/ˈvaɪkɪŋ/",
@@ -6871,7 +6890,7 @@
       ]
     },
     {
-      "id": 100000113,
+      "id": 100006117,
       "language": "en",
       "headword": "commence",
       "reading": "/kəˈmɛns/",
@@ -6886,7 +6905,7 @@
       ]
     },
     {
-      "id": 100000114,
+      "id": 100006193,
       "language": "en",
       "headword": "terminate",
       "reading": "/ˈtɝmɪneɪ̯t/",
@@ -6914,7 +6933,7 @@
       ]
     },
     {
-      "id": 100000115,
+      "id": 100006241,
       "language": "en",
       "headword": "cunning",
       "reading": "/ˈkʌnɪŋ/",
@@ -6939,12 +6958,12 @@
       ]
     },
     {
-      "id": 100000116,
+      "id": 100006462,
       "language": "en",
       "headword": "gasoline",
       "reading": "/ˈɡæs.ə.liːn/",
       "common": true,
-      "spellings": ["gasoline"],
+      "spellings": ["gasoline", "gasolene", "petrol"],
       "senses": [
         {
           "glosses": ["ガソリン", "揮発油"],
@@ -6970,7 +6989,7 @@
       ]
     },
     {
-      "id": 100000117,
+      "id": 100006760,
       "language": "en",
       "headword": "queue",
       "reading": "/kju/",
@@ -7010,7 +7029,7 @@
       ]
     },
     {
-      "id": 100000118,
+      "id": 100006842,
       "language": "en",
       "headword": "sidewalk",
       "reading": "/ˈsaɪdwɔk/",
@@ -7026,7 +7045,7 @@
       ]
     },
     {
-      "id": 100000120,
+      "id": 100007704,
       "language": "en",
       "headword": "reside",
       "reading": "/ɹɪˈzaɪd/",
@@ -7045,7 +7064,7 @@
       ]
     },
     {
-      "id": 100000121,
+      "id": 100007725,
       "language": "en",
       "headword": "furthermore",
       "reading": "/ˈfɝ.ðɚˌmoɹ/",
@@ -7059,7 +7078,7 @@
       ]
     },
     {
-      "id": 100000122,
+      "id": 100007766,
       "language": "en",
       "headword": "jug",
       "reading": "/d͡ʒʌɡ/",
@@ -7092,7 +7111,7 @@
       ]
     },
     {
-      "id": 100000123,
+      "id": 100008690,
       "language": "en",
       "headword": "smug",
       "reading": "/smʌɡ/",
@@ -7111,7 +7130,7 @@
       ]
     },
     {
-      "id": 100000124,
+      "id": 100009791,
       "language": "en",
       "headword": "stingy",
       "reading": "/ˈstɪnd͡ʒi/",
@@ -7130,12 +7149,12 @@
       ]
     },
     {
-      "id": 100000125,
+      "id": 100010615,
       "language": "en",
       "headword": "henceforth",
       "reading": "/hɛnsˈfɔɹθ/",
-      "common": true,
-      "spellings": ["henceforth"],
+      "common": false,
+      "spellings": ["henceforth", "henceforward"],
       "senses": [
         {
           "glosses": ["今後", "これ以後", "今後は"],
@@ -7150,11 +7169,11 @@
       ]
     },
     {
-      "id": 100000126,
+      "id": 100010623,
       "language": "en",
       "headword": "faucet",
       "reading": "/ˈfɔsɪt/",
-      "common": true,
+      "common": false,
       "spellings": ["faucet"],
       "senses": [
         {
@@ -7175,11 +7194,11 @@
       ]
     },
     {
-      "id": 100000127,
+      "id": 100011307,
       "language": "en",
       "headword": "thereby",
       "reading": "/ðɛɹˈbaɪ/",
-      "common": true,
+      "common": false,
       "spellings": ["thereby"],
       "senses": [
         {
@@ -7190,11 +7209,11 @@
       ]
     },
     {
-      "id": 100000131,
+      "id": 100012423,
       "language": "en",
       "headword": "ascertain",
       "reading": "/ˌæsɚˈteɪn/",
-      "common": true,
+      "common": false,
       "spellings": ["ascertain"],
       "senses": [
         {
@@ -7204,7 +7223,7 @@
       ]
     },
     {
-      "id": 100000132,
+      "id": 100012867,
       "language": "en",
       "headword": "hither",
       "reading": "/ˈhɪðɚ/",
@@ -7225,7 +7244,7 @@
       ]
     },
     {
-      "id": 100000133,
+      "id": 100015036,
       "language": "en",
       "headword": "gramophone",
       "reading": "[ˈɡɹæ.məˌfoʊn]",
@@ -7241,11 +7260,11 @@
       ]
     },
     {
-      "id": 100000134,
+      "id": 100018483,
       "language": "en",
       "headword": "thrifty",
       "reading": "/ˈθɹɪfti/",
-      "common": true,
+      "common": false,
       "spellings": ["thrifty"],
       "senses": [
         {
@@ -7260,7 +7279,7 @@
       ]
     },
     {
-      "id": 100000135,
+      "id": 100020063,
       "language": "en",
       "headword": "motorcar",
       "reading": "",
