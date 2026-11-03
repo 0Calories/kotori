@@ -17,7 +17,7 @@
   "nx": {
     "tags": [
       "scope:dev",
-      "type:app"
+      "type:tool"
     ]
   }
 }

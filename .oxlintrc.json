@@ -119,6 +119,10 @@
           {
             "sourceTag": "type:app",
             "onlyDependOnLibsWithTags": ["type:contract", "type:util", "type:db", "type:ai"]
+          },
+          {
+            "sourceTag": "type:tool",
+            "onlyDependOnLibsWithTags": ["type:contract", "type:util", "type:db"]
           }
         ]
       }

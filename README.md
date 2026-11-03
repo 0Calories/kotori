@@ -28,14 +28,15 @@ Kotori is an [Nx](https://nx.dev) workspace managed with `pnpm`. The backend and
 apps/
   app/        Expo (Router) app for iOS, Android, and web
   backend/    HTTP API, enrichment worker and `kotori` CLI: one deployable, three entry points
-  local-auth/ Local development stand-in for Neon Managed Better Auth
 packages/
   db/         The data model: Drizzle tables and the migrations generated from them
   contracts/  The HTTP contract (KotoriApi), its schemas derived from the tables
   ai/         Claude, Jev and ElevenLabs: coaching, examples, nuance, speech, golden evals
   language/   Japanese and English text: rōmaji ↔ kana, deinflection, furigana, glosses
   srs/        Pure, fully tested implementation of Anki's SM-2 scheduler
-tools/        Local setup script; mascot asset and animation renderers
+tools/
+  local-auth/ Local development stand-in for Neon Managed Better Auth
+  *.ts        Local setup script; mascot asset and animation renderers
 ```
 
 Everything follows from the tables in `packages/db`: the backend's queries infer their rows from
@@ -136,7 +137,7 @@ pnpm kotori revoke user@example.com   # revoke sessions across all devices
 
 ### Local auth setup
 
-For day-to-day development, `pnpm dev` runs `apps/local-auth` on port 4001 to emulate Neon Managed Auth locally, and the app signs in automatically as `dev@kotori.test`.
+For day-to-day development, `pnpm dev` runs `tools/local-auth` on port 4001 to emulate Neon Managed Auth locally, and the app signs in automatically as `dev@kotori.test`.
 
 - To test the real sign-up, sign-in, and pending screens locally, set `EXPO_PUBLIC_DEV_SIGN_IN=off`. Verification and password-reset codes are printed to the console when `RESEND_API_KEY` is unset.
 - To run against a live Neon branch instead of local Docker, run `neon checkout <branch>` (which writes `DATABASE_URL` and `NEON_AUTH_BASE_URL` to `.env.local`).
