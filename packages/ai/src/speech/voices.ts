@@ -275,6 +275,22 @@ export const ENGLISH_CAST: ReadonlyArray<Voice<"en">> = [
     description: "An easygoing young American man talking with friends; relaxed, slangy speech."
   },
   {
+    id: "en-casual-m3",
+    language: "en",
+    providerId: "1SM7GgM6IMuvQlz2BwM3", // Mark
+    name: "Casual middle-aged man",
+    tags: {
+      gender: "masculine",
+      age: "middle-aged",
+      variety: "american",
+      formality: ["casual", "neutral"],
+      medium: ["conversation"],
+      tone: ["calm"],
+      headword: false
+    },
+    description: "A relaxed middle-aged American man speaking casually; laid-back everyday conversation."
+  },
+  {
     id: "en-british-m",
     language: "en",
     providerId: "NNl6r8mD7vthiJatiJt1", // Bradford

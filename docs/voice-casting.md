@@ -127,6 +127,7 @@ English:
 | en-casual-f | feminine, youth, american, casual, neutral, vulgar, conversation, bright | Banter, energetic young woman |
 | en-casual-m | masculine, adult, american, casual, neutral, conversation, narration, warm, headword | Everyday American conversation and headwords |
 | en-casual-m2 | masculine, youth, american, casual, neutral, vulgar, conversation, calm | Banter, young man |
+| en-casual-m3 | masculine, middle-aged, american, casual, neutral, conversation, calm | Relaxed middle-aged American conversation |
 | en-british-m | masculine, adult, british, casual, neutral, polite, conversation, narration, calm, headword | British English conversation, narration and headwords |
 | en-british-m2 | masculine, middle-aged, british, neutral, polite, formal, narration, calm, serious | Reflective British narration and formal writing |
 | en-british-f | feminine, middle-aged, british, casual, neutral, polite, conversation, narration, warm | British conversational woman |
