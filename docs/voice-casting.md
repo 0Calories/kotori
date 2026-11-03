@@ -61,7 +61,7 @@ has its own list of varieties and its own default, which is the variety an unlab
 sentence is read in: `standard` for Japanese, `american` for English.
 
 ```ts
-// packages/tts/src/voices.ts (target: packages/ai/providers/elevenlabs/voices.ts)
+// packages/ai/src/speech/voices.ts
 export const VOICE_GENDERS = ["masculine", "feminine", "androgynous"]
 export const VOICE_AGES    = ["child", "youth", "adult", "middle-aged", "older"]
 export const VOICE_MEDIUMS = ["conversation", "announcement", "narration"]
@@ -173,7 +173,7 @@ valid. One migration in `packages/db/migrations/`.
 Two pure functions, fully unit-tested, no I/O:
 
 ```ts
-// packages/tts/src/casting.ts (target: features/audio/casting.ts)
+// packages/ai/src/speech/casting.ts
 
 /**
  * A casting brief: the kind of speaker a sentence calls for, independent of
@@ -241,7 +241,7 @@ only reached when scoring is undecided; the selector logs how often, so weights 
 tightened if the ratio is high.
 
 ```ts
-// packages/nuance/src/casting.ts
+// packages/ai/src/speech/casting.ts (the Jev tiebreak)
 export interface VoiceCandidate { id: string; description: string }  // no dependency on the voice domain
 
 export const castVoice = (
@@ -288,12 +288,17 @@ hearing a word from more than one speaker is better for learners than one canoni
 
 ### 7. Pronouncer changes
 
-`packages/tts/src/ElevenLabs.ts`
+Since the monorepo rearchitecture the work below is split by who owns what: casting and synthesis are
+`Pronouncer` in `packages/ai/src/speech/Pronouncer.ts`, the clip cache and budget are `Speech` in
+`apps/backend/src/features/audio/Speech.ts`, and voicing an entry is `AudioEnricher` in
+`apps/backend/src/features/enrichment/AudioEnricher.ts`.
+
+`packages/ai/src/providers/ElevenLabs.ts`
 
 - `synthesize(text, language, providerVoiceId)`; `voiceFor(language)` is removed. Retry,
   error mapping and output format are unchanged.
 
-`packages/tts/src/Pronouncer.ts`
+`Speech.speak` and `AudioEnricher.enrich` (formerly `Pronouncer.speak` and `Pronouncer.enrichEntry`)
 
 - `speak(text, language, voice: Voice)` builds the key from `voice.providerId`, checks the
   cache and budget, synthesises and saves `voiceId` and `voice`.
@@ -304,7 +309,7 @@ hearing a word from more than one speaker is better for learners than one canoni
   examples with the new columns, once per entry. For each example it computes the brief,
   ranks each configured language, calls Jev on ties, voices and links with
   `linkExampleAudio(id, language, key, { castBy, score })`. Headwords follow section 5.
-- `EnrichmentRepo`: `examplesFor` returns the new columns; `linkExampleAudio` takes the
+- The enrichment and audio queries: `examplesFor` returns the new columns; `linkExampleAudio` takes the
   casting record; `linkEntryAudio` appends rather than replaces.
 
 Existing audio is left as it is. New enrichment (API-triggered or `kotori enrich audio`)
@@ -313,7 +318,7 @@ redo.
 
 ### 8. CLI: `kotori audio`
 
-A new command group in `apps/worker/src/commands/audio.ts` (target: `apps/backend/src/cli/`),
+A new command group in `apps/backend/src/cli/audio.ts`,
 registered next to `enrich`.
 
 ```

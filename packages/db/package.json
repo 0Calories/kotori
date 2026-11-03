@@ -2,7 +2,7 @@
   "name": "@kotori/db",
   "version": "0.1.0",
   "private": true,
-  "description": "Postgres database, migrations and repositories",
+  "description": "Kotori's data model: the Drizzle tables, their enums and JSONB schemas, and the migrations drizzle-kit generates from them",
   "type": "module",
   "exports": {
     ".": {
@@ -10,25 +10,23 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./testing": {
-      "@kotori/source": "./src/testing.ts",
-      "types": "./dist/testing.d.ts",
-      "default": "./dist/testing.js"
-    }
+    "./package.json": "./package.json"
   },
   "scripts": {
-    "test": "vitest run",
     "generate": "drizzle-kit generate",
     "check": "drizzle-kit check"
   },
   "dependencies": {
-    "@effect/sql-pg": "catalog:",
-    "@kotori/domain": "workspace:*",
     "drizzle-orm": "catalog:",
     "effect": "catalog:"
   },
   "devDependencies": {
-    "@effect/sql-pglite": "catalog:",
     "drizzle-kit": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:shared",
+      "type:db"
+    ]
   }
 }

@@ -1,0 +1,28 @@
+{
+  "name": "@kotori/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kotori's HTTP contract: KotoriApi, its request and response schemas derived from the @kotori/db tables, and its public errors",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@kotori/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@kotori/db": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "effect": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:shared",
+      "type:contract"
+    ]
+  }
+}

@@ -1,4 +1,4 @@
-import type { Formality, Register } from "@kotori/domain"
+import type { Formality, Register } from "@kotori/contracts"
 import type { Tone } from "../components/Chip.tsx"
 
 /** Tags are neutral outlines; only the registers a learner should be careful with stand out. */

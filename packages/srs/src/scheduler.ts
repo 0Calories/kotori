@@ -4,13 +4,12 @@
  * learning steps, graduating/easy intervals, ease adjustments, late/early
  * review credit, lapses with relearning steps, leech detection and fuzz.
  */
+import type { CardQueue, Rating } from "@kotori/contracts"
 import { defaultConfig, type SchedulerConfig } from "./config.ts"
 import { dayNumber, dayStart, type ReviewContext } from "./time.ts"
 
-export type Rating = "again" | "hard" | "good" | "easy"
+export type { CardQueue, Rating }
 export const ratings: ReadonlyArray<Rating> = ["again", "hard", "good", "easy"]
-
-export type CardQueue = "new" | "learning" | "review" | "relearning"
 
 export interface CardState {
   readonly queue: CardQueue

@@ -13,5 +13,14 @@
   },
   "scripts": {
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@kotori/contracts": "workspace:*"
+  },
+  "nx": {
+    "tags": [
+      "scope:shared",
+      "type:util"
+    ]
   }
 }

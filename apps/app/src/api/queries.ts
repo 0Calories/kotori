@@ -8,7 +8,7 @@ import type {
   NoteId,
   Rating,
   SpeakRequest
-} from "@kotori/domain"
+} from "@kotori/contracts"
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { call } from "./client.ts"
 

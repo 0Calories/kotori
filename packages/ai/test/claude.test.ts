@@ -2,8 +2,8 @@ import { Effect } from "effect"
 import { createServer } from "node:http"
 import type { AddressInfo } from "node:net"
 import { describe, expect, it, vi } from "vitest"
+import { ExamplesOutput } from "../src/examples/ExampleWriter.ts"
 import { Claude, HowToSayOutput, NaturalnessOutput, outputSchema } from "../src/index.ts"
-import { ExamplesOutput } from "../src/ExampleWriter.ts"
 
 type JsonSchema = {
   type?: string

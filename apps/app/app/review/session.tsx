@@ -1,4 +1,4 @@
-import type { Language, Rating, ReviewItem } from "@kotori/domain"
+import type { Language, Rating, ReviewItem } from "@kotori/contracts"
 import { formatDelay } from "@kotori/srs"
 import { useQueryClient } from "@tanstack/react-query"
 import * as Haptics from "expo-haptics"
@@ -255,7 +255,7 @@ export default function ReviewSession() {
     queueItems.filter((item) => !answered.has(item.card.id) && item.card.id !== current?.card.id).length +
     (current === undefined ? 0 : 1)
   const total = remaining + reviewed
-  const nextDue = queue.data?.nextDue ?? null
+  const nextDue = queue.data?.nextDue?.getTime() ?? null
 
   useEffect(() => {
     shownAt.current = Date.now()

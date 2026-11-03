@@ -1,0 +1,68 @@
+{
+  "name": "@kotori/backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kotori's backend: the HTTP API, the enrichment worker and the kotori CLI, one deployable with three entry points",
+  "bin": {
+    "kotori": "./dist/entrypoints/cli.js"
+  },
+  "type": "module",
+  "scripts": {
+    "dev:http": "tsx watch --clear-screen=false -C @kotori/source src/entrypoints/http.ts",
+    "dev:worker": "tsx watch --clear-screen=false -C @kotori/source src/entrypoints/worker.ts",
+    "cli": "tsx -C @kotori/source src/entrypoints/cli.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@effect/platform-node": "catalog:",
+    "@effect/sql-pg": "catalog:",
+    "@kotori/ai": "workspace:*",
+    "@kotori/contracts": "workspace:*",
+    "@kotori/db": "workspace:*",
+    "@kotori/language": "workspace:*",
+    "@kotori/srs": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "effect": "catalog:",
+    "jose": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/sql-pglite": "catalog:",
+    "@typesafe-ai/sdk": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:backend",
+      "type:app"
+    ],
+    "targets": {
+      "dev": {
+        "executor": "nx:run-commands",
+        "options": {
+          "commands": [
+            "pnpm run dev:http",
+            "pnpm run dev:worker"
+          ],
+          "parallel": true,
+          "cwd": "{projectRoot}"
+        }
+      },
+      "deploy": {
+        "dependsOn": [
+          "build"
+        ],
+        "inputs": [
+          "production",
+          {
+            "dependentTasksOutputFiles": "**/*",
+            "transitive": true
+          },
+          "{workspaceRoot}/packages/db/migrations/**/*",
+          "{workspaceRoot}/Dockerfile",
+          "{workspaceRoot}/.dockerignore",
+          "{workspaceRoot}/fly.toml"
+        ],
+        "command": "flyctl deploy --remote-only"
+      }
+    }
+  }
+}

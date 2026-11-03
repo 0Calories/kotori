@@ -1,0 +1,26 @@
+{
+  "name": "@kotori/language",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pure Japanese and English text utilities: script, deinflection, furigana, inflection, glosses",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@kotori/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "wanakana": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:shared",
+      "type:util"
+    ]
+  }
+}

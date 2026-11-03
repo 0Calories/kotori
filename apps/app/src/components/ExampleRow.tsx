@@ -1,4 +1,4 @@
-import type { Example, Language } from "@kotori/domain"
+import type { Example, Language } from "@kotori/contracts"
 import { View } from "react-native"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { AudioButton } from "./AudioButton.tsx"

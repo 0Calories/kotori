@@ -1,4 +1,4 @@
-import type { Language } from "@kotori/domain"
+import type { Language } from "@kotori/contracts"
 import { Text, type TextProps } from "./Text.tsx"
 
 /** A word being learned, in its language's face: Hina Mincho for Japanese, Gabarito for English. */

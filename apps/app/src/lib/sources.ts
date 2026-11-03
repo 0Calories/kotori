@@ -1,4 +1,4 @@
-import type { Language } from "@kotori/domain"
+import type { Language } from "@kotori/contracts"
 import type { Strings } from "../i18n/strings.ts"
 
 /**

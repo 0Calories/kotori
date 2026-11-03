@@ -1,4 +1,4 @@
-import type { HowToSayResult, Register } from "@kotori/domain"
+import type { HowToSayResult, Register } from "@kotori/contracts"
 import { useRouter } from "expo-router"
 import { useState } from "react"
 import { View } from "react-native"

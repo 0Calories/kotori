@@ -19,7 +19,8 @@
     "@expo-google-fonts/murecho": "^0.4.2",
     "@expo/metro-runtime": "~57.0.16",
     "@expo/vector-icons": "^15.0.2",
-    "@kotori/domain": "workspace:*",
+    "@kotori/contracts": "workspace:*",
+    "@kotori/language": "workspace:*",
     "@kotori/srs": "workspace:*",
     "@tanstack/react-query": "^5.104.2",
     "effect": "catalog:",
@@ -55,6 +56,10 @@
     "vitest": "catalog:"
   },
   "nx": {
+    "tags": [
+      "scope:client",
+      "type:app"
+    ],
     "targets": {
       "typecheck": {
         "dependsOn": [

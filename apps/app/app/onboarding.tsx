@@ -1,4 +1,4 @@
-import type { Language } from "@kotori/domain"
+import type { Language } from "@kotori/contracts"
 import { useState } from "react"
 import { View } from "react-native"
 import Animated, { FadeInDown } from "react-native-reanimated"

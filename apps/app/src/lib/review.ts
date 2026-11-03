@@ -1,4 +1,4 @@
-import type { ReviewItem } from "@kotori/domain"
+import type { ReviewItem } from "@kotori/contracts"
 
 /**
  * The card a review session shows.

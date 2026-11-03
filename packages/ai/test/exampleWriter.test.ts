@@ -1,5 +1,6 @@
 import { Effect, Layer } from "effect"
 import { describe, expect, it } from "vitest"
+import { englishExamplesSystem, examplesSystem, loanSystem } from "../src/examples/prompts.ts"
 import {
   Claude,
   describeLoan,
@@ -10,7 +11,6 @@ import {
   LoanWriter
 } from "../src/index.ts"
 import type { ExampleRequest, LoanRequest } from "../src/index.ts"
-import { englishExamplesSystem, examplesSystem, loanSystem } from "../src/prompts.ts"
 
 const request: ExampleRequest = {
   language: "ja",
