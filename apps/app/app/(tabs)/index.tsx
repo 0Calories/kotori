@@ -180,7 +180,7 @@ export default function LookUpScreen() {
         style={{
           marginHorizontal: -theme.space.lg,
           marginTop: -(insets.top + theme.space.sm),
-          paddingTop: insets.top,
+          paddingTop: insets.top + theme.space.md,
           paddingBottom: 22,
           backgroundColor: theme.color.primaryTint,
           borderBottomLeftRadius: 40,
