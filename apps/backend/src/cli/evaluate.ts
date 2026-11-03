@@ -33,6 +33,7 @@ import {
 } from "@kotori/ai"
 import { EntryId, type EntryRecord, LOAN_SHOWN, loanShown } from "@kotori/contracts"
 import { normalizeGloss } from "@kotori/language"
+import * as Sentry from "@sentry/effect/server"
 import { Console, Effect, FileSystem, Option, Schema } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { resolveFromRoot } from "../runtime/Paths.ts"
@@ -284,7 +285,8 @@ export const evaluate = Command.make(
     const answersFor = (key: string, request: EvalRequest): Effect.Effect<Answers | undefined> => {
       const answers: Effect.Effect<Answers | undefined, JevError> =
         recording === null
-          ? jev.ask(request.state, { ...request.questions }).pipe(
+          ? Effect.sync(() => Sentry.setConversationId(key)).pipe(
+              Effect.andThen(jev.ask(request.state, { ...request.questions })),
               Effect.map((result) => {
                 inputTokens += result.usage.input_tokens
                 return result.answers

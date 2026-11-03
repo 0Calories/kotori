@@ -12,6 +12,7 @@ import {
 } from "@kotori/ai"
 import type { EntryRecord } from "@kotori/contracts"
 import type { EntryId } from "@kotori/db"
+import * as Sentry from "@sentry/effect/server"
 import { Clock, Context, Effect, Layer } from "effect"
 import { Database } from "../../db/Database.ts"
 import { getEntries, loanCandidates, tagLabels } from "../dictionary/index.ts"
@@ -178,7 +179,7 @@ export class Enrichers extends Context.Service<
         return `${summary.senses} senses, ${summary.similar} similar words${loan}, ${summary.inputTokens} tokens`
       })
 
-      const run = (kind: JobKind, entryId: EntryId): Effect.Effect<string, unknown> => {
+      const enrich = (kind: JobKind, entryId: EntryId): Effect.Effect<string, unknown> => {
         switch (kind) {
           case "nuance":
             return judge(entryId)
@@ -188,6 +189,9 @@ export class Enrichers extends Context.Service<
             return audio.enrich(entryId).pipe(Effect.map((s) => `${s.clips} clips, ${s.characters} chars`))
         }
       }
+
+      const run = (kind: JobKind, entryId: EntryId): Effect.Effect<string, unknown> =>
+        Effect.sync(() => Sentry.setConversationId(`entry:${entryId}`)).pipe(Effect.andThen(enrich(kind, entryId)))
 
       return Enrichers.of({ available, run })
     })
