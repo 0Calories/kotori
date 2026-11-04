@@ -124,6 +124,7 @@ const word = (
     readonly reading?: string
     readonly common?: boolean
     readonly priority?: number
+    readonly spellings?: ReadonlyArray<string>
     readonly inflections?: ReadonlyArray<readonly [string, ReadonlyArray<string>]>
   } = {}
 ): EntryRecord => ({
@@ -135,6 +136,15 @@ const word = (
   priority: options.priority ?? 50,
   forms: [
     { kind: "spelling", text: headword, common: true, tags: [], priorities: [], restrictions: [], noKanji: false },
+    ...(options.spellings ?? []).map((text) => ({
+      kind: "spelling" as const,
+      text,
+      common: false,
+      tags: [],
+      priorities: [],
+      restrictions: [],
+      noKanji: false
+    })),
     ...(options.inflections ?? []).map(([text, tags]) => ({
       kind: "inflection" as const,
       text,
@@ -301,6 +311,39 @@ layer(testLayer(false))("Dictionary", (it) => {
         (yield* dictionary.search("猫", "ja", 10)).entries.map((summary) => summary.headword),
         "cat"
       )
+    })
+  )
+
+  it.effect("finds JMDict entries written with fullwidth Latin characters when searched in ASCII", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      yield* insertEntries(db, [
+        entry(1032910, "ＯＢ", "オー・ビー", [sense(["old boy", "alumnus", "out of bounds"], ["n"])]),
+        entry(1032920, "ＯＢ会", "オービーかい", [sense(["alumni association"], ["n"])], false),
+        entry(1039000, "Ｔシャツ", "ティーシャツ", [sense(["T-shirt"], ["n"])]),
+        entry(1019350, "ＩＮ", "イン", [sense(["in"], ["n"])], false),
+        entry(1423310, "中", "なか", [sense(["inside", "in"], ["n"])])
+      ])
+
+      for (const query of ["OB", "ob", "ＯＢ"]) {
+        const res = yield* dictionary.search(query, "ja", 10)
+        assert.strictEqual(res.mode, "japanese")
+        assert.deepStrictEqual(
+          res.entries.slice(0, 2).map((summary) => summary.headword),
+          ["ＯＢ", "ＯＢ会"]
+        )
+      }
+
+      for (const query of ["Tシャツ", "Ｔシャツ"]) {
+        const res = yield* dictionary.search(query, "ja", 10)
+        assert.strictEqual(res.mode, "japanese")
+        assert.strictEqual(res.entries[0]?.headword, "Ｔシャツ")
+      }
+
+      const inSearch = yield* dictionary.search("in", "ja", 10)
+      assert.strictEqual(inSearch.mode, "english")
+      assert.strictEqual(inSearch.entries[0]?.headword, "中")
     })
   )
 
@@ -481,6 +524,49 @@ layer(testLayer(false))("Dictionary", (it) => {
       assert.include(yield* headwords("wrap head around", "en"), "wrap one's head around")
       assert.include(yield* headwords("wrapped my head around", "en"), "wrap one's head around")
       assert.include(yield* headwords("peice of cake", "en"), "piece of cake")
+    })
+  )
+
+  it.effect("resolves canonical English idioms across verb variants, inflections, typos, and Japanese glosses", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      const headwords = (query: string, language: "ja" | "en") =>
+        Effect.map(dictionary.search(query, language, 10), (res) => res.entries.map((e) => e.headword))
+
+      yield* insertEntries(db, [
+        word(100000073, "throw on", [sense(["急いで着る"], ["v"])]),
+        word(100000074, "think of", [sense(["思いつく"], ["v"])])
+      ])
+      assert.deepStrictEqual(yield* headwords("on thin ice", "en"), [])
+
+      yield* insertEntries(db, [
+        word(
+          100000075,
+          "on thin ice",
+          [sense(["危うい立場にある", "危険な状態にある", "薄氷を踏む思いで"], ["adj"], ["id"])],
+          {
+            reading: "/ɒn θɪn aɪs/",
+            priority: 70,
+            spellings: ["skate on thin ice", "tread on thin ice", "walk on thin ice"],
+            inflections: [
+              ["skating on thin ice", ["present-participle"]],
+              ["treading on thin ice", ["present-participle"]],
+              ["walking on thin ice", ["present-participle"]]
+            ]
+          }
+        )
+      ])
+      for (const query of [
+        "on thin ice",
+        "walk on thin ice",
+        "skating on thin ice",
+        "step on thin ice",
+        "on thin ise",
+        "薄氷を踏む"
+      ]) {
+        assert.strictEqual((yield* headwords(query, "en"))[0], "on thin ice", `expected "on thin ice" for "${query}"`)
+      }
     })
   )
 

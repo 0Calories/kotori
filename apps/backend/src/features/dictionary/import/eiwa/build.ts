@@ -11,7 +11,7 @@ const COMMON_WORDS = 10_000
 /** Baseline usage count for curated idioms/slang that don't appear in `en_50k.txt` unigrams. */
 const CURATED_FLOOR = 1_000
 
-export type Source = "curated" | "wiktionary" | "ejdict" | "jmdict"
+export type Source = "curated" | "wiktionary" | "jmdict"
 
 /** A word as the dictionary will hold it, with where it came from. */
 interface Built {
@@ -23,6 +23,7 @@ interface Built {
   readonly senses: Word["senses"]
   readonly references: ReadonlyArray<References>
   readonly mayBeName: boolean
+  readonly familiarity?: number | undefined
 }
 
 const built = (word: Word, source: Source): Built => ({
@@ -33,7 +34,8 @@ const built = (word: Word, source: Source): Built => ({
   inflections: new Map(word.inflections.map((form) => [form.text, new Set(form.tags)])),
   senses: word.senses,
   references: word.references ?? [],
-  mayBeName: word.mayBeName ?? false
+  mayBeName: word.mayBeName ?? false,
+  familiarity: word.familiarity
 })
 
 const addInflection = (word: Built, form: InflectedForm) => {
@@ -48,9 +50,8 @@ export interface Sources {
   readonly curated?: { readonly words: ReadonlyArray<Word>; readonly formsOf?: ReadonlyArray<FormOf> } | undefined
   /** Japanese Wiktionary next: it has parts of speech, IPA and inflections. */
   readonly wiktionary: { readonly words: ReadonlyArray<Word>; readonly formsOf: ReadonlyArray<FormOf> }
-  readonly ejdict: { readonly words: ReadonlyArray<Word>; readonly formsOf: ReadonlyArray<FormOf> }
-  /** Built knowing the other sources, so it only has words they lack. */
-  readonly jmdict: ReadonlyArray<Word>
+  /** Built knowing the other sources, so it only has words they lack, plus variant forms of existing idioms. */
+  readonly jmdict: { readonly words: ReadonlyArray<Word>; readonly formsOf?: ReadonlyArray<FormOf> | undefined }
   readonly frequency: ReadonlyMap<string, number>
 }
 
@@ -66,24 +67,24 @@ export const mergeSources = (sources: Sources): Array<Built> => {
       words.set(word.headword, built(word, source))
       return
     }
-    // If a curated entry lacks IPA or an inflection that Wiktionary has, inherit those forms.
-    if (existing.source === "curated") {
-      existing.ipa ??= word.ipa
-      for (const spelling of word.spellings) {
-        if (spelling !== existing.headword) existing.spellings.add(spelling)
-      }
-      for (const form of word.inflections) addInflection(existing, form)
+    existing.ipa ??= word.ipa
+    for (const spelling of word.spellings) {
+      if (spelling !== existing.headword) existing.spellings.add(spelling)
     }
+    for (const form of word.inflections) addInflection(existing, form)
   }
   for (const word of sources.curated?.words ?? []) add(word, "curated")
   for (const word of sources.wiktionary.words) add(word, "wiktionary")
-  for (const word of sources.ejdict.words) add(word, "ejdict")
-  for (const word of sources.jmdict) add(word, "jmdict")
+  for (const word of sources.jmdict.words) add(word, "jmdict")
 
   const folded = new Map<string, Built>()
   for (const word of words.values())
     if (!folded.has(word.headword.toLowerCase())) folded.set(word.headword.toLowerCase(), word)
-  const formsOf = [...(sources.curated?.formsOf ?? []), ...sources.wiktionary.formsOf, ...sources.ejdict.formsOf]
+  const formsOf = [
+    ...(sources.curated?.formsOf ?? []),
+    ...sources.wiktionary.formsOf,
+    ...(sources.jmdict.formsOf ?? [])
+  ]
   for (const form of formsOf) {
     const base = words.get(form.base) ?? folded.get(form.base.toLowerCase())
     if (base === undefined || form.text === base.headword) continue
@@ -203,20 +204,41 @@ export const commonestFirst = (
 
 const pronoun = (word: Built) => word.senses.some((sense) => sense.pos.includes("pn"))
 
+const attestedTranslations = (
+  headword: string,
+  translations: ReadonlyMap<string, ReadonlyMap<string, number>>
+): ReadonlyMap<string, number> | undefined =>
+  translations.get(headword.toLowerCase()) ?? translations.get(normalizeGloss(headword))
+
 /**
  * How often a word is used: its own count and its inflections', since "ate" is "eat" being
  * used. The counts are of lowercased text, so where a capitalised word has a lowercase twin
  * the count is the twin's: "a", not the letter "A"; "may", not the month. Only the pronoun
  * "I" outranks its twin, the letter "i".
  */
-const usage = (word: Built, frequency: ReadonlyMap<string, number>, lowercase: ReadonlyMap<string, Built>) => {
+const usage = (
+  word: Built,
+  frequency: ReadonlyMap<string, number>,
+  lowercase: ReadonlyMap<string, Built>,
+  translations: ReadonlyMap<string, ReadonlyMap<string, number>>
+) => {
   const twin = lowercase.get(word.headword.toLowerCase())
-  if (twin !== undefined && twin !== word && !(pronoun(word) && !pronoun(twin))) return 0
+  if (twin !== undefined && twin !== word && !(pronoun(word) && !pronoun(twin))) return { count: 0, rawCount: 0 }
   const forms = new Set([word.headword, ...word.inflections.keys()].map((form) => form.toLowerCase()))
-  let count = 0
-  for (const form of forms) count += frequency.get(form) ?? 0
-  if (count === 0 && word.source === "curated") return CURATED_FLOOR
-  return count
+  let rawCount = 0
+  for (const form of forms) rawCount += frequency.get(form) ?? 0
+  if (word.source === "curated") {
+    const floor = word.familiarity === 5 ? 10_000 : word.familiarity === 4 ? 3_000 : CURATED_FLOOR
+    const count = rawCount === 0 || (word.familiarity ?? 3) >= 3 ? Math.max(rawCount, floor) : rawCount
+    return { count, rawCount }
+  }
+  if (rawCount === 0 && word.headword.includes(" ")) {
+    const attested = attestedTranslations(word.headword, translations)
+    const bestWeight = attested !== undefined ? Math.max(0, ...attested.values()) : 0
+    const count = bestWeight >= 45 ? 2_500 : bestWeight >= 30 ? 1_000 : bestWeight > 0 ? 300 : 0
+    return { count, rawCount }
+  }
+  return { count: rawCount, rawCount }
 }
 
 /** Usage folded into a priority on the scale of JMDict's (about 0–150), so ranking treats both alike. */
@@ -251,15 +273,15 @@ export const toEntries = (
     words.filter((word) => word.headword === word.headword.toLowerCase()).map((word) => [word.headword, word])
   )
   const ranked = words
-    .map((word) => ({ word, count: usage(word, frequency, lowercase) }))
+    .map((word) => ({ word, ...usage(word, frequency, lowercase, translations) }))
     .sort((a, b) => b.count - a.count || (a.word.headword < b.word.headword ? -1 : 1))
   let next = FIRST_ENGLISH_ID
   for (const id of existing.values()) next = Math.max(next, id)
   next++
   const sensesOf = placeReferences(words)
   let commonSoFar = 0
-  return ranked.map(({ word, count }) => {
-    const common = !word.mayBeName && count > 0 && commonSoFar < COMMON_WORDS
+  return ranked.map(({ word, count, rawCount }) => {
+    const common = !word.mayBeName && (rawCount > 0 || count >= 2_500) && count > 0 && commonSoFar < COMMON_WORDS
     if (common) commonSoFar++
     const spellings = [...word.spellings].filter((spelling) => !word.inflections.has(spelling))
     const placedSenses = sensesOf(word)
@@ -284,7 +306,7 @@ export const toEntries = (
           : commonestFirst(
               placedSenses,
               word.headword === word.headword.toLowerCase()
-                ? translations.get(normalizeGloss(word.headword))
+                ? attestedTranslations(word.headword, translations)
                 : undefined
             )
     }

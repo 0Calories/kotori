@@ -8,6 +8,7 @@ import { ensureUser } from "../../src/features/accounts/queries.ts"
 import { matchSenses } from "../../src/features/dictionary/import/matchSenses.ts"
 import {
   countOf,
+  deleteEntries,
   entriesByPriority,
   entryCount,
   findFormPrefix,
@@ -199,6 +200,36 @@ layer(TestLayer)("dictionary queries", (it) => {
         (yield* searchFormsFuzzy(db, "polsh", 10)).map((match) => match.entryId),
         [100000002, 100000003]
       )
+    })
+  )
+
+  it.effect("filters out weak multi-word trigram lookalikes in fuzzy form search", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      yield* insertEntries(db, [
+        {
+          id: EntryId.make(100000090),
+          language: "en",
+          headword: "throw on",
+          reading: "",
+          common: true,
+          priority: 60,
+          forms: [spelling("throw on", true)],
+          senses: [sense(["羽織る"])]
+        },
+        {
+          id: EntryId.make(100000091),
+          language: "en",
+          headword: "think of",
+          reading: "",
+          common: true,
+          priority: 60,
+          forms: [spelling("think of", true)],
+          senses: [sense(["思いつく"])]
+        }
+      ])
+      assert.deepStrictEqual(yield* searchFormsFuzzy(db, "on thin ice", 10), [])
+      yield* deleteEntries(db, [EntryId.make(100000090), EntryId.make(100000091)])
     })
   )
 

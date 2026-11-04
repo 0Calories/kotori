@@ -510,6 +510,8 @@ const MIN_TRIGRAM_LENGTH = 4
 /** How far below the best match a trigram match may fall: "umbrela" finds umbrella (0.7), not umbra (0.4). */
 const TRIGRAM_SPREAD = 0.15
 
+const MIN_PHRASE_SIMILARITY = 0.45
+
 /**
  * Trigram similarity of `column` to an English query as typed and with its pronouns and articles
  * stripped (`normalizeEnglishPhrase`); `condition` is pg_trgm's `%`, at its 0.3 threshold.
@@ -533,8 +535,10 @@ const trigramMatch = (column: AnyColumn, query: string) => {
 }
 
 /** The matches within `TRIGRAM_SPREAD` of the best, which comes first. */
-const nearBest = <A extends { readonly similarity: number }>(matches: ReadonlyArray<A>) =>
-  matches.filter((match) => match.similarity >= (matches[0]?.similarity ?? 0) - TRIGRAM_SPREAD)
+const nearBest = <A extends { readonly similarity: number }>(matches: ReadonlyArray<A>, minSimilarity = 0) => {
+  const floor = Math.max((matches[0]?.similarity ?? 0) - TRIGRAM_SPREAD, minSimilarity)
+  return matches.filter((match) => match.similarity >= floor)
+}
 
 /** English forms spelled like `query`, for typos and phrases with a word changed: "umbrela" finds umbrella. */
 export const searchFormsFuzzy = Effect.fn("dictionary.searchFormsFuzzy")(function* (
@@ -557,7 +561,7 @@ export const searchFormsFuzzy = Effect.fn("dictionary.searchFormsFuzzy")(functio
     .where(and(eq(entries.language, "en"), ne(forms.kind, "inflection"), match.condition))
     .orderBy(desc(match.similarity), desc(entries.common), desc(entries.priority), sql`length(${forms.text})`)
     .limit(limit)
-  return nearBest(rows)
+  return nearBest(rows, /\s/.test(query.trim()) ? MIN_PHRASE_SIMILARITY : 0)
 }, Effect.orDie)
 
 const glossMatch = {

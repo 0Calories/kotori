@@ -1,8 +1,8 @@
 import { normalizeJapaneseGloss } from "@kotori/language"
 
 /**
- * Japanese definitions as both dictionaries write them: several glosses to a line,
- * separated by 。 or 、 (Wiktionary) or by , and ; (EJDict), with asides in brackets
+ * Japanese definitions as Wiktionary writes them: several glosses to a line,
+ * separated by 。 or 、 (or by , and ;), with asides in brackets
  * that may contain those same separators.
  */
 
@@ -10,7 +10,7 @@ const OPENING = "(（〈《「『〔【["
 const CLOSING = ")）〉》」』〕】]"
 
 /** Splits `text` at any of `separators` that is outside brackets. */
-export const splitOutside = (text: string, separators: string): Array<string> => {
+const splitOutside = (text: string, separators: string): Array<string> => {
   const pieces: Array<string> = []
   let depth = 0
   let start = 0
@@ -28,7 +28,7 @@ export const splitOutside = (text: string, separators: string): Array<string> =>
 }
 
 /** The inside of a piece that is one bracketed aside from end to end, such as "（＊原義は…）". */
-export const asideOnly = (piece: string): string | null => {
+const asideOnly = (piece: string): string | null => {
   const open = OPENING.indexOf(piece[0] ?? "")
   if (open === -1 || CLOSING.indexOf(piece.at(-1) ?? "") === -1) return null
   let depth = 0
