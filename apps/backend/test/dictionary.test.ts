@@ -617,6 +617,66 @@ layer(testLayer(false))("Dictionary", (it) => {
       assert.deepStrictEqual((yield* search("xqzvy", "en")).headwords, [])
     })
   )
+
+  it.effect("says whether the results answer the query or only resemble it, and how current a word is", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      yield* insertEntries(db, [
+        word(100000090, "bus", [sense(["バス"], ["n"])], { inflections: [["bussing", ["present-participle"]]] }),
+        word(100000091, "business", [sense(["仕事"], ["n"])]),
+        // As the import writes it, with the framed JMDict gloss as a spelling.
+        word(100000092, "stone's throw", [sense(["目と鼻の先"], ["exp"], ["id"])], {
+          common: false,
+          spellings: ["stone's throw away"]
+        }),
+        entry(1900010, "食べる", "たべる", [sense(["to eat"], ["v1"])]),
+        entry(1900011, "食べ物", "たべもの", [sense(["food"], ["n"])])
+      ])
+      yield* saveNuance(
+        db,
+        EntryId.make(100000092),
+        [
+          {
+            sense: 0,
+            nuance: interpretSense(senseAnswers, ["dated"]),
+            answers: senseAnswers,
+            model: "test",
+            questionsVersion: ENGLISH_QUESTIONS_VERSION
+          }
+        ],
+        new Date(0)
+      )
+      const match = (query: string, language: "ja" | "en") =>
+        Effect.map(dictionary.search(query, language, 10), (result) => result.match)
+
+      // The word itself, its inflection, or a phrase with every word of the query.
+      assert.strictEqual(yield* match("bus", "en"), "exact")
+      assert.strictEqual(yield* match("bussing", "en"), "exact")
+      assert.strictEqual(yield* match("a stone's throw", "en"), "exact")
+      assert.strictEqual(yield* match("a stone's throw away", "en"), "exact")
+      // With the phrase's words but not the phrase: only a word-dropped near miss.
+      assert.strictEqual(yield* match("stone throw", "en"), "weak")
+      // Lookalikes alone: a prefix of "business" and the inflection "bussing" by trigram.
+      const bussin = yield* dictionary.search("bussin", "en", 10)
+      assert.strictEqual(bussin.match, "weak")
+      assert.include(
+        bussin.entries.map((summary) => summary.headword),
+        "bus"
+      )
+      assert.strictEqual(yield* match("xqzvy", "en"), "none")
+
+      // The same for learners of Japanese, by form and by gloss.
+      assert.strictEqual(yield* match("食べる", "ja"), "exact")
+      assert.strictEqual(yield* match("食べ", "ja"), "weak")
+      assert.strictEqual(yield* match("eat", "ja"), "exact")
+      assert.strictEqual(yield* match("xqzvy", "ja"), "none")
+
+      const stonesThrow = yield* dictionary.search("stone's throw", "en", 10)
+      assert.strictEqual(stonesThrow.entries[0]?.currency, "dated")
+      assert.strictEqual(bussin.entries[0]?.currency, null)
+    })
+  )
 })
 
 layer(testLayer(false))("Dictionary: what Kotori wrote on an English word", (it) => {

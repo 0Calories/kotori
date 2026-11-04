@@ -627,6 +627,14 @@
                         }
                       ]
                     },
+                    "match": {
+                      "type": "string",
+                      "enum": [
+                        "exact",
+                        "weak",
+                        "none"
+                      ]
+                    },
                     "entries": {
                       "type": "array",
                       "items": {
@@ -689,6 +697,22 @@
                               }
                             ]
                           },
+                          "currency": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "archaic",
+                                  "dated",
+                                  "current",
+                                  "trendy"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "inflection": {
                             "type": "array",
                             "items": {
@@ -706,6 +730,7 @@
                           "meanings",
                           "partOfSpeech",
                           "formality",
+                          "currency",
                           "inflection"
                         ],
                         "additionalProperties": false
@@ -716,6 +741,7 @@
                     "query",
                     "mode",
                     "reading",
+                    "match",
                     "entries"
                   ],
                   "additionalProperties": false

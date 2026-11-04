@@ -18,7 +18,7 @@ import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { posLabel, strings } from "../../src/i18n/strings.ts"
 import { useSearchMascotPhase } from "../../src/lib/searchMascot.ts"
-import { formalityTone } from "../../src/lib/tones.ts"
+import { currencyTone, formalityTone } from "../../src/lib/tones.ts"
 import { usePreference } from "../../src/session/preferences.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
@@ -60,6 +60,7 @@ const ResultRow = ({
   const theme = useTheme()
   const { t } = useSession()
   const pos = posLabel(t, entry.partOfSpeech)
+  const currency = entry.currency && entry.currency !== "current" ? entry.currency : null
   return (
     <PressableScale
       onPress={onPress}
@@ -89,7 +90,11 @@ const ResultRow = ({
         <Text color="textMuted" numberOfLines={2}>
           {entry.meanings.join(entry.language === "ja" ? "; " : "、")}
         </Text>
-        {entry.inflection.length > 0 || entry.common || pos || (entry.formality && entry.formality !== "neutral") ? (
+        {entry.inflection.length > 0 ||
+        entry.common ||
+        pos ||
+        currency ||
+        (entry.formality && entry.formality !== "neutral") ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
             {entry.inflection.length > 0 ? (
               <Chip
@@ -103,6 +108,7 @@ const ResultRow = ({
             {entry.formality && entry.formality !== "neutral" ? (
               <Chip tone={formalityTone[entry.formality]} label={t.nuance.scale[entry.formality]} />
             ) : null}
+            {currency ? <Chip tone={currencyTone[currency]} label={t.nuance.currency[currency]} /> : null}
           </View>
         ) : null}
       </View>
@@ -367,6 +373,14 @@ export default function LookUpScreen() {
           {search.isError ? <ErrorState error={search.error} onRetry={() => search.refetch()} /> : null}
           {results && results.entries.length === 0 && !search.isFetching ? (
             <MascotMessage mood="oops" facing="front" body={t.dictionary.noResults} size={90} />
+          ) : null}
+          {results && results.match === "weak" && !search.isFetching ? (
+            // Only lookalikes: said plainly, so a learner doesn't take "bus" for "bussin".
+            <MascotMessage mood="curious" body={t.dictionary.noExactMatch(results.query)} size={90}>
+              <Text variant="caption" color="textMuted" style={{ alignSelf: "flex-start", paddingHorizontal: 6 }}>
+                {t.dictionary.similarResults}
+              </Text>
+            </MascotMessage>
           ) : null}
           {results && results.entries.length > 0 ? (
             <Card padded={false} style={{ paddingHorizontal: theme.space.lg, paddingVertical: 2 }}>

@@ -8,6 +8,7 @@ import {
   type EntrySummary,
   type Example,
   type Language,
+  type SearchMatch,
   type SearchResult,
   type Sense,
   type SimilarWord,
@@ -64,7 +65,17 @@ interface Hit {
   readonly entryId: EntryId
   readonly score: number
   readonly inflection: ReadonlyArray<string>
+  /**
+   * Whether the entry answers the query rather than resembling it: the word as written or
+   * inflected, or a gloss with every word of the query; not a prefix, a typo's neighbour or a
+   * phrase with a word left out. See `SearchMatch`.
+   */
+  readonly strong: boolean
 }
+
+/** How well a list of hits answers the query, from the best hit's kind. */
+const matchOf = (hits: ReadonlyArray<Hit>): SearchMatch =>
+  hits.length === 0 ? "none" : hits.some((hit) => hit.strong) ? "exact" : "weak"
 
 const keepBest = (hits: Iterable<Hit>) => {
   const best = new Map<EntryId, Hit>()
@@ -270,7 +281,8 @@ export class Dictionary extends Context.Service<
                 (match.text === entry.headword ? 20 : 0) +
                 (entry.common ? 50 : 0) +
                 entry.priority / 10,
-              inflection: candidate.reasons
+              inflection: candidate.reasons,
+              strong: true
             }))
         })
 
@@ -279,7 +291,8 @@ export class Dictionary extends Context.Service<
         const prefix = prefixIds.map((entryId, index): Hit => ({
           entryId,
           score: 400 - index + (ranks.get(entryId)?.common ? 50 : 0),
-          inflection: []
+          inflection: [],
+          strong: false
         }))
         return keepBest([...exact, ...prefix])
       })
@@ -306,7 +319,7 @@ export class Dictionary extends Context.Service<
         const phraseNorm = normalizeEnglishPhrase(query)
         const allMatches = [...exact, ...strict, ...relaxed, ...fuzzy]
         const ranks = yield* entryRanks(db, unique(allMatches.map((match) => match.entryId)))
-        const score = (match: GlossMatch, isExact: boolean, penalty = 0): Hit => {
+        const score = (match: GlossMatch, isExact: boolean, strong: boolean, penalty = 0): Hit => {
           const phraseExact = isExact || (phraseNorm.length > 0 && normalizeEnglishPhrase(match.text) === phraseNorm)
           const literalBonus = phraseExact && normalizeGloss(match.text) === norm ? 5 : 0
           return {
@@ -315,15 +328,16 @@ export class Dictionary extends Context.Service<
               glossScore(match, phraseExact, phraseNorm || norm, normalizeEnglishPhrase, ranks.get(match.entryId)) +
               literalBonus -
               penalty,
-            inflection: []
+            inflection: [],
+            strong
           }
         }
-        const direct = [...exact.map((m) => score(m, true)), ...strict.map((m) => score(m, false))]
+        const direct = [...exact.map((m) => score(m, true, true)), ...strict.map((m) => score(m, false, true))]
         return {
           hits: keepBest([
             ...direct,
-            ...relaxed.map((m) => score(m, false, 15 - proximity(m.rank))),
-            ...fuzzy.map((m) => score(m, false, 20))
+            ...relaxed.map((m) => score(m, false, false, 15 - proximity(m.rank))),
+            ...fuzzy.map((m) => score(m, false, false, 20))
           ]),
           directScore: Math.max(0, ...direct.map((hit) => hit.score))
         }
@@ -408,7 +422,8 @@ export class Dictionary extends Context.Service<
           return {
             entryId: match.entryId,
             score: formScore(base, match.text === query, ranks.get(match.entryId)),
-            inflection: inflected ? match.tags : []
+            inflection: inflected ? match.tags : [],
+            strong: !acronym
           }
         })
         const byRule = guessed
@@ -419,31 +434,37 @@ export class Dictionary extends Context.Service<
             return {
               entryId: match.entryId,
               score: formScore(750, false, ranks.get(match.entryId)),
-              inflection: guessedInflection(guess?.tags ?? [], guessedEntries.get(match.entryId))
+              inflection: guessedInflection(guess?.tags ?? [], guessedEntries.get(match.entryId)),
+              strong: true
             }
           })
         const prefix = prefixIds.map((entryId, index): Hit => ({
           entryId,
           score: 400 - index + (ranks.get(entryId)?.common ? 50 : 0),
-          inflection: []
+          inflection: [],
+          strong: false
         }))
+        // A phrase with every word of the query answers it; one that merely shares the words resembles it.
         const byTokens = strict.map((match): Hit => {
           const phraseExact = phraseNorm.length > 0 && normalizeEnglishPhrase(match.text) === phraseNorm
           return {
             entryId: match.entryId,
             score: formScore(phraseExact ? 720 : 500, false, ranks.get(match.entryId)) + Math.min(10, -match.rank),
-            inflection: []
+            inflection: [],
+            strong: phraseExact
           }
         })
         const byRelaxed = relaxed.map((match): Hit => ({
           entryId: match.entryId,
           score: formScore(320, false, ranks.get(match.entryId)) + proximity(match.rank),
-          inflection: []
+          inflection: [],
+          strong: false
         }))
         const byFuzzy = fuzzy.map((match): Hit => ({
           entryId: match.entryId,
           score: formScore(250 + Math.round(match.similarity * 100), false, ranks.get(match.entryId)),
-          inflection: []
+          inflection: [],
+          strong: false
         }))
         return keepBest([...exact, ...byRule, ...byTokens, ...prefix, ...byRelaxed, ...byFuzzy])
       })
@@ -487,7 +508,8 @@ export class Dictionary extends Context.Service<
         const score = (match: GlossMatch, isExact: boolean): Hit => ({
           entryId: match.entryId,
           score: glossScore(match, isExact, norm, normalizeJapaneseGloss, ranks.get(match.entryId)),
-          inflection: []
+          inflection: [],
+          strong: isExact
         })
         const viaJmdict = bridged
           // JMDict's "to eat" names eat, not the acronym EAT.
@@ -500,7 +522,8 @@ export class Dictionary extends Context.Service<
             return {
               entryId: match.entryId,
               score: weight + (rank?.common ? 30 : 0) + (rank?.priority ?? 0) / 5,
-              inflection: []
+              inflection: [],
+              strong: true
             }
           })
         return keepBest([...exact.map((m) => score(m, true)), ...viaJmdict, ...fuzzy.map((m) => score(m, false))])
@@ -526,9 +549,9 @@ export class Dictionary extends Context.Service<
         const ids = hits.map((hit) => hit.entryId)
         const entries = new Map((yield* getEntries(db, ids)).map((entry) => [entry.id, entry]))
         const nuance = yield* nuanceFor(db, ids)
-        const formality = new Map(
-          nuance.filter((row) => row.sense === 0).map((row) => [row.entryId, row.nuance.formality.value] as const)
-        )
+        const first = nuance.filter((row) => row.sense === 0)
+        const formality = new Map(first.map((row) => [row.entryId, row.nuance.formality.value] as const))
+        const currency = new Map(first.map((row) => [row.entryId, row.nuance.currency.value] as const))
         return hits.flatMap((hit): Array<EntrySummary> => {
           const entry = entries.get(hit.entryId)
           if (entry === undefined) return []
@@ -543,6 +566,7 @@ export class Dictionary extends Context.Service<
               meanings: firstGlosses(entry, 3),
               partOfSpeech: entry.senses[0]?.pos[0] ?? null,
               formality: formality.get(entry.id) ?? null,
+              currency: currency.get(entry.id) ?? null,
               inflection: hit.inflection
             }
           ]
@@ -551,9 +575,11 @@ export class Dictionary extends Context.Service<
 
       const search = Effect.fn("Dictionary.search")(function* (raw: string, language: Language, limit: number) {
         const query = raw.normalize("NFKC").trim()
-        if (query.length === 0) return { query, mode: "english" as const, reading: null, entries: [] }
+        if (query.length === 0)
+          return { query, mode: "english" as const, reading: null, match: "none" as const, entries: [] }
         const { mode, reading, hits } = language === "ja" ? yield* searchJapanese(query) : yield* searchEnglish(query)
-        return { query, mode, reading, entries: yield* summaries(hits.slice(0, limit)) }
+        const shown = hits.slice(0, limit)
+        return { query, mode, reading, match: matchOf(shown), entries: yield* summaries(shown) }
       })
 
       // ---------------------------------------------------------------------
