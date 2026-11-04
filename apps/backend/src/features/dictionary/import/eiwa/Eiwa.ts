@@ -9,6 +9,7 @@ import { Database } from "../../../../db/Database.ts"
 import { resolveFromRoot } from "../../../../runtime/Paths.ts"
 import { deleteEntries, headwordIds, insertEntries, saveTags } from "../../queries.ts"
 import { entrySplitter } from "../jmdict/parse.ts"
+import { APPROVED_EN_FILE, parseApproved } from "./approved.ts"
 import { mergeSources, type Source, toEntries } from "./build.ts"
 import { parseFamiliarity } from "./familiarity.ts"
 import { FREQUENCY_URL, parseFrequency } from "./frequency.ts"
@@ -30,6 +31,8 @@ export interface Files {
   readonly phrases?: string | undefined
   /** Familiarity ratings for phrases the other sources don't rate (`familiarity.json`), optional in tests. */
   readonly familiarity?: string | undefined
+  /** Entries and aliases approved out of Ask Kotori proposals (`data/approved/en.jsonl`). */
+  readonly approved?: string | undefined
   /** Wiktextract's extraction of Japanese Wiktionary, gzipped JSON lines (or plain). */
   readonly wiktionary: string
   /** FrequencyWords' English list. */
@@ -49,6 +52,7 @@ export const download = Effect.fn("Eiwa.download")(
       curated: path.join(root, "enwiktionary-ja.jsonl"),
       phrases: path.join(root, "enwiktionary-phrases.json"),
       familiarity: path.join(root, "familiarity.json"),
+      approved: resolveFromRoot(APPROVED_EN_FILE),
       wiktionary: path.join(root, "ja-wiktionary.jsonl.gz"),
       frequency: path.join(root, "en_50k.txt")
     }
@@ -156,6 +160,16 @@ const build = Effect.fnUntraced(function* (options: ImportOptions, existing: Rea
     yield* eachLine(curatedPath, curatedReader.add)
   }
   const curated = curatedReader.finish()
+
+  // Approved Ask Kotori entries read as curated words too, after them: on a clash, curation wins.
+  const approvedPath = options.files.approved
+  const approved =
+    approvedPath !== undefined && existsSync(resolveFromRoot(approvedPath))
+      ? parseApproved(yield* readLines(approvedPath))
+      : { words: [], formsOf: [] }
+  const curatedHeadwords = new Set(curated.words.map((word) => word.headword.toLowerCase()))
+  curated.words.push(...approved.words.filter((word) => !curatedHeadwords.has(word.headword.toLowerCase())))
+  curated.formsOf.push(...approved.formsOf)
 
   const phrasesPath = options.files.phrases
   const phraseIndex =

@@ -6,6 +6,7 @@ export {
   entryCount,
   findForms,
   getEntries,
+  insertEntries,
   loanCandidates,
   sharedGlossCandidates,
   tagLabels

@@ -9,6 +9,7 @@ import { evaluate } from "../cli/evaluate.ts"
 import { familiarity } from "../cli/familiarity.ts"
 import { golden } from "../cli/golden.ts"
 import { migrate } from "../cli/migrate.ts"
+import { proposalsCommand } from "../cli/proposals.ts"
 import { seed } from "../cli/seed.ts"
 import { status } from "../cli/status.ts"
 import { DatabaseLive } from "../db/Database.ts"
@@ -25,6 +26,7 @@ const kotori = Command.make("kotori").pipe(
   Command.withDescription("Kotori's toolbox: seed and enrich the dictionary, and manage learner sign-ups"),
   Command.withSubcommands([
     migrate.pipe(Command.provide(DatabaseLive)),
+    proposalsCommand.pipe(Command.provide(DatabaseLive)),
     seed.pipe(Command.provide(SeedLive)),
     enrich.pipe(Command.provide(WorkerLive)),
     familiarity.pipe(Command.provide(FamiliarityLive)),

@@ -89,6 +89,35 @@ layer(TestLayer)("Eiwa.importFiles", (it) => {
     })
   )
 
+  it.effect("imports approved Ask Kotori entries and aliases alongside the sources", () =>
+    Effect.gen(function* () {
+      const approved = file("approved.jsonl", [
+        JSON.stringify({
+          entry: {
+            headword: "rizzler",
+            ipa: "/ˈɹɪzlɚ/",
+            familiarity: 4,
+            senses: [{ pos: ["n"], misc: ["sl"], glosses: ["モテる人"] }]
+          }
+        }),
+        JSON.stringify({ alias: { text: "walking on thin ice", base: "on thin ice" } })
+      ])
+      const result = yield* Eiwa.importFiles({ files: { ...files(true), approved }, jmdict: jmdictFile })
+      assert.strictEqual(result.curated, 3)
+
+      const db = yield* Database
+      const ids = yield* headwordIds(db, "en")
+      const [rizzler] = yield* findForms(db, ["rizzler"], "en")
+      assert.strictEqual(rizzler?.entryId, ids.get("rizzler"))
+      const [walking] = yield* findForms(db, ["walking on thin ice"], "en")
+      assert.strictEqual(walking?.entryId, ids.get("on thin ice"))
+
+      // Without the approved file, its words go the way of any removed source word.
+      const without = yield* Eiwa.importFiles({ files: files(true), jmdict: jmdictFile })
+      assert.strictEqual(without.removed, 1)
+    })
+  )
+
   it.effect("keeps ids on a re-import and removes words the sources no longer have", () =>
     Effect.gen(function* () {
       const db = yield* Database

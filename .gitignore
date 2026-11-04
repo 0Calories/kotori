@@ -18,6 +18,7 @@ coverage/
 # Local data: JMDict downloads (everything else lives in Postgres)
 data/*
 !data/.gitkeep
+!data/approved/
 !data/eiwa/
 data/eiwa/*
 !data/eiwa/enwiktionary-ja.jsonl

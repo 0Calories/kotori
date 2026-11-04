@@ -7,6 +7,7 @@ export {
   nuanceEntryIds,
   nuanceFor,
   outdatedNuanceEntryIds,
+  saveSenseNotes,
   senseNotesFor,
   similarFor
 } from "./queries.ts"

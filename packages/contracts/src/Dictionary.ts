@@ -1,6 +1,7 @@
 import {
   castBy,
   DraftEntry,
+  DraftSense,
   entries,
   EntryId,
   examples,
@@ -158,7 +159,7 @@ export const EntrySummary = Schema.Struct({
 })
 export type EntrySummary = typeof EntrySummary.Type
 
-export { DraftEntry }
+export { DraftEntry, DraftSense }
 
 export const ProposalStatus = createSelectSchema(proposalStatus)
 export type ProposalStatus = typeof ProposalStatus.Type
