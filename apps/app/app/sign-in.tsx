@@ -2,6 +2,7 @@ import { useRouter } from "expo-router"
 import { useRef, useState } from "react"
 import { Platform, type TextInput, View } from "react-native"
 import Animated, { FadeInDown } from "react-native-reanimated"
+import { devCredentials } from "../src/auth/dev.ts"
 import { authMessage } from "../src/auth/messages.ts"
 import { Button, IconButton } from "../src/components/Button.tsx"
 import { Input } from "../src/components/Input.tsx"
@@ -15,8 +16,9 @@ import { theme } from "../src/theme/tokens.ts"
 export default function SignIn() {
   const { t, signIn } = useSession()
   const router = useRouter()
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
+  const dev = devCredentials()
+  const [email, setEmail] = useState(dev?.email ?? "")
+  const [password, setPassword] = useState(dev?.password ?? "")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const passwordRef = useRef<TextInput>(null)

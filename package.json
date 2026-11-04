@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "nx run-many -t dev -p @kotori/local-auth @kotori/backend --outputStyle=stream",
-    "dev:app": "nx run @kotori/app:dev",
+    "dev:app": "pnpm --filter @kotori/app run dev",
     "dev:setup": "tsx tools/dev-setup.ts",
     "seed": "pnpm --filter @kotori/backend run cli seed",
     "kotori": "pnpm --filter @kotori/backend run cli",
