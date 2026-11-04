@@ -1,4 +1,14 @@
-import { confetti, frontMoods, frontShapes, headroom, type Mood, palette, shapes, thinkingShapes } from "./geometry.ts"
+import {
+  confetti,
+  type Facing,
+  frontMoods,
+  frontShapes,
+  headroom,
+  type Mood,
+  palette,
+  shapes,
+  thinkingShapes
+} from "./geometry.ts"
 import {
   type ClipName,
   clips,
@@ -15,7 +25,9 @@ import {
   type SparklePart,
   sparkleParts,
   sparklesFor,
-  svgTransform
+  svgTransform,
+  type ZPart,
+  zParts
 } from "./motion.ts"
 
 /** `content` placed by `pose`, or by `at` when given. */
@@ -27,41 +39,68 @@ const placed =
 const circle = (c: { readonly cx: number; readonly cy: number; readonly r: number }, fill: string) =>
   `<circle cx="${c.cx}" cy="${c.cy}" r="${c.r}" fill="${fill}"/>`
 
+const zSvg = (name: ZPart) => {
+  const { d, stroke } = shapes.zs[name]
+  return `<path d="${d}" fill="none" stroke="${palette.sky}" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round"/>`
+}
+
+type Face = {
+  readonly eyes: readonly { readonly cx: number; readonly cy: number; readonly rx: number; readonly ry: number }[]
+  readonly catchlight: { readonly dx: number; readonly dy: number; readonly r: number }
+}
+
+const eyesSvg = (mood: Mood, face: Face) => {
+  if (mood === "happy" || mood === "celebrate") {
+    return face.eyes
+      .map(
+        (e) =>
+          `<path d="M${e.cx - 7} ${e.cy + 2} Q ${e.cx} ${e.cy - 7} ${e.cx + 7} ${e.cy + 2}" fill="none" stroke="${palette.ink}" stroke-width="4" stroke-linecap="round"/>`
+      )
+      .join("")
+  }
+  if (mood === "sleepy") {
+    return face.eyes
+      .map(
+        (e) =>
+          `<path d="M${e.cx - 7} ${e.cy + 1} Q ${e.cx} ${e.cy + 5} ${e.cx + 7} ${e.cy + 1}" fill="none" stroke="${palette.ink}" stroke-width="3.5" stroke-linecap="round"/>`
+      )
+      .join("")
+  }
+  const scale = mood === "oops" ? 1.08 : 1
+  const { catchlight } = face
+  return face.eyes
+    .map(
+      (e) =>
+        `<ellipse cx="${e.cx}" cy="${e.cy}" rx="${e.rx * scale}" ry="${e.ry * scale}" fill="${palette.ink}"/><circle cx="${e.cx + catchlight.dx}" cy="${e.cy + catchlight.dy}" r="${catchlight.r}" fill="${palette.white}"/>`
+    )
+    .join("")
+}
+
 /**
  * Kotori in three-quarter view in its 200×200 box, with each moving part
  * placed by `pose`, and its sparkles beside it when it celebrates, as big as a
- * Kotori `size` pixels square draws them.
+ * Kotori `size` pixels square draws them. `facing === "right"` mirrors the
+ * drawing horizontally about `x = 100`.
  */
-const sideDrawing = (mood: Mood, pose: (part: Part) => Pose, size = 200) => {
-  const { catchlight } = shapes
-  const eyes =
-    mood === "happy" || mood === "celebrate"
-      ? shapes.eyes
-          .map(
-            (e) =>
-              `<path d="M${e.cx - 7} ${e.cy + 2} Q ${e.cx} ${e.cy - 7} ${e.cx + 7} ${e.cy + 2}" fill="none" stroke="${palette.ink}" stroke-width="4" stroke-linecap="round"/>`
-          )
-          .join("")
-      : shapes.eyes
-          .map(
-            (e) =>
-              `<ellipse cx="${e.cx}" cy="${e.cy}" rx="${e.rx}" ry="${e.ry}" fill="${palette.ink}"/><circle cx="${e.cx + catchlight.dx}" cy="${e.cy + catchlight.dy}" r="${catchlight.r}" fill="${palette.white}"/>`
-          )
-          .join("")
-  const shut = shapes.eyes
-    .map(
-      (e) =>
-        `<path d="M${e.cx - 7} ${e.cy + 1} Q ${e.cx} ${e.cy + 5} ${e.cx + 7} ${e.cy + 1}" fill="none" stroke="${palette.ink}" stroke-width="3.5" stroke-linecap="round"/>`
-    )
-    .join("")
+const sideDrawing = (mood: Mood, pose: (part: Part) => Pose, size = 200, facing: "left" | "right" = "left") => {
   const foot = (d: string) =>
     `<path d="${d}" stroke="${palette.ink}" stroke-width="${shapes.feet.width}" stroke-linecap="round"/>`
   const part = placed(pose)
   const eyesPose = pose("eyes")
   const sparkle = (name: SparklePart) =>
     part(name, `<path d="${shapes.sparkles[name]}" fill="${palette.blush}"/>`, combine(pose(name), sparklesFor(size)))
+  const z = (name: ZPart) => {
+    const at = pose(name)
+    return part(name, zSvg(name), facing === "right" ? { ...at, scaleX: -at.scaleX } : at)
+  }
+  const extra =
+    mood === "oops"
+      ? `<path d="${shapes.sweat}" fill="${palette.sky}"/>`
+      : mood === "sleepy"
+        ? zParts.map(z).join("")
+        : ""
 
-  return `${part(
+  const content = `${part(
     "bird",
     `${part("tail", `<path d="${shapes.tail}" fill="${palette.ink}"/>`)}
   ${part("backFoot", foot(shapes.feet.back))}
@@ -75,23 +114,33 @@ const sideDrawing = (mood: Mood, pose: (part: Part) => Pose, size = 200) => {
     "face",
     `${shapes.cheeks.map((c) => `<ellipse cx="${c.cx}" cy="${c.cy}" rx="${c.rx}" ry="${c.ry}" fill="${palette.blush}"/>`).join("")}
   <path d="${shapes.beak}" fill="${palette.ink}"/>
-  ${part("eyes", eyes)}
-  <g transform="${svgTransform(eyesPose, "eyes")}" opacity="${1 - eyesPose.opacity}">${shut}</g>`
+  ${part("eyes", eyesSvg(mood, shapes))}
+  <g transform="${svgTransform(eyesPose, "eyes")}" opacity="${1 - eyesPose.opacity}">${eyesSvg("sleepy", shapes)}</g>`
   )}`
-  )}${mood === "celebrate" ? sparkleParts.map(sparkle).join("") : ""}`
+  )}${mood === "celebrate" ? sparkleParts.map(sparkle).join("") : ""}${extra}`
+
+  return facing === "right" ? `<g transform="translate(200 0) scale(-1 1)">${content}</g>` : content
 }
 
 /**
- * Kotori facing the viewer in its 200×200 box. It holds still; `thinking`
- * raises its wing to its chin and adds the thought bubble above the box, the
- * only part that moves, placed by `pose`.
+ * Kotori facing the viewer in its 200×200 box. It holds its pose while blinking
+ * in open-eyed moods; `thinking` raises its wing to its chin and adds the
+ * thought bubble above the box, placed by `pose`.
  */
-const frontDrawing = (pose: (part: Part) => Pose, thinking: boolean) => {
-  const { catchlight, feet, wings } = frontShapes
+const frontDrawing = (mood: Mood, pose: (part: Part) => Pose) => {
+  const { feet, wings } = frontShapes
   const foot = (d: string) =>
     `<path d="${d}" stroke="${palette.ink}" stroke-width="${feet.width}" stroke-linecap="round"/>`
   const part = placed(pose)
+  const eyesPose = pose("eyes")
+  const thinking = mood === "thinking"
   const { trail, dots } = thinkingShapes
+  const extra =
+    mood === "oops"
+      ? `<path d="${frontShapes.sweat}" fill="${palette.sky}"/>`
+      : mood === "sleepy"
+        ? zParts.map((name) => part(name, zSvg(name))).join("")
+        : ""
 
   const bird = `<path d="${wings[1]}" fill="${palette.ink}"/>
   ${thinking ? "" : `<path d="${wings[0]}" fill="${palette.ink}"/>`}
@@ -102,13 +151,9 @@ const frontDrawing = (pose: (part: Part) => Pose, thinking: boolean) => {
   ${foot(feet.left)}
   ${foot(feet.right)}
   ${frontShapes.cheeks.map((c) => `<ellipse cx="${c.cx}" cy="${c.cy}" rx="${c.rx}" ry="${c.ry}" fill="${palette.blush}"/>`).join("")}
-  ${frontShapes.eyes
-    .map(
-      (e) =>
-        `<ellipse cx="${e.cx}" cy="${e.cy}" rx="${e.rx}" ry="${e.ry}" fill="${palette.ink}"/><circle cx="${e.cx + catchlight.dx}" cy="${e.cy + catchlight.dy}" r="${catchlight.r}" fill="${palette.white}"/>`
-    )
-    .join("")}
-  <path d="${frontShapes.beak}" fill="${palette.ink}"/>`
+  ${part("eyes", eyesSvg(mood, frontShapes))}
+  <g transform="${svgTransform(eyesPose, "eyes")}" opacity="${1 - eyesPose.opacity}">${eyesSvg("sleepy", frontShapes)}</g>
+  <path d="${frontShapes.beak}" fill="${palette.ink}"/>${extra ? `\n  ${extra}` : ""}`
   if (!thinking) return bird
 
   return `${bird}
@@ -123,13 +168,14 @@ const frontDrawing = (pose: (part: Part) => Pose, thinking: boolean) => {
   )}`
 }
 
-/** Kotori in `mood`, in whichever view it takes that mood in, as a Kotori `size` pixels square draws it. */
-const drawing = (mood: Mood, pose: (part: Part) => Pose, size = 200) =>
-  frontMoods.has(mood) ? frontDrawing(pose, mood === "thinking") : sideDrawing(mood, pose, size)
+/** Kotori in `mood` and `facing`, as a Kotori `size` pixels square draws it. */
+const drawing = (mood: Mood, pose: (part: Part) => Pose, size = 200, facing: Facing = "left") =>
+  facing === "front" || frontMoods.has(mood) ? frontDrawing(mood, pose) : sideDrawing(mood, pose, size, facing)
 
 /** The mascot as an SVG document, for generating icons and splash images. In moods that reach above the box, the image grows taller to fit. */
-export const mascotSvg = (options: { mood?: Mood; background?: string; padding?: number } = {}) => {
-  const mood = options.mood ?? "curious"
+export const mascotSvg = (options: { mood?: Mood; facing?: Facing; background?: string; padding?: number } = {}) => {
+  const mood = options.mood ?? "neutral"
+  const facing = options.facing ?? "left"
   const pad = options.padding ?? 0
   const size = 200 + pad * 2
   const top = -pad - headroom(mood)
@@ -137,7 +183,7 @@ export const mascotSvg = (options: { mood?: Mood; background?: string; padding?:
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-pad} ${top} ${size} ${height}" width="${size}" height="${height}">
   ${options.background ? `<rect x="${-pad}" y="${top}" width="${size}" height="${height}" fill="${options.background}"/>` : ""}
-  ${drawing(mood, (part) => settled(mood, part))}
+  ${drawing(mood, (part) => settled(mood, part), 200, facing)}
 </svg>`
 }
 
@@ -167,16 +213,19 @@ const thrown = (name: ClipName, t: number, size: number) => {
 /** How far past the box a frame shows, for the hop and the confetti, which go beyond it. */
 const room = 40
 
+/** Moods whose own marks are `palette.sky` sit on white in preview frames so those marks show. */
+const backdrop = (mood: Mood) => (mood === "sleepy" || mood === "oops" ? palette.white : palette.sky)
+
 /**
- * One frame of a clip, `t` ms in, on the sky, with confetti as a Kotori `size`
- * pixels square throws it, and room above the box for whatever reaches there.
+ * One frame of a clip, `t` ms in, with confetti as a Kotori `size` pixels
+ * square throws it, and room above the box for whatever reaches there.
  */
 export const frameSvg = (name: ClipName, mood: Mood, t: number, size = 200) => {
   const top = room + headroom(mood)
   const width = 200 + room * 2
   const height = 200 + room + top
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-room} ${-top} ${width} ${height}" width="200" height="${Math.round((200 * height) / width)}">
-  <rect x="${-room}" y="${-top}" width="${width}" height="${height}" fill="${palette.sky}"/>
+  <rect x="${-room}" y="${-top}" width="${width}" height="${height}" fill="${backdrop(mood)}"/>
   ${thrown(name, t, size)}
   ${drawing(mood, clipPose(name, mood, t), size)}
 </svg>`
@@ -201,7 +250,7 @@ export const framesSvg = (name: ClipName, mood: Mood, count = 12) => {
   const height = Math.ceil(count / columns) * cell.height
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
-  <rect width="${width}" height="${height}" fill="${palette.sky}"/>
+  <rect width="${width}" height="${height}" fill="${backdrop(mood)}"/>
   ${frames.join("\n  ")}
 </svg>`
 }
@@ -213,6 +262,6 @@ export const mascotFrontSvg = (options: { background?: string; padding?: number 
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-pad} ${-pad} ${size} ${size}" width="${size}" height="${size}">
   ${options.background ? `<rect x="${-pad}" y="${-pad}" width="${size}" height="${size}" fill="${options.background}"/>` : ""}
-  ${frontDrawing(() => rest, false)}
+  ${frontDrawing("neutral", () => rest)}
 </svg>`
 }

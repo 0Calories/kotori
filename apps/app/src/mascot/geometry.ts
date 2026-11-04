@@ -50,6 +50,14 @@ export const shapes = {
   sparkles: {
     bigSparkle: "M160 13 l 3 8 l 8 3 l -8 3 l -3 8 l -3 -8 l -8 -3 l 8 -3 Z",
     smallSparkle: "M183 1 l 2 4.5 l 4.5 2 l -4.5 2 l -2 4.5 l -2 -4.5 l -4.5 -2 l 4.5 -2 Z"
+  },
+  /** Sweat drop beside the brow for `oops`. */
+  sweat: "M29 46 q 7 10 0 15 q -7 -5 0 -15 Z",
+  /** Three Zs rising from the brow for `sleepy`, smallest first. */
+  zs: {
+    z0: { d: "M25.5 47.5 H 32.5 L 25.5 54.5 H 32.5", stroke: 3.2 },
+    z1: { d: "M15.5 29.5 H 24.5 L 15.5 38.5 H 24.5", stroke: 3.7 },
+    z2: { d: "M9.5 9.5 H 20.5 L 9.5 20.5 H 20.5", stroke: 4.2 }
   }
 } as const
 
@@ -83,6 +91,7 @@ export const confetti: { readonly canvas: number; readonly bits: Readonly<Record
  *
  * Thinking adds the thought `bubble`, which carries `dot0` to `dot2`. They're
  * the only parts that move while Kotori thinks; the rest of the pose holds still.
+ * Sleeping adds `z0` to `z2`, which waft up from the brow about their middles.
  */
 export const joints = {
   bird: { x: 92, y: 180 },
@@ -98,7 +107,10 @@ export const joints = {
   bubble: { x: 116, y: -14 },
   dot0: { x: 126, y: -33 },
   dot1: { x: 140, y: -33 },
-  dot2: { x: 154, y: -33 }
+  dot2: { x: 154, y: -33 },
+  z0: { x: 29, y: 51 },
+  z1: { x: 20, y: 34 },
+  z2: { x: 15, y: 15 }
 } as const
 
 /** Kotori facing the viewer, symmetric about x = 100. */
@@ -132,7 +144,9 @@ export const frontShapes = {
   ],
   /** Catchlight, offset from each eye's centre. */
   catchlight: { dx: 2, dy: -3.8, r: 2.4 },
-  beak: "M100 75.6 C 97.1 75.6, 90.9 81.2, 90.4 83.1 C 90.2 84.2, 98 88.5, 100 88.5 C 102 88.5, 109.8 84.2, 109.6 83.1 C 109.1 81.2, 102.9 75.6, 100 75.6 Z"
+  beak: "M100 75.6 C 97.1 75.6, 90.9 81.2, 90.4 83.1 C 90.2 84.2, 98 88.5, 100 88.5 C 102 88.5, 109.8 84.2, 109.6 83.1 C 109.1 81.2, 102.9 75.6, 100 75.6 Z",
+  /** Sweat drop on the temple for `oops`. */
+  sweat: "M56 52 q 7 10 0 15 q -7 -5 0 -15 Z"
 } as const
 
 /**
@@ -162,9 +176,11 @@ export const thinkingShapes = {
   headroom: 62
 } as const
 
-export type Mood = "curious" | "happy" | "thinking" | "sleepy" | "celebrate" | "oops"
+export type Mood = "neutral" | "happy" | "thinking" | "sleepy" | "celebrate" | "oops"
 
-/** Moods Kotori takes facing the viewer. It shows the rest in three-quarter view. */
+export type Facing = "left" | "right" | "front"
+
+/** Moods Kotori takes facing the viewer. It shows the rest in three-quarter view unless `facing` is `"front"`. */
 export const frontMoods: ReadonlySet<Mood> = new Set(["thinking"])
 
 /** How far above the box Kotori's drawing reaches in `mood`, in box units. */

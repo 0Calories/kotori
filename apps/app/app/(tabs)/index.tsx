@@ -121,7 +121,7 @@ const ReviewTeaser = () => {
   return (
     <Animated.View entering={FadeInDown.duration(400)}>
       <Card style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-        <Mascot size={56} mood={due > 0 ? "curious" : "sleepy"} />
+        <Mascot size={56} mood={due > 0 ? "neutral" : "sleepy"} />
         <View style={{ flex: 1, gap: 6 }}>
           <Text variant="strong">{due > 0 ? t.dictionary.reviewCard(due) : t.dictionary.reviewCardNone}</Text>
           {stats.data && stats.data.streak > 0 ? (
@@ -152,7 +152,7 @@ export default function LookUpScreen() {
   const search = useSearch(debounced, target)
   const searching = query.trim().length > 0
   // True from the first keystroke until this text's results arrive, debounce included.
-  // The pose stays curious until that wait is long enough to be worth a change.
+  // The pose stays neutral until that wait is long enough to be worth a change.
   const loading = searching && (debounced !== query.trim() || search.isFetching)
   const mascot = useSearchMascotPhase(loading)
 
@@ -296,7 +296,7 @@ export default function LookUpScreen() {
             ) : null}
           </View>
           <View pointerEvents="none" style={{ position: "absolute", right: 62, top: -58 }}>
-            <Mascot size={70} mood={mascot === "thinking" ? "thinking" : "curious"} />
+            <Mascot size={70} mood={mascot} />
           </View>
         </View>
 
@@ -366,7 +366,7 @@ export default function LookUpScreen() {
           ) : null}
           {search.isError ? <ErrorState error={search.error} onRetry={() => search.refetch()} /> : null}
           {results && results.entries.length === 0 && !search.isFetching ? (
-            <MascotMessage mood="oops" body={t.dictionary.noResults} size={90} />
+            <MascotMessage mood="oops" facing="front" body={t.dictionary.noResults} size={90} />
           ) : null}
           {results && results.entries.length > 0 ? (
             <Card padded={false} style={{ paddingHorizontal: theme.space.lg, paddingVertical: 2 }}>

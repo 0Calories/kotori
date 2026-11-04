@@ -121,7 +121,7 @@ export default function SavedScreen() {
         ]}
       />
       {notes.isError ? <ErrorState error={notes.error} onRetry={() => notes.refetch()} /> : null}
-      {notes.data && shown.length === 0 ? <MascotMessage mood="curious" body={t.review.empty} /> : null}
+      {notes.data && shown.length === 0 ? <MascotMessage mood="neutral" facing="front" body={t.review.empty} /> : null}
       <View style={{ gap: theme.space.md }}>
         {shown.map((note) => (
           <NoteRow key={note.id} note={note} />

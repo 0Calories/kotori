@@ -1,5 +1,5 @@
 import { assert, describe, it } from "vitest"
-import { confetti, joints, type Mood, shapes, thinkingShapes } from "../src/mascot/geometry.ts"
+import { confetti, frontMoods, frontShapes, joints, type Mood, shapes, thinkingShapes } from "../src/mascot/geometry.ts"
 import {
   type ClipName,
   clips,
@@ -18,13 +18,18 @@ import {
   sparkleParts,
   sparklesFor,
   svgTransform,
-  viewTransform
+  viewTransform,
+  type ZPart,
+  zParts
 } from "../src/mascot/motion.ts"
+import { mascotSvg } from "../src/mascot/svg.ts"
 
 const names = Object.keys(clips) as ClipName[]
 const parts = Object.keys(joints) as Part[]
-/** The parts of Kotori itself, not the sparkles beside it. */
-const kotori = parts.filter((part) => !(sparkleParts as readonly Part[]).includes(part))
+/** The parts of Kotori itself, not the sparkles or Zs that float beside it. */
+const kotori = parts.filter(
+  (part) => !(sparkleParts as readonly Part[]).includes(part) && !(zParts as readonly Part[]).includes(part)
+)
 
 type Point = readonly [number, number]
 
@@ -72,13 +77,17 @@ describe("Kotori's clips", () => {
     for (const part of sparkleParts) assert.strictEqual(poseAt("celebrate", part, 0).opacity, 0, part)
   })
 
-  it("start and end each loop on the drawing, so it plays over a mood's pose without a jump each time round", () => {
+  it("start and end each loop seamlessly, with Kotori on the drawing and sleepy's Zs fading in and out", () => {
     for (const name of Object.values(loops)) {
-      for (const part of parts) {
+      for (const part of kotori) {
         assert.deepStrictEqual(poseAt(name, part, 0), rest, `${name}: ${part} at the start`)
         assert.deepStrictEqual(poseAt(name, part, clips[name].duration), rest, `${name}: ${part} at the end`)
       }
+      for (const part of parts) {
+        assert.deepStrictEqual(poseAt(name, part, clips[name].duration), poseAt(name, part, 0), `${name}: ${part}`)
+      }
     }
+    for (const part of zParts) assert.strictEqual(poseAt("sleepy", part, 0).opacity, 0, part)
   })
 
   it("keep their keys in order and within the clip", () => {
@@ -109,6 +118,30 @@ describe("Kotori's clips", () => {
     assert.isUndefined(idles.thinking)
     for (const part of parts) assert.deepStrictEqual(settled("thinking", part), rest, part)
     assert.sameMembers(Object.keys(clips.thinking.tracks), ["bubble", "dot0", "dot1", "dot2"])
+  })
+
+  it("loop sleepy without an entrance or blink, floating and fading z0, z1 and z2 up in turn as Kotori breathes", () => {
+    assert.isUndefined(entrances.sleepy)
+    assert.isUndefined(idles.sleepy)
+    assert.strictEqual(loops.sleepy, "sleepy")
+    for (const part of parts) assert.deepStrictEqual(settled("sleepy", part), rest, part)
+    assert.sameMembers(Object.keys(clips.sleepy.tracks), ["bird", "face", ...zParts])
+    // Each Z fades in, floats upward and outward, and fades out after the one below it.
+    const firstShow = (part: ZPart) => {
+      for (let t = 0; t <= clips.sleepy.duration; t += 10) if (poseAt("sleepy", part, t).opacity > 0) return t
+      return assert.fail(`${part} never shows`)
+    }
+    assert.isBelow(firstShow("z0"), firstShow("z1"))
+    assert.isBelow(firstShow("z1"), firstShow("z2"))
+    for (const part of zParts) {
+      const start = firstShow(part)
+      const peak = start + 400
+      const end = start + 1190
+      assert.strictEqual(poseAt("sleepy", part, peak).opacity, 1, `${part} reaches full opacity`)
+      assert.isBelow(poseAt("sleepy", part, end).y, poseAt("sleepy", part, start).y - 7, `${part} floats up`)
+      assert.isBelow(poseAt("sleepy", part, end).x, poseAt("sleepy", part, start).x - 4, `${part} drifts outward`)
+      assert.strictEqual(poseAt("sleepy", part, clips.sleepy.duration).opacity, 0, `${part} fades out`)
+    }
   })
 
   it("blink only in moods whose eyes are open, and twinkle only where there are sparkles", () => {
@@ -395,6 +428,105 @@ describe("celebrate's sparkles", () => {
   })
 })
 
+/** The four corners of a Z path `M x0 y0 H x1 L x0 y1 H x1`, in drawing order. */
+const zCorners = (d: string): readonly [Point, Point, Point, Point] => {
+  const [x0 = 0, y0 = 0, x1 = 0, x2 = 0, y1 = 0, x3 = 0] = (d.match(/-?[\d.]+/g) ?? []).map(Number)
+  return [
+    [x0, y0],
+    [x1, y0],
+    [x2, y1],
+    [x3, y1]
+  ]
+}
+
+describe("sleepy's Zs", () => {
+  const { duration } = clips.sleepy
+  const every10ms = Array.from({ length: duration / 10 + 1 }, (_, i) => i * 10)
+
+  it("are three vector Zs centered on their joints, growing and rising from the brow", () => {
+    const metrics = zParts.map((part) => {
+      const { d, stroke } = shapes.zs[part]
+      const [topLeft, topRight, bottomLeft, bottomRight] = zCorners(d)
+      near([(topLeft[0] + bottomRight[0]) / 2, (topLeft[1] + bottomRight[1]) / 2], [joints[part].x, joints[part].y])
+      assert.strictEqual(topLeft[0], bottomLeft[0], part)
+      assert.strictEqual(topRight[0], bottomRight[0], part)
+      return {
+        x: joints[part].x,
+        y: joints[part].y,
+        width: topRight[0] - topLeft[0],
+        height: bottomRight[1] - topLeft[1],
+        stroke
+      }
+    })
+    for (let i = 0; i + 1 < metrics.length; i++) {
+      const a = metrics[i]!
+      const b = metrics[i + 1]!
+      assert.isBelow(b.x, a.x)
+      assert.isBelow(b.y, a.y)
+      assert.isAbove(b.width, a.width)
+      assert.isAbove(b.height, a.height)
+      assert.isAbove(b.stroke, a.stroke)
+    }
+  })
+
+  it("stay inside the 200×200 box, clear of Kotori's body, and apart from each other as they waft", () => {
+    const sideBody = outline(shapes.body)
+    const frontBody = outline(frontShapes.body)
+    for (const t of every10ms) {
+      const birdPose = poseAt("sleepy", "bird", t)
+      const movedSideBody = sideBody.map((p) => throughSvg(svgTransform(birdPose, "bird"), p))
+      const bands = zParts.map((part) => {
+        const pose = poseAt("sleepy", part, t)
+        const r = shapes.zs[part].stroke / 2
+        const corners = zCorners(shapes.zs[part].d).map((p) => throughSvg(svgTransform(pose, part), p))
+        for (const [x, y] of corners) {
+          assert.isAtLeast(x - r, 0, `${part} at ${t} ms`)
+          assert.isAtLeast(y - r, 0, `${part} at ${t} ms`)
+          assert.isAtMost(x + r, 200, `${part} at ${t} ms`)
+          assert.isAtMost(y + r, 200, `${part} at ${t} ms`)
+          assert.isFalse(inside([x, y], movedSideBody), `${part} outside side body at ${t} ms`)
+          assert.isFalse(inside([x, y], frontBody), `${part} outside front body at ${t} ms`)
+        }
+        return {
+          top: Math.min(...corners.map(([, y]) => y)) - r,
+          bottom: Math.max(...corners.map(([, y]) => y)) + r,
+          opacity: pose.opacity
+        }
+      })
+      if (bands[0]!.opacity > 0 && bands[1]!.opacity > 0)
+        assert.isAbove(bands[0]!.top, bands[1]!.bottom, `z0 below z1 at ${t} ms`)
+      if (bands[1]!.opacity > 0 && bands[2]!.opacity > 0)
+        assert.isAbove(bands[1]!.top, bands[2]!.bottom, `z1 below z2 at ${t} ms`)
+    }
+  })
+
+  it("render forwards in left, right and front views rather than mirroring into backwards Zs", () => {
+    for (const facing of ["left", "right", "front"] as const) {
+      const svg = mascotSvg({ mood: "sleepy", facing })
+      assert.notInclude(svg, "<text", facing)
+      for (const part of zParts) assert.include(svg, shapes.zs[part].d, `${facing}: ${part}`)
+    }
+    for (const part of zParts) {
+      const pose = poseAt("sleepy", part, 600)
+      const [topLeft, topRight, bottomLeft, bottomRight] = zCorners(shapes.zs[part].d)
+      const inLeft = (p: Point) => throughSvg(svgTransform(pose, part), p)
+      const inRight = (p: Point) =>
+        throughSvg("translate(200 0) scale(-1 1)", throughSvg(svgTransform({ ...pose, scaleX: -pose.scaleX }, part), p))
+
+      assert.isBelow(inLeft(topLeft)[0], inLeft(topRight)[0], `${part} left top bar`)
+      assert.isBelow(inLeft(bottomLeft)[0], inLeft(bottomRight)[0], `${part} left bottom bar`)
+      assert.isBelow(inRight(topLeft)[0], inRight(topRight)[0], `${part} right top bar reads forwards`)
+      assert.isBelow(inRight(bottomLeft)[0], inRight(bottomRight)[0], `${part} right bottom bar reads forwards`)
+      // In the right-facing view, the Zs sit on the right half of the box, symmetric with the left-facing view.
+      assert.closeTo(
+        (inRight(topLeft)[0] + inRight(bottomRight)[0]) / 2,
+        200 - (inLeft(topLeft)[0] + inLeft(bottomRight)[0]) / 2,
+        1e-9
+      )
+    }
+  })
+})
+
 describe("a pose", () => {
   const stretched: Pose = { x: 3, y: -4, rotate: -90, scaleX: 2, scaleY: 0.5, opacity: 1 }
 
@@ -413,7 +545,8 @@ describe("a pose", () => {
       rest,
       stretched,
       ...[130, 370, 660, 1300].flatMap((t) => parts.map((part) => poseAt("celebrate", part, t))),
-      ...[60, 300, 600].flatMap((t) => parts.map((part) => poseAt("thinking", part, t)))
+      ...[60, 300, 600].flatMap((t) => parts.map((part) => poseAt("thinking", part, t))),
+      ...[250, 600, 900, 1200].flatMap((t) => parts.map((part) => poseAt("sleepy", part, t)))
     ]
     // The thought bubble's canvas reaches above the box.
     for (const headroom of [0, thinkingShapes.headroom]) {
@@ -471,5 +604,63 @@ describe("a pose", () => {
         }
       }
     }
+  })
+})
+
+describe("Kotori's views and facing", () => {
+  it("uses the side view by default for all moods except thinking, and switches view or mirrors with facing", () => {
+    assert.sameMembers([...frontMoods], ["thinking"])
+    for (const mood of ["neutral", "happy", "sleepy", "celebrate", "oops"] as const) {
+      const left = mascotSvg({ mood })
+      assert.include(left, shapes.body, mood)
+      assert.notInclude(left, frontShapes.body, mood)
+      assert.notInclude(left, "scale(-1 1)", mood)
+
+      const right = mascotSvg({ mood, facing: "right" })
+      assert.include(right, shapes.body, mood)
+      assert.include(right, 'transform="translate(200 0) scale(-1 1)"', mood)
+    }
+    for (const mood of ["neutral", "oops", "thinking"] as const) {
+      const front = mascotSvg({ mood, facing: "front" })
+      assert.include(front, frontShapes.body, mood)
+      assert.notInclude(front, shapes.body, mood)
+    }
+    assert.include(mascotSvg({ mood: "thinking" }), frontShapes.body)
+  })
+
+  it("renders the sweat drop on Kotori's temple in the front view of oops, inside the body and clear of the eye and cheek", () => {
+    const body = outline(frontShapes.body)
+    const [eye] = frontShapes.eyes
+    const [cheek] = frontShapes.cheeks
+    if (eye === undefined || cheek === undefined) throw new Error("missing front face shapes")
+    // Sample points along the sweat drop's two quadratic curves (`M56 52 q 7 10 0 15 q -7 -5 0 -15 Z`).
+    const nums = (frontShapes.sweat.match(/-?[\d.]+/g) ?? []).map(Number)
+    const [x0 = 0, y0 = 0, dx1 = 0, dy1 = 0, dx2 = 0, dy2 = 0, dx3 = 0, dy3 = 0] = nums
+    const tip: Point = [x0, y0]
+    const bottom: Point = [x0 + dx2, y0 + dy2]
+    const rightCtrl: Point = [x0 + dx1, y0 + dy1]
+    const leftCtrl: Point = [bottom[0] + dx3, bottom[1] + dy3]
+    const drop: Point[] = []
+    for (let k = 0; k <= 16; k++) {
+      const u = k / 16
+      const v = 1 - u
+      drop.push([
+        v * v * tip[0] + 2 * v * u * rightCtrl[0] + u * u * bottom[0],
+        v * v * tip[1] + 2 * v * u * rightCtrl[1] + u * u * bottom[1]
+      ])
+      drop.push([
+        v * v * bottom[0] + 2 * v * u * leftCtrl[0] + u * u * tip[0],
+        v * v * bottom[1] + 2 * v * u * leftCtrl[1] + u * u * tip[1]
+      ])
+    }
+    for (const point of drop) {
+      assert.isTrue(inside(point, body), `sweat drop point ${point.join()} inside body`)
+      const inEye = Math.hypot((point[0] - eye.cx) / (eye.rx * 1.08), (point[1] - eye.cy) / (eye.ry * 1.08))
+      const inCheek = Math.hypot((point[0] - cheek.cx) / cheek.rx, (point[1] - cheek.cy) / cheek.ry)
+      assert.isAbove(inEye, 1, `sweat drop point ${point.join()} clear of eye`)
+      assert.isAbove(inCheek, 1, `sweat drop point ${point.join()} clear of cheek`)
+    }
+    assert.include(mascotSvg({ mood: "oops", facing: "front" }), frontShapes.sweat)
+    assert.include(mascotSvg({ mood: "oops" }), shapes.sweat)
   })
 })

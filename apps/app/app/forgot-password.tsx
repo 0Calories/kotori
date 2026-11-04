@@ -66,7 +66,7 @@ export default function ForgotPassword() {
         onPress={() => (router.canGoBack() ? router.back() : toSignIn())}
       />
       <Animated.View entering={FadeInDown.duration(400)} style={{ alignItems: "center", gap: theme.space.sm }}>
-        <Mascot size={110} mood={step === "done" ? "happy" : "curious"} />
+        <Mascot size={110} mood={step === "done" ? "happy" : "neutral"} />
         <Text variant="title" align="center">
           {t.auth.forgotTitle}
         </Text>

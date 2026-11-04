@@ -21,7 +21,7 @@ export const SEARCH_THINKING_MIN_MS = 300
 export const SEARCH_THINKING_SETTLE_MS = 100
 
 /**
- * `neutral` is the search field's resting pose (curious). `thinking` is the
+ * `neutral` is the search field's resting pose. `thinking` is the
  * pose Kotori takes when a lookup has gone on long enough to be worth showing.
  *
  * The thinking pose plays a looping thought bubble. `Mascot` already holds
