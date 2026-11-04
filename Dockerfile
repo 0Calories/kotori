@@ -15,13 +15,16 @@ FROM base AS stage
 COPY . .
 # Split workspace manifests (/out/deps) from build outputs (/out/app) so code-only deploys reuse
 # the cached `pnpm install --prod` layer in the runtime stage.
-RUN test -f apps/backend/dist/entrypoints/http.js \
- && mkdir -p /out/deps /out/app \
- && find . -name package.json -not -path '*/node_modules/*' -not -path '*/dist/*' | tar -cf - -T - | tar -xf - -C /out/deps \
- && cp pnpm-lock.yaml pnpm-workspace.yaml /out/deps/ \
- && for p in apps/backend packages/*; do \
-      if [ -d "$p/dist" ]; then mkdir -p "/out/app/$p" && cp -r "$p/dist" "/out/app/$p/dist"; fi; \
-      if [ -d "$p/migrations" ]; then mkdir -p "/out/app/$p" && cp -r "$p/migrations" "/out/app/$p/migrations"; fi; \
+RUN set -eu; \
+    test -f apps/backend/dist/entrypoints/http.js; \
+    for p in packages/*; do test -f "$p/dist/index.js"; done; \
+    mkdir -p /out/deps /out/app; \
+    find . -name package.json -not -path '*/node_modules/*' -not -path '*/dist/*' | tar -cf - -T - | tar -xf - -C /out/deps; \
+    cp pnpm-lock.yaml pnpm-workspace.yaml /out/deps/; \
+    for p in apps/backend packages/*; do \
+      mkdir -p "/out/app/$p"; \
+      cp -r "$p/dist" "/out/app/$p/dist"; \
+      if [ -d "$p/migrations" ]; then cp -r "$p/migrations" "/out/app/$p/migrations"; fi; \
     done
 
 FROM base AS runtime

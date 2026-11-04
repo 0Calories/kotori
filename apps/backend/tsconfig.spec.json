@@ -6,7 +6,7 @@
     "rewriteRelativeImportExtensions": false,
     "types": ["node"]
   },
-  "include": ["test"],
+  "include": ["test", "src/testing"],
   "references": [
     {
       "path": "./tsconfig.lib.json"

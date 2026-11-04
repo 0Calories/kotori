@@ -32,6 +32,7 @@
       "!{projectRoot}/**/*.test.ts",
       "!{projectRoot}/**/*.test.tsx",
       "!{projectRoot}/test/**/*",
+      "!{projectRoot}/src/testing/**/*",
       "!{projectRoot}/tsconfig.spec.json",
       "!{projectRoot}/vitest.config.ts",
       "!{projectRoot}/golden/**/*"
