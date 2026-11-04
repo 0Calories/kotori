@@ -1,5 +1,5 @@
 import { assert, describe, it } from "vitest"
-import { confetti, joints, type Mood, shapes, thinkingShapes } from "../src/mascot/geometry.ts"
+import { confetti, frontMoods, frontShapes, joints, type Mood, shapes, thinkingShapes } from "../src/mascot/geometry.ts"
 import {
   type ClipName,
   clips,
@@ -20,6 +20,7 @@ import {
   svgTransform,
   viewTransform
 } from "../src/mascot/motion.ts"
+import { mascotSvg } from "../src/mascot/svg.ts"
 
 const names = Object.keys(clips) as ClipName[]
 const parts = Object.keys(joints) as Part[]
@@ -471,5 +472,52 @@ describe("a pose", () => {
         }
       }
     }
+  })
+})
+
+describe("the front view", () => {
+  it("is used for every mood except celebrate", () => {
+    assert.sameMembers([...frontMoods], ["curious", "happy", "thinking", "sleepy", "oops"])
+    for (const mood of frontMoods) {
+      const svg = mascotSvg({ mood })
+      assert.include(svg, frontShapes.body, mood)
+      assert.notInclude(svg, shapes.body, mood)
+    }
+    assert.include(mascotSvg({ mood: "celebrate" }), shapes.body)
+  })
+
+  it("renders the sweat drop on Kotori's temple in oops, inside the body and clear of the eye and cheek", () => {
+    const body = outline(frontShapes.body)
+    const [eye] = frontShapes.eyes
+    const [cheek] = frontShapes.cheeks
+    if (eye === undefined || cheek === undefined) throw new Error("missing front face shapes")
+    // Sample points along the sweat drop's two quadratic curves (`M56 52 q 7 10 0 15 q -7 -5 0 -15 Z`).
+    const nums = (frontShapes.sweat.match(/-?[\d.]+/g) ?? []).map(Number)
+    const [x0 = 0, y0 = 0, dx1 = 0, dy1 = 0, dx2 = 0, dy2 = 0, dx3 = 0, dy3 = 0] = nums
+    const tip: Point = [x0, y0]
+    const bottom: Point = [x0 + dx2, y0 + dy2]
+    const rightCtrl: Point = [x0 + dx1, y0 + dy1]
+    const leftCtrl: Point = [bottom[0] + dx3, bottom[1] + dy3]
+    const drop: Point[] = []
+    for (let k = 0; k <= 16; k++) {
+      const u = k / 16
+      const v = 1 - u
+      drop.push([
+        v * v * tip[0] + 2 * v * u * rightCtrl[0] + u * u * bottom[0],
+        v * v * tip[1] + 2 * v * u * rightCtrl[1] + u * u * bottom[1]
+      ])
+      drop.push([
+        v * v * bottom[0] + 2 * v * u * leftCtrl[0] + u * u * tip[0],
+        v * v * bottom[1] + 2 * v * u * leftCtrl[1] + u * u * tip[1]
+      ])
+    }
+    for (const point of drop) {
+      assert.isTrue(inside(point, body), `sweat drop point ${point.join()} inside body`)
+      const inEye = Math.hypot((point[0] - eye.cx) / (eye.rx * 1.08), (point[1] - eye.cy) / (eye.ry * 1.08))
+      const inCheek = Math.hypot((point[0] - cheek.cx) / cheek.rx, (point[1] - cheek.cy) / cheek.ry)
+      assert.isAbove(inEye, 1, `sweat drop point ${point.join()} clear of eye`)
+      assert.isAbove(inCheek, 1, `sweat drop point ${point.join()} clear of cheek`)
+    }
+    assert.include(mascotSvg({ mood: "oops" }), frontShapes.sweat)
   })
 })

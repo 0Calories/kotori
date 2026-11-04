@@ -132,7 +132,9 @@ export const frontShapes = {
   ],
   /** Catchlight, offset from each eye's centre. */
   catchlight: { dx: 2, dy: -3.8, r: 2.4 },
-  beak: "M100 75.6 C 97.1 75.6, 90.9 81.2, 90.4 83.1 C 90.2 84.2, 98 88.5, 100 88.5 C 102 88.5, 109.8 84.2, 109.6 83.1 C 109.1 81.2, 102.9 75.6, 100 75.6 Z"
+  beak: "M100 75.6 C 97.1 75.6, 90.9 81.2, 90.4 83.1 C 90.2 84.2, 98 88.5, 100 88.5 C 102 88.5, 109.8 84.2, 109.6 83.1 C 109.1 81.2, 102.9 75.6, 100 75.6 Z",
+  /** Sweat drop on the temple for `oops`. */
+  sweat: "M56 52 q 7 10 0 15 q -7 -5 0 -15 Z"
 } as const
 
 /**
@@ -164,8 +166,8 @@ export const thinkingShapes = {
 
 export type Mood = "curious" | "happy" | "thinking" | "sleepy" | "celebrate" | "oops"
 
-/** Moods Kotori takes facing the viewer. It shows the rest in three-quarter view. */
-export const frontMoods: ReadonlySet<Mood> = new Set(["thinking"])
+/** Moods Kotori takes facing the viewer; it turns three-quarter to celebrate. */
+export const frontMoods: ReadonlySet<Mood> = new Set(["curious", "happy", "thinking", "sleepy", "oops"])
 
 /** How far above the box Kotori's drawing reaches in `mood`, in box units. */
 export const headroom = (mood: Mood) => (mood === "thinking" ? thinkingShapes.headroom : 0)

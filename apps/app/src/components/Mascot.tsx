@@ -79,9 +79,9 @@ const Foot = ({ d }: { readonly d: string }) => (
   <Path d={d} stroke={palette.ink} strokeWidth={shapes.feet.width} strokeLinecap="round" />
 )
 
-/** What floats beside Kotori in some moods. It stays put while Kotori moves. */
+/** What shows on or beside Kotori in some moods. It stays put while Kotori moves. */
 const extras: Partial<Record<Mood, ReactNode>> = {
-  oops: <Path d="M29 46 q 7 10 0 15 q -7 -5 0 -15 Z" fill={palette.sky} />,
+  oops: <Path d={frontShapes.sweat} fill={palette.sky} />,
   sleepy: (
     <SvgText x={25} y={38} fontSize={22} fontWeight="bold" fill={palette.sky}>
       z
@@ -427,17 +427,22 @@ const ThoughtBubble = ({ size, motion }: { readonly size: number; readonly motio
 }
 
 /**
- * Kotori facing the viewer: thinking, in a still pose with a wing raised to
- * its chin. Only the thought bubble above its head moves.
+ * Kotori facing the viewer. It holds its pose while blinking in open-eyed
+ * moods; `thinking` raises its left wing to its chin under the moving thought
+ * bubble above its head.
  */
 const Front = ({ size, mood }: { readonly size: number; readonly mood: Mood }) => {
   const motion = useMotion(mood)
+  const eyes = usePartStyle("eyes", size, motion)
+  const shutEyes = usePartStyle("eyes", size, motion, true)
   const { feet, wings } = frontShapes
+  const thinking = mood === "thinking"
 
   return (
     <>
       <Canvas size={size}>
         <Path d={wings[1]} fill={palette.ink} />
+        {thinking ? null : <Path d={wings[0]} fill={palette.ink} />}
         {frontShapes.tuft.map((t) => (
           <Circle key={t.cx} cx={t.cx} cy={t.cy} r={t.r} fill={palette.cream} />
         ))}
@@ -450,11 +455,17 @@ const Front = ({ size, mood }: { readonly size: number; readonly mood: Mood }) =
         {frontShapes.cheeks.map((c) => (
           <Ellipse key={c.cx} cx={c.cx} cy={c.cy} rx={c.rx} ry={c.ry} fill={palette.blush} />
         ))}
-        <Eyes mood={mood} face={frontShapes} />
         <Path d={frontShapes.beak} fill={palette.ink} />
-        <Path d={thinkingShapes.chinWing} fill={palette.ink} />
+        {thinking ? <Path d={thinkingShapes.chinWing} fill={palette.ink} /> : null}
+        {extras[mood]}
       </Canvas>
-      <ThoughtBubble size={size} motion={motion} />
+      <Layer style={eyes} size={size}>
+        <Eyes mood={mood} face={frontShapes} />
+      </Layer>
+      <Layer style={shutEyes} size={size}>
+        <Eyes mood="sleepy" face={frontShapes} />
+      </Layer>
+      {thinking ? <ThoughtBubble size={size} motion={motion} /> : null}
     </>
   )
 }
