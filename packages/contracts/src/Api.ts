@@ -8,7 +8,7 @@ import * as HttpApiSchema from "effect/http-api/HttpApiSchema"
 import * as OpenApi from "effect/http-api/OpenApi"
 import { Profile, UpdateProfileRequest, UserId } from "./Account.ts"
 import { HowToSayRequest, HowToSayResult, NaturalnessRequest, NaturalnessResult } from "./Coach.ts"
-import { Enrichment, Entry, EntryId, SearchResult } from "./Dictionary.ts"
+import { AskRequest, Enrichment, Entry, EntryId, Proposal, SearchResult } from "./Dictionary.ts"
 import {
   AiUnavailable,
   AuthUnavailable,
@@ -96,7 +96,15 @@ export class DictionaryApi extends HttpApiGroup.make("dictionary")
       params: { id: EntryId },
       success: Enrichment,
       error: NotFound
-    })
+    }),
+    // When a search found no exact match, ask Kotori to draft an entry (or name the one it missed).
+    HttpApiEndpoint.post("ask", "/ask", {
+      payload: AskRequest,
+      success: Proposal,
+      error: [InvalidRequest, AiUnavailable, RateLimited]
+    }),
+    // The learner's own asks, newest first, so an answer can be revisited.
+    HttpApiEndpoint.get("asks", "/asks", { success: Schema.Array(Proposal) })
   )
   .middleware(Authorization)
   .prefix("/dictionary") {}

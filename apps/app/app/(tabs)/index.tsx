@@ -1,10 +1,10 @@
-import type { EntrySummary, Language } from "@kotori/contracts"
+import type { EntrySummary, Language, Proposal } from "@kotori/contracts"
 import { useRouter } from "expo-router"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Platform, TextInput, useWindowDimensions, View } from "react-native"
 import Animated, { FadeIn, FadeInDown, LinearTransition } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { useQueue, useSearch, useStats } from "../../src/api/queries.ts"
+import { useAsk, useAsks, useQueue, useSearch, useStats } from "../../src/api/queries.ts"
 import { Button } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
 import { Chip } from "../../src/components/Chip.tsx"
@@ -117,6 +117,95 @@ const ResultRow = ({
   )
 }
 
+/** Offers to ask Kotori, and says so while it thinks; errors fall back to a plain retry. */
+const AskButton = ({ ask, query }: { readonly ask: ReturnType<typeof useAsk>; readonly query: string }) => {
+  const { t } = useSession()
+  if (ask.isPending) {
+    return (
+      <Text variant="caption" color="textMuted">
+        {t.dictionary.askThinking}
+      </Text>
+    )
+  }
+  return (
+    <View style={{ alignItems: "center", gap: 8 }}>
+      {ask.isError ? (
+        <Text variant="caption" color="textMuted" align="center">
+          {ask.error.message}
+        </Text>
+      ) : (
+        <Text variant="caption" color="textMuted" align="center">
+          {t.dictionary.askExplain}
+        </Text>
+      )}
+      <Button
+        label={ask.isError ? t.dictionary.askAgain : t.dictionary.askKotori}
+        variant="soft"
+        icon="auto_awesome"
+        onPress={() => ask.mutate(query)}
+      />
+    </View>
+  )
+}
+
+/** Kotori's answer to an ask: a draft entry marked unverified, the entry it linked, or why not. */
+const AskAnswer = ({
+  proposal,
+  onOpen
+}: {
+  readonly proposal: Proposal
+  readonly onOpen: (entry: EntrySummary) => void
+}) => {
+  const theme = useTheme()
+  const { t } = useSession()
+  if (proposal.status === "linked" || proposal.status === "approved") {
+    if (proposal.linked === null) return null
+    return (
+      <View style={{ gap: 6 }}>
+        <Text variant="caption" color="textMuted" style={{ paddingHorizontal: 6 }}>
+          {t.dictionary.askLinked}
+        </Text>
+        <Card padded={false} style={{ paddingHorizontal: theme.space.lg, paddingVertical: 2 }}>
+          <ResultRow entry={proposal.linked} first onPress={() => onOpen(proposal.linked!)} />
+        </Card>
+      </View>
+    )
+  }
+  if (proposal.draft === null) {
+    return <MascotMessage mood="oops" body={proposal.reason ?? t.dictionary.noResults} size={90} />
+  }
+  const draft = proposal.draft
+  const joiner = proposal.language === "ja" ? "; " : "、"
+  return (
+    <Card style={{ gap: 10 }}>
+      <Chip tone="accent" icon="auto_awesome" label={t.dictionary.askDraft} />
+      <View style={{ flexDirection: "row", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+        <Headword language={proposal.language} size={proposal.language === "ja" ? 24 : 21}>
+          {draft.headword}
+        </Headword>
+        {draft.reading.length > 0 ? (
+          <Text jp={proposal.language === "ja"} variant="small" color="textMuted">
+            {draft.reading}
+          </Text>
+        ) : null}
+        {draft.currency !== "current" ? (
+          <Chip tone={currencyTone[draft.currency]} label={t.nuance.currency[draft.currency]} />
+        ) : null}
+      </View>
+      {draft.senses.map((sense, index) => (
+        <View key={index} style={{ gap: 4 }}>
+          <Text>{sense.glosses.join(joiner)}</Text>
+          {sense.note ? (
+            <Text variant="small" color="textMuted">
+              {sense.note}
+            </Text>
+          ) : null}
+        </View>
+      ))}
+    </Card>
+  )
+}
+
 const ReviewTeaser = () => {
   const { t } = useSession()
   const router = useRouter()
@@ -156,6 +245,16 @@ export default function LookUpScreen() {
   const native = profile?.nativeLanguage ?? "en"
   const target = profile?.targetLanguage ?? "ja"
   const search = useSearch(debounced, target)
+  const ask = useAsk()
+  const asks = useAsks()
+  // A past answer for this query shows again without asking; English asks are cached lowercase.
+  const askKey = target === "en" ? debounced.toLowerCase() : debounced
+  const answer = useMemo(
+    () =>
+      ask.data && ask.variables === debounced ? ask.data : (asks.data?.find((past) => past.query === askKey) ?? null),
+    [ask.data, ask.variables, asks.data, askKey, debounced]
+  )
+  useEffect(() => ask.reset(), [debounced])
   const searching = query.trim().length > 0
   // True from the first keystroke until this text's results arrive, debounce included.
   // The pose stays neutral until that wait is long enough to be worth a change.
@@ -372,15 +471,23 @@ export default function LookUpScreen() {
           ) : null}
           {search.isError ? <ErrorState error={search.error} onRetry={() => search.refetch()} /> : null}
           {results && results.entries.length === 0 && !search.isFetching ? (
-            <MascotMessage mood="oops" facing="front" body={t.dictionary.noResults} size={90} />
+            <MascotMessage mood="oops" facing="front" body={t.dictionary.noResults} size={90}>
+              {answer === null ? <AskButton ask={ask} query={debounced} /> : null}
+            </MascotMessage>
           ) : null}
           {results && results.match === "weak" && !search.isFetching ? (
             // Only lookalikes: said plainly, so a learner doesn't take "bus" for "bussin".
             <MascotMessage mood="curious" body={t.dictionary.noExactMatch(results.query)} size={90}>
-              <Text variant="caption" color="textMuted" style={{ alignSelf: "flex-start", paddingHorizontal: 6 }}>
-                {t.dictionary.similarResults}
-              </Text>
+              {answer === null ? <AskButton ask={ask} query={debounced} /> : null}
             </MascotMessage>
+          ) : null}
+          {results && results.match !== "exact" && !search.isFetching && answer !== null ? (
+            <AskAnswer proposal={answer} onOpen={open} />
+          ) : null}
+          {results && results.match === "weak" && !search.isFetching && results.entries.length > 0 ? (
+            <Text variant="caption" color="textMuted" style={{ paddingHorizontal: 6 }}>
+              {t.dictionary.similarResults}
+            </Text>
           ) : null}
           {results && results.entries.length > 0 ? (
             <Card padded={false} style={{ paddingHorizontal: theme.space.lg, paddingVertical: 2 }}>

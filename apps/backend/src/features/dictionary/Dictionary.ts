@@ -242,6 +242,8 @@ export class Dictionary extends Context.Service<
     entry(id: EntryId): Effect.Effect<Option.Option<Entry>>
     /** Queues whatever enrichment an entry is missing, returning its status. */
     requestEnrichment(id: EntryId): Effect.Effect<Option.Option<Enrichment>>
+    /** Search-result summaries for known entries, for Ask Kotori's links. */
+    summarize(ids: ReadonlyArray<EntryId>): Effect.Effect<ReadonlyArray<EntrySummary>>
     /** Entry ids for words in `language`, for linking coach vocabulary to the dictionary. */
     lookupWords(
       words: ReadonlyArray<{ readonly word: string; readonly reading: string }>,
@@ -792,7 +794,11 @@ export class Dictionary extends Context.Service<
         })
       })
 
-      return Dictionary.of({ search, entry, requestEnrichment, lookupWords })
+      const summarize = Effect.fn("Dictionary.summarize")(function* (ids: ReadonlyArray<EntryId>) {
+        return yield* summaries(ids.map((entryId) => ({ entryId, score: 0, inflection: [], strong: true })))
+      })
+
+      return Dictionary.of({ search, entry, requestEnrichment, summarize, lookupWords })
     })
   )
 }

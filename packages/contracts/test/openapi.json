@@ -2145,6 +2145,641 @@
         }
       }
     },
+    "/dictionary/ask": {
+      "post": {
+        "tags": [
+          "dictionary"
+        ],
+        "operationId": "dictionary.ask",
+        "parameters": [],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "query": {
+                      "type": "string"
+                    },
+                    "language": {
+                      "type": "string",
+                      "enum": [
+                        "en",
+                        "ja"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "linked",
+                        "rejected",
+                        "approved",
+                        "discarded"
+                      ]
+                    },
+                    "draft": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "headword": {
+                              "type": "string"
+                            },
+                            "reading": {
+                              "type": "string"
+                            },
+                            "spellings": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "currency": {
+                              "type": "string",
+                              "enum": [
+                                "archaic",
+                                "dated",
+                                "current",
+                                "trendy"
+                              ]
+                            },
+                            "senses": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "glosses": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "partOfSpeech": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "labels": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "note": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "glosses",
+                                  "partOfSpeech",
+                                  "labels",
+                                  "note"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "headword",
+                            "reading",
+                            "spellings",
+                            "currency",
+                            "senses"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "linked": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "language": {
+                              "type": "string",
+                              "enum": [
+                                "en",
+                                "ja"
+                              ]
+                            },
+                            "headword": {
+                              "type": "string"
+                            },
+                            "reading": {
+                              "type": "string"
+                            },
+                            "common": {
+                              "type": "boolean"
+                            },
+                            "romaji": {
+                              "type": "string"
+                            },
+                            "meanings": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "partOfSpeech": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "formality": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "vulgar",
+                                    "casual",
+                                    "neutral",
+                                    "polite",
+                                    "formal"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "currency": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "archaic",
+                                    "dated",
+                                    "current",
+                                    "trendy"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "inflection": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "language",
+                            "headword",
+                            "reading",
+                            "common",
+                            "romaji",
+                            "meanings",
+                            "partOfSpeech",
+                            "formality",
+                            "currency",
+                            "inflection"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "reason": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "query",
+                    "language",
+                    "status",
+                    "draft",
+                    "linked",
+                    "reason"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "InvalidRequest",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvalidRequestEncoded"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedEncoded"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PendingApproval",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingApprovalEncoded"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RateLimited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateLimitedEncoded"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "AiUnavailable | AuthUnavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AiUnavailableEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthUnavailableEncoded"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "q": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  }
+                },
+                "required": [
+                  "q"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": true
+        }
+      }
+    },
+    "/dictionary/asks": {
+      "get": {
+        "tags": [
+          "dictionary"
+        ],
+        "operationId": "dictionary.asks",
+        "parameters": [],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "query": {
+                        "type": "string"
+                      },
+                      "language": {
+                        "type": "string",
+                        "enum": [
+                          "en",
+                          "ja"
+                        ]
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "pending",
+                          "linked",
+                          "rejected",
+                          "approved",
+                          "discarded"
+                        ]
+                      },
+                      "draft": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "headword": {
+                                "type": "string"
+                              },
+                              "reading": {
+                                "type": "string"
+                              },
+                              "spellings": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "currency": {
+                                "type": "string",
+                                "enum": [
+                                  "archaic",
+                                  "dated",
+                                  "current",
+                                  "trendy"
+                                ]
+                              },
+                              "senses": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "glosses": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "partOfSpeech": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "labels": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "note": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "glosses",
+                                    "partOfSpeech",
+                                    "labels",
+                                    "note"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "headword",
+                              "reading",
+                              "spellings",
+                              "currency",
+                              "senses"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "linked": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "language": {
+                                "type": "string",
+                                "enum": [
+                                  "en",
+                                  "ja"
+                                ]
+                              },
+                              "headword": {
+                                "type": "string"
+                              },
+                              "reading": {
+                                "type": "string"
+                              },
+                              "common": {
+                                "type": "boolean"
+                              },
+                              "romaji": {
+                                "type": "string"
+                              },
+                              "meanings": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "partOfSpeech": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "formality": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "vulgar",
+                                      "casual",
+                                      "neutral",
+                                      "polite",
+                                      "formal"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "currency": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "archaic",
+                                      "dated",
+                                      "current",
+                                      "trendy"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "inflection": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "language",
+                              "headword",
+                              "reading",
+                              "common",
+                              "romaji",
+                              "meanings",
+                              "partOfSpeech",
+                              "formality",
+                              "currency",
+                              "inflection"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "reason": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "query",
+                      "language",
+                      "status",
+                      "draft",
+                      "linked",
+                      "reason"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedEncoded"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PendingApproval",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingApprovalEncoded"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "AuthUnavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthUnavailableEncoded"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/coach/naturalness": {
       "post": {
         "tags": [

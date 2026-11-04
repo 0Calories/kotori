@@ -1,11 +1,13 @@
 import {
   castBy,
+  DraftEntry,
   entries,
   EntryId,
   examples,
   Formality,
   forms,
   Nuance,
+  proposalStatus,
   senseNotes,
   sentenceMedium,
   sentenceTone,
@@ -17,6 +19,7 @@ import {
 import { createSelectSchema } from "drizzle-orm/effect-schema"
 import * as Schema from "effect/Schema"
 import * as Struct from "effect/Struct"
+import { Language } from "./Language.ts"
 import { Currency, Loanword } from "./Nuance.ts"
 
 export { EntryId }
@@ -154,6 +157,40 @@ export const EntrySummary = Schema.Struct({
   inflection: Schema.Array(Schema.String)
 })
 export type EntrySummary = typeof EntrySummary.Type
+
+export { DraftEntry }
+
+export const ProposalStatus = createSelectSchema(proposalStatus)
+export type ProposalStatus = typeof ProposalStatus.Type
+
+export const ProposalId = Schema.Int.pipe(Schema.brand("ProposalId"))
+export type ProposalId = typeof ProposalId.Type
+
+/**
+ * Kotori's answer to a query the dictionary couldn't: a drafted entry awaiting the admin
+ * (`pending`, shown to its askers marked unverified), a `linked` entry the dictionary already
+ * had, or a `rejected` query with the reason. `approved` drafts have become the entry `linked`
+ * points at; `discarded` ones were turned down by the admin.
+ */
+export const Proposal = Schema.Struct({
+  id: ProposalId,
+  query: Schema.String,
+  /** The language of the word asked about. */
+  language: Language,
+  status: ProposalStatus,
+  draft: Schema.NullOr(DraftEntry),
+  /** The existing entry the query names, when there is one. */
+  linked: Schema.NullOr(EntrySummary),
+  /** Why a rejected query isn't a real expression, in the asker's native language. */
+  reason: Schema.NullOr(Schema.String)
+})
+export type Proposal = typeof Proposal.Type
+
+export const AskRequest = Schema.Struct({
+  /** The search that found nothing, as typed. */
+  q: Schema.String.pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(100)))
+})
+export type AskRequest = typeof AskRequest.Type
 
 export const SearchMode = Schema.Literals(["japanese", "english", "romaji"])
 export type SearchMode = typeof SearchMode.Type
