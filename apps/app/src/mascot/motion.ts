@@ -28,6 +28,11 @@ export const sparkleParts = ["bigSparkle", "smallSparkle"] as const satisfies re
 
 export type SparklePart = (typeof sparkleParts)[number]
 
+/** The Zs that waft from Kotori's brow while it sleeps, smallest first. */
+export const zParts = ["z0", "z1", "z2"] as const satisfies readonly Part[]
+
+export type ZPart = (typeof zParts)[number]
+
 /**
  * Where a part sits relative to the drawing: moved `x` and `y` box units,
  * turned `rotate` degrees clockwise and scaled about its joint, and faded.
@@ -84,7 +89,7 @@ export type Clip = {
   readonly confetti?: Burst
 }
 
-export type ClipName = "celebrate" | "thinking" | "blink" | "twinkle"
+export type ClipName = "celebrate" | "thinking" | "sleepy" | "blink" | "twinkle"
 
 /** A dot of the bubble's ellipsis hopping from `ms`, for 400 ms. */
 const hop = (ms: number) => ({
@@ -93,6 +98,41 @@ const hop = (ms: number) => ({
     [ms, 0],
     [ms + 160, -4, "out"],
     [ms + 400, 0]
+  ] as const
+})
+
+/** A Z wafting up and outward from `ms`, swelling and tilting before it settles back. */
+const waft = (ms: number) => ({
+  x: [
+    [0, 0],
+    [ms, 0],
+    [ms + 450, -1.5, "out"],
+    [ms + 1200, 0]
+  ] as const,
+  y: [
+    [0, 0],
+    [ms, 0],
+    [ms + 450, -2.5, "out"],
+    [ms + 1200, 0]
+  ] as const,
+  rotate: [
+    [0, 0],
+    [ms, 0],
+    [ms + 450, -8, "out"],
+    [ms + 900, 4],
+    [ms + 1200, 0]
+  ] as const,
+  scaleX: [
+    [0, 1],
+    [ms, 1],
+    [ms + 450, 1.15, "out"],
+    [ms + 1200, 1]
+  ] as const,
+  scaleY: [
+    [0, 1],
+    [ms, 1],
+    [ms + 450, 1.15, "out"],
+    [ms + 1200, 1]
   ] as const
 })
 
@@ -269,6 +309,37 @@ export const clips: Record<ClipName, Clip> = {
       dot2: hop(400)
     }
   },
+  /**
+   * While sleeping, on a loop: Kotori breathes softly and nods, and a wave
+   * ripples up through the three Zs from its brow.
+   */
+  sleepy: {
+    duration: 2000,
+    tracks: {
+      bird: {
+        scaleX: [
+          [0, 1],
+          [900, 1.02],
+          [2000, 1]
+        ],
+        scaleY: [
+          [0, 1],
+          [900, 0.98],
+          [2000, 1]
+        ]
+      },
+      face: {
+        y: [
+          [0, 0],
+          [900, 1.5],
+          [2000, 0]
+        ]
+      },
+      z0: waft(150),
+      z1: waft(350),
+      z2: waft(550)
+    }
+  },
   /** Eyes shut for a moment: the open eyes vanish, and the shut ones show in their place. */
   blink: {
     duration: 140,
@@ -331,7 +402,7 @@ export const clips: Record<ClipName, Clip> = {
 export const entrances: Partial<Record<Mood, ClipName>> = { celebrate: "celebrate" }
 
 /** What Kotori plays over and over in a mood, once any entrance ends, over the entrance's last frame. */
-export const loops: Partial<Record<Mood, ClipName>> = { thinking: "thinking" }
+export const loops: Partial<Record<Mood, ClipName>> = { thinking: "thinking", sleepy: "sleepy" }
 
 /**
  * What Kotori plays now and then in a mood once it's in it: it blinks while
@@ -339,7 +410,7 @@ export const loops: Partial<Record<Mood, ClipName>> = { thinking: "thinking" }
  * only the thought bubble moves.
  */
 export const idles: Partial<Record<Mood, ClipName>> = {
-  curious: "blink",
+  neutral: "blink",
   oops: "blink",
   celebrate: "twinkle"
 }

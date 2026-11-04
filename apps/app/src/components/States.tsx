@@ -4,18 +4,20 @@ import { ApiError } from "../api/client.ts"
 import { useT } from "../session/SessionProvider.tsx"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Button } from "./Button.tsx"
-import { Mascot, type Mood } from "./Mascot.tsx"
+import { type Facing, Mascot, type Mood } from "./Mascot.tsx"
 import { Text } from "./Text.tsx"
 
 /** Kotori with a message: loading, empty and error states all use this. */
 export const MascotMessage = ({
-  mood = "curious",
+  mood = "neutral",
+  facing,
   title,
   body,
   size = 110,
   children
 }: {
   readonly mood?: Mood
+  readonly facing?: Facing
   readonly title?: string
   readonly body?: string
   readonly size?: number
@@ -27,7 +29,7 @@ export const MascotMessage = ({
       entering={FadeIn.duration(250)}
       style={{ alignItems: "center", gap: theme.space.md, paddingVertical: theme.space.xl }}
     >
-      <Mascot size={size} mood={mood} />
+      <Mascot size={size} mood={mood} facing={facing} />
       {title ? (
         <Text variant="heading" align="center">
           {title}

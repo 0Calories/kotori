@@ -25,7 +25,7 @@ const shown =
   (Object.keys(entrances) as Mood[]).find((m) => entrances[m] === name) ??
   (Object.keys(loops) as Mood[]).find((m) => loops[m] === name) ??
   (Object.keys(idles) as Mood[]).find((m) => idles[m] === name) ??
-  "curious"
+  "neutral"
 const base = join(tmpdir(), `kotori-${name}-${shown}`)
 
 writeFileSync(`${base}.png`, new Resvg(framesSvg(name, shown)).render().asPng())

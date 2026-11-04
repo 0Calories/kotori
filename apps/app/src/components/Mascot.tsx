@@ -11,8 +11,17 @@ import Animated, {
   withRepeat,
   withTiming
 } from "react-native-reanimated"
-import Svg, { Circle, Ellipse, G, Path, Text as SvgText } from "react-native-svg"
-import { confetti, frontMoods, frontShapes, type Mood, palette, shapes, thinkingShapes } from "../mascot/geometry.ts"
+import Svg, { Circle, Ellipse, G, Path } from "react-native-svg"
+import {
+  confetti,
+  type Facing,
+  frontMoods,
+  frontShapes,
+  type Mood,
+  palette,
+  shapes,
+  thinkingShapes
+} from "../mascot/geometry.ts"
 import {
   type ClipName,
   clips,
@@ -29,10 +38,12 @@ import {
   type SparklePart,
   sparkleParts,
   sparklesFor,
-  viewTransform
+  viewTransform,
+  type ZPart,
+  zParts
 } from "../mascot/motion.ts"
 
-export type { Mood }
+export type { Facing, Mood }
 
 /** The eyes and catchlight of one of Kotori's views. */
 type Face = {
@@ -79,14 +90,14 @@ const Foot = ({ d }: { readonly d: string }) => (
   <Path d={d} stroke={palette.ink} strokeWidth={shapes.feet.width} strokeLinecap="round" />
 )
 
-/** What shows on or beside Kotori in some moods. It stays put while Kotori moves. */
-const extras: Partial<Record<Mood, ReactNode>> = {
-  oops: <Path d={frontShapes.sweat} fill={palette.sky} />,
-  sleepy: (
-    <SvgText x={25} y={38} fontSize={22} fontWeight="bold" fill={palette.sky}>
-      z
-    </SvgText>
-  )
+/** What floats beside Kotori in some moods in three-quarter view. It stays put while Kotori moves. */
+const sideExtras: Partial<Record<Mood, ReactNode>> = {
+  oops: <Path d={shapes.sweat} fill={palette.sky} />
+}
+
+/** What shows on or beside Kotori in some moods in the front view. */
+const frontExtras: Partial<Record<Mood, ReactNode>> = {
+  oops: <Path d={frontShapes.sweat} fill={palette.sky} />
 }
 
 /** A clip and how far into it Kotori is. */
@@ -251,6 +262,39 @@ const Sparkle = ({
   )
 }
 
+/**
+ * One of sleepy's Zs, wafting above Kotori's brow on a loop. When `Side`
+ * mirrors the view for `facing === "right"`, `flip` mirrors the Z back about
+ * its own centre so the letter still reads forwards.
+ */
+const SleepyZ = ({
+  part,
+  size,
+  motion,
+  flip = false
+}: {
+  readonly part: ZPart
+  readonly size: number
+  readonly motion: Motion
+  readonly flip?: boolean
+}) => {
+  const style = useAnimatedStyle(() => {
+    const { entrance, loop, idle } = motion
+    const pose = combine(
+      combine(poseAt(entrance.clip.get(), part, entrance.time.get()), poseAt(loop.clip.get(), part, loop.time.get())),
+      poseAt(idle.clip.get(), part, idle.time.get())
+    )
+    const oriented = flip ? { ...pose, scaleX: -pose.scaleX } : pose
+    return { opacity: oriented.opacity, transform: viewTransform(oriented, part, size) }
+  })
+  const { d, stroke } = shapes.zs[part]
+  return (
+    <Layer style={style} size={size}>
+      <Path d={d} stroke={palette.sky} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </Layer>
+  )
+}
+
 /** Piece `index` of the entrance's confetti, on a canvas of its own just big enough for it. */
 const ConfettiPiece = ({
   piece,
@@ -318,8 +362,16 @@ const Confetti = ({
     ))
 }
 
-/** Kotori in three-quarter view. */
-const Side = ({ size, mood }: { readonly size: number; readonly mood: Mood }) => {
+/** Kotori in three-quarter view. `facing === "right"` mirrors the side view angle. */
+const Side = ({
+  size,
+  mood,
+  facing = "left"
+}: {
+  readonly size: number
+  readonly mood: Mood
+  readonly facing?: "left" | "right"
+}) => {
   const reduceMotion = useReducedMotion()
   const enter = entrances[mood] ?? null
   const motion = useMotion(mood)
@@ -333,7 +385,7 @@ const Side = ({ size, mood }: { readonly size: number; readonly mood: Mood }) =>
   const shutEyes = usePartStyle("eyes", size, motion, true)
 
   return (
-    <>
+    <View style={[StyleSheet.absoluteFill, facing === "right" ? { transform: [{ scaleX: -1 }] } : null]}>
       {enter === null || clips[enter].confetti === undefined || reduceMotion ? null : (
         <Confetti key={enter} name={enter} size={size} entrance={motion.entrance} />
       )}
@@ -378,8 +430,11 @@ const Side = ({ size, mood }: { readonly size: number; readonly mood: Mood }) =>
             <Sparkle key={part} part={part} size={size} entrance={motion.entrance} idle={motion.idle} />
           ))
         : null}
-      {extras[mood] === undefined ? null : <Canvas size={size}>{extras[mood]}</Canvas>}
-    </>
+      {mood === "sleepy"
+        ? zParts.map((part) => <SleepyZ key={part} part={part} size={size} motion={motion} flip={facing === "right"} />)
+        : null}
+      {sideExtras[mood] === undefined ? null : <Canvas size={size}>{sideExtras[mood]}</Canvas>}
+    </View>
   )
 }
 
@@ -457,7 +512,7 @@ const Front = ({ size, mood }: { readonly size: number; readonly mood: Mood }) =
         ))}
         <Path d={frontShapes.beak} fill={palette.ink} />
         {thinking ? <Path d={thinkingShapes.chinWing} fill={palette.ink} /> : null}
-        {extras[mood]}
+        {frontExtras[mood]}
       </Canvas>
       <Layer style={eyes} size={size}>
         <Eyes mood={mood} face={frontShapes} />
@@ -465,22 +520,35 @@ const Front = ({ size, mood }: { readonly size: number; readonly mood: Mood }) =
       <Layer style={shutEyes} size={size}>
         <Eyes mood="sleepy" face={frontShapes} />
       </Layer>
+      {mood === "sleepy" ? zParts.map((part) => <SleepyZ key={part} part={part} size={size} motion={motion} />) : null}
       {thinking ? <ThoughtBubble size={size} motion={motion} /> : null}
     </>
   )
 }
 
 /**
- * Kotori, the shima enaga. Changes expression with `mood`, plays the mood's
- * entrance and loop from `motion.ts`, confetti and all, and now and then
- * blinks or twinkles its sparkles; with reduced motion it holds each mood's
- * pose, and doesn't blink, twinkle or throw confetti. Thinking, it faces the
- * viewer and holds still under a thought bubble that rises above its `size`
- * box. Every moving part is a layer placed with plain view transforms, so a
- * clip plays the same way on iOS, Android and the web.
+ * Kotori, the shima enaga. Changes expression with `mood` and angle with
+ * `facing`, plays the mood's entrance and loop from `motion.ts`, confetti and
+ * all, and now and then blinks or twinkles its sparkles; with reduced motion it
+ * holds each mood's pose, and doesn't blink, twinkle or throw confetti.
+ * Thinking, it faces the viewer and holds still under a thought bubble that
+ * rises above its `size` box. Every moving part is a layer placed with plain
+ * view transforms, so a clip plays the same way on iOS, Android and the web.
  */
-export const Mascot = ({ size = 120, mood = "curious" }: { readonly size?: number; readonly mood?: Mood }) => (
+export const Mascot = ({
+  size = 120,
+  mood = "neutral",
+  facing = "left"
+}: {
+  readonly size?: number
+  readonly mood?: Mood
+  readonly facing?: Facing
+}) => (
   <View style={{ width: size, height: size }} accessibilityRole="image" accessibilityLabel="Kotori the long-tailed tit">
-    {frontMoods.has(mood) ? <Front size={size} mood={mood} /> : <Side size={size} mood={mood} />}
+    {facing === "front" || frontMoods.has(mood) ? (
+      <Front size={size} mood={mood} />
+    ) : (
+      <Side size={size} mood={mood} facing={facing} />
+    )}
   </View>
 )

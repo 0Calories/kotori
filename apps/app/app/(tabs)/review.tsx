@@ -109,7 +109,7 @@ export default function ReviewScreen() {
       }
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <Mascot size={56} mood={due > 0 ? "curious" : "sleepy"} />
+        <Mascot size={56} mood={due > 0 ? "neutral" : "sleepy"} facing="right" />
         <View style={{ flex: 1 }}>
           <Text variant="title" accessibilityRole="header">
             {t.tabs.review}

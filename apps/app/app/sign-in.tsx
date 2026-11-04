@@ -45,7 +45,7 @@ export default function SignIn() {
         onPress={() => (router.canGoBack() ? router.back() : router.replace("/welcome"))}
       />
       <Animated.View entering={FadeInDown.duration(400)} style={{ alignItems: "center", gap: theme.space.sm }}>
-        <Mascot size={110} mood="curious" />
+        <Mascot size={110} mood="neutral" />
         <Text variant="title" align="center">
           {t.auth.signInTitle}
         </Text>

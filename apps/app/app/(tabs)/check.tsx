@@ -394,7 +394,7 @@ export default function CheckScreen() {
   return (
     <Screen>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <Mascot size={56} mood={check.isPending ? "thinking" : "curious"} />
+        <Mascot size={56} mood={check.isPending ? "thinking" : "neutral"} facing="right" />
         <Text variant="title" accessibilityRole="header" style={{ flex: 1 }}>
           {t.check.title}
         </Text>

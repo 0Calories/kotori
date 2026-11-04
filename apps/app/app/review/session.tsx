@@ -421,7 +421,7 @@ export default function ReviewSession() {
               {remaining} {t.review.remaining}
             </Text>
           ) : null}
-          <Mascot size={36} mood={revealed ? "happy" : "curious"} />
+          <Mascot size={36} mood={revealed ? "happy" : "neutral"} />
         </View>
 
         {body}

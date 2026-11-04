@@ -156,7 +156,7 @@ export default function SayScreen() {
   return (
     <Screen>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <Mascot size={56} mood={ask.isPending ? "thinking" : "happy"} />
+        <Mascot size={56} mood={ask.isPending ? "thinking" : "happy"} facing="right" />
         <Text variant="title" accessibilityRole="header" style={{ flex: 1 }}>
           {t.say.title}
         </Text>
