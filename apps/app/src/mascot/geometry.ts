@@ -56,8 +56,8 @@ export const shapes = {
   /** Three Zs rising from the brow for `sleepy`, smallest first. */
   zs: {
     z0: { d: "M25.5 47.5 H 32.5 L 25.5 54.5 H 32.5", stroke: 3.2 },
-    z1: { d: "M14.5 28.5 H 23.5 L 14.5 37.5 H 23.5", stroke: 3.7 },
-    z2: { d: "M8.5 7.5 H 19.5 L 8.5 18.5 H 19.5", stroke: 4.2 }
+    z1: { d: "M15.5 29.5 H 24.5 L 15.5 38.5 H 24.5", stroke: 3.7 },
+    z2: { d: "M9.5 9.5 H 20.5 L 9.5 20.5 H 20.5", stroke: 4.2 }
   }
 } as const
 
@@ -109,8 +109,8 @@ export const joints = {
   dot1: { x: 140, y: -33 },
   dot2: { x: 154, y: -33 },
   z0: { x: 29, y: 51 },
-  z1: { x: 19, y: 33 },
-  z2: { x: 14, y: 13 }
+  z1: { x: 20, y: 34 },
+  z2: { x: 15, y: 15 }
 } as const
 
 /** Kotori facing the viewer, symmetric about x = 100. */

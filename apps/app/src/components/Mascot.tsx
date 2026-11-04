@@ -263,27 +263,26 @@ const Sparkle = ({
 }
 
 /**
- * One of sleepy's Zs, wafting above Kotori's brow on a loop. When `Side`
- * mirrors the view for `facing === "right"`, `flip` mirrors the Z back about
- * its own centre so the letter still reads forwards.
+ * One of sleepy's Zs, floating up and fading out from Kotori's brow on a loop
+ * (or holding its drawn place with reduced motion). When `Side` mirrors the
+ * view for `facing === "right"`, `flip` mirrors the Z back about its own
+ * centre so the letter still reads forwards.
  */
 const SleepyZ = ({
   part,
   size,
-  motion,
+  loop,
+  reduceMotion,
   flip = false
 }: {
   readonly part: ZPart
   readonly size: number
-  readonly motion: Motion
+  readonly loop: Channel
+  readonly reduceMotion: boolean
   readonly flip?: boolean
 }) => {
   const style = useAnimatedStyle(() => {
-    const { entrance, loop, idle } = motion
-    const pose = combine(
-      combine(poseAt(entrance.clip.get(), part, entrance.time.get()), poseAt(loop.clip.get(), part, loop.time.get())),
-      poseAt(idle.clip.get(), part, idle.time.get())
-    )
+    const pose = poseAt(reduceMotion ? null : "sleepy", part, loop.clip.get() === "sleepy" ? loop.time.get() : 0)
     const oriented = flip ? { ...pose, scaleX: -pose.scaleX } : pose
     return { opacity: oriented.opacity, transform: viewTransform(oriented, part, size) }
   })
@@ -431,7 +430,16 @@ const Side = ({
           ))
         : null}
       {mood === "sleepy"
-        ? zParts.map((part) => <SleepyZ key={part} part={part} size={size} motion={motion} flip={facing === "right"} />)
+        ? zParts.map((part) => (
+            <SleepyZ
+              key={part}
+              part={part}
+              size={size}
+              loop={motion.loop}
+              reduceMotion={reduceMotion}
+              flip={facing === "right"}
+            />
+          ))
         : null}
       {sideExtras[mood] === undefined ? null : <Canvas size={size}>{sideExtras[mood]}</Canvas>}
     </View>
@@ -487,6 +495,7 @@ const ThoughtBubble = ({ size, motion }: { readonly size: number; readonly motio
  * bubble above its head.
  */
 const Front = ({ size, mood }: { readonly size: number; readonly mood: Mood }) => {
+  const reduceMotion = useReducedMotion()
   const motion = useMotion(mood)
   const eyes = usePartStyle("eyes", size, motion)
   const shutEyes = usePartStyle("eyes", size, motion, true)
@@ -520,7 +529,11 @@ const Front = ({ size, mood }: { readonly size: number; readonly mood: Mood }) =
       <Layer style={shutEyes} size={size}>
         <Eyes mood="sleepy" face={frontShapes} />
       </Layer>
-      {mood === "sleepy" ? zParts.map((part) => <SleepyZ key={part} part={part} size={size} motion={motion} />) : null}
+      {mood === "sleepy"
+        ? zParts.map((part) => (
+            <SleepyZ key={part} part={part} size={size} loop={motion.loop} reduceMotion={reduceMotion} />
+          ))
+        : null}
       {thinking ? <ThoughtBubble size={size} motion={motion} /> : null}
     </>
   )

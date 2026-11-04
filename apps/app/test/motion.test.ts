@@ -26,8 +26,10 @@ import { mascotSvg } from "../src/mascot/svg.ts"
 
 const names = Object.keys(clips) as ClipName[]
 const parts = Object.keys(joints) as Part[]
-/** The parts of Kotori itself, not the sparkles beside it. */
-const kotori = parts.filter((part) => !(sparkleParts as readonly Part[]).includes(part))
+/** The parts of Kotori itself, not the sparkles or Zs that float beside it. */
+const kotori = parts.filter(
+  (part) => !(sparkleParts as readonly Part[]).includes(part) && !(zParts as readonly Part[]).includes(part)
+)
 
 type Point = readonly [number, number]
 
@@ -75,13 +77,17 @@ describe("Kotori's clips", () => {
     for (const part of sparkleParts) assert.strictEqual(poseAt("celebrate", part, 0).opacity, 0, part)
   })
 
-  it("start and end each loop on the drawing, so it plays over a mood's pose without a jump each time round", () => {
+  it("start and end each loop seamlessly, with Kotori on the drawing and sleepy's Zs fading in and out", () => {
     for (const name of Object.values(loops)) {
-      for (const part of parts) {
+      for (const part of kotori) {
         assert.deepStrictEqual(poseAt(name, part, 0), rest, `${name}: ${part} at the start`)
         assert.deepStrictEqual(poseAt(name, part, clips[name].duration), rest, `${name}: ${part} at the end`)
       }
+      for (const part of parts) {
+        assert.deepStrictEqual(poseAt(name, part, clips[name].duration), poseAt(name, part, 0), `${name}: ${part}`)
+      }
     }
+    for (const part of zParts) assert.strictEqual(poseAt("sleepy", part, 0).opacity, 0, part)
   })
 
   it("keep their keys in order and within the clip", () => {
@@ -114,19 +120,28 @@ describe("Kotori's clips", () => {
     assert.sameMembers(Object.keys(clips.thinking.tracks), ["bubble", "dot0", "dot1", "dot2"])
   })
 
-  it("loop sleepy without an entrance or blink, wafting z0, z1 and z2 up in turn as Kotori breathes", () => {
+  it("loop sleepy without an entrance or blink, floating and fading z0, z1 and z2 up in turn as Kotori breathes", () => {
     assert.isUndefined(entrances.sleepy)
     assert.isUndefined(idles.sleepy)
     assert.strictEqual(loops.sleepy, "sleepy")
     for (const part of parts) assert.deepStrictEqual(settled("sleepy", part), rest, part)
     assert.sameMembers(Object.keys(clips.sleepy.tracks), ["bird", "face", ...zParts])
-    // Each Z starts rising after the one below it.
-    const firstRise = (part: ZPart) => {
-      for (let t = 0; t <= clips.sleepy.duration; t += 10) if (poseAt("sleepy", part, t).y < 0) return t
-      return assert.fail(`${part} never rises`)
+    // Each Z fades in, floats upward and outward, and fades out after the one below it.
+    const firstShow = (part: ZPart) => {
+      for (let t = 0; t <= clips.sleepy.duration; t += 10) if (poseAt("sleepy", part, t).opacity > 0) return t
+      return assert.fail(`${part} never shows`)
     }
-    assert.isBelow(firstRise("z0"), firstRise("z1"))
-    assert.isBelow(firstRise("z1"), firstRise("z2"))
+    assert.isBelow(firstShow("z0"), firstShow("z1"))
+    assert.isBelow(firstShow("z1"), firstShow("z2"))
+    for (const part of zParts) {
+      const start = firstShow(part)
+      const peak = start + 400
+      const end = start + 1190
+      assert.strictEqual(poseAt("sleepy", part, peak).opacity, 1, `${part} reaches full opacity`)
+      assert.isBelow(poseAt("sleepy", part, end).y, poseAt("sleepy", part, start).y - 7, `${part} floats up`)
+      assert.isBelow(poseAt("sleepy", part, end).x, poseAt("sleepy", part, start).x - 4, `${part} drifts outward`)
+      assert.strictEqual(poseAt("sleepy", part, clips.sleepy.duration).opacity, 0, `${part} fades out`)
+    }
   })
 
   it("blink only in moods whose eyes are open, and twinkle only where there are sparkles", () => {
@@ -474,11 +489,14 @@ describe("sleepy's Zs", () => {
         }
         return {
           top: Math.min(...corners.map(([, y]) => y)) - r,
-          bottom: Math.max(...corners.map(([, y]) => y)) + r
+          bottom: Math.max(...corners.map(([, y]) => y)) + r,
+          opacity: pose.opacity
         }
       })
-      assert.isAbove(bands[0]!.top, bands[1]!.bottom, `z0 below z1 at ${t} ms`)
-      assert.isAbove(bands[1]!.top, bands[2]!.bottom, `z1 below z2 at ${t} ms`)
+      if (bands[0]!.opacity > 0 && bands[1]!.opacity > 0)
+        assert.isAbove(bands[0]!.top, bands[1]!.bottom, `z0 below z1 at ${t} ms`)
+      if (bands[1]!.opacity > 0 && bands[2]!.opacity > 0)
+        assert.isAbove(bands[1]!.top, bands[2]!.bottom, `z1 below z2 at ${t} ms`)
     }
   })
 

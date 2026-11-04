@@ -101,38 +101,50 @@ const hop = (ms: number) => ({
   ] as const
 })
 
-/** A Z wafting up and outward from `ms`, swelling and tilting before it settles back. */
+/**
+ * A Z fading in near the brow at `ms`, floating upward and outward over
+ * 1200 ms while growing and tilting, and fading out into the air.
+ */
 const waft = (ms: number) => ({
   x: [
-    [0, 0],
-    [ms, 0],
-    [ms + 450, -1.5, "out"],
-    [ms + 1200, 0]
+    [0, 2],
+    [ms, 2],
+    [ms + 1200, -3, "linear"],
+    [2200, 2, "step"]
   ] as const,
   y: [
-    [0, 0],
-    [ms, 0],
-    [ms + 450, -2.5, "out"],
-    [ms + 1200, 0]
+    [0, 3],
+    [ms, 3],
+    [ms + 1200, -5, "linear"],
+    [2200, 3, "step"]
   ] as const,
   rotate: [
-    [0, 0],
-    [ms, 0],
-    [ms + 450, -8, "out"],
-    [ms + 900, 4],
-    [ms + 1200, 0]
+    [0, 6],
+    [ms, 6],
+    [ms + 1200, -6],
+    [2200, 6, "step"]
   ] as const,
   scaleX: [
-    [0, 1],
-    [ms, 1],
-    [ms + 450, 1.15, "out"],
-    [ms + 1200, 1]
+    [0, 0.75],
+    [ms, 0.75],
+    [ms + 400, 1, "out"],
+    [ms + 1200, 1.08, "linear"],
+    [2200, 0.75, "step"]
   ] as const,
   scaleY: [
-    [0, 1],
-    [ms, 1],
-    [ms + 450, 1.15, "out"],
-    [ms + 1200, 1]
+    [0, 0.75],
+    [ms, 0.75],
+    [ms + 400, 1, "out"],
+    [ms + 1200, 1.08, "linear"],
+    [2200, 0.75, "step"]
+  ] as const,
+  opacity: [
+    [0, 0],
+    [ms, 0],
+    [ms + 300, 1, "out"],
+    [ms + 750, 1],
+    [ms + 1200, 0, "in"],
+    [2200, 0, "step"]
   ] as const
 })
 
@@ -310,34 +322,34 @@ export const clips: Record<ClipName, Clip> = {
     }
   },
   /**
-   * While sleeping, on a loop: Kotori breathes softly and nods, and a wave
-   * ripples up through the three Zs from its brow.
+   * While sleeping, on a loop: Kotori breathes softly and nods as the three Zs
+   * fade in one by one from its brow, float upward and outward, and fade away.
    */
   sleepy: {
-    duration: 2000,
+    duration: 2200,
     tracks: {
       bird: {
         scaleX: [
           [0, 1],
-          [900, 1.02],
-          [2000, 1]
+          [950, 1.02],
+          [2200, 1]
         ],
         scaleY: [
           [0, 1],
-          [900, 0.98],
-          [2000, 1]
+          [950, 0.98],
+          [2200, 1]
         ]
       },
       face: {
         y: [
           [0, 0],
-          [900, 1.5],
-          [2000, 0]
+          [950, 1.5],
+          [2200, 0]
         ]
       },
-      z0: waft(150),
+      z0: waft(0),
       z1: waft(350),
-      z2: waft(550)
+      z2: waft(700)
     }
   },
   /** Eyes shut for a moment: the open eyes vanish, and the shut ones show in their place. */
