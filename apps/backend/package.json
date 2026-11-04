@@ -58,6 +58,7 @@
             "transitive": true
           },
           "{workspaceRoot}/packages/db/migrations/**/*",
+          "{workspaceRoot}/pnpm-workspace.yaml",
           "{workspaceRoot}/Dockerfile",
           "{workspaceRoot}/.dockerignore",
           "{workspaceRoot}/fly.toml"

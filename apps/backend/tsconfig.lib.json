@@ -6,6 +6,7 @@
     "types": ["node"]
   },
   "include": ["src"],
+  "exclude": ["src/testing"],
   "references": [
     {
       "path": "../../packages/srs/tsconfig.lib.json"

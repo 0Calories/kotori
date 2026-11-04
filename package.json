@@ -11,7 +11,7 @@
     "kotori": "pnpm --filter @kotori/backend run cli",
     "test": "nx run-many -t test",
     "typecheck": "nx run-many -t typecheck",
-    "lint": "oxlint",
+    "lint": "nx run-many -t lint && oxlint neon.ts vitest.shared.ts tools/*.ts",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "build": "nx run-many -t build",

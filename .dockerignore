@@ -2,7 +2,15 @@
 .claude
 node_modules
 **/node_modules
-**/dist
+apps/*/*
+!apps/*/package.json
+!apps/backend/dist
+tools/*.*
+tools/*/*
+!tools/*/package.json
+**/src
+**/test
+**/golden
 **/out-tsc
 **/*.tsbuildinfo
 .nx
@@ -12,8 +20,6 @@ data
 .env
 .env.*
 !.env.example
-apps/app/ios
-apps/app/android
 docs
 *.md
 .vscode

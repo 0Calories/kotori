@@ -10,6 +10,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.head_ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+permissions:
+  contents: read
+  actions: read
+
+env:
+  NX_DAEMON: "false"
+
 jobs:
   checks:
     name: Sync, format, lint, typecheck, test, build
@@ -25,22 +32,24 @@ jobs:
         with:
           node-version-file: .node-version
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile --prefer-offline
       - uses: actions/cache@v4
         with:
-          path: .nx/cache
+          path: |
+            .nx/cache
+            .nx/workspace-data
           key: nx-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
           restore-keys: |
             nx-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            nx-${{ runner.os }}-
       - uses: nrwl/nx-set-shas@v4
       - name: Project references are in sync
         run: pnpm nx sync:check
       - run: pnpm format:check
-      - run: pnpm lint
-      - name: Typecheck, test and build affected projects
-        run: pnpm nx affected -t typecheck test build
-        env:
-          NX_DAEMON: "false"
+      - name: Lint root scripts
+        run: pnpm exec oxlint neon.ts vitest.shared.ts tools/*.ts
+      - name: Lint, typecheck, test and build affected projects
+        run: pnpm nx affected -t lint typecheck test build check
 
   deploy:
     name: Deploy affected apps
@@ -63,14 +72,17 @@ jobs:
         with:
           node-version-file: .node-version
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile --prefer-offline
       # The checks job's builds, which the deploy tasks depend on.
       - uses: actions/cache/restore@v4
         with:
-          path: .nx/cache
+          path: |
+            .nx/cache
+            .nx/workspace-data
           key: nx-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
           restore-keys: |
             nx-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            nx-${{ runner.os }}-
       - uses: nrwl/nx-set-shas@v4
       - uses: superfly/flyctl-actions/setup-flyctl@1.5
         with:
@@ -80,12 +92,10 @@ jobs:
       - name: Deploy the API and worker
         run: pnpm nx affected -t deploy --exclude=@kotori/app --outputStyle=static
         env:
-          NX_DAEMON: "false"
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       - name: Deploy the web app
         run: pnpm nx affected -t deploy --exclude='*,!@kotori/app' --outputStyle=static
         env:
-          NX_DAEMON: "false"
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}

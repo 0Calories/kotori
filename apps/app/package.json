@@ -63,19 +63,33 @@
     ],
     "targets": {
       "typecheck": {
-        "dependsOn": [
-          "^build"
-        ]
-      },
-      "build": {
         "cache": true,
         "dependsOn": [
           "^build"
         ],
         "inputs": [
+          "default",
+          {
+            "dependentTasksOutputFiles": "**/*.{d.ts,d.cts,d.mts,tsbuildinfo}",
+            "transitive": true
+          }
+        ],
+        "syncGenerators": [
+          "@nx/js:typescript-sync"
+        ]
+      },
+      "build": {
+        "cache": true,
+        "inputs": [
           "production",
           "^production",
-          "{workspaceRoot}/tools/upload-web-sourcemaps.sh"
+          "{workspaceRoot}/tools/upload-web-sourcemaps.sh",
+          {
+            "env": "EXPO_PUBLIC_*"
+          },
+          {
+            "env": "SENTRY_UPLOAD"
+          }
         ],
         "outputs": [
           "{projectRoot}/dist"

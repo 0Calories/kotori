@@ -3,6 +3,7 @@
   "plugins": [
     {
       "plugin": "@nx/js/typescript",
+      "exclude": ["apps/app/**"],
       "options": {
         "typecheck": {
           "targetName": "typecheck"
@@ -10,22 +11,28 @@
         "build": {
           "targetName": "build",
           "configName": "tsconfig.lib.json"
-        }
+        },
+        "selectivelyHashTsConfig": true
       }
+    },
+    {
+      "plugin": "@nx/oxlint"
     }
   ],
+  "pluginsConfig": {
+    "@nx/js": {
+      "projectsAffectedByDependencyUpdates": "auto"
+    }
+  },
   "namedInputs": {
-    "sharedGlobals": [
-      "{workspaceRoot}/tsconfig.base.json",
-      "{workspaceRoot}/pnpm-lock.yaml",
-      "{workspaceRoot}/pnpm-workspace.yaml"
-    ],
+    "sharedGlobals": ["{workspaceRoot}/tsconfig.base.json"],
     "default": ["{projectRoot}/**/*", "sharedGlobals"],
     "production": [
       "default",
       "!{projectRoot}/**/*.test.ts",
       "!{projectRoot}/**/*.test.tsx",
       "!{projectRoot}/test/**/*",
+      "!{projectRoot}/src/testing/**/*",
       "!{projectRoot}/tsconfig.spec.json",
       "!{projectRoot}/vitest.config.ts",
       "!{projectRoot}/golden/**/*"
@@ -34,13 +41,14 @@
   "targetDefaults": {
     "test": {
       "cache": true,
-      "inputs": ["default", "^default", "{workspaceRoot}/vitest.shared.ts"]
+      "inputs": ["default", "^production", "{workspaceRoot}/vitest.shared.ts"]
     },
     "dev": {
       "cache": false,
       "continuous": true
     }
   },
+  "parallel": 4,
   "defaultBase": "main",
   "analytics": true
 }
