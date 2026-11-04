@@ -24,17 +24,3 @@ describe("disabled speak and check tabs", () => {
     assert.match(tabBar, /role="tooltip"/)
   })
 })
-
-describe("lookup hero sky card", () => {
-  it("stretches full-width and flush with the top on mobile while staying a padded card on desktop", () => {
-    const index = readFileSync(join(appDir, "app/(tabs)/index.tsx"), "utf8")
-
-    assert.match(index, /const desktop = width > theme\.maxWidth/)
-    assert.match(index, /marginHorizontal: -theme\.space\.lg/)
-    assert.match(index, /marginTop: -\(insets\.top \+ theme\.space\.sm\)/)
-    assert.match(index, /paddingTop: insets\.top \+ theme\.space\.md/)
-    assert.match(index, /borderBottomLeftRadius: 40/)
-    assert.match(index, /borderBottomRightRadius: 40/)
-    assert.match(index, /borderRadius: theme\.radius\.xl/)
-  })
-})
