@@ -64,6 +64,52 @@ const VERB_PREFIXES = [
 
 const PREP_PREFIXES = ["on ", "in ", "at ", "under ", "out of ", "behind ", "beyond ", "above ", "below ", "off "]
 
+const OBJECT_SWAPS: ReadonlyMap<string, ReadonlyArray<string>> = new Map([
+  ...["me", "you", "him", "us", "them"].map((word) => [word, ["someone", "somebody"]] as const),
+  ["her", ["someone", "somebody", "one's", "someone's"]],
+  ["someone", ["somebody", "you", "me"]],
+  ["somebody", ["someone", "you", "me"]]
+])
+
+const POSSESSIVE_SWAPS: ReadonlyMap<string, ReadonlyArray<string>> = new Map([
+  ...["my", "your", "his", "our", "their"].map((word) => [word, ["one's", "someone's"]] as const),
+  ["one's", ["someone's", "your", "my"]],
+  ["someone's", ["one's", "your", "my"]],
+  ["somebody's", ["one's", "someone's", "your", "my"]]
+])
+
+const REFLEXIVE_SWAPS: ReadonlyMap<string, ReadonlyArray<string>> = new Map([
+  ...["myself", "yourself", "yourselves", "himself", "herself", "ourselves", "themselves"].map(
+    (word) => [word, ["oneself"]] as const
+  ),
+  ["oneself", ["yourself", "myself"]]
+])
+
+const placeholderForms = (term: string): Array<string> => {
+  const words = term.split(" ")
+  if (words.length < 2 || words.length > 7) return []
+  const first = words[0]!
+  const stems = new Set<string>([first, ...uninflect(first).map(({ base }) => base)])
+  if (!first.endsWith("s")) stems.add(`${first}s`)
+  const results = new Set<string>()
+  for (const stem of stems) {
+    const baseWords = [stem, ...words.slice(1)]
+    const joined = baseWords.join(" ")
+    if (joined !== term) results.add(joined)
+    baseWords.forEach((word, index) => {
+      const replacements = [
+        ...(REFLEXIVE_SWAPS.get(word) ?? []),
+        ...(words.length >= 3 ? [...(OBJECT_SWAPS.get(word) ?? []), ...(POSSESSIVE_SWAPS.get(word) ?? [])] : [])
+      ]
+      for (const replacement of replacements) {
+        const candidate = baseWords.toSpliced(index, 1, replacement).join(" ")
+        if (candidate !== term) results.add(candidate)
+      }
+    })
+  }
+  return [...results]
+}
+
 /** Explanations, literal renderings and trademarks aren't English words. */
 const SKIPPED_TYPES = new Set(["expl", "lit", "tm"])
 
@@ -142,6 +188,12 @@ export const jmdictReader = (known: KnownEnglish) => {
       return term === normalizeGloss(redirected) ? { headword: redirected } : { headword: redirected, variant: term }
     }
     if (known.words.has(term)) return { headword: term }
+    const candidates = placeholderForms(term)
+    for (const candidate of candidates) {
+      const target = redirects.get(candidate)
+      if (target !== undefined && known.words.has(target)) return { headword: target, variant: term }
+      if (known.words.has(candidate)) return { headword: candidate, variant: term }
+    }
     for (const prefix of VERB_PREFIXES) {
       if (term.startsWith(prefix)) {
         const tail = term.slice(prefix.length)
@@ -152,6 +204,11 @@ export const jmdictReader = (known: KnownEnglish) => {
     }
     if (phrases.has(term) || (known.verbs.has(words[0]!) && words.slice(1).every((word) => PARTICLES.has(word)))) {
       return { headword: term }
+    }
+    for (const candidate of candidates) {
+      const target = redirects.get(candidate)
+      if (target !== undefined) return { headword: target, variant: term }
+      if (phrases.has(candidate)) return { headword: candidate, variant: term }
     }
     return null
   }

@@ -458,6 +458,35 @@ describe("wordsFromJmdict", () => {
     expect(built.find((w) => w.headword === "lot of")).toBeUndefined()
     expect(reader.formsOf()).toContainEqual({ text: "sit on the fence", base: "on the fence", tags: [] })
   })
+
+  it("resolves pronoun placeholders and inflected verbs onto canonical idiom phrases with both forms searchable", () => {
+    const reader = jmdictReader({
+      words: new Set(["make oneself at home"]),
+      verbs: new Set(["serve", "hold", "make"]),
+      phrases: new Set(["serve someone right", "hold one's horses"]),
+      frequency: new Map()
+    })
+    reader.add(jmdictEntry(30, "ざまあみろ", "ざまあみろ", ["serves you right!"], true, ["int", "exp"]))
+    reader.add(jmdictEntry(31, "落ち着け", "おちつけ", ["hold your horses"], false, ["exp"]))
+    reader.add(jmdictEntry(32, "くつろぐ", "くつろぐ", ["to make yourself at home"], true, ["v5g"]))
+
+    const built = reader.finish()
+    expect(built.find((w) => w.headword === "serve someone right")).toMatchObject({
+      headword: "serve someone right",
+      spellings: ["serves you right"]
+    })
+    expect(built.find((w) => w.headword === "hold one's horses")).toMatchObject({
+      headword: "hold one's horses",
+      spellings: ["hold your horses"]
+    })
+    expect(reader.formsOf()).toEqual(
+      expect.arrayContaining([
+        { text: "serves you right", base: "serve someone right", tags: [] },
+        { text: "hold your horses", base: "hold one's horses", tags: [] },
+        { text: "make yourself at home", base: "make oneself at home", tags: [] }
+      ])
+    )
+  })
 })
 
 describe("toEntries", () => {
