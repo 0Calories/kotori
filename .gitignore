@@ -28,3 +28,7 @@ apps/app/ios/
 apps/app/android/
 
 .DS_Store
+
+.claude/worktrees
+.claude/settings.local.json
+
