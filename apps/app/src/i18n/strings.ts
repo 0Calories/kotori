@@ -4,7 +4,13 @@
  */
 const en = {
   appName: "Kotori",
-  tabs: { dictionary: "Look up", check: "Check", say: "Speak", review: "Notebook" },
+  tabs: {
+    dictionary: "Look up",
+    check: "Check",
+    say: "Speak",
+    review: "Notebook",
+    notReady: "This feature isn't ready yet"
+  },
   greeting: { morning: "Good morning", afternoon: "Good afternoon", evening: "Good evening" },
   common: {
     retry: "Try again",
@@ -397,7 +403,13 @@ export type Strings = typeof en
 
 const ja: Strings = {
   appName: "ことり",
-  tabs: { dictionary: "調べる", check: "添削", say: "話す", review: "ノート" },
+  tabs: {
+    dictionary: "調べる",
+    check: "添削",
+    say: "話す",
+    review: "ノート",
+    notReady: "この機能はまだ準備中です"
+  },
   greeting: { morning: "おはよう", afternoon: "こんにちは", evening: "こんばんは" },
   common: {
     retry: "もう一度",
