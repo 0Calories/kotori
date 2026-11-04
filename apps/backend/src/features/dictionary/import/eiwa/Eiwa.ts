@@ -14,7 +14,7 @@ import { FREQUENCY_URL, parseFrequency } from "./frequency.ts"
 import { jmdictReader, type KnownEnglish } from "./jmdict.ts"
 import { ENGLISH_TAGS } from "./tags.ts"
 import { curatedParser, parsePhraseIndex, WIKTIONARY_URL, wiktionaryParser } from "./wiktionary.ts"
-import type { FormOf, Word } from "./words.ts"
+import { addRedirect, type FormOf, type Word } from "./words.ts"
 
 export class EiwaError extends Schema.TaggedError<EiwaError>()("EiwaError", {
   message: Schema.String,
@@ -116,17 +116,14 @@ const knownEnglish = (
       for (const text of [word.headword, ...word.spellings, ...word.inflections.map((form) => form.text)]) {
         words.add(text.toLowerCase())
       }
-      const canonical = normalizeGloss(word.headword)
+      const canonical = word.headword.toLowerCase()
       if (canonical.includes(" ")) {
         allPhrases.add(canonical)
         for (const spelling of word.spellings) {
-          const normSpelling = normalizeGloss(spelling)
-          if (normSpelling.includes(" ") && normSpelling !== canonical && !allRedirects.has(normSpelling)) {
-            allRedirects.set(normSpelling, canonical)
-          }
+          if (!allRedirects.has(normalizeGloss(spelling))) addRedirect(allRedirects, spelling, canonical)
         }
       }
-      if (word.senses.some((sense) => sense.pos.includes("v"))) verbs.add(word.headword.toLowerCase())
+      if (word.senses.some((sense) => sense.pos.includes("v"))) verbs.add(canonical)
     }
     for (const form of source.formsOf) words.add(form.text.toLowerCase())
   }

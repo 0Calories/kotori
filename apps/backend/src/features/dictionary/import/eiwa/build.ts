@@ -51,9 +51,7 @@ export interface Sources {
   /** Japanese Wiktionary next: it has parts of speech, IPA and inflections. */
   readonly wiktionary: { readonly words: ReadonlyArray<Word>; readonly formsOf: ReadonlyArray<FormOf> }
   /** Built knowing the other sources, so it only has words they lack, plus variant forms of existing idioms. */
-  readonly jmdict:
-    | ReadonlyArray<Word>
-    | { readonly words: ReadonlyArray<Word>; readonly formsOf?: ReadonlyArray<FormOf> | undefined }
+  readonly jmdict: { readonly words: ReadonlyArray<Word>; readonly formsOf?: ReadonlyArray<FormOf> | undefined }
   readonly frequency: ReadonlyMap<string, number>
 }
 
@@ -75,16 +73,18 @@ export const mergeSources = (sources: Sources): Array<Built> => {
     }
     for (const form of word.inflections) addInflection(existing, form)
   }
-  const jmdictWords = "words" in sources.jmdict ? sources.jmdict.words : sources.jmdict
-  const jmdictFormsOf = "words" in sources.jmdict ? (sources.jmdict.formsOf ?? []) : []
   for (const word of sources.curated?.words ?? []) add(word, "curated")
   for (const word of sources.wiktionary.words) add(word, "wiktionary")
-  for (const word of jmdictWords) add(word, "jmdict")
+  for (const word of sources.jmdict.words) add(word, "jmdict")
 
   const folded = new Map<string, Built>()
   for (const word of words.values())
     if (!folded.has(word.headword.toLowerCase())) folded.set(word.headword.toLowerCase(), word)
-  const formsOf = [...(sources.curated?.formsOf ?? []), ...sources.wiktionary.formsOf, ...jmdictFormsOf]
+  const formsOf = [
+    ...(sources.curated?.formsOf ?? []),
+    ...sources.wiktionary.formsOf,
+    ...(sources.jmdict.formsOf ?? [])
+  ]
   for (const form of formsOf) {
     const base = words.get(form.base) ?? folded.get(form.base.toLowerCase())
     if (base === undefined || form.text === base.headword) continue
@@ -204,6 +204,12 @@ export const commonestFirst = (
 
 const pronoun = (word: Built) => word.senses.some((sense) => sense.pos.includes("pn"))
 
+const attestedTranslations = (
+  headword: string,
+  translations: ReadonlyMap<string, ReadonlyMap<string, number>>
+): ReadonlyMap<string, number> | undefined =>
+  translations.get(headword.toLowerCase()) ?? translations.get(normalizeGloss(headword))
+
 /**
  * How often a word is used: its own count and its inflections', since "ate" is "eat" being
  * used. The counts are of lowercased text, so where a capitalised word has a lowercase twin
@@ -223,10 +229,11 @@ const usage = (
   for (const form of forms) rawCount += frequency.get(form) ?? 0
   if (word.source === "curated") {
     const floor = word.familiarity === 5 ? 10_000 : word.familiarity === 4 ? 3_000 : CURATED_FLOOR
-    return { count: Math.max(rawCount, floor), rawCount }
+    const count = rawCount === 0 || (word.familiarity ?? 3) >= 3 ? Math.max(rawCount, floor) : rawCount
+    return { count, rawCount }
   }
   if (rawCount === 0 && word.headword.includes(" ")) {
-    const attested = translations.get(word.headword.toLowerCase()) ?? translations.get(normalizeGloss(word.headword))
+    const attested = attestedTranslations(word.headword, translations)
     const bestWeight = attested !== undefined ? Math.max(0, ...attested.values()) : 0
     const count = bestWeight >= 45 ? 2_500 : bestWeight >= 30 ? 1_000 : bestWeight > 0 ? 300 : 0
     return { count, rawCount }
@@ -299,7 +306,7 @@ export const toEntries = (
           : commonestFirst(
               placedSenses,
               word.headword === word.headword.toLowerCase()
-                ? (translations.get(word.headword.toLowerCase()) ?? translations.get(normalizeGloss(word.headword)))
+                ? attestedTranslations(word.headword, translations)
                 : undefined
             )
     }

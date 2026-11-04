@@ -1,5 +1,5 @@
 import type { SenseRecord } from "@kotori/contracts"
-import type { EnglishInflection } from "@kotori/language"
+import { type EnglishInflection, normalizeGloss } from "@kotori/language"
 import { Option, Schema } from "effect"
 
 /** An inflected form of a word and what it is: "ate", past. */
@@ -108,6 +108,17 @@ export const formOf = (
 
 /** Words made only of English letters, digits and the punctuation inside English words and phrases. */
 export const isEnglish = (text: string) => /^[A-Za-z0-9][A-Za-z0-9 '’.\-&/]*$/.test(text)
+
+export const addRedirect = (redirects: Map<string, string>, variant: string, target: string): boolean => {
+  const from = normalizeGloss(variant)
+  const to = target.trim().toLowerCase()
+  const normTo = normalizeGloss(to)
+  if (from.includes(" ") && normTo.includes(" ") && from !== normTo && isEnglish(from) && isEnglish(to)) {
+    redirects.set(from, to)
+    return true
+  }
+  return false
+}
 
 // --- Consolidated JSONL schema (`data/eiwa/enwiktionary-ja.jsonl`) ----------------------
 

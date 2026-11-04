@@ -1,6 +1,6 @@
 import type { EntryRecord } from "@kotori/contracts"
 import { normalizeGloss, romanize, uninflect } from "@kotori/language"
-import { emptySense, type FormOf, isEnglish, type Word } from "./words.ts"
+import { addRedirect, emptySense, type FormOf, isEnglish, type Word } from "./words.ts"
 
 /**
  * English words the other sources lack, read backwards from JMDict: "selfie" is a gloss of
@@ -46,7 +46,6 @@ const PARTICLES = new Set([
   "after"
 ])
 
-/** Copula, posture and motion verbs that JMDict prepends to prepositional idioms ("to tread on thin ice"). */
 const VERB_PREFIXES = [
   "find oneself ",
   "be ",
@@ -111,21 +110,18 @@ export interface KnownEnglish {
 /** Reads JMDict an entry at a time, collecting the English words its glosses name; see `wordsFromJmdict`. */
 export const jmdictReader = (known: KnownEnglish) => {
   const phrases = new Set<string>()
-  for (const phrase of known.phrases) {
-    const norm = normalizeGloss(phrase)
-    if (norm.includes(" ")) phrases.add(norm)
-  }
-  for (const word of known.words) {
-    if (word.includes(" ")) phrases.add(normalizeGloss(word))
-  }
   const redirects = new Map<string, string>()
+  const addPhrase = (phrase: string) => {
+    const canonical = phrase.trim().toLowerCase()
+    const norm = normalizeGloss(canonical)
+    if (!norm.includes(" ")) return
+    phrases.add(norm)
+    if (norm !== canonical && !redirects.has(norm)) redirects.set(norm, canonical)
+  }
+  for (const word of known.words) addPhrase(word)
+  for (const phrase of known.phrases) addPhrase(phrase)
   for (const [from, to] of known.redirects ?? []) {
-    const normFrom = normalizeGloss(from)
-    const normTo = normalizeGloss(to)
-    if (normFrom.includes(" ") && normTo.includes(" ") && normFrom !== normTo) {
-      redirects.set(normFrom, normTo)
-      phrases.add(normTo)
-    }
+    if (addRedirect(redirects, from, to)) addPhrase(to)
   }
 
   const resolveHeadword = (term: string): { readonly headword: string; readonly variant?: string } | null => {
@@ -137,17 +133,20 @@ export const jmdictReader = (known: KnownEnglish) => {
         ? { headword: term }
         : null
     }
-    if (words.length > 7) return known.words.has(term) ? { headword: term } : null
     const redirected = redirects.get(term)
+    if (words.length > 7) {
+      const candidate = redirected ?? term
+      return known.words.has(candidate) ? { headword: candidate } : null
+    }
     if (redirected !== undefined) {
-      return redirected === term ? { headword: term } : { headword: redirected, variant: term }
+      return term === normalizeGloss(redirected) ? { headword: redirected } : { headword: redirected, variant: term }
     }
     if (known.words.has(term)) return { headword: term }
     for (const prefix of VERB_PREFIXES) {
       if (term.startsWith(prefix)) {
         const tail = term.slice(prefix.length)
-        if (PREP_PREFIXES.some((prep) => tail.startsWith(prep)) && (phrases.has(tail) || known.words.has(tail))) {
-          return { headword: tail, variant: term }
+        if (PREP_PREFIXES.some((prep) => tail.startsWith(prep)) && phrases.has(tail)) {
+          return { headword: redirects.get(tail) ?? tail, variant: term }
         }
       }
     }
@@ -244,7 +243,6 @@ export const jmdictReader = (known: KnownEnglish) => {
       }
     })
 
-  /** Variant idiom phrasings discovered in JMDict for canonical headwords. */
   const formsOf = (): Array<FormOf> =>
     [...variants].flatMap(([base, set]) => [...set].map((text): FormOf => ({ text, base, tags: [] })))
 

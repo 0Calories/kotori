@@ -200,7 +200,12 @@ layer(TestLayer)("dictionary queries", (it) => {
         (yield* searchFormsFuzzy(db, "polsh", 10)).map((match) => match.entryId),
         [100000002, 100000003]
       )
+    })
+  )
 
+  it.effect("filters out weak multi-word trigram lookalikes in fuzzy form search", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
       yield* insertEntries(db, [
         {
           id: EntryId.make(100000090),
@@ -223,7 +228,6 @@ layer(TestLayer)("dictionary queries", (it) => {
           senses: [sense(["思いつく"])]
         }
       ])
-      // Multi-word fuzzy form search enforces a 0.45 similarity floor so weak 2-word lookalikes don't leak through.
       assert.deepStrictEqual(yield* searchFormsFuzzy(db, "on thin ice", 10), [])
       yield* deleteEntries(db, [EntryId.make(100000090), EntryId.make(100000091)])
     })

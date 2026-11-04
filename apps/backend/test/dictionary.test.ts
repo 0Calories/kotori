@@ -491,13 +491,20 @@ layer(testLayer(false))("Dictionary", (it) => {
       assert.include(yield* headwords("wrap head around", "en"), "wrap one's head around")
       assert.include(yield* headwords("wrapped my head around", "en"), "wrap one's head around")
       assert.include(yield* headwords("peice of cake", "en"), "piece of cake")
+    })
+  )
 
-      // Canonical idiom entry with variant phrasings and inflections:
+  it.effect("resolves canonical English idioms across verb variants, inflections, typos, and Japanese glosses", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      const headwords = (query: string, language: "ja" | "en") =>
+        Effect.map(dictionary.search(query, language, 10), (res) => res.entries.map((e) => e.headword))
+
       yield* insertEntries(db, [
         word(100000073, "throw on", [sense(["急いで着る"], ["v"])]),
         word(100000074, "think of", [sense(["思いつく"], ["v"])])
       ])
-      // When "on thin ice" isn't in the DB yet, weak 2-word trigram lookalikes ("throw on", "think of") do not surface.
       assert.deepStrictEqual(yield* headwords("on thin ice", "en"), [])
 
       yield* insertEntries(db, [

@@ -78,7 +78,6 @@ layer(TestLayer)("Eiwa.importFiles", (it) => {
       // "ate" is eat's past, found through it.
       const [ate] = yield* findForms(db, ["ate"], "en")
       assert.deepStrictEqual([ate?.entryId, ate?.kind, ate?.tags], [ids.get("eat"), "inflection", ["past"]])
-      // JMdict verb variants ("tread on thin ice", "walk on thin ice") attach to canonical "on thin ice".
       const [walkOnThinIce] = yield* findForms(db, ["walk on thin ice"], "en")
       assert.strictEqual(walkOnThinIce?.entryId, ids.get("on thin ice"))
       const [selfie] = yield* getEntries(db, [ids.get("selfie")!])

@@ -4,6 +4,7 @@ import { Option, Predicate, Schema } from "effect"
 import { FIELDS, PARTS_OF_SPEECH, REGIONS, TRANSITIVITY, USAGE } from "./tags.ts"
 import { leadingAside, splitDefinition } from "./text.ts"
 import {
+  addRedirect,
   emptySense,
   type FormOf,
   formOf,
@@ -269,11 +270,21 @@ const listedWords = (list: typeof WordList.Type): Array<string> => {
 
 const linkWords = (links: ReadonlyArray<typeof SenseLink.Type> | undefined): Array<string> =>
   (links ?? []).map((link) =>
-    Predicate.isString(link) ? link : Array.isArray(link) ? (link[1] ?? link[0] ?? "") : (link.word ?? "")
+    Predicate.isString(link) ? link : "length" in link ? (link[1] ?? link[0] ?? "") : (link.word ?? "")
   )
+
+const isPhrase = (phrase: string) =>
+  phrase.includes(" ") &&
+  isEnglish(phrase) &&
+  normalizeGloss(phrase).includes(" ") &&
+  !phrase
+    .split(" ")
+    .slice(1)
+    .some((word) => /^[A-Z]/.test(word) && !/^I(?:$|[’'])/.test(word))
 
 /** Phrases Wiktionary lists under a word, which attest them as English even without an entry of their own. */
 const readPhrases = (entry: RawEntry): Array<string> => {
+  if (entry.pos === "name") return []
   const senseRefs = (entry.senses ?? []).flatMap((sense) => [
     ...listedWords(sense.form_of),
     ...listedWords(sense.alt_of),
@@ -290,9 +301,8 @@ const readPhrases = (entry: RawEntry): Array<string> => {
     ...senseRefs
   ]
     .map((phrase) => phrase.trim())
-    .filter((phrase) => phrase.includes(" ") && isEnglish(phrase))
-    .map(normalizeGloss)
-    .filter((phrase) => phrase.includes(" ") && isEnglish(phrase))
+    .filter(isPhrase)
+    .map((phrase) => phrase.toLowerCase())
 }
 
 interface Builder {
@@ -416,10 +426,6 @@ const PhraseIndexSchema = Schema.Struct({
 
 const decodePhraseIndex = Schema.decodeUnknownOption(Schema.fromJsonString(PhraseIndexSchema))
 
-/**
- * Reads `data/eiwa/enwiktionary-phrases.json`: attested 2–7 word English Wiktionary phrases
- * and variant-to-canonical idiom redirects, normalized for matching against JMdict glosses.
- */
 export const parsePhraseIndex = (
   json: string
 ): { readonly phrases: Set<string>; readonly redirects: Map<string, string> } => {
@@ -428,16 +434,13 @@ export const parsePhraseIndex = (
   const decoded = decodePhraseIndex(json)
   if (Option.isNone(decoded)) return { phrases, redirects }
   for (const phrase of decoded.value.phrases ?? []) {
-    const norm = normalizeGloss(phrase)
-    if (norm.includes(" ") && isEnglish(norm)) phrases.add(norm)
+    const clean = phrase.trim().toLowerCase()
+    if (clean.includes(" ") && isEnglish(clean) && normalizeGloss(clean).includes(" ")) {
+      phrases.add(clean)
+    }
   }
   for (const [variant, target] of Object.entries(decoded.value.redirects ?? {})) {
-    const from = normalizeGloss(variant)
-    const to = normalizeGloss(target)
-    if (from.includes(" ") && to.includes(" ") && from !== to && isEnglish(from) && isEnglish(to)) {
-      redirects.set(from, to)
-      phrases.add(to)
-    }
+    if (addRedirect(redirects, variant, target)) phrases.add(target.trim().toLowerCase())
   }
   return { phrases, redirects }
 }

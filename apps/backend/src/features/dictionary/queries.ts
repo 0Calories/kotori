@@ -510,7 +510,6 @@ const MIN_TRIGRAM_LENGTH = 4
 /** How far below the best match a trigram match may fall: "umbrela" finds umbrella (0.7), not umbra (0.4). */
 const TRIGRAM_SPREAD = 0.15
 
-/** Multi-word queries share preposition/article trigrams easily ("on thin ice" vs "throw on"), so require a higher floor. */
 const MIN_PHRASE_SIMILARITY = 0.45
 
 /**
@@ -535,7 +534,7 @@ const trigramMatch = (column: AnyColumn, query: string) => {
   }
 }
 
-/** The matches within `TRIGRAM_SPREAD` of the best (and at least `minSimilarity`), which comes first. */
+/** The matches within `TRIGRAM_SPREAD` of the best, which comes first. */
 const nearBest = <A extends { readonly similarity: number }>(matches: ReadonlyArray<A>, minSimilarity = 0) => {
   const floor = Math.max((matches[0]?.similarity ?? 0) - TRIGRAM_SPREAD, minSimilarity)
   return matches.filter((match) => match.similarity >= floor)
