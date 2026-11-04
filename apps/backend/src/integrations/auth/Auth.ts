@@ -138,13 +138,6 @@ export interface AuthService {
   revokeSessions(userId: UserId): Effect.Effect<void>
 }
 
-/** The origin a request reached us at, honouring the proxy headers Fly (and most hosts) set. */
-const requestOrigin = (headers: Headers.Headers) => {
-  const proto = headers["x-forwarded-proto"]?.split(",")[0]?.trim() ?? "http"
-  const host = headers["x-forwarded-host"]?.split(",")[0]?.trim() ?? headers["host"] ?? "localhost"
-  return `${proto}://${host}`
-}
-
 const toResponse = (forwarded: Forwarded) => {
   const options = {
     status: forwarded.status,
@@ -190,9 +183,9 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/backend/
               if (value !== undefined) headers.set(name, value)
             }
             // Better Auth requires an Origin (CSRF check, relative callback URLs). Browsers send
-            // the web app's; native apps send none, so stand in with the API's own public origin,
-            // which must be one of the trusted domains like the web origin is.
-            if (!headers.has("origin")) headers.set("origin", requestOrigin(init.headers))
+            // the web app's; native apps send none, so stand in with the auth server's own origin,
+            // which is trusted by definition.
+            if (!headers.has("origin")) headers.set("origin", origin)
             const options: RequestInit = {
               method: init.method,
               headers,

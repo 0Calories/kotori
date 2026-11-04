@@ -8,7 +8,8 @@ import { Platform } from "react-native"
 const devHost = () => {
   if (Platform.OS === "web" && typeof window !== "undefined") return window.location.hostname
   const hostUri = Constants.expoConfig?.hostUri ?? Constants.expoGoConfig?.debuggerHost
-  return hostUri?.split(":")[0] ?? "localhost"
+  const host = hostUri?.split(":")[0] ?? "localhost"
+  return Platform.OS === "android" && (host === "localhost" || host === "127.0.0.1") ? "10.0.2.2" : host
 }
 
 export const apiUrl = (process.env.EXPO_PUBLIC_API_URL ?? `http://${devHost()}:4000`).replace(/\/$/, "")
