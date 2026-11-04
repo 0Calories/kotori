@@ -136,7 +136,7 @@ const en = {
     sourceDictionaryJa:
       "Meanings, parts of speech and usage notes are from JMDict by the Electronic Dictionary Research and Development Group (CC BY-SA 4.0).",
     sourceDictionaryEn:
-      "Meanings are adapted from English and Japanese Wiktionary via Wiktextract (CC BY-SA 4.0), EJDict-hand (public domain), or JMDict read backwards (CC BY-SA 4.0), whichever listed the word. How often it is used is from OpenSubtitles via FrequencyWords (CC BY-SA 4.0).",
+      "Meanings are adapted from English and Japanese Wiktionary via Wiktextract (CC BY-SA 4.0) or JMDict read backwards (CC BY-SA 4.0), whichever listed the word. How often it is used is from OpenSubtitles via FrequencyWords (CC BY-SA 4.0).",
     sourceNuance: "Nuance",
     sourceNuanceBody:
       "Register and cautions are judged by TypeSafe's Jev. Where the dictionary already marks them, that mark is what you see.",
@@ -322,7 +322,7 @@ const en = {
     wakatake: "Wakatake",
     about: "About",
     aboutBody:
-      "Dictionary data from JMDict by the Electronic Dictionary Research and Development Group (CC BY-SA 4.0). English words from Japanese Wiktionary via Wiktextract (CC BY-SA 4.0) and EJDict-hand (public domain); how often they're used from OpenSubtitles via FrequencyWords (CC BY-SA 4.0). Nuance judgments by TypeSafe's Jev. Coaching and example sentences by Claude. Voices by ElevenLabs.",
+      "Dictionary data from JMDict by the Electronic Dictionary Research and Development Group (CC BY-SA 4.0). English words from English and Japanese Wiktionary via Wiktextract (CC BY-SA 4.0) and JMDict (CC BY-SA 4.0); how often they're used from OpenSubtitles via FrequencyWords (CC BY-SA 4.0). Nuance judgments by TypeSafe's Jev. Coaching and example sentences by Claude. Voices by ElevenLabs.",
     account: "Account",
     signOut: "Sign out",
     server: "Server",
@@ -535,7 +535,7 @@ const ja: Strings = {
     sourceDictionaryJa:
       "意味、品詞、用法は JMDict（Electronic Dictionary Research and Development Group、CC BY-SA 4.0）によります。",
     sourceDictionaryEn:
-      "意味は、その単語を載せている出典によります。ウィクショナリー英語版・日本語版（Wiktextract 経由、CC BY-SA 4.0）、EJDict-hand（パブリックドメイン）、または JMDict の逆引き（CC BY-SA 4.0）をもとに編集・翻訳しています。使用頻度は OpenSubtitles（FrequencyWords、CC BY-SA 4.0）によります。",
+      "意味は、その単語を載せている出典によります。ウィクショナリー英語版・日本語版（Wiktextract 経由、CC BY-SA 4.0）、または JMDict の逆引き（CC BY-SA 4.0）をもとに編集・翻訳しています。使用頻度は OpenSubtitles（FrequencyWords、CC BY-SA 4.0）によります。",
     sourceNuance: "ニュアンス",
     sourceNuanceBody:
       "丁寧さなどの判定は TypeSafe の Jev によるものです。辞書に記載がある項目は、その記載が優先されます。",
@@ -709,7 +709,7 @@ const ja: Strings = {
     wakatake: "若竹",
     about: "このアプリについて",
     aboutBody:
-      "辞書データ：JMDict（Electronic Dictionary Research and Development Group、CC BY-SA 4.0）。英単語：ウィクショナリー日本語版（Wiktextract経由、CC BY-SA 4.0）、EJDict-hand（パブリックドメイン）。使用頻度：OpenSubtitles（FrequencyWords、CC BY-SA 4.0）。ニュアンス判定：TypeSafe Jev。添削と例文：Claude。音声：ElevenLabs。",
+      "辞書データ：JMDict（Electronic Dictionary Research and Development Group、CC BY-SA 4.0）。英単語：ウィクショナリー英語版・日本語版（Wiktextract経由、CC BY-SA 4.0）、JMDict（CC BY-SA 4.0）。使用頻度：OpenSubtitles（FrequencyWords、CC BY-SA 4.0）。ニュアンス判定：TypeSafe Jev。添削と例文：Claude。音声：ElevenLabs。",
     account: "アカウント",
     signOut: "ログアウト",
     server: "サーバー",
