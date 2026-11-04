@@ -45,7 +45,7 @@ export interface SenseAnswers {
 
 /**
  * The dictionary's editors tag many senses with usage notes (hon, col, male, arch…; the English
- * dictionary maps Wiktionary's and EJDict's labels to the same codes, and its regions to en-US
+ * dictionary maps Wiktionary's labels to the same codes, and its regions to en-US
  * and en-GB). Those are authoritative, so they override Jev wherever they speak to a dimension
  * (`TAG_JUDGMENTS`); Jev fills in everything the tags don't cover.
  */

@@ -41,7 +41,7 @@ type TagTable<A> = ReadonlyArray<readonly [string, A]>
 
 /**
  * The dictionary's usage tags that decide a judgment outright, the first listed winning: JMDict's
- * codes, which the English dictionary maps Wiktionary's and EJDict's labels and its regions to.
+ * codes, which the English dictionary maps Wiktionary's labels and its regions to.
  * The nuance interpretation reads them over Jev's answers, and the entry page leaves a tag out of
  * a sense's chips once the judgments it decided are shown, so 口語 isn't said again beside
  * 「カジュアル · 話し言葉」.

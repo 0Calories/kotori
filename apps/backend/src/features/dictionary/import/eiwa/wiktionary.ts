@@ -1,5 +1,5 @@
 import type { GlossRecord, SenseRecord } from "@kotori/contracts"
-import type { EnglishInflection } from "@kotori/language"
+import { type EnglishInflection, normalizeGloss } from "@kotori/language"
 import { Option, Predicate, Schema } from "effect"
 import { FIELDS, PARTS_OF_SPEECH, REGIONS, TRANSITIVITY, USAGE } from "./tags.ts"
 import { leadingAside, splitDefinition } from "./text.ts"
@@ -28,6 +28,9 @@ export const WIKTIONARY_URL = "https://kaikki.org/jawiktionary/raw-wiktextract-d
 const Strings = Schema.optional(Schema.Array(Schema.String))
 const WordRef = Schema.Struct({ word: Schema.optional(Schema.String) })
 const WordRefs = Schema.optional(Schema.Array(WordRef))
+// Usually a list of words; some pages hold a table instead, as one string.
+const WordList = Schema.optional(Schema.Union([Schema.Array(WordRef), Schema.String]))
+const SenseLink = Schema.Union([Schema.Array(Schema.String), WordRef, Schema.String])
 
 const RawForm = Schema.Struct({ form: Schema.optional(Schema.String), tags: Strings })
 type RawForm = typeof RawForm.Type
@@ -37,7 +40,9 @@ const RawSense = Schema.Struct({
   tags: Strings,
   raw_tags: Strings,
   topics: Strings,
-  form_of: WordRefs
+  form_of: WordRefs,
+  alt_of: WordRefs,
+  links: Schema.optional(Schema.Array(SenseLink))
 })
 type RawSense = typeof RawSense.Type
 
@@ -50,9 +55,11 @@ const RawEntry = Schema.Struct({
   sounds: Schema.optional(Schema.Array(Schema.Struct({ ipa: Schema.optional(Schema.String), tags: Strings }))),
   synonyms: WordRefs,
   antonyms: WordRefs,
-  // Usually a list of words; some pages hold a table instead, as one string.
-  derived: Schema.optional(Schema.Union([Schema.Array(WordRef), Schema.String])),
-  phrases: WordRefs
+  derived: WordList,
+  phrases: WordList,
+  proverbs: WordList,
+  related: WordList,
+  collocations: WordList
 })
 type RawEntry = typeof RawEntry.Type
 
@@ -255,13 +262,36 @@ const readIpa = (sounds: RawEntry["sounds"]): string | null => {
   return (american ?? ipas[0])?.ipa ?? null
 }
 
+const listedWords = (list: typeof WordList.Type): Array<string> => {
+  if (list === undefined) return []
+  return Predicate.isString(list) ? list.split("\n").slice(1) : list.map((item) => item.word ?? "")
+}
+
+const linkWords = (links: ReadonlyArray<typeof SenseLink.Type> | undefined): Array<string> =>
+  (links ?? []).map((link) =>
+    Predicate.isString(link) ? link : Array.isArray(link) ? (link[1] ?? link[0] ?? "") : (link.word ?? "")
+  )
+
 /** Phrases Wiktionary lists under a word, which attest them as English even without an entry of their own. */
 const readPhrases = (entry: RawEntry): Array<string> => {
-  const derived = entry.derived ?? []
-  // A table is a header line, then one word per line.
-  const listed = Predicate.isString(derived) ? derived.split("\n").slice(1) : derived.map((item) => item.word ?? "")
-  return [...listed, ...(entry.phrases ?? []).map((item) => item.word ?? "")]
+  const senseRefs = (entry.senses ?? []).flatMap((sense) => [
+    ...listedWords(sense.form_of),
+    ...listedWords(sense.alt_of),
+    ...linkWords(sense.links)
+  ])
+  return [
+    ...listedWords(entry.derived),
+    ...listedWords(entry.phrases),
+    ...listedWords(entry.proverbs),
+    ...listedWords(entry.related),
+    ...listedWords(entry.collocations),
+    ...listedWords(entry.synonyms),
+    ...listedWords(entry.antonyms),
+    ...senseRefs
+  ]
     .map((phrase) => phrase.trim())
+    .filter((phrase) => phrase.includes(" ") && isEnglish(phrase))
+    .map(normalizeGloss)
     .filter((phrase) => phrase.includes(" ") && isEnglish(phrase))
 }
 
@@ -289,7 +319,7 @@ export const wiktionaryParser = () => {
     const entry = decoded.value
     const word = entry.word?.trim() ?? ""
     if (entry.lang_code !== "en" || word.length === 0 || !isEnglish(word)) return
-    for (const phrase of readPhrases(entry)) phrases.add(phrase.toLowerCase())
+    for (const phrase of readPhrases(entry)) phrases.add(phrase)
 
     const pos = entry.pos === undefined ? undefined : PARTS_OF_SPEECH[entry.pos]
     const senses: Array<SenseRecord> = []
@@ -377,4 +407,37 @@ export const parseCurated = (lines: Iterable<string>) => {
   const parser = curatedParser()
   for (const line of lines) parser.add(line)
   return parser.finish()
+}
+
+const PhraseIndexSchema = Schema.Struct({
+  phrases: Schema.optional(Schema.Array(Schema.String)),
+  redirects: Schema.optional(Schema.Record(Schema.String, Schema.String))
+})
+
+const decodePhraseIndex = Schema.decodeUnknownOption(Schema.fromJsonString(PhraseIndexSchema))
+
+/**
+ * Reads `data/eiwa/enwiktionary-phrases.json`: attested 2–7 word English Wiktionary phrases
+ * and variant-to-canonical idiom redirects, normalized for matching against JMdict glosses.
+ */
+export const parsePhraseIndex = (
+  json: string
+): { readonly phrases: Set<string>; readonly redirects: Map<string, string> } => {
+  const phrases = new Set<string>()
+  const redirects = new Map<string, string>()
+  const decoded = decodePhraseIndex(json)
+  if (Option.isNone(decoded)) return { phrases, redirects }
+  for (const phrase of decoded.value.phrases ?? []) {
+    const norm = normalizeGloss(phrase)
+    if (norm.includes(" ") && isEnglish(norm)) phrases.add(norm)
+  }
+  for (const [variant, target] of Object.entries(decoded.value.redirects ?? {})) {
+    const from = normalizeGloss(variant)
+    const to = normalizeGloss(target)
+    if (from.includes(" ") && to.includes(" ") && from !== to && isEnglish(from) && isEnglish(to)) {
+      redirects.set(from, to)
+      phrases.add(to)
+    }
+  }
+  return { phrases, redirects }
 }

@@ -1,5 +1,5 @@
 {
-  "about": "The entries the golden set names, cut from JMdict_e.gz (created 2026-10-27) and the English dictionary built from data/eiwa, by `kotori golden`. Regenerate it; don't edit it. Excerpts of JMdict (© EDRDG), English and Japanese Wiktionary, and FrequencyWords, shared under CC BY-SA 4.0, and of EJDict-hand (CC0): see NOTICE.md beside this file.",
+  "about": "The entries the golden set names, cut from JMdict_e.gz (created 2026-10-27) and the English dictionary built from data/eiwa, by `kotori golden`. Regenerate it; don't edit it. Excerpts of JMdict (© EDRDG), English and Japanese Wiktionary, and FrequencyWords, shared under CC BY-SA 4.0: see NOTICE.md beside this file.",
   "tags": {
     "X": "rude or X-rated term (not displayed in educational software)",
     "abbr": "abbreviation",
@@ -3438,7 +3438,7 @@
       ]
     },
     {
-      "id": 100000080,
+      "id": 100000081,
       "language": "en",
       "headword": "okay",
       "reading": "/ˌoʊˈkeɪ/",
@@ -3476,7 +3476,7 @@
       ]
     },
     {
-      "id": 100000097,
+      "id": 100000098,
       "language": "en",
       "headword": "hey",
       "reading": "/heɪ/",
@@ -3512,7 +3512,7 @@
       ]
     },
     {
-      "id": 100000107,
+      "id": 100000108,
       "language": "en",
       "headword": "talk",
       "reading": "/tɔk/",
@@ -3556,7 +3556,7 @@
       ]
     },
     {
-      "id": 100000124,
+      "id": 100000126,
       "language": "en",
       "headword": "sorry",
       "reading": "/ˈsɑɹi/",
@@ -3595,7 +3595,7 @@
       ]
     },
     {
-      "id": 100000129,
+      "id": 100000131,
       "language": "en",
       "headword": "help",
       "reading": "/hɛlp/",
@@ -3674,7 +3674,7 @@
       ]
     },
     {
-      "id": 100000177,
+      "id": 100000176,
       "language": "en",
       "headword": "friend",
       "reading": "/fɹɛnd/",
@@ -3714,7 +3714,7 @@
       ]
     },
     {
-      "id": 100000184,
+      "id": 100000183,
       "language": "en",
       "headword": "start",
       "reading": "/stɑɹt/",
@@ -3752,7 +3752,7 @@
       ]
     },
     {
-      "id": 100000189,
+      "id": 100000188,
       "language": "en",
       "headword": "big",
       "reading": "/bɪɡ/",
@@ -3792,7 +3792,7 @@
       ]
     },
     {
-      "id": 100000195,
+      "id": 100000194,
       "language": "en",
       "headword": "money",
       "reading": "/ˈmʌn.i/",
@@ -3824,7 +3824,7 @@
       ]
     },
     {
-      "id": 100000201,
+      "id": 100000200,
       "language": "en",
       "headword": "kid",
       "reading": "/ˈkɪd/",
@@ -3866,7 +3866,7 @@
       ]
     },
     {
-      "id": 100000213,
+      "id": 100000210,
       "language": "en",
       "headword": "understand",
       "reading": "/ˌʌndɚˈstænd/",
@@ -3895,7 +3895,7 @@
       ]
     },
     {
-      "id": 100000219,
+      "id": 100000216,
       "language": "en",
       "headword": "house",
       "reading": "/haʊ̯s/",
@@ -3937,7 +3937,7 @@
       ]
     },
     {
-      "id": 100000263,
+      "id": 100000259,
       "language": "en",
       "headword": "drink",
       "reading": "/ˈdɹɪŋk/",
@@ -3978,7 +3978,7 @@
       ]
     },
     {
-      "id": 100000275,
+      "id": 100000272,
       "language": "en",
       "headword": "child",
       "reading": "/tʃaɪld/",
@@ -4011,7 +4011,7 @@
       ]
     },
     {
-      "id": 100000277,
+      "id": 100000274,
       "language": "en",
       "headword": "speak",
       "reading": "/spik/",
@@ -4046,7 +4046,7 @@
       ]
     },
     {
-      "id": 100000279,
+      "id": 100000276,
       "language": "en",
       "headword": "morning",
       "reading": "/ˈmoɹnɪŋ/",
@@ -4065,7 +4065,7 @@
       ]
     },
     {
-      "id": 100000281,
+      "id": 100000277,
       "language": "en",
       "headword": "hell",
       "reading": "/hɛl/",
@@ -4107,7 +4107,7 @@
       ]
     },
     {
-      "id": 100000288,
+      "id": 100000285,
       "language": "en",
       "headword": "eat",
       "reading": "/it/",
@@ -4148,7 +4148,7 @@
       ]
     },
     {
-      "id": 100000300,
+      "id": 100000297,
       "language": "en",
       "headword": "door",
       "reading": "/doɹ/",
@@ -4177,7 +4177,7 @@
       ]
     },
     {
-      "id": 100000308,
+      "id": 100000305,
       "language": "en",
       "headword": "happy",
       "reading": "/ˈhæpi/",
@@ -4211,7 +4211,7 @@
       ]
     },
     {
-      "id": 100000333,
+      "id": 100000329,
       "language": "en",
       "headword": "school",
       "reading": "/skul/",
@@ -4253,7 +4253,7 @@
       ]
     },
     {
-      "id": 100000340,
+      "id": 100000336,
       "language": "en",
       "headword": "walk",
       "reading": "/wɔk/",
@@ -4293,7 +4293,7 @@
       ]
     },
     {
-      "id": 100000361,
+      "id": 100000357,
       "language": "en",
       "headword": "buy",
       "reading": "[baɪ]",
@@ -4331,7 +4331,7 @@
       ]
     },
     {
-      "id": 100000375,
+      "id": 100000371,
       "language": "en",
       "headword": "police",
       "reading": "/pəˈlis/",
@@ -4361,7 +4361,7 @@
       ]
     },
     {
-      "id": 100000390,
+      "id": 100000386,
       "language": "en",
       "headword": "water",
       "reading": "/ˈwɔ.tɚ/",
@@ -4402,7 +4402,7 @@
       ]
     },
     {
-      "id": 100000408,
+      "id": 100000404,
       "language": "en",
       "headword": "game",
       "reading": "[ɡeɪ̯m]",
@@ -4443,7 +4443,7 @@
       ]
     },
     {
-      "id": 100000415,
+      "id": 100000411,
       "language": "en",
       "headword": "chance",
       "reading": "/t͡ʃæns/ [t͡ʃʰæns/",
@@ -4482,12 +4482,12 @@
       ]
     },
     {
-      "id": 100000422,
+      "id": 100000418,
       "language": "en",
       "headword": "whatever",
       "reading": "/wʌtˈɛv.ɚ/",
       "common": true,
-      "spellings": ["whatever", "whate'er"],
+      "spellings": ["whatever"],
       "senses": [
         {
           "glosses": ["何でも", "～するものは何でも"],
@@ -4520,7 +4520,7 @@
       ]
     },
     {
-      "id": 100000460,
+      "id": 100000456,
       "language": "en",
       "headword": "dog",
       "reading": "/dɒɡ/",
@@ -4561,7 +4561,7 @@
       ]
     },
     {
-      "id": 100000497,
+      "id": 100000492,
       "language": "en",
       "headword": "team",
       "reading": "/ˈtiːm/",
@@ -4589,7 +4589,7 @@
       ]
     },
     {
-      "id": 100000503,
+      "id": 100000498,
       "language": "en",
       "headword": "sign",
       "reading": "/saɪn/",
@@ -4627,7 +4627,7 @@
       ]
     },
     {
-      "id": 100000505,
+      "id": 100000500,
       "language": "en",
       "headword": "free",
       "reading": "/fɹi/",
@@ -4663,7 +4663,7 @@
       ]
     },
     {
-      "id": 100000524,
+      "id": 100000519,
       "language": "en",
       "headword": "front",
       "reading": "/fɹʌnt/",
@@ -4704,7 +4704,7 @@
       ]
     },
     {
-      "id": 100000583,
+      "id": 100000577,
       "language": "en",
       "headword": "company",
       "reading": "/ˈkʌmpəni/",
@@ -4749,7 +4749,7 @@
       ]
     },
     {
-      "id": 100000594,
+      "id": 100000589,
       "language": "en",
       "headword": "gentleman",
       "reading": "[ˈd͡ʒɛɾ̃.ɫ̩.mən]",
@@ -4785,7 +4785,7 @@
       ]
     },
     {
-      "id": 100000600,
+      "id": 100000595,
       "language": "en",
       "headword": "bitch",
       "reading": "/bɪt͡ʃ/",
@@ -4847,7 +4847,7 @@
       ]
     },
     {
-      "id": 100000643,
+      "id": 100000637,
       "language": "en",
       "headword": "glad",
       "reading": "/ɡlæd/",
@@ -4867,7 +4867,7 @@
       ]
     },
     {
-      "id": 100000648,
+      "id": 100000641,
       "language": "en",
       "headword": "test",
       "reading": "/tɛst/",
@@ -4906,7 +4906,7 @@
       ]
     },
     {
-      "id": 100000684,
+      "id": 100000677,
       "language": "en",
       "headword": "ball",
       "reading": "/bɔl/",
@@ -4954,7 +4954,7 @@
       ]
     },
     {
-      "id": 100000694,
+      "id": 100000686,
       "language": "en",
       "headword": "coffee",
       "reading": "/ˈkɔfi/",
@@ -4984,7 +4984,7 @@
       ]
     },
     {
-      "id": 100000723,
+      "id": 100000714,
       "language": "en",
       "headword": "card",
       "reading": "/kɑɹd/",
@@ -5027,7 +5027,7 @@
       ]
     },
     {
-      "id": 100000735,
+      "id": 100000725,
       "language": "en",
       "headword": "handle",
       "reading": "/ˈhæn.d(ə)l/",
@@ -5064,7 +5064,7 @@
       ]
     },
     {
-      "id": 100000807,
+      "id": 100000796,
       "language": "en",
       "headword": "hotel",
       "reading": "/ˈhoʊ.tɛl/",
@@ -5088,7 +5088,7 @@
       ]
     },
     {
-      "id": 100000809,
+      "id": 100000798,
       "language": "en",
       "headword": "idiot",
       "reading": "/ˈɪdiət/",
@@ -5103,7 +5103,7 @@
       ]
     },
     {
-      "id": 100000812,
+      "id": 100000801,
       "language": "en",
       "headword": "table",
       "reading": "[ˈtʰeɪb(ə)ɫ]",
@@ -5143,7 +5143,7 @@
       ]
     },
     {
-      "id": 100000814,
+      "id": 100000803,
       "language": "en",
       "headword": "buddy",
       "reading": "/ˈbʌdi/",
@@ -5171,7 +5171,7 @@
       ]
     },
     {
-      "id": 100000818,
+      "id": 100000807,
       "language": "en",
       "headword": "camera",
       "reading": "/ˈkæməɹə/",
@@ -5196,7 +5196,7 @@
       ]
     },
     {
-      "id": 100000846,
+      "id": 100000834,
       "language": "en",
       "headword": "smart",
       "reading": "/smɑɹt/",
@@ -5230,7 +5230,7 @@
       ]
     },
     {
-      "id": 100000934,
+      "id": 100000919,
       "language": "en",
       "headword": "lunch",
       "reading": "/lʌnt͡ʃ/",
@@ -5253,7 +5253,7 @@
       ]
     },
     {
-      "id": 100000939,
+      "id": 100000923,
       "language": "en",
       "headword": "cat",
       "reading": "/ˈkæt/",
@@ -5284,7 +5284,7 @@
       ]
     },
     {
-      "id": 100001044,
+      "id": 100001025,
       "language": "en",
       "headword": "computer",
       "reading": "/kəmˈpju.tɚ/",
@@ -5303,7 +5303,7 @@
       ]
     },
     {
-      "id": 100001045,
+      "id": 100001026,
       "language": "en",
       "headword": "apartment",
       "reading": "/əˈpɑɹt.mənt/",
@@ -5329,7 +5329,7 @@
       ]
     },
     {
-      "id": 100001075,
+      "id": 100001055,
       "language": "en",
       "headword": "large",
       "reading": "/lɑɹd͡ʒ/",
@@ -5355,7 +5355,7 @@
       ]
     },
     {
-      "id": 100001096,
+      "id": 100001077,
       "language": "en",
       "headword": "member",
       "reading": "/ˈmɛm.bɚ/",
@@ -5387,7 +5387,7 @@
       ]
     },
     {
-      "id": 100001132,
+      "id": 100001113,
       "language": "en",
       "headword": "level",
       "reading": "/ˈlɛvəl/",
@@ -5426,7 +5426,7 @@
       ]
     },
     {
-      "id": 100001189,
+      "id": 100001168,
       "language": "en",
       "headword": "piss",
       "reading": "/pɪs/",
@@ -5469,7 +5469,7 @@
       ]
     },
     {
-      "id": 100001207,
+      "id": 100001185,
       "language": "en",
       "headword": "yep",
       "reading": "/jɛp/",
@@ -5484,7 +5484,7 @@
       ]
     },
     {
-      "id": 100001242,
+      "id": 100001220,
       "language": "en",
       "headword": "asshole",
       "reading": "/æshoʊl/",
@@ -5513,7 +5513,7 @@
       ]
     },
     {
-      "id": 100001302,
+      "id": 100001279,
       "language": "en",
       "headword": "claim",
       "reading": "/kleɪm/",
@@ -5552,7 +5552,7 @@
       ]
     },
     {
-      "id": 100001360,
+      "id": 100001334,
       "language": "en",
       "headword": "dick",
       "reading": "/dɪk/",
@@ -5592,7 +5592,7 @@
       ]
     },
     {
-      "id": 100001664,
+      "id": 100001629,
       "language": "en",
       "headword": "style",
       "reading": "/staɪl/",
@@ -5635,7 +5635,7 @@
       ]
     },
     {
-      "id": 100001673,
+      "id": 100001638,
       "language": "en",
       "headword": "thou",
       "reading": "/ðaʊ/",
@@ -5666,7 +5666,7 @@
       ]
     },
     {
-      "id": 100001680,
+      "id": 100001644,
       "language": "en",
       "headword": "borrow",
       "reading": "/ˈbɑɹ.oʊ/",
@@ -5696,7 +5696,7 @@
       ]
     },
     {
-      "id": 100001730,
+      "id": 100001692,
       "language": "en",
       "headword": "bike",
       "reading": "/baɪk/",
@@ -5725,7 +5725,7 @@
       ]
     },
     {
-      "id": 100001761,
+      "id": 100001721,
       "language": "en",
       "headword": "loose",
       "reading": "/lus/",
@@ -5760,7 +5760,7 @@
       ]
     },
     {
-      "id": 100001809,
+      "id": 100001765,
       "language": "en",
       "headword": "nope",
       "reading": "/noʊp/",
@@ -5781,7 +5781,7 @@
       ]
     },
     {
-      "id": 100001828,
+      "id": 100001784,
       "language": "en",
       "headword": "jerk",
       "reading": "/ˈd͡ʒɝk/",
@@ -5824,7 +5824,7 @@
       ]
     },
     {
-      "id": 100001888,
+      "id": 100001844,
       "language": "en",
       "headword": "seal",
       "reading": "/siːl/",
@@ -5860,7 +5860,7 @@
       ]
     },
     {
-      "id": 100001911,
+      "id": 100001868,
       "language": "en",
       "headword": "talent",
       "reading": "/ˈtæl.ənt/",
@@ -5888,7 +5888,7 @@
       ]
     },
     {
-      "id": 100001950,
+      "id": 100001905,
       "language": "en",
       "headword": "motherfucker",
       "reading": "/mʌðɚˌfʌkɚ/",
@@ -5924,7 +5924,7 @@
       ]
     },
     {
-      "id": 100002048,
+      "id": 100002002,
       "language": "en",
       "headword": "vacation",
       "reading": "/veɪˈkeɪ.ʃən/",
@@ -5963,7 +5963,7 @@
       ]
     },
     {
-      "id": 100002157,
+      "id": 100002106,
       "language": "en",
       "headword": "launch",
       "reading": "/lɔnt͡ʃ/",
@@ -6000,7 +6000,7 @@
       ]
     },
     {
-      "id": 100002245,
+      "id": 100002191,
       "language": "en",
       "headword": "juice",
       "reading": "/d͡ʒus/",
@@ -6041,7 +6041,7 @@
       ]
     },
     {
-      "id": 100002263,
+      "id": 100002208,
       "language": "en",
       "headword": "pen",
       "reading": "/pɛn/",
@@ -6079,7 +6079,7 @@
       ]
     },
     {
-      "id": 100002282,
+      "id": 100002228,
       "language": "en",
       "headword": "range",
       "reading": "/ˈɹeɪnd͡ʒ/",
@@ -6115,7 +6115,7 @@
       ]
     },
     {
-      "id": 100002308,
+      "id": 100002254,
       "language": "en",
       "headword": "sharp",
       "reading": "/ʃɑɹp/",
@@ -6153,7 +6153,7 @@
       ]
     },
     {
-      "id": 100002311,
+      "id": 100002257,
       "language": "en",
       "headword": "elevator",
       "reading": "/ˈɛləˌveɪtɚ/",
@@ -6184,12 +6184,12 @@
       ]
     },
     {
-      "id": 100002355,
+      "id": 100002298,
       "language": "en",
       "headword": "cookie",
       "reading": "/ˈkʊki/",
       "common": true,
-      "spellings": ["cookie", "cooky"],
+      "spellings": ["cookie"],
       "senses": [
         {
           "glosses": ["クッキー", "ビスケット"],
@@ -6228,7 +6228,7 @@
       ]
     },
     {
-      "id": 100002525,
+      "id": 100002460,
       "language": "en",
       "headword": "thee",
       "reading": "/ðiː/",
@@ -6248,7 +6248,7 @@
       ]
     },
     {
-      "id": 100002762,
+      "id": 100002689,
       "language": "en",
       "headword": "appeal",
       "reading": "/əˈpiːl/",
@@ -6281,7 +6281,7 @@
       ]
     },
     {
-      "id": 100003070,
+      "id": 100002980,
       "language": "en",
       "headword": "awkward",
       "reading": "/ˈɔk.wɚd/",
@@ -6307,7 +6307,7 @@
       ]
     },
     {
-      "id": 100003199,
+      "id": 100003101,
       "language": "en",
       "headword": "confident",
       "reading": "/ˈkɑnfɪdənt/",
@@ -6326,7 +6326,7 @@
       ]
     },
     {
-      "id": 100003253,
+      "id": 100003148,
       "language": "en",
       "headword": "penis",
       "reading": "/ˈpi.nɪs/",
@@ -6341,7 +6341,7 @@
       ]
     },
     {
-      "id": 100003259,
+      "id": 100003154,
       "language": "en",
       "headword": "dine",
       "reading": "/daɪn/",
@@ -6361,7 +6361,7 @@
       ]
     },
     {
-      "id": 100003346,
+      "id": 100003233,
       "language": "en",
       "headword": "pierce",
       "reading": "/pɪɹs/",
@@ -6391,7 +6391,7 @@
       ]
     },
     {
-      "id": 100003442,
+      "id": 100003330,
       "language": "en",
       "headword": "rubbish",
       "reading": "/ˈɹʌbɪʃ/",
@@ -6434,153 +6434,31 @@
       ]
     },
     {
-      "id": 100003596,
+      "id": 100003383,
       "language": "en",
-      "headword": "purchase",
-      "reading": "/ˈpɜɹ.tʃəs/",
+      "headword": "Viking",
+      "reading": "/ˈvaɪkɪŋ/",
       "common": true,
-      "spellings": ["purchase"],
+      "spellings": ["Viking"],
       "senses": [
         {
-          "glosses": ["購入する", "買う"],
-          "pos": ["v"]
+          "glosses": ["バイキング", "ヴァイキング", "北欧の海賊"],
+          "pos": ["n"],
+          "misc": ["hist", "col"]
         },
         {
-          "glosses": ["購入"],
-          "pos": ["n"],
-          "misc": ["countable", "uncountable"]
-        },
-        {
-          "glosses": ["買った物", "購入品"],
-          "pos": ["n"],
-          "misc": ["countable", "uncountable"]
-        },
-        {
-          "glosses": ["手がかり", "足がかり"],
-          "pos": ["n"],
-          "misc": ["uncountable"],
-          "fields": ["sports"],
-          "info": ["get purchase on ～"]
-        }
-      ]
-    },
-    {
-      "id": 100003976,
-      "language": "en",
-      "headword": "tension",
-      "reading": "/ˈtɛnʃən/",
-      "common": true,
-      "spellings": ["tension"],
-      "senses": [
-        {
-          "glosses": ["緊張", "ストレス"],
-          "pos": ["n"],
-          "misc": ["countable", "uncountable"],
-          "info": ["日本語の「テンション（高揚）」の意味はない"]
-        },
-        {
-          "glosses": ["緊張関係", "対立"],
-          "pos": ["n"],
-          "misc": ["countable", "uncountable"]
-        },
-        {
-          "glosses": ["緊迫感", "サスペンス"],
-          "pos": ["n"],
-          "misc": ["countable", "uncountable"]
-        },
-        {
-          "glosses": ["張力", "張り"],
-          "pos": ["n", "v"],
-          "misc": ["countable", "uncountable"],
-          "fields": ["engr", "physics"]
-        }
-      ]
-    },
-    {
-      "id": 100004043,
-      "language": "en",
-      "headword": "hint",
-      "reading": "/hɪnt/",
-      "common": true,
-      "spellings": ["hint"],
-      "senses": [
-        {
-          "glosses": ["ヒント", "手がかり"],
+          "glosses": ["（ファンタジーの）バイキング戦士"],
           "pos": ["n"]
         },
         {
-          "glosses": ["ほのめかし", "暗示"],
+          "glosses": ["北欧人"],
           "pos": ["n"],
-          "info": ["drop a hint の形で"]
-        },
-        {
-          "glosses": ["ほのめかす", "それとなく言う"],
-          "pos": ["v", "vi", "vt"],
-          "info": ["hint at の形で"]
-        },
-        {
-          "glosses": ["かすかな気配", "少量"],
-          "pos": ["n"],
-          "info": ["a hint of の形で"]
-        },
-        {
-          "glosses": ["察してよ", "わかるよね"],
-          "pos": ["int"],
-          "info": ["Hint, hint. の形で"]
+          "misc": ["col", "joc", "X"]
         }
       ]
     },
     {
-      "id": 100004425,
-      "language": "en",
-      "headword": "mansion",
-      "reading": "/ˈmæn.ʃən/",
-      "common": true,
-      "spellings": ["mansion"],
-      "senses": [
-        {
-          "glosses": ["豪邸", "大邸宅"],
-          "pos": ["n"],
-          "info": ["日本語の「マンション」は apartment / condo"]
-        },
-        {
-          "glosses": ["高級アパート", "集合住宅"],
-          "pos": ["n"],
-          "dialects": ["en-GB"],
-          "info": ["主に英国で mansions として建物名に"]
-        }
-      ]
-    },
-    {
-      "id": 100004552,
-      "language": "en",
-      "headword": "naive",
-      "reading": "/naɪˈiv/",
-      "common": true,
-      "spellings": ["naive", "naif"],
-      "senses": [
-        {
-          "glosses": ["世間知らずの", "甘い"],
-          "pos": ["adj", "n"],
-          "info": ["日本語の「ナイーブ（繊細）」とは異なる"]
-        },
-        {
-          "glosses": ["素朴な", "ナイーブアートの"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["未経験の", "未処置の"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["単純な", "素朴な（手法）"],
-          "pos": ["adj"],
-          "fields": ["comp", "engr", "math"]
-        }
-      ]
-    },
-    {
-      "id": 100004621,
+      "id": 100003409,
       "language": "en",
       "headword": "biscuit",
       "reading": "/ˈbɪs.kɪt/",
@@ -6626,50 +6504,45 @@
       ]
     },
     {
-      "id": 100004775,
+      "id": 100003451,
       "language": "en",
-      "headword": "reform",
-      "reading": "/ˌɹiːˈfɔɹm/",
+      "headword": "clumsy",
+      "reading": "/ˈklʌmzi/",
       "common": true,
-      "spellings": ["reform", "re-form"],
+      "spellings": ["clumsy"],
       "senses": [
         {
-          "glosses": ["改革", "改正"],
-          "pos": ["n"],
-          "misc": ["countable", "uncountable"]
+          "glosses": ["不器用な", "ドジな"],
+          "pos": ["adj", "n"],
+          "misc": ["col"]
         },
         {
-          "glosses": ["改革する", "改善する", "更生させる"],
-          "pos": ["v", "vt"]
+          "glosses": ["下手な", "気の利かない"],
+          "pos": ["adj"]
         },
         {
-          "glosses": ["改心する", "更生する"],
-          "pos": ["v", "vi"]
-        },
+          "glosses": ["扱いにくい", "不格好な"],
+          "pos": ["adj"]
+        }
+      ]
+    },
+    {
+      "id": 100003458,
+      "language": "en",
+      "headword": "commence",
+      "reading": "/kəˈmɛns/",
+      "common": true,
+      "spellings": ["commence"],
+      "senses": [
         {
-          "glosses": ["再結成する", "再形成する"],
+          "glosses": ["始まる", "開始する"],
           "pos": ["v", "vi", "vt"],
-          "info": ["この意味では re-form とも"]
+          "info": ["start より改まった語"]
         }
       ]
     },
     {
-      "id": 100004937,
-      "language": "en",
-      "headword": "trousers",
-      "reading": "/ˈtɹaʊzɚz/",
-      "common": true,
-      "spellings": ["trousers"],
-      "senses": [
-        {
-          "glosses": ["ズボン", "パンツ"],
-          "pos": ["n"],
-          "info": ["複数扱い、a pair of trousers"]
-        }
-      ]
-    },
-    {
-      "id": 100005078,
+      "id": 100003463,
       "language": "en",
       "headword": "cooler",
       "reading": "/ˈku.lɚ/",
@@ -6699,110 +6572,160 @@
       ]
     },
     {
-      "id": 100005270,
+      "id": 100003477,
       "language": "en",
-      "headword": "stove",
-      "reading": "/stoʊv/",
+      "headword": "cunning",
+      "reading": "/ˈkʌnɪŋ/",
       "common": true,
-      "spellings": ["stove"],
+      "spellings": ["cunning"],
       "senses": [
         {
-          "glosses": ["コンロ", "レンジ"],
-          "pos": ["n"]
+          "glosses": ["ずる賢い", "狡猾な"],
+          "pos": ["adj"],
+          "info": ["「カンニング」は cheating"]
         },
         {
-          "glosses": ["ストーブ", "暖房器具"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["（指を）突き指する"],
-          "pos": ["v", "vt"]
-        }
-      ]
-    },
-    {
-      "id": 100005355,
-      "language": "en",
-      "headword": "trump",
-      "reading": "/tɹʌmp/",
-      "common": true,
-      "spellings": ["trump"],
-      "senses": [
-        {
-          "glosses": ["勝る", "優先する"],
-          "pos": ["v", "vt"],
-          "info": ["X trumps Y の形で"]
-        },
-        {
-          "glosses": ["切り札", "トランプの切り札"],
+          "glosses": ["ずる賢さ", "悪知恵"],
           "pos": ["n"],
-          "info": ["「トランプ」(カード)は cards"]
+          "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["奥の手", "切り札"],
+          "glosses": ["巧妙な", "よく考えられた"],
+          "pos": ["adj"],
+          "misc": ["obs"]
+        }
+      ]
+    },
+    {
+      "id": 100003527,
+      "language": "en",
+      "headword": "furthermore",
+      "reading": "/ˈfɝ.ðɚˌmoɹ/",
+      "common": true,
+      "spellings": ["furthermore"],
+      "senses": [
+        {
+          "glosses": ["さらに", "そのうえ"],
+          "pos": ["adv"]
+        }
+      ]
+    },
+    {
+      "id": 100003533,
+      "language": "en",
+      "headword": "gasoline",
+      "reading": "/ˈɡæs.ə.liːn/",
+      "common": true,
+      "spellings": ["gasoline", "gasolene"],
+      "senses": [
+        {
+          "glosses": ["ガソリン", "揮発油"],
+          "pos": ["n"],
+          "misc": ["uncountable", "countable"],
+          "dialects": ["en-CA", "en-PH", "en-US"],
+          "info": ["主に米国。英国では petrol"]
+        },
+        {
+          "glosses": ["ガソリン式の", "ガソリン車の"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["上質な大麻", "強力なマリファナ"],
+          "pos": ["n"],
+          "misc": ["sl", "uncountable"]
+        },
+        {
+          "glosses": ["ウォッカのエナジードリンク割り"],
+          "pos": ["n"],
+          "misc": ["sl", "uncountable"]
+        }
+      ]
+    },
+    {
+      "id": 100003557,
+      "language": "en",
+      "headword": "hint",
+      "reading": "/hɪnt/",
+      "common": true,
+      "spellings": ["hint"],
+      "senses": [
+        {
+          "glosses": ["ヒント", "手がかり"],
           "pos": ["n"]
         },
         {
-          "glosses": ["切り札で勝つ", "出し抜く"],
-          "pos": ["v", "vt", "vi"]
-        },
-        {
-          "glosses": ["おなら", "おならをする"],
-          "pos": ["n", "v", "vi"],
-          "misc": ["col"],
-          "dialects": ["en-GB"]
-        }
-      ]
-    },
-    {
-      "id": 100005507,
-      "language": "en",
-      "headword": "whereas",
-      "reading": "/(h)wɛɹˈæz/",
-      "common": true,
-      "spellings": ["whereas"],
-      "senses": [
-        {
-          "glosses": ["～であるのに対して", "一方"],
-          "pos": ["conj"]
-        },
-        {
-          "glosses": ["～であるがゆえに"],
-          "pos": ["conj"],
-          "fields": ["law"],
-          "info": ["法律文書で"]
-        }
-      ]
-    },
-    {
-      "id": 100005520,
-      "language": "en",
-      "headword": "shallow",
-      "reading": "/ˈʃæloʊ/",
-      "common": true,
-      "spellings": ["shallow"],
-      "senses": [
-        {
-          "glosses": ["浅い"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["浅はかな", "薄っぺらい"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["浅瀬"],
+          "glosses": ["ほのめかし", "暗示"],
           "pos": ["n"],
-          "info": ["通例 shallows"]
+          "info": ["drop a hint の形で"]
         },
         {
-          "glosses": ["緩やかな", "傾斜の浅い"],
-          "pos": ["adj"]
+          "glosses": ["ほのめかす", "それとなく言う"],
+          "pos": ["v", "vi", "vt"],
+          "info": ["hint at の形で"]
+        },
+        {
+          "glosses": ["かすかな気配", "少量"],
+          "pos": ["n"],
+          "info": ["a hint of の形で"]
+        },
+        {
+          "glosses": ["察してよ", "わかるよね"],
+          "pos": ["int"],
+          "info": ["Hint, hint. の形で"]
         }
       ]
     },
     {
-      "id": 100005642,
+      "id": 100003609,
+      "language": "en",
+      "headword": "mansion",
+      "reading": "/ˈmæn.ʃən/",
+      "common": true,
+      "spellings": ["mansion"],
+      "senses": [
+        {
+          "glosses": ["豪邸", "大邸宅"],
+          "pos": ["n"],
+          "info": ["日本語の「マンション」は apartment / condo"]
+        },
+        {
+          "glosses": ["高級アパート", "集合住宅"],
+          "pos": ["n"],
+          "dialects": ["en-GB"],
+          "info": ["主に英国で mansions として建物名に"]
+        }
+      ]
+    },
+    {
+      "id": 100003628,
+      "language": "en",
+      "headword": "naive",
+      "reading": "/naɪˈiv/",
+      "common": true,
+      "spellings": ["naive"],
+      "senses": [
+        {
+          "glosses": ["世間知らずの", "甘い"],
+          "pos": ["adj", "n"],
+          "info": ["日本語の「ナイーブ（繊細）」とは異なる"]
+        },
+        {
+          "glosses": ["素朴な", "ナイーブアートの"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["未経験の", "未処置の"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["単純な", "素朴な（手法）"],
+          "pos": ["adj"],
+          "fields": ["comp", "engr", "math"]
+        }
+      ]
+    },
+    {
+      "id": 100003634,
       "language": "en",
       "headword": "nevertheless",
       "reading": "/ˌnɛvɚðəˈlɛs/",
@@ -6816,30 +6739,7 @@
       ]
     },
     {
-      "id": 100005842,
-      "language": "en",
-      "headword": "clumsy",
-      "reading": "/ˈklʌmzi/",
-      "common": true,
-      "spellings": ["clumsy"],
-      "senses": [
-        {
-          "glosses": ["不器用な", "ドジな"],
-          "pos": ["adj", "n"],
-          "misc": ["col"]
-        },
-        {
-          "glosses": ["下手な", "気の利かない"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["扱いにくい", "不格好な"],
-          "pos": ["adj"]
-        }
-      ]
-    },
-    {
-      "id": 100005874,
+      "id": 100003668,
       "language": "en",
       "headword": "petrol",
       "reading": "/ˈpɛt.ɹəl/",
@@ -6866,130 +6766,38 @@
       ]
     },
     {
-      "id": 100005980,
+      "id": 100003692,
       "language": "en",
-      "headword": "Viking",
-      "reading": "/ˈvaɪkɪŋ/",
+      "headword": "purchase",
+      "reading": "/ˈpɜɹ.tʃəs/",
       "common": true,
-      "spellings": ["Viking"],
+      "spellings": ["purchase"],
       "senses": [
         {
-          "glosses": ["バイキング", "ヴァイキング", "北欧の海賊"],
-          "pos": ["n"],
-          "misc": ["hist", "col"]
+          "glosses": ["購入する", "買う"],
+          "pos": ["v"]
         },
         {
-          "glosses": ["（ファンタジーの）バイキング戦士"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["北欧人"],
-          "pos": ["n"],
-          "misc": ["col", "joc", "X"]
-        }
-      ]
-    },
-    {
-      "id": 100006117,
-      "language": "en",
-      "headword": "commence",
-      "reading": "/kəˈmɛns/",
-      "common": true,
-      "spellings": ["commence"],
-      "senses": [
-        {
-          "glosses": ["始まる", "開始する"],
-          "pos": ["v", "vi", "vt"],
-          "info": ["start より改まった語"]
-        }
-      ]
-    },
-    {
-      "id": 100006193,
-      "language": "en",
-      "headword": "terminate",
-      "reading": "/ˈtɝmɪneɪ̯t/",
-      "common": true,
-      "spellings": ["terminate"],
-      "senses": [
-        {
-          "glosses": ["終わらせる", "打ち切る", "終わる"],
-          "pos": ["v", "vt", "vi"]
-        },
-        {
-          "glosses": ["解雇する"],
-          "pos": ["v", "vt"]
-        },
-        {
-          "glosses": ["終点に着く"],
-          "pos": ["v", "vi"],
-          "info": ["電車などが"]
-        },
-        {
-          "glosses": ["消す", "抹殺する"],
-          "pos": ["v", "vt"],
-          "misc": ["euph"]
-        }
-      ]
-    },
-    {
-      "id": 100006241,
-      "language": "en",
-      "headword": "cunning",
-      "reading": "/ˈkʌnɪŋ/",
-      "common": true,
-      "spellings": ["cunning"],
-      "senses": [
-        {
-          "glosses": ["ずる賢い", "狡猾な"],
-          "pos": ["adj"],
-          "info": ["「カンニング」は cheating"]
-        },
-        {
-          "glosses": ["ずる賢さ", "悪知恵"],
+          "glosses": ["購入"],
           "pos": ["n"],
           "misc": ["countable", "uncountable"]
         },
         {
-          "glosses": ["巧妙な", "よく考えられた"],
-          "pos": ["adj"],
-          "misc": ["obs"]
+          "glosses": ["買った物", "購入品"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
+        },
+        {
+          "glosses": ["手がかり", "足がかり"],
+          "pos": ["n"],
+          "misc": ["uncountable"],
+          "fields": ["sports"],
+          "info": ["get purchase on ～"]
         }
       ]
     },
     {
-      "id": 100006462,
-      "language": "en",
-      "headword": "gasoline",
-      "reading": "/ˈɡæs.ə.liːn/",
-      "common": true,
-      "spellings": ["gasoline", "gasolene", "petrol"],
-      "senses": [
-        {
-          "glosses": ["ガソリン", "揮発油"],
-          "pos": ["n"],
-          "misc": ["uncountable", "countable"],
-          "dialects": ["en-CA", "en-PH", "en-US"],
-          "info": ["主に米国。英国では petrol"]
-        },
-        {
-          "glosses": ["ガソリン式の", "ガソリン車の"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["上質な大麻", "強力なマリファナ"],
-          "pos": ["n"],
-          "misc": ["sl", "uncountable"]
-        },
-        {
-          "glosses": ["ウォッカのエナジードリンク割り"],
-          "pos": ["n"],
-          "misc": ["sl", "uncountable"]
-        }
-      ]
-    },
-    {
-      "id": 100006760,
+      "id": 100003697,
       "language": "en",
       "headword": "queue",
       "reading": "/kju/",
@@ -7029,7 +6837,62 @@
       ]
     },
     {
-      "id": 100006842,
+      "id": 100003711,
+      "language": "en",
+      "headword": "reform",
+      "reading": "/ˌɹiːˈfɔɹm/",
+      "common": true,
+      "spellings": ["reform", "re-form"],
+      "senses": [
+        {
+          "glosses": ["改革", "改正"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
+        },
+        {
+          "glosses": ["改革する", "改善する", "更生させる"],
+          "pos": ["v", "vt"]
+        },
+        {
+          "glosses": ["改心する", "更生する"],
+          "pos": ["v", "vi"]
+        },
+        {
+          "glosses": ["再結成する", "再形成する"],
+          "pos": ["v", "vi", "vt"],
+          "info": ["この意味では re-form とも"]
+        }
+      ]
+    },
+    {
+      "id": 100003746,
+      "language": "en",
+      "headword": "shallow",
+      "reading": "/ˈʃæloʊ/",
+      "common": true,
+      "spellings": ["shallow"],
+      "senses": [
+        {
+          "glosses": ["浅い"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["浅はかな", "薄っぺらい"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["浅瀬"],
+          "pos": ["n"],
+          "info": ["通例 shallows"]
+        },
+        {
+          "glosses": ["緩やかな", "傾斜の浅い"],
+          "pos": ["adj"]
+        }
+      ]
+    },
+    {
+      "id": 100003753,
       "language": "en",
       "headword": "sidewalk",
       "reading": "/ˈsaɪdwɔk/",
@@ -7045,40 +6908,217 @@
       ]
     },
     {
-      "id": 100007704,
+      "id": 100003775,
       "language": "en",
-      "headword": "reside",
-      "reading": "/ɹɪˈzaɪd/",
+      "headword": "stove",
+      "reading": "/stoʊv/",
       "common": true,
-      "spellings": ["reside"],
+      "spellings": ["stove"],
       "senses": [
         {
-          "glosses": ["住む", "居住する"],
-          "pos": ["v"]
+          "glosses": ["コンロ", "レンジ"],
+          "pos": ["n"]
         },
         {
-          "glosses": ["（～に）ある", "存在する"],
-          "pos": ["v"],
-          "info": ["reside in ～ の形で"]
+          "glosses": ["ストーブ", "暖房器具"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["（指を）突き指する"],
+          "pos": ["v", "vt"]
         }
       ]
     },
     {
-      "id": 100007725,
+      "id": 100003796,
       "language": "en",
-      "headword": "furthermore",
-      "reading": "/ˈfɝ.ðɚˌmoɹ/",
+      "headword": "tension",
+      "reading": "/ˈtɛnʃən/",
       "common": true,
-      "spellings": ["furthermore"],
+      "spellings": ["tension"],
       "senses": [
         {
-          "glosses": ["さらに", "そのうえ"],
-          "pos": ["adv"]
+          "glosses": ["緊張", "ストレス"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"],
+          "info": ["日本語の「テンション（高揚）」の意味はない"]
+        },
+        {
+          "glosses": ["緊張関係", "対立"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
+        },
+        {
+          "glosses": ["緊迫感", "サスペンス"],
+          "pos": ["n"],
+          "misc": ["countable", "uncountable"]
+        },
+        {
+          "glosses": ["張力", "張り"],
+          "pos": ["n", "v"],
+          "misc": ["countable", "uncountable"],
+          "fields": ["engr", "physics"]
         }
       ]
     },
     {
-      "id": 100007766,
+      "id": 100003811,
+      "language": "en",
+      "headword": "trousers",
+      "reading": "/ˈtɹaʊzɚz/",
+      "common": true,
+      "spellings": ["trousers"],
+      "senses": [
+        {
+          "glosses": ["ズボン", "パンツ"],
+          "pos": ["n"],
+          "info": ["複数扱い、a pair of trousers"]
+        }
+      ]
+    },
+    {
+      "id": 100003813,
+      "language": "en",
+      "headword": "trump",
+      "reading": "/tɹʌmp/",
+      "common": true,
+      "spellings": ["trump"],
+      "senses": [
+        {
+          "glosses": ["勝る", "優先する"],
+          "pos": ["v", "vt"],
+          "info": ["X trumps Y の形で"]
+        },
+        {
+          "glosses": ["切り札", "トランプの切り札"],
+          "pos": ["n"],
+          "info": ["「トランプ」(カード)は cards"]
+        },
+        {
+          "glosses": ["奥の手", "切り札"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["切り札で勝つ", "出し抜く"],
+          "pos": ["v", "vt", "vi"]
+        },
+        {
+          "glosses": ["おなら", "おならをする"],
+          "pos": ["n", "v", "vi"],
+          "misc": ["col"],
+          "dialects": ["en-GB"]
+        }
+      ]
+    },
+    {
+      "id": 100003835,
+      "language": "en",
+      "headword": "whereas",
+      "reading": "/(h)wɛɹˈæz/",
+      "common": true,
+      "spellings": ["whereas"],
+      "senses": [
+        {
+          "glosses": ["～であるのに対して", "一方"],
+          "pos": ["conj"]
+        },
+        {
+          "glosses": ["～であるがゆえに"],
+          "pos": ["conj"],
+          "fields": ["law"],
+          "info": ["法律文書で"]
+        }
+      ]
+    },
+    {
+      "id": 100006131,
+      "language": "en",
+      "headword": "terminate",
+      "reading": "/ˈtɝmɪneɪ̯t/",
+      "common": true,
+      "spellings": ["terminate"],
+      "senses": [
+        {
+          "glosses": ["終わらせる", "打ち切る", "終わる"],
+          "pos": ["v", "vt", "vi"]
+        },
+        {
+          "glosses": ["解雇する"],
+          "pos": ["v", "vt"]
+        },
+        {
+          "glosses": ["終点に着く"],
+          "pos": ["v", "vi"],
+          "info": ["電車などが"]
+        },
+        {
+          "glosses": ["消す", "抹殺する"],
+          "pos": ["v", "vt"],
+          "misc": ["euph"]
+        }
+      ]
+    },
+    {
+      "id": 100006759,
+      "language": "en",
+      "headword": "ascertain",
+      "reading": "/ˌæsɚˈteɪn/",
+      "common": true,
+      "spellings": ["ascertain"],
+      "senses": [
+        {
+          "glosses": ["確かめる", "突き止める"],
+          "pos": ["v", "vt"]
+        }
+      ]
+    },
+    {
+      "id": 100006801,
+      "language": "en",
+      "headword": "faucet",
+      "reading": "/ˈfɔsɪt/",
+      "common": true,
+      "spellings": ["faucet"],
+      "senses": [
+        {
+          "glosses": ["蛇口", "水栓"],
+          "pos": ["n"],
+          "dialects": ["en-CA", "en-US"],
+          "info": ["主に米国。英国では tap"]
+        },
+        {
+          "glosses": ["樽の注ぎ口", "呑み口"],
+          "pos": ["n"]
+        },
+        {
+          "glosses": ["通貨供給源", "ゲーム内に通貨を流入させる仕組み"],
+          "pos": ["n"],
+          "info": ["ゲーム経済の用語"]
+        }
+      ]
+    },
+    {
+      "id": 100006821,
+      "language": "en",
+      "headword": "henceforth",
+      "reading": "/hɛnsˈfɔɹθ/",
+      "common": true,
+      "spellings": ["henceforth"],
+      "senses": [
+        {
+          "glosses": ["今後", "これ以後", "今後は"],
+          "pos": ["adv"],
+          "misc": ["form"]
+        },
+        {
+          "glosses": ["以下", "本書では以降"],
+          "pos": ["adv"],
+          "info": ["契約書・文書で「以下〜と称する」の意で"]
+        }
+      ]
+    },
+    {
+      "id": 100006836,
       "language": "en",
       "headword": "jug",
       "reading": "/d͡ʒʌɡ/",
@@ -7111,7 +7151,26 @@
       ]
     },
     {
-      "id": 100008690,
+      "id": 100006872,
+      "language": "en",
+      "headword": "reside",
+      "reading": "/ɹɪˈzaɪd/",
+      "common": true,
+      "spellings": ["reside"],
+      "senses": [
+        {
+          "glosses": ["住む", "居住する"],
+          "pos": ["v"]
+        },
+        {
+          "glosses": ["（～に）ある", "存在する"],
+          "pos": ["v"],
+          "info": ["reside in ～ の形で"]
+        }
+      ]
+    },
+    {
+      "id": 100006891,
       "language": "en",
       "headword": "smug",
       "reading": "/smʌɡ/",
@@ -7130,7 +7189,7 @@
       ]
     },
     {
-      "id": 100009791,
+      "id": 100006901,
       "language": "en",
       "headword": "stingy",
       "reading": "/ˈstɪnd͡ʒi/",
@@ -7149,56 +7208,11 @@
       ]
     },
     {
-      "id": 100010615,
-      "language": "en",
-      "headword": "henceforth",
-      "reading": "/hɛnsˈfɔɹθ/",
-      "common": false,
-      "spellings": ["henceforth", "henceforward"],
-      "senses": [
-        {
-          "glosses": ["今後", "これ以後", "今後は"],
-          "pos": ["adv"],
-          "misc": ["form"]
-        },
-        {
-          "glosses": ["以下", "本書では以降"],
-          "pos": ["adv"],
-          "info": ["契約書・文書で「以下〜と称する」の意で"]
-        }
-      ]
-    },
-    {
-      "id": 100010623,
-      "language": "en",
-      "headword": "faucet",
-      "reading": "/ˈfɔsɪt/",
-      "common": false,
-      "spellings": ["faucet"],
-      "senses": [
-        {
-          "glosses": ["蛇口", "水栓"],
-          "pos": ["n"],
-          "dialects": ["en-CA", "en-US"],
-          "info": ["主に米国。英国では tap"]
-        },
-        {
-          "glosses": ["樽の注ぎ口", "呑み口"],
-          "pos": ["n"]
-        },
-        {
-          "glosses": ["通貨供給源", "ゲーム内に通貨を流入させる仕組み"],
-          "pos": ["n"],
-          "info": ["ゲーム経済の用語"]
-        }
-      ]
-    },
-    {
-      "id": 100011307,
+      "id": 100006913,
       "language": "en",
       "headword": "thereby",
       "reading": "/ðɛɹˈbaɪ/",
-      "common": false,
+      "common": true,
       "spellings": ["thereby"],
       "senses": [
         {
@@ -7209,21 +7223,42 @@
       ]
     },
     {
-      "id": 100012423,
+      "id": 100006914,
       "language": "en",
-      "headword": "ascertain",
-      "reading": "/ˌæsɚˈteɪn/",
-      "common": false,
-      "spellings": ["ascertain"],
+      "headword": "thrifty",
+      "reading": "/ˈθɹɪfti/",
+      "common": true,
+      "spellings": ["thrifty"],
       "senses": [
         {
-          "glosses": ["確かめる", "突き止める"],
-          "pos": ["v", "vt"]
+          "glosses": ["倹約的な", "質素な", "節約家の"],
+          "pos": ["adj"]
+        },
+        {
+          "glosses": ["繁盛している", "よく育つ"],
+          "pos": ["adj"],
+          "misc": ["dated"]
         }
       ]
     },
     {
-      "id": 100012867,
+      "id": 100015831,
+      "language": "en",
+      "headword": "gramophone",
+      "reading": "[ˈɡɹæ.məˌfoʊn]",
+      "common": false,
+      "spellings": ["gramophone"],
+      "senses": [
+        {
+          "glosses": ["蓄音機", "レコードプレーヤー"],
+          "pos": ["n"],
+          "misc": ["dated"],
+          "dialects": ["en-GB"]
+        }
+      ]
+    },
+    {
+      "id": 100015967,
       "language": "en",
       "headword": "hither",
       "reading": "/ˈhɪðɚ/",
@@ -7244,42 +7279,7 @@
       ]
     },
     {
-      "id": 100015036,
-      "language": "en",
-      "headword": "gramophone",
-      "reading": "[ˈɡɹæ.məˌfoʊn]",
-      "common": false,
-      "spellings": ["gramophone"],
-      "senses": [
-        {
-          "glosses": ["蓄音機", "レコードプレーヤー"],
-          "pos": ["n"],
-          "misc": ["dated"],
-          "dialects": ["en-GB"]
-        }
-      ]
-    },
-    {
-      "id": 100018483,
-      "language": "en",
-      "headword": "thrifty",
-      "reading": "/ˈθɹɪfti/",
-      "common": false,
-      "spellings": ["thrifty"],
-      "senses": [
-        {
-          "glosses": ["倹約的な", "質素な", "節約家の"],
-          "pos": ["adj"]
-        },
-        {
-          "glosses": ["繁盛している", "よく育つ"],
-          "pos": ["adj"],
-          "misc": ["dated"]
-        }
-      ]
-    },
-    {
-      "id": 100020063,
+      "id": 100016375,
       "language": "en",
       "headword": "motorcar",
       "reading": "",

@@ -30,9 +30,13 @@ const wiktionary = (withWalk: boolean) => [
 const jmdict = `<?xml version="1.0"?>
 <!DOCTYPE JMdict [
 <!ENTITY n "noun (common) (futsuumeishi)">
+<!ENTITY exp "Expressions (phrases, clauses, etc.)">
+<!ENTITY v5m "Godan verb with 'mu' ending">
+<!ENTITY id "idiomatic expression">
 ]>
 <JMdict>
 <entry><ent_seq>1000010</ent_seq><k_ele><keb>自撮り</keb></k_ele><r_ele><reb>じどり</reb></r_ele><sense><pos>&n;</pos><gloss>selfie</gloss></sense></entry>
+<entry><ent_seq>1000020</ent_seq><k_ele><keb>薄氷を踏む</keb></k_ele><r_ele><reb>はくひょうをふむ</reb></r_ele><sense><pos>&exp;</pos><pos>&v5m;</pos><misc>&id;</misc><gloss>to tread on thin ice</gloss><gloss>to walk on thin ice</gloss></sense></entry>
 </JMdict>`
 
 const files = (withWalk: boolean) => ({
@@ -43,11 +47,20 @@ const files = (withWalk: boolean) => ({
       familiarity: 3,
       inflections: [{ text: "twerking", tags: ["present-participle"] }],
       senses: [{ pos: ["v"], glosses: ["トゥワークする"] }]
+    }),
+    JSON.stringify({
+      headword: "on thin ice",
+      ipa: "/ɒn ˈθɪn ˈaɪs/",
+      familiarity: 5,
+      spellings: ["skate on thin ice"],
+      senses: [{ pos: ["exp"], misc: ["id"], glosses: ["薄氷を踏む", "危ない橋を渡る"] }]
     })
   ]),
+  phrases: file("phrases.json", [
+    JSON.stringify({ phrases: ["on thin ice"], redirects: { "skate on thin ice": "on thin ice" } })
+  ]),
   wiktionary: file(`wiktionary-${withWalk}.jsonl`, wiktionary(withWalk)),
-  ejdict: file("ejdict.txt", ["team\t『チーム』", "eat\t…を『食べる』"]),
-  frequency: file("en_50k.txt", ["eat 5000", "ate 3000", "team 4000", "walk 2000", "selfie 900"])
+  frequency: file("en_50k.txt", ["eat 5000", "ate 3000", "walk 2000", "selfie 900"])
 })
 const jmdictFile = file("JMdict.xml", [jmdict])
 
@@ -57,14 +70,17 @@ layer(TestLayer)("Eiwa.importFiles", (it) => {
   it.effect("loads each word from the first source that has it, next to JMDict's", () =>
     Effect.gen(function* () {
       const result = yield* Eiwa.importFiles({ files: files(true), jmdict: jmdictFile })
-      assert.deepStrictEqual(result, { removed: 0, entries: 5, curated: 1, wiktionary: 2, ejdict: 1, jmdict: 1 })
+      assert.deepStrictEqual(result, { removed: 0, entries: 5, curated: 2, wiktionary: 2, jmdict: 1 })
 
       const db = yield* Database
       const ids = yield* headwordIds(db, "en")
-      assert.sameMembers([...ids.keys()], ["twerk", "eat", "walk", "team", "selfie"])
+      assert.sameMembers([...ids.keys()], ["twerk", "on thin ice", "eat", "walk", "selfie"])
       // "ate" is eat's past, found through it.
       const [ate] = yield* findForms(db, ["ate"], "en")
       assert.deepStrictEqual([ate?.entryId, ate?.kind, ate?.tags], [ids.get("eat"), "inflection", ["past"]])
+      // JMdict verb variants ("tread on thin ice", "walk on thin ice") attach to canonical "on thin ice".
+      const [walkOnThinIce] = yield* findForms(db, ["walk on thin ice"], "en")
+      assert.strictEqual(walkOnThinIce?.entryId, ids.get("on thin ice"))
       const [selfie] = yield* getEntries(db, [ids.get("selfie")!])
       assert.deepStrictEqual(
         selfie?.senses.map((sense) => sense.glosses[0]?.text),

@@ -124,6 +124,7 @@ const word = (
     readonly reading?: string
     readonly common?: boolean
     readonly priority?: number
+    readonly spellings?: ReadonlyArray<string>
     readonly inflections?: ReadonlyArray<readonly [string, ReadonlyArray<string>]>
   } = {}
 ): EntryRecord => ({
@@ -135,6 +136,15 @@ const word = (
   priority: options.priority ?? 50,
   forms: [
     { kind: "spelling", text: headword, common: true, tags: [], priorities: [], restrictions: [], noKanji: false },
+    ...(options.spellings ?? []).map((text) => ({
+      kind: "spelling" as const,
+      text,
+      common: false,
+      tags: [],
+      priorities: [],
+      restrictions: [],
+      noKanji: false
+    })),
     ...(options.inflections ?? []).map(([text, tags]) => ({
       kind: "inflection" as const,
       text,
@@ -481,6 +491,42 @@ layer(testLayer(false))("Dictionary", (it) => {
       assert.include(yield* headwords("wrap head around", "en"), "wrap one's head around")
       assert.include(yield* headwords("wrapped my head around", "en"), "wrap one's head around")
       assert.include(yield* headwords("peice of cake", "en"), "piece of cake")
+
+      // Canonical idiom entry with variant phrasings and inflections:
+      yield* insertEntries(db, [
+        word(100000073, "throw on", [sense(["急いで着る"], ["v"])]),
+        word(100000074, "think of", [sense(["思いつく"], ["v"])])
+      ])
+      // When "on thin ice" isn't in the DB yet, weak 2-word trigram lookalikes ("throw on", "think of") do not surface.
+      assert.deepStrictEqual(yield* headwords("on thin ice", "en"), [])
+
+      yield* insertEntries(db, [
+        word(
+          100000075,
+          "on thin ice",
+          [sense(["危うい立場にある", "危険な状態にある", "薄氷を踏む思いで"], ["adj"], ["id"])],
+          {
+            reading: "/ɒn θɪn aɪs/",
+            priority: 70,
+            spellings: ["skate on thin ice", "tread on thin ice", "walk on thin ice"],
+            inflections: [
+              ["skating on thin ice", ["present-participle"]],
+              ["treading on thin ice", ["present-participle"]],
+              ["walking on thin ice", ["present-participle"]]
+            ]
+          }
+        )
+      ])
+      for (const query of [
+        "on thin ice",
+        "walk on thin ice",
+        "skating on thin ice",
+        "step on thin ice",
+        "on thin ise",
+        "薄氷を踏む"
+      ]) {
+        assert.strictEqual((yield* headwords(query, "en"))[0], "on thin ice", `expected "on thin ice" for "${query}"`)
+      }
     })
   )
 

@@ -1,11 +1,15 @@
 import { EntryId, type EntryRecord } from "@kotori/contracts"
 import { describe, expect, it } from "vitest"
 import { commonestFirst, mergeSources, toEntries } from "../../src/features/dictionary/import/eiwa/build.ts"
-import { parseEjdict } from "../../src/features/dictionary/import/eiwa/ejdict.ts"
 import { parseFrequency } from "../../src/features/dictionary/import/eiwa/frequency.ts"
 import { jmdictReader, wordsFromJmdict } from "../../src/features/dictionary/import/eiwa/jmdict.ts"
 import { splitDefinition } from "../../src/features/dictionary/import/eiwa/text.ts"
-import { cleanIpa, parseCurated, parseWiktionary } from "../../src/features/dictionary/import/eiwa/wiktionary.ts"
+import {
+  cleanIpa,
+  parseCurated,
+  parsePhraseIndex,
+  parseWiktionary
+} from "../../src/features/dictionary/import/eiwa/wiktionary.ts"
 import { emptySense, formOf } from "../../src/features/dictionary/import/eiwa/words.ts"
 
 // Lines as Wiktextract writes them for Japanese Wiktionary, trimmed to the fields read.
@@ -95,16 +99,6 @@ const wiktionary = [
   }),
   // Other languages share the file and are skipped.
   JSON.stringify({ word: "be", lang_code: "nb", pos: "verb", senses: [{ glosses: ["求める。"] }] })
-]
-
-const ejdict = [
-  "team\t(スポーツの)『チーム』 / (共に仕事などをする)『一団』,一組 / …をチームにする《+『up』》",
-  "guy\t控え綱 / 《米話》男,やつ",
-  "was\tbeの一人称および三人称単数過去形",
-  "be\t《連結語として補語を伴なって》…『である』,…だ / 〈物事が〉『存在する』,ある",
-  "okay\t=OK,O.K.",
-  "eat\t…を『食べる』",
-  "light\t〈U〉『光』;明るさ / 〈C〉『明かり』"
 ]
 
 describe("splitDefinition", () => {
@@ -230,40 +224,52 @@ describe("parseWiktionary", () => {
     })
     expect(word("be")).toBeUndefined()
   })
-})
 
-describe("parseEjdict", () => {
-  const { words, formsOf } = parseEjdict(ejdict)
-  const word = (headword: string) => words.find((candidate) => candidate.headword === headword)
-
-  it("reads meanings as senses, their usage labels as tags and grammar notes as notes", () => {
-    expect(
-      word("team")?.senses.map((sense) => [sense.glosses.map((gloss) => gloss.text), sense.pos, sense.info])
-    ).toEqual([
-      [["(スポーツの)チーム"], [], []],
-      [["(共に仕事などをする)一団", "一組"], [], []],
-      [["…をチームにする"], ["v", "vt"], ["+up"]]
+  it("normalizes phrases from related fields and loads phrase redirects", () => {
+    const parsed = parseWiktionary([
+      line({
+        word: "matter",
+        pos: "noun",
+        senses: [
+          {
+            glosses: ["問題。"],
+            links: [
+              ["to make matters worse", "to make matters worse"],
+              ["no matter what", "no matter what"]
+            ],
+            alt_of: [{ word: "a matter of time" }]
+          }
+        ],
+        proverbs: [{ word: "the die is cast" }],
+        related: [{ word: "as a matter of fact" }],
+        collocations: [{ word: "for that matter" }],
+        synonyms: [{ word: "state of affairs" }]
+      })
     ])
-    expect(word("guy")?.senses[1]).toMatchObject({ dialects: ["en-US"], misc: ["col"] })
-    expect(word("light")?.senses[0]).toMatchObject({ pos: ["n"], misc: ["uncountable"] })
-  })
-
-  it("spells out the headword where a grammar note writes ~", () => {
-    const [crap, atom] = parseEjdict([
-      "crap\t〈U〉うんこ,くそ,糞 / 《a~》うんこをすること",
-      "atom\t『原子』 / 《時にa~》微量,わずか(の…)《+『of』+『名』》"
-    ]).words
-    expect(crap?.senses[1]?.info).toEqual(["「a crap」の形で"])
-    expect(atom?.senses[1]?.info).toEqual(["時にan atom", "+of+名"])
-  })
-
-  it("turns lines that only name another word's form into forms of it", () => {
-    expect(formsOf).toEqual([
-      { text: "was", base: "be", tags: ["past"] },
-      { text: "okay", base: "OK", tags: [] },
-      { text: "okay", base: "O.K.", tags: [] }
+    expect([...parsed.phrases]).toEqual([
+      "die is cast",
+      "as a matter of fact",
+      "for that matter",
+      "state of affairs",
+      "matter of time",
+      "make matters worse",
+      "no matter what"
     ])
-    expect(word("was")).toBeUndefined()
+
+    const index = parsePhraseIndex(
+      JSON.stringify({
+        phrases: ["to make matters worse", "on thin ice", "let the cat out of the bag"],
+        redirects: {
+          "to skate on thin ice": "on thin ice",
+          "walk on thin ice": "on thin ice"
+        }
+      })
+    )
+    expect([...index.phrases]).toEqual(["make matters worse", "on thin ice", "let the cat out of the bag"])
+    expect([...index.redirects]).toEqual([
+      ["skate on thin ice", "on thin ice"],
+      ["walk on thin ice", "on thin ice"]
+    ])
   })
 })
 
@@ -272,7 +278,9 @@ const jmdictEntry = (
   headword: string,
   reading: string,
   glosses: Array<string>,
-  common = true
+  common = true,
+  pos: Array<string> = ["v5b"],
+  misc: Array<string> = []
 ): EntryRecord => ({
   id: EntryId.make(id),
   language: "ja",
@@ -284,8 +292,8 @@ const jmdictEntry = (
   senses: [
     {
       glosses: glosses.map((text) => ({ text, type: null })),
-      pos: ["v5b"],
-      misc: [],
+      pos,
+      misc,
       fields: [],
       dialects: [],
       info: [],
@@ -348,45 +356,142 @@ describe("wordsFromJmdict", () => {
   )
   const word = (headword: string) => words.find((candidate) => candidate.headword === headword)
 
-  it("reads attested words and phrases backwards, the likeliest Japanese word first", () => {
-    expect(words.map((word) => [word.headword, word.senses.map((sense) => sense.glosses[0]?.text)])).toEqual([
-      ["hang out", ["遊ぶ", "たむろする"]],
-      ["selfie", ["自撮り"]],
-      ["eat out", ["外食"]],
-      ["website", ["ウェブサイト"]],
-      ["kim", ["韓国海苔"]],
-      ["ex-wife", ["元妻"]]
+  it("reads attested words and phrases backwards, grouping same-POS Japanese candidates into one sense", () => {
+    expect(words.map((word) => [word.headword, word.senses.map((sense) => sense.glosses.map((g) => g.text))])).toEqual([
+      ["hang out", [["遊ぶ", "たむろする"]]],
+      ["selfie", [["自撮り"]]],
+      ["eat out", [["外食"]]],
+      ["website", [["ウェブサイト"]]],
+      ["kim", [["韓国海苔"]]],
+      ["ex-wife", [["元妻"]]]
     ])
     expect(words[0]?.senses[0]?.pos).toEqual(["v"])
   })
 
-  it("trusts a word's count only when a common Japanese word glosses it, or it is hyphenated", () => {
+  it("trusts a word's count when a common Japanese word glosses it, it is hyphenated, or it is a multi-word phrase", () => {
     expect(word("website")?.mayBeName).toBe(false)
     expect(word("ex-wife")?.mayBeName).toBe(false)
+    expect(word("eat out")?.mayBeName).toBe(false)
     // The subtitles count Kim, the name.
     expect(word("kim")?.mayBeName).toBe(true)
     expect(word("selfie")?.mayBeName).toBe(true)
+  })
+
+  it("collapses verb-variant and redirected idioms onto their canonical headword with variants in spellings and formsOf", () => {
+    const reader = jmdictReader({
+      words: new Set(["on the fence"]),
+      verbs: new Set(),
+      phrases: new Set([
+        "on thin ice",
+        "on the fence",
+        "let the cat out of the bag",
+        "hit the nail on the head",
+        "to make matters worse",
+        "the die is cast"
+      ]),
+      redirects: new Map([["skate on thin ice", "on thin ice"]]),
+      frequency: new Map()
+    })
+    for (const item of [
+      jmdictEntry(
+        20,
+        "薄氷を踏む",
+        "はくひょうをふむ",
+        ["to tread on thin ice", "to walk on thin ice", "to skate on thin ice"],
+        false,
+        ["exp", "v5m"],
+        ["id"]
+      ),
+      jmdictEntry(
+        21,
+        "危ない橋を渡る",
+        "あぶないはしをわたる",
+        ["to tread on thin ice", "to find oneself on thin ice"],
+        false,
+        ["exp", "v5r"],
+        ["id"]
+      ),
+      jmdictEntry(22, "綱渡り", "つなわたり", ["walking on a tightrope", "tread on thin ice"], true, ["n", "vs"]),
+      jmdictEntry(
+        23,
+        "語るに落ちる",
+        "かたるにおちる",
+        ["to let the cat out of the bag"],
+        false,
+        ["exp", "v1"],
+        ["id"]
+      ),
+      jmdictEntry(24, "図星を指す", "ずぼしをさす", ["to hit the nail on the head"], false, ["exp", "v5s"], ["id"]),
+      jmdictEntry(25, "泣きっ面に蜂", "なきっつらにはち", ["to make matters worse"], false, ["exp"], ["proverb"]),
+      jmdictEntry(26, "賽は投げられた", "さいはなげられた", ["the die is cast"], false, ["exp"], ["proverb"]),
+      jmdictEntry(27, "日和見", "ひよりみ", ["sitting on the fence", "to sit on the fence"], false, ["n", "vs"])
+    ]) {
+      reader.add(item)
+    }
+
+    const built = reader.finish()
+    const onThinIce = built.find((w) => w.headword === "on thin ice")
+    expect(onThinIce?.spellings).toEqual([
+      "tread on thin ice",
+      "walk on thin ice",
+      "skate on thin ice",
+      "find oneself on thin ice"
+    ])
+    expect(onThinIce?.mayBeName).toBe(false)
+    // Two POS groups: noun ("綱渡り", common=true so higher score) and expression ("薄氷を踏む", "危ない橋を渡る" grouped together).
+    expect(onThinIce?.senses.map((s) => [s.pos, s.glosses.map((g) => g.text)])).toEqual([
+      [["n"], ["綱渡り"]],
+      [["exp"], ["薄氷を踏む", "危ない橋を渡る"]]
+    ])
+    expect(built.find((w) => w.headword === "let the cat out of the bag")?.senses[0]?.glosses[0]?.text).toBe(
+      "語るに落ちる"
+    )
+    expect(built.find((w) => w.headword === "hit the nail on the head")?.senses[0]?.glosses[0]?.text).toBe("図星を指す")
+    expect(built.find((w) => w.headword === "make matters worse")?.senses[0]?.glosses[0]?.text).toBe("泣きっ面に蜂")
+    expect(built.find((w) => w.headword === "die is cast")?.senses[0]?.glosses[0]?.text).toBe("賽は投げられた")
+    // "on the fence" is already in known.words, so its variant "sit on the fence" is recorded in formsOf.
+    expect(reader.formsOf()).toContainEqual({ text: "sit on the fence", base: "on the fence", tags: [] })
   })
 })
 
 describe("toEntries", () => {
   const frequency = parseFrequency(["eat 5000", "ate 3000", "team 4000", "be 90000", "was 80000", "hello 100"])
   const merged = mergeSources({
-    wiktionary: parseWiktionary(wiktionary),
-    ejdict: parseEjdict(ejdict),
-    jmdict: [],
+    curated: parseCurated([
+      JSON.stringify({
+        headword: "be",
+        ipa: "/biː/",
+        familiarity: 5,
+        senses: [{ pos: ["v"], glosses: ["～である", "いる、ある"] }]
+      })
+    ]),
+    wiktionary: parseWiktionary([
+      ...wiktionary,
+      line({ word: "was", pos: "verb", senses: [{ glosses: ["beの過去形"] }] })
+    ]),
+    jmdict: [
+      {
+        headword: "team",
+        ipa: null,
+        spellings: [],
+        inflections: [],
+        senses: [{ ...emptySense(), glosses: [{ text: "チーム", type: null }], pos: ["n"] }],
+        mayBeName: false
+      }
+    ],
     frequency
   })
 
   it("takes each word from the first source that has it, with the forms the others point at", () => {
     const sources = new Map(merged.map((word) => [word.headword, word.source]))
+    expect(sources.get("be")).toBe("curated")
     expect(sources.get("eat")).toBe("wiktionary")
-    expect(sources.get("team")).toBe("ejdict")
+    expect(sources.get("team")).toBe("jmdict")
     expect(merged.find((word) => word.headword === "be")?.inflections.get("was")).toEqual(new Set(["past"]))
     expect(merged.find((word) => word.headword === "tire")?.inflections.has("tired")).toBe(true)
   })
 
-  it("prefers curated entries over wiktionary and preserves their learner-ordered senses", () => {
+  it("prefers curated entries over wiktionary, inherits lower-tier variant spellings, and scales priority by familiarity and back-translations", () => {
     const curated = parseCurated([
       JSON.stringify({
         headword: "kid",
@@ -400,29 +505,86 @@ describe("toEntries", () => {
         ]
       }),
       JSON.stringify({
+        headword: "on thin ice",
+        ipa: "/ɒn ˈθɪn ˈaɪs/",
+        familiarity: 5,
+        spellings: ["skate on thin ice"],
+        senses: [{ pos: ["exp"], misc: ["id"], glosses: ["薄氷を踏む", "危ない橋を渡る", "危険な状態にある"] }]
+      }),
+      JSON.stringify({
         headword: "keep it real",
         ipa: "/ˈkiːp ɪt ˈɹiːl/",
         familiarity: 4,
         senses: [{ pos: ["v"], misc: ["col"], glosses: ["ありのままでいる", "本音で話す"] }]
+      }),
+      JSON.stringify({
+        headword: "no cap",
+        ipa: "/noʊ kæp/",
+        familiarity: 3,
+        senses: [{ pos: ["int"], misc: ["sl"], glosses: ["マジで", "ガチで"] }]
       })
     ])
     const withCurated = mergeSources({
       curated,
       wiktionary: parseWiktionary([
-        line({ word: "kid", pos: "noun", senses: [{ glosses: ["子山羊。"] }, { glosses: ["子供。"] }] })
+        line({ word: "kid", pos: "noun", senses: [{ glosses: ["子山羊。"] }, { glosses: ["子供。"] }] }),
+        line({ word: "on the fence", pos: "phrase", senses: [{ glosses: ["日和見で。"] }] })
       ]),
-      ejdict: { words: [], formsOf: [] },
-      jmdict: [],
+      jmdict: {
+        words: [
+          {
+            headword: "cut corners",
+            ipa: null,
+            spellings: [],
+            inflections: [],
+            senses: [{ ...emptySense(), glosses: [{ text: "手を抜く", type: null }], pos: ["exp"] }],
+            mayBeName: false
+          }
+        ],
+        formsOf: [
+          { text: "tread on thin ice", base: "on thin ice", tags: [] },
+          { text: "walk on thin ice", base: "on thin ice", tags: [] },
+          { text: "sit on the fence", base: "on the fence", tags: [] }
+        ]
+      },
       frequency
     })
-    const entries = toEntries(withCurated, frequency, new Map(), new Map([["kid", new Map([["子ヤギ", 99]])]]))
+    const entries = toEntries(
+      withCurated,
+      frequency,
+      new Map(),
+      new Map([
+        ["kid", new Map([["子ヤギ", 99]])],
+        ["cut corners", new Map([["手を抜く", 50]])],
+        ["on the fence", new Map([["日和見", 35]])]
+      ])
+    )
     const kid = entries.find((e) => e.headword === "kid")
     expect(kid?.source).toBe("curated")
     // Curated sense order stands even if backTranslations weights another sense higher.
     expect(kid?.senses.map((s) => s.glosses[0]?.text)).toEqual(["子供", "冗談を言う", "子ヤギ"])
-    // Curated multi-word idioms receive the baseline priority floor (20 * log10(1000) = 60).
-    const keepItReal = entries.find((e) => e.headword === "keep it real")
-    expect(keepItReal?.priority).toBe(60)
+
+    // Curated entries inherit variant spellings from jmdict formsOf, and familiarity 5 -> count 10,000 (priority 80, common true).
+    const onThinIce = entries.find((e) => e.headword === "on thin ice")
+    expect(onThinIce?.priority).toBe(80)
+    expect(onThinIce?.common).toBe(true)
+    expect(onThinIce?.forms.map((f) => f.text)).toEqual([
+      "on thin ice",
+      "skate on thin ice",
+      "tread on thin ice",
+      "walk on thin ice"
+    ])
+
+    // Familiarity 4 -> count 3,000 (priority 70, common true); familiarity 3 -> count 1,000 (priority 60, common false).
+    expect(entries.find((e) => e.headword === "keep it real")).toMatchObject({ priority: 70, common: true })
+    expect(entries.find((e) => e.headword === "no cap")).toMatchObject({ priority: 60, common: false })
+
+    // Non-curated multi-word idioms receive fallback counts from JMdict back-translation weights.
+    const cutCorners = entries.find((e) => e.headword === "cut corners")
+    expect(cutCorners).toMatchObject({ priority: 68, common: true })
+    const onTheFence = entries.find((e) => e.headword === "on the fence")
+    expect(onTheFence).toMatchObject({ priority: 60, common: false })
+    expect(onTheFence?.forms.map((f) => f.text)).toEqual(["on the fence", "sit on the fence"])
   })
 
   it("places synonyms on the sense they share a meaning with, and leaves out the rest", () => {
@@ -443,7 +605,6 @@ describe("toEntries", () => {
         }),
         line({ word: "awkward", pos: "adj", senses: [{ glosses: ["不器用な。"] }], antonyms: [{ word: "handy" }] })
       ]),
-      ejdict: { words: [], formsOf: [] },
       jmdict: [],
       frequency
     })
@@ -495,7 +656,6 @@ describe("toEntries", () => {
     const entries = toEntries(
       mergeSources({
         wiktionary: { words: [], formsOf: [] },
-        ejdict: { words: [], formsOf: [] },
         jmdict: [jmdictOnly("kim", true), jmdictOnly("website", false)],
         frequency: counts
       }),
@@ -560,17 +720,25 @@ describe("commonestFirst", () => {
 describe("jmdictReader backTranslations", () => {
   it("collects the common Japanese words JMDict translates with a known English word, from their leading glosses", () => {
     const reader = jmdictReader({
-      words: new Set(["smart", "kid"]),
+      words: new Set(["smart", "kid", "on thin ice"]),
       verbs: new Set(),
-      phrases: new Set(),
+      phrases: new Set(["on thin ice", "cut corners"]),
       frequency: new Map()
     })
-    const entry = (id: number, word: string, glosses: Array<string>, common = true, sense = 0): EntryRecord => ({
-      ...jmdictEntry(id, word, word, glosses, common),
+    const entry = (
+      id: number,
+      word: string,
+      glosses: Array<string>,
+      common = true,
+      sense = 0,
+      pos: Array<string> = ["v5b"],
+      misc: Array<string> = []
+    ): EntryRecord => ({
+      ...jmdictEntry(id, word, word, glosses, common, pos, misc),
       forms: [{ kind: "kanji", text: word, common, tags: [], priorities: [], restrictions: [], noKanji: false }],
       senses: [
-        ...Array.from({ length: sense }, () => jmdictEntry(id, word, word, ["other"], common).senses[0]!),
-        jmdictEntry(id, word, word, glosses, common).senses[0]!
+        ...Array.from({ length: sense }, () => jmdictEntry(id, word, word, ["other"], common, pos, misc).senses[0]!),
+        jmdictEntry(id, word, word, glosses, common, pos, misc).senses[0]!
       ]
     })
     reader.add(entry(1, "賢い", ["wise", "clever", "smart"]))
@@ -578,9 +746,14 @@ describe("jmdictReader backTranslations", () => {
     reader.add(entry(3, "洒脱", ["smart"], false))
     reader.add(entry(4, "利口", ["smart"], true, 3))
     reader.add(entry(5, "子供", ["child", "children"]))
+    reader.add(entry(6, "薄氷を踏む", ["to tread on thin ice"], false, 0, ["exp", "v5m"], ["id"]))
+    reader.add(entry(7, "手を抜く", ["to cut corners"], false, 0, ["exp", "v5k"], ["id"]))
     const smart = reader.backTranslations().get("smart")
     // A fifth gloss, an uncommon word or a fourth sense is too far from the word's use to count.
     expect([...(smart?.keys() ?? [])]).toEqual(["賢い"])
     expect(reader.backTranslations().has("kid")).toBe(false)
+    // Japanese expressions and idioms count for back-translations even when not marked common.
+    expect([...(reader.backTranslations().get("on thin ice")?.keys() ?? [])]).toEqual(["薄氷を踏む"])
+    expect([...(reader.backTranslations().get("cut corners")?.keys() ?? [])]).toEqual(["手を抜く"])
   })
 })

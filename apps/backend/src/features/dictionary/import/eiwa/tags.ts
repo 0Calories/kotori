@@ -28,7 +28,7 @@ export const PARTS_OF_SPEECH: Readonly<Record<string, string>> = {
   particle: "prt"
 }
 
-/** Usage notes, from Wiktionary's tags and from the Japanese labels its editors and EJDict's write. */
+/** Usage notes, from Wiktionary's tags and from the Japanese labels its editors write. */
 export const USAGE: Readonly<Record<string, string>> = {
   informal: "col",
   colloquial: "col",

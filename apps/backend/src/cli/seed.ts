@@ -75,7 +75,7 @@ export const seed = Command.make(
         yield* Console.log(
           `Imported ${result.entries.toLocaleString()} English words in ${seconds(started)}s ` +
             `(${result.curated.toLocaleString()} curated, ${result.wiktionary.toLocaleString()} from Wiktionary, ` +
-            `${result.ejdict.toLocaleString()} from EJDict, ${result.jmdict.toLocaleString()} read backwards from JMDict)` +
+            `${result.jmdict.toLocaleString()} read backwards from JMDict)` +
             (result.removed > 0 ? `, and removed ${result.removed.toLocaleString()} it no longer has.` : ".")
         )
       }
@@ -84,6 +84,6 @@ export const seed = Command.make(
   })
 ).pipe(
   Command.withDescription(
-    "Download JMDict and the English dictionary's sources (Japanese Wiktionary, EJDict) and load them into the database"
+    "Download JMDict and the English dictionary's sources (Japanese Wiktionary, FrequencyWords) and load them into the database"
   )
 )

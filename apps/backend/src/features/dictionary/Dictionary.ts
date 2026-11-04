@@ -211,7 +211,7 @@ const similarMeaning = (sense: EntryRecord["senses"][number], similar: EntryReco
 
 /**
  * Which of a guessed "-s" form's meanings applies: a noun's plural or a verb's third person.
- * EJDict marks few parts of speech, and an unmarked sense is most often a noun's.
+ * An unmarked sense is most often a noun's.
  */
 const guessedInflection = (tags: ReadonlyArray<string>, entry: EntryRecord | undefined) => {
   if (!(tags.includes("plural") && tags.includes("third-person"))) return tags

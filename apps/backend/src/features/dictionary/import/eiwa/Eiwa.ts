@@ -1,4 +1,5 @@
 import type { EntryRecord } from "@kotori/contracts"
+import { normalizeGloss } from "@kotori/language"
 import { Effect, FileSystem, Path, Schema, Stream } from "effect"
 import { HttpClient } from "effect/http"
 import { createReadStream, existsSync } from "node:fs"
@@ -9,11 +10,10 @@ import { resolveFromRoot } from "../../../../runtime/Paths.ts"
 import { deleteEntries, headwordIds, insertEntries, saveTags } from "../../queries.ts"
 import { entrySplitter } from "../jmdict/parse.ts"
 import { mergeSources, type Source, toEntries } from "./build.ts"
-import { EJDICT_FILES, parseEjdict } from "./ejdict.ts"
 import { FREQUENCY_URL, parseFrequency } from "./frequency.ts"
 import { jmdictReader, type KnownEnglish } from "./jmdict.ts"
 import { ENGLISH_TAGS } from "./tags.ts"
-import { curatedParser, WIKTIONARY_URL, wiktionaryParser } from "./wiktionary.ts"
+import { curatedParser, parsePhraseIndex, WIKTIONARY_URL, wiktionaryParser } from "./wiktionary.ts"
 import type { FormOf, Word } from "./words.ts"
 
 export class EiwaError extends Schema.TaggedError<EiwaError>()("EiwaError", {
@@ -25,10 +25,10 @@ export class EiwaError extends Schema.TaggedError<EiwaError>()("EiwaError", {
 export interface Files {
   /** Curated English Wiktionary entries with Japanese glosses (`enwiktionary-ja.jsonl`), optional in tests. */
   readonly curated?: string | undefined
+  /** Attested multi-word phrases and variant redirects (`enwiktionary-phrases.json`), optional in tests. */
+  readonly phrases?: string | undefined
   /** Wiktextract's extraction of Japanese Wiktionary, gzipped JSON lines (or plain). */
   readonly wiktionary: string
-  /** EJDict, its letters joined into one file. */
-  readonly ejdict: string
   /** FrequencyWords' English list. */
   readonly frequency: string
 }
@@ -44,20 +44,13 @@ export const download = Effect.fn("Eiwa.download")(
 
     const files: Files = {
       curated: path.join(root, "enwiktionary-ja.jsonl"),
+      phrases: path.join(root, "enwiktionary-phrases.json"),
       wiktionary: path.join(root, "ja-wiktionary.jsonl.gz"),
-      ejdict: path.join(root, "ejdict.txt"),
       frequency: path.join(root, "en_50k.txt")
     }
     if (!(yield* fs.exists(files.wiktionary))) {
       yield* Effect.logInfo(`Downloading ${WIKTIONARY_URL}`)
       yield* (yield* client.get(WIKTIONARY_URL)).stream.pipe(Stream.run(fs.sink(files.wiktionary)))
-    }
-    if (!(yield* fs.exists(files.ejdict))) {
-      yield* Effect.logInfo("Downloading EJDict")
-      const letters = yield* Effect.forEach(EJDICT_FILES, (url) => Effect.flatMap(client.get(url), (r) => r.text), {
-        concurrency: 4
-      })
-      yield* fs.writeFileString(files.ejdict, letters.join("\n"))
     }
     if (!(yield* fs.exists(files.frequency))) {
       yield* Effect.logInfo(`Downloading ${FREQUENCY_URL}`)
@@ -111,20 +104,33 @@ const eachJmdictEntry = (file: string, read: (entry: EntryRecord) => void) =>
 const knownEnglish = (
   sources: ReadonlyArray<{ readonly words: ReadonlyArray<Word>; readonly formsOf: ReadonlyArray<FormOf> }>,
   phrases: ReadonlySet<string>,
-  frequency: ReadonlyMap<string, number>
+  frequency: ReadonlyMap<string, number>,
+  redirects?: ReadonlyMap<string, string>
 ): KnownEnglish => {
   const words = new Set<string>()
   const verbs = new Set<string>()
+  const allPhrases = new Set<string>(phrases)
+  const allRedirects = new Map<string, string>(redirects)
   for (const source of sources) {
     for (const word of source.words) {
       for (const text of [word.headword, ...word.spellings, ...word.inflections.map((form) => form.text)]) {
         words.add(text.toLowerCase())
       }
+      const canonical = normalizeGloss(word.headword)
+      if (canonical.includes(" ")) {
+        allPhrases.add(canonical)
+        for (const spelling of word.spellings) {
+          const normSpelling = normalizeGloss(spelling)
+          if (normSpelling.includes(" ") && normSpelling !== canonical && !allRedirects.has(normSpelling)) {
+            allRedirects.set(normSpelling, canonical)
+          }
+        }
+      }
       if (word.senses.some((sense) => sense.pos.includes("v"))) verbs.add(word.headword.toLowerCase())
     }
     for (const form of source.formsOf) words.add(form.text.toLowerCase())
   }
-  return { words, verbs, phrases, frequency }
+  return { words, verbs, phrases: allPhrases, redirects: allRedirects, frequency }
 }
 
 export interface ImportOptions {
@@ -150,21 +156,25 @@ const build = Effect.fnUntraced(function* (options: ImportOptions, existing: Rea
   }
   const curated = curatedReader.finish()
 
+  const phrasesPath = options.files.phrases
+  const phraseIndex =
+    phrasesPath !== undefined && existsSync(resolveFromRoot(phrasesPath))
+      ? parsePhraseIndex((yield* readLines(phrasesPath)).join("\n"))
+      : { phrases: new Set<string>(), redirects: new Map<string, string>() }
+
   const parser = wiktionaryParser()
   yield* eachLine(options.files.wiktionary, parser.add)
   const wiktionary = parser.finish()
-  const ejdict = parseEjdict(yield* readLines(options.files.ejdict))
   const frequency = parseFrequency(yield* readLines(options.files.frequency))
-  yield* Effect.logInfo(
-    `Read ${curated.words.length} curated words, ${wiktionary.words.length} from Wiktionary and ${ejdict.words.length} from EJDict`
-  )
+  yield* Effect.logInfo(`Read ${curated.words.length} curated words and ${wiktionary.words.length} from Wiktionary`)
 
-  const reader = jmdictReader(knownEnglish([curated, wiktionary, ejdict], wiktionary.phrases, frequency))
+  const phrases = new Set([...wiktionary.phrases, ...phraseIndex.phrases])
+  const reader = jmdictReader(knownEnglish([curated, wiktionary], phrases, frequency, phraseIndex.redirects))
   yield* eachJmdictEntry(options.jmdict, reader.add)
-  const jmdict = reader.finish()
+  const jmdict = { words: reader.finish(), formsOf: reader.formsOf() }
 
   let entries = toEntries(
-    mergeSources({ curated, wiktionary, ejdict, jmdict, frequency }),
+    mergeSources({ curated, wiktionary, jmdict, frequency }),
     frequency,
     existing,
     reader.backTranslations()
@@ -209,7 +219,6 @@ export const importFiles = Effect.fn("Eiwa.importFiles")(function* (options: Imp
     entries: entries.length,
     curated: bySource("curated"),
     wiktionary: bySource("wiktionary"),
-    ejdict: bySource("ejdict"),
     jmdict: bySource("jmdict")
   }
 })
