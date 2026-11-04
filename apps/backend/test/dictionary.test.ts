@@ -314,6 +314,39 @@ layer(testLayer(false))("Dictionary", (it) => {
     })
   )
 
+  it.effect("finds JMDict entries written with fullwidth Latin characters when searched in ASCII", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      yield* insertEntries(db, [
+        entry(1032910, "ＯＢ", "オー・ビー", [sense(["old boy", "alumnus", "out of bounds"], ["n"])]),
+        entry(1032920, "ＯＢ会", "オービーかい", [sense(["alumni association"], ["n"])], false),
+        entry(1039000, "Ｔシャツ", "ティーシャツ", [sense(["T-shirt"], ["n"])]),
+        entry(1019350, "ＩＮ", "イン", [sense(["in"], ["n"])], false),
+        entry(1423310, "中", "なか", [sense(["inside", "in"], ["n"])])
+      ])
+
+      for (const query of ["OB", "ob", "ＯＢ"]) {
+        const res = yield* dictionary.search(query, "ja", 10)
+        assert.strictEqual(res.mode, "japanese")
+        assert.deepStrictEqual(
+          res.entries.slice(0, 2).map((summary) => summary.headword),
+          ["ＯＢ", "ＯＢ会"]
+        )
+      }
+
+      for (const query of ["Tシャツ", "Ｔシャツ"]) {
+        const res = yield* dictionary.search(query, "ja", 10)
+        assert.strictEqual(res.mode, "japanese")
+        assert.strictEqual(res.entries[0]?.headword, "Ｔシャツ")
+      }
+
+      const inSearch = yield* dictionary.search("in", "ja", 10)
+      assert.strictEqual(inSearch.mode, "english")
+      assert.strictEqual(inSearch.entries[0]?.headword, "中")
+    })
+  )
+
   it.effect("assembles an English word as an entry, voiced and cross-referenced in English", () =>
     Effect.gen(function* () {
       const db = yield* Database

@@ -159,6 +159,9 @@ const formScore = (
 /** "EAT", "IT", "STARTed": capitals in a row, so a word apart from the lowercase one spelled the same. */
 const isAcronym = (text: string) => /[A-Z]{2}/.test(text)
 
+const toFullwidth = (text: string) =>
+  text.replace(/[\u0021-\u007e]/g, (ch) => String.fromCodePoint(ch.codePointAt(0)! + 0xfee0))
+
 /** JMDict's explanations, literal renderings and trademarks aren't English words to look up. */
 const BRIDGE_SKIPS = new Set(["expl", "lit", "tm"])
 /** The Japanese words whose glosses lead to English words, and how many of their senses and glosses. */
@@ -248,7 +251,8 @@ export class Dictionary extends Context.Service<
       // ---------------------------------------------------------------------
 
       const japaneseHits = Effect.fnUntraced(function* (query: string) {
-        const variants = unique([query, katakanaToHiragana(query)])
+        const full = toFullwidth(query)
+        const variants = unique([query, full, katakanaToHiragana(query), katakanaToHiragana(full)])
         const candidates = variants.flatMap(deinflect)
         const matches = yield* findForms(db, unique(candidates.map((candidate) => candidate.term)))
         const entries = new Map((yield* getEntries(db, unique(matches.map((m) => m.entryId)))).map((e) => [e.id, e]))
@@ -270,7 +274,7 @@ export class Dictionary extends Context.Service<
             }))
         })
 
-        const prefixIds = yield* findFormPrefix(db, query, 40)
+        const prefixIds = yield* findFormPrefix(db, full, 40)
         const ranks = yield* entryRanks(db, prefixIds)
         const prefix = prefixIds.map((entryId, index): Hit => ({
           entryId,
@@ -332,6 +336,17 @@ export class Dictionary extends Context.Service<
         const kana = romajiToKana(query)
         const romaji = kana === null ? [] : (yield* japaneseHits(kana)).filter((hit) => hit.score >= 700)
         const englishIsStrong = directScore >= 150
+        const fullwidth =
+          isAcronym(query) || (!englishIsStrong && romaji.length === 0 && !/\s/.test(query))
+            ? yield* japaneseHits(toFullwidth(query.toUpperCase()))
+            : []
+        if (fullwidth.some((hit) => hit.score >= 700)) {
+          return {
+            mode: "japanese" as const,
+            reading: null,
+            hits: keepBest([...fullwidth, ...english.map((h) => ({ ...h, score: h.score - 1000 }))])
+          }
+        }
         const preferRomaji = romaji.length > 0 && !englishIsStrong
         const hits = preferRomaji
           ? keepBest([...romaji, ...english.map((h) => ({ ...h, score: h.score - 1000 }))])

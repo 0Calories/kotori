@@ -64,21 +64,21 @@ const VERB_PREFIXES = [
 
 const PREP_PREFIXES = ["on ", "in ", "at ", "under ", "out of ", "behind ", "beyond ", "above ", "below ", "off "]
 
-const OBJECT_SWAPS: ReadonlyMap<string, ReadonlyArray<string>> = new Map([
+const OBJECT_SWAPS = new Map<string, ReadonlyArray<string>>([
   ...["me", "you", "him", "us", "them"].map((word) => [word, ["someone", "somebody"]] as const),
   ["her", ["someone", "somebody", "one's", "someone's"]],
   ["someone", ["somebody", "you", "me"]],
   ["somebody", ["someone", "you", "me"]]
 ])
 
-const POSSESSIVE_SWAPS: ReadonlyMap<string, ReadonlyArray<string>> = new Map([
+const POSSESSIVE_SWAPS = new Map<string, ReadonlyArray<string>>([
   ...["my", "your", "his", "our", "their"].map((word) => [word, ["one's", "someone's"]] as const),
   ["one's", ["someone's", "your", "my"]],
   ["someone's", ["one's", "your", "my"]],
   ["somebody's", ["one's", "someone's", "your", "my"]]
 ])
 
-const REFLEXIVE_SWAPS: ReadonlyMap<string, ReadonlyArray<string>> = new Map([
+const REFLEXIVE_SWAPS = new Map<string, ReadonlyArray<string>>([
   ...["myself", "yourself", "yourselves", "himself", "herself", "ourselves", "themselves"].map(
     (word) => [word, ["oneself"]] as const
   ),
