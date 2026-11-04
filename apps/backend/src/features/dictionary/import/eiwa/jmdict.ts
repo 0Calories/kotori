@@ -1,5 +1,5 @@
 import type { EntryRecord } from "@kotori/contracts"
-import { normalizeGloss, romanize, uninflect } from "@kotori/language"
+import { isEnglishFunctionWord, normalizeGloss, romanize, uninflect } from "@kotori/language"
 import { addRedirect, emptySense, type FormOf, isEnglish, type Word } from "./words.ts"
 
 /**
@@ -63,6 +63,63 @@ const VERB_PREFIXES = [
 ]
 
 const PREP_PREFIXES = ["on ", "in ", "at ", "under ", "out of ", "behind ", "beyond ", "above ", "below ", "off "]
+
+/**
+ * The words a gloss may wrap an attested phrase in without naming anything else: "a stone's
+ * throw away (from)" and "within a stone's throw (of)" both name "stone's throw". Particles,
+ * articles, a few adverbs of degree, forms of "be" and "get", and the dictionary's placeholders.
+ */
+const FRAME_WORDS = new Set([
+  ...PARTICLES,
+  "a",
+  "an",
+  "the",
+  "at",
+  "within",
+  "just",
+  "only",
+  "right",
+  "be",
+  "being",
+  "is",
+  "are",
+  "was",
+  "were",
+  "get",
+  "getting",
+  "someone",
+  "somebody",
+  "something",
+  "oneself",
+  "one's",
+  "someone's"
+])
+
+/** The most frame words around a phrase; more and the gloss is describing something else. */
+const MAX_FRAME = 3
+
+/** Words of a phrase that are its own, not placeholders, pronouns, articles or prepositions. */
+const contentWords = (words: ReadonlyArray<string>) => words.filter((word) => !isEnglishFunctionWord(word)).length
+
+/**
+ * The longest attested phrase inside a gloss, framed only by `FRAME_WORDS`: "stone's throw" in
+ * "within a stone's throw", with the gloss as a variant of it. The phrase needs two words of its
+ * own, or fragments the phrase index also lists ("of a", "on the") would claim every gloss
+ * holding them. Null when no such phrase is there.
+ */
+const framedPhrase = (words: ReadonlyArray<string>, attested: (phrase: string) => boolean): string | null => {
+  for (let length = words.length - 1; length >= 2; length--) {
+    for (let start = 0; start + length <= words.length; start++) {
+      const inside = words.slice(start, start + length)
+      const frame = [...words.slice(0, start), ...words.slice(start + length)]
+      if (frame.length > MAX_FRAME || !frame.every((word) => FRAME_WORDS.has(word))) continue
+      if (contentWords(inside) < 2) continue
+      const phrase = inside.join(" ")
+      if (attested(phrase)) return phrase
+    }
+  }
+  return null
+}
 
 const OBJECT_SWAPS = new Map<string, ReadonlyArray<string>>([
   ...["me", "you", "him", "us", "them"].map((word) => [word, ["someone", "somebody"]] as const),
@@ -210,6 +267,10 @@ export const jmdictReader = (known: KnownEnglish) => {
       if (target !== undefined) return { headword: target, variant: term }
       if (phrases.has(candidate)) return { headword: candidate, variant: term }
     }
+    // "a stone's throw away (from)", "within a stone's throw (of)": a phrase with a frame around
+    // it, which becomes a way the phrase is written.
+    const framed = framedPhrase(words, (phrase) => phrases.has(phrase) || redirects.has(phrase))
+    if (framed !== null) return { headword: redirects.get(framed) ?? framed, variant: term }
     return null
   }
 

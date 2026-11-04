@@ -11,6 +11,14 @@ const COMMON_WORDS = 10_000
 /** Baseline usage count for curated idioms/slang that don't appear in `en_50k.txt` unigrams. */
 const CURATED_FLOOR = 1_000
 
+/**
+ * Baseline usage count for a phrase at each familiarity rating, since the unigram counts can't
+ * see phrases: 5 ranks with everyday words, 3 with words in ordinary use, 1 with words that are
+ * only just understood. Curated entries carry their rating; the rest get theirs from
+ * `data/eiwa/familiarity.json` (`kotori familiarity`).
+ */
+const FAMILIARITY_FLOOR: Readonly<Record<number, number>> = { 1: 300, 2: 600, 3: CURATED_FLOOR, 4: 3_000, 5: 10_000 }
+
 export type Source = "curated" | "wiktionary" | "jmdict"
 
 /** A word as the dictionary will hold it, with where it came from. */
@@ -214,22 +222,26 @@ const attestedTranslations = (
  * How often a word is used: its own count and its inflections', since "ate" is "eat" being
  * used. The counts are of lowercased text, so where a capitalised word has a lowercase twin
  * the count is the twin's: "a", not the letter "A"; "may", not the month. Only the pronoun
- * "I" outranks its twin, the letter "i".
+ * "I" outranks its twin, the letter "i". A rated word (curated, or in the familiarity file)
+ * counts at least its rating's floor, unless the rating says it is little used and the
+ * subtitles counted it anyway.
  */
 const usage = (
   word: Built,
   frequency: ReadonlyMap<string, number>,
   lowercase: ReadonlyMap<string, Built>,
-  translations: ReadonlyMap<string, ReadonlyMap<string, number>>
+  translations: ReadonlyMap<string, ReadonlyMap<string, number>>,
+  ratings: ReadonlyMap<string, number>
 ) => {
   const twin = lowercase.get(word.headword.toLowerCase())
   if (twin !== undefined && twin !== word && !(pronoun(word) && !pronoun(twin))) return { count: 0, rawCount: 0 }
   const forms = new Set([word.headword, ...word.inflections.keys()].map((form) => form.toLowerCase()))
   let rawCount = 0
   for (const form of forms) rawCount += frequency.get(form) ?? 0
-  if (word.source === "curated") {
-    const floor = word.familiarity === 5 ? 10_000 : word.familiarity === 4 ? 3_000 : CURATED_FLOOR
-    const count = rawCount === 0 || (word.familiarity ?? 3) >= 3 ? Math.max(rawCount, floor) : rawCount
+  const familiarity = word.familiarity ?? ratings.get(word.headword.toLowerCase())
+  if (familiarity !== undefined || word.source === "curated") {
+    const floor = FAMILIARITY_FLOOR[familiarity ?? 3] ?? CURATED_FLOOR
+    const count = rawCount === 0 || (familiarity ?? 3) >= 3 ? Math.max(rawCount, floor) : rawCount
     return { count, rawCount }
   }
   if (rawCount === 0 && word.headword.includes(" ")) {
@@ -262,18 +274,20 @@ const form = (
 /**
  * Entry records for the merged words, most used first. Words already in the database keep
  * their ids, so saved words and enrichment survive a re-import; new words are numbered on.
+ * `ratings` are familiarity ratings by lowercased headword for words whose source has none.
  */
 export const toEntries = (
   words: ReadonlyArray<Built>,
   frequency: ReadonlyMap<string, number>,
   existing: ReadonlyMap<string, number>,
-  translations: ReadonlyMap<string, ReadonlyMap<string, number>> = new Map()
+  translations: ReadonlyMap<string, ReadonlyMap<string, number>> = new Map(),
+  ratings: ReadonlyMap<string, number> = new Map()
 ): Array<EntryRecord & { readonly source: Source }> => {
   const lowercase = new Map(
     words.filter((word) => word.headword === word.headword.toLowerCase()).map((word) => [word.headword, word])
   )
   const ranked = words
-    .map((word) => ({ word, ...usage(word, frequency, lowercase, translations) }))
+    .map((word) => ({ word, ...usage(word, frequency, lowercase, translations, ratings) }))
     .sort((a, b) => b.count - a.count || (a.word.headword < b.word.headword ? -1 : 1))
   let next = FIRST_ENGLISH_ID
   for (const id of existing.values()) next = Math.max(next, id)

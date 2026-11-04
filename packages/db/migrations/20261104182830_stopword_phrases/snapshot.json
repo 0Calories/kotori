@@ -1,0 +1,67 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "fd993341-5d74-4590-a6ed-93b7a0dbfc66",
+  "prevIds": ["c37516c6-f207-4215-9a98-45733eb354ee"],
+  "footprints": [
+    {
+      "statementType": "recreate_column",
+      "statementTarget": ["column", "public", "glosses", "document"],
+      "writes": ["s|col|public.glosses.document", "n|col|public.glosses.document", "e|col|public.glosses.document"],
+      "reads": ["n|tbl|public.glosses", "n|sch|public"],
+      "sqlHash": "e130c65772dcce34"
+    },
+    {
+      "statementType": "recreate_column",
+      "statementTarget": ["column", "public", "forms", "document"],
+      "writes": ["s|col|public.forms.document", "n|col|public.forms.document", "e|col|public.forms.document"],
+      "reads": ["n|tbl|public.forms", "n|sch|public"],
+      "sqlHash": "00d3c79270bcee20"
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "glosses", "glosses_document"],
+      "writes": [
+        "s|idx|public.glosses_document",
+        "n|idx|public.glosses_document",
+        "e|idx|public.glosses_document",
+        "n|rel|public.glosses_document"
+      ],
+      "reads": ["n|tbl|public.glosses", "n|sch|public", "n|col|public.glosses.document"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "forms", "forms_document"],
+      "writes": [
+        "s|idx|public.forms_document",
+        "n|idx|public.forms_document",
+        "e|idx|public.forms_document",
+        "n|rel|public.forms_document"
+      ],
+      "reads": ["n|tbl|public.forms", "n|sch|public", "n|col|public.forms.document"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"glosses\",\"document\"]",
+      "set": {
+        "generated": {
+          "as": "CASE WHEN length(to_tsvector('english', \"glosses\".\"text\")) = 0 THEN to_tsvector('simple', \"glosses\".\"text\") ELSE to_tsvector('english', \"glosses\".\"text\") END",
+          "type": "stored"
+        }
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"forms\",\"document\"]",
+      "set": {
+        "generated": {
+          "as": "CASE WHEN length(to_tsvector('english', \"forms\".\"text\")) = 0 THEN to_tsvector('simple', \"forms\".\"text\") ELSE to_tsvector('english', \"forms\".\"text\") END",
+          "type": "stored"
+        }
+      }
+    }
+  ]
+}

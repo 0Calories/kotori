@@ -10,7 +10,7 @@ import {
   parsePhraseIndex,
   parseWiktionary
 } from "../../src/features/dictionary/import/eiwa/wiktionary.ts"
-import { emptySense, formOf } from "../../src/features/dictionary/import/eiwa/words.ts"
+import { emptySense, formOf, type Word } from "../../src/features/dictionary/import/eiwa/words.ts"
 
 // Lines as Wiktextract writes them for Japanese Wiktionary, trimmed to the fields read.
 const line = (entry: object) => JSON.stringify({ lang_code: "en", lang: "英語", ...entry })
@@ -487,6 +487,39 @@ describe("wordsFromJmdict", () => {
       ])
     )
   })
+  it("finds an attested phrase inside a framed gloss, keeping the gloss as a way it is written", () => {
+    const reader = jmdictReader({
+      words: new Set(["police station"]),
+      verbs: new Set(),
+      // "on the" and "of a": fragments the phrase index lists too.
+      phrases: new Set(["stone's throw", "on the", "of a"]),
+      frequency: new Map()
+    })
+    reader.add(
+      jmdictEntry(
+        40,
+        "目と鼻の先",
+        "めとはなのさき",
+        ["very close", "within a stone's throw (of)", "a stone's throw away (from)"],
+        false,
+        ["exp", "n"],
+        ["id"]
+      )
+    )
+    // The frame "head of a" names something else, and "on the dot" has no phrase of its own in it.
+    reader.add(jmdictEntry(41, "署長", "しょちょう", ["head of a police station"], true, ["n"]))
+    reader.add(jmdictEntry(42, "きっかり", "きっかり", ["on the dot"], false, ["adv"]))
+
+    const built = reader.finish()
+    const stonesThrow = built.find((w) => w.headword === "stone's throw")
+    expect(stonesThrow?.senses.map((s) => s.glosses.map((g) => g.text))).toEqual([["目と鼻の先"]])
+    expect(stonesThrow?.spellings).toEqual(["within a stone's throw", "stone's throw away"])
+    expect(reader.formsOf()).toEqual([
+      { text: "within a stone's throw", base: "stone's throw", tags: [] },
+      { text: "stone's throw away", base: "stone's throw", tags: [] }
+    ])
+    expect(built.map((w) => w.headword)).toEqual(["stone's throw"])
+  })
 })
 
 describe("toEntries", () => {
@@ -718,6 +751,37 @@ describe("toEntries", () => {
       ["kim", false],
       ["website", true]
     ])
+  })
+
+  it("gives phrases the familiarity file rates a usage floor, as curated ratings get", () => {
+    const phrase = (headword: string): Word => ({
+      headword,
+      ipa: null,
+      spellings: [],
+      inflections: [],
+      senses: [{ ...emptySense(), glosses: [{ text: "意味", type: null }], pos: ["exp"] }],
+      mayBeName: false
+    })
+    const entries = toEntries(
+      mergeSources({
+        wiktionary: { words: [], formsOf: [] },
+        jmdict: { words: [phrase("it is what it is"), phrase("stone's throw"), phrase("unrated phrase")] },
+        frequency: new Map()
+      }),
+      new Map(),
+      new Map(),
+      new Map(),
+      new Map([
+        ["it is what it is", 5],
+        ["stone's throw", 2]
+      ])
+    )
+    expect(entries.find((e) => e.headword === "it is what it is")).toMatchObject({ priority: 80, common: true })
+    expect(entries.find((e) => e.headword === "stone's throw")).toMatchObject({
+      priority: Math.round(20 * Math.log10(600)),
+      common: false
+    })
+    expect(entries.find((e) => e.headword === "unrated phrase")).toMatchObject({ priority: 0, common: false })
   })
 })
 

@@ -1,4 +1,5 @@
 import { NodeHttpClient } from "@effect/platform-node"
+import { Claude, FamiliarityRater } from "@kotori/ai"
 import { Layer } from "effect"
 import { DatabaseLive } from "../db/Database.ts"
 import { Approvals } from "../features/accounts/Approvals.ts"
@@ -15,4 +16,10 @@ export const AccountsLive = Approvals.layer.pipe(
   Layer.provideMerge(MailerLive),
   Layer.provideMerge(DatabaseLive),
   Layer.provideMerge(NodeHttpClient.layerUndici)
+)
+
+/** What `kotori familiarity` needs: Claude to rate phrases, and the database for the phrases to rate. */
+export const FamiliarityLive = FamiliarityRater.layer.pipe(
+  Layer.provideMerge(Claude.layer),
+  Layer.provideMerge(DatabaseLive)
 )

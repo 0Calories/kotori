@@ -6,12 +6,13 @@ import { Command } from "effect/cli"
 import { adminCommand, approve, archive, devAccount, requests, revoke, users } from "../cli/accounts.ts"
 import { enrich } from "../cli/enrich.ts"
 import { evaluate } from "../cli/evaluate.ts"
+import { familiarity } from "../cli/familiarity.ts"
 import { golden } from "../cli/golden.ts"
 import { migrate } from "../cli/migrate.ts"
 import { seed } from "../cli/seed.ts"
 import { status } from "../cli/status.ts"
 import { DatabaseLive } from "../db/Database.ts"
-import { AccountsLive, SeedLive } from "../runtime/CliLayers.ts"
+import { AccountsLive, FamiliarityLive, SeedLive } from "../runtime/CliLayers.ts"
 import { loadDotEnv } from "../runtime/Paths.ts"
 import { loggerLayer, SentryLive } from "../runtime/Sentry.ts"
 import { WorkerLive } from "../runtime/WorkerLayers.ts"
@@ -26,6 +27,7 @@ const kotori = Command.make("kotori").pipe(
     migrate.pipe(Command.provide(DatabaseLive)),
     seed.pipe(Command.provide(SeedLive)),
     enrich.pipe(Command.provide(WorkerLive)),
+    familiarity.pipe(Command.provide(FamiliarityLive)),
     evaluate.pipe(Command.provide(Jev.layer)),
     golden,
     status.pipe(Command.provide(WorkerLive)),
