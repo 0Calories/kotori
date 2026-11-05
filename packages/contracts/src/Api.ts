@@ -8,7 +8,7 @@ import * as HttpApiSchema from "effect/http-api/HttpApiSchema"
 import * as OpenApi from "effect/http-api/OpenApi"
 import { Profile, UpdateProfileRequest, UserId } from "./Account.ts"
 import { HowToSayRequest, HowToSayResult, NaturalnessRequest, NaturalnessResult } from "./Coach.ts"
-import { AskRequest, Enrichment, Entry, EntryId, Proposal, SearchResult } from "./Dictionary.ts"
+import { AskRequest, Enrichment, Entry, EntryId, EntryUpdate, Proposal, SearchResult } from "./Dictionary.ts"
 import {
   AiUnavailable,
   AskRefused,
@@ -87,16 +87,26 @@ export class DictionaryApi extends HttpApiGroup.make("dictionary")
       },
       success: SearchResult
     }),
+    // An entry as stored. Read-only: looking at an entry never queues its enrichment.
     HttpApiEndpoint.get("entry", "/entries/:id", {
       params: { id: EntryId },
       success: Entry,
       error: NotFound
     }),
-    // Queue example sentences and audio for an entry that hasn't been enriched yet, within the
-    // learner's allowance of new entries an hour and a day.
+    // Queue nuance, example sentences and audio for an entry that hasn't been enriched yet, within
+    // the learner's allowance of new entries an hour and a day.
     HttpApiEndpoint.post("enrich", "/entries/:id/enrich", {
       params: { id: EntryId },
       success: Enrichment,
+      error: [NotFound, RateLimited]
+    }),
+    // The entry as it stands, then again each time its enrichment moves on, as Server-Sent
+    // Events. The stream ends once nothing is on its way, or after a few minutes (reconnect to
+    // carry on). Watching queues nothing.
+    HttpApiEndpoint.get("updates", "/entries/:id/updates", {
+      params: { id: EntryId },
+      success: HttpApiSchema.StreamSse({ data: EntryUpdate }),
+      // A learner has a few streams open at a time.
       error: [NotFound, RateLimited]
     }),
     // When a search found no exact match, ask Kotori to draft an entry (or name the one it missed).

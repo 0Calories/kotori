@@ -1,6 +1,8 @@
 import type {
   AddNoteRequest,
   CardId,
+  Enrichment,
+  Entry,
   EntryId,
   HowToSayRequest,
   Language,
@@ -14,9 +16,10 @@ import type {
   StudyStats
 } from "@kotori/contracts"
 import { keepPreviousData, useMutation, useMutationState, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useEffect } from "react"
 import type { AskAttempt } from "../lib/ask.ts"
 import { queueWithoutNote, statsWithoutNote, withoutNote } from "../lib/collection.ts"
-import { call } from "./client.ts"
+import { call, followEntry } from "./client.ts"
 
 export const keys = {
   health: ["health"] as const,
@@ -80,16 +83,12 @@ export const useLatestAsk = (language: Language, key: string): AskAttempt | unde
     })
   }).at(-1)
 
+/** An entry as stored. Reading it asks for nothing; `useLiveEntry` asks for what's missing and follows it. */
 export const useEntry = (id: number) =>
   useQuery({
     queryKey: keys.entry(id),
     queryFn: () => call((api) => api.dictionary.entry({ params: { id: id as EntryId } })),
-    enabled: Number.isInteger(id) && id > 0,
-    // While Kotori's worker is still enriching the entry, check back every few seconds.
-    refetchInterval: (query) => {
-      const enrichment = query.state.data?.enrichment
-      return enrichment && Object.values(enrichment).includes("queued") ? 3000 : false
-    }
+    enabled: Number.isInteger(id) && id > 0
   })
 
 export const useNotes = () => useQuery({ queryKey: keys.notes, queryFn: () => call((api) => api.study.notes()) })
@@ -165,8 +164,50 @@ export const useEnrich = (id: number) => {
   const client = useQueryClient()
   return useMutation({
     mutationFn: () => call((api) => api.dictionary.enrich({ params: { id: id as EntryId } })),
-    onSuccess: () => client.invalidateQueries({ queryKey: keys.entry(id) })
+    // What's on its way now; `useLiveEntry` follows it from here.
+    onSuccess: (enrichment: Enrichment) =>
+      client.setQueryData<Entry>(keys.entry(id), (entry) => (entry === undefined ? entry : { ...entry, enrichment }))
   })
+}
+
+/** Whether any of the entry's nuance, examples or audio is on its way (or not asked for yet). */
+export const awaitingEnrichment = (entry: Entry) => Object.values(entry.enrichment).includes("queued")
+
+/**
+ * The entry screen's entry, enriched while it's open: once it loads, asks for whatever it's
+ * missing or is due again (once per visit: `enrich` is this screen's own mutation), then follows
+ * the entry's live updates into the query until everything has arrived or isn't coming,
+ * reconnecting if the stream drops. Asking again is the screen's button, after a refusal or a
+ * failure.
+ *
+ * It asks even when nothing shows as on its way: only the server knows when a failed job is due
+ * another try, nuance predates the word's question set, or audio has gaps to fill. Asking about
+ * an entry with nothing to do costs the learner none of their allowance.
+ */
+export const useLiveEntry = (id: number, enrich: ReturnType<typeof useEnrich>) => {
+  const client = useQueryClient()
+  const entry = useEntry(id)
+  const loaded = entry.data !== undefined
+  const awaiting = loaded && awaitingEnrichment(entry.data)
+  const { isIdle: unasked, isSuccess: asked, mutate, reset } = enrich
+
+  // Another entry on the same screen is another visit.
+  useEffect(() => reset, [id, reset])
+  useEffect(() => {
+    if (loaded && unasked) mutate()
+  }, [loaded, unasked, mutate])
+
+  const following = awaiting && asked
+  useEffect(() => {
+    if (!following) return
+    return followEntry(
+      id as EntryId,
+      (update) => client.setQueryData(keys.entry(id), update),
+      (update) => !awaitingEnrichment(update)
+    )
+  }, [client, id, following])
+
+  return entry
 }
 
 export const useSpeak = () =>

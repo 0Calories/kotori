@@ -3,7 +3,8 @@ import { Link, useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { Platform, Share, View } from "react-native"
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated"
-import { useAddNote, useEnrich, useEntry, useNotes, useRemoveNote } from "../../src/api/queries.ts"
+import { ApiError } from "../../src/api/client.ts"
+import { useAddNote, useEnrich, useLiveEntry, useNotes, useRemoveNote } from "../../src/api/queries.ts"
 import { AudioButton } from "../../src/components/AudioButton.tsx"
 import { Button, IconButton } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
@@ -330,11 +331,12 @@ export default function EntryScreen() {
   const router = useRouter()
   const { id: rawId } = useLocalSearchParams<{ id?: string | string[] }>()
   const id = entryIdFromParam(rawId)
-  const entry = useEntry(id ?? 0)
+  // Asks for the entry's nuance, examples and audio once it loads without them, and follows them in.
+  const enrich = useEnrich(id ?? 0)
+  const entry = useLiveEntry(id ?? 0, enrich)
   const notes = useNotes()
   const addNote = useAddNote()
   const removeNote = useRemoveNote()
-  const enrich = useEnrich(id ?? 0)
   const [showAll, setShowAll] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [removingSense, setRemovingSense] = useState<number | null>(null)
@@ -420,7 +422,9 @@ export default function EntryScreen() {
   )
   const inflections = data.forms.filter((form) => form.kind === "inflection")
   const senses = showAll ? data.senses : data.senses.slice(0, 3)
-  const waiting = data.enrichment.examples === "queued" || data.enrichment.nuance === "queued"
+  // Nothing is on its way if asking for it was refused or didn't get through.
+  const waiting = !enrich.isError && (data.enrichment.examples === "queued" || data.enrichment.nuance === "queued")
+  const resting = enrich.error instanceof ApiError && enrich.error.tag === "RateLimited"
   const { featured, ownLine } = registers(t, data.senses)
   const similar = [
     ...new Map(data.senses.flatMap((sense) => sense.similar).map((word) => [word.entryId, word])).values()
@@ -645,7 +649,11 @@ export default function EntryScreen() {
                 {t.entry.dictionaryOnly}
               </Text>
               <Text variant="small" color="textMuted">
-                {t.entry.dictionaryOnlyBody(data.headword)}
+                {resting
+                  ? t.entry.askResting
+                  : enrich.isError
+                    ? t.entry.askFailed
+                    : t.entry.dictionaryOnlyBody(data.headword)}
               </Text>
             </View>
           </View>

@@ -108,6 +108,10 @@ export const Sense = Schema.Struct({
 })
 export type Sense = typeof Sense.Type
 
+/**
+ * `queued`: on its way, or, for an entry nobody has asked about yet, would be once asked for
+ * (`POST /dictionary/entries/:id/enrich`); looking at an entry never queues it.
+ */
 export const EnrichmentStatus = Schema.Literals(["ready", "queued", "unavailable"])
 export type EnrichmentStatus = typeof EnrichmentStatus.Type
 
@@ -146,6 +150,17 @@ export const Entry = Schema.Struct({
   enrichment: Enrichment
 })
 export type Entry = typeof Entry.Type
+
+/**
+ * One message on an entry's live updates: the entry as it now stands (sent on connecting and
+ * whenever its enrichment moves on), or a keep-alive while nothing has changed, so proxies that
+ * close quiet connections leave the stream open.
+ */
+export const EntryUpdate = Schema.Union([
+  Schema.TaggedStruct("Entry", { entry: Entry }),
+  Schema.TaggedStruct("KeepAlive", {})
+])
+export type EntryUpdate = typeof EntryUpdate.Type
 
 export const EntrySummary = Schema.Struct({
   ...Struct.pick(EntryRow.fields, ["id", "language", "headword", "reading", "common"]),

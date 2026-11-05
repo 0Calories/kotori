@@ -382,7 +382,7 @@ layer(testLayer(false))("Dictionary", (it) => {
       yield* saveAudio(db, clip("sentence-en", "We consume too much power.", "en"))
       yield* linkExampleAudio(db, written!.id, "en", "sentence-en")
 
-      const consume = Option.getOrThrow(yield* (yield* Dictionary).entry(EntryId.make(100000021), LEARNER))
+      const consume = Option.getOrThrow(yield* (yield* Dictionary).entry(EntryId.make(100000021)))
       assert.strictEqual(consume.language, "en")
       assert.strictEqual(consume.reading, "/kənˈsjuːm/")
       assert.strictEqual(consume.romaji, "")
@@ -749,7 +749,7 @@ layer(testLayer(false))("Dictionary: what Kotori wrote on an English word", (it)
         [{ sense: 0, note: null, noteJa: "建物や文章の「様式」に使う。", model: "test" }],
         new Date(0)
       )
-      const shown = Effect.map(dictionary.entry(EntryId.make(100000040), LEARNER), Option.getOrThrow)
+      const shown = Effect.map(dictionary.entry(EntryId.make(100000040)), Option.getOrThrow)
       assert.strictEqual((yield* shown).senses[0]?.noteJa, "建物や文章の「様式」に使う。")
       assert.isNull((yield* shown).loan)
 
@@ -798,7 +798,7 @@ layer(testLayer(false))("Dictionary: what Kotori wrote on an English word", (it)
         // Found through a cross-reference: no gloss in common, so its first meanings.
         { sense: 0, similarId: EntryId.make(100000052), similarity: 0.8, difference: "more_general", confidence: 0.8 }
       ])
-      const tension = Option.getOrThrow(yield* dictionary.entry(EntryId.make(100000050), LEARNER))
+      const tension = Option.getOrThrow(yield* dictionary.entry(EntryId.make(100000050)))
       assert.deepStrictEqual(
         tension.senses[0]?.similar.map((similar) => [similar.headword, similar.meaning]),
         [
@@ -1002,12 +1002,11 @@ layer(testLayer(true, true, { KOTORI_ENRICH_HOURLY_LIMIT: "2", KOTORI_ENRICH_DAI
           ids.map((id, n) => entry(id, `語${n}`, `ご${n}`, [sense([`word ${n}`], ["n"])]))
         )
         const queued = { nuance: "queued", examples: "queued", audio: "queued" }
-        const unavailable = { nuance: "unavailable", examples: "unavailable", audio: "unavailable" }
         yield* TestClock.setTime(0)
 
         // Two new entries this hour: each queues its nuance, examples and audio, billed to the learner.
         assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.requestEnrichment(ids[0]!, LEARNER)), queued)
-        assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.entry(ids[1]!, LEARNER)).enrichment, queued)
+        assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.requestEnrichment(ids[1]!, LEARNER)), queued)
         const first = yield* queuedFor(ids[0]!)
         assert.strictEqual(first.length, 3)
         assert.isTrue(first.every((job) => job.requestedBy === LEARNER.id))
@@ -1017,10 +1016,9 @@ layer(testLayer(true, true, { KOTORI_ENRICH_HOURLY_LIMIT: "2", KOTORI_ENRICH_DAI
           assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.requestEnrichment(ids[0]!, LEARNER)), queued)
         }
 
-        // A third is over the hourly allowance: asking fails, looking queues nothing and says so.
+        // A third is over the hourly allowance: asking fails and queues nothing.
         const refused = yield* dictionary.requestEnrichment(ids[2]!, LEARNER).pipe(Effect.flip)
         assert.strictEqual(refused._tag, "RateLimited")
-        assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.entry(ids[2]!, LEARNER)).enrichment, unavailable)
         assert.deepStrictEqual(yield* queuedFor(ids[2]!), [])
 
         // An admin isn't limited.

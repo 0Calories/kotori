@@ -105,7 +105,7 @@ The Anthropic client also accepts `ANTHROPIC_AUTH_TOKEN` or an `ant auth login` 
 
 ## Enrichment and dictionary data
 
-When a learner opens an unenriched entry, the API queues high-priority jobs that the background worker (`pnpm dev`) picks up automatically. You can also backfill common words in batches:
+Looking an entry up never queues anything. When the app opens an entry that's missing nuance, examples or audio, it asks for them (`POST /dictionary/entries/:id/enrich`, within the learner's allowance), and the API queues high-priority jobs that the background worker (`pnpm dev`) picks up automatically. The app follows the entry's live updates (`GET /dictionary/entries/:id/updates`, Server-Sent Events): the worker announces each finished job with a Postgres `NOTIFY`, and each API process `LISTEN`s and pushes the entry to whoever is watching it. You can also backfill common words in batches:
 
 ```sh
 pnpm kotori enrich nuance --limit 2000      # Jev register & similar words
@@ -163,6 +163,7 @@ Production runs on **Fly.io** (compute), **Neon** (Postgres 18 + Managed Better 
   - `@kotori/app:deploy` (`vercel pull && vercel build --prod && vercel deploy --prebuilt --prod`, using `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`) deploys the static web bundle (`vercel.json`).
   - Manual deploys: `pnpm nx run @kotori/backend:deploy` or `pnpm nx run @kotori/app:deploy`.
 - **Database migrations** (`packages/db/migrations`, generated via `pnpm --filter @kotori/db generate`) are forward-only. Because `release_command` migrates before new machines roll, destructive schema changes must use two deploys (expand first, contract in a later release).
+- **Live updates need the direct connection**: the API holds one `LISTEN` connection per machine, which Neon's pooled (`-pooler`, PgBouncer transaction mode) endpoint doesn't support, so `DATABASE_URL` must stay the direct connection string. A dropped listener (a compute restart or suspend) reconnects by itself, and the app's streams reconnect too. Each open entry screen that's waiting holds one streaming request, which counts toward `http_service.concurrency` in `fly.toml`.
 - **Seeding production dictionaries**: `pnpm kotori seed` (`--dictionary jmdict|english`) imports or updates dictionaries in place while preserving sense-linked enrichment and saved notes. Because the English Wiktionary stream peaks around ~500 MB RAM, run `pnpm kotori seed --dictionary english` from a local machine with the production `DATABASE_URL` rather than on the 512 MB Fly worker.
 - **Managed Auth & webhooks**: The API proxies `/api/auth/*` to `NEON_AUTH_BASE_URL` and verifies 15-minute EdDSA JWTs against Neon's JWKS (plus checking `neon_auth.session` for immediate revocation). Web origins must be registered as Neon Auth trusted domains (`KOTORI_WEB_ORIGINS` in `fly.toml` controls CORS for browser cookies). Verification and password-reset codes are delivered by Neon to `POST /webhooks/neon-auth` (verified via `X-Neon-Signature-Kid` and sent via Resend):
   ```sh

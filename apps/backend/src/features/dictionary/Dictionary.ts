@@ -68,7 +68,7 @@ const WARNING_RETRY_AFTER = 10 * 60 * 1000
 const HOUR = 60 * 60 * 1000
 const DAY = 24 * HOUR
 
-/** Who is looking at an entry: their looks queue its enrichment, within their allowance unless they're an admin. */
+/** Who asks for an entry's enrichment: their requests queue it, within their allowance unless they're an admin. */
 export type Requester = Pick<Profile, "id" | "role">
 
 interface Hit {
@@ -271,8 +271,8 @@ export class Dictionary extends Context.Service<
   {
     /** Searches the dictionary of `language`: Japanese words for learners of Japanese, English ones for learners of English. */
     search(query: string, language: Language, limit: number): Effect.Effect<SearchResult>
-    /** An entry, queuing what it's missing while `viewer` has allowance left (reported unavailable once not). */
-    entry(id: EntryId, viewer: Requester): Effect.Effect<Option.Option<Entry>>
+    /** An entry as stored, with its enrichment's status. Read-only: looking queues nothing (see `requestEnrichment`). */
+    entry(id: EntryId): Effect.Effect<Option.Option<Entry>>
     /** Queues whatever enrichment an entry is missing, returning its status; fails once the allowance is used up. */
     requestEnrichment(id: EntryId, requester: Requester): Effect.Effect<Option.Option<Enrichment>, RateLimited>
     /** Search-result summaries for known entries, for Ask Kotori's links. */
@@ -813,7 +813,7 @@ export class Dictionary extends Context.Service<
         return { enrichment, limited }
       })
 
-      const assemble = Effect.fnUntraced(function* (entry: EntryRecord, viewer: Requester) {
+      const assemble = Effect.fnUntraced(function* (entry: EntryRecord) {
         const tags = yield* tagLabels(db)
         const tag = (code: string): Tag => ({ code, label: tags.get(code) ?? code })
 
@@ -911,13 +911,13 @@ export class Dictionary extends Context.Service<
             loan?.word == null || loan.verdict === null
               ? null
               : { word: loan.word, verdict: loan.verdict, trap: loan.trap },
-          enrichment: (yield* enrichmentFor(entry, viewer)).enrichment
+          enrichment: (yield* enrichmentFor(entry, undefined)).enrichment
         } satisfies Entry
       })
 
-      const entry = Effect.fn("Dictionary.entry")(function* (id: EntryId, viewer: Requester) {
+      const entry = Effect.fn("Dictionary.entry")(function* (id: EntryId) {
         const [record] = yield* getEntries(db, [id])
-        return record === undefined ? Option.none() : Option.some(yield* assemble(record, viewer))
+        return record === undefined ? Option.none() : Option.some(yield* assemble(record))
       })
 
       const requestEnrichment = Effect.fn("Dictionary.requestEnrichment")(function* (
