@@ -1,19 +1,20 @@
 import type {
   AddNoteRequest,
   CardId,
-  Proposal,
   EntryId,
   HowToSayRequest,
   Language,
   NaturalnessRequest,
   Note,
   NoteId,
+  Proposal,
   Rating,
   ReviewQueue,
   SpeakRequest,
   StudyStats
 } from "@kotori/contracts"
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { keepPreviousData, useMutation, useMutationState, useQuery, useQueryClient } from "@tanstack/react-query"
+import type { AskAttempt } from "../lib/ask.ts"
 import { queueWithoutNote, statsWithoutNote, withoutNote } from "../lib/collection.ts"
 import { call } from "./client.ts"
 
@@ -21,6 +22,8 @@ export const keys = {
   health: ["health"] as const,
   search: (q: string, language: Language) => ["search", language, q] as const,
   asks: ["asks"] as const,
+  /** Asks of one query, by the key the server keeps its answer under (`normalizeAsk`). */
+  ask: (language: Language, key: string) => ["ask", language, key] as const,
   entry: (id: number) => ["entry", id] as const,
   notes: ["notes"] as const,
   queue: ["queue"] as const,
@@ -44,10 +47,14 @@ export const useSearch = (q: string, language: Language) =>
 export const useAsks = () =>
   useQuery({ queryKey: keys.asks, queryFn: () => call((api) => api.dictionary.asks()), staleTime: 60_000 })
 
-/** Asks Kotori about a search the dictionary couldn't answer. */
-export const useAsk = () => {
+/**
+ * Asks Kotori about a search the dictionary couldn't answer. The answer joins the learner's asks
+ * before the ask settles, so it shows from there whether or not the asking screen is still up.
+ */
+export const useAsk = (language: Language, key: string) => {
   const client = useQueryClient()
   return useMutation({
+    mutationKey: keys.ask(language, key),
     mutationFn: (q: string) => call((api) => api.dictionary.ask({ payload: { q } })),
     onSuccess: (proposal: Proposal) => {
       client.setQueryData<ReadonlyArray<Proposal>>(keys.asks, (asks = []) => [
@@ -57,6 +64,21 @@ export const useAsk = () => {
     }
   })
 }
+
+/**
+ * The latest ask of a query, wherever it was sent from: a screen that remounts, or a search
+ * typed away from and back to, still finds the ask in flight or how it ended.
+ */
+export const useLatestAsk = (language: Language, key: string): AskAttempt | undefined =>
+  useMutationState({
+    filters: { mutationKey: keys.ask(language, key), exact: true },
+    select: (mutation): AskAttempt => ({
+      status: mutation.state.status,
+      error: mutation.state.error,
+      data: mutation.state.data as Proposal | undefined,
+      submittedAt: mutation.state.submittedAt
+    })
+  }).at(-1)
 
 export const useEntry = (id: number) =>
   useQuery({
