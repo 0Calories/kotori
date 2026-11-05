@@ -42,6 +42,7 @@ import { Console, Effect, FileSystem, Option, Schema } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { turnAway } from "../features/asks/garbage.ts"
 import { resolveFromRoot } from "../runtime/Paths.ts"
+import { CommandFailed } from "./failure.ts"
 
 /** Booleans are judged where the app judges them: the display threshold. */
 const CAUTION_SHOWN = 0.6
@@ -280,10 +281,14 @@ export const evaluate = Command.make(
           .pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Recording))))
       : null
     if (recording === null && !jev.configured) {
-      return yield* Console.error("TYPESAFE_API_KEY is not set; eval needs Jev (or --from a recording).")
+      return yield* new CommandFailed({
+        message: "TYPESAFE_API_KEY is not set; eval needs Jev (or --from a recording)."
+      })
     }
     if (recording !== null && recording.kind !== kind) {
-      return yield* Console.error(`${from.pipe(Option.getOrElse(() => ""))} records a ${recording.kind} eval.`)
+      return yield* new CommandFailed({
+        message: `${from.pipe(Option.getOrElse(() => ""))} records a ${recording.kind} eval.`
+      })
     }
 
     const tags = new Map(Object.entries(fixture.tags))

@@ -6,11 +6,10 @@ import { Database } from "../db/Database.ts"
 import { nullEmptyLists } from "../db/lists.ts"
 import { moveClipsToBucket } from "../features/audio/move.ts"
 import { Bucket } from "../integrations/storage/Bucket.ts"
+import { CommandFailed } from "./failure.ts"
 
 const MB = 1024 * 1024
 
-/** A clean exit code would let a script carry on as if the step had finished. */
-const failExitCode = Effect.sync(() => void (process.exitCode = 1))
 const mb = (bytes: number) => `${(bytes / MB).toFixed(1)} MB`
 
 const lists = Command.make(
@@ -63,17 +62,16 @@ const audio = Command.make(
       onProgress: ({ moved, bytes }) => Console.log(`${moved.toLocaleString()} clips moved (${mb(bytes)})`)
     })
     yield* Console.log(`Moved ${result.moved.toLocaleString()} clips (${mb(result.bytes)}).`)
-    if (result.unverified.length > 0) {
-      yield* Console.error(
-        `${result.unverified.length} clips didn't read back the same and stay in audio_files: ${result.unverified.slice(0, 10).join(", ")}`
-      )
-      yield* failExitCode
-    }
     yield* Console.log(
       result.truncated
         ? "audio_files is empty and truncated, so its space is free."
         : "audio_files still has clips; run this again."
     )
+    if (result.unverified.length > 0) {
+      return yield* new CommandFailed({
+        message: `${result.unverified.length} clips didn't read back the same and stay in audio_files: ${result.unverified.slice(0, 10).join(", ")}`
+      })
+    }
   })
 ).pipe(
   Command.withDescription(
@@ -115,8 +113,9 @@ const compact = Command.make(
     })
     const stopped = steps.find((step) => !step.fits)
     if (stopped !== undefined && !dryRun) {
-      yield* Console.error(`Stopped at ${stopped.table}: free some space first, or raise --cap-mb if the cap allows.`)
-      yield* failExitCode
+      return yield* new CommandFailed({
+        message: `Stopped at ${stopped.table}: free some space first, or raise --cap-mb if the cap allows.`
+      })
     }
   })
 ).pipe(

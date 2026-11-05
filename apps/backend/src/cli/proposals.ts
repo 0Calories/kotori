@@ -1,6 +1,4 @@
 import type { Claude, Lexicographer } from "@kotori/ai"
-import { proposalAsks, proposals } from "@kotori/db"
-import { and, count, desc, eq } from "drizzle-orm"
 import { Console, Effect, type Layer, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { Database } from "../db/Database.ts"
@@ -9,22 +7,27 @@ import {
   APPROVED_JA_FILE,
   approveProposal,
   discardProposal,
+  listProposals,
+  PROPOSAL_FILTERS,
+  proposalById,
   redoProposal
 } from "../features/asks/review.ts"
 import type { Dictionary } from "../features/dictionary/Dictionary.ts"
 import { resolveFromRoot } from "../runtime/Paths.ts"
+import { CommandFailed } from "./failure.ts"
 
 const id = Argument.Int("id").pipe(Argument.withDescription("The proposal's id, from `kotori proposals list`"))
 
 const files = { en: resolveFromRoot(APPROVED_EN_FILE), ja: resolveFromRoot(APPROVED_JA_FILE) }
 
-const notFound = (id: number) => Console.error(`No proposal ${id}.`)
-const notPending = (id: number, status: string) => Console.error(`Proposal ${id} is ${status}, not pending.`)
+const failed = (message: string) => Effect.fail(new CommandFailed({ message }))
+const notFound = (id: number) => failed(`No proposal ${id}.`)
+const notPending = (id: number, status: string) => failed(`Proposal ${id} is ${status}, not pending.`)
 
 const list = Command.make(
   "list",
   {
-    status: Flag.Literals("status", ["pending", "linked", "rejected", "approved", "discarded", "all"]).pipe(
+    status: Flag.Literals("status", PROPOSAL_FILTERS).pipe(
       Flag.withDescription(
         "Which proposals to list: pending by default, rejected with --contested; rejected ones are worth a look for false negatives"
       ),
@@ -39,20 +42,7 @@ const list = Command.make(
     // Contested proposals are all rejections, so asking for them alone means the rejected ones.
     const status = Option.getOrElse(chosen, () => (contested ? "rejected" : "pending"))
     const db = yield* Database
-    const shown = yield* db
-      .select({ proposal: proposals, asks: count(proposalAsks.userId) })
-      .from(proposals)
-      .leftJoin(proposalAsks, eq(proposalAsks.proposalId, proposals.id))
-      .where(
-        and(
-          status === "all" ? undefined : eq(proposals.status, status),
-          contested ? eq(proposals.contested, true) : undefined
-        )
-      )
-      .groupBy(proposals.id)
-      .orderBy(desc(proposals.createdAt))
-      .limit(200)
-      .pipe(Effect.orDie)
+    const shown = yield* listProposals(db, { status, contested })
     if (shown.length === 0) {
       return yield* Console.log(status === "pending" && !contested ? "Nothing waiting." : "Nothing there.")
     }
@@ -82,9 +72,10 @@ const show = Command.make(
   { id },
   Effect.fn(function* ({ id }) {
     const db = yield* Database
-    const rows = yield* db.select().from(proposals).where(eq(proposals.id, id)).pipe(Effect.orDie)
-    if (rows[0] === undefined) return yield* notFound(id)
-    yield* Console.log(JSON.stringify(rows[0], null, 2))
+    yield* proposalById(db, id).pipe(
+      Effect.flatMap((proposal) => Console.log(JSON.stringify(proposal, null, 2))),
+      Effect.catchTag("NoSuchProposal", () => notFound(id))
+    )
   })
 ).pipe(Command.withDescription("Show one proposal in full, draft and all"))
 
@@ -113,7 +104,7 @@ const approve = Command.make(
       ),
       Effect.catchTag("NoSuchProposal", () => notFound(id)),
       Effect.catchTag("NotPending", (error) => notPending(id, error.status)),
-      Effect.catchTag("NoSuchAlias", (error) => Console.error(`No entry is written "${error.text}".`))
+      Effect.catchTag("NoSuchAlias", (error) => failed(`No entry is written "${error.text}".`))
     )
   })
 ).pipe(Command.withDescription("Turn a pending draft into a real entry (or an alias of one)"))
@@ -151,9 +142,9 @@ const redo = Command.make(
       ),
       Effect.catchTags({
         NoSuchProposal: () => notFound(id),
-        NotRejected: (error) => Console.error(`Proposal ${id} is ${error.status}, not rejected.`),
-        AiUnavailable: (error) => Console.error(error.message),
-        RateLimited: (error) => Console.error(error.message)
+        NotRejected: (error) => failed(`Proposal ${id} is ${error.status}, not rejected.`),
+        AiUnavailable: (error) => failed(error.message),
+        RateLimited: (error) => failed(error.message)
       })
     )
   })

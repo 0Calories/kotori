@@ -8,7 +8,7 @@
     "dev:app": "pnpm --filter @kotori/app run dev",
     "dev:setup": "tsx tools/dev-setup.ts",
     "seed": "pnpm --filter @kotori/backend run cli seed",
-    "kotori": "pnpm --filter @kotori/backend run cli",
+    "kotori": "pnpm --filter @kotori/backend run --silent kotori",
     "test": "nx run-many -t test",
     "typecheck": "nx run-many -t typecheck",
     "lint": "nx run-many -t lint && oxlint neon.ts vitest.shared.ts tools/*.ts",
