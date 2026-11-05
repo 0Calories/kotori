@@ -40,6 +40,16 @@ const japaneseVariants: Partial<Record<TextVariant, Spec>> = {
 
 const JAPANESE = /[　-ヿ㐀-鿿！-ﾟ]/
 
+/**
+ * On the web, Japanese text is marked `lang="ja"` and breaks between phrases (`word-break:
+ * auto-phrase`) instead of between any two characters, which split 口説き across lines and
+ * left a lone "す。" at the end. Chrome, Edge and Chrome for Android do this; Safari and Firefox
+ * break as before. React Native's types know neither the attribute nor the value, and
+ * react-native-web passes both through. Native text has no such setting.
+ */
+const webJapanese = Platform.OS === "web" ? { lang: "ja" } : {}
+const webPhraseBreaks = Platform.OS === "web" ? ({ wordBreak: "auto-phrase" } as TextStyle) : undefined
+
 const plain = (children: ReactNode): string =>
   typeof children === "string" || typeof children === "number"
     ? String(children)
@@ -85,10 +95,14 @@ export const Text = ({
   const lineHeight = size ? Math.round(size * (japanese || mincho ? 1.5 : 1.3)) : spec.lineHeight
   const face = weight ?? spec.weight
   const fontFamily = mincho ? theme.font.mincho : japanese ? theme.font.japanese[face] : theme.font[face]
+  // Japanese copy, and the Japanese words being learned; not English copy that quotes a Japanese word.
+  const phrased = japaneseCopy || mincho
   return (
     <RNText
       {...props}
+      {...(phrased ? webJapanese : {})}
       style={[
+        phrased ? webPhraseBreaks : undefined,
         {
           color: theme.color[color],
           fontSize,
