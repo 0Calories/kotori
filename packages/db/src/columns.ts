@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { type AnyPgColumn, customType, pgEnum, snakeCase, timestamp } from "drizzle-orm/pg-core"
+import { type AnyPgColumn, customType, pgEnum, snakeCase, text, timestamp } from "drizzle-orm/pg-core"
 import * as Schema from "effect/Schema"
 
 /** Table constructor for every table in this schema: camelCase fields, snake_case columns. */
@@ -19,6 +19,19 @@ export const createdAt = () => timestamptz().notNull().defaultNow()
 export const bytewiseText = customType<{ data: string }>({
   dataType: () => `text COLLATE "C"`
 })
+
+/**
+ * A list of strings, NULL when empty. An empty `text[]` still takes 16 bytes and a NULL none,
+ * and most of the dictionary's lists are empty (85% of those on senses, 93% on forms), so its
+ * rows store them this way: written through `nullIfEmpty`, read through `emptyIfNull`. Records
+ * and the API always carry an array.
+ */
+export const textList = () => text().array()
+
+export const nullIfEmpty = (values: ReadonlyArray<string>): Array<string> | null =>
+  values.length === 0 ? null : [...values]
+
+export const emptyIfNull = (values: ReadonlyArray<string> | null): ReadonlyArray<string> => values ?? []
 
 /**
  * The full-text document of an English column: `to_tsvector('english', column)`, which stems

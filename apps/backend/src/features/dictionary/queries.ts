@@ -1,5 +1,6 @@
 import type { EntryRecord, Language } from "@kotori/contracts"
 import {
+  emptyIfNull,
   englishDocument,
   entries,
   type EntryId,
@@ -13,6 +14,7 @@ import {
   jobKind,
   type NoteId,
   notes,
+  nullIfEmpty,
   senseNotes,
   senseNuance,
   senses,
@@ -261,9 +263,9 @@ export const insertEntries = Effect.fn("dictionary.insertEntries")(function* (
           position: position[form.kind]++,
           text: form.text,
           common: form.common,
-          tags: [...form.tags],
-          priorities: [...form.priorities],
-          restrictions: [...form.restrictions],
+          tags: nullIfEmpty(form.tags),
+          priorities: nullIfEmpty(form.priorities),
+          restrictions: nullIfEmpty(form.restrictions),
           noKanji: form.noKanji
         }))
       })
@@ -273,16 +275,16 @@ export const insertEntries = Effect.fn("dictionary.insertEntries")(function* (
         entry.senses.map((sense, position) => ({
           entryId: entry.id,
           position,
-          pos: [...sense.pos],
-          misc: [...sense.misc],
-          fields: [...sense.fields],
-          dialects: [...sense.dialects],
-          info: [...sense.info],
-          stagk: [...sense.stagk],
-          stagr: [...sense.stagr],
-          xrefs: [...sense.xrefs],
-          antonyms: [...sense.antonyms],
-          sources: [...sense.sources],
+          pos: nullIfEmpty(sense.pos),
+          misc: nullIfEmpty(sense.misc),
+          fields: nullIfEmpty(sense.fields),
+          dialects: nullIfEmpty(sense.dialects),
+          info: nullIfEmpty(sense.info),
+          stagk: nullIfEmpty(sense.stagk),
+          stagr: nullIfEmpty(sense.stagr),
+          xrefs: nullIfEmpty(sense.xrefs),
+          antonyms: nullIfEmpty(sense.antonyms),
+          sources: nullIfEmpty(sense.sources),
           wasei: sense.wasei
         }))
       )
@@ -407,11 +409,28 @@ export const getEntries = Effect.fn("dictionary.getEntries")(function* (
     return [
       {
         ...entry,
-        forms: formRows.filter((form) => form.entryId === id).map(({ entryId: _, position: __, ...form }) => form),
+        forms: formRows
+          .filter((form) => form.entryId === id)
+          .map(({ entryId: _, position: __, ...form }) => ({
+            ...form,
+            tags: emptyIfNull(form.tags),
+            priorities: emptyIfNull(form.priorities),
+            restrictions: emptyIfNull(form.restrictions)
+          })),
         senses: senseRows
           .filter((sense) => sense.entryId === id)
           .map(({ entryId: _, position, ...sense }) => ({
             ...sense,
+            pos: emptyIfNull(sense.pos),
+            misc: emptyIfNull(sense.misc),
+            fields: emptyIfNull(sense.fields),
+            dialects: emptyIfNull(sense.dialects),
+            info: emptyIfNull(sense.info),
+            stagk: emptyIfNull(sense.stagk),
+            stagr: emptyIfNull(sense.stagr),
+            xrefs: emptyIfNull(sense.xrefs),
+            antonyms: emptyIfNull(sense.antonyms),
+            sources: emptyIfNull(sense.sources),
             glosses: glossRows
               .filter((gloss) => gloss.entryId === id && gloss.sense === position)
               .map((gloss) => ({ text: gloss.text, type: gloss.type }))
@@ -420,6 +439,9 @@ export const getEntries = Effect.fn("dictionary.getEntries")(function* (
     ]
   })
 }, Effect.orDie)
+
+/** A list column as an array, empty where the row stores NULL (see `@kotori/db`'s `textList`). */
+const listOf = <C extends AnyColumn>(column: C) => sql`coalesce(${column}, '{}')`.mapWith(column)
 
 /** `lower(text)`, which `forms_folded` indexes for English forms, so English matches whatever the case. */
 const folded = sql<string>`lower(${forms.text})`
@@ -453,7 +475,7 @@ export const findForms = Effect.fn("dictionary.findForms")(function* (
   language: Language = "ja"
 ) {
   if (texts.length === 0) return []
-  const match = { entryId: forms.entryId, text: forms.text, kind: forms.kind, tags: forms.tags }
+  const match = { entryId: forms.entryId, text: forms.text, kind: forms.kind, tags: listOf(forms.tags) }
   if (language === "ja") {
     return yield* db
       .select(match)
@@ -519,7 +541,7 @@ export const searchForms = Effect.fn("dictionary.searchForms")(function* (
       entryId: forms.entryId,
       text: forms.text,
       kind: forms.kind,
-      tags: forms.tags,
+      tags: listOf(forms.tags),
       rank: rank.mapWith(Number)
     })
     .from(forms)
@@ -578,7 +600,7 @@ export const searchFormsFuzzy = Effect.fn("dictionary.searchFormsFuzzy")(functio
       entryId: forms.entryId,
       text: forms.text,
       kind: forms.kind,
-      tags: forms.tags,
+      tags: listOf(forms.tags),
       similarity: match.similarity.mapWith(Number)
     })
     .from(forms)
@@ -595,7 +617,7 @@ const glossMatch = {
   position: glosses.position,
   text: glosses.text,
   glossCount,
-  misc: senses.misc
+  misc: listOf(senses.misc)
 }
 
 // `rank` is negated ts_rank_cd so it keeps the old FTS5 bm25 shape: ascending, more negative = better.
@@ -752,7 +774,7 @@ export const loanCandidates = Effect.fn("dictionary.loanCandidates")(function* (
     sql`, `
   )
   const bySource = yield* db
-    .select({ entryId: senses.entryId, sources: senses.sources, priority: entries.priority })
+    .select({ entryId: senses.entryId, sources: listOf(senses.sources), priority: entries.priority })
     .from(senses)
     .innerJoin(entries, eq(entries.id, senses.entryId))
     .where(

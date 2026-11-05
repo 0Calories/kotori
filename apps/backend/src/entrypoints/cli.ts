@@ -12,6 +12,7 @@ import { migrate } from "../cli/migrate.ts"
 import { proposalsCommand } from "../cli/proposals.ts"
 import { seed } from "../cli/seed.ts"
 import { status } from "../cli/status.ts"
+import { storage } from "../cli/storage.ts"
 import { DatabaseLive } from "../db/Database.ts"
 import { AccountsLive, FamiliarityLive, RedoLive, SeedLive } from "../runtime/CliLayers.ts"
 import { loadDotEnv } from "../runtime/Paths.ts"
@@ -33,6 +34,7 @@ const kotori = Command.make("kotori").pipe(
     evaluate.pipe(Command.provide(Jev.layer)),
     golden,
     status.pipe(Command.provide(WorkerLive)),
+    storage.pipe(Command.provide(DatabaseLive)),
     requests.pipe(Command.provide(AccountsLive)),
     approve.pipe(Command.provide(AccountsLive)),
     archive.pipe(Command.provide(AccountsLive)),
