@@ -1,4 +1,5 @@
 import { PgClient } from "@effect/sql-pg"
+import type { SQL } from "drizzle-orm"
 import * as PgDrizzle from "drizzle-orm/effect-postgres"
 import { makePgArray, type PgCodecs, type PgQueryResultHKT } from "drizzle-orm/pg-core"
 import type { PgEffectDatabase } from "drizzle-orm/pg-core/effect"
@@ -37,6 +38,10 @@ export class Database extends Context.Service<Database, DatabaseShape>()("@kotor
   /** Drizzle over whichever `PgClient` is in scope; see `DatabaseLive` and `DatabaseMemory`. */
   static readonly layer = Layer.effect(Database, PgDrizzle.makeWithDefaults({ relations, codecs: pgCodecs }))
 }
+
+/** The rows of a raw statement: `execute` is untyped on the drivers' common base, and both drivers' results have `rows`. */
+export const rawRows = <A>(db: DatabaseShape, statement: SQL) =>
+  db.execute(statement).pipe(Effect.map((result) => (result as { readonly rows: ReadonlyArray<A> }).rows))
 
 /** The Postgres client at `DATABASE_URL` (default `postgres://kotori:kotori@localhost:5432/kotori`). */
 const PgLive = Layer.unwrap(

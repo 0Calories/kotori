@@ -3,7 +3,7 @@ import { createdAt, language, table } from "./columns.ts"
 
 /**
  * Content-addressed speech clips: `key` is sha256(voice, model, text), so the same
- * phrase is never synthesised twice. Metadata here, bytes in `audio_files`.
+ * phrase is never synthesised twice. Metadata here, bytes in a bucket or `audio_files`.
  */
 export const audio = table("audio", {
   key: text().primaryKey(),

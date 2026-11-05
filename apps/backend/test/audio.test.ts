@@ -57,7 +57,7 @@ const TestLayer = AudioEnricher.layer.pipe(
   Layer.provideMerge(Speech.layer),
   Layer.provideMerge(
     Layer.mergeAll(
-      AudioStore.layer,
+      AudioStore.database,
       Pronouncer.layer.pipe(Layer.provide(Layer.mergeAll(FakeElevenLabs, FakeJev, FullCasts)))
     )
   ),

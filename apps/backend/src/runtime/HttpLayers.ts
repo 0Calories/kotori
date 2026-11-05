@@ -16,18 +16,26 @@ import { MailerLive } from "../integrations/email/live.ts"
 /** Providers that talk to external services: the AI providers and email. */
 const ProvidersLive = Layer.merge(AiProviders, MailerLive)
 
-/** Application services on top of the AI capabilities and the providers. */
+/** Application services on top of the AI capabilities, the providers and the clip store. */
 const ServicesLive = Layer.mergeAll(Accounts.layer, Study.layer, Coaching.layer, Asks.layer, AuthWebhooks.layer).pipe(
   Layer.provideMerge(Dictionary.layer),
   Layer.provideMerge(Speech.layer),
-  Layer.provideMerge(Layer.mergeAll(AudioStore.layer, Coach.layer, Pronouncer.layer, Lexicographer.layer))
+  Layer.provideMerge(Layer.mergeAll(Coach.layer, Pronouncer.layer, Lexicographer.layer))
 )
 
-/** The services over the given database, with the given providers and auth. */
-export const makeApp = <P, EP, RP, ED, RD, EA, RA>(
+/** The services over the given database, with the given providers, auth and clip store. */
+export const makeApp = <P, EP, RP, ED, RD, EA, RA, ES, RS>(
   providers: Layer.Layer<P, EP, RP>,
   database: Layer.Layer<Database | SqlClient.SqlClient, ED, RD>,
-  auth: Layer.Layer<Auth, EA, RA>
-) => ServicesLive.pipe(Layer.provideMerge(providers), Layer.provideMerge(auth), Layer.provideMerge(database))
+  auth: Layer.Layer<Auth, EA, RA>,
+  audio: Layer.Layer<AudioStore, ES, RS>
+) =>
+  ServicesLive.pipe(
+    Layer.provideMerge(audio),
+    Layer.provideMerge(providers),
+    Layer.provideMerge(auth),
+    Layer.provideMerge(database)
+  )
 
-export const AppLive = makeApp(ProvidersLive, DatabaseLive, Auth.layer)
+/** The API's services, with the clips in the configured bucket or the table (`AudioStore.layer`). */
+export const AppLive = makeApp(ProvidersLive, DatabaseLive, Auth.layer, AudioStore.layer)

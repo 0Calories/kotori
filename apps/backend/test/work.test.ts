@@ -146,7 +146,7 @@ const TestLayer = Enrichers.layer.pipe(
   Layer.provideMerge(Layer.mergeAll(NuanceEnricher.layer, AudioEnricher.layer)),
   Layer.provideMerge(Speech.layer),
   Layer.provideMerge(
-    Layer.mergeAll(AudioStore.layer, NuanceJudge.layer, ExampleWriter.layer, LoanWriter.layer, Pronouncer.layer)
+    Layer.mergeAll(AudioStore.database, NuanceJudge.layer, ExampleWriter.layer, LoanWriter.layer, Pronouncer.layer)
   ),
   Layer.provideMerge(Layer.mergeAll(FakeJev, FakeClaude, FakeElevenLabs)),
   Layer.provideMerge(DatabaseMemory)

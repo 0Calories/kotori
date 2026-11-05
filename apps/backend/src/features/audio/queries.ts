@@ -3,7 +3,7 @@ import { asc, eq, gte, inArray, sum } from "drizzle-orm"
 import { Effect, Option } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 
-// The clip library's rows: each clip's metadata (its bytes are in `audio_files`, see AudioStore),
+// The clip library's rows: each clip's metadata (its bytes are in a bucket or `audio_files`, see AudioStore),
 // and which clips read each headword and each example sentence.
 
 /** How an example clip's voice was chosen, kept for debugging and re-casting. */

@@ -1,8 +1,8 @@
 import { entries, forms, senses } from "@kotori/db"
-import { type SQL, sql } from "drizzle-orm"
+import { sql } from "drizzle-orm"
 import type { AnyPgColumn } from "drizzle-orm/pg-core"
 import { Effect } from "effect"
-import type { DatabaseShape } from "./Database.ts"
+import { type DatabaseShape, rawRows } from "./Database.ts"
 
 /** The tables whose lists the import writes NULL when empty (`textList`), and those lists. */
 const tables = [
@@ -25,10 +25,6 @@ const tables = [
   },
   { name: "forms", table: forms, entryId: forms.entryId, lists: [forms.tags, forms.priorities, forms.restrictions] }
 ] as const
-
-/** The rows of a raw statement: `execute` is untyped on the drivers' common base, and both results have `rows`. */
-const rowsOf = <A>(db: DatabaseShape, statement: SQL) =>
-  db.execute(statement).pipe(Effect.map((result) => (result as { readonly rows: ReadonlyArray<A> }).rows))
 
 export interface NullEmptyListsOptions {
   /** Entries per `UPDATE`. */
@@ -74,14 +70,14 @@ export const nullEmptyLists = Effect.fn("storage.nullEmptyLists")(function* (
       if (options.onProgress) yield* options.onProgress({ table: name, entries: done, rows: total })
     })
     while (true) {
-      const [range] = yield* rowsOf<{ first: number | null; last: number | null; count: number }>(
+      const [range] = yield* rawRows<{ first: number | null; last: number | null; count: number }>(
         db,
         sql`SELECT min(id) AS first, max(id) AS last, count(*)::int AS count FROM (
           SELECT ${entries.id} AS id FROM ${entries} WHERE ${entries.id} > ${after} ORDER BY ${entries.id} LIMIT ${options.batch}
         ) AS batch`
       )
       if (range?.first == null || range.last == null) break
-      const [changed] = yield* rowsOf<{ rows: number }>(
+      const [changed] = yield* rawRows<{ rows: number }>(
         db,
         sql`WITH changed AS (
           UPDATE ${table} SET ${set}
