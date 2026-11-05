@@ -1,0 +1,206 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "ccf3baca-15d1-4aab-b7ac-68d669094873",
+  "prevIds": ["a7f4e787-d21c-4ec2-8b19-0faa7ffee8c7"],
+  "footprints": [
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "forms", "tags"],
+      "writes": ["s|colprop|public.forms.tags.notNull", "s|colprop|public.forms.tags.default"],
+      "reads": ["n|tbl|public.forms", "n|sch|public", "n|col|public.forms.tags"],
+      "sqlHash": "9b76531cdc7f754f"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "forms", "priorities"],
+      "writes": ["s|colprop|public.forms.priorities.notNull", "s|colprop|public.forms.priorities.default"],
+      "reads": ["n|tbl|public.forms", "n|sch|public", "n|col|public.forms.priorities"],
+      "sqlHash": "fd03d6d19efa891e"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "forms", "restrictions"],
+      "writes": ["s|colprop|public.forms.restrictions.notNull", "s|colprop|public.forms.restrictions.default"],
+      "reads": ["n|tbl|public.forms", "n|sch|public", "n|col|public.forms.restrictions"],
+      "sqlHash": "8ccd601e36e865fc"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "senses", "pos"],
+      "writes": ["s|colprop|public.senses.pos.notNull", "s|colprop|public.senses.pos.default"],
+      "reads": ["n|tbl|public.senses", "n|sch|public", "n|col|public.senses.pos"],
+      "sqlHash": "861976eb8e9ccb36"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "senses", "misc"],
+      "writes": ["s|colprop|public.senses.misc.notNull", "s|colprop|public.senses.misc.default"],
+      "reads": ["n|tbl|public.senses", "n|sch|public", "n|col|public.senses.misc"],
+      "sqlHash": "cfc2fc2ec3d9081a"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "senses", "fields"],
+      "writes": ["s|colprop|public.senses.fields.notNull", "s|colprop|public.senses.fields.default"],
+      "reads": ["n|tbl|public.senses", "n|sch|public", "n|col|public.senses.fields"],
+      "sqlHash": "67a2ae0fbcf16be9"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "senses", "dialects"],
+      "writes": ["s|colprop|public.senses.dialects.notNull", "s|colprop|public.senses.dialects.default"],
+      "reads": ["n|tbl|public.senses", "n|sch|public", "n|col|public.senses.dialects"],
+      "sqlHash": "f5f88adebe85b810"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "senses", "info"],
+      "writes": ["s|colprop|public.senses.info.notNull", "s|colprop|public.senses.info.default"],
+      "reads": ["n|tbl|public.senses", "n|sch|public", "n|col|public.senses.info"],
+      "sqlHash": "bde13d21e9a0b9db"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "senses", "stagk"],
+      "writes": ["s|colprop|public.senses.stagk.notNull", "s|colprop|public.senses.stagk.default"],
+      "reads": ["n|tbl|public.senses", "n|sch|public", "n|col|public.senses.stagk"],
+      "sqlHash": "934056d3cf2a07ee"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "senses", "stagr"],
+      "writes": ["s|colprop|public.senses.stagr.notNull", "s|colprop|public.senses.stagr.default"],
+      "reads": ["n|tbl|public.senses", "n|sch|public", "n|col|public.senses.stagr"],
+      "sqlHash": "999c21cb00cac960"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "senses", "xrefs"],
+      "writes": ["s|colprop|public.senses.xrefs.notNull", "s|colprop|public.senses.xrefs.default"],
+      "reads": ["n|tbl|public.senses", "n|sch|public", "n|col|public.senses.xrefs"],
+      "sqlHash": "3e914d05a9ba8022"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "senses", "antonyms"],
+      "writes": ["s|colprop|public.senses.antonyms.notNull", "s|colprop|public.senses.antonyms.default"],
+      "reads": ["n|tbl|public.senses", "n|sch|public", "n|col|public.senses.antonyms"],
+      "sqlHash": "2857c3ec2e1182e1"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "senses", "sources"],
+      "writes": ["s|colprop|public.senses.sources.notNull", "s|colprop|public.senses.sources.default"],
+      "reads": ["n|tbl|public.senses", "n|sch|public", "n|col|public.senses.sources"],
+      "sqlHash": "c4b04bccda254708"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"forms\",\"tags\"]",
+      "set": {
+        "notNull": false,
+        "default": null
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"forms\",\"priorities\"]",
+      "set": {
+        "notNull": false,
+        "default": null
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"forms\",\"restrictions\"]",
+      "set": {
+        "notNull": false,
+        "default": null
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"senses\",\"pos\"]",
+      "set": {
+        "notNull": false,
+        "default": null
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"senses\",\"misc\"]",
+      "set": {
+        "notNull": false,
+        "default": null
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"senses\",\"fields\"]",
+      "set": {
+        "notNull": false,
+        "default": null
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"senses\",\"dialects\"]",
+      "set": {
+        "notNull": false,
+        "default": null
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"senses\",\"info\"]",
+      "set": {
+        "notNull": false,
+        "default": null
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"senses\",\"stagk\"]",
+      "set": {
+        "notNull": false,
+        "default": null
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"senses\",\"stagr\"]",
+      "set": {
+        "notNull": false,
+        "default": null
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"senses\",\"xrefs\"]",
+      "set": {
+        "notNull": false,
+        "default": null
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"senses\",\"antonyms\"]",
+      "set": {
+        "notNull": false,
+        "default": null
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"senses\",\"sources\"]",
+      "set": {
+        "notNull": false,
+        "default": null
+      }
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm"
-import { type AnyPgColumn, boolean, index, integer, pgEnum, primaryKey, text } from "drizzle-orm/pg-core"
-import { bytewiseText, englishDocument, table } from "./columns.ts"
+import { type AnyPgColumn, boolean, index, integer, pgEnum, primaryKey } from "drizzle-orm/pg-core"
+import { bytewiseText, englishDocument, table, textList } from "./columns.ts"
 import { entries, type EntryId } from "./entries.ts"
 
 /**
@@ -19,6 +19,7 @@ export const isEnglishForm = (kind: AnyPgColumn) => sql`${kind} IN ('spelling', 
 /** Spellings: what English full-text and fuzzy search look through; inflections are only matched whole. */
 export const isSpelling = (kind: AnyPgColumn) => sql`${kind} = 'spelling'`
 
+/** Its lists are NULL when empty (`textList`). */
 export const forms = table(
   "forms",
   {
@@ -31,11 +32,11 @@ export const forms = table(
     text: bytewiseText().notNull(),
     common: boolean().notNull().default(false),
     /** JMDict `ke_inf` / `re_inf` codes, e.g. "rK" (rarely-used kanji), "sk" (search-only); for an inflection, what it is ("past"). */
-    tags: text().array().notNull().default([]),
+    tags: textList(),
     /** JMDict priority markers: news1, ichi1, spec1, gai1, nf01… */
-    priorities: text().array().notNull().default([]),
+    priorities: textList(),
     /** For kana forms: the kanji forms this reading belongs to; empty means all. */
-    restrictions: text().array().notNull().default([]),
+    restrictions: textList(),
     noKanji: boolean().notNull().default(false)
   },
   (t) => [
