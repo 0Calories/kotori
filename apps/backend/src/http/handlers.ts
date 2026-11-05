@@ -8,7 +8,9 @@ import { Accounts } from "../features/accounts/Accounts.ts"
 import { Asks } from "../features/asks/Asks.ts"
 import { Coaching } from "../features/coaching/Coaching.ts"
 import { Dictionary } from "../features/dictionary/Dictionary.ts"
-import { entryCount } from "../features/dictionary/index.ts"
+import { entryCount, getEntries } from "../features/dictionary/index.ts"
+import { liveEntry } from "../features/dictionary/live.ts"
+import { EnrichmentUpdates } from "../features/enrichment/EnrichmentUpdates.ts"
 import { Study } from "../features/study/Study.ts"
 import { Mailer } from "../integrations/email/Mailer.ts"
 
@@ -65,6 +67,8 @@ const DictionaryHandlers = HttpApiBuilder.group(
   "dictionary",
   Effect.fn(function* (handlers) {
     const dictionary = yield* Dictionary
+    const updates = yield* EnrichmentUpdates
+    const db = yield* Database
     const asksService = yield* Asks
     return handlers.handleAll({
       // Learners search the dictionary of the language they're learning.
@@ -72,13 +76,19 @@ const DictionaryHandlers = HttpApiBuilder.group(
         Effect.flatMap(CurrentUser, (user) =>
           dictionary.search(query.q, user.profile.targetLanguage, Math.min(Math.max(query.limit ?? 30, 1), 100))
         ),
-      entry: ({ params }) =>
-        Effect.flatMap(CurrentUser, (user) =>
-          dictionary.entry(params.id, user.profile).pipe(Effect.flatMap(orNotFound("No such entry")))
-        ),
+      // Looking is read-only; only `enrich` (an approved learner's explicit request) queues work.
+      entry: ({ params }) => dictionary.entry(params.id).pipe(Effect.flatMap(orNotFound("No such entry"))),
       enrich: ({ params }) =>
         Effect.flatMap(CurrentUser, (user) =>
           dictionary.requestEnrichment(params.id, user.profile).pipe(Effect.flatMap(orNotFound("No such entry")))
+        ),
+      updates: ({ params }) =>
+        getEntries(db, [params.id]).pipe(
+          Effect.flatMap((found) =>
+            found.length === 0
+              ? Effect.fail(new NotFound({ message: "No such entry" }))
+              : Effect.succeed(liveEntry(dictionary, updates, params.id))
+          )
         ),
       ask: ({ payload }) =>
         Effect.gen(function* () {

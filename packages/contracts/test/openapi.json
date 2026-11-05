@@ -2155,6 +2155,178 @@
         }
       }
     },
+    "/dictionary/entries/{id}/updates": {
+      "get": {
+        "tags": [
+          "dictionary"
+        ],
+        "operationId": "dictionary.updates",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "pattern": "^[+-]?\\d*\\.?\\d+(?:[Ee][+-]?\\d+)?$"
+            },
+            "required": true
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "event": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "string",
+                      "contentMediaType": "application/json"
+                    }
+                  },
+                  "required": [
+                    "event",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                },
+                "x-effect-stream": {
+                  "encoding": "sse",
+                  "causeSchema": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "_tag": {
+                              "type": "string",
+                              "enum": [
+                                "Fail"
+                              ]
+                            },
+                            "error": {
+                              "not": {}
+                            }
+                          },
+                          "required": [
+                            "_tag",
+                            "error"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "_tag": {
+                              "type": "string",
+                              "enum": [
+                                "Die"
+                              ]
+                            },
+                            "defect": {}
+                          },
+                          "required": [
+                            "_tag",
+                            "defect"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "_tag": {
+                              "type": "string",
+                              "enum": [
+                                "Interrupt"
+                              ]
+                            },
+                            "fiberId": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "_tag",
+                            "fiberId"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  },
+                  "errorSchema": {
+                    "not": {}
+                  },
+                  "failureEvent": "effect/http-api/stream/failure"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedEncoded"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PendingApproval",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingApprovalEncoded"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundEncoded"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "AuthUnavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthUnavailableEncoded"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/dictionary/ask": {
       "post": {
         "tags": [

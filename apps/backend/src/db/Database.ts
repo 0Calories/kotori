@@ -4,6 +4,7 @@ import * as PgDrizzle from "drizzle-orm/effect-postgres"
 import { makePgArray, type PgCodecs, type PgQueryResultHKT } from "drizzle-orm/pg-core"
 import type { PgEffectDatabase } from "drizzle-orm/pg-core/effect"
 import { Config, Context, Effect, Layer, Redacted } from "effect"
+import { Notifications } from "./Notifications.ts"
 import { relations } from "./relations.ts"
 
 /**
@@ -54,8 +55,8 @@ const PgLive = Layer.unwrap(
 )
 
 /**
- * The application database: Drizzle and the Effect SQL client over `DATABASE_URL`.
+ * The application database: Drizzle, the Effect SQL client and `LISTEN` over `DATABASE_URL`.
  * Does not migrate. Schema changes are applied by `kotori migrate` before the API and
  * worker start (Fly's release command in production, `pnpm dev:setup` locally).
  */
-export const DatabaseLive = Database.layer.pipe(Layer.provideMerge(PgLive))
+export const DatabaseLive = Layer.merge(Database.layer, Notifications.layer).pipe(Layer.provideMerge(PgLive))

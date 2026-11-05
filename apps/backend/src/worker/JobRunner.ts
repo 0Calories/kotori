@@ -1,5 +1,6 @@
 import { Cause, Clock, Effect, ErrorReporter, Exit, Option } from "effect"
 import { Database } from "../db/Database.ts"
+import { announceEnrichment } from "../features/enrichment/EnrichmentUpdates.ts"
 import { Enrichers } from "../features/enrichment/Enrichers.ts"
 import type { Job, JobKind } from "../features/enrichment/index.ts"
 import {
@@ -42,6 +43,7 @@ export const makeJobRunner = Effect.fn("makeJobRunner")(function* (kinds: Readon
           if (kind === "examples" && kinds.includes("audio"))
             yield* requeueJob(db, "audio", entryId, priority, finished, requestedBy)
           yield* completeJob(db, id, finished)
+          yield* announceEnrichment(db, entryId)
           yield* Effect.logInfo(`${kind} ${entryId}: ${exit.value}`)
         } else if (Cause.hasInterrupts(exit.cause)) {
           yield* releaseJob(db, id, finished)
@@ -54,6 +56,8 @@ export const makeJobRunner = Effect.fn("makeJobRunner")(function* (kinds: Readon
             new Date(finishedAt + RETRY_AFTER * 2 ** attempts),
             finished
           )
+          // Out of attempts, the job is now unavailable, which whoever is watching the entry should hear.
+          yield* announceEnrichment(db, entryId)
           yield* ErrorReporter.report(exit.cause)
           yield* Effect.logWarning(`${kind} ${entryId} failed (attempt ${attempts})`, exit.cause)
         }
