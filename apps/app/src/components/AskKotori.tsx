@@ -242,7 +242,7 @@ const answerWords = (
     case "draft":
       return live
         ? { title: t.dictionary.askDrafted, body: t.dictionary.askDraftedBody }
-        : { body: t.dictionary.askDraftedBefore }
+        : { body: t.dictionary.askDrafted }
     case "linked":
       return { body: answer.approved ? t.dictionary.askApproved : t.dictionary.askLinked }
     case "rejected":
