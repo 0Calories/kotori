@@ -1,4 +1,4 @@
-import { AskRefused, type AskRefusal, Authorization, KotoriApi } from "@kotori/contracts"
+import { AskRefused, type AskRefusal, Authorization, KotoriApi, RateLimited } from "@kotori/contracts"
 import * as Cause from "effect/Cause"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
@@ -48,7 +48,9 @@ export class ApiError extends Error {
     readonly tag: ApiErrorTag,
     message: string,
     /** Why Ask Kotori turned the query away, for an `AskRefused`: a code the app words. */
-    readonly refusal: AskRefusal | null = null
+    readonly refusal: AskRefusal | null = null,
+    /** For a `RateLimited`: how long the server said to wait, and when that wait ends (epoch ms). */
+    readonly retry: { readonly afterSeconds: number; readonly at: number } | null = null
   ) {
     super(message)
   }
@@ -65,6 +67,10 @@ const KNOWN = new Set<string>([
 
 const toApiError = (error: unknown): ApiError => {
   if (error instanceof AskRefused) return new ApiError("AskRefused", "", error.reason)
+  if (error instanceof RateLimited) {
+    const retry = { afterSeconds: error.retryAfterSeconds, at: Date.now() + error.retryAfterSeconds * 1000 }
+    return new ApiError("RateLimited", error.message, null, retry)
+  }
   if (Predicate.hasProperty(error, "_tag") && Predicate.isString(error._tag)) {
     const message = Predicate.hasProperty(error, "message") && Predicate.isString(error.message) ? error.message : ""
     if (KNOWN.has(error._tag)) return new ApiError(error._tag as ApiErrorTag, message)
