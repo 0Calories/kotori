@@ -1,11 +1,23 @@
-import { AskRefused, type AskRefusal, Authorization, KotoriApi, RateLimited } from "@kotori/contracts"
+import {
+  AskRefused,
+  type AskRefusal,
+  Authorization,
+  type Entry,
+  type EntryId,
+  KotoriApi,
+  RateLimited
+} from "@kotori/contracts"
+import { fetch as streamingFetch } from "expo/fetch"
 import * as Cause from "effect/Cause"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
+import * as Duration from "effect/Duration"
 import * as Exit from "effect/Exit"
 import * as Layer from "effect/Layer"
 import * as ManagedRuntime from "effect/ManagedRuntime"
 import * as Predicate from "effect/Predicate"
+import * as Schedule from "effect/Schedule"
+import * as Stream from "effect/Stream"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as HttpClient from "effect/http/HttpClient"
 import * as HttpClientRequest from "effect/http/HttpClientRequest"
@@ -117,4 +129,64 @@ export const call = async <A, E>(request: (api: Api["Service"]) => Effect.Effect
   }
   if (Exit.isSuccess(exit)) return exit.value
   throw toApiError(Cause.squash(exit.cause))
+}
+
+/** Waits before reconnecting a dropped (or finished, but still waiting) stream: 1 s doubling, at most 30 s. */
+const RECONNECT = Schedule.min([Schedule.exponential(Duration.seconds(1)), Schedule.spaced(Duration.seconds(30))])
+
+/** Stands for a stream that ended while the entry was still waiting, so it reconnects. */
+class StillWaiting {
+  readonly _tag = "StillWaiting"
+}
+
+/**
+ * Follows an entry's live updates, handing each version of the entry to `onEntry`, until
+ * `settled` says it's all there or the returned function stops it. A stream that drops (or ends
+ * after its few minutes) reconnects after a pause, and every connection starts with the entry
+ * as it stands, so nothing missed in between is lost. Not a sign-out on a refused JWT: the next
+ * connection mints a fresh one, and regular requests handle a session that's really gone.
+ *
+ * Streams through `expo/fetch`, whose responses stream on iOS and Android (React Native's own
+ * `fetch` buffers them) and which is the browser's `fetch` on the web. The JWT travels in the
+ * `Authorization` header as for every other call, which `EventSource` couldn't send.
+ */
+export const followEntry = (
+  id: EntryId,
+  onEntry: (entry: Entry) => void,
+  settled: (entry: Entry) => boolean
+): (() => void) => {
+  let done = false
+  let refresh = false
+  const connection = Effect.gen(function* () {
+    const api = yield* Api
+    token = yield* Effect.tryPromise(() => (refresh ? tokens.refresh() : tokens.current()))
+    refresh = false
+    const updates = yield* api.dictionary.updates({ params: { id } })
+    yield* Stream.runForEach(updates, (update) =>
+      Effect.sync(() => {
+        if (update._tag !== "Entry") return
+        done = settled(update.entry)
+        onEntry(update.entry)
+      })
+    )
+    if (!done) return yield* Effect.fail(new StillWaiting())
+  }).pipe(
+    Effect.tapError((error) =>
+      Effect.sync(() => {
+        if (Predicate.isTagged(error, "Unauthorized")) refresh = true
+      })
+    )
+  )
+  const fiber = runtime.runFork(
+    connection.pipe(
+      Effect.retry({ schedule: RECONNECT, while: () => !done }),
+      Effect.ignore,
+      Effect.provideService(FetchHttpClient.Fetch, streamingFetch as unknown as typeof globalThis.fetch),
+      Effect.provideService(HttpClient.TracerPropagationEnabled, false)
+    )
+  )
+  return () => {
+    done = true
+    fiber.interruptUnsafe()
+  }
 }

@@ -207,7 +207,12 @@ const en = {
     dictionaryOnly: "Dictionary entry only",
     dictionaryOnlyBody: (word: string) =>
       `Nuance, example sentences and audio are added to the most common words first. ${word} isn’t one of them yet.`,
-    ask: "Ask for this word"
+    ask: "Ask for this word",
+    /** Asking for a word was refused: the learner has asked for lots of new words lately. */
+    askResting:
+      "You've opened lots of new words lately, so Kotori is catching its breath. Ask again in a little while.",
+    /** Asking for a word didn't get through. */
+    askFailed: "Kotori couldn't get to this word just now."
   },
   nuance: {
     formality: "Formality",
@@ -671,7 +676,10 @@ const ja: Strings = {
     dictionaryOnly: "辞書の情報のみ",
     dictionaryOnlyBody: (word: string) =>
       `ニュアンス、例文、音声は、よく使われる単語から順に追加しています。${word} はまだ対象外です。`,
-    ask: "この単語をリクエスト"
+    ask: "この単語をリクエスト",
+    askResting:
+      "最近たくさんの新しい単語を開いたので、コトリはひと休み中です。少し待ってからもう一度リクエストしてね。",
+    askFailed: "コトリは今、この単語にたどり着けませんでした。"
   },
   nuance: {
     formality: "丁寧さ",
