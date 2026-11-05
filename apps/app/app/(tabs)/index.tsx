@@ -2,7 +2,7 @@ import type { EntrySummary, Language } from "@kotori/contracts"
 import { normalizeAsk } from "@kotori/language"
 import { useRouter } from "expo-router"
 import { useEffect, useRef, useState } from "react"
-import { Platform, TextInput, useWindowDimensions, View } from "react-native"
+import { type TextInput, useWindowDimensions, View } from "react-native"
 import Animated, { FadeIn, FadeInDown, LinearTransition } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useAsks, useQueue, useSearch, useStats } from "../../src/api/queries.ts"
@@ -15,6 +15,7 @@ import { Mascot } from "../../src/components/Mascot.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
 import { ResultRow } from "../../src/components/ResultRow.tsx"
 import { Screen } from "../../src/components/Screen.tsx"
+import { SearchField } from "../../src/components/SearchField.tsx"
 import { Snow } from "../../src/components/Snow.tsx"
 import { ErrorState } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
@@ -186,58 +187,7 @@ export default function LookUpScreen() {
         </View>
 
         <View style={{ marginTop: 24, marginHorizontal: theme.space.lg }}>
-          <View
-            style={[
-              {
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 10,
-                height: 60,
-                borderRadius: 30,
-                backgroundColor: theme.color.surface,
-                paddingLeft: 18,
-                paddingRight: 8,
-                borderWidth: 1.5,
-                borderColor: searching ? theme.color.primaryDark : "transparent"
-              },
-              theme.shadow(2)
-            ]}
-          >
-            <Icon name="search" size={24} color={theme.color.textMuted} />
-            <TextInput
-              ref={input}
-              value={query}
-              onChangeText={setQuery}
-              placeholder={t.dictionary.placeholder}
-              placeholderTextColor={theme.color.textFaint}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="search"
-              accessibilityLabel={t.dictionary.placeholder}
-              style={[
-                {
-                  flex: 1,
-                  // 16px on the web keeps iOS Safari from zooming into the field; the mock's 15.5 elsewhere.
-                  fontSize: Platform.OS === "web" ? 16 : 15.5,
-                  color: theme.color.text,
-                  fontFamily: theme.font.regular,
-                  height: "100%"
-                },
-                { outlineStyle: "none" } as object
-              ]}
-            />
-            {searching ? (
-              <PressableScale
-                onPress={() => setQuery("")}
-                accessibilityRole="button"
-                accessibilityLabel={t.common.close}
-                hitSlop={8}
-                style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
-              >
-                <Icon name="cancel" size={22} filled color={theme.color.textFaint} />
-              </PressableScale>
-            ) : null}
-          </View>
+          <SearchField ref={input} value={query} onChangeText={setQuery} placeholder={t.dictionary.placeholder} />
           <View pointerEvents="none" style={{ position: "absolute", right: 62, top: -58 }}>
             <Mascot size={70} mood={mascot} />
           </View>
