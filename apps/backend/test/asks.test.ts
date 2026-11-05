@@ -15,7 +15,7 @@ import { UserId } from "@kotori/contracts"
 import { proposals } from "@kotori/db"
 import { normalizeAsk } from "@kotori/language"
 import { eq } from "drizzle-orm"
-import { Effect, Layer } from "effect"
+import { ConfigProvider, Effect, Layer } from "effect"
 import { TestClock } from "effect/testing"
 import { Database } from "../src/db/Database.ts"
 import { Asks } from "../src/features/asks/Asks.ts"
@@ -28,10 +28,6 @@ import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 import { english, learner } from "./fixtures.ts"
 
 // The Asks service over PGlite and a Claude whose answers are queued by the test.
-
-process.env["KOTORI_ASK_HOURLY_LIMIT"] = "4"
-process.env["KOTORI_ASK_DAILY_LIMIT"] = "6"
-process.env["KOTORI_TRIAGE_HOURLY_LIMIT"] = "100"
 
 const queued: Array<DraftOutput> = []
 let generated = 0
@@ -96,7 +92,18 @@ const TestLayer = Asks.layer.pipe(
   Layer.provideMerge(Layer.mergeAll(Dictionary.layer, Lexicographer.layer)),
   Layer.provideMerge(Pronouncer.layer),
   Layer.provideMerge(FakeProviders),
-  Layer.provideMerge(DatabaseMemory)
+  Layer.provideMerge(DatabaseMemory),
+  // Not process.env: Effect reads it once per process, and test files share workers
+  // (`isolate: false`), so a file that read config first would fix the limits for this one.
+  Layer.provide(
+    ConfigProvider.layer(
+      ConfigProvider.fromUnknown({
+        KOTORI_ASK_HOURLY_LIMIT: "4",
+        KOTORI_ASK_DAILY_LIMIT: "6",
+        KOTORI_TRIAGE_HOURLY_LIMIT: "100"
+      })
+    )
+  )
 )
 
 const asker: Profile = {
