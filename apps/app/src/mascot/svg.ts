@@ -7,6 +7,7 @@ import {
   type Mood,
   palette,
   shapes,
+  sparklePath,
   thinkingShapes
 } from "./geometry.ts"
 import {
@@ -88,7 +89,11 @@ const sideDrawing = (mood: Mood, pose: (part: Part) => Pose, size = 200, facing:
   const part = placed(pose)
   const eyesPose = pose("eyes")
   const sparkle = (name: SparklePart) =>
-    part(name, `<path d="${shapes.sparkles[name]}" fill="${palette.blush}"/>`, combine(pose(name), sparklesFor(size)))
+    part(
+      name,
+      `<path d="${sparklePath(shapes.sparkles[name])}" fill="${palette.gold}"/>`,
+      combine(pose(name), sparklesFor(size))
+    )
   const z = (name: ZPart) => {
     const at = pose(name)
     return part(name, zSvg(name), facing === "right" ? { ...at, scaleX: -at.scaleX } : at)

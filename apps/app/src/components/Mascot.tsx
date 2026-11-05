@@ -20,6 +20,7 @@ import {
   type Mood,
   palette,
   shapes,
+  sparklePath,
   thinkingShapes
 } from "../mascot/geometry.ts"
 import {
@@ -230,34 +231,28 @@ const Layer = ({
 
 /**
  * One of celebrate's sparkles, beside Kotori rather than on it, so it stays
- * put as Kotori moves. It comes out as celebrate's entrance plays, twinkles
- * as the idle clip says, and grows on a small Kotori (see `sparklesFor`).
- * Until the entrance starts, it shows as on its first frame: hidden.
+ * put as Kotori moves. It glints once as celebrate's entrance ends, grown on a
+ * small Kotori (see `sparklesFor`), and is hidden before and after.
  */
 const Sparkle = ({
   part,
   size,
-  entrance,
-  idle
+  entrance
 }: {
   readonly part: SparklePart
   readonly size: number
   readonly entrance: Channel
-  readonly idle: Channel
 }) => {
   const style = useAnimatedStyle(() => {
     const pose = combine(
-      combine(
-        poseAt("celebrate", part, entrance.clip.get() === "celebrate" ? entrance.time.get() : 0),
-        poseAt(idle.clip.get(), part, idle.time.get())
-      ),
+      poseAt("celebrate", part, entrance.clip.get() === "celebrate" ? entrance.time.get() : 0),
       sparklesFor(size)
     )
     return { opacity: pose.opacity, transform: viewTransform(pose, part, size) }
   })
   return (
     <Layer style={style} size={size}>
-      <Path d={shapes.sparkles[part]} fill={palette.blush} />
+      <Path d={sparklePath(shapes.sparkles[part])} fill={palette.gold} />
     </Layer>
   )
 }
@@ -425,9 +420,7 @@ const Side = ({
         </Animated.View>
       </Animated.View>
       {mood === "celebrate"
-        ? sparkleParts.map((part) => (
-            <Sparkle key={part} part={part} size={size} entrance={motion.entrance} idle={motion.idle} />
-          ))
+        ? sparkleParts.map((part) => <Sparkle key={part} part={part} size={size} entrance={motion.entrance} />)
         : null}
       {mood === "sleepy"
         ? zParts.map((part) => (
@@ -542,8 +535,8 @@ const Front = ({ size, mood }: { readonly size: number; readonly mood: Mood }) =
 /**
  * Kotori, the shima enaga. Changes expression with `mood` and angle with
  * `facing`, plays the mood's entrance and loop from `motion.ts`, confetti and
- * all, and now and then blinks or twinkles its sparkles; with reduced motion it
- * holds each mood's pose, and doesn't blink, twinkle or throw confetti.
+ * all, and now and then blinks; with reduced motion it holds each mood's pose,
+ * and doesn't blink, throw confetti or glint.
  * Thinking, it faces the viewer and holds still under a thought bubble that
  * rises above its `size` box. Every moving part is a layer placed with plain
  * view transforms, so a clip plays the same way on iOS, Android and the web.
