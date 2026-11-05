@@ -154,7 +154,7 @@ export class Coaching extends Context.Service<
           return yield* new RateLimited({ message: "Too many audio requests this hour.", retryAfterSeconds: 600 })
         }
         const key = yield* speech
-          .speak(request.text, request.language)
+          .speak(request.text, request.language, { payer: user.id })
           .pipe(
             Effect.mapError((error) =>
               error.reason === "quota"

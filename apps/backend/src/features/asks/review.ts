@@ -234,7 +234,7 @@ export const approveProposal = Effect.fn("review.approveProposal")(function* (
     ),
     now
   )
-  for (const kind of ["nuance", "examples", "audio"] as const) yield* enqueueJob(db, kind, entryId, 500, now)
+  for (const kind of ["nuance", "examples", "audio"] as const) yield* enqueueJob(db, kind, entryId, 500, now, null)
   yield* appendLine(
     file,
     language === "en"

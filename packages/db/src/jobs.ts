@@ -1,6 +1,7 @@
-import { index, integer, pgEnum, text, unique } from "drizzle-orm/pg-core"
+import { index, integer, pgEnum, text, unique, uuid } from "drizzle-orm/pg-core"
 import { createdAt, table, timestamptz } from "./columns.ts"
 import { entries, type EntryId } from "./entries.ts"
+import { type UserId, users } from "./users.ts"
 
 export const jobKind = pgEnum("job_kind", ["nuance", "examples", "audio"])
 
@@ -20,6 +21,13 @@ export const jobs = table(
     status: jobStatus().notNull().default("queued"),
     attempts: integer().notNull().default(0),
     error: text(),
+    /**
+     * The learner whose look queued or revived the job, so its audio counts toward their monthly
+     * allowance; null for work an admin or the CLI asked for.
+     */
+    requestedBy: uuid()
+      .$type<UserId>()
+      .references(() => users.id, { onDelete: "set null" }),
     /** Not before this moment; pushed into the future by retries. */
     runAfter: timestamptz().notNull().defaultNow(),
     createdAt: createdAt(),

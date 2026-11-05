@@ -1,21 +1,30 @@
-import { integer, text } from "drizzle-orm/pg-core"
+import { index, integer, text, uuid } from "drizzle-orm/pg-core"
 import { createdAt, language, table } from "./columns.ts"
+import { type UserId, users } from "./users.ts"
 
 /**
  * Content-addressed speech clips: `key` is sha256(voice, model, text), so the same
  * phrase is never synthesised twice. Metadata here, bytes in a bucket or `audio_files`.
  */
-export const audio = table("audio", {
-  key: text().primaryKey(),
-  text: text().notNull(),
-  language: language().notNull(),
-  /** The provider's voice id, part of the key. */
-  voiceId: text().notNull(),
-  /** The Kotori cast voice ("ja-kyoko"); null for clips made before casting or with an uncast provider voice. */
-  voice: text(),
-  modelId: text().notNull(),
-  /** Characters billed by the provider, for the monthly budget. */
-  characters: integer().notNull(),
-  bytes: integer().notNull(),
-  createdAt: createdAt()
-})
+export const audio = table(
+  "audio",
+  {
+    key: text().primaryKey(),
+    text: text().notNull(),
+    language: language().notNull(),
+    /** The provider's voice id, part of the key. */
+    voiceId: text().notNull(),
+    /** The Kotori cast voice ("ja-kyoko"); null for clips made before casting or with an uncast provider voice. */
+    voice: text(),
+    modelId: text().notNull(),
+    /** Characters billed by the provider, for the monthly budget. */
+    characters: integer().notNull(),
+    bytes: integer().notNull(),
+    /** The learner the clip was made for, whose monthly allowance it counts toward; null for the CLI's. */
+    userId: uuid()
+      .$type<UserId>()
+      .references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt()
+  },
+  (t) => [index("audio_user").on(t.userId, t.createdAt)]
+)

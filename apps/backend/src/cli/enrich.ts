@@ -89,7 +89,7 @@ export const enrich = Command.make(
     yield* Effect.forEach(
       ids,
       (id) =>
-        enrichers.run(kind, id).pipe(
+        enrichers.run(kind, id, null).pipe(
           Effect.tap((summary) => Effect.logInfo(`${id}: ${summary}`)),
           Effect.tap(() => Effect.sync(() => done++)),
           Effect.catchCause((cause) =>
