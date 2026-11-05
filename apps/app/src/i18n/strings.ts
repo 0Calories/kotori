@@ -108,14 +108,34 @@ const en = {
     placeholder: "Search in English, 日本語 or rōmaji",
     romajiNotice: (reading: string) => `Showing words read as ${reading}`,
     noResults: "No matches. Try another spelling, or a simpler word.",
-    noExactMatch: (query: string) => `Nothing matches “${query}” exactly. These look similar:`,
+    noExactMatch: (query: string) => `Nothing matches “${query}” exactly.`,
     similarResults: "Similar words",
     askKotori: "Ask Kotori",
     askExplain: "Kotori can look into it and draft an entry.",
-    askThinking: "Kotori is looking into it…",
+    /** The thinking status, a line at a time as the wait goes on (`ASK_STAGE_STARTS`). */
+    askThinking: [
+      "Kotori is looking into it…",
+      "Flipping through the dictionary…",
+      "Thinking about how people really use it…",
+      "Almost there — this one takes some thought…"
+    ],
     askDraft: "AI draft — not checked by a person yet",
+    askDrafted: "Kotori drafted an entry!",
+    askDraftedBody: "A person will check it before it joins the dictionary.",
+    /** Over a draft seen again, rather than one just made. */
+    askDraftedBefore: "Kotori cooked up a new dictionary entry for you",
     askLinked: "Kotori thinks you meant this:",
+    askApproved: "Kotori's draft has joined the dictionary:",
+    askDiscarded: "Kotori's draft didn't pass review, so it won't join the dictionary.",
     askAgain: "Ask again",
+    askAgainIn: (wait: string) => `Ask again in ${wait}`,
+    /** Claude is rate limited: a wait of seconds. */
+    askBusy: "Kotori is a little busy right now.",
+    /** The learner's hourly allowance is spent. */
+    askResting: "You've asked a lot this hour, so Kotori is taking a short rest.",
+    /** The learner's daily allowance is spent. */
+    askNapping: "You've asked a lot today. Kotori is napping until tomorrow.",
+    askUnavailable: "Kotori can't look things up right now. Please try again in a little while.",
     /** Why Kotori didn't look a query up, by what it took it for. */
     askRoute: {
       sentence: `That looks like a whole sentence. The ${enTabs.check} tab can tell you if it's natural, and ${enTabs.say} can help you phrase it.`,
@@ -404,6 +424,29 @@ const en = {
   } as Record<string, string>,
   /** Usage tags shown on English words; JMDict's own labels are English already. */
   tags: {} as Record<string, string>,
+  /**
+   * The usage labels Ask Kotori's drafts may carry (`LABELS` in the Lexicographer), which come as
+   * bare codes rather than with the dictionary's own labels; only for interfaces whose `tags` lack them.
+   */
+  draftTags: {
+    sl: "slang",
+    "net-sl": "internet slang",
+    col: "colloquial",
+    vulg: "vulgar",
+    X: "offensive",
+    derog: "derogatory",
+    id: "idiom",
+    proverb: "proverb",
+    abbr: "abbreviation",
+    dated: "dated",
+    arch: "archaic",
+    rare: "rare",
+    joc: "humorous",
+    euph: "euphemism",
+    chn: "children's language",
+    "on-mim": "onomatopoeia",
+    form: "formal"
+  } as Record<string, string>,
   inflection: {
     plural: "plural",
     "third-person": "3rd person",
@@ -537,14 +580,29 @@ const ja: Strings = {
     placeholder: "日本語・英語・ローマ字で検索",
     romajiNotice: (reading: string) => `「${reading}」の検索結果`,
     noResults: "見つかりませんでした。別の書き方で試してみてください。",
-    noExactMatch: (query: string) => `「${query}」にぴったりの項目はありませんでした。似ている語はこちらです。`,
+    noExactMatch: (query: string) => `「${query}」にぴったりの項目はありませんでした。`,
     similarResults: "似ている語",
     askKotori: "コトリに聞く",
     askExplain: "コトリが調べて、辞書の下書きを作ります。",
-    askThinking: "コトリが調べています…",
+    askThinking: [
+      "コトリが調べています…",
+      "辞書をめくっています…",
+      "実際の使われ方を考えています…",
+      "もう少しです。じっくり考えています…"
+    ],
     askDraft: "AIによる下書き・未確認",
+    askDrafted: "コトリが下書きを作りました！",
+    askDraftedBody: "辞書に載る前に、人が内容を確認します。",
+    askDraftedBefore: "コトリ特製の新しい項目、できあがり！",
     askLinked: "お探しのものはこちらかもしれません：",
+    askApproved: "コトリの下書きが辞書に加わりました：",
+    askDiscarded: "コトリの下書きは、確認の結果見送りになりました。",
     askAgain: "もう一度聞く",
+    askAgainIn: (wait: string) => `もう一度聞く（あと${wait}）`,
+    askBusy: "コトリは今ちょっと忙しいようです。",
+    askResting: "たくさん質問したので、コトリは休憩中です。",
+    askNapping: "今日はここまで。コトリは明日までお昼寝中です。",
+    askUnavailable: "コトリは今、調べものができないようです。",
     askRoute: {
       sentence: `文章のようです。「${jaTabs.check}」タブで自然かどうかを確かめたり、「${jaTabs.say}」タブで言い方を探したりできます。`,
       name: "固有名詞のようです。辞書で調べる単語や表現を入力してください。",
@@ -815,6 +873,8 @@ const ja: Strings = {
     art: "冠詞",
     contr: "短縮形"
   },
+  /** `tags` names every label a draft may carry. */
+  draftTags: {},
   tags: {
     col: "口語",
     sl: "俗語",
@@ -936,6 +996,9 @@ export const strings = { en, ja }
 /** A usage, field or region tag in the interface language, falling back to the dictionary's own label. */
 export const tagLabel = (t: Strings, tag: { readonly code: string; readonly label: string }) =>
   t.tags[tag.code] ?? tag.label
+
+/** A usage label on an Ask Kotori draft (`sl`, `net-sl`…) in the interface language. */
+export const draftTagLabel = (t: Strings, code: string) => t.tags[code] ?? t.draftTags[code] ?? code
 
 /** Short part-of-speech label for a code like "v5k" or "adj-i" (JMDict) or "v" (English words). */
 export const posLabel = (t: Strings, code: string | null) => {
