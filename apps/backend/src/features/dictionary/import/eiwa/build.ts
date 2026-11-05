@@ -1,9 +1,7 @@
 import { EntryId, type EntryRecord, type FormRecord, type SenseRecord } from "@kotori/contracts"
+import { FIRST_ENGLISH_ID } from "@kotori/db"
 import { type EnglishInflection, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
 import type { FormOf, InflectedForm, References, Word } from "./words.ts"
-
-/** English entries are numbered from here, well above JMDict's sequence numbers (at most 9,999,999). */
-const FIRST_ENGLISH_ID = 100_000_000
 
 /** How many of the most used words count as common, as JMDict's markers make about a tenth of its words common. */
 const COMMON_WORDS = 10_000

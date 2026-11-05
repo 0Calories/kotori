@@ -1,0 +1,125 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "a7f4e787-d21c-4ec2-8b19-0faa7ffee8c7",
+  "prevIds": ["ecd7fe4c-5bb8-43ab-8c0f-590c93ed54dc"],
+  "footprints": [
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "glosses", "document"],
+      "writes": ["s|col|public.glosses.document", "n|col|public.glosses.document", "e|col|public.glosses.document"],
+      "reads": ["n|tbl|public.glosses", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "forms", "document"],
+      "writes": ["s|col|public.forms.document", "n|col|public.forms.document", "e|col|public.forms.document"],
+      "reads": ["n|tbl|public.forms", "n|sch|public"]
+    },
+    {
+      "statementType": "recreate_index",
+      "statementTarget": ["index", "public", "forms", "forms_folded"],
+      "writes": [
+        "s|idx|public.forms_folded",
+        "n|idx|public.forms_folded",
+        "e|idx|public.forms_folded",
+        "n|rel|public.forms_folded"
+      ],
+      "reads": ["n|tbl|public.forms", "n|sch|public"],
+      "sharedWrites": [],
+      "sqlHash": "caf16fecd6cc0b01"
+    },
+    {
+      "statementType": "recreate_index",
+      "statementTarget": ["index", "public", "forms", "forms_trgm"],
+      "writes": [
+        "s|idx|public.forms_trgm",
+        "n|idx|public.forms_trgm",
+        "e|idx|public.forms_trgm",
+        "n|rel|public.forms_trgm"
+      ],
+      "reads": ["n|tbl|public.forms", "n|sch|public", "n|col|public.forms.text"],
+      "sharedWrites": [],
+      "sqlHash": "ee13d02a64efc62a"
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "glosses", "glosses_document"],
+      "writes": [
+        "s|idx|public.glosses_document",
+        "n|idx|public.glosses_document",
+        "e|idx|public.glosses_document",
+        "n|rel|public.glosses_document"
+      ],
+      "reads": ["n|tbl|public.glosses", "n|sch|public"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "forms", "forms_document"],
+      "writes": [
+        "s|idx|public.forms_document",
+        "n|idx|public.forms_document",
+        "e|idx|public.forms_document",
+        "n|rel|public.forms_document"
+      ],
+      "reads": ["n|tbl|public.forms", "n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"glosses\",\"document\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"forms\",\"document\"]"
+    },
+    {
+      "op": "alter",
+      "key": "indexes\u0000[\"public\",\"glosses_document\"]",
+      "set": {
+        "columns": [
+          {
+            "value": "(coalesce(nullif(to_tsvector('english', \"text\"), ''::tsvector), to_tsvector('simple', \"text\")))",
+            "isExpression": true,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "where": "(\"entry_id\" < 100000000 OR \"entry_id\" >= 200000000)"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "indexes\u0000[\"public\",\"forms_folded\"]",
+      "set": {
+        "where": "\"kind\" IN ('spelling', 'inflection')"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "indexes\u0000[\"public\",\"forms_document\"]",
+      "set": {
+        "columns": [
+          {
+            "value": "(coalesce(nullif(to_tsvector('english', \"text\"), ''::tsvector), to_tsvector('simple', \"text\")))",
+            "isExpression": true,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "where": "\"kind\" = 'spelling'"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "indexes\u0000[\"public\",\"forms_trgm\"]",
+      "set": {
+        "where": "\"kind\" = 'spelling'"
+      }
+    }
+  ]
+}

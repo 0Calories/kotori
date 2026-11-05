@@ -21,22 +21,19 @@ export const bytewiseText = customType<{ data: string }>({
 })
 
 /**
- * Postgres full-text document. Written only through `generatedAlwaysAs`; read in
- * queries with `@@` and `ts_rank`, never as a value.
- */
-export const tsvector = customType<{ data: string }>({
-  dataType: () => "tsvector"
-})
-
-/**
  * The full-text document of an English column: `to_tsvector('english', column)`, which stems
  * words and drops the commonest ones, so "eating" finds "eat out". A phrase made only of those
  * common words ("it is what it is") would have no document at all, so it is indexed word for
  * word with the `simple` configuration instead; queries made only of such words search the same
  * way (see the backend's dictionary queries).
+ *
+ * Nothing stores it: GIN indexes are built on this expression, and a query finds them only by
+ * writing the same expression (`englishDocument(column) @@ query`), so it lives here, once. Ranking
+ * computes it again for every match, so `english` runs once (a `CASE` testing its length would
+ * run it twice, half again as slow). In parentheses, as an index on an expression must be.
  */
 export const englishDocument = (column: AnyPgColumn) =>
-  sql`CASE WHEN length(to_tsvector('english', ${column})) = 0 THEN to_tsvector('simple', ${column}) ELSE to_tsvector('english', ${column}) END`
+  sql`(coalesce(nullif(to_tsvector('english', ${column}), ''::tsvector), to_tsvector('simple', ${column})))`
 
 export const language = pgEnum("language", ["en", "ja"])
 
