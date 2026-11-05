@@ -122,7 +122,7 @@ const en = {
     askDraft: "AI draft — not checked by a person yet",
     /** The headline over a fresh draft, and the line over one seen again. */
     askDrafted: "Kotori cooked up a new dictionary entry for you",
-    askDraftedBody: "A person will check it before it joins the dictionary.",
+    askDraftedBody: "We'll double-check it before it joins the dictionary.",
     askLinked: "Kotori thinks you meant this:",
     askApproved: "Kotori's draft has joined the dictionary:",
     askDiscarded: "Kotori's draft didn't pass review, so it won't join the dictionary.",
@@ -590,9 +590,9 @@ const ja: Strings = {
       "もう少しです。じっくり考えています…"
     ],
     askDraft: "AIによる下書き・未確認",
-    // Broken at the comma: Japanese wraps between any two characters, which left "り！" alone at 320 px.
+    // Both broken at the comma: Japanese wraps between any two characters, which left "り！" and "す。" alone at 320 px.
     askDrafted: "コトリ特製の新しい項目、\nできあがり！",
-    askDraftedBody: "辞書に載る前に、人が内容を確認します。",
+    askDraftedBody: "辞書に載せる前に、\n内容をしっかり確認します。",
     askLinked: "お探しのものはこちらかもしれません：",
     askApproved: "コトリの下書きが辞書に加わりました：",
     askDiscarded: "コトリの下書きは、確認の結果見送りになりました。",
