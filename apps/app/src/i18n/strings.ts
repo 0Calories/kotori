@@ -34,7 +34,7 @@ const en = {
     more: "More",
     less: "Less",
     close: "Close",
-    offline: "Can't reach Kotori's server. Is the API running?",
+    offline: "Kotori got lost and couldn't find the server. Are you connected to the internet?",
     somethingWrong: "Something went wrong.",
     back: "Back"
   },
@@ -506,7 +506,7 @@ const ja: Strings = {
     more: "もっと見る",
     less: "閉じる",
     close: "閉じる",
-    offline: "サーバーに接続できません。APIは起動していますか？",
+    offline: "コトリが迷子になって、サーバーにたどり着けませんでした。インターネットにつながっていますか？",
     somethingWrong: "エラーが発生しました。",
     back: "戻る"
   },
