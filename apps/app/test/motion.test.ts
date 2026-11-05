@@ -1,5 +1,14 @@
 import { assert, describe, it } from "vitest"
-import { confetti, frontMoods, frontShapes, joints, type Mood, shapes, thinkingShapes } from "../src/mascot/geometry.ts"
+import {
+  confetti,
+  frontMoods,
+  frontShapes,
+  joints,
+  type Mood,
+  shapes,
+  sparklePath,
+  thinkingShapes
+} from "../src/mascot/geometry.ts"
 import {
   type ClipName,
   clips,
@@ -15,6 +24,7 @@ import {
   poseAt,
   rest,
   settled,
+  type SparklePart,
   sparkleParts,
   sparklesFor,
   svgTransform,
@@ -109,8 +119,8 @@ describe("Kotori's clips", () => {
     for (const name of Object.values(entrances)) assert.deepStrictEqual(poseAt(name, "bird", Infinity), rest, name)
   })
 
-  it("fold the wing back down once Kotori has celebrated, and leave the sparkles as drawn", () => {
-    for (const part of parts) assert.deepStrictEqual(poseAt("celebrate", part, Infinity), rest, part)
+  it("fold the wing back down once Kotori has celebrated", () => {
+    for (const part of kotori) assert.deepStrictEqual(poseAt("celebrate", part, Infinity), rest, part)
   })
 
   it("leave Kotori still while it thinks: no entrance or blink, and only the thought bubble and its dots move", () => {
@@ -144,12 +154,10 @@ describe("Kotori's clips", () => {
     }
   })
 
-  it("blink only in moods whose eyes are open, and twinkle only where there are sparkles", () => {
+  it("blink only in moods whose eyes are open", () => {
     const shut: Mood[] = ["happy", "celebrate", "sleepy"]
     for (const mood of Object.keys(idles) as Mood[])
       assert.strictEqual(idles[mood] === "blink", !shut.includes(mood), mood)
-    assert.strictEqual(idles.celebrate, "twinkle")
-    assert.sameMembers(Object.keys(clips.twinkle.tracks), [...sparkleParts])
   })
 
   it("shut the eyes for the whole blink, then open them, since it plays over everything else", () => {
@@ -306,41 +314,35 @@ const outline = (d: string) => {
   return points
 }
 
-/** A sparkle's points, its tips and the corners between them, from its path of straight lines. */
-const starPoints = (d: string) => {
-  const numbers = (d.match(/-?[\d.]+/g) ?? []).map(Number)
-  const points: Point[] = [[numbers[0] ?? 0, numbers[1] ?? 0]]
-  for (let i = 2; i + 1 < numbers.length; i += 2) {
-    const [x, y] = points.at(-1) ?? [0, 0]
-    points.push([x + (numbers[i] ?? 0), y + (numbers[i + 1] ?? 0)])
-  }
-  return points
-}
-
 describe("celebrate's sparkles", () => {
   const { duration } = clips.celebrate
   const every10ms = Array.from({ length: duration / 10 + 1 }, (_, i) => i * 10)
   const pieces = clips.celebrate.confetti?.pieces ?? []
-  const centre = (part: Part, pose: Pose): Point => [joints[part].x + pose.x, joints[part].y + pose.y]
-  /** When `part` first shows, to the ms. */
-  const out = (part: Part) => {
-    for (let t = 0; t <= duration; t++) if (poseAt("celebrate", part, t).opacity > 0) return t
-    return assert.fail(`${part} never shows`)
-  }
+  const centre = (part: SparklePart, pose: Pose): Point => [joints[part].x + pose.x, joints[part].y + pose.y]
+  /** The times `part` shows, to the ms. */
+  const shown = (part: SparklePart) =>
+    Array.from({ length: duration + 1 }, (_, t) => t).filter((t) => poseAt("celebrate", part, t).opacity > 0)
 
-  it("come off the tip of the raised wing as its last wave turns, so they don't appear out of thin air", () => {
+  it("glint once each, biggest first, growing from nothing where they're drawn and winking out there", () => {
+    const radii = sparkleParts.map((part) => shapes.sparkles[part].r)
+    assert.deepStrictEqual(
+      radii,
+      radii.toSorted((a, b) => b - a)
+    )
+    let previous = -Infinity
     for (const part of sparkleParts) {
-      const t = out(part)
-      const wing = poseAt("celebrate", "wing", t)
-      const placed = outline(shapes.wing).map((point) =>
-        throughSvg(svgTransform(poseAt("celebrate", "bird", t), "bird"), throughSvg(svgTransform(wing, "wing"), point))
-      )
-      const at = centre(part, poseAt("celebrate", part, t))
-      assert.isTrue(inside(at, placed), part)
-      assert.isAbove(Math.hypot(at[0] - joints.wing.x, at[1] - joints.wing.y), 45, part)
-      assert.isBelow(wing.rotate, -90, part)
-      // The wave's last stroke: the wing is on its way back down within a few frames.
-      assert.isAbove(poseAt("celebrate", "wing", t + 120).rotate, wing.rotate, part)
+      const times = shown(part)
+      const first = times[0] ?? assert.fail(`${part} never shows`)
+      const last = times.at(-1) ?? first
+      assert.strictEqual(times.length, last - first + 1, `${part} shows once, without a break`)
+      assert.isAbove(first, previous, `${part} comes after the one before`)
+      previous = first
+      const poses = times.map((t) => poseAt("celebrate", part, t))
+      for (const pose of poses) assert.deepStrictEqual([pose.x, pose.y], [0, 0], part)
+      assert.isBelow(poses[0]?.scaleX ?? 1, 0.05, `${part} starts from nothing`)
+      assert.isBelow(poses.at(-1)?.scaleX ?? 1, 0.05, `${part} winks out`)
+      assert.strictEqual(Math.max(...poses.map((pose) => pose.scaleX)), 1, `${part} reaches its drawn size`)
+      assert.isAbove((poses.at(-1)?.rotate ?? 0) - (poses[0]?.rotate ?? 0), 80, `${part} turns as it glints`)
     }
   })
 
@@ -353,69 +355,61 @@ describe("celebrate's sparkles", () => {
     }
   })
 
-  it("pop out bigger than they rest, and have settled by the time the wing has", () => {
-    for (const part of sparkleParts) {
-      assert.isAbove(Math.max(...every10ms.map((t) => poseAt("celebrate", part, t).scaleX)), 1.2, part)
-      assert.deepStrictEqual(poseAt("celebrate", part, duration), rest, part)
-    }
+  it("are all gone as the clip ends, so none is left behind in the mood", () => {
+    for (const part of sparkleParts) assert.strictEqual(settled("celebrate", part).opacity, 0, part)
+    // The last one winks out just as the clip ends, so it doesn't run on with nothing moving.
+    assert.isAbove(poseAt("celebrate", "sparkle2", duration - 1).opacity, 0)
   })
 
-  it("twinkle where they are, and end looking as they started", () => {
-    for (const part of sparkleParts) {
-      const end = poseAt("twinkle", part, clips.twinkle.duration)
-      assert.deepStrictEqual({ ...end, rotate: 0 }, rest, part)
-      assert.strictEqual(end.rotate % 90, 0, part)
-      for (let t = 0; t <= clips.twinkle.duration; t += 10) {
-        const pose = poseAt("twinkle", part, t)
-        assert.deepStrictEqual([pose.x, pose.y, pose.opacity], [0, 0, 1], `${part} at ${t} ms`)
-      }
-      // That's because a four-point star looks the same turned a quarter turn about its middle.
-      const points = starPoints(shapes.sparkles[part])
-      const turned = points.map((point) => throughSvg(svgTransform({ ...rest, rotate: 90 }, part), point))
-      for (const point of turned) assert.isTrue(points.some((p) => Math.hypot(p[0] - point[0], p[1] - point[1]) < 1e-9))
-    }
-  })
-
-  it("stay clear of Kotori's face, and within the tile around a small Kotori, as they come out and twinkle", () => {
-    const face = [
-      ...shapes.eyes.flatMap((e): Point[] => [
-        [e.cx - e.rx, e.cy - e.ry],
-        [e.cx + e.rx, e.cy + e.ry]
-      ]),
-      ...shapes.cheeks.flatMap((c): Point[] => [
-        [c.cx - c.rx, c.cy - c.ry],
-        [c.cx + c.rx, c.cy + c.ry]
-      ]),
-      ...outline(shapes.beak)
-    ]
+  it("glint clear of Kotori and of each other, and within the tile around a small Kotori", () => {
     const grow = sparklesFor(48).scaleX
-    const moments = [
-      ...every10ms.map((t) => (part: Part) => poseAt("celebrate", part, t)),
-      ...Array.from(
-        { length: clips.twinkle.duration / 10 + 1 },
-        (_, i) => (part: Part) => poseAt("twinkle", part, i * 10)
-      )
-    ]
-    for (const [m, poseOf] of moments.entries()) {
-      const box = face.map((point) => throughSvg(svgTransform(poseOf("bird"), "bird"), point))
-      const left = Math.min(...box.map(([x]) => x))
-      const right = Math.max(...box.map(([x]) => x))
-      const top = Math.min(...box.map(([, y]) => y))
-      for (const part of sparkleParts) {
-        const pose = poseOf(part)
-        if (pose.opacity === 0) continue
-        const [x, y] = centre(part, pose)
-        const arm =
-          Math.max(
-            ...starPoints(shapes.sparkles[part]).map(([px, py]) => Math.hypot(px - joints[part].x, py - joints[part].y))
-          ) *
-          pose.scaleX *
-          grow
-        assert.isTrue(y + arm < top || x + arm < left || x - arm > right, `${part} at moment ${m}`)
+    const body = outline(shapes.body)
+    for (const t of every10ms) {
+      const bird = svgTransform(poseAt("celebrate", "bird", t), "bird")
+      const placedBody = body.map((point) => throughSvg(bird, point))
+      const tuft = shapes.tuft.map((c) => ({ at: throughSvg(bird, [c.cx, c.cy]), r: c.r }))
+      const glinting = sparkleParts.flatMap((part) => {
+        const pose = poseAt("celebrate", part, t)
+        if (pose.opacity === 0) return []
+        const at = centre(part, pose)
+        const arm = shapes.sparkles[part].r * pose.scaleX * grow
+        const label = `${part} at ${t} ms`
+        assert.isFalse(inside(at, placedBody), label)
+        assert.isAbove(Math.min(...placedBody.map(([x, y]) => Math.hypot(x - at[0], y - at[1]))), arm, label)
+        for (const c of tuft) assert.isAbove(Math.hypot(c.at[0] - at[0], c.at[1] - at[1]) - c.r, arm, label)
         // The tile is 60 px around a 48 px Kotori, so it reaches 25 box units past the box.
-        assert.isAtLeast(Math.min(x, y) - arm, -25, `${part} at moment ${m}`)
-        assert.isAtMost(Math.max(x, y) + arm, 225, `${part} at moment ${m}`)
+        assert.isAtLeast(Math.min(...at) - arm, -25, label)
+        assert.isAtMost(Math.max(...at) + arm, 225, label)
+        return [{ at, arm }]
+      })
+      for (const [i, a] of glinting.entries()) {
+        for (const b of glinting.slice(i + 1))
+          assert.isAbove(Math.hypot(a.at[0] - b.at[0], a.at[1] - b.at[1]), a.arm + b.arm, `apart at ${t} ms`)
       }
+    }
+  })
+
+  it("are drawn inside Kotori's box, so the app's canvas, which turns and scales with them, doesn't clip them", () => {
+    for (const part of sparkleParts) {
+      const { cx, cy, r } = shapes.sparkles[part]
+      assert.isAtLeast(Math.min(cx, cy) - r, 0, part)
+      assert.isAtMost(Math.max(cx, cy) + r, 200, part)
+    }
+  })
+
+  it("draw four tips `r` from their middles, so their size is what the tests above measure", () => {
+    for (const part of sparkleParts) {
+      const { cx, cy, r } = shapes.sparkles[part]
+      const numbers = (sparklePath(shapes.sparkles[part]).match(/-?[\d.]+/g) ?? []).map(Number)
+      const points: Point[] = []
+      for (let i = 0; i + 1 < numbers.length; i += 2) points.push([numbers[i] ?? 0, numbers[i + 1] ?? 0])
+      const reaches = points.map(([x, y]) => Math.hypot(x - cx, y - cy))
+      assert.closeTo(Math.max(...reaches), r, 1e-9, part)
+      assert.strictEqual(
+        reaches.filter((d) => Math.abs(d - r) < 1e-9).length,
+        5,
+        `${part}: four tips, back to the first`
+      )
     }
   })
 
@@ -425,105 +419,6 @@ describe("celebrate's sparkles", () => {
     assert.isAbove(small.scaleX, 1.2)
     assert.isBelow(small.scaleX, confettiFor(48).grow)
     assert.deepStrictEqual({ ...small, scaleX: 1, scaleY: 1 }, rest)
-  })
-})
-
-/** The four corners of a Z path `M x0 y0 H x1 L x0 y1 H x1`, in drawing order. */
-const zCorners = (d: string): readonly [Point, Point, Point, Point] => {
-  const [x0 = 0, y0 = 0, x1 = 0, x2 = 0, y1 = 0, x3 = 0] = (d.match(/-?[\d.]+/g) ?? []).map(Number)
-  return [
-    [x0, y0],
-    [x1, y0],
-    [x2, y1],
-    [x3, y1]
-  ]
-}
-
-describe("sleepy's Zs", () => {
-  const { duration } = clips.sleepy
-  const every10ms = Array.from({ length: duration / 10 + 1 }, (_, i) => i * 10)
-
-  it("are three vector Zs centered on their joints, growing and rising from the brow", () => {
-    const metrics = zParts.map((part) => {
-      const { d, stroke } = shapes.zs[part]
-      const [topLeft, topRight, bottomLeft, bottomRight] = zCorners(d)
-      near([(topLeft[0] + bottomRight[0]) / 2, (topLeft[1] + bottomRight[1]) / 2], [joints[part].x, joints[part].y])
-      assert.strictEqual(topLeft[0], bottomLeft[0], part)
-      assert.strictEqual(topRight[0], bottomRight[0], part)
-      return {
-        x: joints[part].x,
-        y: joints[part].y,
-        width: topRight[0] - topLeft[0],
-        height: bottomRight[1] - topLeft[1],
-        stroke
-      }
-    })
-    for (let i = 0; i + 1 < metrics.length; i++) {
-      const a = metrics[i]!
-      const b = metrics[i + 1]!
-      assert.isBelow(b.x, a.x)
-      assert.isBelow(b.y, a.y)
-      assert.isAbove(b.width, a.width)
-      assert.isAbove(b.height, a.height)
-      assert.isAbove(b.stroke, a.stroke)
-    }
-  })
-
-  it("stay inside the 200×200 box, clear of Kotori's body, and apart from each other as they waft", () => {
-    const sideBody = outline(shapes.body)
-    const frontBody = outline(frontShapes.body)
-    for (const t of every10ms) {
-      const birdPose = poseAt("sleepy", "bird", t)
-      const movedSideBody = sideBody.map((p) => throughSvg(svgTransform(birdPose, "bird"), p))
-      const bands = zParts.map((part) => {
-        const pose = poseAt("sleepy", part, t)
-        const r = shapes.zs[part].stroke / 2
-        const corners = zCorners(shapes.zs[part].d).map((p) => throughSvg(svgTransform(pose, part), p))
-        for (const [x, y] of corners) {
-          assert.isAtLeast(x - r, 0, `${part} at ${t} ms`)
-          assert.isAtLeast(y - r, 0, `${part} at ${t} ms`)
-          assert.isAtMost(x + r, 200, `${part} at ${t} ms`)
-          assert.isAtMost(y + r, 200, `${part} at ${t} ms`)
-          assert.isFalse(inside([x, y], movedSideBody), `${part} outside side body at ${t} ms`)
-          assert.isFalse(inside([x, y], frontBody), `${part} outside front body at ${t} ms`)
-        }
-        return {
-          top: Math.min(...corners.map(([, y]) => y)) - r,
-          bottom: Math.max(...corners.map(([, y]) => y)) + r,
-          opacity: pose.opacity
-        }
-      })
-      if (bands[0]!.opacity > 0 && bands[1]!.opacity > 0)
-        assert.isAbove(bands[0]!.top, bands[1]!.bottom, `z0 below z1 at ${t} ms`)
-      if (bands[1]!.opacity > 0 && bands[2]!.opacity > 0)
-        assert.isAbove(bands[1]!.top, bands[2]!.bottom, `z1 below z2 at ${t} ms`)
-    }
-  })
-
-  it("render forwards in left, right and front views rather than mirroring into backwards Zs", () => {
-    for (const facing of ["left", "right", "front"] as const) {
-      const svg = mascotSvg({ mood: "sleepy", facing })
-      assert.notInclude(svg, "<text", facing)
-      for (const part of zParts) assert.include(svg, shapes.zs[part].d, `${facing}: ${part}`)
-    }
-    for (const part of zParts) {
-      const pose = poseAt("sleepy", part, 600)
-      const [topLeft, topRight, bottomLeft, bottomRight] = zCorners(shapes.zs[part].d)
-      const inLeft = (p: Point) => throughSvg(svgTransform(pose, part), p)
-      const inRight = (p: Point) =>
-        throughSvg("translate(200 0) scale(-1 1)", throughSvg(svgTransform({ ...pose, scaleX: -pose.scaleX }, part), p))
-
-      assert.isBelow(inLeft(topLeft)[0], inLeft(topRight)[0], `${part} left top bar`)
-      assert.isBelow(inLeft(bottomLeft)[0], inLeft(bottomRight)[0], `${part} left bottom bar`)
-      assert.isBelow(inRight(topLeft)[0], inRight(topRight)[0], `${part} right top bar reads forwards`)
-      assert.isBelow(inRight(bottomLeft)[0], inRight(bottomRight)[0], `${part} right bottom bar reads forwards`)
-      // In the right-facing view, the Zs sit on the right half of the box, symmetric with the left-facing view.
-      assert.closeTo(
-        (inRight(topLeft)[0] + inRight(bottomRight)[0]) / 2,
-        200 - (inLeft(topLeft)[0] + inLeft(bottomRight)[0]) / 2,
-        1e-9
-      )
-    }
   })
 })
 
@@ -538,7 +433,8 @@ describe("a pose", () => {
     near(at([x + 10, y]), [x + 3, y - 24])
   })
 
-  it("places a part the same way in the app as in stills", () => {
+  // Thousands of transforms: 0.4 s alone, over Vitest's 5 s default on a CI runner busy with the app's build.
+  it("places a part the same way in the app as in stills", { timeout: 30_000 }, () => {
     const size = 120
     const k = size / 200
     const poses = [

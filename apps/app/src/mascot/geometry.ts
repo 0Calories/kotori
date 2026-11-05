@@ -13,7 +13,9 @@ export const palette = {
   /** Confetti comes in these and the blush. */
   peach: "#F7A062",
   mint: "#96C979",
-  yellow: "#F7C747"
+  yellow: "#F7C747",
+  /** Sparkles, deeper than the yellow so they glint on near-white screens. */
+  gold: "#F2B53A"
 }
 
 /** Kotori in three-quarter view, facing left. */
@@ -46,10 +48,15 @@ export const shapes = {
   /** Catchlight, offset from each eye's centre. */
   catchlight: { dx: 2.1, dy: -4, r: 2.4 },
   beak: "M70.6 75.8 C 68.6 75.7, 63.5 79.5, 61.6 82.9 C 60.8 84.3, 67.4 88.9, 70.6 88.8 C 73.3 88.6, 80.7 84.7, 79.8 82.8 C 78.1 79.3, 71.9 75.9, 70.6 75.8 Z",
-  /** A big sparkle and a small one, above Kotori's back when it celebrates. */
+  /**
+   * Glints that twinkle in front of Kotori's brow as it finishes celebrating,
+   * where its Zs and sweat drop go too, biggest first: four-point stars `r`
+   * from the middle to each tip (see `sparklePath`).
+   */
   sparkles: {
-    bigSparkle: "M160 13 l 3 8 l 8 3 l -8 3 l -3 8 l -3 -8 l -8 -3 l 8 -3 Z",
-    smallSparkle: "M183 1 l 2 4.5 l 4.5 2 l -4.5 2 l -2 4.5 l -2 -4.5 l -4.5 -2 l 4.5 -2 Z"
+    sparkle0: { cx: 25, cy: 24, r: 12 },
+    sparkle1: { cx: 52, cy: 8, r: 7.5 },
+    sparkle2: { cx: 6, cy: 50, r: 5.5 }
   },
   /** Sweat drop beside the brow for `oops`. */
   sweat: "M29 46 q 7 10 0 15 q -7 -5 0 -15 Z",
@@ -60,6 +67,15 @@ export const shapes = {
     z2: { d: "M9.5 9.5 H 20.5 L 9.5 20.5 H 20.5", stroke: 4.2 }
   }
 } as const
+
+/** How far a sparkle's sides curve in towards its middle, as a share of `r`: lower is thinner. */
+const waist = 0.16
+
+/** A sparkle's outline: four tips joined by sides that curve in towards its middle. */
+export const sparklePath = ({ cx, cy, r }: { readonly cx: number; readonly cy: number; readonly r: number }) => {
+  const w = r * waist
+  return `M${cx} ${cy - r} Q ${cx + w} ${cy - w} ${cx + r} ${cy} Q ${cx + w} ${cy + w} ${cx} ${cy + r} Q ${cx - w} ${cy + w} ${cx - r} ${cy} Q ${cx - w} ${cy - w} ${cx} ${cy - r} Z`
+}
 
 export type Shape = "square" | "strip" | "dot" | "curl" | "squiggle"
 
@@ -101,8 +117,9 @@ export const joints = {
   wing: { x: 140.3, y: 91.2 },
   face: { x: 72.7, y: 82 },
   eyes: { x: 72.7, y: 76.6 },
-  bigSparkle: { x: 160, y: 24 },
-  smallSparkle: { x: 183, y: 7.5 },
+  sparkle0: { x: shapes.sparkles.sparkle0.cx, y: shapes.sparkles.sparkle0.cy },
+  sparkle1: { x: shapes.sparkles.sparkle1.cx, y: shapes.sparkles.sparkle1.cy },
+  sparkle2: { x: shapes.sparkles.sparkle2.cx, y: shapes.sparkles.sparkle2.cy },
   /** The bubble's lower left, nearest the trail. */
   bubble: { x: 116, y: -14 },
   dot0: { x: 126, y: -33 },

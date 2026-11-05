@@ -1,11 +1,15 @@
 import type { EntryRecord, Language } from "@kotori/contracts"
 import {
+  englishDocument,
   entries,
   type EntryId,
   entryAudio,
   examples,
   forms,
   glosses,
+  isEnglishForm,
+  isJapaneseEntryId,
+  isSpelling,
   jobKind,
   type NoteId,
   notes,
@@ -403,9 +407,7 @@ export const getEntries = Effect.fn("dictionary.getEntries")(function* (
     return [
       {
         ...entry,
-        forms: formRows
-          .filter((form) => form.entryId === id)
-          .map(({ entryId: _, position: __, document: ___, ...form }) => form),
+        forms: formRows.filter((form) => form.entryId === id).map(({ entryId: _, position: __, ...form }) => form),
         senses: senseRows
           .filter((sense) => sense.entryId === id)
           .map(({ entryId: _, position, ...sense }) => ({
@@ -419,8 +421,19 @@ export const getEntries = Effect.fn("dictionary.getEntries")(function* (
   })
 }, Effect.orDie)
 
-/** `lower(text)`, which `forms_folded` indexes, so English matches whatever the case. */
+/** `lower(text)`, which `forms_folded` indexes for English forms, so English matches whatever the case. */
 const folded = sql<string>`lower(${forms.text})`
+
+// The searches' indexes are partial (see `@kotori/db`): the forms' hold English spellings or forms,
+// `glosses_document` Japanese words' glosses. The planner can't tell that from the entry's language,
+// so each search also states its index's condition (`isEnglishForm`, `isSpelling`,
+// `isJapaneseEntryId`); without it, it would scan the table.
+
+/** `englishDocument` of a form's text, the expression `forms_document` indexes. */
+const formDocument = englishDocument(forms.text)
+
+/** `englishDocument` of a gloss's text, the expression `glosses_document` indexes for Japanese words. */
+const glossDocument = englishDocument(glosses.text)
 
 /**
  * A query's words as the `english` configuration stems them, or, when every word is one it drops
@@ -440,19 +453,27 @@ export const findForms = Effect.fn("dictionary.findForms")(function* (
   language: Language = "ja"
 ) {
   if (texts.length === 0) return []
+  const match = { entryId: forms.entryId, text: forms.text, kind: forms.kind, tags: forms.tags }
+  if (language === "ja") {
+    return yield* db
+      .select(match)
+      .from(forms)
+      .innerJoin(entries, eq(entries.id, forms.entryId))
+      .where(and(eq(entries.language, language), inArray(forms.text, texts)))
+  }
+  // An English form's kind says it is English, so there is nothing to join: the planner has no
+  // statistics for `lower(text)` from a partial index, and its guess at the matches made it hash
+  // every English entry (8 ms where the lookup takes a tenth of one).
   return yield* db
-    .select({ entryId: forms.entryId, text: forms.text, kind: forms.kind, tags: forms.tags })
+    .select(match)
     .from(forms)
-    .innerJoin(entries, eq(entries.id, forms.entryId))
     .where(
       and(
-        eq(entries.language, language),
-        language === "ja"
-          ? inArray(forms.text, texts)
-          : inArray(
-              folded,
-              texts.map((text) => text.toLowerCase())
-            )
+        isEnglishForm(forms.kind),
+        inArray(
+          folded,
+          texts.map((text) => text.toLowerCase())
+        )
       )
     )
 }, Effect.orDie)
@@ -474,7 +495,7 @@ export const findFormPrefix = Effect.fn("dictionary.findFormPrefix")(function* (
     .where(
       and(
         eq(entries.language, language),
-        ne(forms.kind, "inflection"),
+        language === "ja" ? ne(forms.kind, "inflection") : isSpelling(forms.kind),
         sql`${text} >= ${start} AND ${text} < ${start + "\u{10FFFF}"}`
       )
     )
@@ -492,7 +513,7 @@ export const searchForms = Effect.fn("dictionary.searchForms")(function* (
 ) {
   if (queries.length === 0) return []
   const tsquery = toTsquery(queries)
-  const rank = sql<number>`-ts_rank_cd(${forms.document}, ${tsquery})`
+  const rank = sql<number>`-ts_rank_cd(${formDocument}, ${tsquery})`
   return yield* db
     .select({
       entryId: forms.entryId,
@@ -503,7 +524,7 @@ export const searchForms = Effect.fn("dictionary.searchForms")(function* (
     })
     .from(forms)
     .innerJoin(entries, eq(entries.id, forms.entryId))
-    .where(and(eq(entries.language, "en"), ne(forms.kind, "inflection"), sql`${forms.document} @@ ${tsquery}`))
+    .where(and(eq(entries.language, "en"), isSpelling(forms.kind), sql`${formDocument} @@ ${tsquery}`))
     .orderBy(rank, desc(entries.common), desc(entries.priority), sql`length(${forms.text})`)
     .limit(limit)
 }, Effect.orDie)
@@ -562,7 +583,7 @@ export const searchFormsFuzzy = Effect.fn("dictionary.searchFormsFuzzy")(functio
     })
     .from(forms)
     .innerJoin(entries, eq(entries.id, forms.entryId))
-    .where(and(eq(entries.language, "en"), ne(forms.kind, "inflection"), match.condition))
+    .where(and(eq(entries.language, "en"), isSpelling(forms.kind), match.condition))
     .orderBy(desc(match.similarity), desc(entries.common), desc(entries.priority), sql`length(${forms.text})`)
     .limit(limit)
   return nearBest(rows, /\s/.test(query.trim()) ? MIN_PHRASE_SIMILARITY : 0)
@@ -589,13 +610,14 @@ export const searchGlosses = Effect.fn("dictionary.searchGlosses")(function* (
 ) {
   if (queries.length === 0) return []
   const tsquery = toTsquery(queries)
+  const rank = sql<number>`-ts_rank_cd(${glossDocument}, ${tsquery})`
   return yield* db
-    .select({ ...glossMatch, rank: sql<number>`-ts_rank_cd(${glosses.document}, ${tsquery})`.mapWith(Number) })
+    .select({ ...glossMatch, rank: rank.mapWith(Number) })
     .from(glosses)
     .innerJoin(entries, eq(entries.id, glosses.entryId))
     .innerJoin(senses, and(eq(senses.entryId, glosses.entryId), eq(senses.position, glosses.sense)))
-    .where(and(eq(entries.language, "ja"), sql`${glosses.document} @@ ${tsquery}`))
-    .orderBy(sql`-ts_rank_cd(${glosses.document}, ${tsquery})`)
+    .where(and(eq(entries.language, "ja"), isJapaneseEntryId(glosses.entryId), sql`${glossDocument} @@ ${tsquery}`))
+    .orderBy(rank)
     .limit(limit)
 }, Effect.orDie)
 
