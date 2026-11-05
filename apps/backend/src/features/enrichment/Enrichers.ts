@@ -11,7 +11,7 @@ import {
   Pronouncer
 } from "@kotori/ai"
 import type { EntryRecord } from "@kotori/contracts"
-import type { EntryId } from "@kotori/db"
+import type { EntryId, UserId } from "@kotori/db"
 import * as Sentry from "@sentry/effect/server"
 import { Clock, Context, Effect, Layer } from "effect"
 import { Database } from "../../db/Database.ts"
@@ -53,7 +53,8 @@ export class Enrichers extends Context.Service<
     /** Which kinds of enrichment have a configured provider. */
     readonly available: Effect.Effect<ReadonlyArray<JobKind>>
     /** Runs one kind of enrichment for an entry, returning a short description of what was done. */
-    run(kind: JobKind, entryId: EntryId): Effect.Effect<string, unknown>
+    /** Runs a job; `requestedBy` is the learner whose audio allowance it draws on (null: the shared budget only). */
+    run(kind: JobKind, entryId: EntryId, requestedBy: UserId | null): Effect.Effect<string, unknown>
   }
 >()("@kotori/backend/Enrichers") {
   static readonly layer = Layer.effect(
@@ -179,19 +180,21 @@ export class Enrichers extends Context.Service<
         return `${summary.senses} senses, ${summary.similar} similar words${loan}, ${summary.inputTokens} tokens`
       })
 
-      const enrich = (kind: JobKind, entryId: EntryId): Effect.Effect<string, unknown> => {
+      const enrich = (kind: JobKind, entryId: EntryId, requestedBy: UserId | null): Effect.Effect<string, unknown> => {
         switch (kind) {
           case "nuance":
             return judge(entryId)
           case "examples":
             return examples(entryId)
           case "audio":
-            return audio.enrich(entryId).pipe(Effect.map((s) => `${s.clips} clips, ${s.characters} chars`))
+            return audio.enrich(entryId, requestedBy).pipe(Effect.map((s) => `${s.clips} clips, ${s.characters} chars`))
         }
       }
 
-      const run = (kind: JobKind, entryId: EntryId): Effect.Effect<string, unknown> =>
-        Effect.sync(() => Sentry.setConversationId(`entry:${entryId}`)).pipe(Effect.andThen(enrich(kind, entryId)))
+      const run = (kind: JobKind, entryId: EntryId, requestedBy: UserId | null): Effect.Effect<string, unknown> =>
+        Effect.sync(() => Sentry.setConversationId(`entry:${entryId}`)).pipe(
+          Effect.andThen(enrich(kind, entryId, requestedBy))
+        )
 
       return Enrichers.of({ available, run })
     })

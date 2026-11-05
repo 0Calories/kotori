@@ -95,7 +95,7 @@ layer(TestLayer)("JMDict.importFile", (it) => {
         ],
         new Date(1000)
       )
-      yield* enqueueJob(db, "audio", taberu, 10, new Date(1000))
+      yield* enqueueJob(db, "audio", taberu, 10, new Date(1000), null)
 
       assert.deepStrictEqual(yield* JMDict.importFile({ file: "JMdict_e.gz" }), { entries: 2, tags: 3 })
       assert.strictEqual(yield* entryCount(db), 2)

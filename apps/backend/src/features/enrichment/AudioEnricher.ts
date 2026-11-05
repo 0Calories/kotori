@@ -1,5 +1,5 @@
 import { Pronouncer, type TtsError } from "@kotori/ai"
-import type { EntryId } from "@kotori/db"
+import type { EntryId, UserId } from "@kotori/db"
 import { Config, Context, Effect, Layer, Option } from "effect"
 import { Database } from "../../db/Database.ts"
 import { entryClips, exampleClips, linkEntryAudio, linkExampleAudio } from "../audio/index.ts"
@@ -20,9 +20,9 @@ export class AudioEnricher extends Context.Service<
      * Audio for an entry's headword and example sentences in the entry's language (the one
      * its learners are learning), voices chosen per sentence. Only what is missing is voiced:
      * existing clips are left as they are, so re-running fills gaps (a run cut short) without
-     * re-casting or paying twice.
+     * re-casting or paying twice. New clips count toward `payer`'s monthly allowance, if any.
      */
-    enrich(entryId: EntryId): Effect.Effect<AudioSummary, TtsError>
+    enrich(entryId: EntryId, payer: UserId | null): Effect.Effect<AudioSummary, TtsError>
   }
 >()("@kotori/backend/AudioEnricher") {
   static readonly layer = Layer.effect(
@@ -33,7 +33,7 @@ export class AudioEnricher extends Context.Service<
       const db = yield* Database
       const headwordCap = yield* Config.Int("KOTORI_HEADWORD_VOICES").pipe(Config.withDefault(3))
 
-      const enrich = Effect.fn("AudioEnricher.enrich")(function* (entryId: EntryId) {
+      const enrich = Effect.fn("AudioEnricher.enrich")(function* (entryId: EntryId, payer: UserId | null) {
         const [entry] = yield* getEntries(db, [entryId])
         if (entry === undefined) return { clips: 0, characters: 0 }
         let clips = 0
@@ -54,7 +54,7 @@ export class AudioEnricher extends Context.Service<
         const uncast = voiced.some((clip) => clip.voice === null)
         for (const voice of pronouncer.headwordVoices(language).slice(0, Math.max(headwordCap, 1))) {
           if (uncast || voiced.some((clip) => clip.voice === voice.id)) continue
-          yield* linkEntryAudio(db, entryId, yield* speech.speak(spoken, language, voice))
+          yield* linkEntryAudio(db, entryId, yield* speech.speak(spoken, language, { voice, payer }))
           track(spoken)
         }
 
@@ -79,7 +79,7 @@ export class AudioEnricher extends Context.Service<
               if (Option.isNone(decision)) return
               const { voice, castBy, score } = decision.value
               const text = language === "ja" ? example.ja : example.en
-              const key = yield* speech.speak(text, language, voice)
+              const key = yield* speech.speak(text, language, { voice, payer })
               yield* linkExampleAudio(db, example.id, language, key, { castBy, score })
               track(text)
             }),

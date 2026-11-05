@@ -13,11 +13,13 @@ import {
   TtsError
 } from "@kotori/ai"
 import { EntryId, type EntryRecord } from "@kotori/contracts"
-import { Effect, Layer, Option } from "effect"
+import { jobs, UserId, users } from "@kotori/db"
+import { eq } from "drizzle-orm"
+import { ConfigProvider, Effect, Layer, Option } from "effect"
 import { TestClock } from "effect/testing"
 import { Database } from "../src/db/Database.ts"
 import { linkEntryAudio, linkExampleAudio, saveAudio } from "../src/features/audio/queries.ts"
-import { Dictionary } from "../src/features/dictionary/Dictionary.ts"
+import { Dictionary, type Requester } from "../src/features/dictionary/Dictionary.ts"
 import { insertEntries, saveTags } from "../src/features/dictionary/queries.ts"
 import {
   claimJob,
@@ -37,6 +39,7 @@ import {
   saveSimilar
 } from "../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
+import { U1 } from "./fixtures.ts"
 
 // The dictionary service on PGlite with audio configured, so it queues audio jobs; nothing is synthesised.
 
@@ -74,11 +77,18 @@ const providers = (jevConfigured: boolean, claudeAvailable = false) =>
     )
   )
 
-const testLayer = (jevConfigured: boolean, claudeAvailable = false) =>
-  Dictionary.layer.pipe(
-    Layer.provideMerge(providers(jevConfigured, claudeAvailable)),
-    Layer.provideMerge(DatabaseMemory)
-  )
+/** The learner looking at entries, well within their allowance in these tests. */
+const LEARNER: Requester = { id: U1, role: "user" }
+
+const Learner = Layer.effectDiscard(
+  Effect.flatMap(Database, (db) => db.insert(users).values({ id: LEARNER.id }).pipe(Effect.orDie))
+)
+
+const testLayer = (jevConfigured: boolean, claudeAvailable = false, config: Record<string, string> = {}) =>
+  Layer.merge(
+    Dictionary.layer.pipe(Layer.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(config)))),
+    Learner
+  ).pipe(Layer.provideMerge(providers(jevConfigured, claudeAvailable)), Layer.provideMerge(DatabaseMemory))
 
 const sense = (glosses: Array<string>, pos: Array<string>, misc: Array<string> = []) => ({
   glosses: glosses.map((text) => ({ text, type: null })),
@@ -372,7 +382,7 @@ layer(testLayer(false))("Dictionary", (it) => {
       yield* saveAudio(db, clip("sentence-en", "We consume too much power.", "en"))
       yield* linkExampleAudio(db, written!.id, "en", "sentence-en")
 
-      const consume = Option.getOrThrow(yield* (yield* Dictionary).entry(EntryId.make(100000021)))
+      const consume = Option.getOrThrow(yield* (yield* Dictionary).entry(EntryId.make(100000021), LEARNER))
       assert.strictEqual(consume.language, "en")
       assert.strictEqual(consume.reading, "/kənˈsjuːm/")
       assert.strictEqual(consume.romaji, "")
@@ -418,14 +428,17 @@ layer(testLayer(false))("Dictionary", (it) => {
     Effect.gen(function* () {
       const db = yield* Database
       const dictionary = yield* Dictionary
-      const audioStatus = Effect.map(dictionary.requestEnrichment(EntryId.make(20)), (s) => Option.getOrThrow(s).audio)
+      const audioStatus = Effect.map(
+        dictionary.requestEnrichment(EntryId.make(20), LEARNER),
+        (s) => Option.getOrThrow(s).audio
+      )
       const hour = 60 * 60 * 1000
       yield* insertEntries(db, [entry(20, "食べる", "たべる", [sense(["to eat"], ["v1"])])])
 
       // Voiced before its examples were written: the headword only.
       yield* saveAudio(db, clip("headword", "たべる", "ja"))
       yield* linkEntryAudio(db, EntryId.make(20), "headword")
-      yield* enqueueJob(db, "audio", EntryId.make(20), 0, new Date(0))
+      yield* enqueueJob(db, "audio", EntryId.make(20), 0, new Date(0), null)
       yield* finishJobs("audio", 1)
       yield* saveExamples(db, EntryId.make(20), [example(0, "パンを食べる。", "I eat bread.")], new Date(1))
       const [written] = yield* examplesFor(db, [EntryId.make(20)])
@@ -462,7 +475,7 @@ layer(testLayer(false))("Dictionary", (it) => {
       const dictionary = yield* Dictionary
       const id = EntryId.make(21)
       const minute = 60 * 1000
-      const audioStatus = Effect.map(dictionary.requestEnrichment(id), (s) => Option.getOrThrow(s).audio)
+      const audioStatus = Effect.map(dictionary.requestEnrichment(id, LEARNER), (s) => Option.getOrThrow(s).audio)
       yield* insertEntries(db, [entry(21, "爆睡", "ばくすい", [sense(["sleeping like a log"], ["n", "vs"])])])
 
       // First look queues audio; all three worker attempts fail.
@@ -736,7 +749,7 @@ layer(testLayer(false))("Dictionary: what Kotori wrote on an English word", (it)
         [{ sense: 0, note: null, noteJa: "建物や文章の「様式」に使う。", model: "test" }],
         new Date(0)
       )
-      const shown = Effect.map(dictionary.entry(EntryId.make(100000040)), Option.getOrThrow)
+      const shown = Effect.map(dictionary.entry(EntryId.make(100000040), LEARNER), Option.getOrThrow)
       assert.strictEqual((yield* shown).senses[0]?.noteJa, "建物や文章の「様式」に使う。")
       assert.isNull((yield* shown).loan)
 
@@ -785,7 +798,7 @@ layer(testLayer(false))("Dictionary: what Kotori wrote on an English word", (it)
         // Found through a cross-reference: no gloss in common, so its first meanings.
         { sense: 0, similarId: EntryId.make(100000052), similarity: 0.8, difference: "more_general", confidence: 0.8 }
       ])
-      const tension = Option.getOrThrow(yield* dictionary.entry(EntryId.make(100000050)))
+      const tension = Option.getOrThrow(yield* dictionary.entry(EntryId.make(100000050), LEARNER))
       assert.deepStrictEqual(
         tension.senses[0]?.similar.map((similar) => [similar.headword, similar.meaning]),
         [
@@ -803,7 +816,7 @@ layer(testLayer(true))("Dictionary with Jev configured", (it) => {
       const db = yield* Database
       const dictionary = yield* Dictionary
       const nuanceStatus = (id: EntryId) =>
-        Effect.map(dictionary.requestEnrichment(id), (s) => Option.getOrThrow(s).nuance)
+        Effect.map(dictionary.requestEnrichment(id, LEARNER), (s) => Option.getOrThrow(s).nuance)
       const nuanceJob = (id: EntryId) => Effect.map(jobStatusFor(db, id), (status) => status.get("nuance"))
       const judge = (id: EntryId, questionsVersion: number) =>
         saveNuance(
@@ -831,7 +844,7 @@ layer(testLayer(true))("Dictionary with Jev configured", (it) => {
         [EntryId.make(100000030), ENGLISH_QUESTIONS_VERSION]
       ] as const) {
         yield* judge(id, version - 1)
-        yield* enqueueJob(db, "nuance", id, 0, new Date(0))
+        yield* enqueueJob(db, "nuance", id, 0, new Date(0), null)
         yield* finishJobs("nuance", 1)
 
         // Looking at the entry queues it again, while the old judgments stay on show.
@@ -867,9 +880,9 @@ layer(testLayer(true))("Dictionary with Jev configured", (it) => {
         ],
         new Date(0)
       )
-      yield* enqueueJob(db, "nuance", EntryId.make(100000031), 0, new Date(0))
+      yield* enqueueJob(db, "nuance", EntryId.make(100000031), 0, new Date(0), null)
       yield* finishJobs("nuance", 1)
-      yield* dictionary.requestEnrichment(EntryId.make(100000031))
+      yield* dictionary.requestEnrichment(EntryId.make(100000031), LEARNER)
       assert.strictEqual((yield* jobStatusFor(db, EntryId.make(100000031))).get("nuance"), "queued")
     })
   )
@@ -883,7 +896,7 @@ layer(testLayer(true, true))("Dictionary with Jev and Claude", (it) => {
       const minute = 60 * 1000
       const nuanceJob = Effect.map(jobStatusFor(db, EntryId.make(100000060)), (status) => status.get("nuance"))
       const look = (at: number) =>
-        TestClock.setTime(at).pipe(Effect.andThen(dictionary.requestEnrichment(EntryId.make(100000060))))
+        TestClock.setTime(at).pipe(Effect.andThen(dictionary.requestEnrichment(EntryId.make(100000060), LEARNER)))
       yield* insertEntries(db, [word(100000060, "mansion", [sense(["大邸宅"], ["n"])])])
       yield* saveNuance(
         db,
@@ -907,7 +920,7 @@ layer(testLayer(true, true))("Dictionary with Jev and Claude", (it) => {
         { word: "マンション", verdict, answers: {}, model: "test", questionsVersion: ENGLISH_QUESTIONS_VERSION },
         new Date(0)
       )
-      yield* enqueueJob(db, "nuance", EntryId.make(100000060), 0, new Date(0))
+      yield* enqueueJob(db, "nuance", EntryId.make(100000060), 0, new Date(0), null)
       yield* finishJobs("nuance", 0)
 
       // Right after the job, a look leaves it; ten minutes on, it is queued for the warning.
@@ -956,11 +969,71 @@ layer(testLayer(true))("Dictionary with Jev, and Claude unavailable", (it) => {
         { word: "マンション", verdict, answers: {}, model: "test", questionsVersion: ENGLISH_QUESTIONS_VERSION },
         new Date(0)
       )
-      yield* enqueueJob(db, "nuance", EntryId.make(100000061), 0, new Date(0))
+      yield* enqueueJob(db, "nuance", EntryId.make(100000061), 0, new Date(0), null)
       yield* finishJobs("nuance", 0)
       yield* TestClock.setTime(60 * 60 * 1000)
-      yield* dictionary.requestEnrichment(EntryId.make(100000061))
+      yield* dictionary.requestEnrichment(EntryId.make(100000061), LEARNER)
       assert.strictEqual((yield* jobStatusFor(db, EntryId.make(100000061))).get("nuance"), "done")
     })
   )
 })
+
+layer(testLayer(true, true, { KOTORI_ENRICH_HOURLY_LIMIT: "2", KOTORI_ENRICH_DAILY_LIMIT: "3" }))(
+  "Dictionary: a learner's allowance of new entries to enrich",
+  (it) => {
+    const ADMIN: Requester = { id: UserId.make("00000000-0000-4000-8000-000000000002"), role: "admin" }
+    const ids = [40, 41, 42, 43, 44].map((id) => EntryId.make(id))
+    const queuedFor = (id: EntryId) =>
+      Effect.flatMap(Database, (db) =>
+        db
+          .select({ kind: jobs.kind, requestedBy: jobs.requestedBy })
+          .from(jobs)
+          .where(eq(jobs.entryId, id))
+          .pipe(Effect.orDie)
+      )
+
+    it.effect("queues new entries within the allowance, then stops one learner from queuing the whole dictionary", () =>
+      Effect.gen(function* () {
+        const db = yield* Database
+        const dictionary = yield* Dictionary
+        yield* db.insert(users).values({ id: ADMIN.id, role: "admin" }).pipe(Effect.orDie)
+        yield* insertEntries(
+          db,
+          ids.map((id, n) => entry(id, `語${n}`, `ご${n}`, [sense([`word ${n}`], ["n"])]))
+        )
+        const queued = { nuance: "queued", examples: "queued", audio: "queued" }
+        const unavailable = { nuance: "unavailable", examples: "unavailable", audio: "unavailable" }
+        yield* TestClock.setTime(0)
+
+        // Two new entries this hour: each queues its nuance, examples and audio, billed to the learner.
+        assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.requestEnrichment(ids[0]!, LEARNER)), queued)
+        assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.entry(ids[1]!, LEARNER)).enrichment, queued)
+        const first = yield* queuedFor(ids[0]!)
+        assert.strictEqual(first.length, 3)
+        assert.isTrue(first.every((job) => job.requestedBy === LEARNER.id))
+
+        // Checking back on an entry already on its way is free, however often.
+        for (let poll = 0; poll < 5; poll++) {
+          assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.requestEnrichment(ids[0]!, LEARNER)), queued)
+        }
+
+        // A third is over the hourly allowance: asking fails, looking queues nothing and says so.
+        const refused = yield* dictionary.requestEnrichment(ids[2]!, LEARNER).pipe(Effect.flip)
+        assert.strictEqual(refused._tag, "RateLimited")
+        assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.entry(ids[2]!, LEARNER)).enrichment, unavailable)
+        assert.deepStrictEqual(yield* queuedFor(ids[2]!), [])
+
+        // An admin isn't limited.
+        assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.requestEnrichment(ids[2]!, ADMIN)), queued)
+        assert.isTrue((yield* queuedFor(ids[2]!)).every((job) => job.requestedBy === ADMIN.id))
+
+        // An hour on, the hourly allowance is back but the day's runs out after one more.
+        yield* TestClock.setTime(60 * 60 * 1000 + 1)
+        assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.requestEnrichment(ids[3]!, LEARNER)), queued)
+        const tired = yield* dictionary.requestEnrichment(ids[4]!, LEARNER).pipe(Effect.flip)
+        assert.strictEqual(tired._tag, "RateLimited")
+        assert.deepStrictEqual(yield* queuedFor(ids[4]!), [])
+      })
+    )
+  }
+)

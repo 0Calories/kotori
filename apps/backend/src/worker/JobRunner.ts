@@ -32,15 +32,15 @@ export const makeJobRunner = Effect.fn("makeJobRunner")(function* (kinds: Readon
   const runJob = (job: Job) =>
     Effect.uninterruptibleMask((restore) =>
       Effect.gen(function* () {
-        const { id, kind, entryId, priority, attempts } = job
-        const exit = yield* Effect.exit(restore(enrichers.run(kind, entryId)))
+        const { id, kind, entryId, priority, attempts, requestedBy } = job
+        const exit = yield* Effect.exit(restore(enrichers.run(kind, entryId, requestedBy)))
         const finishedAt = yield* Clock.currentTimeMillis
         const finished = new Date(finishedAt)
         if (Exit.isSuccess(exit)) {
           // New example sentences need voicing too; queue audio before marking examples done so a
           // concurrent poll never sees the new examples with audio already settled.
           if (kind === "examples" && kinds.includes("audio"))
-            yield* requeueJob(db, "audio", entryId, priority, finished)
+            yield* requeueJob(db, "audio", entryId, priority, finished, requestedBy)
           yield* completeJob(db, id, finished)
           yield* Effect.logInfo(`${kind} ${entryId}: ${exit.value}`)
         } else if (Cause.hasInterrupts(exit.cause)) {

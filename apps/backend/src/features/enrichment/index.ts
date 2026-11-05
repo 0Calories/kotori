@@ -17,6 +17,7 @@ export {
   enqueueJob,
   failJob,
   jobCounts,
+  jobsFor,
   jobStatusFor,
   refillJob,
   releaseJob,

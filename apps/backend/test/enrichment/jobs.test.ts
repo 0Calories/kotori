@@ -39,9 +39,9 @@ layer(DatabaseMemory)("the job queue", (it) => {
     Effect.gen(function* () {
       const db = yield* Database
       yield* stubEntries([1, 2, 3])
-      yield* enqueueJob(db, "examples", EntryId.make(1), 0, at(1000))
-      yield* enqueueJob(db, "examples", EntryId.make(2), 10, at(1000))
-      yield* enqueueJob(db, "audio", EntryId.make(3), 99, at(1000))
+      yield* enqueueJob(db, "examples", EntryId.make(1), 0, at(1000), null)
+      yield* enqueueJob(db, "examples", EntryId.make(2), 10, at(1000), null)
+      yield* enqueueJob(db, "audio", EntryId.make(3), 99, at(1000), null)
 
       const first = yield* claimJob(db, ["examples"], at(2000))
       assert.strictEqual(Option.getOrThrow(first).entryId, 2)
@@ -65,7 +65,7 @@ layer(DatabaseMemory)("the job queue", (it) => {
     Effect.gen(function* () {
       const db = yield* Database
       yield* stubEntries([10])
-      yield* enqueueJob(db, "nuance", EntryId.make(10), 0, at(1000))
+      yield* enqueueJob(db, "nuance", EntryId.make(10), 0, at(1000), null)
       const claimed = Option.getOrThrow(yield* claimJob(db, ["nuance"], at(2000)))
       assert.strictEqual(claimed.attempts, 1)
 
@@ -82,7 +82,7 @@ layer(DatabaseMemory)("the job queue", (it) => {
       const db = yield* Database
       yield* stubEntries([20])
       const id = EntryId.make(20)
-      yield* enqueueJob(db, "nuance", id, 0, at(1000))
+      yield* enqueueJob(db, "nuance", id, 0, at(1000), null)
 
       for (const tick of [1000, 2000, 3000]) {
         const claimed = Option.getOrThrow(yield* claimJob(db, ["nuance"], at(tick)))
@@ -91,9 +91,9 @@ layer(DatabaseMemory)("the job queue", (it) => {
       assert.strictEqual((yield* jobStatusFor(db, id)).get("nuance"), "failed")
 
       // A soon refill leaves the failed job alone; once the cool-off passes, it queues again.
-      yield* refillJob(db, "nuance", id, at(2500), 0, at(4000))
+      yield* refillJob(db, "nuance", id, at(2500), 0, at(4000), null)
       assert.strictEqual((yield* jobStatusFor(db, id)).get("nuance"), "failed")
-      yield* refillJob(db, "nuance", id, at(3500), 0, at(4000))
+      yield* refillJob(db, "nuance", id, at(3500), 0, at(4000), null)
       assert.strictEqual((yield* jobStatusFor(db, id)).get("nuance"), "queued")
 
       // Failing all three attempts again leaves a future retry timestamp, which enqueueJob clears.
@@ -102,7 +102,7 @@ layer(DatabaseMemory)("the job queue", (it) => {
         yield* failJob(db, claimed.id, "quota", at(tick === 6000 ? 240_000 : tick + 500), at(tick))
       }
       assert.strictEqual((yield* jobStatusFor(db, id)).get("nuance"), "failed")
-      yield* enqueueJob(db, "nuance", id, 0, at(7000))
+      yield* enqueueJob(db, "nuance", id, 0, at(7000), null)
       const revived = Option.getOrThrow(yield* claimJob(db, ["nuance"], at(7000)))
       assert.strictEqual(revived.attempts, 1)
     })

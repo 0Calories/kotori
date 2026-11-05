@@ -92,11 +92,12 @@ export class DictionaryApi extends HttpApiGroup.make("dictionary")
       success: Entry,
       error: NotFound
     }),
-    // Queue example sentences and audio for an entry that hasn't been enriched yet.
+    // Queue example sentences and audio for an entry that hasn't been enriched yet, within the
+    // learner's allowance of new entries an hour and a day.
     HttpApiEndpoint.post("enrich", "/entries/:id/enrich", {
       params: { id: EntryId },
       success: Enrichment,
-      error: NotFound
+      error: [NotFound, RateLimited]
     }),
     // When a search found no exact match, ask Kotori to draft an entry (or name the one it missed).
     HttpApiEndpoint.post("ask", "/ask", {

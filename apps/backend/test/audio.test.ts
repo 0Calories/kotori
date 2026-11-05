@@ -1,6 +1,8 @@
 import { assert, layer } from "@effect/vitest"
 import { ElevenLabs, ENGLISH_CAST, JAPANESE_CAST, Jev, Pronouncer, VoiceCasts } from "@kotori/ai"
 import { EntryId, type EntryRecord } from "@kotori/contracts"
+import { audio as clips, UserId, users } from "@kotori/db"
+import { eq } from "drizzle-orm"
 import { ConfigProvider, Effect, Layer } from "effect"
 import { Database } from "../src/db/Database.ts"
 import { AudioStore, isAudioKey } from "../src/features/audio/AudioStore.ts"
@@ -10,6 +12,7 @@ import { insertEntries } from "../src/features/dictionary/queries.ts"
 import { AudioEnricher } from "../src/features/enrichment/AudioEnricher.ts"
 import { examplesFor, saveExamples } from "../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
+import { U1 } from "./fixtures.ts"
 
 const calls: Array<{ text: string; voiceId: string }> = []
 
@@ -53,24 +56,20 @@ const FullCasts = Layer.succeed(VoiceCasts, {
   en: ENGLISH_CAST.map((voice) => ({ ...voice, providerId: `fake-${voice.id}` }))
 })
 
-const TestLayer = AudioEnricher.layer.pipe(
-  Layer.provideMerge(Speech.layer),
-  Layer.provideMerge(
-    Layer.mergeAll(
-      AudioStore.database,
-      Pronouncer.layer.pipe(Layer.provide(Layer.mergeAll(FakeElevenLabs, FakeJev, FullCasts)))
-    )
-  ),
-  Layer.provideMerge(DatabaseMemory),
-  Layer.provide(
-    ConfigProvider.layer(
-      ConfigProvider.fromUnknown({
-        KOTORI_AUDIO_MONTHLY_CHARS: "5000",
-        KOTORI_HEADWORD_VOICES: "2"
-      })
-    )
+const testLayer = (config: Record<string, string>) =>
+  AudioEnricher.layer.pipe(
+    Layer.provideMerge(Speech.layer),
+    Layer.provideMerge(
+      Layer.mergeAll(
+        AudioStore.database,
+        Pronouncer.layer.pipe(Layer.provide(Layer.mergeAll(FakeElevenLabs, FakeJev, FullCasts)))
+      )
+    ),
+    Layer.provideMerge(DatabaseMemory),
+    Layer.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({ KOTORI_HEADWORD_VOICES: "2", ...config })))
   )
-)
+
+const TestLayer = testLayer({ KOTORI_AUDIO_MONTHLY_CHARS: "5000" })
 
 const entry = (id: number, senses: Array<{ dialects?: Array<string>; misc?: Array<string> }>): EntryRecord => ({
   id: EntryId.make(id),
@@ -124,7 +123,7 @@ layer(TestLayer)("Speech and AudioEnricher", (it) => {
 
       // Another voice speaking the same text is a new clip, not a cache hit.
       const elder = JAPANESE_CAST.find((voice) => voice.id === "ja-elder-m")!
-      const second = yield* speech.speak("たべる", "ja", { ...elder, providerId: "fake-ja-elder-m" })
+      const second = yield* speech.speak("たべる", "ja", { voice: { ...elder, providerId: "fake-ja-elder-m" } })
       assert.notStrictEqual(second, key)
       assert.strictEqual(voiceOf("たべる")[1], "fake-ja-elder-m")
     })
@@ -135,7 +134,7 @@ layer(TestLayer)("Speech and AudioEnricher", (it) => {
       const db = yield* Database
       calls.length = 0
       yield* insertEntries(db, [entry(1, [{}])])
-      const summary = yield* (yield* AudioEnricher).enrich(EntryId.make(1))
+      const summary = yield* (yield* AudioEnricher).enrich(EntryId.make(1), null)
       assert.strictEqual(summary.clips, 2)
       // Kyoko (already cached from the test above) and the announcer, the first two headword voices.
       assert.deepStrictEqual(voiceOf("たべる"), ["fake-ja-announcer"])
@@ -167,7 +166,7 @@ layer(TestLayer)("Speech and AudioEnricher", (it) => {
         ],
         new Date(1000)
       )
-      yield* (yield* AudioEnricher).enrich(EntryId.make(2))
+      yield* (yield* AudioEnricher).enrich(EntryId.make(2), null)
       // The announcer is the lone formal-announcement candidate: no Jev call.
       assert.deepStrictEqual(voiceOf("ニュースをお伝えします。"), ["fake-ja-announcer"])
       // English speakers learning the word don't need the translation read to them.
@@ -206,7 +205,7 @@ layer(TestLayer)("Speech and AudioEnricher", (it) => {
         ],
         new Date(1000)
       )
-      const summary = yield* (yield* AudioEnricher).enrich(EntryId.make(100000001))
+      const summary = yield* (yield* AudioEnricher).enrich(EntryId.make(100000001), null)
       // Two English headword voices read "flat", never its IPA; the sentence goes to the British voice.
       assert.strictEqual(voiceOf("flat").length, 2)
       assert.isTrue(voiceOf("flat").every((voice) => voice.startsWith("fake-en-")))
@@ -230,7 +229,7 @@ layer(TestLayer)("Speech and AudioEnricher", (it) => {
         [{ ...example, sense: 0, ja: "まじやばい。", en: "That's crazy.", formality: "casual" as const }],
         new Date(1000)
       )
-      yield* (yield* AudioEnricher).enrich(EntryId.make(3))
+      yield* (yield* AudioEnricher).enrich(EntryId.make(3), null)
       assert.isAbove(votes.length, 0)
       assert.deepStrictEqual(voiceOf("まじやばい。"), ["fake-ja-casual-f"])
     })
@@ -257,7 +256,7 @@ layer(TestLayer)("Speech and AudioEnricher", (it) => {
         ],
         new Date(1000)
       )
-      yield* (yield* AudioEnricher).enrich(EntryId.make(4))
+      yield* (yield* AudioEnricher).enrich(EntryId.make(4), null)
       assert.strictEqual(voiceOf("んだんだ。").length, 1)
       assert.isTrue(voiceOf("んだんだ。")[0]!.startsWith("fake-ja-casual"))
     })
@@ -296,7 +295,7 @@ layer(TestLayer)("Speech and AudioEnricher", (it) => {
 
       calls.length = 0
       const audio = yield* AudioEnricher
-      const summary = yield* audio.enrich(EntryId.make(5))
+      const summary = yield* audio.enrich(EntryId.make(5), null)
       assert.deepStrictEqual(
         calls.map((call) => call.text),
         ["もう食べた？"]
@@ -312,7 +311,7 @@ layer(TestLayer)("Speech and AudioEnricher", (it) => {
       // Nothing left to voice: no synthesis and no Jev tiebreak.
       calls.length = 0
       votes.length = 0
-      assert.deepStrictEqual(yield* audio.enrich(EntryId.make(5)), { clips: 0, characters: 0 })
+      assert.deepStrictEqual(yield* audio.enrich(EntryId.make(5), null), { clips: 0, characters: 0 })
       assert.strictEqual(calls.length, 0)
       assert.strictEqual(votes.length, 0)
     })
@@ -325,3 +324,51 @@ layer(TestLayer)("Speech and AudioEnricher", (it) => {
     })
   )
 })
+
+layer(testLayer({ KOTORI_AUDIO_MONTHLY_CHARS: "100", KOTORI_AUDIO_USER_MONTHLY_CHARS: "30" }))(
+  "Speech: each learner's share of the monthly budget",
+  (it) => {
+    it.effect("stops one learner at their share, leaving the rest of the budget to everyone else", () =>
+      Effect.gen(function* () {
+        const db = yield* Database
+        const speech = yield* Speech
+        const U2 = UserId.make("00000000-0000-4000-8000-000000000002")
+        const U3 = UserId.make("00000000-0000-4000-8000-000000000003")
+        yield* db
+          .insert(users)
+          .values([{ id: U1 }, { id: U2 }, { id: U3 }])
+          .pipe(Effect.orDie)
+        const madeFor = (key: string) =>
+          db
+            .select({ userId: clips.userId })
+            .from(clips)
+            .where(eq(clips.key, key))
+            .pipe(Effect.map((rows) => rows[0]?.userId))
+
+        // The worker voices an entry for the learner who asked for it: its clips are theirs.
+        yield* insertEntries(db, [entry(6, [{}])])
+        const summary = yield* (yield* AudioEnricher).enrich(EntryId.make(6), U3)
+        assert.strictEqual(summary.characters, 6)
+        for (const clip of (yield* entryClips(db, [EntryId.make(6)])).get(EntryId.make(6)) ?? []) {
+          assert.strictEqual(yield* madeFor(clip.key), U3)
+        }
+
+        // 20 of a learner's 30 characters, then 15 more is over their share.
+        const first = yield* speech.speak("あ".repeat(20), "ja", { payer: U1 })
+        assert.strictEqual(yield* madeFor(first), U1)
+        const over = yield* speech.speak("い".repeat(15), "ja", { payer: U1 }).pipe(Effect.flip)
+        assert.strictEqual(over.reason, "quota")
+        // A clip that already exists costs nothing, so it plays even past their share.
+        assert.strictEqual(yield* speech.speak("あ".repeat(20), "ja", { payer: U1 }), first)
+
+        // Another learner still has their whole share.
+        yield* speech.speak("い".repeat(20), "ja", { payer: U2 })
+
+        // Unattributed clips (the CLI's) count only toward the budget, which still caps everyone.
+        yield* speech.speak("う".repeat(50), "ja")
+        const spent = yield* speech.speak("え".repeat(10), "ja", { payer: U2 }).pipe(Effect.flip)
+        assert.strictEqual(spent.reason, "quota")
+      })
+    )
+  }
+)

@@ -11,6 +11,8 @@ import {
   Pronouncer
 } from "@kotori/ai"
 import { EntryId, type EntryRecord } from "@kotori/contracts"
+import { audio, jobs, users } from "@kotori/db"
+import { and, eq } from "drizzle-orm"
 import { Effect, Layer } from "effect"
 import { TestClock } from "effect/testing"
 import { Database } from "../src/db/Database.ts"
@@ -25,6 +27,7 @@ import { NuanceEnricher } from "../src/features/enrichment/NuanceEnricher.ts"
 import { examplesFor, loanWordsFor, nuanceFor, similarFor } from "../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 import { makeJobRunner } from "../src/worker/JobRunner.ts"
+import { U1 } from "./fixtures.ts"
 
 // The worker's real enrichers and queries on PGlite; only the paid providers are fakes.
 
@@ -208,8 +211,9 @@ layer(TestLayer)("the worker", (it) => {
       const step = yield* makeJobRunner(kinds)
 
       // What the API does when a learner opens an entry.
-      yield* enqueueJob(db, "nuance", taberu, 100, new Date(0))
-      yield* enqueueJob(db, "examples", taberu, 100, new Date(0))
+      yield* db.insert(users).values({ id: U1 }).pipe(Effect.orDie)
+      yield* enqueueJob(db, "nuance", taberu, 100, new Date(0), U1)
+      yield* enqueueJob(db, "examples", taberu, 100, new Date(0), U1)
       assert.strictEqual(yield* drain(step), 3)
 
       assert.deepStrictEqual(
@@ -234,6 +238,16 @@ layer(TestLayer)("the worker", (it) => {
       assert.isTrue((yield* entryClips(db, [taberu])).has(taberu))
       const clips = yield* exampleClips(db, [example!.id])
       assert.deepStrictEqual([...clips.keys()], [`${example!.id}:ja`])
+      // Its clips count toward the allowance of the learner who opened the entry.
+      const [audioJob] = yield* db
+        .select()
+        .from(jobs)
+        .where(and(eq(jobs.entryId, taberu), eq(jobs.kind, "audio")))
+      assert.strictEqual(audioJob?.requestedBy, U1)
+      assert.deepStrictEqual(
+        (yield* db.select({ userId: audio.userId }).from(audio)).map((clip) => clip.userId),
+        [U1, U1, U1]
+      )
       assert.deepStrictEqual(
         [...(yield* jobStatusFor(db, taberu))].sort(([a], [b]) => a.localeCompare(b)),
         [
@@ -274,7 +288,7 @@ layer(TestLayer)("the worker", (it) => {
       const step = yield* makeJobRunner(["nuance"])
 
       // What the API queues when a Japanese speaker opens the English word.
-      yield* enqueueJob(db, "nuance", styleEnglish, 100, new Date(0))
+      yield* enqueueJob(db, "nuance", styleEnglish, 100, new Date(0), null)
       assert.strictEqual(yield* drain(step), 1)
       const judged = Effect.map(loanWordsFor(db, [styleEnglish]), (rows) =>
         rows.map((row) => [row.word, row.verdict?.value, row.trap])
@@ -286,7 +300,7 @@ layer(TestLayer)("the worker", (it) => {
       assert.strictEqual(loanRequests, 1)
 
       // Judging the word again keeps the warning instead of paying Claude for it twice.
-      yield* requeueJob(db, "nuance", styleEnglish, 100, new Date(0))
+      yield* requeueJob(db, "nuance", styleEnglish, 100, new Date(0), null)
       assert.strictEqual(yield* drain(step), 1)
       assert.deepStrictEqual(yield* judged, [warned])
       assert.strictEqual(loanRequests, 1)
@@ -333,19 +347,19 @@ layer(TestLayer)("the worker", (it) => {
 
       // Judged while the Claude probe fails: the verdict is saved, the warning skipped.
       claudeUp = false
-      yield* enqueueJob(db, "nuance", mansion, 100, new Date(0))
+      yield* enqueueJob(db, "nuance", mansion, 100, new Date(0), null)
       assert.strictEqual(yield* drain(step), 1)
       assert.deepStrictEqual(yield* trap, ["divergent", null])
       assert.strictEqual(jevRequests - before.jev, 2)
 
       // Queued again while Claude is still away, the job leaves it to a later try.
-      yield* requeueJob(db, "nuance", mansion, 100, new Date(0))
+      yield* requeueJob(db, "nuance", mansion, 100, new Date(0), null)
       assert.strictEqual(yield* drain(step), 1)
       assert.deepStrictEqual(yield* trap, ["divergent", null])
 
       // Claude is back: the next run writes the warning, and doesn't ask Jev again.
       claudeUp = true
-      yield* requeueJob(db, "nuance", mansion, 100, new Date(0))
+      yield* requeueJob(db, "nuance", mansion, 100, new Date(0), null)
       assert.strictEqual(yield* drain(step), 1)
       assert.deepStrictEqual(yield* trap, ["divergent", WARNING])
       assert.strictEqual(jevRequests - before.jev, 2)
@@ -365,7 +379,7 @@ layer(TestLayer)("the worker", (it) => {
       const step = yield* makeJobRunner(["nuance"])
 
       jevDown = true
-      yield* enqueueJob(db, "nuance", kuu, 10, new Date(0))
+      yield* enqueueJob(db, "nuance", kuu, 10, new Date(0), null)
       assert.isTrue(yield* step)
       assert.strictEqual((yield* jobStatusFor(db, kuu)).get("nuance"), "queued")
       assert.isFalse(yield* step)

@@ -1,4 +1,4 @@
-import { type EntryId, jobs } from "@kotori/db"
+import { type EntryId, jobs, type UserId } from "@kotori/db"
 import { and, asc, count, desc, eq, inArray, lt, lte, sql } from "drizzle-orm"
 import { Effect, Option } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
@@ -18,20 +18,32 @@ const jobColumns = {
   priority: jobs.priority,
   status: jobs.status,
   attempts: jobs.attempts,
-  error: jobs.error
+  error: jobs.error,
+  requestedBy: jobs.requestedBy
 }
 
 export type Job = Pick<typeof jobs.$inferSelect, keyof typeof jobColumns>
 
-/** Queues work for an entry. Asking again raises its priority and revives a failed job. */
-export const enqueueJob = (db: DatabaseShape, kind: JobKind, entryId: EntryId, priority: number, now: Date) =>
+/**
+ * Queues work for an entry. Asking again raises its priority and revives a failed job, which
+ * then counts toward the reviver's audio allowance (`requestedBy`; null for an admin or the CLI).
+ */
+export const enqueueJob = (
+  db: DatabaseShape,
+  kind: JobKind,
+  entryId: EntryId,
+  priority: number,
+  now: Date,
+  requestedBy: UserId | null
+) =>
   db
     .insert(jobs)
-    .values({ kind, entryId, priority, status: "queued", runAfter: now, createdAt: now, updatedAt: now })
+    .values({ kind, entryId, priority, status: "queued", runAfter: now, createdAt: now, updatedAt: now, requestedBy })
     .onConflictDoUpdate({
       target: [jobs.kind, jobs.entryId],
       set: {
         priority: sql`greatest(${jobs.priority}, excluded.priority)`,
+        requestedBy: sql`CASE WHEN ${jobs.status} = 'failed' THEN excluded.requested_by ELSE ${jobs.requestedBy} END`,
         status: sql`CASE WHEN ${jobs.status} = 'failed' THEN 'queued'::job_status ELSE ${jobs.status} END`,
         attempts: sql`CASE WHEN ${jobs.status} = 'failed' THEN 0 ELSE ${jobs.attempts} END`,
         runAfter: sql`CASE WHEN ${jobs.status} = 'failed' THEN excluded.run_after ELSE ${jobs.runAfter} END`,
@@ -41,14 +53,22 @@ export const enqueueJob = (db: DatabaseShape, kind: JobKind, entryId: EntryId, p
     .pipe(Effect.asVoid, Effect.orDie)
 
 /** Queues a job to run again even if it already finished (audio, say, once examples exist). */
-export const requeueJob = (db: DatabaseShape, kind: JobKind, entryId: EntryId, priority: number, now: Date) =>
+export const requeueJob = (
+  db: DatabaseShape,
+  kind: JobKind,
+  entryId: EntryId,
+  priority: number,
+  now: Date,
+  requestedBy: UserId | null
+) =>
   db
     .insert(jobs)
-    .values({ kind, entryId, priority, status: "queued", runAfter: now, createdAt: now, updatedAt: now })
+    .values({ kind, entryId, priority, status: "queued", runAfter: now, createdAt: now, updatedAt: now, requestedBy })
     .onConflictDoUpdate({
       target: [jobs.kind, jobs.entryId],
       set: {
         priority: sql`excluded.priority`,
+        requestedBy: sql`excluded.requested_by`,
         status: sql`CASE WHEN ${jobs.status} = 'running' THEN ${jobs.status} ELSE 'queued'::job_status END`,
         attempts: 0,
         runAfter: sql`excluded.run_after`,
@@ -67,11 +87,12 @@ export const refillJob = (
   entryId: EntryId,
   settledBefore: Date,
   priority: number,
-  now: Date
+  now: Date,
+  requestedBy: UserId | null
 ) =>
   db
     .update(jobs)
-    .set({ status: "queued", priority, attempts: 0, runAfter: now, updatedAt: now })
+    .set({ status: "queued", priority, attempts: 0, runAfter: now, updatedAt: now, requestedBy })
     .where(
       and(
         eq(jobs.kind, kind),
@@ -133,14 +154,20 @@ export const releaseJob = (db: DatabaseShape, id: number, now: Date) =>
     .where(and(eq(jobs.id, id), eq(jobs.status, "running")))
     .pipe(Effect.asVoid, Effect.orDie)
 
-/** Each kind of job's status for an entry. */
-export const jobStatusFor = Effect.fn("jobs.statusFor")(function* (db: DatabaseShape, entryId: EntryId) {
+/** Each kind of job's status for an entry, and when it last changed. */
+export const jobsFor = Effect.fn("jobs.jobsFor")(function* (db: DatabaseShape, entryId: EntryId) {
   const rows = yield* db
-    .select({ kind: jobs.kind, status: jobs.status })
+    .select({ kind: jobs.kind, status: jobs.status, updatedAt: jobs.updatedAt })
     .from(jobs)
     .where(eq(jobs.entryId, entryId))
     .pipe(Effect.orDie)
-  return new Map(rows.map((row) => [row.kind, row.status]))
+  return new Map(rows.map(({ kind, ...job }) => [kind, job]))
+})
+
+/** Each kind of job's status for an entry. */
+export const jobStatusFor = Effect.fn("jobs.statusFor")(function* (db: DatabaseShape, entryId: EntryId) {
+  const rows = yield* jobsFor(db, entryId)
+  return new Map([...rows].map(([kind, job]) => [kind, job.status]))
 })
 
 /** Puts jobs left `running` by a worker that crashed or was killed back in the queue. */

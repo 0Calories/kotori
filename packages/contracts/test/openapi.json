@@ -2132,6 +2132,16 @@
               }
             }
           },
+          "429": {
+            "description": "RateLimited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateLimitedEncoded"
+                }
+              }
+            }
+          },
           "503": {
             "description": "AuthUnavailable",
             "content": {

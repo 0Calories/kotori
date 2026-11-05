@@ -1,5 +1,5 @@
-import { audio, entryAudio, type EntryId, exampleAudio, type Language } from "@kotori/db"
-import { asc, eq, gte, inArray, sum } from "drizzle-orm"
+import { audio, entryAudio, type EntryId, exampleAudio, type Language, type UserId } from "@kotori/db"
+import { and, asc, eq, gte, inArray, sum } from "drizzle-orm"
 import { Effect, Option } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 
@@ -72,12 +72,15 @@ export const exampleClips = Effect.fn("audio.exampleClips")(function* (
   return new Map(rows.map((row) => [`${row.exampleId}:${row.language}`, row.audioKey]))
 }, Effect.orDie)
 
-/** Characters sent to the speech provider since `since`, for the monthly budget. */
-export const audioCharactersSince = (db: DatabaseShape, since: Date) =>
+/**
+ * Characters sent to the speech provider since `since`: for everyone (the monthly budget), or for
+ * clips made for one learner (their share of it).
+ */
+export const audioCharactersSince = (db: DatabaseShape, since: Date, userId?: UserId) =>
   db
     .select({ n: sum(audio.characters).mapWith(Number) })
     .from(audio)
-    .where(gte(audio.createdAt, since))
+    .where(and(gte(audio.createdAt, since), userId === undefined ? undefined : eq(audio.userId, userId)))
     .pipe(
       Effect.map((rows) => rows[0]?.n ?? 0),
       Effect.orDie
