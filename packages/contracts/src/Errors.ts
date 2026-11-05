@@ -44,3 +44,18 @@ export class RateLimited extends Schema.TaggedError<RateLimited>()(
   { message: Schema.String, retryAfterSeconds: Schema.Int },
   { httpApiStatus: 429 }
 ) {}
+
+/**
+ * Why Ask Kotori turned a query away without asking anyone: not something to look up
+ * (`not_askable`: too long, markup, numbers, an unexpected script), written in the learner's own
+ * language rather than the one learned, a key held down, a run along the keyboard, or already
+ * answered by the dictionary's results. A code, not copy: the app words each in the learner's language.
+ */
+export const AskRefusal = Schema.Literals(["not_askable", "wrong_language", "repetition", "keyboard", "in_dictionary"])
+export type AskRefusal = typeof AskRefusal.Type
+
+export class AskRefused extends Schema.TaggedError<AskRefused>()(
+  "AskRefused",
+  { reason: AskRefusal },
+  { httpApiStatus: 400 }
+) {}

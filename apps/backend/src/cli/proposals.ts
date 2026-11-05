@@ -1,10 +1,17 @@
-import { Console, Effect, Option } from "effect"
-import { Argument, Command, Flag } from "effect/cli"
-import { eq } from "drizzle-orm"
+import type { Claude, Lexicographer } from "@kotori/ai"
 import { proposalAsks, proposals } from "@kotori/db"
-import { count, desc } from "drizzle-orm"
+import { and, count, desc, eq } from "drizzle-orm"
+import { Console, Effect, type Layer, Option } from "effect"
+import { Argument, Command, Flag } from "effect/cli"
 import { Database } from "../db/Database.ts"
-import { APPROVED_EN_FILE, APPROVED_JA_FILE, approveProposal, discardProposal } from "../features/asks/review.ts"
+import {
+  APPROVED_EN_FILE,
+  APPROVED_JA_FILE,
+  approveProposal,
+  discardProposal,
+  redoProposal
+} from "../features/asks/review.ts"
+import type { Dictionary } from "../features/dictionary/Dictionary.ts"
 import { resolveFromRoot } from "../runtime/Paths.ts"
 
 const id = Argument.Int("id").pipe(Argument.withDescription("The proposal's id, from `kotori proposals list`"))
@@ -18,28 +25,46 @@ const list = Command.make(
   "list",
   {
     status: Flag.Literals("status", ["pending", "linked", "rejected", "approved", "discarded", "all"]).pipe(
-      Flag.withDescription("Which proposals to list; rejected ones are worth a look for false negatives"),
-      Flag.withDefault("pending")
+      Flag.withDescription(
+        "Which proposals to list: pending by default, rejected with --contested; rejected ones are worth a look for false negatives"
+      ),
+      Flag.optional
+    ),
+    contested: Flag.Boolean("contested").pipe(
+      Flag.withDescription("Only rejections Claude made of queries Jev was sure were lookups"),
+      Flag.withDefault(false)
     )
   },
-  Effect.fn(function* ({ status }) {
+  Effect.fn(function* ({ status: chosen, contested }) {
+    // Contested proposals are all rejections, so asking for them alone means the rejected ones.
+    const status = Option.getOrElse(chosen, () => (contested ? "rejected" : "pending"))
     const db = yield* Database
-    const rows = yield* db
+    const shown = yield* db
       .select({ proposal: proposals, asks: count(proposalAsks.userId) })
       .from(proposals)
       .leftJoin(proposalAsks, eq(proposalAsks.proposalId, proposals.id))
+      .where(
+        and(
+          status === "all" ? undefined : eq(proposals.status, status),
+          contested ? eq(proposals.contested, true) : undefined
+        )
+      )
       .groupBy(proposals.id)
       .orderBy(desc(proposals.createdAt))
       .limit(200)
       .pipe(Effect.orDie)
-    const shown = rows.filter((row) => status === "all" || row.proposal.status === status)
-    if (shown.length === 0) return yield* Console.log(status === "pending" ? "Nothing waiting." : "Nothing there.")
+    if (shown.length === 0) {
+      return yield* Console.log(status === "pending" && !contested ? "Nothing waiting." : "Nothing there.")
+    }
     for (const { proposal, asks } of shown) {
       yield* Console.log(
         [
           String(proposal.id).padStart(5),
           proposal.language,
           proposal.status.padEnd(9),
+          (proposal.route ?? "-").padEnd(14),
+          // "!" marks a contested rejection: Jev said lookup, Claude said no. Many asks say the same.
+          proposal.contested ? "!" : " ",
           `asks:${String(asks).padEnd(4)}`,
           proposal.createdAt.toISOString().slice(0, 10),
           proposal.query +
@@ -109,7 +134,39 @@ const discard = Command.make(
   })
 ).pipe(Command.withDescription("Turn a pending draft down, keeping the answer as a negative cache"))
 
-export const proposalsCommand = Command.make("proposals").pipe(
-  Command.withDescription("Review Ask Kotori's drafted entries: the manual gate before the dictionary"),
-  Command.withSubcommands([list, show, approve, discard])
+const redo = Command.make(
+  "redo",
+  { id },
+  Effect.fn(function* ({ id }) {
+    const db = yield* Database
+    yield* redoProposal(db, id).pipe(
+      Effect.flatMap(({ proposal, linked }) =>
+        Console.log(
+          `Asked again: proposal ${id} is now ${proposal.status}` +
+            (proposal.draft !== null ? ` with a draft for "${proposal.draft.headword}"` : "") +
+            (linked !== null ? `, linked to "${linked}"` : "") +
+            (proposal.reason !== null ? `: ${proposal.reason}` : "") +
+            "."
+        )
+      ),
+      Effect.catchTags({
+        NoSuchProposal: () => notFound(id),
+        NotRejected: (error) => Console.error(`Proposal ${id} is ${error.status}, not rejected.`),
+        AiUnavailable: (error) => Console.error(error.message),
+        RateLimited: (error) => Console.error(error.message)
+      })
+    )
+  })
+).pipe(
+  Command.withDescription("Ask Claude again about a rejected proposal, replacing its answer (for a wrong rejection)")
 )
+
+/**
+ * `kotori proposals`. The review commands need only the database; `redo` alone also needs the
+ * dictionary and Claude, which the caller gives it so the others never build them.
+ */
+export const proposalsCommand = <E, R>(redoServices: Layer.Layer<Dictionary | Lexicographer | Claude, E, R>) =>
+  Command.make("proposals").pipe(
+    Command.withDescription("Review Ask Kotori's drafted entries: the manual gate before the dictionary"),
+    Command.withSubcommands([list, show, approve, discard, redo.pipe(Command.provide(redoServices))])
+  )

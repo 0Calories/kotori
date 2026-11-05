@@ -11,6 +11,7 @@ import { HowToSayRequest, HowToSayResult, NaturalnessRequest, NaturalnessResult 
 import { AskRequest, Enrichment, Entry, EntryId, Proposal, SearchResult } from "./Dictionary.ts"
 import {
   AiUnavailable,
+  AskRefused,
   AuthUnavailable,
   InvalidRequest,
   NotFound,
@@ -101,7 +102,7 @@ export class DictionaryApi extends HttpApiGroup.make("dictionary")
     HttpApiEndpoint.post("ask", "/ask", {
       payload: AskRequest,
       success: Proposal,
-      error: [InvalidRequest, AiUnavailable, RateLimited]
+      error: [AskRefused, AiUnavailable, RateLimited]
     }),
     // The learner's own asks, newest first, so an answer can be revisited.
     HttpApiEndpoint.get("asks", "/asks", { success: Schema.Array(Proposal) })

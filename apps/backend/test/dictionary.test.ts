@@ -677,6 +677,51 @@ layer(testLayer(false))("Dictionary", (it) => {
       assert.strictEqual(bussin.entries[0]?.currency, null)
     })
   )
+
+  it.effect("reaches Japanese words through the English dictionary's glosses when JMDict's own miss them", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      yield* insertEntries(db, [
+        // JMDict has these, but never glossed as "the ick".
+        entry(2858544, "蛙化現象", "かえるかげんしょう", [sense(["frogification phenomenon"], ["n"])], false),
+        entry(2195830, "ドン引き", "どんびき", [sense(["being completely turned off"], ["n"])], false),
+        entry(1591290, "きっかけ", "きっかけ", [sense(["chance", "start"], ["n"])]),
+        // The English dictionary's "ick", glossed as the real one is (data/eiwa/enwiktionary-ja.jsonl,
+        // CC BY-SA 4.0: see data/eiwa/NOTICE.md), and an acronym spelled the same.
+        word(100010602, "ick", [
+          sense(["(恋愛対象などに突然冷める)ドン引きポイント", "蛙化現象のきっかけ", "生理的嫌悪感"], ["n"], ["col"]),
+          sense(["うわっ", "げっ", "キモい"], ["int"], ["col"])
+        ]),
+        word(100040207, "ICK", [sense(["インヒビターシスチンノット"], ["n"])])
+      ])
+      // No gloss is a JMDict form whole, but the longest word inside each is: lookalikes, not answers.
+      const inside = yield* dictionary.search("ick", "ja", 10)
+      assert.strictEqual(inside.match, "weak")
+      assert.includeMembers(
+        inside.entries.map((summary) => summary.headword),
+        ["蛙化現象", "ドン引き"]
+      )
+      // Only the longest word inside a gloss, earliest first: not the きっかけ of 蛙化現象のきっかけ.
+      assert.notInclude(
+        inside.entries.map((summary) => summary.headword),
+        "きっかけ"
+      )
+
+      // A gloss that is a JMDict form whole, reached from the query as written, answers it.
+      yield* insertEntries(db, [entry(2013005, "キモい", "きもい", [sense(["gross", "disgusting"], ["adj-i"])], false)])
+      const whole = yield* dictionary.search("ick", "ja", 10)
+      assert.strictEqual(whole.match, "exact")
+      assert.strictEqual(whole.entries[0]?.headword, "キモい")
+      // Through a guess at the base form, the same words are only lookalikes.
+      const guessed = yield* dictionary.search("icks", "ja", 10)
+      assert.strictEqual(guessed.match, "weak")
+      assert.includeMembers(
+        guessed.entries.map((summary) => summary.headword),
+        ["キモい", "蛙化現象"]
+      )
+    })
+  )
 })
 
 layer(testLayer(false))("Dictionary: what Kotori wrote on an English word", (it) => {

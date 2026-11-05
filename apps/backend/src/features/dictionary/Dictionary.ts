@@ -175,10 +175,32 @@ const toFullwidth = (text: string) =>
 
 /** JMDict's explanations, literal renderings and trademarks aren't English words to look up. */
 const BRIDGE_SKIPS = new Set(["expl", "lit", "tm"])
-/** The Japanese words whose glosses lead to English words, and how many of their senses and glosses. */
+/** The words whose glosses lead to the other dictionary's words, and how many of their senses and glosses. */
 const BRIDGE_WORDS = 5
 const BRIDGE_SENSES = 2
 const BRIDGE_GLOSSES = 4
+/** Japanese glosses longer than this explain rather than translate; no word inside them is looked for. */
+const INSIDE_GLOSS_MAX = 20
+/** A word inside a gloss is 2 to this many characters: no particle, no phrase. */
+const INSIDE_WORD_MAX = 10
+/** How far a word inside a gloss ranks below one the whole gloss names. */
+const INSIDE_PENALTY = 30
+
+/** A word the query is, whose glosses name words in the other dictionary. */
+interface BridgeSource {
+  readonly record: EntryRecord
+  /** Whether the query is this word as written or listed, rather than a guess at its base form. */
+  readonly exact: boolean
+}
+
+/** Every stretch of a gloss that could be a word inside it, longest first, left to right. */
+const stretches = (gloss: string) => {
+  const found: Array<string> = []
+  for (let length = Math.min(gloss.length - 1, INSIDE_WORD_MAX); length >= 2; length--) {
+    for (let start = 0; start + length <= gloss.length; start++) found.push(gloss.slice(start, start + length))
+  }
+  return found
+}
 
 const toExample = (example: ExampleRow, clips: ReadonlyMap<string, string>): Example => {
   const ja = clips.get(`${example.id}:ja`)
@@ -345,10 +367,102 @@ export class Dictionary extends Context.Service<
         }
       })
 
+      /**
+       * The words of the `to` dictionary that the sources' glosses name: the bridge between the
+       * two dictionaries, for words one glosses that the other's glosses miss. A gloss that is a
+       * word's form names it. Japanese has no spaces to find words by, so a Japanese gloss no form
+       * matches whole names the longest word inside it, ranked lower: "蛙化現象のきっかけ" →
+       * 蛙化現象. A bridged word answers the query only when both legs are exact: the source is the
+       * query as written, and the gloss is the word's form.
+       */
+      const bridgeHits = Effect.fnUntraced(function* (sources: ReadonlyArray<BridgeSource>, to: Language) {
+        const normalize = to === "en" ? normalizeGloss : normalizeJapaneseGloss
+        const named = sources
+          .flatMap(({ record, exact }, order) =>
+            record.senses.slice(0, BRIDGE_SENSES).flatMap((sense, senseIndex) =>
+              sense.glosses
+                .slice(0, BRIDGE_GLOSSES)
+                .filter((gloss) => gloss.type === null || !BRIDGE_SKIPS.has(gloss.type))
+                .map((gloss, position) => ({
+                  term: normalize(gloss.text),
+                  exact,
+                  weight: 90 - 10 * senseIndex - 3 * position - 5 * order - tagPenalty(sense.misc)
+                }))
+            )
+          )
+          .filter((name) => name.term.length > 0)
+        if (named.length === 0) return []
+
+        // English forms are matched case-folded; JMDict's "to eat" names eat, not the acronym EAT.
+        const key = (text: string) => (to === "en" ? text.toLowerCase() : text)
+        const formsOf = (matches: ReadonlyArray<FormMatch>) => {
+          const byText = new Map<string, Array<FormMatch>>()
+          for (const match of matches) {
+            if (to === "en" && (match.kind !== "spelling" || isAcronym(match.text))) continue
+            byText.set(key(match.text), [...(byText.get(key(match.text)) ?? []), match])
+          }
+          return byText
+        }
+        const whole = formsOf(yield* findForms(db, unique(named.map((name) => name.term)), to))
+        const unmatched = to === "ja" ? named.filter((name) => !whole.has(name.term)) : []
+        const glosses = unique(unmatched.map((name) => name.term)).filter((term) => term.length <= INSIDE_GLOSS_MAX)
+        const inside = formsOf(glosses.length === 0 ? [] : yield* findForms(db, unique(glosses.flatMap(stretches)), to))
+
+        const links = named.flatMap((name) => {
+          const matched = whole.get(key(name.term))
+          if (matched !== undefined) return matched.map((match) => ({ match, weight: name.weight, strong: name.exact }))
+          const word = name.term.length > INSIDE_GLOSS_MAX ? undefined : stretches(name.term).find((s) => inside.has(s))
+          return (word === undefined ? [] : inside.get(word)!).map((match) => ({
+            match,
+            weight: name.weight - INSIDE_PENALTY,
+            strong: false
+          }))
+        })
+        const ranks = yield* entryRanks(db, unique(links.map((link) => link.match.entryId)))
+        // An entry reached both ways keeps its best score, and answers the query if either leg pair does.
+        const best = new Map<EntryId, Hit>()
+        for (const { match, weight, strong } of links) {
+          const rank = ranks.get(match.entryId)
+          const score = weight + (rank?.common ? 30 : 0) + (rank?.priority ?? 0) / 5
+          const current = best.get(match.entryId)
+          best.set(match.entryId, {
+            entryId: match.entryId,
+            score: Math.max(score, current?.score ?? -Infinity),
+            inflection: [],
+            strong: strong || (current?.strong ?? false)
+          })
+        }
+        return [...best.values()]
+      })
+
+      /**
+       * Japanese words reached through the English dictionary: the English word the query is, and
+       * the Japanese words its glosses name ("ick" → 蛙化現象, which JMDict doesn't gloss as "the
+       * ick"). Only the query as written is an exact leg; a guess at its base form isn't.
+       */
+      const englishBridgeHits = Effect.fnUntraced(function* (query: string) {
+        const lower = query.toLowerCase()
+        const matches = (yield* findForms(db, unique([lower, ...uninflect(lower).map((guess) => guess.base)]), "en"))
+          // The acronym spelled like the word ("ICK" for "ick") is another word, unless typed so.
+          .filter((match) => match.text === query || !isAcronym(match.text))
+        const exact = new Set(matches.filter((match) => match.text.toLowerCase() === lower).map((m) => m.entryId))
+        const ids = unique([...exact, ...matches.map((match) => match.entryId)]).slice(0, BRIDGE_WORDS)
+        const records = yield* getEntries(db, ids)
+        return yield* bridgeHits(
+          records.map((record) => ({ record, exact: exact.has(record.id) })),
+          "ja"
+        )
+      })
+
       const searchJapanese = Effect.fnUntraced(function* (query: string) {
         if (hasJapanese(query)) return { mode: "japanese" as const, reading: null, hits: yield* japaneseHits(query) }
 
-        const { hits: english, directScore } = yield* englishGlossHits(query)
+        const [byGloss, bridged] = yield* Effect.all([englishGlossHits(query), englishBridgeHits(query)])
+        const english = keepBest([...byGloss.hits, ...bridged])
+        const directScore = Math.max(
+          byGloss.directScore,
+          ...bridged.filter((hit) => hit.strong).map((hit) => hit.score)
+        )
         const kana = romajiToKana(query)
         const romaji = kana === null ? [] : (yield* japaneseHits(kana)).filter((hit) => hit.score >= 700)
         const englishIsStrong = directScore >= 150
@@ -486,48 +600,25 @@ export class Dictionary extends Context.Service<
         const exact = yield* findJapaneseGlosses(db, norms, 300)
         const fuzzy = exact.length >= 20 ? [] : yield* searchJapaneseGlosses(db, norm, 200)
 
-        // The Japanese words the query is, and the English words their glosses name.
+        // The Japanese words the query is, and the English words their glosses name. A deinflected
+        // form is as exact as the word written out: the rules are checked against its part of speech.
         const japanese = (yield* japaneseHits(query)).filter((hit) => hit.score >= 700).slice(0, BRIDGE_WORDS)
         const records = yield* getEntries(
           db,
           japanese.map((hit) => hit.entryId)
         )
-        const named = records.flatMap((record, order) =>
-          record.senses.slice(0, BRIDGE_SENSES).flatMap((sense, senseIndex) =>
-            sense.glosses
-              .slice(0, BRIDGE_GLOSSES)
-              .filter((gloss) => gloss.type === null || !BRIDGE_SKIPS.has(gloss.type))
-              .map((gloss, position) => ({
-                term: normalizeGloss(gloss.text),
-                weight: 90 - 10 * senseIndex - 3 * position - 5 * order - tagPenalty(sense.misc)
-              }))
-          )
+        const viaJmdict = yield* bridgeHits(
+          records.map((record) => ({ record, exact: true })),
+          "en"
         )
-        const bridged: ReadonlyArray<FormMatch> =
-          named.length === 0 ? [] : yield* findForms(db, unique(named.map((name) => name.term)), "en")
 
-        const ranks = yield* entryRanks(db, unique([...exact, ...fuzzy, ...bridged].map((match) => match.entryId)))
+        const ranks = yield* entryRanks(db, unique([...exact, ...fuzzy].map((match) => match.entryId)))
         const score = (match: GlossMatch, isExact: boolean): Hit => ({
           entryId: match.entryId,
           score: glossScore(match, isExact, norm, normalizeJapaneseGloss, ranks.get(match.entryId)),
           inflection: [],
           strong: isExact
         })
-        const viaJmdict = bridged
-          // JMDict's "to eat" names eat, not the acronym EAT.
-          .filter((match) => match.kind === "spelling" && !isAcronym(match.text))
-          .map((match): Hit => {
-            const rank = ranks.get(match.entryId)
-            const weight = Math.max(
-              ...named.filter((name) => name.term === match.text.toLowerCase()).map((name) => name.weight)
-            )
-            return {
-              entryId: match.entryId,
-              score: weight + (rank?.common ? 30 : 0) + (rank?.priority ?? 0) / 5,
-              inflection: [],
-              strong: true
-            }
-          })
         return keepBest([...exact.map((m) => score(m, true)), ...viaJmdict, ...fuzzy.map((m) => score(m, false))])
       })
 

@@ -1,9 +1,11 @@
 import type { EntrySummary, Language, Proposal } from "@kotori/contracts"
+import { inOtherLanguage, normalizeAsk } from "@kotori/language"
 import { useRouter } from "expo-router"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Platform, TextInput, useWindowDimensions, View } from "react-native"
 import Animated, { FadeIn, FadeInDown, LinearTransition } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { ApiError } from "../../src/api/client.ts"
 import { useAsk, useAsks, useQueue, useSearch, useStats } from "../../src/api/queries.ts"
 import { Button } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
@@ -16,7 +18,7 @@ import { Screen } from "../../src/components/Screen.tsx"
 import { Snow } from "../../src/components/Snow.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
-import { posLabel, strings } from "../../src/i18n/strings.ts"
+import { posLabel, type Strings, strings } from "../../src/i18n/strings.ts"
 import { useSearchMascotPhase } from "../../src/lib/searchMascot.ts"
 import { currencyTone, formalityTone } from "../../src/lib/tones.ts"
 import { usePreference } from "../../src/session/preferences.ts"
@@ -117,6 +119,14 @@ const ResultRow = ({
   )
 }
 
+/** Why an ask failed, in the learner's language: a refusal by its code, else the server's message. */
+const askError = (t: Strings, error: Error) =>
+  error instanceof ApiError && error.refusal !== null
+    ? t.dictionary.askRefused[error.refusal]
+    : error instanceof ApiError && error.tag === "Offline"
+      ? t.common.offline
+      : error.message || t.common.somethingWrong
+
 /** Offers to ask Kotori, and says so while it thinks; errors fall back to a plain retry. */
 const AskButton = ({ ask, query }: { readonly ask: ReturnType<typeof useAsk>; readonly query: string }) => {
   const { t } = useSession()
@@ -131,7 +141,7 @@ const AskButton = ({ ask, query }: { readonly ask: ReturnType<typeof useAsk>; re
     <View style={{ alignItems: "center", gap: 8 }}>
       {ask.isError ? (
         <Text variant="caption" color="textMuted" align="center">
-          {ask.error.message}
+          {askError(t, ask.error)}
         </Text>
       ) : (
         <Text variant="caption" color="textMuted" align="center">
@@ -172,7 +182,12 @@ const AskAnswer = ({
     )
   }
   if (proposal.draft === null) {
-    return <MascotMessage mood="oops" body={proposal.reason ?? t.dictionary.noResults} size={90} />
+    // Turned away: Claude's reason for a lookup, or where a sentence, name or other language belongs.
+    const body =
+      proposal.route !== null && proposal.route !== "lookup"
+        ? t.dictionary.askRoute[proposal.route]
+        : (proposal.reason ?? t.dictionary.askNotReal)
+    return <MascotMessage mood="oops" body={body} size={90} />
   }
   const draft = proposal.draft
   const joiner = proposal.language === "ja" ? "; " : "、"
@@ -247,8 +262,10 @@ export default function LookUpScreen() {
   const search = useSearch(debounced, target)
   const ask = useAsk()
   const asks = useAsks()
-  // A past answer for this query shows again without asking; English asks are cached lowercase.
-  const askKey = target === "en" ? debounced.toLowerCase() : debounced
+  // A past answer for this query shows again without asking, found by the key the server keeps it under.
+  const askKey = normalizeAsk(debounced, target)
+  // Ask Kotori looks into the language being learned, so it isn't offered for the learner's own.
+  const askable = !inOtherLanguage(askKey, target)
   const answer = useMemo(
     () =>
       ask.data && ask.variables === debounced ? ask.data : (asks.data?.find((past) => past.query === askKey) ?? null),
@@ -472,13 +489,13 @@ export default function LookUpScreen() {
           {search.isError ? <ErrorState error={search.error} onRetry={() => search.refetch()} /> : null}
           {results && results.entries.length === 0 && !search.isFetching ? (
             <MascotMessage mood="oops" facing="front" body={t.dictionary.noResults} size={90}>
-              {answer === null ? <AskButton ask={ask} query={debounced} /> : null}
+              {answer === null && askable ? <AskButton ask={ask} query={debounced} /> : null}
             </MascotMessage>
           ) : null}
           {results && results.match === "weak" && !search.isFetching ? (
             // Only lookalikes: said plainly, so a learner doesn't take "bus" for "bussin".
             <MascotMessage mood="curious" body={t.dictionary.noExactMatch(results.query)} size={90}>
-              {answer === null ? <AskButton ask={ask} query={debounced} /> : null}
+              {answer === null && askable ? <AskButton ask={ask} query={debounced} /> : null}
             </MascotMessage>
           ) : null}
           {results && results.match !== "exact" && !search.isFetching && answer !== null ? (

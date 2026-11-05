@@ -1,4 +1,5 @@
-import { type DraftEntry, type DraftSense, EntryRecord, type SenseRecord } from "@kotori/contracts"
+import { Claude, interpretTriage } from "@kotori/ai"
+import { AiUnavailable, type DraftEntry, type DraftSense, EntryRecord, type SenseRecord } from "@kotori/contracts"
 import { entries, EntryId, proposals } from "@kotori/db"
 import { and, eq, gte, max } from "drizzle-orm"
 import { Effect, FileSystem, Option, Schema } from "effect"
@@ -7,6 +8,8 @@ import { APPROVED_EN_FILE, serializeApprovedLine } from "../dictionary/import/ei
 import { toConsolidatedWord } from "../dictionary/import/eiwa/words.ts"
 import { findForms, getEntries, insertEntries } from "../dictionary/queries.ts"
 import { enqueueJob, saveSenseNotes } from "../enrichment/index.ts"
+import { judge } from "./judge.ts"
+import { updateVerdict } from "./queries.ts"
 
 /**
  * `data/approved/ja.jsonl`: Japanese entries and aliases approved out of Ask Kotori proposals,
@@ -33,6 +36,11 @@ export class NoSuchProposal extends Schema.TaggedError<NoSuchProposal>()("NoSuch
 }) {}
 
 export class NotPending extends Schema.TaggedError<NotPending>()("NotPending", {
+  id: Schema.Int,
+  status: Schema.String
+}) {}
+
+export class NotRejected extends Schema.TaggedError<NotRejected>()("NotRejected", {
   id: Schema.Int,
   status: Schema.String
 }) {}
@@ -282,6 +290,23 @@ export const discardProposal = Effect.fn("review.discardProposal")(function* (
     .where(eq(proposals.id, id))
     .pipe(Effect.orDie)
   return { query: proposal.query }
+})
+
+/**
+ * Asks Claude again about a rejected query, replacing the answer: the admin's remedy for a wrong
+ * rejection, Claude's or Jev's. Claude's answer stands whatever Jev routed, so the route becomes
+ * a lookup, and the app shows Claude's verdict rather than Jev's pointer.
+ */
+export const redoProposal = Effect.fn("review.redoProposal")(function* (db: DatabaseShape, id: number) {
+  const proposal = yield* proposalById(db, id)
+  if (proposal.status !== "rejected") return yield* new NotRejected({ id, status: proposal.status })
+  const claude = yield* Claude
+  if (!(yield* claude.available)) return yield* new AiUnavailable({ message: "Claude isn't available right now." })
+  const triaged =
+    proposal.triage === null ? null : { record: proposal.triage, reading: interpretTriage(proposal.triage.answers) }
+  const updated = yield* updateVerdict(db, id, yield* judge(db, proposal.query, proposal.language, triaged))
+  const [linked] = updated.linkedEntryId === null ? [] : yield* getEntries(db, [updated.linkedEntryId])
+  return { proposal: updated, linked: linked?.headword ?? null }
 })
 
 /** The approved ja file's entries and aliases; see `APPROVED_JA_FILE`. */

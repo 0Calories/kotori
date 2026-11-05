@@ -1,0 +1,114 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "ecd7fe4c-5bb8-43ab-8c0f-590c93ed54dc",
+  "prevIds": ["aac3a108-1b36-4a2e-8ed0-23a391c80eef"],
+  "footprints": [
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "proposal_route"],
+      "writes": [
+        "s|enum|public.proposal_route",
+        "n|enum|public.proposal_route",
+        "e|enum|public.proposal_route",
+        "n|type|public.proposal_route"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "alter_enum",
+      "statementTarget": ["enum", "public", "coach_kind"],
+      "writes": ["s|enum|public.coach_kind"],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "proposals", "route"],
+      "writes": ["s|col|public.proposals.route", "n|col|public.proposals.route", "e|col|public.proposals.route"],
+      "reads": ["n|tbl|public.proposals", "n|sch|public", "n|enum|public.proposal_route"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "proposals", "triage"],
+      "writes": ["s|col|public.proposals.triage", "n|col|public.proposals.triage", "e|col|public.proposals.triage"],
+      "reads": ["n|tbl|public.proposals", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "proposals", "contested"],
+      "writes": [
+        "s|col|public.proposals.contested",
+        "n|col|public.proposals.contested",
+        "e|col|public.proposals.contested"
+      ],
+      "reads": ["n|tbl|public.proposals", "n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "proposal_route",
+        "values": ["lookup", "sentence", "name", "other_language", "garbage"],
+        "entityType": "enums"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "proposals",
+        "name": "route",
+        "type": "proposal_route",
+        "typeSchema": "public",
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "proposals",
+        "name": "triage",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "proposals",
+        "name": "contested",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "enums\u0000[\"public\",\"coach_kind\"]",
+      "set": {
+        "values": ["naturalness", "how-to-say", "speak", "ask", "triage"]
+      }
+    }
+  ]
+}

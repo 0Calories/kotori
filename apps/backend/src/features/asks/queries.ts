@@ -1,21 +1,48 @@
-import { type DraftEntry, type EntryId, type Language, proposalAsks, proposals, type UserId } from "@kotori/db"
-import { and, count, desc, eq, gte } from "drizzle-orm"
+import {
+  type AskTriage,
+  type DraftEntry,
+  type EntryId,
+  type Language,
+  proposalAsks,
+  proposals,
+  type UserId
+} from "@kotori/db"
+import { and, desc, eq } from "drizzle-orm"
 import { Effect, Option } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 
 export type ProposalRow = typeof proposals.$inferSelect
 
-export interface NewProposal {
-  readonly language: Language
-  readonly query: string
+/** What an answer settled: the fields Claude's or Jev's verdict writes, on creation and on a redo. */
+export interface Verdict {
   readonly status: ProposalRow["status"]
   readonly draft: DraftEntry | null
   readonly linkedEntryId: EntryId | null
   readonly reason: string | null
   readonly model: string
+  readonly route: ProposalRow["route"]
+  readonly triage: AskTriage | null
+  readonly contested: boolean
+}
+
+export interface NewProposal extends Verdict {
+  readonly language: Language
+  readonly query: string
   readonly requestedBy: UserId
   readonly now: Date
 }
+
+/** Replaces a proposal's answer (a redo), clearing any review. */
+export const updateVerdict = (db: DatabaseShape, id: number, verdict: Verdict) =>
+  db
+    .update(proposals)
+    .set({ ...verdict, reviewedAt: null })
+    .where(eq(proposals.id, id))
+    .returning()
+    .pipe(
+      Effect.map((rows) => rows[0]!),
+      Effect.orDie
+    )
 
 /** The proposal for a normalized query, whoever asked first. */
 export const findProposal = (db: DatabaseShape, language: Language, query: string) =>
@@ -43,6 +70,9 @@ export const insertProposal = Effect.fn("asks.insertProposal")(function* (db: Da
       linkedEntryId: proposal.linkedEntryId,
       reason: proposal.reason,
       model: proposal.model,
+      route: proposal.route,
+      triage: proposal.triage,
+      contested: proposal.contested,
       requestedBy: proposal.requestedBy,
       createdAt: proposal.now
     })
@@ -71,16 +101,5 @@ export const asksFor = (db: DatabaseShape, userId: UserId) =>
     .limit(100)
     .pipe(
       Effect.map((rows) => rows.map((row) => row.proposal)),
-      Effect.orDie
-    )
-
-/** How many proposals Claude has answered since `since`: the global spend, cached asks aside. */
-export const proposalsSince = (db: DatabaseShape, since: Date) =>
-  db
-    .select({ n: count() })
-    .from(proposals)
-    .where(gte(proposals.createdAt, since))
-    .pipe(
-      Effect.map((rows) => rows[0]?.n ?? 0),
       Effect.orDie
     )

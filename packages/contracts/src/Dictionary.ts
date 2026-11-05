@@ -8,6 +8,7 @@ import {
   Formality,
   forms,
   Nuance,
+  proposalRoute,
   proposalStatus,
   senseNotes,
   sentenceMedium,
@@ -164,6 +165,9 @@ export { DraftEntry, DraftSense }
 export const ProposalStatus = createSelectSchema(proposalStatus)
 export type ProposalStatus = typeof ProposalStatus.Type
 
+export const ProposalRoute = createSelectSchema(proposalRoute)
+export type ProposalRoute = typeof ProposalRoute.Type
+
 export const ProposalId = Schema.Int.pipe(Schema.brand("ProposalId"))
 export type ProposalId = typeof ProposalId.Type
 
@@ -182,8 +186,13 @@ export const Proposal = Schema.Struct({
   draft: Schema.NullOr(DraftEntry),
   /** The existing entry the query names, when there is one. */
   linked: Schema.NullOr(EntrySummary),
-  /** Why a rejected query isn't a real expression, in the asker's native language. */
-  reason: Schema.NullOr(Schema.String)
+  /**
+   * Claude's own words on why a rejected query isn't a real expression, in the asker's native
+   * language; null when it gave none or Jev routed the query away, and the app words it.
+   */
+  reason: Schema.NullOr(Schema.String),
+  /** What kind of input the query was judged to be; a rejected non-lookup tells the app where to point. */
+  route: Schema.NullOr(ProposalRoute)
 })
 export type Proposal = typeof Proposal.Type
 

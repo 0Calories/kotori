@@ -1,4 +1,4 @@
-import { Claude, Coach, ElevenLabs, Jev, Lexicographer, Pronouncer } from "@kotori/ai"
+import { AiProviders, Coach, Lexicographer, Pronouncer } from "@kotori/ai"
 import { Layer } from "effect"
 import type { SqlClient } from "effect/sql"
 import { type Database, DatabaseLive } from "../db/Database.ts"
@@ -14,7 +14,7 @@ import { Auth } from "../integrations/auth/Auth.ts"
 import { MailerLive } from "../integrations/email/live.ts"
 
 /** Providers that talk to external services: the AI providers and email. */
-const ProvidersLive = Layer.mergeAll(Claude.layer, Jev.layer, ElevenLabs.layer, MailerLive)
+const ProvidersLive = Layer.merge(AiProviders, MailerLive)
 
 /** Application services on top of the AI capabilities and the providers. */
 const ServicesLive = Layer.mergeAll(Accounts.layer, Study.layer, Coaching.layer, Asks.layer, AuthWebhooks.layer).pipe(

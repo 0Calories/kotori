@@ -202,20 +202,38 @@ export interface LoanReading {
 const LOAN_MEANINGS: ReadonlyArray<LoanMeaning> = ["same", "divergent", "not_english"]
 
 /**
- * How likely each meaning of the `k`th candidate is: the probabilities of its `loan_{k}` Choice
- * averaged with those of `loan_{k}~reversed`, the same Choice with its options in reverse order,
- * since Jev leans toward the option listed first. Undefined unless both were answered.
+ * A Choice's probability for each option, averaged over the orders it was answered in: as asked
+ * (`name`) and with its options reversed (`name~reversed`), since Jev leans toward the option
+ * listed first. `orders` says how many were answered; with none, every option is 0.
+ */
+export const averagedChoice = <Key extends string>(
+  answers: Readonly<Record<string, unknown>>,
+  name: string,
+  options: ReadonlyArray<Key>
+): { readonly probabilities: Record<Key, number>; readonly orders: number } => {
+  const answered = [answers[name], answers[`${name}${REVERSED}`]].filter(
+    (answer): answer is ChoiceResponse => answer !== undefined
+  )
+  const mean = (option: Key) =>
+    answered.length === 0
+      ? 0
+      : answered.reduce((sum, answer) => sum + (answer.probabilities[option] ?? 0), 0) / answered.length
+  return {
+    probabilities: Object.fromEntries(options.map((option) => [option, mean(option)])) as Record<Key, number>,
+    orders: answered.length
+  }
+}
+
+/**
+ * How likely each meaning of the `k`th candidate is: its `loan_{k}` Choice averaged over both
+ * option orders (`averagedChoice`). Undefined unless both were answered.
  */
 export const loanMeanings = (
   answers: Readonly<Record<string, unknown>>,
   k: number
 ): Record<LoanMeaning, number> | undefined => {
-  const forward = answers[`loan_${k}`] as ChoiceResponse | undefined
-  const backward = answers[`loan_${k}${REVERSED}`] as ChoiceResponse | undefined
-  if (forward === undefined || backward === undefined) return undefined
-  const mean = (meaning: LoanMeaning) =>
-    ((forward.probabilities[meaning] ?? 0) + (backward.probabilities[meaning] ?? 0)) / 2
-  return { same: mean("same"), divergent: mean("divergent"), not_english: mean("not_english") }
+  const { probabilities, orders } = averagedChoice(answers, `loan_${k}`, LOAN_MEANINGS)
+  return orders === 2 ? probabilities : undefined
 }
 
 /**

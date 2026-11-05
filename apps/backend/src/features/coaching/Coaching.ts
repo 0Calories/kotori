@@ -60,14 +60,13 @@ export class Coaching extends Context.Service<
 
       const limit = Effect.fnUntraced(function* (user: Profile, kind: CoachKind, perHour: number) {
         const now = yield* Clock.currentTimeMillis
-        const reserved = yield* reserveUsage(scopedToUser(db, user.id), {
+        const full = yield* reserveUsage(scopedToUser(db, user.id), {
           kind,
           kinds: COACHING,
-          since: new Date(now - HOUR),
-          limit: perHour,
+          windows: [{ since: new Date(now - HOUR), limit: perHour }],
           now: new Date(now)
         })
-        if (!reserved) {
+        if (Option.isSome(full)) {
           return yield* new RateLimited({
             message: "You've hit this hour's limit. Take a breather!",
             retryAfterSeconds: 600

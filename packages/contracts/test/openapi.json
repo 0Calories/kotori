@@ -2388,6 +2388,23 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "route": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "lookup",
+                            "sentence",
+                            "name",
+                            "other_language",
+                            "garbage"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -2397,7 +2414,8 @@
                     "status",
                     "draft",
                     "linked",
-                    "reason"
+                    "reason",
+                    "route"
                   ],
                   "additionalProperties": false
                 }
@@ -2405,11 +2423,11 @@
             }
           },
           "400": {
-            "description": "InvalidRequest",
+            "description": "AskRefused",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/InvalidRequestEncoded"
+                  "$ref": "#/components/schemas/AskRefusedEncoded"
                 }
               }
             }
@@ -2730,6 +2748,23 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "route": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "lookup",
+                              "sentence",
+                              "name",
+                              "other_language",
+                              "garbage"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
                     "required": [
@@ -2739,7 +2774,8 @@
                       "status",
                       "draft",
                       "linked",
-                      "reason"
+                      "reason",
+                      "route"
                     ],
                     "additionalProperties": false
                   }
@@ -5669,6 +5705,32 @@
         "required": [
           "_tag",
           "message"
+        ],
+        "additionalProperties": false
+      },
+      "AskRefusedEncoded": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": [
+              "AskRefused"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "not_askable",
+              "wrong_language",
+              "repetition",
+              "keyboard",
+              "in_dictionary"
+            ]
+          }
+        },
+        "required": [
+          "_tag",
+          "reason"
         ],
         "additionalProperties": false
       }

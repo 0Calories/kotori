@@ -1,4 +1,4 @@
-import { index, integer, jsonb, pgEnum, primaryKey, text, unique, uuid } from "drizzle-orm/pg-core"
+import { boolean, index, integer, jsonb, pgEnum, primaryKey, text, unique, uuid } from "drizzle-orm/pg-core"
 import * as Schema from "effect/Schema"
 import { createdAt, language, table, timestamptz } from "./columns.ts"
 import { entries, type EntryId } from "./entries.ts"
@@ -12,6 +12,13 @@ import { type UserId, users } from "./users.ts"
  */
 export const proposalStatus = pgEnum("proposal_status", ["pending", "linked", "rejected", "approved", "discarded"])
 
+/**
+ * What kind of input Jev judged the query to be before Claude was asked: a lookup (the only
+ * route that reaches Claude), a sentence for the Coach, a name, the wrong language, or mash.
+ * Null when Jev wasn't configured, so the query went straight to Claude.
+ */
+export const proposalRoute = pgEnum("proposal_route", ["lookup", "sentence", "name", "other_language", "garbage"])
+
 export const DraftSense = Schema.Struct({
   /** What it means, in the asker's native language. */
   glosses: Schema.Array(Schema.String),
@@ -23,6 +30,17 @@ export const DraftSense = Schema.Struct({
   note: Schema.NullOr(Schema.String)
 })
 export type DraftSense = typeof DraftSense.Type
+
+/**
+ * Jev's routing of an ask as it answered, kept so the thresholds can be re-derived offline: its
+ * raw answers (the route Choice in both option orders), its model, and the question's version.
+ */
+export const AskTriage = Schema.Struct({
+  answers: Schema.Record(Schema.String, Schema.Unknown),
+  model: Schema.String,
+  version: Schema.Int
+})
+export type AskTriage = typeof AskTriage.Type
 
 /** A dictionary entry as Claude drafts it for a query the dictionary couldn't answer. */
 export const DraftEntry = Schema.Struct({
@@ -61,6 +79,11 @@ export const proposals = table(
     reason: text(),
     /** The model that answered. */
     model: text().notNull(),
+    route: proposalRoute(),
+    /** Jev's routing, as it answered; null when Jev wasn't asked. */
+    triage: jsonb().$type<AskTriage>(),
+    /** Claude rejected a query Jev was sure was a lookup: worth the admin's eye (`kotori proposals list`). */
+    contested: boolean().notNull().default(false),
     /** Who asked first; their account going away doesn't take the answer with it. */
     requestedBy: uuid()
       .$type<UserId>()
