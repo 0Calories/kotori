@@ -4,7 +4,9 @@
     "outDir": "out-tsc/spec",
     "emitDeclarationOnly": true,
     "rewriteRelativeImportExtensions": false,
-    "types": ["node"]
+    "types": ["node"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "@opentui/react"
   },
   "include": ["test", "src/testing"],
   "references": [

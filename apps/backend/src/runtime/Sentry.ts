@@ -8,7 +8,7 @@ const production = process.env.NODE_ENV === "production"
  * reach Effect's HTTP boundary or `ErrorReporter.report` become issues; Effect spans become traces.
  * Without `SENTRY_DSN` (tests, and local development unless you set it) nothing is sent.
  */
-export const SentryLive = (service: "api" | "worker" | "cli") =>
+export const SentryLive = (service: "api" | "worker" | "cli" | "console") =>
   Layer.mergeAll(
     Sentry.effectLayer({
       dsn: process.env.SENTRY_DSN,
