@@ -1,9 +1,10 @@
 import { Console, Effect, FileSystem, Option } from "effect"
 import { Command, Flag } from "effect/cli"
 import { Database } from "../db/Database.ts"
+import { APPROVED_JA_FILE, parseApprovedJa } from "../features/asks/review.ts"
 import * as Eiwa from "../features/dictionary/import/eiwa/Eiwa.ts"
 import * as JMDict from "../features/dictionary/import/jmdict/JMDict.ts"
-import { countOf, entryCount } from "../features/dictionary/index.ts"
+import { countOf, entryCount, findForms, getEntries, insertEntries } from "../features/dictionary/index.ts"
 import { resolveFromRoot } from "../runtime/Paths.ts"
 
 export const seed = Command.make(
@@ -56,6 +57,38 @@ export const seed = Command.make(
         const started = Date.now()
         const result = yield* JMDict.importFile({ file: jmdictFile, limit: Option.getOrUndefined(limit), commonOnly })
         yield* Console.log(`Imported ${result.entries.toLocaleString()} JMDict entries in ${seconds(started)}s.`)
+      }
+      // Approved Ask Kotori entries and aliases (ids from 200,000,000) come back on a fresh
+      // database, and aliases rejoin their entry's forms, which the import just rebuilt.
+      const approvedJa = resolveFromRoot(APPROVED_JA_FILE)
+      if (yield* fs.exists(approvedJa)) {
+        const approved = parseApprovedJa((yield* fs.readFileString(approvedJa)).split("\n"))
+        if (approved.records.length > 0) yield* insertEntries(db, approved.records)
+        for (const alias of approved.aliases) {
+          const base = (yield* findForms(db, [alias.base])).find((match) => match.kind !== "inflection")
+          if (base === undefined) continue
+          const [record] = yield* getEntries(db, [base.entryId])
+          if (record === undefined || record.forms.some((form) => form.text === alias.text)) continue
+          yield* insertEntries(db, [
+            {
+              ...record,
+              forms: [
+                ...record.forms,
+                {
+                  kind: "kana" as const,
+                  text: alias.text,
+                  common: false,
+                  tags: [],
+                  priorities: [],
+                  restrictions: [],
+                  noKanji: false
+                }
+              ]
+            }
+          ])
+        }
+        const total = approved.records.length + approved.aliases.length
+        if (total > 0) yield* Console.log(`Applied ${total} approved entries and aliases from ${APPROVED_JA_FILE}.`)
       }
     }
 

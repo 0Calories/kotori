@@ -422,12 +422,16 @@ export const getEntries = Effect.fn("dictionary.getEntries")(function* (
 /** `lower(text)`, which `forms_folded` indexes, so English matches whatever the case. */
 const folded = sql<string>`lower(${forms.text})`
 
+/**
+ * A query's words as the `english` configuration stems them, or, when every word is one it drops
+ * ("what it is"), word for word with `simple`: the documents of such phrases are built the same
+ * way (`englishDocument`), so the two still meet.
+ */
+const tsquery = (query: string) =>
+  sql`CASE WHEN numnode(plainto_tsquery('english', ${query})) = 0 THEN plainto_tsquery('simple', ${query}) ELSE plainto_tsquery('english', ${query}) END`
+
 /** Matches when any of `queries` does, each requiring all of its words (`plainto_tsquery`). */
-const toTsquery = (queries: ReadonlyArray<string>) =>
-  sql`(${sql.join(
-    queries.map((query) => sql`plainto_tsquery('english', ${query})`),
-    sql` || `
-  )})`
+const toTsquery = (queries: ReadonlyArray<string>) => sql`(${sql.join(queries.map(tsquery), sql` || `)})`
 
 /** Entries in one dictionary with a form equal to one of `texts`; English ignores case. */
 export const findForms = Effect.fn("dictionary.findForms")(function* (

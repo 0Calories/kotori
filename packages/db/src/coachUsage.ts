@@ -2,9 +2,10 @@ import { index, integer, pgEnum, uuid } from "drizzle-orm/pg-core"
 import { createdAt, table } from "./columns.ts"
 import { type UserId, users } from "./users.ts"
 
-export const coachKind = pgEnum("coach_kind", ["naturalness", "how-to-say", "speak"])
+/** `ask` is a Claude draft; `triage` is Jev routing an ask, limited apart as it costs a fraction. */
+export const coachKind = pgEnum("coach_kind", ["naturalness", "how-to-say", "speak", "ask", "triage"])
 
-/** One row per coach request, for the per-learner hourly rate limit. */
+/** One row per coach or Ask Kotori request, for the per-learner hourly rate limits. */
 export const coachUsage = table(
   "coach_usage",
   {

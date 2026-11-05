@@ -1,7 +1,9 @@
 import { NodeHttpClient } from "@effect/platform-node"
+import { AiProviders, Claude, FamiliarityRater, Lexicographer, Pronouncer } from "@kotori/ai"
 import { Layer } from "effect"
 import { DatabaseLive } from "../db/Database.ts"
 import { Approvals } from "../features/accounts/Approvals.ts"
+import { Dictionary } from "../features/dictionary/Dictionary.ts"
 import { Auth } from "../integrations/auth/Auth.ts"
 import { MailerLive } from "../integrations/email/live.ts"
 
@@ -14,5 +16,21 @@ export const AccountsLive = Approvals.layer.pipe(
   Layer.provideMerge(Auth.layer),
   Layer.provideMerge(MailerLive),
   Layer.provideMerge(DatabaseLive),
+  Layer.provideMerge(NodeHttpClient.layerUndici)
+)
+
+/** What `kotori familiarity` needs: Claude to rate phrases, and the database for the phrases to rate. */
+export const FamiliarityLive = FamiliarityRater.layer.pipe(
+  Layer.provideMerge(Claude.layer),
+  Layer.provideMerge(DatabaseLive)
+)
+
+/**
+ * What `kotori proposals redo` adds to the database the other `proposals` commands need: the
+ * dictionary and Claude to judge the query again. The database comes from the parent command.
+ */
+export const RedoLive = Layer.mergeAll(Dictionary.layer, Lexicographer.layer).pipe(
+  Layer.provideMerge(Pronouncer.layer),
+  Layer.provideMerge(AiProviders),
   Layer.provideMerge(NodeHttpClient.layerUndici)
 )

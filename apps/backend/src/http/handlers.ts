@@ -5,6 +5,7 @@ import { Effect, Layer, Option } from "effect"
 import { HttpApiBuilder } from "effect/http-api"
 import { Database } from "../db/Database.ts"
 import { Accounts } from "../features/accounts/Accounts.ts"
+import { Asks } from "../features/asks/Asks.ts"
 import { Coaching } from "../features/coaching/Coaching.ts"
 import { Dictionary } from "../features/dictionary/Dictionary.ts"
 import { entryCount } from "../features/dictionary/index.ts"
@@ -64,6 +65,7 @@ const DictionaryHandlers = HttpApiBuilder.group(
   "dictionary",
   Effect.fn(function* (handlers) {
     const dictionary = yield* Dictionary
+    const asksService = yield* Asks
     return handlers.handleAll({
       // Learners search the dictionary of the language they're learning.
       search: ({ query }) =>
@@ -71,7 +73,14 @@ const DictionaryHandlers = HttpApiBuilder.group(
           dictionary.search(query.q, user.profile.targetLanguage, Math.min(Math.max(query.limit ?? 30, 1), 100))
         ),
       entry: ({ params }) => dictionary.entry(params.id).pipe(Effect.flatMap(orNotFound("No such entry"))),
-      enrich: ({ params }) => dictionary.requestEnrichment(params.id).pipe(Effect.flatMap(orNotFound("No such entry")))
+      enrich: ({ params }) => dictionary.requestEnrichment(params.id).pipe(Effect.flatMap(orNotFound("No such entry"))),
+      ask: ({ payload }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          yield* Effect.sync(() => Sentry.setUser({ id: user.id }))
+          return yield* asksService.ask(user.profile, payload.q)
+        }),
+      asks: () => Effect.flatMap(CurrentUser, (user) => asksService.asks(user.profile))
     })
   })
 )

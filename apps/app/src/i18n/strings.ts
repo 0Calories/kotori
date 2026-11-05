@@ -1,16 +1,25 @@
+import type { AskRefusal } from "@kotori/contracts"
+
+/** Tab labels, named here once so copy that points to a tab can't drift from it. */
+const enTabs = {
+  dictionary: "Look up",
+  check: "Check",
+  say: "Speak",
+  review: "Notebook",
+  notReady: "This feature isn't ready yet"
+}
+
+/** Ask Kotori looks into the language being learned; English copy is for learners of Japanese. */
+const enWrongLanguage =
+  "That doesn't look like Japanese. Kotori can only look into Japanese words and expressions here."
+
 /**
  * Interface copy. Learners see Kotori in their native language: English
  * speakers learning Japanese get English, Japanese speakers learning English get Japanese.
  */
 const en = {
   appName: "Kotori",
-  tabs: {
-    dictionary: "Look up",
-    check: "Check",
-    say: "Speak",
-    review: "Notebook",
-    notReady: "This feature isn't ready yet"
-  },
+  tabs: enTabs,
   greeting: { morning: "Good morning", afternoon: "Good afternoon", evening: "Good evening" },
   common: {
     retry: "Try again",
@@ -99,6 +108,31 @@ const en = {
     placeholder: "Search in English, 日本語 or rōmaji",
     romajiNotice: (reading: string) => `Showing words read as ${reading}`,
     noResults: "No matches. Try another spelling, or a simpler word.",
+    noExactMatch: (query: string) => `Nothing matches “${query}” exactly. These look similar:`,
+    similarResults: "Similar words",
+    askKotori: "Ask Kotori",
+    askExplain: "Kotori can look into it and draft an entry.",
+    askThinking: "Kotori is looking into it…",
+    askDraft: "AI draft — not checked by a person yet",
+    askLinked: "Kotori thinks you meant this:",
+    askAgain: "Ask again",
+    /** Why Kotori didn't look a query up, by what it took it for. */
+    askRoute: {
+      sentence: `That looks like a whole sentence. The ${enTabs.check} tab can tell you if it's natural, and ${enTabs.say} can help you phrase it.`,
+      name: "That looks like a name rather than a word to look up.",
+      other_language: enWrongLanguage,
+      garbage: "That doesn't look like a word or expression."
+    },
+    /** Why Kotori turned a query away before looking into it (`AskRefusal`). */
+    askRefused: {
+      not_askable: "That doesn't look like something Kotori can look up.",
+      wrong_language: enWrongLanguage,
+      repetition: "That looks like a key held down rather than a word.",
+      keyboard: "That looks like keys along the keyboard rather than a word.",
+      in_dictionary: "The dictionary already has this one — it's in the results."
+    } satisfies Record<AskRefusal, string>,
+    /** Claude turned a query down without saying why. */
+    askNotReal: "Kotori couldn't verify this as a real expression.",
     recent: "Recent",
     clearRecent: "Clear",
     removeRecent: (term: string) => `Remove ${term} from recent searches`,
@@ -401,15 +435,20 @@ const en = {
 
 export type Strings = typeof en
 
+const jaTabs: Strings["tabs"] = {
+  dictionary: "調べる",
+  check: "添削",
+  say: "話す",
+  review: "ノート",
+  notReady: "この機能はまだ準備中です"
+}
+
+/** Japanese copy is for learners of English. */
+const jaWrongLanguage = "英語ではないようです。ここでは英語の単語や表現だけを調べられます。"
+
 const ja: Strings = {
   appName: "ことり",
-  tabs: {
-    dictionary: "調べる",
-    check: "添削",
-    say: "話す",
-    review: "ノート",
-    notReady: "この機能はまだ準備中です"
-  },
+  tabs: jaTabs,
   greeting: { morning: "おはよう", afternoon: "こんにちは", evening: "こんばんは" },
   common: {
     retry: "もう一度",
@@ -498,6 +537,28 @@ const ja: Strings = {
     placeholder: "日本語・英語・ローマ字で検索",
     romajiNotice: (reading: string) => `「${reading}」の検索結果`,
     noResults: "見つかりませんでした。別の書き方で試してみてください。",
+    noExactMatch: (query: string) => `「${query}」にぴったりの項目はありませんでした。似ている語はこちらです。`,
+    similarResults: "似ている語",
+    askKotori: "コトリに聞く",
+    askExplain: "コトリが調べて、辞書の下書きを作ります。",
+    askThinking: "コトリが調べています…",
+    askDraft: "AIによる下書き・未確認",
+    askLinked: "お探しのものはこちらかもしれません：",
+    askAgain: "もう一度聞く",
+    askRoute: {
+      sentence: `文章のようです。「${jaTabs.check}」タブで自然かどうかを確かめたり、「${jaTabs.say}」タブで言い方を探したりできます。`,
+      name: "固有名詞のようです。辞書で調べる単語や表現を入力してください。",
+      other_language: jaWrongLanguage,
+      garbage: "単語や表現には見えませんでした。"
+    },
+    askRefused: {
+      not_askable: "これはコトリが調べられるものではないようです。",
+      wrong_language: jaWrongLanguage,
+      repetition: "同じ文字の連打のようです。",
+      keyboard: "キーボードの並びをなぞったような文字列のようです。",
+      in_dictionary: "この言葉は辞書にあります。検索結果をご覧ください。"
+    },
+    askNotReal: "この表現は確認できませんでした。",
     recent: "最近の検索",
     clearRecent: "クリア",
     removeRecent: (term: string) => `「${term}」を最近の検索から削除`,

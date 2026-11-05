@@ -34,17 +34,33 @@ layer(DatabaseMemory)("coaching queries", (it) => {
         reserveUsage(own, {
           kind: "naturalness",
           kinds: ["naturalness", "how-to-say"],
-          since: new Date(0),
-          limit: 2,
+          windows: [{ since: new Date(0), limit: 2 }],
           now: new Date(now)
         })
-      assert.isTrue(yield* reserve(1000))
-      assert.isTrue(yield* reserve(2000))
-      assert.isFalse(yield* reserve(3000))
+      assert.isTrue(Option.isNone(yield* reserve(1000)))
+      assert.isTrue(Option.isNone(yield* reserve(2000)))
+      assert.isTrue(Option.isSome(yield* reserve(3000)))
       // A refused request isn't recorded, so it doesn't push the window further out.
       assert.strictEqual(yield* usageSince(own, new Date(0), ["naturalness"]), 2)
       // Audio is counted on its own.
       assert.strictEqual(yield* usageSince(own, new Date(0), ["speak"]), 0)
+    })
+  )
+
+  it.effect("records one request however many windows it is checked against, and names the full one", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      yield* ensureUser(db, learner)
+      const own = scopedToUser(db, U1)
+      const hour = { since: new Date(10_000), limit: 5 }
+      const day = { since: new Date(0), limit: 3 }
+      const reserve = (now: number) =>
+        reserveUsage(own, { kind: "ask", kinds: ["ask"], windows: [hour, day], now: new Date(now) })
+      assert.isTrue(Option.isNone(yield* reserve(10_000)))
+      assert.isTrue(Option.isNone(yield* reserve(11_000)))
+      assert.strictEqual(yield* usageSince(own, new Date(0), ["ask"]), 2)
+      assert.isTrue(Option.isNone(yield* reserve(12_000)))
+      assert.strictEqual(Option.getOrThrow(yield* reserve(13_000)), day)
     })
   )
 })

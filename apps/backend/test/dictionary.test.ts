@@ -617,6 +617,111 @@ layer(testLayer(false))("Dictionary", (it) => {
       assert.deepStrictEqual((yield* search("xqzvy", "en")).headwords, [])
     })
   )
+
+  it.effect("says whether the results answer the query or only resemble it, and how current a word is", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      yield* insertEntries(db, [
+        word(100000090, "bus", [sense(["バス"], ["n"])], { inflections: [["bussing", ["present-participle"]]] }),
+        word(100000091, "business", [sense(["仕事"], ["n"])]),
+        // As the import writes it, with the framed JMDict gloss as a spelling.
+        word(100000092, "stone's throw", [sense(["目と鼻の先"], ["exp"], ["id"])], {
+          common: false,
+          spellings: ["stone's throw away"]
+        }),
+        entry(1900010, "食べる", "たべる", [sense(["to eat"], ["v1"])]),
+        entry(1900011, "食べ物", "たべもの", [sense(["food"], ["n"])])
+      ])
+      yield* saveNuance(
+        db,
+        EntryId.make(100000092),
+        [
+          {
+            sense: 0,
+            nuance: interpretSense(senseAnswers, ["dated"]),
+            answers: senseAnswers,
+            model: "test",
+            questionsVersion: ENGLISH_QUESTIONS_VERSION
+          }
+        ],
+        new Date(0)
+      )
+      const match = (query: string, language: "ja" | "en") =>
+        Effect.map(dictionary.search(query, language, 10), (result) => result.match)
+
+      // The word itself, its inflection, or a phrase with every word of the query.
+      assert.strictEqual(yield* match("bus", "en"), "exact")
+      assert.strictEqual(yield* match("bussing", "en"), "exact")
+      assert.strictEqual(yield* match("a stone's throw", "en"), "exact")
+      assert.strictEqual(yield* match("a stone's throw away", "en"), "exact")
+      // With the phrase's words but not the phrase: only a word-dropped near miss.
+      assert.strictEqual(yield* match("stone throw", "en"), "weak")
+      // Lookalikes alone: a prefix of "business" and the inflection "bussing" by trigram.
+      const bussin = yield* dictionary.search("bussin", "en", 10)
+      assert.strictEqual(bussin.match, "weak")
+      assert.include(
+        bussin.entries.map((summary) => summary.headword),
+        "bus"
+      )
+      assert.strictEqual(yield* match("xqzvy", "en"), "none")
+
+      // The same for learners of Japanese, by form and by gloss.
+      assert.strictEqual(yield* match("食べる", "ja"), "exact")
+      assert.strictEqual(yield* match("食べ", "ja"), "weak")
+      assert.strictEqual(yield* match("eat", "ja"), "exact")
+      assert.strictEqual(yield* match("xqzvy", "ja"), "none")
+
+      const stonesThrow = yield* dictionary.search("stone's throw", "en", 10)
+      assert.strictEqual(stonesThrow.entries[0]?.currency, "dated")
+      assert.strictEqual(bussin.entries[0]?.currency, null)
+    })
+  )
+
+  it.effect("reaches Japanese words through the English dictionary's glosses when JMDict's own miss them", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      yield* insertEntries(db, [
+        // JMDict has these, but never glossed as "the ick".
+        entry(2858544, "蛙化現象", "かえるかげんしょう", [sense(["frogification phenomenon"], ["n"])], false),
+        entry(2195830, "ドン引き", "どんびき", [sense(["being completely turned off"], ["n"])], false),
+        entry(1591290, "きっかけ", "きっかけ", [sense(["chance", "start"], ["n"])]),
+        // The English dictionary's "ick", glossed as the real one is (data/eiwa/enwiktionary-ja.jsonl,
+        // CC BY-SA 4.0: see data/eiwa/NOTICE.md), and an acronym spelled the same.
+        word(100010602, "ick", [
+          sense(["(恋愛対象などに突然冷める)ドン引きポイント", "蛙化現象のきっかけ", "生理的嫌悪感"], ["n"], ["col"]),
+          sense(["うわっ", "げっ", "キモい"], ["int"], ["col"])
+        ]),
+        word(100040207, "ICK", [sense(["インヒビターシスチンノット"], ["n"])])
+      ])
+      // No gloss is a JMDict form whole, but the longest word inside each is: lookalikes, not answers.
+      const inside = yield* dictionary.search("ick", "ja", 10)
+      assert.strictEqual(inside.match, "weak")
+      assert.includeMembers(
+        inside.entries.map((summary) => summary.headword),
+        ["蛙化現象", "ドン引き"]
+      )
+      // Only the longest word inside a gloss, earliest first: not the きっかけ of 蛙化現象のきっかけ.
+      assert.notInclude(
+        inside.entries.map((summary) => summary.headword),
+        "きっかけ"
+      )
+
+      // A gloss that is a JMDict form whole, reached from the query as written, answers it.
+      yield* insertEntries(db, [entry(2013005, "キモい", "きもい", [sense(["gross", "disgusting"], ["adj-i"])], false)])
+      const whole = yield* dictionary.search("ick", "ja", 10)
+      assert.strictEqual(whole.match, "exact")
+      assert.strictEqual(whole.entries[0]?.headword, "キモい")
+      // Through a guess at the base form, the same words are only lookalikes.
+      const guessed = yield* dictionary.search("icks", "ja", 10)
+      assert.strictEqual(guessed.match, "weak")
+      assert.includeMembers(
+        guessed.entries.map((summary) => summary.headword),
+        ["キモい", "蛙化現象"]
+      )
+    })
+  )
 })
 
 layer(testLayer(false))("Dictionary: what Kotori wrote on an English word", (it) => {

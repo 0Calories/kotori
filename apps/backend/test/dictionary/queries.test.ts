@@ -203,6 +203,35 @@ layer(TestLayer)("dictionary queries", (it) => {
     })
   )
 
+  it.effect("finds a phrase made only of common words by its words", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      yield* insertEntries(db, [
+        {
+          id: EntryId.make(100000050),
+          language: "en",
+          headword: "it is what it is",
+          reading: "",
+          common: false,
+          priority: 0,
+          forms: [spelling("it is what it is")],
+          senses: [sense(["しょうがない"], { pos: ["exp"] })]
+        }
+      ])
+      // Every word is one the English configuration drops, so the phrase is indexed word for word.
+      assert.deepStrictEqual(
+        (yield* searchForms(db, ["what it is"], 10)).map((match) => match.text),
+        ["it is what it is"]
+      )
+      // A query with a word of its own still stems: "eating" finds "eat", not the phrase.
+      assert.notInclude(
+        (yield* searchForms(db, ["eating"], 10)).map((match) => match.text),
+        "it is what it is"
+      )
+      yield* deleteEntries(db, [EntryId.make(100000050)])
+    })
+  )
+
   it.effect("filters out weak multi-word trigram lookalikes in fuzzy form search", () =>
     Effect.gen(function* () {
       const db = yield* Database

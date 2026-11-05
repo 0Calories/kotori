@@ -25,18 +25,25 @@ export const storeAnswer = (db: DatabaseShape, key: string, result: unknown, now
     .onConflictDoUpdate({ target: coachCache.key, set: { result, createdAt: now } })
     .pipe(Effect.asVoid, Effect.orDie)
 
+/** At most `limit` requests since `since`: one window of a rate limit. */
+export interface UsageWindow {
+  readonly since: Date
+  readonly limit: number
+}
+
 /**
- * Records a request of `kind` if the learner has made fewer than `limit` requests of `kinds` since
- * `since`, and says whether it did. The learner's profile row is locked for the transaction, so
- * two requests at once can't both take the last slot.
+ * Records a request of `kind` if, in every window, the learner has made fewer than its `limit`
+ * requests of `kinds`; otherwise returns the first window that is full, recording nothing. One
+ * row however many windows, so an hourly and a daily limit count each request once. The
+ * learner's profile row is locked for the transaction, so two requests at once can't both take
+ * the last slot.
  */
 export const reserveUsage = Effect.fn("coaching.reserveUsage")(function* (
   learner: Learner,
   request: {
     readonly kind: CoachKind
     readonly kinds: ReadonlyArray<CoachKind>
-    readonly since: Date
-    readonly limit: number
+    readonly windows: ReadonlyArray<UsageWindow>
     readonly now: Date
   }
 ) {
@@ -44,19 +51,21 @@ export const reserveUsage = Effect.fn("coaching.reserveUsage")(function* (
   return yield* db.transaction(() =>
     Effect.gen(function* () {
       yield* db.select({ id: users.id }).from(users).where(eq(users.id, userId)).for("update")
-      const [used] = yield* db
-        .select({ n: count() })
-        .from(coachUsage)
-        .where(
-          learner.owns(
-            coachUsage,
-            gte(coachUsage.createdAt, request.since),
-            inArray(coachUsage.kind, [...request.kinds])
+      for (const window of request.windows) {
+        const [used] = yield* db
+          .select({ n: count() })
+          .from(coachUsage)
+          .where(
+            learner.owns(
+              coachUsage,
+              gte(coachUsage.createdAt, window.since),
+              inArray(coachUsage.kind, [...request.kinds])
+            )
           )
-        )
-      if ((used?.n ?? 0) >= request.limit) return false
+        if ((used?.n ?? 0) >= window.limit) return Option.some(window)
+      }
       yield* db.insert(coachUsage).values({ userId, kind: request.kind, createdAt: request.now })
-      return true
+      return Option.none<UsageWindow>()
     })
   )
 }, Effect.orDie)

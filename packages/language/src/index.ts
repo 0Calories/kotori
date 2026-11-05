@@ -1,3 +1,4 @@
+export * from "./ask.ts"
 export * from "./english/gloss.ts"
 export * from "./english/inflect.ts"
 export * from "./english/phrase.ts"

@@ -2,6 +2,7 @@ import {
   answersForCandidates,
   ENGLISH_QUESTIONS_VERSION,
   type EvalRequest,
+  GOLDEN_ASKS,
   GOLDEN_ENGLISH_PAIRS,
   GOLDEN_ENGLISH_SENSES,
   GOLDEN_FIXTURE,
@@ -27,15 +28,19 @@ import {
   type OrderCheck,
   QUESTIONS_VERSION,
   readGolden,
+  TRIAGE_VERSION,
+  interpretTriage,
+  triageRequest,
   type SenseAnswers,
   senseTags,
   SIMILAR_KEPT
 } from "@kotori/ai"
 import { EntryId, type EntryRecord, LOAN_SHOWN, loanShown } from "@kotori/contracts"
-import { normalizeGloss } from "@kotori/language"
+import { normalizeAsk, normalizeGloss } from "@kotori/language"
 import * as Sentry from "@sentry/effect/server"
 import { Console, Effect, FileSystem, Option, Schema } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
+import { turnAway } from "../features/asks/garbage.ts"
 import { resolveFromRoot } from "../runtime/Paths.ts"
 
 /** Booleans are judged where the app judges them: the display threshold. */
@@ -222,6 +227,24 @@ interface PairCase {
   readonly expect: GoldenPairExpectation
 }
 
+/** What each eval measures, and the version of the questions it asks. */
+const KINDS = {
+  nuance: {
+    version: QUESTIONS_VERSION,
+    about: "Japanese words: their nuance questions and similar-word pairs"
+  },
+  english: {
+    version: ENGLISH_QUESTIONS_VERSION,
+    about: "English words: theirs, and their katakana loans"
+  },
+  asks: {
+    version: TRIAGE_VERSION,
+    about: "Ask Kotori queries: Jev's routing of those the free checks let through"
+  }
+} as const
+type Kind = keyof typeof KINDS
+const kinds = Object.keys(KINDS) as ReadonlyArray<Kind>
+
 /**
  * Runs the current questions against the golden set and reports per-question accuracy,
  * confidence and option-order agreement. The golden entries come from `GOLDEN_FIXTURE`, real
@@ -232,10 +255,8 @@ interface PairCase {
 export const evaluate = Command.make(
   "eval",
   {
-    kind: Argument.Literals("kind", ["nuance", "english"]).pipe(
-      Argument.withDescription(
-        "nuance (Japanese words: their questions and similar-word pairs) or english (English words: theirs, and their katakana loans)"
-      )
+    kind: Argument.Literals("kind", kinds).pipe(
+      Argument.withDescription(kinds.map((kind) => `${kind} (${KINDS[kind].about})`).join(", "))
     ),
     record: Flag.String("record").pipe(
       Flag.withDescription("Write the raw answers to this JSON file, for offline reinterpretation"),
@@ -309,7 +330,7 @@ export const evaluate = Command.make(
     }
 
     const model = recording?.model ?? jev.model
-    const version = recording?.questionsVersion ?? (kind === "nuance" ? QUESTIONS_VERSION : ENGLISH_QUESTIONS_VERSION)
+    const version = recording?.questionsVersion ?? KINDS[kind].version
 
     /** Scores a golden sense as learners see it, and Jev's own answers with the tags ignored. */
     const judgeSense = (golden: SenseCase) =>
@@ -400,153 +421,203 @@ export const evaluate = Command.make(
         }
       })
 
-    if (kind === "nuance") {
-      yield* Console.log(
-        `Judging ${GOLDEN_SENSES.length} golden senses and ${GOLDEN_PAIRS.length} similar-word pairs with ${model}, questions version ${version}…`
-      )
-      yield* Effect.forEach(
-        GOLDEN_SENSES,
-        (golden) =>
-          judgeSense({
-            key: `${golden.entryId}:${golden.sense}`,
-            label: `${golden.word}#${golden.sense}`,
-            entry: entryOf(golden.entryId),
-            sense: golden.sense,
-            expect: golden.expect
-          }),
-        { concurrency, discard: true }
-      )
-      yield* Effect.forEach(
-        GOLDEN_PAIRS,
-        (pair) =>
-          judgePair({
-            key: `${pair.entryId}:${pair.sense}~${pair.similarId}`,
-            label: `${pair.word}→${pair.similar}`,
-            entry: entryOf(pair.entryId),
-            sense: pair.sense,
-            similar: entryOf(pair.similarId),
-            similarSense: pair.similarSense,
-            expect: pair.expect
-          }),
-        { concurrency, discard: true }
-      )
-    } else {
-      yield* Console.log(
-        `Judging ${GOLDEN_ENGLISH_SENSES.length} golden English senses, ${GOLDEN_ENGLISH_PAIRS.length} pairs and ${GOLDEN_LOANS.length} katakana loans with ${model}, questions version ${version}…`
-      )
-      yield* Effect.forEach(
-        GOLDEN_ENGLISH_SENSES,
-        (golden) =>
-          judgeSense({
-            key: `${golden.word}:${golden.sense}`,
-            label: `${golden.word}#${golden.sense}`,
-            entry: englishOf(golden.word),
-            sense: golden.sense,
-            expect: golden.expect
-          }),
-        { concurrency, discard: true }
-      )
-      yield* Effect.forEach(
-        GOLDEN_ENGLISH_PAIRS,
-        (pair) =>
-          judgePair({
-            key: `${pair.word}:${pair.sense}~${pair.similar}:${pair.similarSense}`,
-            label: `${pair.word}→${pair.similar}`,
-            entry: englishOf(pair.word),
-            sense: pair.sense,
-            similar: englishOf(pair.similar),
-            similarSense: pair.similarSense,
-            expect: pair.expect
-          }),
-        { concurrency, discard: true }
-      )
-      yield* Effect.forEach(
-        GOLDEN_LOANS,
-        (golden) =>
-          Effect.gen(function* () {
-            const entry = englishOf(golden.word)
-            // The candidates production finds now (gloss matches) and once JMDict is re-imported
-            // with lsource; asked about together, read for each list on its own.
-            const loans = fixture.loans[normalizeGloss(golden.word)] ?? { glossesOnly: [], withSources: [] }
-            const listOf = (candidates: typeof loans.glossesOnly) =>
-              candidates.map(({ entryId, by }) => ({ entry: entryOf(entryId), by }))
-            const lists = { now: listOf(loans.glossesOnly), reimported: listOf(loans.withSources) }
-            const union = [
-              ...new Map(
-                [...lists.reimported, ...lists.now].map((candidate) => [candidate.entry.id, candidate])
-              ).values()
-            ].slice(0, MAX_LOANS)
-            const request = goldenLoanRequest(
-              entry,
-              union.map((candidate) => candidate.entry),
-              tags
+    const run: Record<Kind, () => Effect.Effect<void>> = {
+      asks: () =>
+        Effect.gen(function* () {
+          yield* Console.log(`Routing ${GOLDEN_ASKS.length} golden asks with ${model}, triage version ${version}…`)
+          // Jev sees what production gives it: the query normalized, and only if the free checks let it by.
+          const turnedAway: Array<string> = []
+          const reaching = GOLDEN_ASKS.flatMap((golden) => {
+            const query = normalizeAsk(golden.query, golden.language)
+            const refusal = turnAway(query, golden.language)
+            if (refusal === null) return [{ ...golden, query }]
+            // A lookup turned away is a real question lost for free; anything else was spared a Jev call.
+            turnedAway.push(
+              `${golden.expect === "lookup" ? "LOST " : ""}${golden.language} "${golden.query}": ${refusal}, wanted ${golden.expect}`
             )
-            const answers = union.length === 0 ? {} : yield* answersFor(`${golden.word}:loan`, request)
-            if (answers === undefined) return
-            const reading = readGolden(request, answers)
-            // Held-out words are reported apart, so tuning on the others can't flatter them.
-            const set = golden.heldOut ? "held out: " : ""
-            for (const check of reading.order) results.order(`${set}${check.name.replace(/_\d+$/, "")}`, check)
-            const asked = union.map((candidate) => candidate.entry.headword)
-            const readFor = (list: typeof lists.now, loanIs?: number) => {
-              const own = list.slice(0, MAX_LOANS).map(({ entry: { headword }, by }) => ({ word: headword, by }))
-              const words = own.map((candidate) => candidate.word)
-              return interpretLoan(answersForCandidates(reading.answers, asked, words), own, loanIs)
-            }
-            const wanted = `${golden.loan}${golden.loanWord ? ` (${golden.loanWord})` : ""}`
-            const loan = (dimension: string, read: LoanReading) => {
-              const got = read.verdict?.value ?? "no_loan"
-              const right = got === golden.loan && (golden.loan === "no_loan" || read.word === golden.loanWord)
-              results.judged(
-                `${set}${dimension}`,
-                false,
-                { correct: right, confidence: read.verdict?.probability ?? null },
-                `${golden.word} ${set}${dimension}: got ${got}${read.word ? ` (${read.word})` : ""}, wanted ${wanted}`
-              )
-            }
-            loan("loan, glosses", readFor(lists.now))
-            const reimported = readFor(lists.reimported)
-            loan("loan, +lsource", reimported)
-            loan("loan, +lsrc @0.5", readFor(lists.reimported, 0.5))
-            // What learners see once JMDict has lsource, by the app's rule: a warning on a drifted
-            // loan, a "same meaning" chip on one carried over as is, or nothing.
-            const verdict = reimported.verdict
-            const shown = verdict === null ? null : loanShown(verdict)
-            const about = reimported.word === golden.loanWord
-            const display = (dimension: string, applies: boolean, correct: boolean) => {
-              if (!applies) return
-              results.judged(
-                `${set}${dimension}`,
-                false,
-                { correct, confidence: shown === null ? null : (verdict?.probability ?? null) },
-                `${golden.word} ${set}${dimension}: shown ${shown === null || verdict === null ? "nothing" : `${shown} (${reimported.word}) at ${verdict.probability.toFixed(2)}`}, wanted ${wanted}`
-              )
-            }
-            display("warning shown", golden.loan === "divergent", shown === "warning" && about)
-            display("no false warning", true, shown !== "warning" || (golden.loan === "divergent" && about))
-            display("same-meaning chip", golden.loan === "same", shown === "chip" && about)
-            display("no wrong chip", true, shown !== "chip" || (golden.loan === "same" && about))
-            // What "not English" takes from the true loan, which is always borrowed from English.
-            const meanings =
-              golden.loanWord === undefined ? undefined : loanMeanings(reading.answers, asked.indexOf(golden.loanWord))
-            if (meanings !== undefined) {
-              results.judged(
-                `${set}not English`,
-                false,
-                {
-                  correct: meanings.not_english < Math.max(meanings.same, meanings.divergent),
-                  confidence: meanings.not_english
-                },
-                `${golden.word} ${set}not English: p=${meanings.not_english.toFixed(2)} for ${golden.loanWord}`
-              )
-            }
-          }),
-        { concurrency, discard: true }
-      )
-      yield* Console.log(
-        `A loan counts at p >= ${LOAN_IS} that the katakana word is the English word's loan; "glosses" are the candidates production finds until JMDict is re-imported with lsource. The app shows a warning at p(divergent) >= ${LOAN_SHOWN} and a "same meaning" chip at p(same) >= ${LOAN_SHOWN}; each p averaged over the loan Choice asked in both option orders. The conf columns of loan rows hold that p, and of "not English" the true loan's p(not_english).`
-      )
+            return []
+          })
+          let undecided = 0
+          yield* Effect.forEach(
+            reaching,
+            (golden) =>
+              Effect.gen(function* () {
+                const request = triageRequest(golden.query, golden.language)
+                const answers = yield* answersFor(`${golden.language}:${golden.query}`, { ...request, prefix: "" })
+                if (answers === undefined) return
+                const reading = readGolden({ ...request, prefix: "" }, answers)
+                for (const check of reading.order) results.order("route", check)
+                const triage = interpretTriage(reading.answers)
+                if (!triage.decided) undecided++
+                results.judged(
+                  "route",
+                  false,
+                  { correct: triage.route === golden.expect, confidence: triage.probabilities[triage.route] },
+                  `${golden.language} "${golden.query}": routed ${triage.route}${triage.decided ? "" : " (undecided, fell open)"}, wanted ${golden.expect}`
+                )
+              }),
+            { concurrency, discard: true }
+          )
+          yield* Console.log(`${undecided} of ${reaching.length} fell open to Claude for want of a sure route.`)
+          if (turnedAway.length > 0) {
+            yield* Console.log(`\nTurned away before Jev (${turnedAway.length}, not scored):`)
+            for (const line of turnedAway) yield* Console.log(`  ${line}`)
+          }
+        }),
+      nuance: () =>
+        Effect.gen(function* () {
+          yield* Console.log(
+            `Judging ${GOLDEN_SENSES.length} golden senses and ${GOLDEN_PAIRS.length} similar-word pairs with ${model}, questions version ${version}…`
+          )
+          yield* Effect.forEach(
+            GOLDEN_SENSES,
+            (golden) =>
+              judgeSense({
+                key: `${golden.entryId}:${golden.sense}`,
+                label: `${golden.word}#${golden.sense}`,
+                entry: entryOf(golden.entryId),
+                sense: golden.sense,
+                expect: golden.expect
+              }),
+            { concurrency, discard: true }
+          )
+          yield* Effect.forEach(
+            GOLDEN_PAIRS,
+            (pair) =>
+              judgePair({
+                key: `${pair.entryId}:${pair.sense}~${pair.similarId}`,
+                label: `${pair.word}→${pair.similar}`,
+                entry: entryOf(pair.entryId),
+                sense: pair.sense,
+                similar: entryOf(pair.similarId),
+                similarSense: pair.similarSense,
+                expect: pair.expect
+              }),
+            { concurrency, discard: true }
+          )
+        }),
+      english: () =>
+        Effect.gen(function* () {
+          yield* Console.log(
+            `Judging ${GOLDEN_ENGLISH_SENSES.length} golden English senses, ${GOLDEN_ENGLISH_PAIRS.length} pairs and ${GOLDEN_LOANS.length} katakana loans with ${model}, questions version ${version}…`
+          )
+          yield* Effect.forEach(
+            GOLDEN_ENGLISH_SENSES,
+            (golden) =>
+              judgeSense({
+                key: `${golden.word}:${golden.sense}`,
+                label: `${golden.word}#${golden.sense}`,
+                entry: englishOf(golden.word),
+                sense: golden.sense,
+                expect: golden.expect
+              }),
+            { concurrency, discard: true }
+          )
+          yield* Effect.forEach(
+            GOLDEN_ENGLISH_PAIRS,
+            (pair) =>
+              judgePair({
+                key: `${pair.word}:${pair.sense}~${pair.similar}:${pair.similarSense}`,
+                label: `${pair.word}→${pair.similar}`,
+                entry: englishOf(pair.word),
+                sense: pair.sense,
+                similar: englishOf(pair.similar),
+                similarSense: pair.similarSense,
+                expect: pair.expect
+              }),
+            { concurrency, discard: true }
+          )
+          yield* Effect.forEach(
+            GOLDEN_LOANS,
+            (golden) =>
+              Effect.gen(function* () {
+                const entry = englishOf(golden.word)
+                // The candidates production finds now (gloss matches) and once JMDict is re-imported
+                // with lsource; asked about together, read for each list on its own.
+                const loans = fixture.loans[normalizeGloss(golden.word)] ?? { glossesOnly: [], withSources: [] }
+                const listOf = (candidates: typeof loans.glossesOnly) =>
+                  candidates.map(({ entryId, by }) => ({ entry: entryOf(entryId), by }))
+                const lists = { now: listOf(loans.glossesOnly), reimported: listOf(loans.withSources) }
+                const union = [
+                  ...new Map(
+                    [...lists.reimported, ...lists.now].map((candidate) => [candidate.entry.id, candidate])
+                  ).values()
+                ].slice(0, MAX_LOANS)
+                const request = goldenLoanRequest(
+                  entry,
+                  union.map((candidate) => candidate.entry),
+                  tags
+                )
+                const answers = union.length === 0 ? {} : yield* answersFor(`${golden.word}:loan`, request)
+                if (answers === undefined) return
+                const reading = readGolden(request, answers)
+                // Held-out words are reported apart, so tuning on the others can't flatter them.
+                const set = golden.heldOut ? "held out: " : ""
+                for (const check of reading.order) results.order(`${set}${check.name.replace(/_\d+$/, "")}`, check)
+                const asked = union.map((candidate) => candidate.entry.headword)
+                const readFor = (list: typeof lists.now, loanIs?: number) => {
+                  const own = list.slice(0, MAX_LOANS).map(({ entry: { headword }, by }) => ({ word: headword, by }))
+                  const words = own.map((candidate) => candidate.word)
+                  return interpretLoan(answersForCandidates(reading.answers, asked, words), own, loanIs)
+                }
+                const wanted = `${golden.loan}${golden.loanWord ? ` (${golden.loanWord})` : ""}`
+                const loan = (dimension: string, read: LoanReading) => {
+                  const got = read.verdict?.value ?? "no_loan"
+                  const right = got === golden.loan && (golden.loan === "no_loan" || read.word === golden.loanWord)
+                  results.judged(
+                    `${set}${dimension}`,
+                    false,
+                    { correct: right, confidence: read.verdict?.probability ?? null },
+                    `${golden.word} ${set}${dimension}: got ${got}${read.word ? ` (${read.word})` : ""}, wanted ${wanted}`
+                  )
+                }
+                loan("loan, glosses", readFor(lists.now))
+                const reimported = readFor(lists.reimported)
+                loan("loan, +lsource", reimported)
+                loan("loan, +lsrc @0.5", readFor(lists.reimported, 0.5))
+                // What learners see once JMDict has lsource, by the app's rule: a warning on a drifted
+                // loan, a "same meaning" chip on one carried over as is, or nothing.
+                const verdict = reimported.verdict
+                const shown = verdict === null ? null : loanShown(verdict)
+                const about = reimported.word === golden.loanWord
+                const display = (dimension: string, applies: boolean, correct: boolean) => {
+                  if (!applies) return
+                  results.judged(
+                    `${set}${dimension}`,
+                    false,
+                    { correct, confidence: shown === null ? null : (verdict?.probability ?? null) },
+                    `${golden.word} ${set}${dimension}: shown ${shown === null || verdict === null ? "nothing" : `${shown} (${reimported.word}) at ${verdict.probability.toFixed(2)}`}, wanted ${wanted}`
+                  )
+                }
+                display("warning shown", golden.loan === "divergent", shown === "warning" && about)
+                display("no false warning", true, shown !== "warning" || (golden.loan === "divergent" && about))
+                display("same-meaning chip", golden.loan === "same", shown === "chip" && about)
+                display("no wrong chip", true, shown !== "chip" || (golden.loan === "same" && about))
+                // What "not English" takes from the true loan, which is always borrowed from English.
+                const meanings =
+                  golden.loanWord === undefined
+                    ? undefined
+                    : loanMeanings(reading.answers, asked.indexOf(golden.loanWord))
+                if (meanings !== undefined) {
+                  results.judged(
+                    `${set}not English`,
+                    false,
+                    {
+                      correct: meanings.not_english < Math.max(meanings.same, meanings.divergent),
+                      confidence: meanings.not_english
+                    },
+                    `${golden.word} ${set}not English: p=${meanings.not_english.toFixed(2)} for ${golden.loanWord}`
+                  )
+                }
+              }),
+            { concurrency, discard: true }
+          )
+          yield* Console.log(
+            `A loan counts at p >= ${LOAN_IS} that the katakana word is the English word's loan; "glosses" are the candidates production finds until JMDict is re-imported with lsource. The app shows a warning at p(divergent) >= ${LOAN_SHOWN} and a "same meaning" chip at p(same) >= ${LOAN_SHOWN}; each p averaged over the loan Choice asked in both option orders. The conf columns of loan rows hold that p, and of "not English" the true loan's p(not_english).`
+          )
+        })
     }
+    yield* run[kind]()
     yield* Console.log(`The enricher keeps a similar word at p >= ${SIMILAR_KEPT}.`)
 
     yield* report(results)

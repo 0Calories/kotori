@@ -58,4 +58,11 @@ describe("script helpers", () => {
     expect(romajiToKana("hello world")).toBeNull()
     expect(romajiToKana("xyz")).toBeNull()
   })
+
+  it("reads Hepburn's tch as a doubled ch", () => {
+    expect(romajiToKana("matcha")).toBe("まっちゃ")
+    expect(romajiToKana("kotchi")).toBe("こっち")
+    expect(romajiToKana("kocchi")).toBe("こっち")
+    expect(romajiToKana("watch")).toBeNull()
+  })
 })

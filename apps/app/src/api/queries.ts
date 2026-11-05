@@ -1,6 +1,7 @@
 import type {
   AddNoteRequest,
   CardId,
+  Proposal,
   EntryId,
   HowToSayRequest,
   Language,
@@ -19,6 +20,7 @@ import { call } from "./client.ts"
 export const keys = {
   health: ["health"] as const,
   search: (q: string, language: Language) => ["search", language, q] as const,
+  asks: ["asks"] as const,
   entry: (id: number) => ["entry", id] as const,
   notes: ["notes"] as const,
   queue: ["queue"] as const,
@@ -37,6 +39,24 @@ export const useSearch = (q: string, language: Language) =>
     placeholderData: keepPreviousData,
     staleTime: 5 * 60_000
   })
+
+/** The learner's own Ask Kotori answers, so a past ask shows again without asking again. */
+export const useAsks = () =>
+  useQuery({ queryKey: keys.asks, queryFn: () => call((api) => api.dictionary.asks()), staleTime: 60_000 })
+
+/** Asks Kotori about a search the dictionary couldn't answer. */
+export const useAsk = () => {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (q: string) => call((api) => api.dictionary.ask({ payload: { q } })),
+    onSuccess: (proposal: Proposal) => {
+      client.setQueryData<ReadonlyArray<Proposal>>(keys.asks, (asks = []) => [
+        proposal,
+        ...asks.filter((past) => past.id !== proposal.id)
+      ])
+    }
+  })
+}
 
 export const useEntry = (id: number) =>
   useQuery({

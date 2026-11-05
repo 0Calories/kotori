@@ -28,8 +28,15 @@ export const tsvector = customType<{ data: string }>({
   dataType: () => "tsvector"
 })
 
-/** `to_tsvector('english', column)`, for generated full-text columns. */
-export const englishDocument = (column: AnyPgColumn) => sql`to_tsvector('english', ${column})`
+/**
+ * The full-text document of an English column: `to_tsvector('english', column)`, which stems
+ * words and drops the commonest ones, so "eating" finds "eat out". A phrase made only of those
+ * common words ("it is what it is") would have no document at all, so it is indexed word for
+ * word with the `simple` configuration instead; queries made only of such words search the same
+ * way (see the backend's dictionary queries).
+ */
+export const englishDocument = (column: AnyPgColumn) =>
+  sql`CASE WHEN length(to_tsvector('english', ${column})) = 0 THEN to_tsvector('simple', ${column}) ELSE to_tsvector('english', ${column}) END`
 
 export const language = pgEnum("language", ["en", "ja"])
 

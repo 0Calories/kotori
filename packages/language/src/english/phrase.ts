@@ -38,6 +38,13 @@ const FUNCTION_WORDS = new Set([
   ..."is are was were be been being".split(" ")
 ])
 
+/**
+ * Whether a word is too common to tell one English phrase from another: a placeholder, pronoun,
+ * article, preposition or form of "be". The dictionary import uses it to require that a phrase it
+ * recognises inside a longer gloss has some words of its own ("stone's throw", not "of a").
+ */
+export const isEnglishFunctionWord = (word: string) => FUNCTION_WORDS.has(word)
+
 /** The spellings each placeholder slot is tried with, the dictionary's placeholders first. */
 const POSSESSIVE_SLOT = ["one's", "someone's", "somebody's", ...PERSONAL_POSSESSIVES, ""]
 const OBJECT_SLOT = ["someone", "somebody", "one", ...PERSONAL_OBJECTS, ""]

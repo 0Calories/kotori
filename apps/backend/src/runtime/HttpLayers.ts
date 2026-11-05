@@ -1,9 +1,10 @@
-import { Claude, Coach, ElevenLabs, Jev, Pronouncer } from "@kotori/ai"
+import { AiProviders, Coach, Lexicographer, Pronouncer } from "@kotori/ai"
 import { Layer } from "effect"
 import type { SqlClient } from "effect/sql"
 import { type Database, DatabaseLive } from "../db/Database.ts"
 import { Accounts } from "../features/accounts/Accounts.ts"
 import { AuthWebhooks } from "../features/accounts/Webhooks.ts"
+import { Asks } from "../features/asks/Asks.ts"
 import { AudioStore } from "../features/audio/AudioStore.ts"
 import { Speech } from "../features/audio/Speech.ts"
 import { Coaching } from "../features/coaching/Coaching.ts"
@@ -13,13 +14,13 @@ import { Auth } from "../integrations/auth/Auth.ts"
 import { MailerLive } from "../integrations/email/live.ts"
 
 /** Providers that talk to external services: the AI providers and email. */
-const ProvidersLive = Layer.mergeAll(Claude.layer, Jev.layer, ElevenLabs.layer, MailerLive)
+const ProvidersLive = Layer.merge(AiProviders, MailerLive)
 
 /** Application services on top of the AI capabilities and the providers. */
-const ServicesLive = Layer.mergeAll(Accounts.layer, Study.layer, Coaching.layer, AuthWebhooks.layer).pipe(
+const ServicesLive = Layer.mergeAll(Accounts.layer, Study.layer, Coaching.layer, Asks.layer, AuthWebhooks.layer).pipe(
   Layer.provideMerge(Dictionary.layer),
   Layer.provideMerge(Speech.layer),
-  Layer.provideMerge(Layer.mergeAll(AudioStore.layer, Coach.layer, Pronouncer.layer))
+  Layer.provideMerge(Layer.mergeAll(AudioStore.layer, Coach.layer, Pronouncer.layer, Lexicographer.layer))
 )
 
 /** The services over the given database, with the given providers and auth. */
