@@ -494,7 +494,7 @@ export default function LookUpScreen() {
           ) : null}
           {results && results.match === "weak" && !search.isFetching ? (
             // Only lookalikes: said plainly, so a learner doesn't take "bus" for "bussin".
-            <MascotMessage mood="curious" body={t.dictionary.noExactMatch(results.query)} size={90}>
+            <MascotMessage mood="neutral" facing="front" body={t.dictionary.noExactMatch(results.query)} size={90}>
               {answer === null && askable ? <AskButton ask={ask} query={debounced} /> : null}
             </MascotMessage>
           ) : null}
