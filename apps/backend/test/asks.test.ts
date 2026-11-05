@@ -10,8 +10,8 @@ import {
   Pronouncer,
   TtsError
 } from "@kotori/ai"
-import type { Profile } from "@kotori/contracts"
-import { UserId } from "@kotori/contracts"
+import type { DraftEntry, Language, Profile } from "@kotori/contracts"
+import { EntryId, UserId } from "@kotori/contracts"
 import { proposals } from "@kotori/db"
 import { normalizeAsk } from "@kotori/language"
 import { eq } from "drizzle-orm"
@@ -25,7 +25,7 @@ import { Dictionary } from "../src/features/dictionary/Dictionary.ts"
 import { insertEntries } from "../src/features/dictionary/queries.ts"
 import { ensureUser } from "../src/features/accounts/queries.ts"
 import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
-import { english, learner } from "./fixtures.ts"
+import { english, kana, kanji, learner, sense } from "./fixtures.ts"
 
 // The Asks service over PGlite and a Claude whose answers are queued by the test.
 
@@ -128,6 +128,30 @@ const daily = learnerNo(3)
 const routed = learnerNo(4)
 const strict = learnerNo(5)
 const japanese = learnerNo(6, "ja")
+const linker = learnerNo(7)
+const drafter = learnerNo(8)
+const yomi = learnerNo(9, "ja")
+
+/** 上手 is two words: じょうず (skilled) and うわて (superior). Neither is read かみて here. */
+const jouzu = {
+  id: EntryId.make(1900001),
+  language: "ja" as const,
+  headword: "上手",
+  reading: "じょうず",
+  common: true,
+  priority: 100,
+  forms: [kanji("上手"), kana("じょうず")],
+  senses: [sense(["skillful", "good at"], { pos: ["adj-na"] })]
+}
+const uwate = {
+  ...jouzu,
+  id: EntryId.make(1900002),
+  reading: "うわて",
+  common: false,
+  priority: 40,
+  forms: [kanji("上手"), kana("うわて")],
+  senses: [sense(["superior", "better"], { pos: ["n"] })]
+}
 
 /** Idempotent: every test seeds, so each runs alone (`vitest -t`) and none leans on another. */
 const seeded = Effect.gen(function* () {
@@ -135,13 +159,26 @@ const seeded = Effect.gen(function* () {
   queued.length = 0
   routes.length = 0
   const db = yield* Database
-  for (const user of [asker, other, daily, routed, strict, japanese]) {
+  for (const user of [asker, other, daily, routed, strict, japanese, linker, drafter, yomi]) {
     yield* ensureUser(db, { id: user.id, displayName: null, createdAt: new Date(0) })
   }
-  yield* insertEntries(db, english)
+  yield* insertEntries(db, [...english, jouzu, uwate])
 })
 
-const draft = (headword: string, spellings: ReadonlyArray<string> = []): DraftOutput => ({
+/** The number `headword` is shown to Claude under, among the lookalikes the search for `query` finds. */
+const numberOf = (query: string, language: Language, headword: string) =>
+  Effect.gen(function* () {
+    const found = yield* (yield* Dictionary).search(normalizeAsk(query, language), language, 10)
+    const index = found.entries.findIndex((entry) => entry.headword === headword)
+    assert.isAtLeast(index, 0, `${headword} is among the lookalikes for ${query}`)
+    return index + 1
+  })
+
+const draft = (
+  headword: string,
+  spellings: ReadonlyArray<string> = [],
+  fields: Partial<DraftEntry> = {}
+): DraftOutput => ({
   verdict: "entry",
   link: null,
   reason: null,
@@ -150,7 +187,8 @@ const draft = (headword: string, spellings: ReadonlyArray<string> = []): DraftOu
     reading: "",
     spellings,
     currency: "trendy",
-    senses: [{ glosses: ["すごくおいしい"], partOfSpeech: "adj", labels: ["sl"], note: "若者のスラングです。" }]
+    senses: [{ glosses: ["すごくおいしい"], partOfSpeech: "adj", labels: ["sl"], note: "若者のスラングです。" }],
+    ...fields
   }
 })
 
@@ -205,16 +243,16 @@ layer(TestLayer)("Asks", (it) => {
     })
   )
 
-  it.effect("links a variant to the entry Claude names instead of keeping a draft", () =>
+  it.effect("links a variant to the lookalike Claude numbers instead of keeping a draft", () =>
     Effect.gen(function* () {
       yield* seeded
       const asks = yield* Asks
-      // The fixtures hold "eat"; Claude recognises the query as it.
-      queued.push({ verdict: "link", link: "eat", reason: null, entry: null })
-      const linked = yield* asks.ask(asker, "eeting good")
+      // "polsh" finds "polish" and "Polish", which match each other case-folded: the number says which.
+      queued.push({ verdict: "link", link: yield* numberOf("polsh", "en", "Polish"), reason: null, entry: null })
+      const linked = yield* asks.ask(asker, "polsh")
       assert.strictEqual(linked.status, "linked")
       assert.strictEqual(linked.draft, null)
-      assert.strictEqual(linked.linked?.headword, "eat")
+      assert.strictEqual(linked.linked?.id, EntryId.make(100000002))
     })
   )
 
@@ -392,6 +430,58 @@ layer(TestLayer)("Asks", (it) => {
       assert.strictEqual(proposal.route, "lookup")
       assert.deepInclude(yield* Effect.flip(redoProposal(db, rejected.id)), { _tag: "NotRejected", status: "pending" })
       assert.strictEqual((yield* Effect.flip(redoProposal(db, 999_999)))._tag, "NoSuchProposal")
+    })
+  )
+
+  it.effect("links only a lookalike Claude was shown, whatever else the dictionary holds", () =>
+    Effect.gen(function* () {
+      yield* seeded
+      const asks = yield* Asks
+      // The search finds nothing for this, so a link could only come from Claude's memory.
+      queued.push({ verdict: "link", link: 1, reason: null, entry: null })
+      const unseen = yield* asks.ask(linker, "eeting good")
+      assert.strictEqual(unseen.status, "rejected")
+      assert.strictEqual(unseen.linked, null)
+      // A number past the list is no link either.
+      queued.push({ verdict: "link", link: 9, reason: null, entry: null })
+      const past = yield* asks.ask(linker, "polishy")
+      assert.strictEqual(past.status, "rejected")
+      // Nor is one that came with a draft: the draft stands instead.
+      queued.push({ ...draft("polished off"), verdict: "link", link: 0 })
+      const drafted = yield* asks.ask(linker, "polished off")
+      assert.strictEqual(drafted.status, "pending")
+      assert.strictEqual(drafted.draft?.headword, "polished off")
+    })
+  )
+
+  it.effect("takes a draft for an existing entry only when it can tell which entry", () =>
+    Effect.gen(function* () {
+      yield* seeded
+      const asks = yield* Asks
+      // English matches case-folded, so an exact spelling decides between "polish" and "Polish"…
+      queued.push(draft("polish"))
+      const exact = yield* asks.ask(drafter, "polish up nicely")
+      assert.strictEqual(exact.status, "linked")
+      assert.strictEqual(exact.linked?.id, EntryId.make(100000003))
+      // …and without one, neither is chosen, and the draft waits for the admin.
+      queued.push(draft("POLISH"))
+      const unsure = yield* asks.ask(drafter, "polishing up")
+      assert.strictEqual(unsure.status, "pending")
+      assert.strictEqual(unsure.linked, null)
+
+      // Japanese homographs are told apart by reading, katakana or hiragana.
+      queued.push(draft("上手", [], { reading: "ウワテ" }))
+      const uwateDraft = yield* asks.ask(yomi, "うわてっぽい")
+      assert.strictEqual(uwateDraft.status, "linked")
+      assert.strictEqual(uwateDraft.linked?.id, uwate.id)
+      queued.push(draft("上手", [], { reading: "じょうず" }))
+      const jouzuDraft = yield* asks.ask(yomi, "じょうずめ")
+      assert.strictEqual(jouzuDraft.linked?.id, jouzu.id)
+      // A reading neither has is another word written the same: a draft, not a link.
+      queued.push(draft("上手", [], { reading: "かみて" }))
+      const kamite = yield* asks.ask(yomi, "かみてがわ")
+      assert.strictEqual(kamite.status, "pending")
+      assert.strictEqual(kamite.draft?.reading, "かみて")
     })
   )
 })

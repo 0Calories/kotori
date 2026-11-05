@@ -29,8 +29,11 @@ const DraftSenseOutput = Schema.Struct({
 export const DraftOutput = Schema.Struct({
   /** What the query is: a real expression to draft, one of the candidates, or not real. */
   verdict: Schema.Literals(["entry", "link", "reject"]),
-  /** For `link`: the candidate's headword, copied exactly. */
-  link: Schema.NullOr(Schema.String),
+  /**
+   * For `link`: the candidate's number, as listed. A number rather than the headword, so two
+   * entries written alike (上手 read じょうず or うわて, "Polish" and "polish") can't be confused.
+   */
+  link: Schema.NullOr(Schema.Int),
   /** For `reject`: why, in the asker's native language, in one or two sentences. */
   reason: Schema.NullOr(Schema.String),
   /** For `entry`: the draft. */
@@ -72,7 +75,7 @@ const system = (language: Language) => {
 
 Decide what the query is, and answer with one verdict:
 
-- "link": the query is a variant, misspelling, inflection or rephrasing of one of the listed candidates — the learner was looking for that entry. Put the candidate's headword in "link", copied exactly as listed. Choose this whenever a candidate truly answers the query ("it be like it be" → "it is what it is"); never draft a near-duplicate of a listed entry.
+- "link": the query is a variant, misspelling, inflection or rephrasing of one of the listed candidates — the learner was looking for that entry. Put the candidate's number in "link", as listed. Choose this whenever a candidate truly answers the query ("it be like it be" → "it is what it is"); never draft a near-duplicate of a listed entry. Only a listed candidate can be linked: when none answers the query, or none is listed, choose "entry" or "reject" instead.
 - "entry": the query is a real ${target} expression natives use (or a well-attested variant with its own identity) that the dictionary should gain. Draft the entry.
 - "reject": the query is not a real ${target} expression — random letters, a sentence fragment, a name, another language, or something no native would recognise. Say why in "reason", in ${native}, kindly, in one or two sentences; if it only looks misspelled, suggest the likely spelling there.
 
@@ -90,10 +93,10 @@ const prompt = (request: DraftRequest) => {
   const candidates =
     request.candidates.length === 0
       ? "The search found nothing at all."
-      : `The search found only these lookalikes:\n${request.candidates
+      : `The search found only these lookalikes, numbered for "link":\n${request.candidates
           .map(
-            (candidate) =>
-              `- ${candidate.headword}${candidate.reading.length > 0 ? `（${candidate.reading}）` : ""}: ${candidate.meanings.join("; ")}`
+            (candidate, index) =>
+              `${index + 1}. ${candidate.headword}${candidate.reading.length > 0 ? `（${candidate.reading}）` : ""}: ${candidate.meanings.join("; ")}`
           )
           .join("\n")}`
   return `Query: ${JSON.stringify(request.query)}\n\n${candidates}`
