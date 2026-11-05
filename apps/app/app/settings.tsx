@@ -53,11 +53,37 @@ const Feature = ({ label, on }: { readonly label: string; readonly on: boolean |
   )
 }
 
+/**
+ * Which server the app talks to and which of its providers are set up. For development only:
+ * learners have no use for the address or the providers' names.
+ */
+const ServerDiagnostics = () => {
+  const theme = useTheme()
+  const { t } = useSession()
+  const health = useHealth()
+  return (
+    <Section title={t.settings.server}>
+      <Card style={{ gap: theme.space.sm }}>
+        <Text variant="caption" color="textMuted">
+          {apiUrl}
+        </Text>
+        <Feature label={`${t.tabs.check} · ${t.tabs.say} (Claude)`} on={health.data?.features.coach} />
+        <Feature label={`${t.nuance.formality} (Jev)`} on={health.data?.features.nuance} />
+        <Feature label={`${t.common.listen} (ElevenLabs)`} on={health.data?.features.audio} />
+        {health.data ? (
+          <Text variant="caption" color="textFaint">
+            JMDict · {health.data.dictionary.entries.toLocaleString()}
+          </Text>
+        ) : null}
+      </Card>
+    </Section>
+  )
+}
+
 export default function SettingsScreen() {
   const theme = useTheme()
   const router = useRouter()
   const { t, profile, updateProfile, signOut } = useSession()
-  const health = useHealth()
   const [furigana, setFurigana] = usePreference("furigana", true)
   const [themeName, setThemeName] = useThemeName()
   if (profile === null) return null
@@ -120,21 +146,7 @@ export default function SettingsScreen() {
         </Card>
       </Section>
 
-      <Section title={t.settings.server}>
-        <Card style={{ gap: theme.space.sm }}>
-          <Text variant="caption" color="textMuted">
-            {apiUrl}
-          </Text>
-          <Feature label={`${t.tabs.check} · ${t.tabs.say} (Claude)`} on={health.data?.features.coach} />
-          <Feature label={`${t.nuance.formality} (Jev)`} on={health.data?.features.nuance} />
-          <Feature label={`${t.common.listen} (ElevenLabs)`} on={health.data?.features.audio} />
-          {health.data ? (
-            <Text variant="caption" color="textFaint">
-              JMDict · {health.data.dictionary.entries.toLocaleString()}
-            </Text>
-          ) : null}
-        </Card>
-      </Section>
+      {__DEV__ ? <ServerDiagnostics /> : null}
 
       <Section title={t.settings.about}>
         <Card style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
