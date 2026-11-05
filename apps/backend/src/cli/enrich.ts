@@ -7,6 +7,7 @@ import { entriesByPriority } from "../features/dictionary/index.ts"
 import { Enrichers } from "../features/enrichment/Enrichers.ts"
 import { nuanceEntryIds, outdatedNuanceEntryIds } from "../features/enrichment/index.ts"
 import { NuanceEnricher } from "../features/enrichment/NuanceEnricher.ts"
+import { CommandFailed } from "./failure.ts"
 
 export const enrich = Command.make(
   "enrich",
@@ -45,7 +46,7 @@ export const enrich = Command.make(
     const db = yield* Database
     const language = dictionary === "all" ? undefined : dictionary === "jmdict" ? ("ja" as const) : ("en" as const)
     if (reinterpret) {
-      if (kind !== "nuance") return yield* Console.error("--reinterpret only applies to nuance.")
+      if (kind !== "nuance") return yield* new CommandFailed({ message: "--reinterpret only applies to nuance." })
       const nuance = yield* NuanceEnricher
       const ids = Option.isSome(entry) ? [EntryId.make(entry.value)] : yield* nuanceEntryIds(db, language)
       yield* Console.log(`Reinterpreting stored nuance for ${ids.length} entries…`)
@@ -67,10 +68,11 @@ export const enrich = Command.make(
 
     const enrichers = yield* Enrichers
     if (!(yield* enrichers.available).includes(kind)) {
-      return yield* Console.error(`No provider is configured for ${kind}. See .env.example.`)
+      return yield* new CommandFailed({ message: `No provider is configured for ${kind}. See .env.example.` })
     }
 
-    if (outdated && kind !== "nuance") return yield* Console.error("--outdated only applies to nuance.")
+    if (outdated && kind !== "nuance")
+      return yield* new CommandFailed({ message: "--outdated only applies to nuance." })
 
     // Most frequent words first, skipping anything already enriched, so runs can be resumed.
     const ids = Option.isSome(entry)

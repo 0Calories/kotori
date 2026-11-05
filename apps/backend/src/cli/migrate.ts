@@ -1,6 +1,7 @@
 import { Console, Effect } from "effect"
 import { Command } from "effect/cli"
 import { migrateDatabase, migrationsFolder } from "../db/Migrate.ts"
+import { CommandFailed } from "./failure.ts"
 
 /** What to do about a database from before the Drizzle rebuild. Its contents don't carry over. */
 const legacyHelp = `
@@ -18,10 +19,7 @@ export const migrate = Command.make(
     yield* migrateDatabase().pipe(
       Effect.andThen(Console.log("The database schema is up to date.")),
       Effect.catchTag("LegacySchemaError", (error) =>
-        Console.error(`\n${error.message}\n${legacyHelp}`).pipe(
-          // A clean exit code would let a deploy or `pnpm dev:setup` carry on regardless.
-          Effect.andThen(Effect.sync(() => void (process.exitCode = 1)))
-        )
+        Effect.fail(new CommandFailed({ message: `\n${error.message}\n${legacyHelp}` }))
       )
     )
   })
