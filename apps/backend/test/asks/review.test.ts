@@ -1,7 +1,7 @@
 import { NodeFileSystem, NodePath } from "@effect/platform-node"
 import { assert, layer } from "@effect/vitest"
 import type { DraftEntry } from "@kotori/contracts"
-import { proposals } from "@kotori/db"
+import { FIRST_APPROVED_JA_ID, proposals } from "@kotori/db"
 import { Effect, FileSystem, Layer } from "effect"
 import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -9,13 +9,7 @@ import { join } from "node:path"
 import { afterAll } from "vitest"
 import { Database } from "../../src/db/Database.ts"
 import { ensureUser } from "../../src/features/accounts/queries.ts"
-import {
-  approveProposal,
-  discardProposal,
-  draftToRecord,
-  FIRST_APPROVED_JA_ID,
-  parseApprovedJa
-} from "../../src/features/asks/review.ts"
+import { approveProposal, discardProposal, draftToRecord, parseApprovedJa } from "../../src/features/asks/review.ts"
 import { parseApproved } from "../../src/features/dictionary/import/eiwa/approved.ts"
 import { findForms, getEntries, insertEntries } from "../../src/features/dictionary/queries.ts"
 import { jobStatusFor } from "../../src/features/enrichment/jobs.ts"

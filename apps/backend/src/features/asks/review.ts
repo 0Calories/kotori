@@ -1,6 +1,6 @@
 import { Claude, interpretTriage } from "@kotori/ai"
 import { AiUnavailable, type DraftEntry, type DraftSense, EntryRecord, type SenseRecord } from "@kotori/contracts"
-import { entries, EntryId, proposals } from "@kotori/db"
+import { entries, EntryId, FIRST_APPROVED_JA_ID, FIRST_ENGLISH_ID, proposals } from "@kotori/db"
 import { and, eq, gte, max } from "drizzle-orm"
 import { Effect, FileSystem, Option, Schema } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
@@ -19,8 +19,6 @@ import { updateVerdict } from "./queries.ts"
  * 100,000,000 block — so every environment numbers them alike.
  */
 export const APPROVED_JA_FILE = "data/approved/ja.jsonl"
-
-export const FIRST_APPROVED_JA_ID = 200_000_000
 
 export const ApprovedJaLine = Schema.Union([
   Schema.Struct({ entry: EntryRecord }),
@@ -141,7 +139,7 @@ const proposalById = Effect.fn("review.proposalById")(function* (db: DatabaseSha
 })
 
 const nextEntryId = Effect.fn("review.nextEntryId")(function* (db: DatabaseShape, language: "en" | "ja") {
-  const from = EntryId.make(language === "en" ? 100_000_000 : FIRST_APPROVED_JA_ID)
+  const from = EntryId.make(language === "en" ? FIRST_ENGLISH_ID : FIRST_APPROVED_JA_ID)
   const [row] = yield* db
     .select({ top: max(entries.id) })
     .from(entries)

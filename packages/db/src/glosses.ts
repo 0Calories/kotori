@@ -1,7 +1,6 @@
-import { type SQL } from "drizzle-orm"
 import { foreignKey, index, integer, text } from "drizzle-orm/pg-core"
-import { englishDocument, table, tsvector } from "./columns.ts"
-import { type EntryId } from "./entries.ts"
+import { englishDocument, table } from "./columns.ts"
+import { type EntryId, isJapaneseEntryId } from "./entries.ts"
 import { senses } from "./senses.ts"
 
 export const glosses = table(
@@ -18,11 +17,7 @@ export const glosses = table(
      * The gloss as looked up, for exact lookup and finding words that share a meaning: `normalizeGloss`
      * for English ("to eat (a meal)" -> "eat"), `normalizeJapaneseGloss` for Japanese ("～を食べる。" -> "食べる").
      */
-    norm: text().notNull(),
-    /** Full-text index over `text`, maintained by Postgres. */
-    document: tsvector()
-      .notNull()
-      .generatedAlwaysAs((): SQL => englishDocument(glosses.text))
+    norm: text().notNull()
   },
   (t) => [
     foreignKey({ columns: [t.entryId, t.sense], foreignColumns: [senses.entryId, senses.position] }).onDelete(
@@ -30,7 +25,10 @@ export const glosses = table(
     ),
     index("glosses_sense").on(t.entryId, t.sense),
     index("glosses_norm").on(t.norm),
-    index("glosses_document").using("gin", t.document),
+    // Full-text search reads the English glosses, which are Japanese words'; English words' glosses
+    // are Japanese, which has no words to stem. Fuzzy search is English, but the Japanese substring
+    // search (`LIKE '%…%'`) of English words' glosses uses the same trigrams, so that index has both.
+    index("glosses_document").using("gin", englishDocument(t.text)).where(isJapaneseEntryId(t.entryId)),
     index("glosses_trgm").using("gin", t.norm.op("gin_trgm_ops"))
   ]
 )

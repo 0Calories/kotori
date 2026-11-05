@@ -1,13 +1,13 @@
 import { assert, describe, it, layer } from "@effect/vitest"
 import { EntryId } from "@kotori/contracts"
-import { entries, forms, glosses, senses } from "@kotori/db"
+import { englishDocument, entries, forms, glosses, senses } from "@kotori/db"
 import { eq, sql } from "drizzle-orm"
 import { Effect } from "effect"
 import { Database } from "../../src/db/Database.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
 // The schema's Postgres-level behaviour, on PGlite: the parts a query can't
-// express and so can't test on its own. Generated full-text column, bytewise
+// express and so can't test on its own. Full-text documents, bytewise
 // collation for the prefix scan, cascades, and relational reads.
 
 // The layer is shared by the tests in this file, so each starts from an empty dictionary.
@@ -36,15 +36,16 @@ const seed = Effect.gen(function* () {
 })
 
 layer(DatabaseMemory)("schema", (it) => {
-  it.effect("indexes glosses for English full-text search as they are inserted", () =>
+  it.effect("matches glosses by stemmed English words", () =>
     Effect.gen(function* () {
       const db = yield* Database
       yield* seed
       const query = sql`plainto_tsquery('english', 'eating')`
+      const document = englishDocument(glosses.text)
       const hits = yield* db
-        .select({ entryId: glosses.entryId, rank: sql<number>`ts_rank(${glosses.document}, ${query})` })
+        .select({ entryId: glosses.entryId, rank: sql<number>`ts_rank(${document}, ${query})` })
         .from(glosses)
-        .where(sql`${glosses.document} @@ ${query}`)
+        .where(sql`${document} @@ ${query}`)
         .orderBy(glosses.entryId)
       assert.deepStrictEqual(
         hits.map((hit) => hit.entryId),

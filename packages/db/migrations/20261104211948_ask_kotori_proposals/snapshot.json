@@ -3,7 +3,7 @@
   "version": "9",
   "dialect": "postgres",
   "id": "aac3a108-1b36-4a2e-8ed0-23a391c80eef",
-  "prevIds": ["fd993341-5d74-4590-a6ed-93b7a0dbfc66"],
+  "prevIds": ["c37516c6-f207-4215-9a98-45733eb354ee"],
   "footprints": [
     {
       "statementType": "create_enum",
