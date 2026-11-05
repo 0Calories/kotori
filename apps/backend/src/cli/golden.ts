@@ -21,6 +21,7 @@ import { buildEntries } from "../features/dictionary/import/eiwa/Eiwa.ts"
 import { ENGLISH_TAGS } from "../features/dictionary/import/eiwa/tags.ts"
 import { parseEntries, parseTags } from "../features/dictionary/import/jmdict/parse.ts"
 import { workspaceRoot } from "../runtime/Paths.ts"
+import { CommandFailed } from "./failure.ts"
 
 const data = (path: string) => join(workspaceRoot, "data", path)
 
@@ -47,11 +48,9 @@ export const golden = Command.make(
     }
     for (const file of Object.values(files)) {
       if (!(yield* fs.exists(file))) {
-        yield* Console.error(
-          `${file} is missing; \`pnpm kotori seed\` downloads JMDict to data/jmdict and the English sources to data/eiwa.`
-        )
-        process.exitCode = 1
-        return
+        return yield* new CommandFailed({
+          message: `${file} is missing; \`pnpm kotori seed\` downloads JMDict to data/jmdict and the English sources to data/eiwa.`
+        })
       }
     }
     const xml = gunzipSync(yield* fs.readFile(files.jmdict)).toString("utf8")
@@ -141,9 +140,9 @@ export const golden = Command.make(
     }
     for (const word of words) judgedEnglish(word, 0)
     if (problems.length > 0) {
-      yield* Console.error(`The golden set doesn't match the dictionaries:\n  ${problems.join("\n  ")}`)
-      process.exitCode = 1
-      return
+      return yield* new CommandFailed({
+        message: `The golden set doesn't match the dictionaries:\n  ${problems.join("\n  ")}`
+      })
     }
 
     // --- The fixture -----------------------------------------------------------------------------
