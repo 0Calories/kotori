@@ -433,7 +433,8 @@ describe("a pose", () => {
     near(at([x + 10, y]), [x + 3, y - 24])
   })
 
-  it("places a part the same way in the app as in stills", () => {
+  // Thousands of transforms: 0.4 s alone, over Vitest's 5 s default on a CI runner busy with the app's build.
+  it("places a part the same way in the app as in stills", { timeout: 30_000 }, () => {
     const size = 120
     const k = size / 200
     const poses = [
