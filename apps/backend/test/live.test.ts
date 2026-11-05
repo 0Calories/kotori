@@ -268,6 +268,10 @@ layer(TestLayer)("Live enrichment", (it) => {
         all.map((update) => update._tag),
         ["Entry"]
       )
+      // A finished stream gives its slot back: many in a row are fine, past the cap on open ones.
+      for (let again = 0; again < 6; again++) {
+        yield* Stream.runDrain(yield* api.dictionary.updates({ params: { id } }))
+      }
     }).pipe(Effect.provide(Session))
   )
 })

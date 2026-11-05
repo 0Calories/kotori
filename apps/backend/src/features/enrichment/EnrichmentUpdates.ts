@@ -1,6 +1,7 @@
-import { EntryId } from "@kotori/db"
+import { RateLimited } from "@kotori/contracts"
+import { EntryId, type UserId } from "@kotori/db"
 import { sql } from "drizzle-orm"
-import { Cause, Context, Duration, Effect, Layer, PubSub, Schedule, type Scope, Stream } from "effect"
+import { Cause, Config, Context, Duration, Effect, Layer, PubSub, Schedule, type Scope, Stream } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 import { Notifications } from "../../db/Notifications.ts"
 
@@ -41,6 +42,12 @@ export class EnrichmentUpdates extends Context.Service<
   {
     /** Every signal from now until the scope closes. */
     readonly subscribe: Effect.Effect<Stream.Stream<EnrichmentSignal>, never, Scope.Scope>
+    /**
+     * Takes one of the learner's live update streams on this process, failing once they have
+     * `KOTORI_LIVE_UPDATES_PER_LEARNER` open: each holds a request slot on the machine, so one
+     * learner can't take them all. Succeeds with the effect that gives it back.
+     */
+    watch(userId: UserId): Effect.Effect<Effect.Effect<void>, RateLimited>
   }
 >()("@kotori/backend/EnrichmentUpdates") {
   /**
@@ -52,6 +59,8 @@ export class EnrichmentUpdates extends Context.Service<
     EnrichmentUpdates,
     Effect.gen(function* () {
       const notifications = yield* Notifications
+      const perLearner = yield* Config.Int("KOTORI_LIVE_UPDATES_PER_LEARNER").pipe(Config.withDefault(5))
+      const watching = new Map<UserId, number>()
       // Every watcher refreshes on any signal it gets, so a slow one can lose old signals.
       const signals = yield* Effect.acquireRelease(PubSub.sliding<EnrichmentSignal>(1024), PubSub.shutdown)
 
@@ -76,8 +85,28 @@ export class EnrichmentUpdates extends Context.Service<
         Effect.forkScoped
       )
 
+      const watch = (userId: UserId) =>
+        Effect.suspend(() => {
+          const open = watching.get(userId) ?? 0
+          if (open >= perLearner) {
+            return Effect.fail(new RateLimited({ message: "Too many words open at once.", retryAfterSeconds: 30 }))
+          }
+          watching.set(userId, open + 1)
+          let released = false
+          return Effect.succeed(
+            Effect.sync(() => {
+              if (released) return
+              released = true
+              const left = (watching.get(userId) ?? 1) - 1
+              if (left > 0) watching.set(userId, left)
+              else watching.delete(userId)
+            })
+          )
+        })
+
       return EnrichmentUpdates.of({
-        subscribe: Effect.map(PubSub.subscribe(signals), Stream.fromSubscription)
+        subscribe: Effect.map(PubSub.subscribe(signals), Stream.fromSubscription),
+        watch
       })
     })
   )

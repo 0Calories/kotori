@@ -1,6 +1,7 @@
 import { assert, describe, it } from "@effect/vitest"
 import { EntryId } from "@kotori/contracts"
-import { Effect, Layer, Queue, Stream } from "effect"
+import { UserId } from "@kotori/db"
+import { ConfigProvider, Effect, Layer, Queue, Stream } from "effect"
 import { SqlError } from "effect/sql"
 import { TestClock } from "effect/testing"
 import { Notifications } from "../../src/db/Notifications.ts"
@@ -52,6 +53,34 @@ describe("EnrichmentUpdates", () => {
         yield* Queue.offer(second, "1594790")
         assert.strictEqual(yield* Queue.take(heard), EntryId.make(1594790))
       }).pipe(Effect.provide(EnrichmentUpdates.layer.pipe(Layer.provide(channel.layer))))
+    })
+  )
+
+  it.effect("lets a learner hold only a few live update streams open at once", () =>
+    Effect.gen(function* () {
+      const channel = yield* flakyChannel
+      yield* Effect.gen(function* () {
+        const updates = yield* EnrichmentUpdates
+        const learner = UserId.make("00000000-0000-4000-8000-000000000001")
+        const other = UserId.make("00000000-0000-4000-8000-000000000002")
+        const first = yield* updates.watch(learner)
+        yield* updates.watch(learner)
+        assert.strictEqual((yield* updates.watch(learner).pipe(Effect.flip))._tag, "RateLimited")
+        // Someone else still gets theirs.
+        yield* updates.watch(other)
+        // Giving one back frees a slot, and giving it back twice frees only one.
+        yield* first
+        yield* first
+        yield* updates.watch(learner)
+        assert.strictEqual((yield* updates.watch(learner).pipe(Effect.flip))._tag, "RateLimited")
+      }).pipe(
+        Effect.provide(
+          EnrichmentUpdates.layer.pipe(
+            Layer.provide(channel.layer),
+            Layer.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({ KOTORI_LIVE_UPDATES_PER_LEARNER: "2" })))
+          )
+        )
+      )
     })
   )
 })

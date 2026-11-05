@@ -106,7 +106,8 @@ export class DictionaryApi extends HttpApiGroup.make("dictionary")
     HttpApiEndpoint.get("updates", "/entries/:id/updates", {
       params: { id: EntryId },
       success: HttpApiSchema.StreamSse({ data: EntryUpdate }),
-      error: NotFound
+      // A learner has a few streams open at a time.
+      error: [NotFound, RateLimited]
     }),
     // When a search found no exact match, ask Kotori to draft an entry (or name the one it missed).
     HttpApiEndpoint.post("ask", "/ask", {

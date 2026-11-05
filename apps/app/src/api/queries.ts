@@ -174,22 +174,28 @@ export const useEnrich = (id: number) => {
 export const awaitingEnrichment = (entry: Entry) => Object.values(entry.enrichment).includes("queued")
 
 /**
- * The entry screen's entry, enriched while it's open: once it loads with something missing, asks
- * for it (once per visit: `enrich` is this screen's own mutation), then follows the entry's live
- * updates into the query until everything has arrived or isn't coming, reconnecting if the
- * stream drops. Asking again is the screen's button, after a refusal or a failure.
+ * The entry screen's entry, enriched while it's open: once it loads, asks for whatever it's
+ * missing or is due again (once per visit: `enrich` is this screen's own mutation), then follows
+ * the entry's live updates into the query until everything has arrived or isn't coming,
+ * reconnecting if the stream drops. Asking again is the screen's button, after a refusal or a
+ * failure.
+ *
+ * It asks even when nothing shows as on its way: only the server knows when a failed job is due
+ * another try, nuance predates the word's question set, or audio has gaps to fill. Asking about
+ * an entry with nothing to do costs the learner none of their allowance.
  */
 export const useLiveEntry = (id: number, enrich: ReturnType<typeof useEnrich>) => {
   const client = useQueryClient()
   const entry = useEntry(id)
-  const awaiting = entry.data !== undefined && awaitingEnrichment(entry.data)
+  const loaded = entry.data !== undefined
+  const awaiting = loaded && awaitingEnrichment(entry.data)
   const { isIdle: unasked, isSuccess: asked, mutate, reset } = enrich
 
   // Another entry on the same screen is another visit.
   useEffect(() => reset, [id, reset])
   useEffect(() => {
-    if (awaiting && unasked) mutate()
-  }, [awaiting, unasked, mutate])
+    if (loaded && unasked) mutate()
+  }, [loaded, unasked, mutate])
 
   const following = awaiting && asked
   useEffect(() => {

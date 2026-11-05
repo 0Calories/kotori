@@ -1,7 +1,7 @@
 import { Claude, Jev, Pronouncer } from "@kotori/ai"
 import { CurrentUser, InvalidRequest, KotoriApi, NotFound } from "@kotori/contracts"
 import * as Sentry from "@sentry/effect/server"
-import { Effect, Layer, Option } from "effect"
+import { Effect, Layer, Option, Stream } from "effect"
 import { HttpApiBuilder } from "effect/http-api"
 import { Database } from "../db/Database.ts"
 import { Accounts } from "../features/accounts/Accounts.ts"
@@ -83,13 +83,15 @@ const DictionaryHandlers = HttpApiBuilder.group(
           dictionary.requestEnrichment(params.id, user.profile).pipe(Effect.flatMap(orNotFound("No such entry")))
         ),
       updates: ({ params }) =>
-        getEntries(db, [params.id]).pipe(
-          Effect.flatMap((found) =>
-            found.length === 0
-              ? Effect.fail(new NotFound({ message: "No such entry" }))
-              : Effect.succeed(liveEntry(dictionary, updates, params.id))
-          )
-        ),
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          if ((yield* getEntries(db, [params.id])).length === 0) {
+            return yield* new NotFound({ message: "No such entry" })
+          }
+          // The slot is given back however the stream ends: settled, timed out or disconnected.
+          const release = yield* updates.watch(user.id)
+          return liveEntry(dictionary, updates, params.id).pipe(Stream.ensuring(release))
+        }),
       ask: ({ payload }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
