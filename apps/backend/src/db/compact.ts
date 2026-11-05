@@ -1,18 +1,15 @@
 import { entries, forms, glosses, senses } from "@kotori/db"
-import { getTableName, type SQL, sql } from "drizzle-orm"
+import { getTableName, sql } from "drizzle-orm"
 import type { PgTable } from "drizzle-orm/pg-core"
 import { Effect } from "effect"
-import type { DatabaseShape } from "./Database.ts"
+import { type DatabaseShape, rawRows } from "./Database.ts"
 
 /** The tables re-imports bloat: they replace forms and glosses wholesale and upsert entries and senses. */
 export const DICTIONARY_TABLES: ReadonlyArray<PgTable> = [entries, senses, glosses, forms]
 
-const rowsOf = <A>(db: DatabaseShape, statement: SQL) =>
-  db.execute(statement).pipe(Effect.map((result) => (result as { readonly rows: ReadonlyArray<A> }).rows))
-
 /** This database's size and a table's with its indexes and TOAST, in bytes. */
 const sizes = (db: DatabaseShape, table: PgTable) =>
-  rowsOf<{ database: string; table: string }>(
+  rawRows<{ database: string; table: string }>(
     db,
     sql`SELECT pg_database_size(current_database())::text AS database, pg_total_relation_size(${getTableName(table)}::regclass)::text AS table`
   ).pipe(Effect.map(([row]) => ({ database: Number(row?.database ?? 0), table: Number(row?.table ?? 0) })))
