@@ -24,8 +24,8 @@ import {
 
 // The dictionary search's ranking, run over the notes the app has loaded: a word as written or
 // inflected answers best, then a meaning with every word of the query, then prefixes and text that
-// merely contains the query, then (only when little else is found) a phrase with a word left out
-// and typos. Japanese is matched in kana as well as kanji, and rōmaji is read as kana.
+// merely contains the query, then (only when little else is found) a phrase with a word left out,
+// and typos when nothing else is. Japanese is matched in kana as well as kanji, and rōmaji is read as kana.
 // The scores keep the dictionary's tiers (`Dictionary.ts`) so the two order results alike.
 
 interface Hit {
@@ -250,8 +250,8 @@ export const searchNotes = (notes: ReadonlyArray<Note>, raw: string): NoteSearch
         ? []
         : fielded.flatMap(([note, fields]) => japaneseFormHits(note, fields, japanese).filter((hit) => hit.strong))
     hits = [...english, ...romaji]
-    // As in the dictionary, a phrase with a word left out and then typos are tried only when
-    // the query's own words found fewer than three notes.
+    // As in the dictionary (`englishFallback`), a phrase with a word left out is tried only when
+    // the query's own words found fewer than three notes, and typos only when still nothing is found.
     const found = new Set(hits.map((hit) => hit.note.id)).size
     const relaxed = found < 3 ? relaxedEnglishSearchTerms(query) : []
     if (relaxed.length > 0) hits.push(...fielded.flatMap(([note, fields]) => relaxedHits(note, fields, relaxed)))
