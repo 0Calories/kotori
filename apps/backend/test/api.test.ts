@@ -14,6 +14,7 @@ import { AuthorizationLive } from "../src/http/Authorization.ts"
 import { AllHandlers } from "../src/http/handlers.ts"
 import { Auth, TestAuth } from "../src/integrations/auth/Auth.ts"
 import { MailerMemory } from "../src/integrations/email/Mailer.ts"
+import { AudioStore } from "../src/features/audio/AudioStore.ts"
 import { makeApp } from "../src/runtime/HttpLayers.ts"
 import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 
@@ -49,7 +50,12 @@ const OfflineProviders = Layer.mergeAll(
 // One fake auth server, shared by the app (through Auth.layerMemory) and the tests (to sign up):
 // Effect memoizes a layer by reference within a build, so both see the same store.
 const TestAuthLive = TestAuth.layer
-const App = makeApp(OfflineProviders, DatabaseMemory, Auth.layerMemory.pipe(Layer.provide(TestAuthLive)))
+const App = makeApp(
+  OfflineProviders,
+  DatabaseMemory,
+  Auth.layerMemory.pipe(Layer.provide(TestAuthLive)),
+  AudioStore.database
+)
 const Handlers = AllHandlers.pipe(Layer.provideMerge(AuthorizationLive), Layer.provideMerge(App))
 const TestLayer = Layer.mergeAll(Handlers, TestAuthLive, HttpServer.layerServices, NodeServices.layer)
 
