@@ -31,7 +31,7 @@ export const parseApproved = (
     if (line.trim().length === 0) continue
     const decoded = decodeLine(line)
     if (Option.isNone(decoded)) continue
-    if ("entry" in decoded.value) words.push(fromConsolidatedWord(decoded.value.entry))
+    if ("entry" in decoded.value) words.push({ ...fromConsolidatedWord(decoded.value.entry), dictionary: "kotori" })
     else formsOf.push({ text: decoded.value.alias.text, base: decoded.value.alias.base, tags: [] })
   }
   return { words, formsOf }

@@ -1,4 +1,5 @@
-import { EntryId, type EntryRecord, type FormRecord, type SenseRecord } from "@kotori/contracts"
+import { EntryId, type FormRecord } from "@kotori/contracts"
+import type { ImportEntry, ImportSense, SeedEvidence, SeedExample } from "../seedFacts.ts"
 
 /**
  * A streaming-friendly parser for EDRDG's JMdict XML.
@@ -127,7 +128,20 @@ const parseSources = (block: string) => {
   return { sources, wasei }
 }
 
-const parseSense = (block: string, previousPos: ReadonlyArray<string>): SenseRecord => {
+/**
+ * A sense's Tatoeba sentence pairs, as the JMdict_e_examp edition carries them: an `<example>`
+ * with the Japanese sentence and its English translation (`ex_sent`, by `xml:lang`).
+ */
+const parseExamples = (block: string): Array<SeedExample> =>
+  blocks(block, "example").flatMap((example) => {
+    const sentence = (language: string) =>
+      decodeText(new RegExp(`<ex_sent[^>]*xml:lang="${language}"[^>]*>([\\s\\S]*?)</ex_sent>`).exec(example)?.[1] ?? "")
+    const ja = sentence("jpn")
+    const en = sentence("eng")
+    return ja.length > 0 && en.length > 0 ? [{ ja, en, source: "tatoeba" as const }] : []
+  })
+
+const parseSense = (block: string, previousPos: ReadonlyArray<string>): ImportSense => {
   const pos = elements(block, "pos")
   return {
     glosses: Array.from(block.matchAll(/<gloss(\s[^>]*)?>([\s\S]*?)<\/gloss>/g), (match) => ({
@@ -145,7 +159,8 @@ const parseSense = (block: string, previousPos: ReadonlyArray<string>): SenseRec
     stagr: elements(block, "stagr"),
     xrefs: elements(block, "xref"),
     antonyms: elements(block, "ant"),
-    ...parseSources(block)
+    ...parseSources(block),
+    examples: parseExamples(block)
   }
 }
 
@@ -153,7 +168,7 @@ const visible = (form: FormRecord) =>
   !form.tags.some((tag) => (form.kind === "kanji" ? HIDDEN_KANJI : HIDDEN_KANA).has(tag))
 
 /** Picks the forms to show first: kana for words usually written in kana, else the best kanji form. */
-export const chooseHeadword = (forms: ReadonlyArray<FormRecord>, senses: ReadonlyArray<SenseRecord>) => {
+export const chooseHeadword = (forms: ReadonlyArray<FormRecord>, senses: ReadonlyArray<ImportSense>) => {
   const kanji = forms.filter((form) => form.kind === "kanji")
   const kana = forms.filter((form) => form.kind === "kana")
   const bestKanji = kanji.find((form) => visible(form) && form.common) ?? kanji.find(visible) ?? kanji[0]
@@ -168,9 +183,19 @@ export const chooseHeadword = (forms: ReadonlyArray<FormRecord>, senses: Readonl
   return { headword, reading }
 }
 
-export const parseEntry = (block: string): EntryRecord => {
+/**
+ * JMDict's evidence of use: whether a form is on the ichi1 list, the "Ichimango" basic
+ * vocabulary. Japanese has no spoken counts yet (the subtitle counts are badly tokenised).
+ */
+const evidenceOf = (forms: ReadonlyArray<FormRecord>): SeedEvidence => ({
+  everyday: forms.some((form) => form.priorities.includes("ichi1")),
+  spokenCount: null,
+  familiarity: null
+})
+
+export const parseEntry = (block: string): ImportEntry => {
   const forms = [...blocks(block, "k_ele").map(parseKanji), ...blocks(block, "r_ele").map(parseKana)]
-  const senses: Array<SenseRecord> = []
+  const senses: Array<ImportSense> = []
   for (const sense of blocks(block, "sense")) {
     senses.push(parseSense(sense, senses.at(-1)?.pos ?? []))
   }
@@ -178,12 +203,14 @@ export const parseEntry = (block: string): EntryRecord => {
   return {
     id: EntryId.make(Number(first(block, "ent_seq"))),
     language: "ja",
+    dictionary: "jmdict",
     headword,
     reading,
     common: forms.some((form) => form.common),
     priority: Math.max(0, ...forms.map((form) => priorityScore(form.priorities))),
     forms,
-    senses
+    senses,
+    evidence: evidenceOf(forms)
   }
 }
 
@@ -193,9 +220,9 @@ export const parseEntry = (block: string): EntryRecord => {
  */
 export const entrySplitter = () => {
   let buffer = ""
-  return (chunk: string): Array<EntryRecord> => {
+  return (chunk: string): Array<ImportEntry> => {
     buffer += chunk
-    const entries: Array<EntryRecord> = []
+    const entries: Array<ImportEntry> = []
     let start = buffer.indexOf("<entry>")
     let end = start === -1 ? -1 : buffer.indexOf("</entry>", start)
     while (start !== -1 && end !== -1) {
@@ -210,7 +237,7 @@ export const entrySplitter = () => {
 }
 
 /** Lazily yields every entry in a JMdict XML document. */
-export function* parseEntries(xml: string): Generator<EntryRecord> {
+export function* parseEntries(xml: string): Generator<ImportEntry> {
   let cursor = xml.indexOf("<entry>")
   while (cursor !== -1) {
     const end = xml.indexOf("</entry>", cursor)

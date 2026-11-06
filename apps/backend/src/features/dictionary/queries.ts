@@ -1,5 +1,11 @@
 import type { EntryRecord, Language } from "@kotori/contracts"
 import {
+  labels,
+  loanLinks,
+  patterns,
+  pitfalls,
+  type Source,
+  usageEvidence,
   emptyIfNull,
   englishDocument,
   entries,
@@ -52,6 +58,7 @@ import { Effect } from "effect"
 import { chunks } from "../../db/chunks.ts"
 import type { DatabaseShape } from "../../db/Database.ts"
 import { matchSenses } from "./import/matchSenses.ts"
+import { type ImportEntry, labelsOf, patternsOf, SEED_SOURCES, speaks } from "./import/seedFacts.ts"
 
 /** Enrichment an entry can be missing, used to find work for the worker. The English side is judged on view, never backfilled. */
 export type EnrichmentKind = Exclude<(typeof jobKind.enumValues)[number], "english">
@@ -77,7 +84,7 @@ type Tx = Parameters<Parameters<DatabaseShape["transaction"]>[0]>[0]
  * position, or null where it is gone. Entries whose senses all stay put are left out, which
  * is every entry on a first import and nearly every one on a re-import of unchanged sources.
  */
-const sensesMoved = Effect.fnUntraced(function* (tx: Tx, records: ReadonlyArray<EntryRecord>) {
+const sensesMoved = Effect.fnUntraced(function* (tx: Tx, records: ReadonlyArray<ImportEntry>) {
   const stored = new Map<EntryId, Array<Array<string>>>()
   for (const chunk of chunks(
     records.map((entry) => entry.id),
@@ -115,8 +122,9 @@ const sensesMoved = Effect.fnUntraced(function* (tx: Tx, records: ReadonlyArray<
 
 /**
  * Takes out the rows keyed by sense of entries whose senses move, until the senses are in
- * place: judgments, notes and similar words are held and deleted; example sentences and
- * saved words are only listed, as they are moved in place (keeping their ids and audio).
+ * place: judgments, notes, similar words and labels are held and deleted; example sentences,
+ * patterns, pitfalls and saved words are only listed, as they are moved in place (keeping their
+ * ids, and the sentences their audio).
  */
 const takeSenseRows = Effect.fnUntraced(function* (tx: Tx, ids: ReadonlyArray<EntryId>) {
   const held = {
@@ -139,8 +147,23 @@ const takeSenseRows = Effect.fnUntraced(function* (tx: Tx, ids: ReadonlyArray<En
     saved: yield* tx
       .select({ id: notes.id, entryId: notes.entryId, sense: notes.sense })
       .from(notes)
-      .where(and(inArray(notes.entryId, [...ids]), isNotNull(notes.sense)))
+      .where(and(inArray(notes.entryId, [...ids]), isNotNull(notes.sense))),
+    // What the import rebuilds from the record is gone by now (`deleteSeedFacts`); what is left
+    // is Kotori's and learners', which follows its sense.
+    labels: yield* tx
+      .select()
+      .from(labels)
+      .where(inArray(labels.entryId, [...ids])),
+    patterns: yield* tx
+      .select({ id: patterns.id, entryId: patterns.entryId, sense: patterns.sense })
+      .from(patterns)
+      .where(inArray(patterns.entryId, [...ids])),
+    pitfalls: yield* tx
+      .select({ id: pitfalls.id, entryId: pitfalls.entryId, sense: pitfalls.sense })
+      .from(pitfalls)
+      .where(and(inArray(pitfalls.entryId, [...ids]), isNotNull(pitfalls.sense)))
   }
+  yield* tx.delete(labels).where(inArray(labels.entryId, [...ids]))
   yield* tx.delete(senseNuance).where(inArray(senseNuance.entryId, [...ids]))
   yield* tx.delete(senseNotes).where(inArray(senseNotes.entryId, [...ids]))
   yield* tx.delete(similarWords).where(inArray(similarWords.entryId, [...ids]))
@@ -163,6 +186,21 @@ const moveSenseRows = Effect.fnUntraced(function* (
   for (const chunk of chunks(follow(held.nuance), 1000)) yield* tx.insert(senseNuance).values([...chunk])
   for (const chunk of chunks(follow(held.notes), 1000)) yield* tx.insert(senseNotes).values([...chunk])
   for (const chunk of chunks(follow(held.similar), 1000)) yield* tx.insert(similarWords).values([...chunk])
+  for (const chunk of chunks(follow(held.labels), 1000)) yield* tx.insert(labels).values([...chunk])
+
+  // Patterns and sense-scoped pitfalls move by id, as sentences do; one whose sense is gone goes.
+  for (const table of [patterns, pitfalls] as const) {
+    const rows = table === patterns ? held.patterns : held.pitfalls
+    const gone: Array<number> = []
+    const moved = new Map<number, Array<number>>()
+    for (const row of rows) {
+      const sense = to(row.entryId, row.sense)
+      if (sense === null) gone.push(row.id)
+      else if (sense !== row.sense) moved.set(sense, [...(moved.get(sense) ?? []), row.id])
+    }
+    for (const [sense, ids] of moved) yield* tx.update(table).set({ sense }).where(inArray(table.id, ids))
+    for (const chunk of chunks(gone, 5000)) yield* tx.delete(table).where(inArray(table.id, [...chunk]))
+  }
 
   // Sentences move by id, so a swap of two senses can't carry either set twice.
   const sentences = new Map<number, Array<number>>()
@@ -215,10 +253,137 @@ const moveSenseRows = Effect.fnUntraced(function* (
   }
 })
 
-/** Inserts or replaces entries and their forms, senses and glosses. Enrichment survives for every sense the entry still has. */
+/**
+ * Deletes the labels and patterns an insert rebuilds from its records: those from a seed source or
+ * from the entry's own dictionary (an approved Ask Kotori word's are Kotori's). What other sources
+ * layered on top, such as Kotori's `form` fill on a JMDict word, stays.
+ */
+const deleteSeedFacts = Effect.fnUntraced(function* (tx: Tx, records: ReadonlyArray<ImportEntry>) {
+  const byDictionary = new Map<Source, Array<EntryId>>()
+  for (const entry of records)
+    byDictionary.set(entry.dictionary, [...(byDictionary.get(entry.dictionary) ?? []), entry.id])
+  for (const [dictionary, group] of byDictionary) {
+    const rebuilt = [...new Set<Source>([...SEED_SOURCES, dictionary])]
+    for (const chunk of chunks(group, 5000)) {
+      yield* tx.delete(labels).where(and(inArray(labels.entryId, [...chunk]), inArray(labels.source, rebuilt)))
+      yield* tx.delete(patterns).where(and(inArray(patterns.entryId, [...chunk]), inArray(patterns.source, rebuilt)))
+    }
+  }
+})
+
+/** Writes the labels and patterns read from the records' senses; a dictionary's label replaces another source's. */
+const insertSeedFacts = Effect.fnUntraced(function* (tx: Tx, records: ReadonlyArray<ImportEntry>) {
+  const labelRows = records.flatMap((entry) =>
+    entry.senses.flatMap((sense, position) =>
+      labelsOf(sense).map((code) => ({ entryId: entry.id, sense: position, code, source: entry.dictionary }))
+    )
+  )
+  for (const chunk of chunks(labelRows, 5000)) {
+    yield* tx
+      .insert(labels)
+      .values([...chunk])
+      .onConflictDoUpdate({
+        target: [labels.entryId, labels.sense, labels.code],
+        set: { source: sql`excluded.source` }
+      })
+  }
+  const patternRows = records.flatMap((entry) =>
+    entry.senses.flatMap((sense, position) =>
+      patternsOf(sense).map((text, index) => ({
+        entryId: entry.id,
+        sense: position,
+        position: index,
+        text,
+        source: entry.dictionary
+      }))
+    )
+  )
+  for (const chunk of chunks(patternRows, 3000)) yield* tx.insert(patterns).values([...chunk])
+})
+
+/** Sources of example sentences a seed import writes; Kotori's are the worker's. */
+const SEEDED_EXAMPLES = ["tatoeba", "jawiktionary", "enwiktionary"] as const satisfies ReadonlyArray<Source>
+
+/**
+ * Brings the records' seeded example sentences into line with their sources: sentences a source
+ * no longer gives go, new ones are added, and the rest keep their ids (and any audio). Kotori's
+ * sentences are left alone. Runs after senses have moved, so stored sentences are in place.
+ */
+const syncSeededExamples = Effect.fnUntraced(function* (tx: Tx, records: ReadonlyArray<ImportEntry>) {
+  const key = (row: { entryId: EntryId; sense: number; source: string; ja: string; en: string }) =>
+    `${row.entryId}\u0000${row.sense}\u0000${row.source}\u0000${row.ja}\u0000${row.en}`
+  const wanted = new Map<string, typeof examples.$inferInsert>()
+  for (const entry of records) {
+    entry.senses.forEach((sense, position) => {
+      for (const [index, example] of (sense.examples ?? []).entries()) {
+        const row = { entryId: entry.id, sense: position, ...example }
+        if (!wanted.has(key(row))) {
+          wanted.set(key(row), { ...row, position: index, furigana: example.ja, formality: null, model: null })
+        }
+      }
+    })
+  }
+  const stale: Array<number> = []
+  for (const chunk of chunks(
+    records.map((entry) => entry.id),
+    5000
+  )) {
+    const stored = yield* tx
+      .select({
+        id: examples.id,
+        entryId: examples.entryId,
+        sense: examples.sense,
+        source: examples.source,
+        ja: examples.ja,
+        en: examples.en
+      })
+      .from(examples)
+      .where(and(inArray(examples.entryId, [...chunk]), inArray(examples.source, SEEDED_EXAMPLES)))
+    for (const row of stored) if (!wanted.delete(key(row))) stale.push(row.id)
+  }
+  for (const chunk of chunks(stale, 5000)) yield* tx.delete(examples).where(inArray(examples.id, [...chunk]))
+  for (const chunk of chunks([...wanted.values()], 2000)) yield* tx.insert(examples).values([...chunk])
+})
+
+/** Writes the records' evidence of use; an entry whose sources say nothing has no row. */
+const syncEvidence = Effect.fnUntraced(function* (tx: Tx, records: ReadonlyArray<ImportEntry>) {
+  const rows = records.flatMap((entry) => (speaks(entry.evidence) ? [{ entryId: entry.id, ...entry.evidence }] : []))
+  const silent = records.filter((entry) => !speaks(entry.evidence)).map((entry) => entry.id)
+  for (const chunk of chunks(silent, 5000)) {
+    yield* tx.delete(usageEvidence).where(inArray(usageEvidence.entryId, [...chunk]))
+  }
+  for (const chunk of chunks(rows, 5000)) {
+    yield* tx
+      .insert(usageEvidence)
+      .values([...chunk])
+      .onConflictDoUpdate({
+        target: usageEvidence.entryId,
+        set: {
+          everyday: sql`excluded.everyday`,
+          spokenCount: sql`excluded.spoken_count`,
+          familiarity: sql`excluded.familiarity`
+        }
+      })
+  }
+})
+
+export interface InsertOptions {
+  /**
+   * The records are a seed import's, carrying everything their sources say: their seeded example
+   * sentences and evidence of use replace the stored ones. Off, as when an alias re-inserts a
+   * stored entry, those are left as they are.
+   */
+  readonly seeded?: boolean | undefined
+}
+
+/**
+ * Inserts or replaces entries and their forms, senses and glosses, and the labels and patterns
+ * read from their senses. Enrichment survives for every sense the entry still has.
+ */
 export const insertEntries = Effect.fn("dictionary.insertEntries")(function* (
   db: DatabaseShape,
-  records: ReadonlyArray<EntryRecord>
+  records: ReadonlyArray<ImportEntry>,
+  options: InsertOptions = {}
 ) {
   if (records.length === 0) return
   const ids = records.map((entry) => entry.id)
@@ -230,6 +395,7 @@ export const insertEntries = Effect.fn("dictionary.insertEntries")(function* (
       // keyed by position follows its sense, matched by glosses (`matchSenses`), and
       // what belonged to a sense that is gone goes with it.
       const moves = yield* sensesMoved(tx, records)
+      yield* deleteSeedFacts(tx, records)
       const moved = [...moves.keys()]
       const keyed = moved.length === 0 ? null : yield* takeSenseRows(tx, moved)
       yield* tx.delete(forms).where(inArray(forms.entryId, ids))
@@ -240,6 +406,7 @@ export const insertEntries = Effect.fn("dictionary.insertEntries")(function* (
           records.map((entry) => ({
             id: entry.id,
             language: entry.language,
+            dictionary: entry.dictionary,
             headword: entry.headword,
             reading: entry.reading,
             common: entry.common,
@@ -250,6 +417,7 @@ export const insertEntries = Effect.fn("dictionary.insertEntries")(function* (
           target: entries.id,
           set: {
             language: sql`excluded.language`,
+            dictionary: sql`excluded.dictionary`,
             headword: sql`excluded.headword`,
             reading: sql`excluded.reading`,
             common: sql`excluded.common`,
@@ -337,6 +505,55 @@ export const insertEntries = Effect.fn("dictionary.insertEntries")(function* (
         )
       )
       for (const chunk of chunks(glossRows, 3000)) yield* tx.insert(glosses).values([...chunk])
+
+      yield* insertSeedFacts(tx, records)
+      if (options.seeded) {
+        yield* syncSeededExamples(tx, records)
+        yield* syncEvidence(tx, records)
+      }
+    })
+  )
+}, Effect.orDie)
+
+/**
+ * Links katakana loans to the English words they come from, as JMDict names them (`lsource`):
+ * one row per pair, read from both entries. Re-run after either dictionary is imported, it adds
+ * the pairs JMDict names now, drops those it no longer names, and points each at the English
+ * entry spelled like it (exactly, else in another case). A verdict on the meaning, which JMDict
+ * doesn't give, survives on a pair JMDict still names.
+ */
+export const linkLoans = Effect.fn("dictionary.linkLoans")(function* (db: DatabaseShape) {
+  yield* db.transaction((tx) =>
+    Effect.gen(function* () {
+      // Two entries spelled alike may name the same word; the lower id, JMDict's older entry, holds it.
+      yield* tx.execute(sql`
+        INSERT INTO ${loanLinks} (katakana, katakana_entry_id, english, source)
+        SELECT DISTINCT ON (e.headword, s.english) e.headword, e.id, s.english, 'jmdict'
+        FROM ${senses} AS se
+        JOIN ${entries} AS e ON e.id = se.entry_id
+        CROSS JOIN LATERAL unnest(se.sources) AS s(english)
+        WHERE e.dictionary = 'jmdict'
+        ORDER BY e.headword, s.english, e.id
+        ON CONFLICT (katakana, english)
+        DO UPDATE SET katakana_entry_id = excluded.katakana_entry_id, source = excluded.source
+      `)
+      yield* tx.execute(sql`
+        DELETE FROM ${loanLinks} AS l
+        WHERE l.source = 'jmdict' AND NOT EXISTS (
+          SELECT 1 FROM ${senses} AS se WHERE se.entry_id = l.katakana_entry_id AND l.english = ANY (se.sources)
+        )
+      `)
+      yield* tx.execute(sql`
+        WITH matched AS (
+          SELECT DISTINCT ON (l.id) l.id, e.id AS entry_id
+          FROM ${loanLinks} AS l
+          LEFT JOIN ${entries} AS e ON e.language = 'en' AND lower(e.headword) = lower(l.english)
+          ORDER BY l.id, (e.headword = l.english) DESC NULLS LAST, e.priority DESC NULLS LAST, e.id
+        )
+        UPDATE ${loanLinks} AS l SET english_entry_id = matched.entry_id
+        FROM matched
+        WHERE l.id = matched.id AND l.english_entry_id IS DISTINCT FROM matched.entry_id
+      `)
     })
   )
 }, Effect.orDie)
@@ -805,7 +1022,13 @@ const missing = (db: DatabaseShape, kind: EnrichmentKind) => {
     case "nuance":
       return notExists(db.select().from(senseNuance).where(eq(senseNuance.entryId, entries.id)))
     case "examples":
-      return notExists(db.select().from(examples).where(eq(examples.entryId, entries.id)))
+      // Seeded sentences don't count: Claude's are the ones the worker writes.
+      return notExists(
+        db
+          .select()
+          .from(examples)
+          .where(and(eq(examples.entryId, entries.id), eq(examples.source, "kotori")))
+      )
     case "audio":
       return notExists(db.select().from(entryAudio).where(eq(entryAudio.entryId, entries.id)))
   }

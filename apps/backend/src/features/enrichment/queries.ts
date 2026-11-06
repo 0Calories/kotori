@@ -243,8 +243,9 @@ export const saveExamples = Effect.fn("enrichment.saveExamples")(function* (
 ) {
   yield* db.transaction((tx) =>
     Effect.gen(function* () {
+      // Only Kotori's own: the sentences seeded from Tatoeba and Wiktionary are the import's.
       // Audio links cascade from the examples.
-      yield* tx.delete(examples).where(eq(examples.entryId, entryId))
+      yield* tx.delete(examples).where(and(eq(examples.entryId, entryId), eq(examples.source, "kotori")))
       if (rows.length === 0) return
       const position = new Map<number, number>()
       yield* tx.insert(examples).values(
@@ -280,11 +281,13 @@ export const examplesFor = Effect.fn("enrichment.examplesFor")(function* (
       medium: examples.medium,
       variety: examples.variety,
       tone: examples.tone,
+      source: examples.source,
       model: examples.model
     })
     .from(examples)
     .where(inArray(examples.entryId, entryIds))
-    .orderBy(examples.entryId, examples.sense, examples.position)
+    // Kotori's sentences, written for learners, before the ones seeded from Tatoeba and Wiktionary.
+    .orderBy(examples.entryId, examples.sense, sql`${examples.source} <> 'kotori'`, examples.position)
 }, Effect.orDie)
 
 export const saveSenseNotes = Effect.fn("enrichment.saveSenseNotes")(function* (

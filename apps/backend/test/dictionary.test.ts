@@ -104,6 +104,7 @@ const entry = (
 ): EntryRecord => ({
   id: EntryId.make(id),
   language: "ja",
+  dictionary: "jmdict",
   headword,
   reading,
   common,
@@ -130,6 +131,7 @@ const word = (
 ): EntryRecord => ({
   id: EntryId.make(id),
   language: "en",
+  dictionary: "enwiktionary",
   headword,
   reading: options.reading ?? "",
   common: options.common ?? true,

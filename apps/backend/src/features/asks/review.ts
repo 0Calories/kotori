@@ -80,6 +80,7 @@ export const draftToRecord = (draft: DraftEntry, language: "en" | "ja", id: Entr
   return {
     id,
     language,
+    dictionary: "kotori",
     headword: draft.headword,
     reading: draft.reading,
     common: false,

@@ -35,6 +35,7 @@ export const entries: Array<EntryRecord> = [
   {
     id: EntryId.make(1358280),
     language: "ja",
+    dictionary: "jmdict",
     headword: "食べる",
     reading: "たべる",
     common: true,
@@ -45,6 +46,7 @@ export const entries: Array<EntryRecord> = [
   {
     id: EntryId.make(1269130),
     language: "ja",
+    dictionary: "jmdict",
     headword: "食う",
     reading: "くう",
     common: true,
@@ -55,6 +57,7 @@ export const entries: Array<EntryRecord> = [
   {
     id: EntryId.make(1594790),
     language: "ja",
+    dictionary: "jmdict",
     headword: "召し上がる",
     reading: "めしあがる",
     common: true,
@@ -65,6 +68,7 @@ export const entries: Array<EntryRecord> = [
   {
     id: EntryId.make(1000000),
     language: "ja",
+    dictionary: "jmdict",
     headword: "鯛焼き",
     reading: "たいやき",
     common: false,
@@ -90,6 +94,7 @@ export const english: Array<EntryRecord> = [
   {
     id: EntryId.make(100000001),
     language: "en",
+    dictionary: "enwiktionary",
     headword: "eat",
     reading: "/iːt/",
     common: true,
@@ -100,6 +105,7 @@ export const english: Array<EntryRecord> = [
   {
     id: EntryId.make(100000002),
     language: "en",
+    dictionary: "enwiktionary",
     headword: "Polish",
     reading: "",
     common: false,
@@ -110,6 +116,7 @@ export const english: Array<EntryRecord> = [
   {
     id: EntryId.make(100000003),
     language: "en",
+    dictionary: "enwiktionary",
     headword: "polish",
     reading: "",
     common: true,
@@ -120,6 +127,7 @@ export const english: Array<EntryRecord> = [
   {
     id: EntryId.make(100000004),
     language: "en",
+    dictionary: "enwiktionary",
     headword: "dine",
     reading: "",
     common: false,

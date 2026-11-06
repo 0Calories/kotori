@@ -75,6 +75,7 @@ const TestLayer = AudioEnricher.layer.pipe(
 const entry = (id: number, senses: Array<{ dialects?: Array<string>; misc?: Array<string> }>): EntryRecord => ({
   id: EntryId.make(id),
   language: "ja",
+  dictionary: "jmdict",
   headword: "食べる",
   reading: "たべる",
   common: true,

@@ -203,6 +203,28 @@ describe("parseWiktionary", () => {
     ])
   })
 
+  it("keeps a sense's example sentences that come with a Japanese translation", () => {
+    const [color] = parseWiktionary([
+      line({
+        word: "color",
+        pos: "noun",
+        senses: [
+          {
+            glosses: ["色。"],
+            examples: [
+              { text: "Humans and birds can perceive color.", translation: "人間や鳥は色を認識する" },
+              { text: "Untranslated example." },
+              { ref: "A citation with no sentence." }
+            ]
+          }
+        ]
+      })
+    ]).words
+    expect(color?.senses[0]?.examples).toEqual([
+      { ja: "人間や鳥は色を認識する", en: "Humans and birds can perceive color.", source: "jawiktionary" }
+    ])
+  })
+
   it("skips lines that aren't entries", () => {
     expect(word("broken")).toBeUndefined()
     expect(word("mistyped")).toBeUndefined()
@@ -290,6 +312,7 @@ const jmdictEntry = (
 ): EntryRecord => ({
   id: EntryId.make(id),
   language: "ja",
+  dictionary: "jmdict",
   headword,
   reading,
   common,
@@ -699,6 +722,41 @@ describe("toEntries", () => {
     // An antonym can only be placed when there is one sense to place it on.
     expect(eat?.senses.every((sense) => sense.antonyms.length === 0)).toBe(true)
     expect(entries.find((entry) => entry.headword === "awkward")?.senses[0]?.antonyms).toEqual(["handy"])
+  })
+
+  it("names each word's dictionary by the source of its senses, and carries its evidence of use", () => {
+    const entries = toEntries(merged, frequency, new Map())
+    const of = (headword: string) => entries.find((entry) => entry.headword === headword)
+    // The subtitle count is the word's and its inflections' (be + was), before any familiarity floor.
+    expect(of("be")).toMatchObject({
+      dictionary: "enwiktionary",
+      evidence: { everyday: true, spokenCount: 170000, familiarity: 5 }
+    })
+    expect(of("eat")).toMatchObject({
+      dictionary: "jawiktionary",
+      evidence: { everyday: true, spokenCount: 8000, familiarity: null }
+    })
+    expect(of("team")).toMatchObject({ dictionary: "jmdict", evidence: { spokenCount: 4000 } })
+    const approved = toEntries(
+      mergeSources({
+        curated: {
+          words: [
+            {
+              ...parseCurated([
+                JSON.stringify({ headword: "rizz", ipa: null, senses: [{ pos: ["n"], glosses: ["魅力"] }] })
+              ]).words[0]!,
+              dictionary: "kotori"
+            }
+          ]
+        },
+        wiktionary: { words: [], formsOf: [] },
+        jmdict: { words: [] },
+        frequency: new Map()
+      }),
+      new Map(),
+      new Map()
+    )
+    expect(approved[0]).toMatchObject({ dictionary: "kotori", evidence: { everyday: false, spokenCount: null } })
   })
 
   it("ranks words by how often they and their inflections are used, and keeps ids stable", () => {

@@ -1,28 +1,35 @@
-import type { EntryRecord } from "@kotori/contracts"
 import { Effect, FileSystem, Path, Schema, Stream } from "effect"
 import { HttpClient } from "effect/http"
 import { gunzipSync } from "node:zlib"
 import { Database } from "../../../../db/Database.ts"
 import { resolveFromRoot } from "../../../../runtime/Paths.ts"
-import { insertEntries, saveTags } from "../../queries.ts"
+import { insertEntries, linkLoans, saveTags } from "../../queries.ts"
+import type { ImportEntry } from "../seedFacts.ts"
 import { parseEntries, parseTags } from "./parse.ts"
 
-/** EDRDG's English-only JMdict, refreshed daily. Licensed CC BY-SA 4.0. */
-export const JMDICT_URL = "https://www.edrdg.org/pub/Nihongo/JMdict_e.gz"
+/**
+ * EDRDG's English-only JMdict in its examples edition, refreshed daily: JMdict_e with Tatoeba's
+ * sentence pairs on the senses they illustrate. JMdict is licensed CC BY-SA 4.0; the Tatoeba
+ * sentences CC BY 2.0 FR.
+ */
+export const JMDICT_URL = "https://www.edrdg.org/pub/Nihongo/JMdict_e_examp.gz"
+
+/** Where the download is kept, relative to the repository root, for the commands that reuse it. */
+export const JMDICT_FILE = "data/jmdict/JMdict_e_examp.gz"
 
 export class JMDictError extends Schema.TaggedError<JMDictError>()("JMDictError", {
   message: Schema.String,
   cause: Schema.optional(Schema.Defect())
 }) {}
 
-/** Downloads JMdict_e.gz into its own directory, returning the file path. */
+/** Downloads JMdict_e_examp.gz into its own directory, returning the file path. */
 export const download = Effect.fn("JMDict.download")(
   function* (directory: string) {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const client = (yield* HttpClient.HttpClient).pipe(HttpClient.filterStatusOk)
 
-    const target = path.join(resolveFromRoot(directory), "JMdict_e.gz")
+    const target = path.join(resolveFromRoot(directory), path.basename(JMDICT_FILE))
     yield* fs.makeDirectory(path.dirname(target), { recursive: true })
     yield* Effect.logInfo(`Downloading ${JMDICT_URL}`)
     const response = yield* client.get(JMDICT_URL)
@@ -33,7 +40,7 @@ export const download = Effect.fn("JMDict.download")(
 )
 
 export interface ImportOptions {
-  /** Path to JMdict_e.gz (or an uncompressed JMdict XML file). */
+  /** Path to JMdict_e_examp.gz, JMdict_e.gz (no example sentences) or an uncompressed JMdict XML file. */
   readonly file: string
   /** Stop after this many entries, for quick local setups. */
   readonly limit?: number | undefined
@@ -61,7 +68,7 @@ export const importFile = Effect.fn("JMDict.importFile")(function* (options: Imp
 
   const batchSize = options.batchSize ?? 500
   const limit = options.limit ?? Number.POSITIVE_INFINITY
-  let batch: Array<EntryRecord> = []
+  let batch: Array<ImportEntry> = []
   let imported = 0
 
   for (const entry of parseEntries(xml)) {
@@ -70,12 +77,13 @@ export const importFile = Effect.fn("JMDict.importFile")(function* (options: Imp
     batch.push(entry)
     imported++
     if (batch.length >= batchSize) {
-      yield* insertEntries(db, batch)
+      yield* insertEntries(db, batch, { seeded: true })
       batch = []
       if (imported % 20_000 < batchSize) yield* Effect.logInfo(`Imported ${imported} entries`)
     }
   }
-  yield* insertEntries(db, batch)
+  yield* insertEntries(db, batch, { seeded: true })
   yield* Effect.logInfo(`Imported ${imported} entries`)
+  yield* linkLoans(db)
   return { entries: imported, tags: tags.length }
 })

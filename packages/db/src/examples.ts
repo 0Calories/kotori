@@ -22,7 +22,11 @@ export const examples = table(
     /** The Japanese sentence with `{base|reading}` furigana. */
     furigana: text().notNull(),
     en: text().notNull(),
-    formality: formality().notNull(),
+    /**
+     * How formal the sentence sounds, which casts its voice. Null on sentences seeded from Tatoeba
+     * or Wiktionary, whose sources don't say: a guessed register would cast the wrong voice.
+     */
+    formality: formality(),
     note: text(),
     /** The usage note for Japanese speakers learning English, in Japanese; null on sentences written before it. */
     noteJa: text(),

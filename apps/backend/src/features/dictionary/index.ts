@@ -7,6 +7,7 @@ export {
   findForms,
   getEntries,
   insertEntries,
+  linkLoans,
   loanCandidates,
   sharedGlossCandidates,
   tagLabels

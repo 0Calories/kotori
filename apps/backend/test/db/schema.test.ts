@@ -25,8 +25,8 @@ const seed = Effect.gen(function* () {
   const db = yield* Database
   yield* db.execute(sql`TRUNCATE ${entries} CASCADE`)
   yield* db.insert(entries).values([
-    { id: EntryId.make(1), headword: "食べる", reading: "たべる", common: true, priority: 90 },
-    { id: EntryId.make(2), headword: "食う", reading: "くう", common: false, priority: 10 }
+    { id: EntryId.make(1), dictionary: "jmdict", headword: "食べる", reading: "たべる", common: true, priority: 90 },
+    { id: EntryId.make(2), dictionary: "jmdict", headword: "食う", reading: "くう", common: false, priority: 10 }
   ])
   yield* db.insert(forms).values([
     { entryId: EntryId.make(1), kind: "kanji", position: 0, text: "食べる", common: true, priorities: ["ichi1"] },

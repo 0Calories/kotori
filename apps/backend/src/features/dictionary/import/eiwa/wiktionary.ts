@@ -1,6 +1,7 @@
-import type { GlossRecord, SenseRecord } from "@kotori/contracts"
+import type { GlossRecord } from "@kotori/contracts"
 import { type EnglishInflection, normalizeGloss } from "@kotori/language"
 import { Option, Predicate, Schema } from "effect"
+import type { ImportSense, SeedExample } from "../seedFacts.ts"
 import { FIELDS, PARTS_OF_SPEECH, REGIONS, TRANSITIVITY, USAGE } from "./tags.ts"
 import { leadingAside, splitDefinition } from "./text.ts"
 import {
@@ -43,7 +44,11 @@ const RawSense = Schema.Struct({
   topics: Strings,
   form_of: WordRefs,
   alt_of: WordRefs,
-  links: Schema.optional(Schema.Array(SenseLink))
+  links: Schema.optional(Schema.Array(SenseLink)),
+  /** Example sentences: the English `text` with its Japanese `translation`, when the editors gave one. */
+  examples: Schema.optional(
+    Schema.Array(Schema.Struct({ text: Schema.optional(Schema.String), translation: Schema.optional(Schema.String) }))
+  )
 })
 type RawSense = typeof RawSense.Type
 
@@ -130,11 +135,19 @@ const STANDALONE_FORM_TAGS = new Set(["abbreviation", "acronym", "initialism", "
  * that describe the use, such as "(人を)", stay in the gloss as JMDict's English glosses
  * keep "(of a person)".
  */
+/** A sense's example sentences that come with a Japanese translation; the rest teach nothing to read. */
+const readExamples = (raw: RawSense): Array<SeedExample> =>
+  (raw.examples ?? []).flatMap((example) => {
+    const en = example.text?.trim() ?? ""
+    const ja = example.translation?.trim() ?? ""
+    return en.length > 0 && ja.length > 0 ? [{ ja, en, source: "jawiktionary" as const }] : []
+  })
+
 const readSense = (
   raw: RawSense,
   word: string,
   pos: string | undefined
-): { readonly sense: SenseRecord | null; readonly formsOf: ReadonlyArray<FormOf> } => {
+): { readonly sense: ImportSense | null; readonly formsOf: ReadonlyArray<FormOf> } => {
   const bases = (raw.form_of ?? []).map((target) => target.word?.trim() ?? "").filter((base) => base.length > 0)
   const isStandalone = raw.tags?.some((tag) => STANDALONE_FORM_TAGS.has(tag)) ?? false
   if ((bases.length > 0 || raw.tags?.includes("form-of")) && !isStandalone) {
@@ -182,7 +195,8 @@ const readSense = (
       misc: unique(labels.misc),
       fields: unique(labels.fields),
       dialects: unique(labels.dialects),
-      info: unique(info)
+      info: unique(info),
+      examples: readExamples(raw)
     },
     formsOf
   }
@@ -309,7 +323,7 @@ interface Builder {
   ipa: string | null
   spellings: Array<string>
   inflections: Array<InflectedForm>
-  senses: Array<SenseRecord>
+  senses: Array<ImportSense>
   references: Array<References>
 }
 
@@ -332,7 +346,7 @@ export const wiktionaryParser = () => {
     for (const phrase of readPhrases(entry)) phrases.add(phrase)
 
     const pos = entry.pos === undefined ? undefined : PARTS_OF_SPEECH[entry.pos]
-    const senses: Array<SenseRecord> = []
+    const senses: Array<ImportSense> = []
     for (const raw of entry.senses ?? []) {
       const read = readSense(raw, word, pos)
       formsOf.push(...read.formsOf)

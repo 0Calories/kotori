@@ -536,6 +536,8 @@ export const goldenEntry = (entry: FixtureEntry): EntryRecord => {
   return {
     id: entry.id,
     language: entry.language ?? "ja",
+    // The fixture keeps no source; the judges don't read it.
+    dictionary: (entry.language ?? "ja") === "ja" ? "jmdict" : "enwiktionary",
     headword: entry.headword,
     reading: entry.reading,
     common: entry.common,

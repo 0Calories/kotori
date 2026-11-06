@@ -43,7 +43,7 @@ export const seed = Command.make(
     let jmdictFile = Option.getOrUndefined(file)
     const jmdict = Effect.gen(function* () {
       if (jmdictFile !== undefined) return jmdictFile
-      const previous = resolveFromRoot("data/jmdict/JMdict_e.gz")
+      const previous = resolveFromRoot(JMDict.JMDICT_FILE)
       jmdictFile = which !== "jmdict" && (yield* fs.exists(previous)) ? previous : yield* JMDict.download("data/jmdict")
       return jmdictFile
     })

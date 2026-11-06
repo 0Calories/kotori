@@ -136,6 +136,7 @@ const yomi = learnerNo(9, "ja")
 const jouzu = {
   id: EntryId.make(1900001),
   language: "ja" as const,
+  dictionary: "jmdict" as const,
   headword: "上手",
   reading: "じょうず",
   common: true,

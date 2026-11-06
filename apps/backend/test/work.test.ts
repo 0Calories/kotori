@@ -170,6 +170,7 @@ const sense = (glosses: Array<string>) => ({
 const entry = (id: number, headword: string, reading: string, senses: Array<Array<string>>): EntryRecord => ({
   id: EntryId.make(id),
   language: "ja",
+  dictionary: "jmdict",
   headword,
   reading,
   common: true,

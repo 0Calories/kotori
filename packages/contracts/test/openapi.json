@@ -1750,13 +1750,20 @@
                                   "type": "string"
                                 },
                                 "formality": {
-                                  "type": "string",
-                                  "enum": [
-                                    "vulgar",
-                                    "casual",
-                                    "neutral",
-                                    "polite",
-                                    "formal"
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "vulgar",
+                                        "casual",
+                                        "neutral",
+                                        "polite",
+                                        "formal"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
                                   ]
                                 },
                                 "note": {

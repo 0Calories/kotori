@@ -13,8 +13,10 @@ export type LabelSeverity = typeof LabelSeverity.Type
 
 /**
  * One vocabulary for usage labels, each with its severity: JMDict's `misc` codes, which the
- * English dictionary also uses, the English dictionary's regions and countability, and Kotori's
- * `form` fill for formal written words the dictionary leaves untagged.
+ * English dictionary also uses, JMDict's dialects, the English dictionary's regions and
+ * countability, and Kotori's `form` fill for formal written words the dictionary leaves untagged.
+ * Codes outside it (name types such as `place`, spelling facts such as `uk`, and `countable`,
+ * the prior) are not labels.
  */
 export const LABEL_SEVERITY = {
   vulg: "avoid",
@@ -34,18 +36,44 @@ export const LABEL_SEVERITY = {
   dated: "caution",
   hist: "caution",
   rare: "caution",
+  "m-sl": "caution",
+  sens: "caution",
+  nonstd: "caution",
   hon: "info",
   hum: "info",
   pol: "info",
   form: "info",
   poet: "info",
+  // JMDict's dialects
   ksb: "info",
+  osb: "info",
+  ktb: "info",
+  kyb: "info",
+  kyu: "info",
+  hob: "info",
+  thb: "info",
+  tsb: "info",
+  tsug: "info",
+  rkb: "info",
+  nab: "info",
+  bra: "info",
+  // The English dictionary's regions
   "en-US": "info",
   "en-GB": "info",
   "en-AU": "info",
+  "en-CA": "info",
+  "en-NZ": "info",
+  "en-IE": "info",
+  "en-scotland": "info",
+  "en-IN": "info",
+  "en-PH": "info",
+  "en-SG": "info",
+  "en-ZA": "info",
   id: "quiet",
   "on-mim": "quiet",
   abbr: "quiet",
+  proverb: "quiet",
+  yoji: "quiet",
   wasei: "quiet",
   uncountable: "quiet"
 } as const satisfies Record<string, LabelSeverity>
@@ -56,6 +84,8 @@ export const LabelCode = Schema.Literals(
 export type LabelCode = typeof LabelCode.Type
 
 export const labelSeverity = (code: LabelCode): LabelSeverity => LABEL_SEVERITY[code]
+
+export const isLabelCode = (code: string): code is LabelCode => Object.hasOwn(LABEL_SEVERITY, code)
 
 /**
  * A sense's usage labels, one row per code. Only what differs from the learner's prior (neutral,

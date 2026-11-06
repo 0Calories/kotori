@@ -210,6 +210,7 @@ layer(TestLayer)("dictionary queries", (it) => {
         {
           id: EntryId.make(100000050),
           language: "en",
+          dictionary: "enwiktionary",
           headword: "it is what it is",
           reading: "",
           common: false,
@@ -239,6 +240,7 @@ layer(TestLayer)("dictionary queries", (it) => {
         {
           id: EntryId.make(100000090),
           language: "en",
+          dictionary: "enwiktionary",
           headword: "throw on",
           reading: "",
           common: true,
@@ -249,6 +251,7 @@ layer(TestLayer)("dictionary queries", (it) => {
         {
           id: EntryId.make(100000091),
           language: "en",
+          dictionary: "enwiktionary",
           headword: "think of",
           reading: "",
           common: true,
@@ -300,6 +303,7 @@ layer(TestLayer)("dictionary queries", (it) => {
       ): EntryRecord => ({
         id: EntryId.make(id),
         language: "ja",
+        dictionary: "jmdict",
         headword: word,
         reading: word,
         common,
@@ -318,6 +322,7 @@ layer(TestLayer)("dictionary queries", (it) => {
         {
           id: EntryId.make(9100007),
           language: "ja",
+          dictionary: "jmdict",
           headword: "様式",
           reading: "ようしき",
           common: true,
@@ -381,6 +386,7 @@ layer(TestLayer)("dictionary re-imports", (it) => {
       const word = (senses: Array<Array<string>>): EntryRecord => ({
         id: style,
         language: "en",
+        dictionary: "enwiktionary",
         headword: "style",
         reading: "",
         common: true,

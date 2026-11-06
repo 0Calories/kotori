@@ -685,15 +685,18 @@ export class Dictionary extends Context.Service<
         const outdated = nuanceOutdated(entry, nuanceRows)
         const [loan] = yield* loanWordsFor(db, [entry.id])
         const examples = yield* examplesFor(db, [entry.id])
-        const hasExamples = examples.length > 0
+        // Sentences seeded from Tatoeba or Wiktionary don't stand in for Kotori's, which are
+        // written for learners: Claude still writes them for a viewed word.
+        const hasExamples = examples.some((example) => example.source === "kotori")
         const clips = yield* exampleClips(
           db,
           examples.map((example) => example.id)
         )
-        // Ready once the headword and every example are voiced in the entry's language.
+        // Ready once the headword and every example that can be voiced are, in the entry's language.
+        // Seeded sentences have no formality to cast a voice by, so they aren't voiced yet.
         const hasAudio =
           (yield* entryClips(db, [entry.id])).size > 0 &&
-          examples.every((example) => clips.has(`${example.id}:${entry.language}`))
+          examples.every((example) => example.formality === null || clips.has(`${example.id}:${entry.language}`))
         const coachAvailable = yield* claude.available
         const now = new Date(yield* Clock.currentTimeMillis)
 
