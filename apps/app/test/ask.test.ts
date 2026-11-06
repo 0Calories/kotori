@@ -36,7 +36,8 @@ const entry: EntrySummary = {
   partOfSpeech: "exp",
   formality: null,
   currency: null,
-  inflection: []
+  inflection: [],
+  audioUrl: null
 }
 
 const proposal = (fields: Partial<Proposal>): Proposal => ({

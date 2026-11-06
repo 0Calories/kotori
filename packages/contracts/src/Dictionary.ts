@@ -156,7 +156,9 @@ export const EntrySummary = Schema.Struct({
   /** How current the word's first sense feels, once judged, so a dated idiom says so in the results. */
   currency: Schema.NullOr(Currency),
   /** Inflections undone to find this entry, e.g. ["polite", "past"] for 食べました or ["past"] for "ate". */
-  inflection: Schema.Array(Schema.String)
+  inflection: Schema.Array(Schema.String),
+  /** The first headword clip, so results can be heard without opening the entry; null until voiced. */
+  audioUrl: Schema.NullOr(Schema.String)
 })
 export type EntrySummary = typeof EntrySummary.Type
 
