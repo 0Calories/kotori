@@ -12,7 +12,7 @@ import * as Sentry from "@sentry/react-native"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { setAudioModeAsync } from "expo-audio"
 import { FontDisplay, useFonts } from "expo-font"
-import { Stack } from "expo-router"
+import { Stack, usePathname } from "expo-router"
 import * as SplashScreen from "expo-splash-screen"
 import { StatusBar } from "expo-status-bar"
 import { isRunningInExpoGo } from "expo"
@@ -63,6 +63,8 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
   const theme = useTheme()
   const { status, t, retry } = useSession()
   const ready = fontsLoaded && status !== "loading"
+  // PROTOTYPE: the data-model mock-ups under /proto need neither a session nor the API.
+  const prototyping = usePathname().startsWith("/proto")
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync().catch(() => {})
@@ -70,7 +72,7 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
 
   if (!ready) return null
 
-  if (status === "offline") {
+  if (status === "offline" && !prototyping) {
     return (
       <Screen bottomInset={40}>
         <MascotMessage mood="sleepy" title={t.appName} body={t.common.offline} size={140}>
@@ -84,6 +86,9 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
     <>
       <StatusBar style={statusBarStyle} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.color.background } }}>
+        {/* PROTOTYPE: unguarded, so the mock-ups open without signing in. */}
+        <Stack.Screen name="proto/index" />
+        <Stack.Screen name="proto/[id]" />
         <Stack.Protected guard={status === "ready"}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="entry/[id]" />
