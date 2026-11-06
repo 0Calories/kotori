@@ -37,6 +37,8 @@ interface Hit {
 
 /** What a note is searched by. */
 interface Fields {
+  /** The language of the word or phrase being learned; its meanings and note are in the other one. */
+  readonly language: "ja" | "en"
   /** The word or phrase being learned, as written and in kana; the first is the headword. */
   readonly forms: ReadonlyArray<string>
   /** Its meanings, one gloss each, in the learner's language. */
@@ -53,8 +55,12 @@ const GLOSS_SEPARATOR = /\s*[;；、]\s*/
 const fieldsOf = (note: Note): Fields => {
   const content = note.content
   if (content.kind === "word") {
+    const language = content.language ?? "ja"
+    // An English word's `reading` is IPA ("/rɛd/"), not a spelling to search by.
+    const rawForms = language === "en" ? [content.headword] : [content.headword, content.reading]
     return {
-      forms: unique([content.headword, content.reading].filter((form) => form.length > 0)),
+      language,
+      forms: unique(rawForms.filter((form) => form.length > 0)),
       glosses: content.meaning.split(GLOSS_SEPARATOR).filter((gloss) => gloss.length > 0),
       note: content.note ?? null
     }
@@ -63,6 +69,7 @@ const fieldsOf = (note: Note): Fields => {
   const written =
     furigana === null ? [content.text] : [furiganaToText(furigana), content.text, furiganaToKana(furigana)]
   return {
+    language: furigana !== null || hasJapanese(content.text) ? "ja" : "en",
     forms: unique(written.filter((form) => form.length > 0)),
     glosses: [content.meaning],
     note: content.note
@@ -78,6 +85,15 @@ const japaneseCandidates = (query: string) => {
   const full = toFullwidth(query)
   const variants = unique([query, full, katakanaToHiragana(query), katakanaToHiragana(full)])
   return { variants, candidates: variants.flatMap(deinflect) }
+}
+
+/** A Japanese query prepared for matching against Japanese glosses (of English words). */
+const japaneseGlossQuery = (query: string) => {
+  const terms = unique([query, katakanaToHiragana(query)].flatMap((v) => deinflect(v).map((c) => c.term)))
+  // Adjectival nouns are glossed as they modify a noun: きれい → きれいな.
+  const norms = new Set(terms.flatMap((term) => [normalizeJapaneseGloss(term), `${term}な`, `${term}の`]))
+  const norm = katakanaToHiragana(normalizeJapaneseGloss(query))
+  return { norms, norm }
 }
 
 const japaneseFormHits = (
@@ -103,18 +119,18 @@ const japaneseFormHits = (
   })
 
 /** Japanese meanings (for English words) as written, in dictionary form, or containing the query. */
-const japaneseGlossHits = (note: Note, fields: Fields, query: string): Array<Hit> => {
-  const terms = unique([query, katakanaToHiragana(query)].flatMap((v) => deinflect(v).map((c) => c.term)))
-  // Adjectival nouns are glossed as they modify a noun: きれい → きれいな.
-  const norms = new Set(terms.flatMap((term) => [normalizeJapaneseGloss(term), `${term}な`, `${term}の`]))
-  const norm = normalizeJapaneseGloss(query)
-  return fields.glosses.flatMap((gloss, position): Array<Hit> => {
+const japaneseGlossHits = (
+  note: Note,
+  fields: Fields,
+  { norms, norm }: ReturnType<typeof japaneseGlossQuery>
+): Array<Hit> =>
+  fields.glosses.flatMap((gloss, position): Array<Hit> => {
     const glossNorm = normalizeJapaneseGloss(gloss)
-    if (norms.has(glossNorm)) return [{ note, score: 700 - 3 * position, strong: true }]
-    if (norm.length > 0 && glossNorm.includes(norm)) return [{ note, score: 300 - 3 * position, strong: false }]
+    const hiraganaNorm = katakanaToHiragana(glossNorm)
+    if (norms.has(glossNorm) || norms.has(hiraganaNorm)) return [{ note, score: 700 - 3 * position, strong: true }]
+    if (norm.length > 0 && hiraganaNorm.includes(norm)) return [{ note, score: 300 - 3 * position, strong: false }]
     return []
   })
-}
 
 // ---------------------------------------------------------------------------
 // English text: forms and meanings by every word, a word left out, or a typo
@@ -123,30 +139,61 @@ const japaneseGlossHits = (note: Note, fields: Fields, query: string): Array<Hit
 /** A word and the words it could be an inflection of, as stemming would meet them: "eating" → eat. */
 const stems = (word: string) => [word, ...uninflect(word).map((guess) => guess.base)]
 
+const stemGroups = (terms: string): ReadonlyArray<ReadonlyArray<string>> => terms.split(" ").map(stems)
+
 const wordsOf = (text: string) =>
   normalizeGloss(text)
     .split(" ")
     .filter((word) => word.length > 0)
 
-/** Whether every word of `terms` (`englishSearchTerms`) is in `text`, in any inflection. */
-const hasEveryWord = (text: string, terms: string) => {
+/** Whether every word of `termStems` (`englishSearchTerms`) is in `text`, in any inflection. */
+const hasEveryWord = (text: string, termStems: ReadonlyArray<ReadonlyArray<string>>) => {
   const words = new Set(wordsOf(text).flatMap(stems))
-  return terms.split(" ").every((term) => stems(term).some((stem) => words.has(stem)))
+  return termStems.every((group) => group.some((stem) => words.has(stem)))
 }
 
+/** Japanese characters and CJK brackets/punctuation quoted inside an English gloss or usage note. */
+const JAPANESE_TEXT = /[　-ヿ㐀-䶿一-鿿豈-﫿ｦ-ﾟ々〆ヵヶ]+/g
+
+const stripJapanese = (text: string) => text.replace(JAPANESE_TEXT, " ").trim()
+
+/**
+ * The English texts on a note: English forms, and for Japanese notes their English meanings and
+ * usage note (with any quoted Japanese words or particles stripped so the English words match cleanly).
+ */
 const englishTexts = (fields: Fields) => ({
   forms: fields.forms.filter((form) => !hasJapanese(form)),
-  glosses: fields.glosses.filter((gloss) => !hasJapanese(gloss))
+  glosses:
+    fields.language === "ja"
+      ? fields.glosses.map(stripJapanese).filter((gloss) => gloss.length > 0)
+      : fields.glosses.filter((gloss) => !hasJapanese(gloss)),
+  note:
+    fields.note === null
+      ? null
+      : fields.language === "ja"
+        ? stripJapanese(fields.note)
+        : hasJapanese(fields.note)
+          ? null
+          : fields.note
 })
 
-const englishHits = (note: Note, fields: Fields, query: string): Array<Hit> => {
-  const { forms, glosses } = englishTexts(fields)
+const englishQuery = (query: string) => {
   const lower = query.toLowerCase()
   const variants = new Set(englishPhraseVariants(query))
   const bases = new Set(uninflect(query).map((guess) => guess.base))
   const phraseNorm = normalizeEnglishPhrase(query)
   const terms = englishSearchTerms(query)
+  const termStems = terms === null ? null : stemGroups(terms)
   const norm = normalizeGloss(query)
+  return { query, lower, variants, bases, phraseNorm, termStems, norm }
+}
+
+const englishHits = (
+  note: Note,
+  fields: Fields,
+  { query, lower, variants, bases, phraseNorm, termStems, norm }: ReturnType<typeof englishQuery>
+): Array<Hit> => {
+  const { forms, glosses, note: usageNote } = englishTexts(fields)
 
   const byForm = forms.flatMap((form): Array<Hit> => {
     const formLower = form.toLowerCase()
@@ -154,11 +201,12 @@ const englishHits = (note: Note, fields: Fields, query: string): Array<Hit> => {
     if (formLower === lower) return [{ note, score: 1000 + exactCase, strong: true }]
     if (variants.has(normalizeGloss(form))) return [{ note, score: 900, strong: true }]
     if (bases.has(formLower)) return [{ note, score: 750, strong: true }]
-    if (formLower.startsWith(lower)) return [{ note, score: 400, strong: false }]
-    if (terms !== null && hasEveryWord(form, terms)) {
+    if (termStems !== null && hasEveryWord(form, termStems)) {
       const phraseExact = phraseNorm.length > 0 && normalizeEnglishPhrase(form) === phraseNorm
-      return [{ note, score: phraseExact ? 720 : 500, strong: phraseExact }]
+      const startsBonus = formLower.startsWith(lower) ? 15 : 0
+      return [{ note, score: phraseExact ? 720 : 500 + startsBonus, strong: phraseExact }]
     }
+    if (formLower.startsWith(lower)) return [{ note, score: 400, strong: false }]
     return formLower.includes(lower) ? [{ note, score: 300, strong: false }] : []
   })
 
@@ -168,14 +216,14 @@ const englishHits = (note: Note, fields: Fields, query: string): Array<Hit> => {
     const phraseExact =
       variants.has(glossNorm) || (phraseNorm.length > 0 && normalizeEnglishPhrase(gloss) === phraseNorm)
     if (phraseExact) return [{ note, score: 700 + (glossNorm === norm ? 5 : 0) + order, strong: true }]
-    if (terms !== null && hasEveryWord(gloss, terms)) {
+    if (termStems !== null && hasEveryWord(gloss, termStems)) {
       return [{ note, score: 500 + (glossNorm.startsWith(norm) ? 15 : 0) + order, strong: true }]
     }
     return glossNorm.includes(norm) && norm.length > 0 ? [{ note, score: 300 + order, strong: false }] : []
   })
 
   const byNote =
-    terms !== null && fields.note !== null && !hasJapanese(fields.note) && hasEveryWord(fields.note, terms)
+    termStems !== null && usageNote !== null && hasEveryWord(usageNote, termStems)
       ? [{ note, score: 260, strong: false }]
       : []
 
@@ -183,9 +231,13 @@ const englishHits = (note: Note, fields: Fields, query: string): Array<Hit> => {
 }
 
 /** A phrase of the query with one word left out, for "walk on thin ice" → "skate on thin ice". */
-const relaxedHits = (note: Note, fields: Fields, relaxed: ReadonlyArray<string>): Array<Hit> => {
+const relaxedHits = (
+  note: Note,
+  fields: Fields,
+  relaxed: ReadonlyArray<ReadonlyArray<ReadonlyArray<string>>>
+): Array<Hit> => {
   const { forms, glosses } = englishTexts(fields)
-  return [...forms, ...glosses].some((text) => relaxed.some((terms) => hasEveryWord(text, terms)))
+  return [...forms, ...glosses].some((text) => relaxed.some((termStems) => hasEveryWord(text, termStems)))
     ? [{ note, score: 320, strong: false }]
     : []
 }
@@ -235,25 +287,34 @@ export const searchNotes = (notes: ReadonlyArray<Note>, raw: string): NoteSearch
   let hits: Array<Hit>
   if (hasJapanese(query)) {
     const japanese = japaneseCandidates(query)
+    const glossQuery = japaneseGlossQuery(query)
     hits = fielded.flatMap(([note, fields]) => [
       ...japaneseFormHits(note, fields, japanese),
-      ...japaneseGlossHits(note, fields, query)
+      ...japaneseGlossHits(note, fields, glossQuery)
     ])
   } else {
-    const english = fielded.flatMap(([note, fields]) => englishHits(note, fields, query))
+    const prepared = englishQuery(query)
+    const english = fielded.flatMap(([note, fields]) => englishHits(note, fields, prepared))
+    const englishIsStrong = english.some((hit) => hit.score >= 680)
     // Rōmaji counts only as a word written out ("taberu", "tabeta"), never as a prefix of one,
-    // so a query in English isn't crowded by the kana its letters happen to spell.
+    // so a query in English isn't crowded by the kana its letters happen to spell. When the query
+    // already matches an English form or gloss directly ("take", "mate"), deinflected rōmaji
+    // guesses ("まて" → 待つ) are left out and exact kana readings rank below the English match.
     const kana = romajiToKana(query)
     const japanese = kana === null ? null : japaneseCandidates(kana)
     const romaji =
       japanese === null
         ? []
-        : fielded.flatMap(([note, fields]) => japaneseFormHits(note, fields, japanese).filter((hit) => hit.strong))
+        : fielded.flatMap(([note, fields]) =>
+            japaneseFormHits(note, fields, japanese)
+              .filter((hit) => (englishIsStrong ? hit.score >= 1000 : hit.strong))
+              .map((hit) => (englishIsStrong ? { ...hit, score: hit.score - 400 } : hit))
+          )
     hits = [...english, ...romaji]
     // As in the dictionary (`englishFallback`), a phrase with a word left out is tried only when
     // the query's own words found fewer than three notes, and typos only when still nothing is found.
     const found = new Set(hits.map((hit) => hit.note.id)).size
-    const relaxed = found < 3 ? relaxedEnglishSearchTerms(query) : []
+    const relaxed = (found < 3 ? relaxedEnglishSearchTerms(query) : []).map(stemGroups)
     if (relaxed.length > 0) hits.push(...fielded.flatMap(([note, fields]) => relaxedHits(note, fields, relaxed)))
     if (new Set(hits.map((hit) => hit.note.id)).size === 0) hits.push(...fuzzyHits(fielded, query))
   }
@@ -262,5 +323,27 @@ export const searchNotes = (notes: ReadonlyArray<Note>, raw: string): NoteSearch
   return {
     match: best.length === 0 ? "none" : best.some((hit) => hit.strong) ? "exact" : "weak",
     notes: best.map((hit) => hit.note)
+  }
+}
+
+/**
+ * Searches saved words and saved phrases separately so each tab has its own `match` ("Close
+ * matches") and fallback thresholds while both tabs show their match counts. When `notes` is
+ * empty (for instance after deleting the last note during a search), any lingering query is ignored.
+ */
+export const searchNotesByKind = (
+  notes: ReadonlyArray<Note>,
+  raw: string
+): { readonly word: NoteSearchResult; readonly phrase: NoteSearchResult } => {
+  const active = notes.length > 0 ? raw : ""
+  return {
+    word: searchNotes(
+      notes.filter((note) => note.content.kind === "word"),
+      active
+    ),
+    phrase: searchNotes(
+      notes.filter((note) => note.content.kind === "phrase"),
+      active
+    )
   }
 }
