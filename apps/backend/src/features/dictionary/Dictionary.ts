@@ -645,9 +645,11 @@ export class Dictionary extends Context.Service<
         const first = nuance.filter((row) => row.sense === 0)
         const formality = new Map(first.map((row) => [row.entryId, row.nuance.formality.value] as const))
         const currency = new Map(first.map((row) => [row.entryId, row.nuance.currency.value] as const))
+        const clips = yield* entryClips(db, ids)
         return hits.flatMap((hit): Array<EntrySummary> => {
           const entry = entries.get(hit.entryId)
           if (entry === undefined) return []
+          const firstClip = clips.get(hit.entryId)?.[0]
           return [
             {
               id: EntryId.make(entry.id),
@@ -660,7 +662,8 @@ export class Dictionary extends Context.Service<
               partOfSpeech: entry.senses[0]?.pos[0] ?? null,
               formality: formality.get(entry.id) ?? null,
               currency: currency.get(entry.id) ?? null,
-              inflection: hit.inflection
+              inflection: hit.inflection,
+              audioUrl: firstClip === undefined ? null : audioUrl(firstClip.key)
             }
           ]
         })

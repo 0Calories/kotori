@@ -391,6 +391,14 @@ layer(testLayer(false))("Dictionary", (it) => {
       assert.strictEqual(consume.senses[0]?.examples[0]?.translationAudioUrl, "/audio/sentence-en.mp3")
       // Voiced in English, which is all an English word needs: its audio is complete.
       assert.strictEqual(consume.enrichment.audio, "ready")
+      // Search results carry the headword clip too, so they can be heard without opening the entry.
+      const results = yield* (yield* Dictionary).search("consume", "en", 10)
+      const heard = results.entries.find((entry) => entry.id === EntryId.make(100000021))
+      assert.strictEqual(heard?.audioUrl, "/audio/consume.mp3")
+      const dine = (yield* (yield* Dictionary).search("dine", "en", 10)).entries.find(
+        (entry) => entry.id === EntryId.make(100000020)
+      )
+      assert.strictEqual(dine?.audioUrl, null)
     })
   )
 

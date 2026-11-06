@@ -718,6 +718,16 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "audioUrl": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -731,7 +741,8 @@
                           "partOfSpeech",
                           "formality",
                           "currency",
-                          "inflection"
+                          "inflection",
+                          "audioUrl"
                         ],
                         "additionalProperties": false
                       }
@@ -2357,6 +2368,16 @@
                               "items": {
                                 "type": "string"
                               }
+                            },
+                            "audioUrl": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -2370,7 +2391,8 @@
                             "partOfSpeech",
                             "formality",
                             "currency",
-                            "inflection"
+                            "inflection",
+                            "audioUrl"
                           ],
                           "additionalProperties": false
                         },
@@ -2717,6 +2739,16 @@
                                 "items": {
                                   "type": "string"
                                 }
+                              },
+                              "audioUrl": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
@@ -2730,7 +2762,8 @@
                               "partOfSpeech",
                               "formality",
                               "currency",
-                              "inflection"
+                              "inflection",
+                              "audioUrl"
                             ],
                             "additionalProperties": false
                           },
