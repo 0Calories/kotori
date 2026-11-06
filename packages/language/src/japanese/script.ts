@@ -21,3 +21,7 @@ export const romajiToKana = (text: string): string | null => {
 }
 
 export const katakanaToHiragana = (text: string) => toHiragana(text, { passRomaji: true })
+
+/** ASCII as fullwidth, the way Japanese text writes Latin letters and digits: "CD" -> "ＣＤ". */
+export const toFullwidth = (text: string) =>
+  text.replace(/[\u0021-\u007e]/g, (ch) => String.fromCodePoint(ch.codePointAt(0)! + 0xfee0))

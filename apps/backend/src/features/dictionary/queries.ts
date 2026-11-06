@@ -25,9 +25,11 @@ import {
   englishPhraseVariants,
   KATAKANA_WORD,
   type LoanCandidate,
-  normalizeEnglishPhrase,
+  nearBest,
   normalizeGloss,
-  normalizeJapaneseGloss
+  normalizeJapaneseGloss,
+  trigramFloor,
+  trigramTargets
 } from "@kotori/language"
 import {
   type AnyColumn,
@@ -551,23 +553,12 @@ export const searchForms = Effect.fn("dictionary.searchForms")(function* (
     .limit(limit)
 }, Effect.orDie)
 
-/** Fewer letters than this and a typo is as near to noise as to the word meant: "cta" for "cat". */
-const MIN_TRIGRAM_LENGTH = 4
-
-/** How far below the best match a trigram match may fall: "umbrela" finds umbrella (0.7), not umbra (0.4). */
-const TRIGRAM_SPREAD = 0.15
-
-const MIN_PHRASE_SIMILARITY = 0.45
-
 /**
- * Trigram similarity of `column` to an English query as typed and with its pronouns and articles
- * stripped (`normalizeEnglishPhrase`); `condition` is pg_trgm's `%`, at its 0.3 threshold.
- * Null when the query is too short to compare.
+ * Trigram similarity of `column` to an English query (`trigramTargets`); `condition` is pg_trgm's
+ * `%`, at its 0.3 threshold. Null when the query is too short to compare.
  */
 const trigramMatch = (column: AnyColumn, query: string) => {
-  const targets = [...new Set([normalizeGloss(query), normalizeEnglishPhrase(query)])].filter(
-    (target) => target.length >= MIN_TRIGRAM_LENGTH
-  )
+  const targets = trigramTargets(query)
   if (targets.length === 0) return null
   return {
     condition: sql`(${sql.join(
@@ -579,12 +570,6 @@ const trigramMatch = (column: AnyColumn, query: string) => {
       sql`, `
     )})`
   }
-}
-
-/** The matches within `TRIGRAM_SPREAD` of the best, which comes first. */
-const nearBest = <A extends { readonly similarity: number }>(matches: ReadonlyArray<A>, minSimilarity = 0) => {
-  const floor = Math.max((matches[0]?.similarity ?? 0) - TRIGRAM_SPREAD, minSimilarity)
-  return matches.filter((match) => match.similarity >= floor)
 }
 
 /** English forms spelled like `query`, for typos and phrases with a word changed: "umbrela" finds umbrella. */
@@ -608,7 +593,7 @@ export const searchFormsFuzzy = Effect.fn("dictionary.searchFormsFuzzy")(functio
     .where(and(eq(entries.language, "en"), isSpelling(forms.kind), match.condition))
     .orderBy(desc(match.similarity), desc(entries.common), desc(entries.priority), sql`length(${forms.text})`)
     .limit(limit)
-  return nearBest(rows, /\s/.test(query.trim()) ? MIN_PHRASE_SIMILARITY : 0)
+  return nearBest(rows, trigramFloor(query))
 }, Effect.orDie)
 
 const glossMatch = {

@@ -20,6 +20,7 @@ import {
   englishSearchTerms,
   hasJapanese,
   katakanaToHiragana,
+  keepBest as keepBestBy,
   matchesPartOfSpeech,
   normalizeEnglishPhrase,
   normalizeGloss,
@@ -27,6 +28,7 @@ import {
   relaxedEnglishSearchTerms,
   romajiToKana,
   romanize,
+  toFullwidth,
   uninflect
 } from "@kotori/language"
 import { Clock, Context, Effect, Layer, Option } from "effect"
@@ -77,14 +79,7 @@ interface Hit {
 const matchOf = (hits: ReadonlyArray<Hit>): SearchMatch =>
   hits.length === 0 ? "none" : hits.some((hit) => hit.strong) ? "exact" : "weak"
 
-const keepBest = (hits: Iterable<Hit>) => {
-  const best = new Map<EntryId, Hit>()
-  for (const hit of hits) {
-    const current = best.get(hit.entryId)
-    if (current === undefined || hit.score > current.score) best.set(hit.entryId, hit)
-  }
-  return [...best.values()].sort((a, b) => b.score - a.score)
-}
+const keepBest = (hits: Iterable<Hit>) => keepBestBy(hits, (hit) => hit.entryId)
 
 const unique = <A>(items: Iterable<A>) => [...new Set(items)]
 
@@ -169,9 +164,6 @@ const formScore = (
 
 /** "EAT", "IT", "STARTed": capitals in a row, so a word apart from the lowercase one spelled the same. */
 const isAcronym = (text: string) => /[A-Z]{2}/.test(text)
-
-const toFullwidth = (text: string) =>
-  text.replace(/[\u0021-\u007e]/g, (ch) => String.fromCodePoint(ch.codePointAt(0)! + 0xfee0))
 
 /** JMDict's explanations, literal renderings and trademarks aren't English words to look up. */
 const BRIDGE_SKIPS = new Set(["expl", "lit", "tm"])
