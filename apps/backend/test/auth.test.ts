@@ -81,7 +81,10 @@ const AuthAgainstUpstream = Layer.unwrap(
     )
     const { port } = server.address() as AddressInfo
     upstreamOrigin = `http://127.0.0.1:${port}`
-    const config = ConfigProvider.fromUnknown({ NEON_AUTH_BASE_URL: `http://127.0.0.1:${port}${BASE_PATH}` })
+    const config = ConfigProvider.fromUnknown({
+      NEON_AUTH_BASE_URL: `http://127.0.0.1:${port}${BASE_PATH}`,
+      KOTORI_WEB_ORIGINS: "https://hellokotori.com,https://kotori-*.vercel.app"
+    })
     return Auth.layer.pipe(Layer.provide(ConfigProvider.layer(config)))
   })
 ).pipe(Layer.provideMerge(DatabaseMemory))
@@ -119,12 +122,21 @@ layer(AuthAgainstUpstream)("Auth.forward", (it) => {
       assert.strictEqual(response.headers.get("set-auth-jwt"), "jwt-value")
       assert.deepStrictEqual(yield* Effect.promise(() => response.json()), { origin: upstreamOrigin })
 
-      const fromBrowser = yield* forward("/sign-in/email", {
+      const fromPreview = yield* forward("/sign-in/email", {
         method: "POST",
-        headers: { "content-type": "application/json", origin: "https://app.kotori.test" },
+        headers: { "content-type": "application/json", origin: "https://kotori-git-branch-ash.vercel.app" },
         body: JSON.stringify({ email: "learner@example.com", password: "secret" })
       })
-      assert.deepStrictEqual(yield* Effect.promise(() => fromBrowser.json()), { origin: "https://app.kotori.test" })
+      assert.deepStrictEqual(yield* Effect.promise(() => fromPreview.json()), { origin: upstreamOrigin })
+
+      const fromUntrustedBrowser = yield* forward("/sign-in/email", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "https://evil.example" },
+        body: JSON.stringify({ email: "learner@example.com", password: "secret" })
+      })
+      assert.deepStrictEqual(yield* Effect.promise(() => fromUntrustedBrowser.json()), {
+        origin: "https://evil.example"
+      })
     })
   )
 })
