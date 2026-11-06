@@ -20,6 +20,15 @@ export * from "./senses.ts"
 export * from "./glosses.ts"
 export * from "./tags.ts"
 
+// What the dictionary says about using a word, each fact tagged with its source: labels and
+// patterns per sense, pitfalls per word, evidence of use, and katakana ↔ English loan links. The
+// seed import writes the dictionaries' facts; Kotori's offline passes fill what they left empty.
+export * from "./labels.ts"
+export * from "./patterns.ts"
+export * from "./pitfalls.ts"
+export * from "./usageEvidence.ts"
+export * from "./loanLinks.ts"
+
 // The learner: profile, what they study and how it went. Everything cascades from `users`.
 export * from "./users.ts"
 export * from "./notes.ts"

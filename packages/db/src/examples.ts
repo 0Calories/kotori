@@ -1,5 +1,5 @@
 import { foreignKey, index, integer, pgEnum, text } from "drizzle-orm/pg-core"
-import { createdAt, formality, table } from "./columns.ts"
+import { createdAt, formality, source, table } from "./columns.ts"
 import { type EntryId } from "./entries.ts"
 import { senses } from "./senses.ts"
 
@@ -33,7 +33,10 @@ export const examples = table(
     /** Regional variety label such as "kansai" or "british"; null for the language's default. */
     variety: text(),
     tone: sentenceTone(),
-    model: text().notNull(),
+    /** Where the sentence came from: Kotori wrote it, or it was seeded from Tatoeba or Wiktionary. */
+    source: source().notNull().default("kotori"),
+    /** The model that wrote it; null on seeded sentences. */
+    model: text(),
     createdAt: createdAt()
   },
   (t) => [

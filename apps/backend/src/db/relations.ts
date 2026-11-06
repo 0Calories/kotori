@@ -13,6 +13,10 @@ export const relations = defineRelations(schema, (r) => ({
     senses: r.many.senses({ from: r.entries.id, to: r.senses.entryId }),
     glosses: r.many.glosses({ from: r.entries.id, to: r.glosses.entryId }),
     audio: r.one.entryAudio({ from: r.entries.id, to: r.entryAudio.entryId }),
+    evidence: r.one.usageEvidence({ from: r.entries.id, to: r.usageEvidence.entryId }),
+    pitfalls: r.many.pitfalls({ from: r.entries.id, to: r.pitfalls.entryId }),
+    loansFrom: r.many.loanLinks({ from: r.entries.id, to: r.loanLinks.katakanaEntryId }),
+    loansTo: r.many.loanLinks({ from: r.entries.id, to: r.loanLinks.englishEntryId }),
     jobs: r.many.jobs({ from: r.entries.id, to: r.jobs.entryId })
   },
   forms: {
@@ -32,7 +36,21 @@ export const relations = defineRelations(schema, (r) => ({
     examples: r.many.examples({
       from: [r.senses.entryId, r.senses.position],
       to: [r.examples.entryId, r.examples.sense]
+    }),
+    labels: r.many.labels({
+      from: [r.senses.entryId, r.senses.position],
+      to: [r.labels.entryId, r.labels.sense]
+    }),
+    patterns: r.many.patterns({
+      from: [r.senses.entryId, r.senses.position],
+      to: [r.patterns.entryId, r.patterns.sense]
     })
+  },
+  patterns: {
+    about: r.one.entries({ from: r.patterns.aboutEntryId, to: r.entries.id })
+  },
+  pitfalls: {
+    about: r.one.entries({ from: r.pitfalls.aboutEntryId, to: r.entries.id })
   },
   similarWords: {
     similar: r.one.entries({ from: r.similarWords.similarId, to: r.entries.id, optional: false })
