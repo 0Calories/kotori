@@ -15,6 +15,7 @@ import { scopedToUser } from "../../db/scopedToUser.ts"
 import { reserveUsage } from "../coaching/queries.ts"
 import { Dictionary } from "../dictionary/Dictionary.ts"
 import { turnAway } from "./garbage.ts"
+import { viewDraft } from "./draft.ts"
 import { judge, type Triaged } from "./judge.ts"
 import { asksFor, findProposal, insertProposal, type ProposalRow, recordAsk, type Verdict } from "./queries.ts"
 
@@ -60,7 +61,7 @@ export class Asks extends Context.Service<
           query: row.query,
           language: row.language,
           status: row.status,
-          draft: row.draft,
+          draft: row.draft === null ? null : yield* viewDraft(db, row.draft, row.language),
           linked,
           reason: row.reason,
           route: row.route

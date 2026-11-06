@@ -21,9 +21,17 @@ export interface DraftRequest {
 
 const DraftSenseOutput = Schema.Struct({
   glosses: Schema.Array(Schema.String),
-  partOfSpeech: Schema.NullOr(Schema.String),
+  pos: Schema.Array(Schema.String),
   labels: Schema.Array(Schema.String),
-  note: Schema.NullOr(Schema.String)
+  patterns: Schema.Array(Schema.String)
+})
+
+const DraftPitfallOutput = Schema.Struct({
+  kind: Schema.String,
+  text: Schema.String,
+  /** The sense it is about, numbered from 1 as listed; null for the whole word. */
+  sense: Schema.NullOr(Schema.Int),
+  about: Schema.NullOr(Schema.String)
 })
 
 export const DraftOutput = Schema.Struct({
@@ -36,25 +44,32 @@ export const DraftOutput = Schema.Struct({
   link: Schema.NullOr(Schema.Int),
   /** For `reject`: why, in the asker's native language, in one or two sentences. */
   reason: Schema.NullOr(Schema.String),
-  /** For `entry`: the draft. */
+  /** For `entry`: the draft, checked and trimmed by the caller before it is stored. */
   entry: Schema.NullOr(
     Schema.Struct({
       headword: Schema.String,
       reading: Schema.String,
       spellings: Schema.Array(Schema.String),
-      currency: Schema.Literals(["archaic", "dated", "current", "trendy"]),
-      senses: Schema.Array(DraftSenseOutput)
+      familiarity: Schema.Int,
+      senses: Schema.Array(DraftSenseOutput),
+      pitfalls: Schema.Array(DraftPitfallOutput)
     })
   )
 })
 export type DraftOutput = typeof DraftOutput.Type
 
 /**
- * The tag codes a draft may use, shared with the dictionary so approved drafts wear the same
- * labels (`packages/contracts` TAG_JUDGMENTS reads them, search penalties apply to them).
+ * The label codes a draft may use: the dictionary's label vocabulary, so an approved draft wears
+ * the same labels as the dictionary's words. Only what differs from a neutral, current word anyone
+ * says; the caller drops any other code.
  */
 const LABELS =
-  "sl (slang), net-sl (internet slang), col (colloquial), vulg (vulgar), X (offensive), derog (derogatory), id (idiom), proverb, abbr (abbreviation), dated, arch (archaic), rare, joc (humorous), euph (euphemistic), chn (children's), on-mim (onomatopoeia), form (formal)"
+  "col (casual, conversational), sl (slang), net-sl (internet slang), vulg (vulgar), X (offensive), derog (derogatory), joc (humorous), euph (euphemistic), chn (children's), form (formal, written), hon (respectful), hum (humble), pol (polite), male (mostly said by men), fem (mostly said by women), dated, arch (archaic), rare, id (idiom), proverb, abbr (abbreviation), on-mim (onomatopoeia)"
+
+const PITFALLS = {
+  ja: "rude_upward (sounds rude to a superior), keigo_direction (respectful vs humble, said of whom), set_phrase (a fixed phrase with a fixed use), particle_pattern (the particle it takes), gendered_speech, confusable (a word it is easily mixed up with), collocation (what it goes with)",
+  en: "false_friend (a katakana loan that means something else in English), textbook_english (correct but stiff or dated as taught), directness (how blunt or soft it lands), variety (differs between US, UK and other English), confusable, collocation"
+} as const
 
 const system = (language: Language) => {
   const [target, native, readingNote, posNote] =
@@ -63,7 +78,7 @@ const system = (language: Language) => {
           "English",
           "Japanese",
           'IPA between slashes, e.g. "/ˈbʌsɪn/"; "" when unsure',
-          "n, v, adj, adv, exp (expression/idiom), int (interjection), pn (pronoun), prep, conj"
+          "n, v, vt, vi, adj, adv, exp (expression/idiom), int (interjection), pn (pronoun), prep, conj"
         ]
       : [
           "Japanese",
@@ -83,8 +98,13 @@ When drafting an entry:
 - "headword": the expression in its canonical dictionary form (lowercase for English unless a proper part is capitalised; placeholders like "one's"/"someone" where idioms take them).
 - "reading": ${readingNote}.
 - "spellings": other ways it is commonly written, including the query itself when it differs from the headword; [] when there are none.
-- "currency": how it feels in present-day ${target} — "trendy" (recent coinage or buzzword), "current" (ordinary use), "dated" (understood, but old-fashioned), "archaic" (old texts only).
-- "senses": 1–3 senses, commonest first. Each sense has 1–4 "glosses" in ${native}, concise, as a dictionary would put them; "partOfSpeech" from: ${posNote}, or null; "labels" from: ${LABELS}, or []; and a "note" in ${native} — one or two sentences on how natives use it (register, who says it, where it came from, pitfalls), or null when the glosses say it all.
+- "familiarity": how familiar natives are with it today, 1–5: 5 everyone says or hears it daily, 4 widely known and used, 3 known to most but not everyday, 2 understood but rarely said (or old-fashioned), 1 barely known or only in old texts.
+- "senses": 1–3 senses, commonest first. Each sense has:
+  - "glosses": 1–4 in ${native}, concise, as a dictionary would put them.
+  - "pos": part-of-speech codes from: ${posNote}; [] when unclear.
+  - "labels": codes from: ${LABELS}; [] when it is neutral, current and anyone says it. Label only what a native dictionary would mark.
+  - "patterns": 0–2 short notes in ${native} on how natives use it — the construction it appears in, who says it to whom, in what setting. [] when the glosses and labels say it all. Don't restate a label. Usage only: no etymology, origins, dates or history, which a learner can't check and a wrong one misleads.
+- "pitfalls": 0–3 for the whole entry, only where a ${native} speaker would be surprised or misled — most entries need none. Each has a "kind" from: ${PITFALLS[language]}; a "text" of one or two sentences in ${native}; "sense", the number of the sense it is about (1 for the first), or null for the whole word; and "about", another ${target} word it compares with, as written, or null. Never write a pitfall a label already says: the page shows each label with its meaning, so col, sl and net-sl already tell the learner the word is casual or slang and out of place with elders, superiors or in formal settings, vulg that it offends, dated that it sounds old. A slang word needs no "it's slang, avoid it in formal settings" pitfall; write one only for a surprise beyond that. Name a sense by what it means, never by its number, in the text. No etymology, origins or dates here either.
 
 Accuracy over coverage: draft only what you know natives really say, with meanings you are sure of. If you half-recognise the query but can't pin its meaning down, reject and say so. The draft is marked unverified and reviewed by a person before it becomes a real entry.`
 }

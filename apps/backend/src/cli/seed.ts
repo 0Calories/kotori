@@ -4,7 +4,14 @@ import { Database } from "../db/Database.ts"
 import { APPROVED_JA_FILE, parseApprovedJa } from "../features/asks/review.ts"
 import * as Eiwa from "../features/dictionary/import/eiwa/Eiwa.ts"
 import * as JMDict from "../features/dictionary/import/jmdict/JMDict.ts"
-import { countOf, entryCount, findForms, getEntries, insertEntries } from "../features/dictionary/index.ts"
+import {
+  countOf,
+  entryCount,
+  findForms,
+  getEntries,
+  insertEntries,
+  saveKotoriPitfalls
+} from "../features/dictionary/index.ts"
 import { resolveFromRoot } from "../runtime/Paths.ts"
 
 export const seed = Command.make(
@@ -64,6 +71,7 @@ export const seed = Command.make(
       if (yield* fs.exists(approvedJa)) {
         const approved = parseApprovedJa((yield* fs.readFileString(approvedJa)).split("\n"))
         if (approved.records.length > 0) yield* insertEntries(db, approved.records)
+        for (const { entryId, pitfalls } of approved.pitfalls) yield* saveKotoriPitfalls(db, entryId, "ja", pitfalls)
         for (const alias of approved.aliases) {
           const base = (yield* findForms(db, [alias.base])).find((match) => match.kind !== "inflection")
           if (base === undefined) continue

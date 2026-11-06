@@ -10,7 +10,7 @@ import {
   Pronouncer,
   TtsError
 } from "@kotori/ai"
-import type { DraftEntry, Language, Profile } from "@kotori/contracts"
+import type { Language, Profile } from "@kotori/contracts"
 import { EntryId, UserId } from "@kotori/contracts"
 import { proposals } from "@kotori/db"
 import { normalizeAsk } from "@kotori/language"
@@ -178,7 +178,7 @@ const numberOf = (query: string, language: Language, headword: string) =>
 const draft = (
   headword: string,
   spellings: ReadonlyArray<string> = [],
-  fields: Partial<DraftEntry> = {}
+  fields: Partial<NonNullable<DraftOutput["entry"]>> = {}
 ): DraftOutput => ({
   verdict: "entry",
   link: null,
@@ -187,8 +187,9 @@ const draft = (
     headword,
     reading: "",
     spellings,
-    currency: "trendy",
-    senses: [{ glosses: ["すごくおいしい"], partOfSpeech: "adj", labels: ["sl"], note: "若者のスラングです。" }],
+    familiarity: 4,
+    senses: [{ glosses: ["すごくおいしい"], pos: ["adj"], labels: ["sl"], patterns: ["若者のスラングです。"] }],
+    pitfalls: [],
     ...fields
   }
 })

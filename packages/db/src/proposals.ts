@@ -2,7 +2,7 @@ import { boolean, index, integer, jsonb, pgEnum, primaryKey, text, unique, uuid 
 import * as Schema from "effect/Schema"
 import { createdAt, language, table, timestamptz } from "./columns.ts"
 import { entries, type EntryId } from "./entries.ts"
-import { Currency } from "./senseNuance.ts"
+import { PitfallKind } from "./pitfalls.ts"
 import { type UserId, users } from "./users.ts"
 
 /**
@@ -19,17 +19,32 @@ export const proposalStatus = pgEnum("proposal_status", ["pending", "linked", "r
  */
 export const proposalRoute = pgEnum("proposal_route", ["lookup", "sentence", "name", "other_language", "garbage"])
 
+/**
+ * A drafted sense, in the dictionary's own model: what the import reads from a sense, so an
+ * approved draft becomes an entry with nothing translated. Everything in it is Kotori's.
+ */
 export const DraftSense = Schema.Struct({
   /** What it means, in the asker's native language. */
   glosses: Schema.Array(Schema.String),
-  /** A part-of-speech code from the dictionary's tags (`n`, `v`, `exp`…), or null for unclear. */
-  partOfSpeech: Schema.NullOr(Schema.String),
-  /** Usage tag codes the dictionary already knows: `sl`, `col`, `net-sl`, `vulg`, `derog`, `dated`… */
+  /** Part-of-speech codes from the dictionary's tags (`n`, `v`, `exp`…); empty when unclear. */
+  pos: Schema.Array(Schema.String),
+  /** Usage label codes from the label vocabulary (`col`, `sl`, `dated`…); others are not labels. */
   labels: Schema.Array(Schema.String),
-  /** How natives use it — register, who says it, pitfalls — in the asker's native language. */
-  note: Schema.NullOr(Schema.String)
+  /** How natives use it, in the asker's native language: the sense's patterns. */
+  patterns: Schema.Array(Schema.String)
 })
 export type DraftSense = typeof DraftSense.Type
+
+/** A drafted pitfall: what would surprise a learner, scoped to a sense (by index) or the word. */
+export const DraftPitfall = Schema.Struct({
+  kind: PitfallKind,
+  /** In the asker's native language; names a sense by its gloss, never its number. */
+  text: Schema.String,
+  sense: Schema.NullOr(Schema.Int),
+  /** The word to compare with, as written; linked to its entry where exactly one matches. */
+  about: Schema.NullOr(Schema.String)
+})
+export type DraftPitfall = typeof DraftPitfall.Type
 
 /**
  * Jev's routing of an ask as it answered, kept so the thresholds can be re-derived offline: its
@@ -42,15 +57,22 @@ export const AskTriage = Schema.Struct({
 })
 export type AskTriage = typeof AskTriage.Type
 
-/** A dictionary entry as Claude drafts it for a query the dictionary couldn't answer. */
+/**
+ * A dictionary entry as Claude drafts it for a query the dictionary couldn't answer, in the
+ * dictionary's own model (senses with labels and patterns, pitfalls), so approval copies it into
+ * the dictionary unchanged. Drafts stored before this shape were migrated into it.
+ */
 export const DraftEntry = Schema.Struct({
   headword: Schema.String,
   /** IPA for an English word; kana for a Japanese one. Empty when unsure. */
   reading: Schema.String,
   /** Other ways it is written, searched like the headword. */
   spellings: Schema.Array(Schema.String),
-  currency: Currency,
-  senses: Schema.Array(DraftSense)
+  /** How familiar it is to natives today, 1–5, on the English dictionary's familiarity scale. */
+  familiarity: Schema.Int,
+  senses: Schema.Array(DraftSense),
+  /** At most three. */
+  pitfalls: Schema.Array(DraftPitfall)
 })
 export type DraftEntry = typeof DraftEntry.Type
 

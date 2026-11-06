@@ -6,7 +6,7 @@ import { createInterface } from "node:readline"
 import { createGunzip } from "node:zlib"
 import { Database } from "../../../../db/Database.ts"
 import { resolveFromRoot } from "../../../../runtime/Paths.ts"
-import { deleteEntries, headwordIds, insertEntries, linkLoans, saveTags } from "../../queries.ts"
+import { deleteEntries, headwordIds, insertEntries, linkLoans, saveKotoriPitfalls, saveTags } from "../../queries.ts"
 import { entrySplitter } from "../jmdict/parse.ts"
 import type { ImportEntry } from "../seedFacts.ts"
 import { APPROVED_EN_FILE, parseApproved } from "./approved.ts"
@@ -203,14 +203,16 @@ const build = Effect.fnUntraced(function* (options: ImportOptions, existing: Rea
   )
   if (options.commonOnly) entries = entries.filter((entry) => entry.common)
   if (options.limit !== undefined) entries = entries.slice(0, options.limit)
-  return entries
+  // Approved words' pitfalls, by headword; a curated word of the same headword took its place.
+  const pitfalls = new Map(approved.words.map((word) => [word.headword, word.pitfalls ?? []] as const))
+  return { entries, pitfalls }
 })
 
 /**
  * The English dictionary's entries as a fresh import would number them, built from its sources
  * without a database: for tools that cut fixtures from it, such as the golden set's.
  */
-export const buildEntries = (options: ImportOptions) => build(options, new Map())
+export const buildEntries = (options: ImportOptions) => Effect.map(build(options, new Map()), (built) => built.entries)
 
 /**
  * Builds the English dictionary from its sources and loads it alongside JMDict. Re-importing
@@ -219,7 +221,8 @@ export const buildEntries = (options: ImportOptions) => build(options, new Map()
 export const importFiles = Effect.fn("Eiwa.importFiles")(function* (options: ImportOptions) {
   const db = yield* Database
   const existing = yield* headwordIds(db, "en")
-  const entries: ReadonlyArray<ImportEntry & { readonly source: Source }> = yield* build(options, existing)
+  const built = yield* build(options, existing)
+  const entries: ReadonlyArray<ImportEntry & { readonly source: Source }> = built.entries
 
   yield* saveTags(db, ENGLISH_TAGS)
   const batchSize = options.batchSize ?? 500
@@ -234,6 +237,10 @@ export const importFiles = Effect.fn("Eiwa.importFiles")(function* (options: Imp
   const imported = new Set(entries.map((entry) => entry.headword))
   const stale = complete ? [...existing].filter(([headword]) => !imported.has(headword)).map(([, id]) => id) : []
   yield* deleteEntries(db, stale)
+  for (const entry of entries) {
+    const drafted = entry.dictionary === "kotori" ? built.pitfalls.get(entry.headword) : undefined
+    if (drafted !== undefined) yield* saveKotoriPitfalls(db, entry.id, "en", drafted)
+  }
   yield* linkLoans(db)
 
   const bySource = (source: Source) => entries.filter((entry) => entry.source === source).length

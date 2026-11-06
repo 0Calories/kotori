@@ -58,12 +58,29 @@ Findings for later phases:
 
 - The curated English synonyms are noisy on some senses (slang *eat* lists bang, rock, slap). Cross-references are shown as the dictionary gives them.
 
-### ☐ Phase 4 — Proposals on the entry model
+### ☑ Phase 4 — Proposals on the entry model
 
-- `DraftEntry` becomes the entry shape: labels with `source: kotori`, patterns, examples, pitfalls.
-- Claude's Ask Kotori prompt and the golden asks move to that shape.
-- Approval copies the draft into the real tables unchanged.
-- Existing drafts are migrated or regenerated (beta data; decide in the phase).
+- A stored draft (`DraftEntry` in `@kotori/db`) is the dictionary's model: senses with `pos`, label codes and patterns, word-level `familiarity`, and up to three pitfalls (by sense index, `about` as written). The wire `Proposal.draft` reads like an entry: `Label`, `Pattern`, `WordPitfall` and `Tag`, all source `kotori`, labels stated once as on an entry.
+- Claude's output is checked before it is stored (`asks/draft.ts`): label codes outside the vocabulary dropped, pitfalls kept only of a kind valid for the direction (`PITFALL_KINDS`), about a sense that exists, non-empty, at most three; familiarity clamped to 1–5.
+- A pitfall's `about` links to an entry only when exactly one word is written that way (上手 links to neither).
+- Approval writes labels as `misc` and patterns as `info`, so the import reads them back as Kotori's; pitfalls are saved directly and carried in both approved files, so a reseed restores them.
+- Existing drafts are migrated in SQL, nothing inferred: `currency` → `arch`/`dated` labels and familiarity 1/2/4 (as approval derived them), `partOfSpeech` → `pos`, `note` → one pattern, no pitfalls. Tested on old-shape rows.
+- The golden asks test only Jev's routing, not draft content; they needed no change.
+- The `DraftCard` reads the new shape; Phase 5 restyles it.
+
+Checked with live Claude drafts (bussin, rizz, ghosting, ぴえん, 蛙化現象, 了解です), which changed the prompt twice:
+
+- Patterns carried unverifiable origin and date claims ("アフリカ系アメリカ人の英語に由来", "around 2019–2020"). Patterns and pitfalls are now usage only.
+- Pitfalls restated the slang label ("avoid it in formal settings"). The prompt now says what each register label already tells the learner.
+
+Findings for later phases:
+
+- Draft pitfalls are inference with no golden eval. Phase 8's pitfall golden set should cover the Lexicographer too.
+- No pitfall kind fits tone strength (ぴえん's "light, never real grief" came as `set_phrase`). Decide in Phase 8 whether a `tone` kind is needed.
+- A reseed replaces Kotori's pitfalls on approved words with the approved file's. Phase 8 passes must skip approved words or write to that file.
+- `trendy` and `current` both migrated to familiarity 4; the distinction had no place in the new model.
+- Migrated notes may hold origin claims or warnings, now shown as Kotori patterns. Review pending drafts before approving.
+- Drafts can still be careless with facts (bussin's pitfall says "bussing" is spelled the same). Approval remains the gate.
 
 ### ☐ Phase 5 — Entry page
 
@@ -102,3 +119,4 @@ Findings for later phases:
 - 2026-11-06: Plan agreed. Phase 1 done.
 - 2026-11-06: Phase 2 done. Added Phase 6 (voice casting) after seeded sentences came in without formality.
 - 2026-11-06: Phase 3 done. Similar-word rules tightened against the full data (see Phase 3).
+- 2026-11-06: Phase 4 done. Drafts migrated, not regenerated; prompt tightened against live drafts (see Phase 4).

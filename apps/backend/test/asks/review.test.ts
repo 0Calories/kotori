@@ -1,7 +1,7 @@
 import { NodeFileSystem, NodePath } from "@effect/platform-node"
 import { assert, layer } from "@effect/vitest"
-import type { DraftEntry } from "@kotori/contracts"
-import { FIRST_APPROVED_JA_ID, proposals } from "@kotori/db"
+import { type DraftEntry, FIRST_APPROVED_JA_ID, labels, patterns, pitfalls, proposals } from "@kotori/db"
+import { asc, eq } from "drizzle-orm"
 import { Effect, FileSystem, Layer } from "effect"
 import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -13,7 +13,6 @@ import { approveProposal, discardProposal, draftToRecord, parseApprovedJa } from
 import { parseApproved } from "../../src/features/dictionary/import/eiwa/approved.ts"
 import { findForms, getEntries, insertEntries } from "../../src/features/dictionary/queries.ts"
 import { jobStatusFor } from "../../src/features/enrichment/jobs.ts"
-import { senseNotesFor } from "../../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 import { english, U1 } from "../fixtures.ts"
 
@@ -25,10 +24,14 @@ const draft: DraftEntry = {
   headword: "bussin",
   reading: "/ˈbʌsɪn/",
   spellings: ["bussin'"],
-  currency: "trendy",
+  familiarity: 4,
   senses: [
-    { glosses: ["すごくおいしい"], partOfSpeech: "adj", labels: ["sl"], note: "若者のスラングです。" },
-    { glosses: ["最高"], partOfSpeech: "adj", labels: ["sl"], note: null }
+    { glosses: ["すごくおいしい"], pos: ["adj"], labels: ["sl"], patterns: ["若者のスラングです。"] },
+    { glosses: ["最高"], pos: ["adj"], labels: ["sl"], patterns: [] }
+  ],
+  pitfalls: [
+    { kind: "collocation", text: "食べ物について It's bussin. の形でよく使います。", sense: 0, about: "eat" },
+    { kind: "variety", text: "主にアメリカの若者言葉です。", sense: null, about: null }
   ]
 }
 
@@ -36,8 +39,9 @@ const jaDraft: DraftEntry = {
   headword: "蛙化現象",
   reading: "かえるかげんしょう",
   spellings: ["カエル化現象"],
-  currency: "trendy",
-  senses: [{ glosses: ["the ick"], partOfSpeech: "n", labels: ["sl"], note: "Young people's slang." }]
+  familiarity: 3,
+  senses: [{ glosses: ["the ick"], pos: ["n"], labels: ["sl"], patterns: ["Young people's slang."] }],
+  pitfalls: [{ kind: "set_phrase", text: "Mostly said of a crush, not a partner.", sense: 0, about: null }]
 }
 
 const propose = (
@@ -84,13 +88,41 @@ layer(TestLayer)("proposal review", (it) => {
       const approved = yield* approveProposal(db, id, files)
       assert.strictEqual(approved.headword, "bussin")
 
-      // The entry is searchable by headword and spelling, with the draft's labels and notes.
+      // The entry is searchable by headword and spelling, with the draft's labels, patterns and
+      // pitfalls as Kotori's, the pitfall linked to the word it names.
       const [match] = yield* findForms(db, ["bussin'"], "en")
       assert.strictEqual(match?.entryId, approved.entryId)
       const [entry] = yield* getEntries(db, [approved.entryId])
-      assert.deepStrictEqual(entry?.senses[0]?.misc, ["sl"])
-      const notes = yield* senseNotesFor(db, [approved.entryId])
-      assert.strictEqual(notes[0]?.noteJa, "若者のスラングです。")
+      assert.strictEqual(entry?.dictionary, "kotori")
+      assert.deepStrictEqual(
+        yield* db
+          .select({ sense: labels.sense, code: labels.code, source: labels.source })
+          .from(labels)
+          .where(eq(labels.entryId, approved.entryId))
+          .orderBy(asc(labels.sense)),
+        [
+          { sense: 0, code: "sl", source: "kotori" },
+          { sense: 1, code: "sl", source: "kotori" }
+        ]
+      )
+      assert.deepStrictEqual(
+        yield* db
+          .select({ sense: patterns.sense, text: patterns.text, source: patterns.source })
+          .from(patterns)
+          .where(eq(patterns.entryId, approved.entryId)),
+        [{ sense: 0, text: "若者のスラングです。", source: "kotori" }]
+      )
+      assert.deepStrictEqual(
+        yield* db
+          .select({ rank: pitfalls.rank, kind: pitfalls.kind, sense: pitfalls.sense, about: pitfalls.aboutEntryId })
+          .from(pitfalls)
+          .where(eq(pitfalls.entryId, approved.entryId))
+          .orderBy(asc(pitfalls.rank)),
+        [
+          { rank: 1, kind: "collocation", sense: 0, about: english[0]!.id },
+          { rank: 2, kind: "variety", sense: null, about: null }
+        ]
+      )
       const jobs = yield* jobStatusFor(db, approved.entryId)
       assert.deepStrictEqual([...jobs.keys()].toSorted(), ["audio", "examples", "nuance"])
 
@@ -99,6 +131,8 @@ layer(TestLayer)("proposal review", (it) => {
       assert.strictEqual(parsed.words[0]?.headword, "bussin")
       assert.strictEqual(parsed.words[0]?.familiarity, 4)
       assert.strictEqual(parsed.words[0]?.senses[0]?.misc.includes("sl"), true)
+      assert.deepStrictEqual(parsed.words[0]?.senses[0]?.info, ["若者のスラングです。"])
+      assert.deepStrictEqual(parsed.words[0]?.pitfalls, draft.pitfalls)
 
       // Approving twice is refused.
       const again = yield* Effect.flip(approveProposal(db, id, files))
@@ -151,6 +185,7 @@ layer(TestLayer)("proposal review", (it) => {
       const parsed = parseApprovedJa((yield* fs.readFileString(files.ja)).split("\n"))
       assert.strictEqual(parsed.records[0]?.id, approved.entryId)
       assert.strictEqual(parsed.records[0]?.senses[0]?.glosses[0]?.text, "the ick")
+      assert.deepStrictEqual(parsed.pitfalls, [{ entryId: approved.entryId, pitfalls: jaDraft.pitfalls }])
     })
   )
 
@@ -166,10 +201,12 @@ layer(TestLayer)("proposal review", (it) => {
     })
   )
 
-  it.effect("draftToRecord marks dated drafts the way the dictionary does", () =>
+  it.effect("draftToRecord stores labels and patterns where the import reads them", () =>
     Effect.sync(() => {
-      const record = draftToRecord({ ...draft, currency: "dated" }, "en", 100_900_000 as never)
-      assert.deepStrictEqual(record.senses[0]?.misc.toSorted(), ["dated", "sl"])
+      const record = draftToRecord(draft, "en", 100_900_000 as never)
+      assert.deepStrictEqual(record.senses[0]?.misc, ["sl"])
+      assert.deepStrictEqual(record.senses[0]?.info, ["若者のスラングです。"])
+      assert.deepStrictEqual(record.senses[0]?.pos, ["adj"])
     })
   )
 })

@@ -1,7 +1,5 @@
 import {
   castBy,
-  DraftEntry,
-  DraftSense,
   entries,
   EntryId,
   examples,
@@ -279,7 +277,31 @@ export const EntrySummary = Schema.Struct({
 })
 export type EntrySummary = typeof EntrySummary.Type
 
-export { DraftEntry, DraftSense }
+/** A drafted sense, as an entry's sense reads: its labels (only those it adds), patterns, all Kotori's. */
+export const DraftSense = Schema.Struct({
+  index: Schema.Int,
+  glosses: Schema.Array(Schema.String),
+  partsOfSpeech: Schema.Array(Tag),
+  labels: Schema.Array(Label),
+  patterns: Schema.Array(Pattern)
+})
+export type DraftSense = typeof DraftSense.Type
+
+/**
+ * Kotori's draft of an entry, in the entry's own model and read the same way: the word's labels
+ * (its first sense's), senses, and pitfalls. Unverified until the admin approves it, when it
+ * becomes an entry with these same facts.
+ */
+export const DraftEntry = Schema.Struct({
+  ...Struct.pick(EntryRow.fields, ["headword", "reading"]),
+  spellings: Schema.Array(Schema.String),
+  /** How familiar it is to natives today, 1–5; a draft has no other evidence of use. */
+  familiarity: Schema.Int,
+  labels: Schema.Array(Label),
+  senses: Schema.Array(DraftSense),
+  pitfalls: Schema.Array(WordPitfall)
+})
+export type DraftEntry = typeof DraftEntry.Type
 
 export const ProposalStatus = createSelectSchema(proposalStatus)
 export type ProposalStatus = typeof ProposalStatus.Type

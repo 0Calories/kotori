@@ -1,3 +1,4 @@
+import { DraftPitfall } from "@kotori/db"
 import { Option, Schema } from "effect"
 import { ConsolidatedWord, type FormOf, fromConsolidatedWord, type Word } from "./words.ts"
 
@@ -11,7 +12,7 @@ import { ConsolidatedWord, type FormOf, fromConsolidatedWord, type Word } from "
 export const APPROVED_EN_FILE = "data/approved/en.jsonl"
 
 export const ApprovedLine = Schema.Union([
-  Schema.Struct({ entry: ConsolidatedWord }),
+  Schema.Struct({ entry: ConsolidatedWord, pitfalls: Schema.optional(Schema.Array(DraftPitfall)) }),
   Schema.Struct({ alias: Schema.Struct({ text: Schema.String, base: Schema.String }) })
 ])
 export type ApprovedLine = typeof ApprovedLine.Type
@@ -31,8 +32,13 @@ export const parseApproved = (
     if (line.trim().length === 0) continue
     const decoded = decodeLine(line)
     if (Option.isNone(decoded)) continue
-    if ("entry" in decoded.value) words.push({ ...fromConsolidatedWord(decoded.value.entry), dictionary: "kotori" })
-    else formsOf.push({ text: decoded.value.alias.text, base: decoded.value.alias.base, tags: [] })
+    if ("entry" in decoded.value) {
+      words.push({
+        ...fromConsolidatedWord(decoded.value.entry),
+        dictionary: "kotori",
+        pitfalls: decoded.value.pitfalls ?? []
+      })
+    } else formsOf.push({ text: decoded.value.alias.text, base: decoded.value.alias.base, tags: [] })
   }
   return { words, formsOf }
 }

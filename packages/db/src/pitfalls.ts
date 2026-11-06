@@ -30,6 +30,25 @@ export const pitfallKind = pgEnum("pitfall_kind", [
 export const PitfallKind = Schema.Literals(pitfallKind.enumValues)
 export type PitfallKind = typeof PitfallKind.Type
 
+/**
+ * The kinds that can surprise a learner of each language: a pitfall on a Japanese word is for an
+ * English speaker learning Japanese, one on an English word for a Japanese speaker learning
+ * English. A false friend is a katakana loan misleading a Japanese speaker, so it is never on a
+ * Japanese word; a rude-upward trap is Japanese politeness, never on an English one.
+ */
+export const PITFALL_KINDS: Readonly<Record<"ja" | "en", ReadonlyArray<PitfallKind>>> = {
+  ja: [
+    "rude_upward",
+    "keigo_direction",
+    "set_phrase",
+    "particle_pattern",
+    "gendered_speech",
+    "confusable",
+    "collocation"
+  ],
+  en: ["false_friend", "textbook_english", "directness", "variety", "confusable", "collocation"]
+}
+
 /** A word carries at most this many pitfalls; `rank` runs from 1 to it. */
 export const MAX_PITFALLS = 3
 

@@ -9,6 +9,8 @@ export {
   insertEntries,
   linkLoans,
   loanCandidates,
+  resolveWord,
+  saveKotoriPitfalls,
   sharedGlossCandidates,
   tagLabels
 } from "./queries.ts"

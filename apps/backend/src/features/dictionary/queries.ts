@@ -1,5 +1,6 @@
 import type { EntryRecord, Language } from "@kotori/contracts"
 import {
+  type DraftPitfall,
   labels,
   loanLinks,
   patterns,
@@ -1058,3 +1059,50 @@ export const entriesByPriority = Effect.fn("dictionary.entriesByPriority")(funct
 export type FormMatch = Effect.Success<ReturnType<typeof findForms>>[number]
 /** A gloss found by one of the gloss searches, with its rank and its sense's gloss count. */
 export type GlossMatch = Effect.Success<ReturnType<typeof searchGlosses>>[number]
+
+/**
+ * The entry a word names, when exactly one is written that way (inflections aside): 上手 names
+ * two (じょうず, うわて), so it names neither rather than guess.
+ */
+export const resolveWord = Effect.fn("dictionary.resolveWord")(function* (
+  db: DatabaseShape,
+  text: string,
+  language: Language
+) {
+  const matches = (yield* findForms(db, [text], language)).filter((form) => form.kind !== "inflection")
+  const ids = [...new Set(matches.map((form) => form.entryId))]
+  return ids.length === 1 ? ids[0]! : null
+})
+
+/**
+ * Replaces Kotori's pitfalls on an entry with `drafted`, in order, each linked to the word it
+ * names where exactly one matches. Pitfalls from other sources stay; together they keep the cap.
+ */
+export const saveKotoriPitfalls = Effect.fn("dictionary.saveKotoriPitfalls")(function* (
+  db: DatabaseShape,
+  entryId: EntryId,
+  language: Language,
+  drafted: ReadonlyArray<DraftPitfall>
+) {
+  const rows: Array<Omit<typeof pitfalls.$inferInsert, "rank">> = []
+  for (const pitfall of drafted) {
+    rows.push({
+      entryId,
+      sense: pitfall.sense,
+      kind: pitfall.kind,
+      text: pitfall.text,
+      aboutEntryId: pitfall.about === null ? null : yield* resolveWord(db, pitfall.about, language),
+      source: "kotori" as const
+    })
+  }
+  yield* db.transaction((tx) =>
+    Effect.gen(function* () {
+      yield* tx.delete(pitfalls).where(and(eq(pitfalls.entryId, entryId), eq(pitfalls.source, "kotori")))
+      const kept = yield* tx.select({ rank: pitfalls.rank }).from(pitfalls).where(eq(pitfalls.entryId, entryId))
+      const taken = new Set(kept.map((row) => row.rank))
+      const free = [1, 2, 3].filter((rank) => !taken.has(rank))
+      const placed = rows.slice(0, free.length).map((row, index) => ({ ...row, rank: free[index]! }))
+      if (placed.length > 0) yield* tx.insert(pitfalls).values(placed)
+    })
+  )
+}, Effect.orDie)
