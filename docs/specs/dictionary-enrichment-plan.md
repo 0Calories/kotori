@@ -40,11 +40,23 @@ Findings for later phases:
 - Seeded sentences carry no furigana (no reading source); `furigana` equals the sentence.
 - Tatoeba is credited in the app's credits; the per-entry sources line is Phase 5's.
 
-### ☐ Phase 3 — Contracts and API
+### ☑ Phase 3 — Contracts and API
 
-- New `Entry` wire shape in `@kotori/contracts`, from the prototype's `model.ts`.
-- Senses carry only the labels that differ from the word's.
-- Similar words derived server-side from cross-references and shared glosses, difference text from labels.
+- `Entry` gains `dictionary`, `usuallyKana`, `labels` (the first sense's), `evidence`, `loanLink` and `pitfalls` (first first, `about` resolved to the word). `Sense` gains `labels` (only what it adds to the word's), `patterns` and `similarWords`; `Example` gains `source`. Labels carry their severity, so the app needs no copy of the table.
+- The old fields stay until Phase 7. The old similar-word type is renamed `JudgedSimilarWord`; the dictionary's pitfall type is `WordPitfall` (the Coach owns `Pitfall`).
+- Similar words are derived on view (`similar.ts`, `usage.ts`): cross-references first, then common words close by gloss, at most four per sense, each word once under its first sense. The difference is a code the app words: `respectful`, `humble`, `more_casual`, `more_formal`, `plain`, `masculine`, `feminine`, `american`, `british`, `older`, `similar`.
+- A loan link shown from either end; with several, the one with a verdict, then the most used.
+- Checked on the full data: 9–30 ms per entry after the first.
+
+Changes from the prototype, after checking on the full data:
+
+- A gloss-close word must share two glosses with the sense, or lead with the same one. One shared gloss tied 結構 to 罰金 ("fine") and マンション to 変 ("flat").
+- Only a label the other word has says how it differs. The prototype read a label only the current word has as the opposite register (ご苦労様 → お疲れ様 "more casual"; slang *eat* → devour "more formal"). Now an unmarked word beside a marked one is `plain`.
+- `masculine` and `feminine` differences were added: JMDict marks 食う `male`, not casual, so 食べる → 食う said only "similar".
+
+Findings for later phases:
+
+- The curated English synonyms are noisy on some senses (slang *eat* lists bang, rock, slap). Cross-references are shown as the dictionary gives them.
 
 ### ☐ Phase 4 — Proposals on the entry model
 
@@ -89,3 +101,4 @@ Findings for later phases:
 
 - 2026-11-06: Plan agreed. Phase 1 done.
 - 2026-11-06: Phase 2 done. Added Phase 6 (voice casting) after seeded sentences came in without formality.
+- 2026-11-06: Phase 3 done. Similar-word rules tightened against the full data (see Phase 3).

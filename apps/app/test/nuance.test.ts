@@ -36,6 +36,9 @@ const sense = (index: number, overrides: Partial<Sense> = {}): Sense => ({
   noteJa: null,
   similar: [],
   examples: [],
+  labels: [],
+  patterns: [],
+  similarWords: [],
   ...overrides
 })
 

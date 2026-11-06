@@ -7,7 +7,11 @@ import {
   examples,
   Formality,
   forms,
+  LabelCode,
+  LabelSeverity,
+  LoanLinkMeaning,
   Nuance,
+  PitfallKind,
   proposalRoute,
   proposalStatus,
   senseNotes,
@@ -16,7 +20,9 @@ import {
   similarWords,
   speakerAge,
   speakerGender,
-  tags
+  Source,
+  tags,
+  usageEvidence
 } from "@kotori/db"
 import { createSelectSchema } from "drizzle-orm/effect-schema"
 import * as Schema from "effect/Schema"
@@ -24,7 +30,7 @@ import * as Struct from "effect/Struct"
 import { Language } from "./Language.ts"
 import { Currency, Loanword } from "./Nuance.ts"
 
-export { EntryId }
+export { EntryId, LabelCode, LabelSeverity, LoanLinkMeaning, PitfallKind, Source }
 
 const EntryRow = createSelectSchema(entries, { id: EntryId })
 // `text` is a bytewise-collated custom column, which derives as unknown.
@@ -50,12 +56,103 @@ export const CrossReference = Schema.Struct({
 })
 export type CrossReference = typeof CrossReference.Type
 
-export const SimilarWord = Schema.Struct({
+/** A similar word as Jev judged it, stored with its difference; replaced by `SimilarWord` and removed with the old model. */
+export const JudgedSimilarWord = Schema.Struct({
   entryId: EntryId,
   ...Struct.pick(EntryRow.fields, ["headword", "reading"]),
   meaning: Schema.String,
   ...Struct.pick(SimilarRow.fields, ["difference", "confidence"]),
   formality: Schema.NullOr(Formality)
+})
+export type JudgedSimilarWord = typeof JudgedSimilarWord.Type
+
+/** Another entry a fact points at: the word to compare with, or not to confuse it with. */
+export const WordRef = Schema.Struct({
+  entryId: EntryId,
+  ...Struct.pick(EntryRow.fields, ["headword", "reading"])
+})
+export type WordRef = typeof WordRef.Type
+
+/**
+ * A usage label (casual, respectful, archaic, British…) and where it came from: the dictionary,
+ * or Kotori filling a gap the dictionary left. Its severity says how loudly to show it.
+ */
+export const Label = Schema.Struct({
+  code: LabelCode,
+  severity: LabelSeverity,
+  source: Source
+})
+export type Label = typeof Label.Type
+
+/** How a sense is used: the dictionary's own note ("usu. to one's subordinate") or Kotori's context beside it. */
+export const Pattern = Schema.Struct({
+  text: Schema.String,
+  source: Source,
+  /** The word the note compares with, when it names one. */
+  about: Schema.NullOr(WordRef)
+})
+export type Pattern = typeof Pattern.Type
+
+/** One short teaching where a learner would be surprised, in the learner's language. */
+export const WordPitfall = Schema.Struct({
+  id: Schema.Int,
+  kind: PitfallKind,
+  text: Schema.String,
+  /** The sense it is about; null for the whole word. */
+  sense: Schema.NullOr(Schema.Int),
+  /** The word to compare with or not to confuse it with. */
+  about: Schema.NullOr(WordRef),
+  source: Source
+})
+export type WordPitfall = typeof WordPitfall.Type
+
+/** What the seeds say about how much a word is used; see the `usage_evidence` table. */
+export const UsageEvidence = Schema.Struct(
+  Struct.pick(createSelectSchema(usageEvidence).fields, ["everyday", "spokenCount", "familiarity"])
+)
+export type UsageEvidence = typeof UsageEvidence.Type
+
+/** A katakana word and the English word it was borrowed from, read the same from both entries. */
+export const LoanLink = Schema.Struct({
+  katakana: Schema.String,
+  katakanaEntryId: Schema.NullOr(EntryId),
+  english: Schema.String,
+  englishEntryId: Schema.NullOr(EntryId),
+  /** Whether the loan kept the English meaning; null until a source says. */
+  meaning: Schema.NullOr(LoanLinkMeaning),
+  source: Source
+})
+export type LoanLink = typeof LoanLink.Type
+
+/**
+ * How a similar word differs, read off the two words' labels rather than judged: the respectful
+ * or humble form, more casual or formal, the plain word beside a marked one, mostly said by men or
+ * by women, the American or British word, older-sounding, or, with no telling label, just a
+ * similar meaning. The app words it in the learner's language.
+ */
+export const SimilarDifference = Schema.Literals([
+  "respectful",
+  "humble",
+  "more_casual",
+  "more_formal",
+  "plain",
+  "masculine",
+  "feminine",
+  "american",
+  "british",
+  "older",
+  "similar"
+])
+export type SimilarDifference = typeof SimilarDifference.Type
+
+/** A word close to a sense, from the dictionary's cross-references or a gloss they share. */
+export const SimilarWord = Schema.Struct({
+  ...WordRef.fields,
+  /** What it means where it is like this sense. */
+  meaning: Schema.String,
+  difference: SimilarDifference,
+  /** Whether the dictionary lists it (`xref`) or it only shares a gloss (`gloss`). */
+  via: Schema.Literals(["xref", "gloss"])
 })
 export type SimilarWord = typeof SimilarWord.Type
 
@@ -80,6 +177,8 @@ export type CastBy = typeof CastBy.Type
 
 export const Example = Schema.Struct({
   ...Struct.pick(ExampleRow.fields, ["id", "ja", "furigana", "en", "formality", "note", "noteJa"]),
+  /** Kotori wrote it, or it was seeded from Tatoeba or Wiktionary. */
+  source: Source,
   /** The Japanese sentence, spoken. */
   audioUrl: Schema.NullOr(Schema.String),
   /** The English translation, spoken. */
@@ -103,8 +202,16 @@ export const Sense = Schema.Struct({
   nuance: Schema.NullOr(Nuance),
   /** Kotori's usage note for learners of Japanese, in English (on Japanese words), and for learners of English, in Japanese (on English words). */
   ...Struct.pick(SenseNoteRow.fields, ["note", "noteJa"]),
-  similar: Schema.Array(SimilarWord),
-  examples: Schema.Array(Example)
+  similar: Schema.Array(JudgedSimilarWord),
+  examples: Schema.Array(Example),
+  /**
+   * The labels this sense has that the word's (`Entry.labels`, the first sense's) don't: empty on
+   * the first sense, so a page states each label once.
+   */
+  labels: Schema.Array(Label),
+  patterns: Schema.Array(Pattern),
+  /** Words close to this sense, each listed under the first sense it is close to. */
+  similarWords: Schema.Array(SimilarWord)
 })
 export type Sense = typeof Sense.Type
 
@@ -132,9 +239,19 @@ export type EntryAudio = typeof EntryAudio.Type
  * JMDict for English speakers, an English word for Japanese speakers.
  */
 export const Entry = Schema.Struct({
-  ...Struct.pick(EntryRow.fields, ["id", "language", "headword", "reading", "common"]),
+  ...Struct.pick(EntryRow.fields, ["id", "language", "dictionary", "headword", "reading", "common"]),
   /** The kana reading in rōmaji; empty for English words. */
   romaji: Schema.String,
+  /** Usually written in kana (JMDict's `uk`): a spelling fact, not a register label. */
+  usuallyKana: Schema.Boolean,
+  /** The word's labels: its first sense's. */
+  labels: Schema.Array(Label),
+  /** Null when no seed source says how much the word is used. */
+  evidence: Schema.NullOr(UsageEvidence),
+  /** The katakana loan and its English word, from whichever end this entry is. */
+  loanLink: Schema.NullOr(LoanLink),
+  /** At most three, word-level and sense-scoped together, first first. */
+  pitfalls: Schema.Array(WordPitfall),
   forms: Schema.Array(Form),
   senses: Schema.Array(Sense),
   /** The first headword clip; kept until the app plays from `audio`. */

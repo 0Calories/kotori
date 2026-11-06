@@ -85,7 +85,7 @@ A pitfall is **not** written when the labels already say it: てめえ (derog), 
 
 **Loan link** is one fact read from both ends. On the Japanese entry it is a quiet origin line ("from English mansion, but not what mansion means"). On the English entry, `divergent` is a `false_friend` pitfall and `same` is a quiet "same as 「アドバイス」" chip.
 
-**Similar words** are no longer a stored judgment. Candidates come from cross-references and shared glosses; the difference label is derived from the two words' labels (hon → "the respectful form", col → "more casual", en-GB → "the British word"). Words with the same labels show "similar meaning".
+**Similar words** are no longer a stored judgment. Candidates come from cross-references and shared glosses (two shared, or the same leading gloss); the difference label is derived from the two words' labels (hon → "the respectful form", col → "more casual", en-GB → "the British word"). Only a label the other word has says how it differs; an unmarked word beside a marked one is "the plain word". Words with the same labels show "similar meaning".
 
 ### What goes away
 

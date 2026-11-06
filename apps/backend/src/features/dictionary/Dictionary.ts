@@ -10,6 +10,8 @@ import {
   type Language,
   type SearchMatch,
   type SearchResult,
+  type JudgedSimilarWord,
+  type Label,
   type Sense,
   type SimilarWord,
   type Tag
@@ -52,6 +54,8 @@ import {
   searchJapaneseGlosses,
   tagLabels
 } from "./queries.ts"
+import { type Candidate, differenceOf, pickCandidates, senseLabels } from "./similar.ts"
+import { evidenceFor, labelsBySense, loanLinkFor, patternsBySense, pitfallsFor, sharedGlossesBySense } from "./usage.ts"
 
 export const audioUrl = (key: string) => `/audio/${key}.mp3`
 
@@ -205,6 +209,7 @@ const toExample = (example: ExampleRow, clips: ReadonlyMap<string, string>): Exa
     formality: example.formality,
     note: example.note,
     noteJa: example.noteJa,
+    source: example.source,
     audioUrl: ja === undefined ? null : audioUrl(ja),
     translationAudioUrl: en === undefined ? null : audioUrl(en)
   }
@@ -227,14 +232,29 @@ const joinGlosses = (entry: EntryRecord, glosses: ReadonlyArray<string>) =>
  * and shows the word's first meanings.
  */
 const similarMeaning = (sense: EntryRecord["senses"][number], similar: EntryRecord) => {
+  const shared = sharedSense(sense, similar)
+  return joinGlosses(
+    similar,
+    shared === null ? firstGlosses(similar, 2) : similar.senses[shared]!.glosses.slice(0, 2).map((gloss) => gloss.text)
+  )
+}
+
+/** The earliest sense of `similar` sharing a gloss with `sense`, or null when none does. */
+const sharedSense = (sense: EntryRecord["senses"][number], similar: EntryRecord): number | null => {
   // Glosses are in the other language from the headword, normalised as the import stores them.
   const norm = similar.language === "ja" ? normalizeGloss : normalizeJapaneseGloss
   const own = new Set(sense.glosses.map((gloss) => norm(gloss.text)).filter((text) => text.length > 1))
-  const shared = similar.senses.find((candidate) => candidate.glosses.some((gloss) => own.has(norm(gloss.text))))
-  return joinGlosses(
-    similar,
-    shared === undefined ? firstGlosses(similar, 2) : shared.glosses.slice(0, 2).map((gloss) => gloss.text)
-  )
+  const index = similar.senses.findIndex((candidate) => candidate.glosses.some((gloss) => own.has(norm(gloss.text))))
+  return index === -1 ? null : index
+}
+
+/** At most this many similar words under one sense: the closest, cross-references first. */
+const SIMILAR_PER_SENSE = 4
+
+/** The sense a JMDict cross-reference names ("食べる・たべる・2"), counted from 0; null when it names none. */
+const xrefSense = (xref: string) => {
+  const last = xref.split("・").at(-1) ?? ""
+  return xref.includes("・") && /^\d+$/.test(last) ? Number(last) - 1 : null
 }
 
 /**
@@ -787,6 +807,60 @@ export class Dictionary extends Context.Service<
           }
         }
 
+        // The enrichment model: labels (the word's, then what each sense adds), patterns, pitfalls,
+        // evidence, the loan link, and similar words derived from cross-references and shared glosses.
+        const ownLabels = (yield* labelsBySense(db, [entry.id])).get(entry.id) ?? new Map<number, Array<Label>>()
+        const stated = senseLabels(entry.senses.map((_, index) => ownLabels.get(index) ?? []))
+        const patternRows = yield* patternsBySense(db, entry.id)
+
+        const candidates: Array<Candidate> = [
+          ...entry.senses.flatMap((sense, index) =>
+            sense.xrefs.flatMap((xref): Array<Candidate> => {
+              const { entryId } = resolve(xref)
+              return entryId === null ? [] : [{ sense: index, entryId, otherSense: xrefSense(xref), via: "xref" }]
+            })
+          ),
+          ...(yield* sharedGlossesBySense(db, entry.id, SIMILAR_PER_SENSE)).map((row): Candidate => ({
+            ...row,
+            via: "gloss"
+          }))
+        ]
+        const picked = pickCandidates(entry.id, candidates, SIMILAR_PER_SENSE)
+        const pickedIds = unique(picked.map((candidate) => EntryId.make(candidate.entryId)))
+        const pickedEntries = new Map((yield* getEntries(db, pickedIds)).map((e) => [e.id, e]))
+        const pickedLabels = yield* labelsBySense(db, pickedIds)
+        const codes = (labels: ReadonlyArray<Label> | undefined) => (labels ?? []).map((label) => label.code)
+        const similarWords = (index: number) =>
+          picked
+            .filter((candidate) => candidate.sense === index)
+            .flatMap((candidate): Array<SimilarWord> => {
+              const other = pickedEntries.get(EntryId.make(candidate.entryId))
+              if (other === undefined) return []
+              // A cross-reference naming no sense is close where the two share a gloss, else at
+              // the word's first meanings.
+              const shared = candidate.otherSense ?? sharedSense(entry.senses[index]!, other)
+              const otherSense = shared !== null && other.senses[shared] !== undefined ? shared : null
+              return [
+                {
+                  entryId: EntryId.make(other.id),
+                  headword: other.headword,
+                  reading: other.reading,
+                  meaning:
+                    otherSense === null
+                      ? joinGlosses(other, firstGlosses(other, 2))
+                      : joinGlosses(
+                          other,
+                          other.senses[otherSense]!.glosses.slice(0, 2).map((gloss) => gloss.text)
+                        ),
+                  difference: differenceOf(
+                    codes(ownLabels.get(index)),
+                    codes(pickedLabels.get(other.id)?.get(otherSense ?? 0))
+                  ),
+                  via: candidate.via
+                }
+              ]
+            })
+
         const senses = entry.senses.map((sense, index): Sense => ({
           index,
           glosses: sense.glosses.map((gloss) => gloss.text),
@@ -803,7 +877,7 @@ export class Dictionary extends Context.Service<
           noteJa: notes.get(index)?.noteJa ?? null,
           similar: similarRows
             .filter((row) => row.sense === index)
-            .flatMap((row): Array<SimilarWord> => {
+            .flatMap((row): Array<JudgedSimilarWord> => {
               const similar = similarEntries.get(row.similarId)
               if (similar === undefined) return []
               return [
@@ -820,16 +894,25 @@ export class Dictionary extends Context.Service<
             }),
           examples: examples
             .filter((example) => example.sense === index)
-            .map((example) => toExample(example, exampleAudio))
+            .map((example) => toExample(example, exampleAudio)),
+          labels: stated.senses[index] ?? [],
+          patterns: patternRows.get(index) ?? [],
+          similarWords: similarWords(index)
         }))
 
         return {
           id: EntryId.make(entry.id),
           language: entry.language,
+          dictionary: entry.dictionary,
           headword: entry.headword,
           reading: entry.reading,
           romaji: entry.language === "ja" ? romanize(entry.reading) : "",
           common: entry.common,
+          usuallyKana: entry.senses[0]?.misc.includes("uk") ?? false,
+          labels: stated.word,
+          evidence: yield* evidenceFor(db, entry.id),
+          loanLink: yield* loanLinkFor(db, entry.id),
+          pitfalls: yield* pitfallsFor(db, entry.id),
           forms: entry.forms
             .filter((form) => !form.tags.includes("sK") && !form.tags.includes("sk"))
             .map((form) => ({ text: form.text, kind: form.kind, common: form.common, tags: form.tags.map(tag) })),
