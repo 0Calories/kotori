@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm"
 import { foreignKey, index, integer, text } from "drizzle-orm/pg-core"
 import { source, table } from "./columns.ts"
 import { entries, type EntryId } from "./entries.ts"
@@ -26,6 +27,10 @@ export const patterns = table(
     foreignKey({ columns: [t.entryId, t.sense], foreignColumns: [senses.entryId, senses.position] }).onDelete(
       "cascade"
     ),
-    index("patterns_sense").on(t.entryId, t.sense, t.position)
+    index("patterns_sense").on(t.entryId, t.sense, t.position),
+    // Deleting an entry clears the notes that compare with it.
+    index("patterns_about")
+      .on(t.aboutEntryId)
+      .where(sql`${t.aboutEntryId} IS NOT NULL`)
   ]
 )

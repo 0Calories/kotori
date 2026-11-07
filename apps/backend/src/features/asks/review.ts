@@ -15,6 +15,7 @@ import { Effect, FileSystem, Option, Schema } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 import { APPROVED_EN_FILE, serializeApprovedLine } from "../dictionary/import/eiwa/approved.ts"
 import { toConsolidatedWord } from "../dictionary/import/eiwa/words.ts"
+import type { ImportEntry, SeedEvidence } from "../dictionary/import/seedFacts.ts"
 import { findForms, getEntries, insertEntries, saveKotoriPitfalls } from "../dictionary/queries.ts"
 import { enqueueJob } from "../enrichment/index.ts"
 import { judge } from "./judge.ts"
@@ -30,7 +31,12 @@ import { updateVerdict } from "./queries.ts"
 export const APPROVED_JA_FILE = "data/approved/ja.jsonl"
 
 export const ApprovedJaLine = Schema.Union([
-  Schema.Struct({ entry: EntryRecord, pitfalls: Schema.optional(Schema.Array(DraftPitfall)) }),
+  Schema.Struct({
+    entry: EntryRecord,
+    /** How familiar the word is to natives, 1–5, as the draft judged it: its only evidence of use. */
+    familiarity: Schema.optional(Schema.Int),
+    pitfalls: Schema.optional(Schema.Array(DraftPitfall))
+  }),
   Schema.Struct({ alias: Schema.Struct({ text: Schema.String, base: Schema.String }) })
 ])
 export type ApprovedJaLine = typeof ApprovedJaLine.Type
@@ -57,6 +63,9 @@ export class NoSuchAlias extends Schema.TaggedError<NoSuchAlias>()("NoSuchAlias"
 }) {}
 
 const kanaOnly = /^[\u3040-\u30ffー]+$/u
+
+/** A drafted word's evidence of use: the familiarity Claude judged, nothing counted. */
+const draftEvidence = (familiarity: number): SeedEvidence => ({ everyday: false, spokenCount: null, familiarity })
 
 /**
  * A draft sense as the dictionary stores senses: its labels as usage codes and its patterns as
@@ -220,7 +229,8 @@ export const approveProposal = Effect.fn("review.approveProposal")(function* (
   const draft = approval.headword === undefined ? proposal.draft : { ...proposal.draft, headword: approval.headword }
   const entryId = yield* nextEntryId(db, language)
   const record = draftToRecord(draft, language, entryId)
-  yield* insertEntries(db, [record])
+  // Seeded, so the draft's familiarity is the word's evidence of use from the start.
+  yield* insertEntries(db, [{ ...record, evidence: draftEvidence(draft.familiarity) }], { seeded: true })
   yield* saveKotoriPitfalls(db, entryId, language, draft.pitfalls)
   for (const kind of ["nuance", "examples", "audio"] as const) yield* enqueueJob(db, kind, entryId, 500, now)
   yield* appendLine(
@@ -239,7 +249,11 @@ export const approveProposal = Effect.fn("review.approveProposal")(function* (
           },
           ...(draft.pitfalls.length > 0 ? { pitfalls: draft.pitfalls } : {})
         })
-      : `${encodeJaLine({ entry: record, ...(draft.pitfalls.length > 0 ? { pitfalls: draft.pitfalls } : {}) })}\n`
+      : `${encodeJaLine({
+          entry: record,
+          familiarity: draft.familiarity,
+          ...(draft.pitfalls.length > 0 ? { pitfalls: draft.pitfalls } : {})
+        })}\n`
   )
   yield* db
     .update(proposals)
@@ -300,11 +314,12 @@ export const redoProposal = Effect.fn("review.redoProposal")(function* (db: Data
 export const parseApprovedJa = (
   lines: Iterable<string>
 ): {
-  readonly records: Array<EntryRecord>
+  /** Entries with the familiarity they were approved with, if their line carries one. */
+  readonly records: Array<ImportEntry>
   readonly pitfalls: Array<{ readonly entryId: EntryId; readonly pitfalls: ReadonlyArray<DraftPitfall> }>
   readonly aliases: Array<{ text: string; base: string }>
 } => {
-  const records: Array<EntryRecord> = []
+  const records: Array<ImportEntry> = []
   const pitfalls: Array<{ readonly entryId: EntryId; readonly pitfalls: ReadonlyArray<DraftPitfall> }> = []
   const aliases: Array<{ text: string; base: string }> = []
   for (const line of lines) {
@@ -312,7 +327,8 @@ export const parseApprovedJa = (
     const decoded = decodeJaLine(line)
     if (Option.isNone(decoded)) continue
     if ("entry" in decoded.value) {
-      records.push(decoded.value.entry)
+      const { entry, familiarity } = decoded.value
+      records.push(familiarity === undefined ? entry : { ...entry, evidence: draftEvidence(familiarity) })
       if (decoded.value.pitfalls !== undefined) {
         pitfalls.push({ entryId: decoded.value.entry.id, pitfalls: decoded.value.pitfalls })
       }

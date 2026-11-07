@@ -5,7 +5,7 @@ import { asc, eq } from "drizzle-orm"
 import { Effect, FileSystem, Layer } from "effect"
 import { Database } from "../../src/db/Database.ts"
 import * as JMDict from "../../src/features/dictionary/import/jmdict/JMDict.ts"
-import { insertEntries, linkLoans } from "../../src/features/dictionary/queries.ts"
+import { getEntries, insertEntries, linkLoans } from "../../src/features/dictionary/queries.ts"
 import { examplesFor, saveExamples } from "../../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 import { sense, spelling } from "../fixtures.ts"
@@ -28,7 +28,8 @@ const bite = "<sense><gloss>to bite</gloss></sense>"
 
 const release = (
   kuuSenses: string,
-  mansionSource = '<lsource xml:lang="eng">mansion</lsource>'
+  mansionSource = '<lsource xml:lang="eng">mansion</lsource>',
+  mansionSpelling = "マンション"
 ) => `<?xml version="1.0"?>
 <!DOCTYPE JMdict [
 <!ENTITY v5u "Godan verb with 'u' ending">
@@ -42,7 +43,7 @@ const release = (
 ${kuuSenses}</entry>
 <entry><ent_seq>${gokurou}</ent_seq><k_ele><keb>ご苦労様</keb></k_ele><r_ele><reb>ごくろうさま</reb></r_ele>
 <sense><misc>&pol;</misc><s_inf>usu. to one's subordinate</s_inf><gloss>thank you for your hard work</gloss></sense></entry>
-<entry><ent_seq>${mansion}</ent_seq><r_ele><reb>マンション</reb></r_ele>
+<entry><ent_seq>${mansion}</ent_seq><r_ele><reb>${mansionSpelling}</reb></r_ele>
 <sense><pos>&n;</pos>${mansionSource}<gloss>condominium</gloss></sense></entry>
 </JMdict>`
 
@@ -206,7 +207,10 @@ layer(TestLayer)("seed facts", (it) => {
       current = release(eat + live)
       yield* JMDict.importFile({ file: "JMdict_e_examp.gz" })
       yield* db.delete(labels).where(eq(labels.source, "kotori"))
-      yield* db.insert(labels).values({ entryId: kuu, sense: 1, code: "form", source: "kotori" })
+      yield* db.insert(labels).values([
+        { entryId: kuu, sense: 0, code: "col", source: "kotori" },
+        { entryId: kuu, sense: 1, code: "form", source: "kotori" }
+      ])
       yield* db.insert(patterns).values([
         { entryId: kuu, sense: 0, position: 0, text: "Rough; 食べる is the everyday word.", source: "kotori" },
         { entryId: kuu, sense: 1, position: 0, text: "As in 食っていく.", source: "kotori" }
@@ -220,7 +224,10 @@ layer(TestLayer)("seed facts", (it) => {
       current = release(bite + eat)
       yield* JMDict.importFile({ file: "JMdict_e_examp.gz" })
 
-      assert.deepStrictEqual(yield* labelsOf(kuu), [{ sense: 1, code: "male", source: "jmdict" }])
+      assert.deepStrictEqual(yield* labelsOf(kuu), [
+        { sense: 1, code: "col", source: "kotori" },
+        { sense: 1, code: "male", source: "jmdict" }
+      ])
       const kotoriNotes = yield* db
         .select({ sense: patterns.sense, text: patterns.text })
         .from(patterns)
@@ -250,11 +257,46 @@ layer(TestLayer)("seed facts", (it) => {
       yield* JMDict.importFile({ file: "JMdict_e_examp.gz" })
       assert.strictEqual(yield* db.$count(loanLinks), 0)
 
-      // Re-inserting a stored entry (as an approved alias does) carries no examples or evidence.
-      const before = yield* db.$count(examples, eq(examples.entryId, kuu))
-      yield* insertEntries(db, [{ ...english(yep, "yep", ["col"]), evidence: undefined }])
-      assert.strictEqual(yield* db.$count(examples, eq(examples.entryId, kuu)), before)
-      assert.strictEqual(yield* db.$count(usageEvidence, eq(usageEvidence.entryId, yep)), 1)
+      // Re-inserting a stored entry (as an approved alias does) carries no examples or evidence,
+      // and leaves the seeded ones as they were.
+      const seeded = yield* examplesFor(db, [kuu])
+      assert.isAbove(seeded.length, 0)
+      yield* insertEntries(db, yield* getEntries(db, [kuu]))
+      assert.deepStrictEqual(
+        (yield* examplesFor(db, [kuu])).map((row) => row.id),
+        seeded.map((row) => row.id)
+      )
+      assert.strictEqual(yield* db.$count(usageEvidence, eq(usageEvidence.entryId, kuu)), 1)
+    })
+  )
+
+  it.effect("moves a loan link with its katakana word when JMDict respells it", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      // Each import links loans as it finishes.
+      current = release(eat + live)
+      yield* JMDict.importFile({ file: "JMdict_e_examp.gz" })
+      current = release(eat + live, '<lsource xml:lang="eng">mansion</lsource>', "マンシヨン")
+      yield* JMDict.importFile({ file: "JMdict_e_examp.gz" })
+
+      const links = yield* db.select({ katakana: loanLinks.katakana, entry: loanLinks.katakanaEntryId }).from(loanLinks)
+      assert.deepStrictEqual(links, [{ katakana: "マンシヨン", entry: mansion }])
+    })
+  )
+
+  it.effect("drops an approved word's Kotori labels and notes when the curated file takes it over", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const rizz = EntryId.make(100_000_003)
+      const approved = { ...english(rizz, "rizz", ["sl"]), dictionary: "kotori" as const }
+      yield* insertEntries(db, [
+        { ...approved, senses: [sense(["魅力"], { misc: ["sl"], info: ["Said of a person."] })] }
+      ])
+      assert.deepStrictEqual(yield* labelsOf(rizz), [{ sense: 0, code: "sl", source: "kotori" }])
+
+      yield* insertEntries(db, [english(rizz, "rizz", ["col"])], { seeded: true })
+      assert.deepStrictEqual(yield* labelsOf(rizz), [{ sense: 0, code: "col", source: "enwiktionary" }])
+      assert.strictEqual(yield* db.$count(patterns, eq(patterns.entryId, rizz)), 0)
     })
   )
 })

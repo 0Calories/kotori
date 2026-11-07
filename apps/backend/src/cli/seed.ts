@@ -70,7 +70,7 @@ export const seed = Command.make(
       const approvedJa = resolveFromRoot(APPROVED_JA_FILE)
       if (yield* fs.exists(approvedJa)) {
         const approved = parseApprovedJa((yield* fs.readFileString(approvedJa)).split("\n"))
-        if (approved.records.length > 0) yield* insertEntries(db, approved.records)
+        if (approved.records.length > 0) yield* insertEntries(db, approved.records, { seeded: true })
         for (const { entryId, pitfalls } of approved.pitfalls) yield* saveKotoriPitfalls(db, entryId, "ja", pitfalls)
         for (const alias of approved.aliases) {
           const base = (yield* findForms(db, [alias.base])).find((match) => match.kind !== "inflection")

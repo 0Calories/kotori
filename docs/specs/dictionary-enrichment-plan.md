@@ -31,7 +31,7 @@ Status key: ☐ not started · ◐ in progress · ☑ done
 - `linkLoans` runs after each dictionary import: adds the pairs JMDict names, drops those it no longer names, and resolves the English entry.
 - Claude's examples job replaces only Kotori's sentences, and still runs for words that have only seeded ones. Seeded sentences are not voiced yet.
 - The label vocabulary gained the codes the data uses: JMDict's other dialects, English regions, `m-sl`, `sens`, `nonstd`, `proverb`, `yoji`.
-- Verified on the full data: 219k JMDict entries and 52k English words in 93 s; a second seed changes nothing.
+- Verified on the full data: 219k JMDict entries and 52k English words in 93 s; a second seed leaves the same content. It is not a no-op: dictionary patterns are deleted and reinserted with new ids, and evidence and loan links are rewritten in place.
 
 Findings for later phases:
 
@@ -82,6 +82,27 @@ Findings for later phases:
 - Migrated notes may hold origin claims or warnings, now shown as Kotori patterns. Review pending drafts before approving.
 - Drafts can still be careless with facts (bussin's pitfall says "bussing" is spelled the same). Approval remains the gate.
 
+### ☑ Review of phases 1–4
+
+Two reviews read phases 1–4 before Phase 5 and found these, now fixed:
+
+- `linkLoans` kept a stale pair when JMDict respelled the katakana word, so the entry had two links. The wanted pairs are now computed once, and the delete and the upsert both use them. It also reads only Japanese entries.
+- A word the curated file takes over from Ask Kotori kept the draft's labels and notes, which then looked like Kotori's fill on a dictionary word. The insert now also rebuilds the source of the entry's old dictionary.
+- Approval dropped the draft's familiarity: Japanese words never had evidence of use, and English words had it only after a reseed. Approval now writes the evidence, the Japanese approved file carries the familiarity, and the reseed replays it.
+- The asks list ran a query per draft, plus the whole tag table each time. It now reads every draft, and every word they name, in a few queries.
+- A cross-reference with a reading ("上手・うわて") matched any word spelled that way. The reading now picks among them; it feeds similar words.
+- Draft labels the word's language can't carry (keigo or a dialect on an English word, a region on a Japanese one) are dropped, and a draft with an empty headword is refused.
+- `patterns.about_entry_id` and `pitfalls.about_entry_id` have partial indexes, so deleting an entry doesn't scan both tables.
+- A phase 2 test that could not fail now re-inserts the stored entry, and a moved Kotori label is tested.
+
+Left as they are:
+
+- A sense shows only the labels it adds to the word's; it can't say it lacks one of the word's. Where the first sense is `arch` and a later one is current, the page calls the whole word archaic. This is a choice to confirm.
+- Two JMDict homographs that name the same English word share one link row, held by the lower id; the other entry shows no loan line.
+- Gloss candidates are capped at four per sense before duplicates are removed, so a sense can show fewer similar words than exist.
+- Kotori's pitfalls take the free ranks, so they can sit between pitfalls from other sources. A pitfall's `about` can name its own entry.
+- Older `data/approved/ja.jsonl` lines without `dictionary` would be skipped. No such file exists yet.
+
 ### ☐ Phase 5 — Entry page
 
 - Rebuild `app/entry/[id].tsx` from the prototype; the Ask Kotori draft view renders through the same components.
@@ -120,3 +141,4 @@ Findings for later phases:
 - 2026-11-06: Phase 2 done. Added Phase 6 (voice casting) after seeded sentences came in without formality.
 - 2026-11-06: Phase 3 done. Similar-word rules tightened against the full data (see Phase 3).
 - 2026-11-06: Phase 4 done. Drafts migrated, not regenerated; prompt tightened against live drafts (see Phase 4).
+- 2026-11-06: Phases 1–4 reviewed; fixes committed before Phase 5 (see "Review of phases 1–4").

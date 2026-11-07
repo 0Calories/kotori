@@ -988,6 +988,27 @@ layer(testLayer(false))("Dictionary: labels, patterns, pitfalls and similar word
       )
     })
   )
+
+  it.effect("follows a cross-reference to the word with the reading it names, among words spelled alike", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      const jouzu = EntryId.make(1580940)
+      const uwate = EntryId.make(1580960)
+      const shitate = EntryId.make(1302260)
+      yield* insertEntries(db, [
+        { ...entry(jouzu, "上手", "じょうず", [sense(["skillful"], ["adj-na"])]), priority: 90 },
+        { ...entry(uwate, "上手", "うわて", [sense(["upper hand"], ["n"])]), priority: 40 },
+        entry(shitate, "下手", "したて", [{ ...sense(["inferiority"], ["n"]), xrefs: ["上手・うわて"] }])
+      ])
+      const shown = Option.getOrThrow(yield* dictionary.entry(shitate))
+      assert.deepStrictEqual(shown.senses[0]?.related, [{ text: "上手（うわて）", entryId: uwate }])
+      assert.deepStrictEqual(
+        shown.senses[0]?.similarWords.map((similar) => [similar.entryId, similar.meaning]),
+        [[uwate, "upper hand"]]
+      )
+    })
+  )
 })
 
 layer(testLayer(true))("Dictionary with Jev configured", (it) => {

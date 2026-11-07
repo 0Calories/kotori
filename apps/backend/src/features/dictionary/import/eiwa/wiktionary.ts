@@ -128,13 +128,6 @@ const unique = <A>(items: ReadonlyArray<A>) => [...new Set(items)]
  */
 const STANDALONE_FORM_TAGS = new Set(["abbreviation", "acronym", "initialism", "clipping", "contraction", "ellipsis"])
 
-/**
- * One sense, and the forms it points at when it says "the past tense of …", which are
- * forms of that word rather than meanings: "ate" is no word of its own but eat's past,
- * as 食べた is 食べる's. Leading labels such as "(米話)" or "(他動詞)" become tags; asides
- * that describe the use, such as "(人を)", stay in the gloss as JMDict's English glosses
- * keep "(of a person)".
- */
 /** A sense's example sentences that come with a Japanese translation; the rest teach nothing to read. */
 const readExamples = (raw: RawSense): Array<SeedExample> =>
   (raw.examples ?? []).flatMap((example) => {
@@ -143,6 +136,13 @@ const readExamples = (raw: RawSense): Array<SeedExample> =>
     return en.length > 0 && ja.length > 0 ? [{ ja, en, source: "jawiktionary" as const }] : []
   })
 
+/**
+ * One sense, and the forms it points at when it says "the past tense of …", which are
+ * forms of that word rather than meanings: "ate" is no word of its own but eat's past,
+ * as 食べた is 食べる's. Leading labels such as "(米話)" or "(他動詞)" become tags; asides
+ * that describe the use, such as "(人を)", stay in the gloss as JMDict's English glosses
+ * keep "(of a person)".
+ */
 const readSense = (
   raw: RawSense,
   word: string,

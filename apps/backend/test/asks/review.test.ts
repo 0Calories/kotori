@@ -1,6 +1,6 @@
 import { NodeFileSystem, NodePath } from "@effect/platform-node"
 import { assert, layer } from "@effect/vitest"
-import { type DraftEntry, FIRST_APPROVED_JA_ID, labels, patterns, pitfalls, proposals } from "@kotori/db"
+import { type DraftEntry, FIRST_APPROVED_JA_ID, labels, patterns, pitfalls, proposals, usageEvidence } from "@kotori/db"
 import { asc, eq } from "drizzle-orm"
 import { Effect, FileSystem, Layer } from "effect"
 import { mkdtempSync, rmSync } from "node:fs"
@@ -123,6 +123,11 @@ layer(TestLayer)("proposal review", (it) => {
           { rank: 2, kind: "variety", sense: null, about: null }
         ]
       )
+      // The draft's familiarity is the word's evidence of use from the moment it is approved.
+      assert.deepStrictEqual(
+        yield* db.select().from(usageEvidence).where(eq(usageEvidence.entryId, approved.entryId)),
+        [{ entryId: approved.entryId, everyday: false, spokenCount: null, familiarity: 4 }]
+      )
       const jobs = yield* jobStatusFor(db, approved.entryId)
       assert.deepStrictEqual([...jobs.keys()].toSorted(), ["audio", "examples", "nuance"])
 
@@ -185,6 +190,14 @@ layer(TestLayer)("proposal review", (it) => {
       const parsed = parseApprovedJa((yield* fs.readFileString(files.ja)).split("\n"))
       assert.strictEqual(parsed.records[0]?.id, approved.entryId)
       assert.strictEqual(parsed.records[0]?.senses[0]?.glosses[0]?.text, "the ick")
+      assert.deepStrictEqual(parsed.records[0]?.evidence, { everyday: false, spokenCount: null, familiarity: 3 })
+      assert.deepStrictEqual(
+        yield* db
+          .select({ familiarity: usageEvidence.familiarity })
+          .from(usageEvidence)
+          .where(eq(usageEvidence.entryId, approved.entryId)),
+        [{ familiarity: 3 }]
+      )
       assert.deepStrictEqual(parsed.pitfalls, [{ entryId: approved.entryId, pitfalls: jaDraft.pitfalls }])
     })
   )

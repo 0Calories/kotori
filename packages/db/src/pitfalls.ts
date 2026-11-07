@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { check, foreignKey, integer, pgEnum, smallint, text, unique } from "drizzle-orm/pg-core"
+import { check, foreignKey, index, integer, pgEnum, smallint, text, unique } from "drizzle-orm/pg-core"
 import * as Schema from "effect/Schema"
 import { source, table } from "./columns.ts"
 import { entries, type EntryId } from "./entries.ts"
@@ -82,6 +82,12 @@ export const pitfalls = table(
     unique("pitfalls_rank").on(t.entryId, t.rank),
     check("pitfalls_rank_range", sql`${t.rank} BETWEEN 1 AND ${sql.raw(String(MAX_PITFALLS))}`),
     // A word-level pitfall's null sense skips the check (MATCH SIMPLE).
-    foreignKey({ columns: [t.entryId, t.sense], foreignColumns: [senses.entryId, senses.position] }).onDelete("cascade")
+    foreignKey({ columns: [t.entryId, t.sense], foreignColumns: [senses.entryId, senses.position] }).onDelete(
+      "cascade"
+    ),
+    // Deleting an entry clears the pitfalls that compare with it.
+    index("pitfalls_about")
+      .on(t.aboutEntryId)
+      .where(sql`${t.aboutEntryId} IS NOT NULL`)
   ]
 )

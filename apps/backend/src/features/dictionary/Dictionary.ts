@@ -795,12 +795,27 @@ export class Dictionary extends Context.Service<
         // an English word's are its synonyms and antonyms, matched whatever their case.
         const xrefTexts = unique(entry.senses.flatMap((s) => [...s.xrefs, ...s.antonyms]).map((x) => x.split("・")[0]!))
         const xrefMatches = yield* findForms(db, xrefTexts, entry.language)
+        // "上手・うわて" names the 上手 read うわて, not じょうず: a reading picks among words spelled alike.
+        const readingOf = (xref: string) => {
+          const reading = xref.split("・")[1]
+          return reading !== undefined && !/^\d+$/.test(reading) ? reading : null
+        }
+        const xrefReadings = unique(
+          entry.senses.flatMap((s) => [...s.xrefs, ...s.antonyms]).flatMap((x) => readingOf(x) ?? [])
+        )
+        const readAs = new Set(
+          (yield* findForms(db, xrefReadings, entry.language)).map((m) => `${m.entryId}\u0000${m.text}`)
+        )
         const fold = (text: string) => (entry.language === "en" ? text.toLowerCase() : text)
         const resolve = (xref: string) => {
           const [text = xref, reading] = xref.split("・")
+          const read = readingOf(xref)
+          const pick = (pool: ReadonlyArray<(typeof xrefMatches)[number]>) =>
+            pool.find((m) => m.text === text && m.kind !== "inflection") ??
+            pool.find((m) => fold(m.text) === fold(text))
           const match =
-            xrefMatches.find((m) => m.text === text && m.kind !== "inflection") ??
-            xrefMatches.find((m) => fold(m.text) === fold(text))
+            (read === null ? undefined : pick(xrefMatches.filter((m) => readAs.has(`${m.entryId}\u0000${read}`)))) ??
+            pick(xrefMatches)
           return {
             text: reading !== undefined && !/^\d+$/.test(reading) ? `${text}（${reading}）` : text,
             entryId: match ? EntryId.make(match.entryId) : null

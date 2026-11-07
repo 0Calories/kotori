@@ -256,15 +256,32 @@ const moveSenseRows = Effect.fnUntraced(function* (
 
 /**
  * Deletes the labels and patterns an insert rebuilds from its records: those from a seed source or
- * from the entry's own dictionary (an approved Ask Kotori word's are Kotori's). What other sources
- * layered on top, such as Kotori's `form` fill on a JMDict word, stays.
+ * from the entry's own dictionary (an approved Ask Kotori word's are Kotori's), before and after
+ * the insert, so a word the curated file takes over from Ask Kotori keeps none of the draft's.
+ * What other sources layered on top, such as Kotori's `form` fill on a JMDict word, stays. Runs
+ * before the entries are upserted, while they still name their old dictionary.
  */
 const deleteSeedFacts = Effect.fnUntraced(function* (tx: Tx, records: ReadonlyArray<ImportEntry>) {
-  const byDictionary = new Map<Source, Array<EntryId>>()
-  for (const entry of records)
-    byDictionary.set(entry.dictionary, [...(byDictionary.get(entry.dictionary) ?? []), entry.id])
-  for (const [dictionary, group] of byDictionary) {
-    const rebuilt = [...new Set<Source>([...SEED_SOURCES, dictionary])]
+  const stored = new Map<EntryId, Source>()
+  for (const chunk of chunks(
+    records.map((entry) => entry.id),
+    5000
+  )) {
+    const rows = yield* tx
+      .select({ id: entries.id, dictionary: entries.dictionary })
+      .from(entries)
+      .where(inArray(entries.id, [...chunk]))
+    for (const row of rows) stored.set(row.id, row.dictionary)
+  }
+  const groups = new Map<string, { readonly rebuilt: ReadonlyArray<Source>; readonly ids: Array<EntryId> }>()
+  for (const entry of records) {
+    const rebuilt = [...new Set<Source>([...SEED_SOURCES, entry.dictionary, stored.get(entry.id) ?? entry.dictionary])]
+    const key = rebuilt.join()
+    const group = groups.get(key) ?? { rebuilt, ids: [] }
+    group.ids.push(entry.id)
+    groups.set(key, group)
+  }
+  for (const { rebuilt, ids: group } of groups.values()) {
     for (const chunk of chunks(group, 5000)) {
       yield* tx.delete(labels).where(and(inArray(labels.entryId, [...chunk]), inArray(labels.source, rebuilt)))
       yield* tx.delete(patterns).where(and(inArray(patterns.entryId, [...chunk]), inArray(patterns.source, rebuilt)))
@@ -526,23 +543,28 @@ export const insertEntries = Effect.fn("dictionary.insertEntries")(function* (
 export const linkLoans = Effect.fn("dictionary.linkLoans")(function* (db: DatabaseShape) {
   yield* db.transaction((tx) =>
     Effect.gen(function* () {
-      // Two entries spelled alike may name the same word; the lower id, JMDict's older entry, holds it.
+      // The pairs JMDict names now, by the katakana headword: a pair whose word changed headword
+      // is a different pair, and the old one goes. Two entries spelled alike may name the same
+      // word; the lower id, JMDict's older entry, holds it.
+      // One statement: the delete and the upsert see the same snapshot and touch disjoint pairs.
       yield* tx.execute(sql`
+        WITH wanted AS (
+          SELECT DISTINCT ON (e.headword, s.english) e.headword AS katakana, e.id AS entry_id, s.english
+          FROM ${senses} AS se
+          JOIN ${entries} AS e ON e.id = se.entry_id
+          CROSS JOIN LATERAL unnest(se.sources) AS s(english)
+          WHERE e.dictionary = 'jmdict' AND e.language = 'ja'
+          ORDER BY e.headword, s.english, e.id
+        ), dropped AS (
+          DELETE FROM ${loanLinks} AS l
+          WHERE l.source = 'jmdict'
+            AND NOT EXISTS (SELECT 1 FROM wanted AS w WHERE w.katakana = l.katakana AND w.english = l.english)
+        )
         INSERT INTO ${loanLinks} (katakana, katakana_entry_id, english, source)
-        SELECT DISTINCT ON (e.headword, s.english) e.headword, e.id, s.english, 'jmdict'
-        FROM ${senses} AS se
-        JOIN ${entries} AS e ON e.id = se.entry_id
-        CROSS JOIN LATERAL unnest(se.sources) AS s(english)
-        WHERE e.dictionary = 'jmdict'
-        ORDER BY e.headword, s.english, e.id
+        SELECT katakana, entry_id, english, 'jmdict' FROM wanted
         ON CONFLICT (katakana, english)
         DO UPDATE SET katakana_entry_id = excluded.katakana_entry_id, source = excluded.source
-      `)
-      yield* tx.execute(sql`
-        DELETE FROM ${loanLinks} AS l
-        WHERE l.source = 'jmdict' AND NOT EXISTS (
-          SELECT 1 FROM ${senses} AS se WHERE se.entry_id = l.katakana_entry_id AND l.english = ANY (se.sources)
-        )
+        WHERE (${loanLinks}.katakana_entry_id, ${loanLinks}.source) IS DISTINCT FROM (excluded.katakana_entry_id, excluded.source)
       `)
       yield* tx.execute(sql`
         WITH matched AS (

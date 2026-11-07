@@ -9,7 +9,7 @@ import { join } from "node:path"
 import { Database } from "../../src/db/Database.ts"
 import { migrationsFolder } from "../../src/db/Migrate.ts"
 import { ensureUser } from "../../src/features/accounts/queries.ts"
-import { checkDraft, viewDraft } from "../../src/features/asks/draft.ts"
+import { checkDraft, viewDraft, viewDrafts } from "../../src/features/asks/draft.ts"
 import { insertEntries } from "../../src/features/dictionary/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 import { english, entries, kana, kanji, sense, U1 } from "../fixtures.ts"
@@ -82,10 +82,24 @@ describe("checkDraft", () => {
     // "set_phrase" on sense 2: that sense had no gloss and is gone, so the pitfall goes too.
   })
 
-  it("keeps familiarity on its 1–5 scale, and has no draft when no sense has a gloss", () => {
+  it("keeps familiarity on its 1–5 scale, and has no draft when no sense has a gloss or no headword", () => {
     assert.strictEqual(checkDraft(output({ familiarity: 9 }), "en")?.familiarity, 5)
     assert.strictEqual(checkDraft(output({ familiarity: 0 }), "en")?.familiarity, 1)
     assert.isNull(checkDraft(output({ senses: [{ glosses: [" "], pos: [], labels: [], patterns: [] }] }), "en"))
+    assert.isNull(checkDraft(output({ headword: "  " }), "en"))
+  })
+
+  it("keeps only labels the word's language can carry", () => {
+    const labelled = (labels: Array<string>) =>
+      output({ senses: [{ glosses: ["意味"], pos: [], labels, patterns: [] }] })
+    assert.deepStrictEqual(
+      checkDraft(labelled(["sl", "en-GB", "uncountable", "hon", "ksb"]), "en")?.senses[0]?.labels,
+      ["sl", "en-GB", "uncountable"]
+    )
+    assert.deepStrictEqual(
+      checkDraft(labelled(["sl", "en-GB", "uncountable", "hon", "ksb"]), "ja")?.senses[0]?.labels,
+      ["sl", "hon", "ksb"]
+    )
   })
 })
 
@@ -112,6 +126,7 @@ layer(DatabaseMemory)("drafts", (it) => {
       const db = yield* Database
       yield* insertEntries(db, [
         ...entries,
+        ...english,
         {
           ...entries[0]!,
           id: EntryId.make(1900001),
@@ -139,6 +154,21 @@ layer(DatabaseMemory)("drafts", (it) => {
       assert.deepStrictEqual(
         view.pitfalls.map((pitfall) => pitfall.about?.headword ?? null),
         ["食べる", null, null]
+      )
+
+      // A list of drafts in both languages is read at once; each names words in its own language.
+      const naming = (about: string): DraftEntry => ({
+        ...stored,
+        pitfalls: [{ kind: "confusable", text: "Compare.", sense: null, about }]
+      })
+      const views = yield* viewDrafts(db, [
+        { draft: naming("食べる"), language: "ja" },
+        { draft: naming("Eat"), language: "en" },
+        { draft: naming("eat"), language: "ja" }
+      ])
+      assert.deepStrictEqual(
+        views.map((own) => own.pitfalls[0]?.about?.headword ?? null),
+        ["食べる", "eat", null]
       )
     })
   )
