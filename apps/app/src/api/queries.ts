@@ -160,7 +160,7 @@ export const useNaturalness = () =>
 export const useHowToSay = () =>
   useMutation({ mutationFn: (request: HowToSayRequest) => call((api) => api.coach.howToSay({ payload: request })) })
 
-/** Asks the worker to add nuance, examples and audio to an entry that has none yet. */
+/** Asks the worker to add example sentences and audio to an entry that has none yet. */
 export const useEnrich = (id: number) => {
   const client = useQueryClient()
   return useMutation({

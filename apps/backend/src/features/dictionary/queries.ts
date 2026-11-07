@@ -22,16 +22,11 @@ import {
   type NoteId,
   notes,
   nullIfEmpty,
-  senseNotes,
-  senseNuance,
   senses,
-  similarWords,
   tags
 } from "@kotori/db"
 import {
   englishPhraseVariants,
-  KATAKANA_WORD,
-  type LoanCandidate,
   nearBest,
   normalizeGloss,
   normalizeJapaneseGloss,
@@ -54,15 +49,14 @@ import {
   notExists,
   sql
 } from "drizzle-orm"
-import { alias } from "drizzle-orm/pg-core"
 import { Effect } from "effect"
 import { chunks } from "../../db/chunks.ts"
 import type { DatabaseShape } from "../../db/Database.ts"
 import { matchSenses } from "./import/matchSenses.ts"
 import { type ImportEntry, labelsOf, patternsOf, SEED_SOURCES, speaks } from "./import/seedFacts.ts"
 
-/** Enrichment an entry can be missing, used to find work for the worker. The English side is judged on view, never backfilled. */
-export type EnrichmentKind = Exclude<(typeof jobKind.enumValues)[number], "english">
+/** Enrichment an entry can be missing, used to find work for the worker. */
+export type EnrichmentKind = (typeof jobKind.enumValues)[number]
 
 export interface PriorityQuery {
   readonly limit: number
@@ -123,24 +117,11 @@ const sensesMoved = Effect.fnUntraced(function* (tx: Tx, records: ReadonlyArray<
 
 /**
  * Takes out the rows keyed by sense of entries whose senses move, until the senses are in
- * place: judgments, notes, similar words and labels are held and deleted; example sentences,
- * patterns, pitfalls and saved words are only listed, as they are moved in place (keeping their
- * ids, and the sentences their audio).
+ * place: labels are held and deleted; example sentences, patterns, pitfalls and saved words are
+ * only listed, as they are moved in place (keeping their ids, and the sentences their audio).
  */
 const takeSenseRows = Effect.fnUntraced(function* (tx: Tx, ids: ReadonlyArray<EntryId>) {
   const held = {
-    nuance: yield* tx
-      .select()
-      .from(senseNuance)
-      .where(inArray(senseNuance.entryId, [...ids])),
-    notes: yield* tx
-      .select()
-      .from(senseNotes)
-      .where(inArray(senseNotes.entryId, [...ids])),
-    similar: yield* tx
-      .select()
-      .from(similarWords)
-      .where(inArray(similarWords.entryId, [...ids])),
     sentences: yield* tx
       .select({ id: examples.id, entryId: examples.entryId, sense: examples.sense })
       .from(examples)
@@ -165,9 +146,6 @@ const takeSenseRows = Effect.fnUntraced(function* (tx: Tx, ids: ReadonlyArray<En
       .where(and(inArray(pitfalls.entryId, [...ids]), isNotNull(pitfalls.sense)))
   }
   yield* tx.delete(labels).where(inArray(labels.entryId, [...ids]))
-  yield* tx.delete(senseNuance).where(inArray(senseNuance.entryId, [...ids]))
-  yield* tx.delete(senseNotes).where(inArray(senseNotes.entryId, [...ids]))
-  yield* tx.delete(similarWords).where(inArray(similarWords.entryId, [...ids]))
   return held
 })
 
@@ -184,9 +162,6 @@ const moveSenseRows = Effect.fnUntraced(function* (
       const sense = to(row.entryId, row.sense)
       return sense === null ? [] : [{ ...row, sense }]
     })
-  for (const chunk of chunks(follow(held.nuance), 1000)) yield* tx.insert(senseNuance).values([...chunk])
-  for (const chunk of chunks(follow(held.notes), 1000)) yield* tx.insert(senseNotes).values([...chunk])
-  for (const chunk of chunks(follow(held.similar), 1000)) yield* tx.insert(similarWords).values([...chunk])
   for (const chunk of chunks(follow(held.labels), 1000)) yield* tx.insert(labels).values([...chunk])
 
   // Patterns and sense-scoped pitfalls move by id, as sentences do; one whose sense is gone goes.
@@ -945,88 +920,6 @@ export const searchJapaneseGlosses = Effect.fn("dictionary.searchJapaneseGlosses
     .limit(limit)
 }, Effect.orDie)
 
-/** Other entries in the same dictionary sharing an exact gloss with the given sense: candidates for "similar words". */
-export const sharedGlossCandidates = Effect.fn("dictionary.sharedGlossCandidates")(function* (
-  db: DatabaseShape,
-  entryId: EntryId,
-  sense: number,
-  limit: number
-) {
-  const g1 = alias(glosses, "g1")
-  const g2 = alias(glosses, "g2")
-  const e1 = alias(entries, "e1")
-  return yield* db
-    .select({
-      entryId: g2.entryId,
-      sense: sql<number>`min(${g2.sense})`.mapWith(Number),
-      gloss: sql<string>`min(${g2.text})`.mapWith(String)
-    })
-    .from(g1)
-    .innerJoin(e1, eq(e1.id, g1.entryId))
-    .innerJoin(g2, and(eq(g2.norm, g1.norm), ne(g2.entryId, g1.entryId)))
-    .innerJoin(entries, and(eq(entries.id, g2.entryId), eq(entries.language, e1.language)))
-    .where(and(eq(g1.entryId, entryId), eq(g1.sense, sense), sql`length(${g1.norm}) > 1`))
-    .groupBy(g2.entryId)
-    .orderBy(desc(sql`bool_or(${entries.common})`), desc(max(entries.priority)))
-    .limit(limit)
-}, Effect.orDie)
-
-/**
- * Common katakana words that may be the loanword of each English word: entries with the word
- * as a gloss, or whose JMDict source (`lsource`) it is; most frequent first, at most `limit`
- * per word. `loanCandidatesIn` is the same search over parsed entries.
- */
-export const loanCandidates = Effect.fn("dictionary.loanCandidates")(function* (
-  db: DatabaseShape,
-  words: ReadonlyArray<string>,
-  limit: number
-) {
-  const wanted = [...new Set(words.map(normalizeGloss))].filter((word) => word.length > 1)
-  if (wanted.length === 0) return []
-  const katakana = and(
-    eq(entries.language, "ja"),
-    eq(entries.common, true),
-    sql`${entries.headword} ~ ${KATAKANA_WORD}`
-  )
-  const byGloss = yield* db
-    .selectDistinct({ word: glosses.norm, entryId: glosses.entryId, priority: entries.priority })
-    .from(glosses)
-    .innerJoin(entries, eq(entries.id, glosses.entryId))
-    .where(and(inArray(glosses.norm, wanted), katakana))
-  // Sources are matched loosely here and exactly below, as `normalizeGloss` matches glosses.
-  const listed = sql.join(
-    wanted.map((word) => sql`${word}`),
-    sql`, `
-  )
-  const bySource = yield* db
-    .select({ entryId: senses.entryId, sources: listOf(senses.sources), priority: entries.priority })
-    .from(senses)
-    .innerJoin(entries, eq(entries.id, senses.entryId))
-    .where(
-      and(katakana, sql`EXISTS (SELECT 1 FROM unnest(${senses.sources}) AS source WHERE lower(source) IN (${listed}))`)
-    )
-
-  const found = new Map<string, Map<EntryId, { readonly by: LoanCandidate["by"]; readonly priority: number }>>()
-  const add = (word: string, entryId: EntryId, by: LoanCandidate["by"], priority: number) => {
-    const forWord = found.get(word) ?? new Map()
-    if (by === "source" || !forWord.has(entryId)) forWord.set(entryId, { by, priority })
-    found.set(word, forWord)
-  }
-  for (const row of byGloss) add(row.word, row.entryId, "gloss", row.priority)
-  for (const row of bySource) {
-    for (const source of row.sources) {
-      const word = normalizeGloss(source)
-      if (wanted.includes(word)) add(word, row.entryId, "source", row.priority)
-    }
-  }
-  return [...found].flatMap(([word, forWord]) =>
-    [...forWord]
-      .sort(([a, x], [b, y]) => y.priority - x.priority || a - b)
-      .slice(0, limit)
-      .map(([entryId, { by }]) => ({ word, entryId, by }))
-  )
-}, Effect.orDie)
-
 /** Commonness and frequency of entries, for ranking without loading them. */
 export const entryRanks = Effect.fn("dictionary.entryRanks")(function* (
   db: DatabaseShape,
@@ -1042,8 +935,6 @@ export const entryRanks = Effect.fn("dictionary.entryRanks")(function* (
 
 const missing = (db: DatabaseShape, kind: EnrichmentKind) => {
   switch (kind) {
-    case "nuance":
-      return notExists(db.select().from(senseNuance).where(eq(senseNuance.entryId, entries.id)))
     case "examples":
       // Seeded sentences don't count: Claude's are the ones the worker writes.
       return notExists(

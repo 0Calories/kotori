@@ -22,6 +22,7 @@ import {
   labelItems,
   loanChip,
   loanLine,
+  resultLabels,
   saveDetails,
   sensePitfalls,
   similarWords,
@@ -69,17 +70,11 @@ const sense = (index: number, overrides: Partial<Sense> = {}): Sense => ({
   index,
   glosses: [`meaning ${index}`],
   partsOfSpeech: [],
-  misc: [],
   fields: [],
-  dialects: [],
   info: [],
   appliesTo: [],
   related: [],
   antonyms: [],
-  nuance: null,
-  note: null,
-  noteJa: null,
-  similar: [],
   examples: [],
   labels: [],
   patterns: [],
@@ -105,8 +100,7 @@ const entry = (overrides: Partial<Entry> = {}): Entry => ({
   senses: [sense(0)],
   audioUrl: null,
   audio: [],
-  loan: null,
-  enrichment: { nuance: "ready", examples: "ready", audio: "ready" },
+  enrichment: { examples: "ready", audio: "ready" },
   ...overrides
 })
 
@@ -150,6 +144,18 @@ describe("label chips", () => {
     // The Japanese interface has its own words, not the English ones copied over.
     assert.notEqual(strings.ja.labels.help.col, strings.en.labels.help.col)
     assert.notEqual(strings.ja.labels.name.uncountable, strings.en.labels.name.uncountable)
+  })
+})
+
+describe("search result labels", () => {
+  it("show at most two, loudest first, and never a grammar fact", () => {
+    const codes = (labels: ReadonlyArray<Label>) => labels.map((own) => own.code)
+    assert.deepStrictEqual(codes(resultLabels([label("id"), label("form"), label("col"), label("vulg")])), [
+      "vulg",
+      "col"
+    ])
+    assert.deepStrictEqual(codes(resultLabels([label("id"), label("en-US")])), ["en-US"])
+    assert.deepStrictEqual(resultLabels([label("id")]), [])
   })
 })
 

@@ -222,7 +222,6 @@ layer(TestLayer)("Kotori API", (it) => {
       const detail = yield* api.dictionary.entry({ params: { id: english.entries[0]!.id } })
       assert.deepStrictEqual(detail.senses[0]?.glosses, ["to eat"])
       assert.deepStrictEqual(detail.enrichment, {
-        nuance: "unavailable",
         examples: "unavailable",
         audio: "unavailable"
       })
@@ -464,7 +463,7 @@ layer(TestLayer)("Kotori API", (it) => {
       yield* signedIn("coach@example.com")
       const api = yield* client
       const health = yield* api.health()
-      assert.deepStrictEqual(health.features, { coach: false, nuance: false, audio: false, email: true })
+      assert.deepStrictEqual(health.features, { coach: false, formality: false, audio: false, email: true })
 
       const error = yield* api.coach.naturalness({ payload: { text: "私は学生です。" } }).pipe(Effect.flip)
       assert.strictEqual(error._tag, "AiUnavailable")

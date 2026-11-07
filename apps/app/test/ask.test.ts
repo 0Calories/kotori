@@ -44,8 +44,7 @@ const entry: EntrySummary = {
   romaji: "",
   meanings: ["しかたがない"],
   partOfSpeech: "exp",
-  formality: null,
-  currency: null,
+  labels: [],
   inflection: [],
   audioUrl: null
 }

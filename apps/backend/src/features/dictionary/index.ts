@@ -8,10 +8,8 @@ export {
   getEntries,
   insertEntries,
   linkLoans,
-  loanCandidates,
   resolveWord,
   saveKotoriPitfalls,
-  sharedGlossCandidates,
   tagLabels
 } from "./queries.ts"
 export { labelsBySense } from "./usage.ts"

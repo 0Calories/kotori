@@ -7,10 +7,52 @@ import { Chip } from "./Chip.tsx"
 import { Icon } from "./Icon.tsx"
 import { Text } from "./Text.tsx"
 
+/** A chip's colours by how loudly it should speak: `quiet` outlined, `info` green, `caution` amber, `avoid` rose. */
+const useSeverityColors = (severity: LabelSeverity, onTint: boolean) => {
+  const { color } = useTheme()
+  return (
+    {
+      quiet: { fg: color.textMuted, bg: "transparent", ring: color.border },
+      // On the hero's tint a green chip would vanish, so it sits on white there.
+      info: onTint
+        ? { fg: color.primaryDeep, bg: color.surface, ring: color.surface }
+        : { fg: color.primaryDeep, bg: color.primaryTint, ring: color.primaryTint },
+      caution: { fg: color.caution, bg: color.cautionSoft, ring: color.cautionSoft },
+      avoid: { fg: color.accent, bg: color.accentSoft, ring: color.accentSoft }
+    } satisfies Record<LabelSeverity, { fg: string; bg: string; ring: string }>
+  )[severity]
+}
+
 /**
- * A chip coloured by how loudly it should speak: `quiet` outlined, `info` green, `caution` amber,
- * `avoid` rose. Kotori's carry the ✦ mark. Pressing it (or hovering, on the web) opens its
- * explanation under the row.
+ * A label chip that doesn't explain itself, for a place that is a link as a whole, such as a
+ * search result: coloured by severity, Kotori's carrying the ✦ mark.
+ */
+export const LabelTag = ({ item }: { readonly item: ChipItem }) => {
+  const colors = useSeverityColors(item.severity, false)
+  return (
+    <View
+      style={{
+        minHeight: 26,
+        paddingVertical: 4,
+        paddingHorizontal: 10,
+        justifyContent: "center",
+        backgroundColor: colors.bg,
+        borderWidth: 1,
+        borderColor: colors.ring,
+        borderRadius: 13,
+        alignSelf: "flex-start"
+      }}
+    >
+      <Text variant="caption" style={{ color: colors.fg, lineHeight: 16 }}>
+        {item.kotori ? `${item.label} ✦` : item.label}
+      </Text>
+    </View>
+  )
+}
+
+/**
+ * A chip coloured by how loudly it should speak (`useSeverityColors`). Kotori's carry the ✦ mark.
+ * Pressing it (or hovering, on the web) opens its explanation under the row.
  */
 const SeverityChip = ({
   item,
@@ -25,18 +67,7 @@ const SeverityChip = ({
   readonly onToggle: () => void
   readonly onHover: () => void
 }) => {
-  const { color } = useTheme()
-  const colors = (
-    {
-      quiet: { fg: color.textMuted, bg: "transparent", ring: color.border },
-      // On the hero's tint a green chip would vanish, so it sits on white there.
-      info: onTint
-        ? { fg: color.primaryDeep, bg: color.surface, ring: color.surface }
-        : { fg: color.primaryDeep, bg: color.primaryTint, ring: color.primaryTint },
-      caution: { fg: color.caution, bg: color.cautionSoft, ring: color.cautionSoft },
-      avoid: { fg: color.accent, bg: color.accentSoft, ring: color.accentSoft }
-    } satisfies Record<LabelSeverity, { fg: string; bg: string; ring: string }>
-  )[item.severity]
+  const colors = useSeverityColors(item.severity, onTint)
   return (
     <Pressable
       onPress={onToggle}

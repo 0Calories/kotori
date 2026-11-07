@@ -1,17 +1,5 @@
 import { assert, layer } from "@effect/vitest"
-import {
-  Claude,
-  ClaudeError,
-  ElevenLabs,
-  ENGLISH_QUESTIONS_VERSION,
-  interpretSense,
-  Jev,
-  JevError,
-  Pronouncer,
-  QUESTIONS_VERSION,
-  type SenseAnswers,
-  TtsError
-} from "@kotori/ai"
+import { Claude, ClaudeError, ElevenLabs, Jev, JevError, Pronouncer, TtsError } from "@kotori/ai"
 import { EntryId, type EntryRecord } from "@kotori/contracts"
 import { jobs, patterns, pitfalls } from "@kotori/db"
 import { inArray } from "drizzle-orm"
@@ -29,16 +17,7 @@ import {
   failJob,
   jobStatusFor
 } from "../src/features/enrichment/jobs.ts"
-import {
-  examplesFor,
-  saveCasting,
-  saveExamples,
-  saveLoanTrap,
-  saveLoanWord,
-  saveNuance,
-  saveSenseNotes,
-  saveSimilar
-} from "../src/features/enrichment/queries.ts"
+import { examplesFor, saveCasting, saveExamples } from "../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 
 // The dictionary service on PGlite with audio configured, so it queues audio jobs; nothing is synthesised.
@@ -208,20 +187,6 @@ const finishJobs = (kind: JobKind, now: number) =>
       yield* completeJob(db, job.value.id, new Date(now))
     }
   })
-
-const answer = { confidence: 0.9, probabilities: {} }
-/** A sense's answers as Jev gives them, for storing judged nuance. */
-const senseAnswers = {
-  formality: { type: "score", score: 2, legend: {}, ...answer },
-  medium: { type: "score", score: 1, legend: {}, ...answer },
-  keigo: { type: "choice", choice: "none", ...answer },
-  gender: { type: "choice", choice: "neutral", ...answer },
-  age: { type: "choice", choice: "any", ...answer },
-  currency: { type: "choice", choice: "current", ...answer },
-  connotation: { type: "choice", choice: "neutral", ...answer },
-  rudeToSuperiors: { type: "noul", noul: 0.1 },
-  slang: { type: "noul", noul: 0.05 }
-} as unknown as SenseAnswers
 
 layer(testLayer(false))("Dictionary", (it) => {
   it.effect("searches English words for Japanese speakers by spelling, inflection and prefix", () =>
@@ -401,7 +366,11 @@ layer(testLayer(false))("Dictionary", (it) => {
         ]
       )
       assert.deepStrictEqual(consume.senses[0]?.glosses, ["消費する"])
-      assert.deepStrictEqual(consume.senses[0]?.misc, [{ code: "form", label: "formal or literary term" }])
+      // Its one sense's labels, the region among them, are the word's.
+      assert.deepStrictEqual(
+        consume.labels.map((label) => label.code),
+        ["en-GB", "form"]
+      )
       // Its synonym links to the English word, whatever the case it was written in.
       assert.deepStrictEqual(consume.senses[0]?.related, [{ text: "Dine", entryId: EntryId.make(100000020) }])
       assert.strictEqual(consume.audioUrl, "/audio/consume.mp3")
@@ -667,7 +636,7 @@ layer(testLayer(false))("Dictionary", (it) => {
     })
   )
 
-  it.effect("says whether the results answer the query or only resemble it, and how current a word is", () =>
+  it.effect("says whether the results answer the query or only resemble it, and what labels a word carries", () =>
     Effect.gen(function* () {
       const db = yield* Database
       const dictionary = yield* Dictionary
@@ -675,27 +644,13 @@ layer(testLayer(false))("Dictionary", (it) => {
         word(100000090, "bus", [sense(["バス"], ["n"])], { inflections: [["bussing", ["present-participle"]]] }),
         word(100000091, "business", [sense(["仕事"], ["n"])]),
         // As the import writes it, with the framed JMDict gloss as a spelling.
-        word(100000092, "stone's throw", [sense(["目と鼻の先"], ["exp"], ["id"])], {
+        word(100000092, "stone's throw", [sense(["目と鼻の先"], ["exp"], ["id", "dated"])], {
           common: false,
           spellings: ["stone's throw away"]
         }),
         entry(1900010, "食べる", "たべる", [sense(["to eat"], ["v1"])]),
         entry(1900011, "食べ物", "たべもの", [sense(["food"], ["n"])])
       ])
-      yield* saveNuance(
-        db,
-        EntryId.make(100000092),
-        [
-          {
-            sense: 0,
-            nuance: interpretSense(senseAnswers, ["dated"]),
-            answers: senseAnswers,
-            model: "test",
-            questionsVersion: ENGLISH_QUESTIONS_VERSION
-          }
-        ],
-        new Date(0)
-      )
       const match = (query: string, language: "ja" | "en") =>
         Effect.map(dictionary.search(query, language, 10), (result) => result.match)
 
@@ -722,8 +677,14 @@ layer(testLayer(false))("Dictionary", (it) => {
       assert.strictEqual(yield* match("xqzvy", "ja"), "none")
 
       const stonesThrow = yield* dictionary.search("stone's throw", "en", 10)
-      assert.strictEqual(stonesThrow.entries[0]?.currency, "dated")
-      assert.strictEqual(bussin.entries[0]?.currency, null)
+      assert.deepStrictEqual(
+        stonesThrow.entries[0]?.labels.map((label) => [label.code, label.severity]),
+        [
+          ["dated", "caution"],
+          ["id", "quiet"]
+        ]
+      )
+      assert.deepStrictEqual(bussin.entries[0]?.labels, [])
     })
   )
 
@@ -768,79 +729,6 @@ layer(testLayer(false))("Dictionary", (it) => {
       assert.includeMembers(
         guessed.entries.map((summary) => summary.headword),
         ["キモい", "蛙化現象"]
-      )
-    })
-  )
-})
-
-layer(testLayer(false))("Dictionary: what Kotori wrote on an English word", (it) => {
-  it.effect("shows its usage note for Japanese speakers and its katakana loan", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      const dictionary = yield* Dictionary
-      yield* insertEntries(db, [word(100000040, "style", [sense(["様式", "流儀"], ["n"])])])
-      yield* saveSenseNotes(
-        db,
-        EntryId.make(100000040),
-        [{ sense: 0, note: null, noteJa: "建物や文章の「様式」に使う。", model: "test" }],
-        new Date(0)
-      )
-      const shown = Effect.map(dictionary.entry(EntryId.make(100000040)), Option.getOrThrow)
-      assert.strictEqual((yield* shown).senses[0]?.noteJa, "建物や文章の「様式」に使う。")
-      assert.isNull((yield* shown).loan)
-
-      const verdict = { value: "divergent" as const, probability: 0.9, source: "jev" as const }
-      yield* saveLoanWord(
-        db,
-        EntryId.make(100000040),
-        { word: "スタイル", verdict, answers: {}, model: "test", questionsVersion: ENGLISH_QUESTIONS_VERSION },
-        new Date(0)
-      )
-      yield* saveLoanTrap(db, EntryId.make(100000040), "スタイル", "日本語の「スタイル」は体型を指すことが多いです。")
-      assert.deepStrictEqual((yield* shown).loan, {
-        word: "スタイル",
-        verdict,
-        trap: "日本語の「スタイル」は体型を指すことが多いです。"
-      })
-
-      // Candidates asked about, none judged the loan: nothing to show.
-      yield* saveLoanWord(
-        db,
-        EntryId.make(100000040),
-        { word: null, verdict: null, answers: {}, model: "test", questionsVersion: ENGLISH_QUESTIONS_VERSION },
-        new Date(1)
-      )
-      assert.isNull((yield* shown).loan)
-    })
-  )
-
-  it.effect("shows a similar word by the meaning it shares with the sense, not by its first", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      const dictionary = yield* Dictionary
-      yield* insertEntries(db, [
-        word(100000050, "tension", [sense(["（精神的な）緊張", "不安"], ["n"]), sense(["張力"], ["n"])]),
-        word(100000051, "strain", [sense(["（遺伝的な）性質", "気質"], ["n"]), sense(["緊張", "重圧"], ["n"])]),
-        word(100000052, "stress", [sense(["圧力", "圧迫"], ["n"])])
-      ])
-      yield* saveSimilar(db, EntryId.make(100000050), [
-        {
-          sense: 0,
-          similarId: EntryId.make(100000051),
-          similarity: 0.9,
-          difference: "different_usage",
-          confidence: 0.8
-        },
-        // Found through a cross-reference: no gloss in common, so its first meanings.
-        { sense: 0, similarId: EntryId.make(100000052), similarity: 0.8, difference: "more_general", confidence: 0.8 }
-      ])
-      const tension = Option.getOrThrow(yield* dictionary.entry(EntryId.make(100000050)))
-      assert.deepStrictEqual(
-        tension.senses[0]?.similar.map((similar) => [similar.headword, similar.meaning]),
-        [
-          ["strain", "緊張、重圧"],
-          ["stress", "圧力、圧迫"]
-        ]
       )
     })
   )
@@ -1081,82 +969,6 @@ layer(testLayer(true))("Dictionary with Jev configured", (it) => {
       assert.strictEqual((yield* jobStatusFor(db, id)).get("audio"), "done")
     })
   )
-
-  it.effect("queues a finished nuance job again once its answers predate the word's question set, once", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      const dictionary = yield* Dictionary
-      const nuanceStatus = (id: EntryId) =>
-        Effect.map(dictionary.requestEnrichment(id), (s) => Option.getOrThrow(s).nuance)
-      const nuanceJob = (id: EntryId) => Effect.map(jobStatusFor(db, id), (status) => status.get("nuance"))
-      const judge = (id: EntryId, questionsVersion: number) =>
-        saveNuance(
-          db,
-          id,
-          [
-            {
-              sense: 0,
-              nuance: interpretSense(senseAnswers, []),
-              answers: senseAnswers,
-              model: "test",
-              questionsVersion
-            }
-          ],
-          new Date(0)
-        )
-      yield* insertEntries(db, [
-        entry(30, "食べる", "たべる", [sense(["to eat"], ["v1"])]),
-        word(100000030, "eat", [sense(["食べる"], ["v"])])
-      ])
-
-      // Each judged, and its job finished, under the question set before its language's current one.
-      for (const [id, version] of [
-        [EntryId.make(30), QUESTIONS_VERSION],
-        [EntryId.make(100000030), ENGLISH_QUESTIONS_VERSION]
-      ] as const) {
-        yield* judge(id, version - 1)
-        yield* enqueueJob(db, "nuance", id, 0, new Date(0))
-        yield* finishJobs("nuance", 1)
-
-        // Looking at the entry queues it again, while the old judgments stay on show.
-        assert.strictEqual(yield* nuanceStatus(id), "ready")
-        assert.strictEqual(yield* nuanceJob(id), "queued")
-
-        // Once it has judged with the current questions, looking again queues nothing.
-        yield* judge(id, version)
-        yield* finishJobs("nuance", 2)
-        assert.strictEqual(yield* nuanceStatus(id), "ready")
-        assert.strictEqual(yield* nuanceJob(id), "done")
-      }
-    })
-  )
-
-  it.effect("queues an entry again when a judged sense has no judgment, as after a re-import ranks it in", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      const dictionary = yield* Dictionary
-      yield* insertEntries(db, [word(100000031, "kid", [sense(["子供"], ["n"]), sense(["仔やぎ"], ["n"])])])
-      // Judged when 仔やぎ led: its row followed it to the second sense, and 子供 has none.
-      yield* saveNuance(
-        db,
-        EntryId.make(100000031),
-        [
-          {
-            sense: 1,
-            nuance: interpretSense(senseAnswers, []),
-            answers: senseAnswers,
-            model: "test",
-            questionsVersion: ENGLISH_QUESTIONS_VERSION
-          }
-        ],
-        new Date(0)
-      )
-      yield* enqueueJob(db, "nuance", EntryId.make(100000031), 0, new Date(0))
-      yield* finishJobs("nuance", 1)
-      yield* dictionary.requestEnrichment(EntryId.make(100000031))
-      assert.strictEqual((yield* jobStatusFor(db, EntryId.make(100000031))).get("nuance"), "queued")
-    })
-  )
   it.effect("voices a seeded sentence only where Kotori wrote none, judging an untried one at most hourly", () =>
     Effect.gen(function* () {
       const db = yield* Database
@@ -1206,91 +1018,15 @@ layer(testLayer(true))("Dictionary with Jev configured", (it) => {
 })
 
 layer(testLayer(true, true))("Dictionary with Jev and Claude", (it) => {
-  it.effect("queues a judged word again for a loan warning Claude couldn't write, not on every look", () =>
+  it.effect("queues examples and audio for a viewed word, and no other job", () =>
     Effect.gen(function* () {
       const db = yield* Database
       const dictionary = yield* Dictionary
-      const minute = 60 * 1000
-      const nuanceJob = Effect.map(jobStatusFor(db, EntryId.make(100000060)), (status) => status.get("nuance"))
-      const look = (at: number) =>
-        TestClock.setTime(at).pipe(Effect.andThen(dictionary.requestEnrichment(EntryId.make(100000060))))
-      yield* insertEntries(db, [word(100000060, "mansion", [sense(["大邸宅"], ["n"])])])
-      yield* saveNuance(
-        db,
-        EntryId.make(100000060),
-        [
-          {
-            sense: 0,
-            nuance: interpretSense(senseAnswers, []),
-            answers: senseAnswers,
-            model: "test",
-            questionsVersion: ENGLISH_QUESTIONS_VERSION
-          }
-        ],
-        new Date(0)
-      )
-      // Judged while Claude was unavailable: a confident verdict, no warning.
-      const verdict = { value: "divergent" as const, probability: 0.9, source: "jev" as const }
-      yield* saveLoanWord(
-        db,
-        EntryId.make(100000060),
-        { word: "マンション", verdict, answers: {}, model: "test", questionsVersion: ENGLISH_QUESTIONS_VERSION },
-        new Date(0)
-      )
-      yield* enqueueJob(db, "nuance", EntryId.make(100000060), 0, new Date(0))
-      yield* finishJobs("nuance", 0)
-
-      // Right after the job, a look leaves it; ten minutes on, it is queued for the warning.
-      yield* look(5 * minute)
-      assert.strictEqual(yield* nuanceJob, "done")
-      yield* look(11 * minute)
-      assert.strictEqual(yield* nuanceJob, "queued")
-
-      // Ran, but Claude still couldn't write it: not again on the next look.
-      yield* finishJobs("nuance", 11 * minute)
-      yield* look(12 * minute)
-      assert.strictEqual(yield* nuanceJob, "done")
-
-      // Once written, nothing more is queued.
-      yield* saveLoanTrap(db, EntryId.make(100000060), "マンション", "日本語の「マンション」は集合住宅です。")
-      yield* look(60 * minute)
-      assert.strictEqual(yield* nuanceJob, "done")
-    })
-  )
-})
-
-layer(testLayer(true))("Dictionary with Jev, and Claude unavailable", (it) => {
-  it.effect("doesn't queue a word for a loan warning while Claude can't write it", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      const dictionary = yield* Dictionary
-      yield* insertEntries(db, [word(100000061, "mansion", [sense(["大邸宅"], ["n"])])])
-      yield* saveNuance(
-        db,
-        EntryId.make(100000061),
-        [
-          {
-            sense: 0,
-            nuance: interpretSense(senseAnswers, []),
-            answers: senseAnswers,
-            model: "test",
-            questionsVersion: ENGLISH_QUESTIONS_VERSION
-          }
-        ],
-        new Date(0)
-      )
-      const verdict = { value: "divergent" as const, probability: 0.9, source: "jev" as const }
-      yield* saveLoanWord(
-        db,
-        EntryId.make(100000061),
-        { word: "マンション", verdict, answers: {}, model: "test", questionsVersion: ENGLISH_QUESTIONS_VERSION },
-        new Date(0)
-      )
-      yield* enqueueJob(db, "nuance", EntryId.make(100000061), 0, new Date(0))
-      yield* finishJobs("nuance", 0)
-      yield* TestClock.setTime(60 * 60 * 1000)
-      yield* dictionary.requestEnrichment(EntryId.make(100000061))
-      assert.strictEqual((yield* jobStatusFor(db, EntryId.make(100000061))).get("nuance"), "done")
+      const id = EntryId.make(40)
+      yield* insertEntries(db, [entry(40, "雨", "あめ", [sense(["rain"], ["n"])])])
+      const status = Option.getOrThrow(yield* dictionary.requestEnrichment(id))
+      assert.deepStrictEqual(status, { examples: "queued", audio: "queued" })
+      assert.deepStrictEqual([...(yield* jobStatusFor(db, id)).keys()].toSorted(), ["audio", "examples"])
     })
   )
 })

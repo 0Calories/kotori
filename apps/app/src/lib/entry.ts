@@ -41,6 +41,20 @@ export const labelItems = (t: Strings, labels: ReadonlyArray<Label>): ReadonlyAr
     kotori: label.source === "kotori"
   }))
 
+/** How loudly each severity speaks, loudest first. */
+const LOUDNESS: Record<LabelSeverity, number> = { avoid: 0, caution: 1, info: 2, quiet: 3 }
+
+/**
+ * The word's labels worth a chip in a search result, loudest first: at most `max`, and never a
+ * quiet one (a grammar fact such as "idiom" can wait for the entry). A row stays quiet: vulgar,
+ * archaic or casual before respectful or British.
+ */
+export const resultLabels = (labels: ReadonlyArray<Label>, max = 2): ReadonlyArray<Label> =>
+  labels
+    .filter((label) => label.severity !== "quiet")
+    .toSorted((a, b) => LOUDNESS[a.severity] - LOUDNESS[b.severity])
+    .slice(0, max)
+
 /** Labels that make a word sound old: they earn the "rarely heard" chip whatever the counts say. */
 const OLD: ReadonlyArray<LabelCode> = ["arch", "obs"]
 

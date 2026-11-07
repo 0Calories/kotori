@@ -2,7 +2,7 @@ import { index, integer, pgEnum, text, unique } from "drizzle-orm/pg-core"
 import { createdAt, table, timestamptz } from "./columns.ts"
 import { entries, type EntryId } from "./entries.ts"
 
-export const jobKind = pgEnum("job_kind", ["nuance", "examples", "audio"])
+export const jobKind = pgEnum("job_kind", ["examples", "audio"])
 
 export const jobStatus = pgEnum("job_status", ["queued", "running", "done", "failed"])
 

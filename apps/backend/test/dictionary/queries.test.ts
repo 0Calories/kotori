@@ -1,6 +1,5 @@
 import { assert, describe, it, layer } from "@effect/vitest"
 import { EntryId, type EntryRecord, NoteId } from "@kotori/contracts"
-import { type LoanCandidate, loanCandidatesIn, normalizeGloss } from "@kotori/language"
 import { Effect, Exit } from "effect"
 import { Database } from "../../src/db/Database.ts"
 import { scopedToUser } from "../../src/db/scopedToUser.ts"
@@ -18,27 +17,16 @@ import {
   getEntries,
   headwordIds,
   insertEntries,
-  loanCandidates,
   searchForms,
   searchFormsFuzzy,
   searchGlosses,
   searchGlossesFuzzy,
-  searchJapaneseGlosses,
-  sharedGlossCandidates
+  searchJapaneseGlosses
 } from "../../src/features/dictionary/queries.ts"
-import {
-  examplesFor,
-  nuanceFor,
-  saveExamples,
-  saveNuance,
-  saveSenseNotes,
-  saveSimilar,
-  senseNotesFor,
-  similarFor
-} from "../../src/features/enrichment/queries.ts"
+import { examplesFor, saveExamples } from "../../src/features/enrichment/queries.ts"
 import { insertNote, notesWithCards } from "../../src/features/study/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
-import { english, entries, kana, kanji, learner, sense, spelling, U1 } from "../fixtures.ts"
+import { english, entries, kanji, learner, sense, spelling, U1 } from "../fixtures.ts"
 
 const TestLayer = DatabaseMemory
 
@@ -131,23 +119,11 @@ layer(TestLayer)("dictionary queries", (it) => {
     })
   )
 
-  it.effect("suggests words sharing a meaning as similar-word candidates", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      const candidates = yield* sharedGlossCandidates(db, EntryId.make(1358280), 0, 10)
-      assert.deepStrictEqual(
-        candidates.map((c) => c.entryId),
-        [1269130, 1594790]
-      )
-      assert.deepStrictEqual(yield* sharedGlossCandidates(db, EntryId.make(1358280), 1, 10), [])
-    })
-  )
-
   it.effect("lists entries missing enrichment in priority order", () =>
     Effect.gen(function* () {
       const db = yield* Database
       assert.deepStrictEqual(
-        yield* entriesByPriority(db, { limit: 2, missing: "nuance", language: "ja" }),
+        yield* entriesByPriority(db, { limit: 2, missing: "examples", language: "ja" }),
         [1358280, 1269130]
       )
       assert.deepStrictEqual(
@@ -171,11 +147,6 @@ layer(TestLayer)("dictionary queries", (it) => {
       )
       assert.deepStrictEqual(yield* findForms(db, ["eat"]), [])
       assert.deepStrictEqual(yield* findForms(db, ["たべる"], "en"), [])
-      // 食べる and 食う share "to eat"; eat and dine share 食事をする, and never a Japanese word.
-      assert.deepStrictEqual(
-        (yield* sharedGlossCandidates(db, EntryId.make(100000001), 1, 10)).map((c) => c.entryId),
-        [100000004]
-      )
     })
   )
 
@@ -290,73 +261,6 @@ layer(TestLayer)("dictionary queries", (it) => {
       )
     })
   )
-
-  it.effect("finds the katakana words that may be an English word's loan, by gloss or by JMDict source", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      const loan = (
-        id: number,
-        word: string,
-        priority: number,
-        senses: Array<ReturnType<typeof sense>>,
-        common = true
-      ): EntryRecord => ({
-        id: EntryId.make(id),
-        language: "ja",
-        dictionary: "jmdict",
-        headword: word,
-        reading: word,
-        common,
-        priority,
-        forms: [kana(word, common)],
-        senses
-      })
-      const loans: Array<EntryRecord> = [
-        loan(9100001, "スタイル", 60, [sense(["(one's) figure", "physique"]), sense(["style"])]),
-        loan(9100002, "タイプ", 40, [sense(["type", "kind", "style"])]),
-        loan(9100003, "マンション", 60, [sense(["condominium", "apartment building"], { sources: ["mansion"] })]),
-        // Gloss matches give false candidates too: トラック is the loan of "truck", not "lorry".
-        loan(9100004, "トラック", 60, [sense(["truck", "lorry"])]),
-        loan(9100005, "タレント", 60, [sense(["talent", "skill"], { sources: ["talent"] })]),
-        loan(9100006, "ウォーク", 0, [sense(["walk"])], false),
-        {
-          id: EntryId.make(9100007),
-          language: "ja",
-          dictionary: "jmdict",
-          headword: "様式",
-          reading: "ようしき",
-          common: true,
-          priority: 90,
-          forms: [kanji("様式"), kana("ようしき")],
-          senses: [sense(["style", "form"])]
-        }
-      ]
-      yield* insertEntries(db, loans)
-
-      const words = ["style", "mansion", "lorry", "talent", "to walk"]
-      const found = yield* loanCandidates(db, words, 3)
-      const byWord = (candidates: ReadonlyArray<LoanCandidate>) =>
-        Object.fromEntries(
-          words
-            .map(normalizeGloss)
-            .map((word) => [word, candidates.filter((c) => c.word === word).map((c) => `${c.entryId}:${c.by}`)])
-        )
-      assert.deepStrictEqual(byWord(found), {
-        // Kanji words aren't loans; the more frequent loan comes first.
-        style: ["9100001:gloss", "9100002:gloss"],
-        // Only JMDict's lsource ties マンション to "mansion".
-        mansion: ["9100003:source"],
-        lorry: ["9100004:gloss"],
-        // A source beats a gloss as the reason.
-        talent: ["9100005:source"],
-        // Uncommon words aren't everyday loans.
-        walk: []
-      })
-      assert.deepStrictEqual(byWord(yield* loanCandidates(db, words, 1)).style, ["9100001:gloss"])
-      // The same search over parsed entries, which cuts the golden fixture, agrees with the SQL.
-      assert.deepStrictEqual(byWord(loanCandidatesIn(loans, words, 3)), byWord(found))
-    })
-  )
 })
 
 describe("matchSenses", () => {
@@ -396,43 +300,9 @@ layer(TestLayer)("dictionary re-imports", (it) => {
       })
       const [form, way, look, pistil] = [["型", "様式"], ["やり方"], ["格好"], ["花柱"]]
       yield* insertEntries(db, [word([form, way, look, pistil])])
-      const type = EntryId.make(style + 1)
-      yield* insertEntries(db, [{ ...word([["型"]]), id: type, headword: "type" }])
 
-      // Each sense's judgment, note, similar word and sentence names it by its first gloss.
-      const judged = (marker: string) => ({
-        formality: { value: "neutral" as const, position: 0.5, confidence: 0.9, source: "jev" as const },
-        medium: { value: "both" as const, position: 0.5, confidence: 0.9, source: "jev" as const },
-        keigo: { value: "none" as const, confidence: 1, source: "jmdict" as const },
-        gender: { value: "neutral" as const, confidence: 0.9, source: "jev" as const },
-        age: { value: "any" as const, confidence: 0.9, source: "jev" as const },
-        currency: { value: "current" as const, confidence: 0.9, source: "jev" as const },
-        connotation: { value: "neutral" as const, confidence: 0.9, source: "jev" as const },
-        cautions: { rudeToSuperiors: 0.1, stiffWithFriends: 0.1, slang: 0.1 },
-        marker
-      })
+      // Each sense's sentence and saved word names it by its first gloss.
       const markers = ["型", "やり方", "格好", "花柱"]
-      yield* saveNuance(
-        db,
-        style,
-        markers.map((marker, sense) => ({
-          sense,
-          nuance: judged(marker) as never,
-          answers: { marker },
-          model: "jev",
-          questionsVersion: 3
-        })),
-        new Date(0)
-      )
-      yield* saveSenseNotes(
-        db,
-        style,
-        markers.map((marker, sense) => ({ sense, note: null, noteJa: marker, model: "claude" })),
-        new Date(0)
-      )
-      yield* saveSimilar(db, style, [
-        { sense: 0, similarId: type, similarity: 0.9, difference: "more_general", confidence: 0.8 }
-      ])
       yield* saveExamples(
         db,
         style,
@@ -486,26 +356,6 @@ layer(TestLayer)("dictionary re-imports", (it) => {
       )
       const bySense = <R extends { readonly sense: number }>(rows: ReadonlyArray<R>, read: (row: R) => unknown) =>
         rows.toSorted((a, b) => a.sense - b.sense).map((row) => [row.sense, read(row)])
-      assert.deepStrictEqual(
-        bySense(yield* nuanceFor(db, [style]), (row) => (row.nuance as unknown as { marker: string }).marker),
-        [
-          [0, "格好"],
-          [1, "型"],
-          [2, "やり方"]
-        ]
-      )
-      assert.deepStrictEqual(
-        bySense(yield* senseNotesFor(db, [style]), (row) => row.noteJa),
-        [
-          [0, "格好"],
-          [1, "型"],
-          [2, "やり方"]
-        ]
-      )
-      assert.deepStrictEqual(
-        bySense(yield* similarFor(db, style), (row) => row.similarId),
-        [[1, style + 1]]
-      )
       // Sentences keep their ids, and so their audio; the dropped sense's sentence goes.
       const sentences = yield* examplesFor(db, [style])
       assert.deepStrictEqual(
@@ -528,7 +378,6 @@ layer(TestLayer)("dictionary re-imports", (it) => {
 
       // Re-importing the same senses moves nothing.
       yield* insertEntries(db, [word([look, form, ["やり方", "方法"]])])
-      assert.strictEqual((yield* nuanceFor(db, [style])).length, 3)
       assert.strictEqual((yield* examplesFor(db, [style])).length, 3)
     })
   )

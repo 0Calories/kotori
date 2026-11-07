@@ -232,7 +232,7 @@ export const approveProposal = Effect.fn("review.approveProposal")(function* (
   // Seeded, so the draft's familiarity is the word's evidence of use from the start.
   yield* insertEntries(db, [{ ...record, evidence: draftEvidence(draft.familiarity) }], { seeded: true })
   yield* saveKotoriPitfalls(db, entryId, language, draft.pitfalls)
-  for (const kind of ["nuance", "examples", "audio"] as const) yield* enqueueJob(db, kind, entryId, 500, now)
+  for (const kind of ["examples", "audio"] as const) yield* enqueueJob(db, kind, entryId, 500, now)
   yield* appendLine(
     file,
     language === "en"

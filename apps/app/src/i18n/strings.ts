@@ -387,7 +387,6 @@ const en = {
       polite: "Polite",
       formal: "Formal"
     },
-    currency: { current: "", trendy: "Trendy", dated: "Dated", archaic: "Archaic" },
     poles: { casual: "Casual", formal: "Formal" }
   },
   check: {
@@ -506,7 +505,7 @@ const en = {
     wakatake: "Wakatake",
     about: "About",
     aboutBody:
-      "Dictionary data from JMDict by the Electronic Dictionary Research and Development Group (CC BY-SA 4.0), with example sentences from the Tatoeba Project (CC BY 2.0 FR). English words from English and Japanese Wiktionary via Wiktextract (CC BY-SA 4.0) and JMDict (CC BY-SA 4.0); how often they're used from OpenSubtitles via FrequencyWords (CC BY-SA 4.0). Nuance judgments by TypeSafe's Jev. Coaching and example sentences by Claude. Voices by ElevenLabs.",
+      "Dictionary data from JMDict by the Electronic Dictionary Research and Development Group (CC BY-SA 4.0), with example sentences from the Tatoeba Project (CC BY 2.0 FR). English words from English and Japanese Wiktionary via Wiktextract (CC BY-SA 4.0) and JMDict (CC BY-SA 4.0); how often they're used from OpenSubtitles via FrequencyWords (CC BY-SA 4.0). Formality readings by TypeSafe's Jev. Coaching and example sentences by Claude. Voices by ElevenLabs.",
     account: "Account",
     signOut: "Sign out",
     server: "Server",
@@ -947,7 +946,6 @@ const ja: Strings = {
   nuance: {
     formality: "丁寧さ",
     scale: { vulgar: "乱暴", casual: "カジュアル", neutral: "普通", polite: "丁寧", formal: "改まった" },
-    currency: { current: "", trendy: "流行語", dated: "古風", archaic: "古語" },
     poles: { casual: "くだけた", formal: "かしこまった" }
   },
   check: {
@@ -1066,7 +1064,7 @@ const ja: Strings = {
     wakatake: "若竹",
     about: "このアプリについて",
     aboutBody:
-      "辞書データ：JMDict（Electronic Dictionary Research and Development Group、CC BY-SA 4.0）。例文：Tatoeba プロジェクト（CC BY 2.0 FR）。英単語：ウィクショナリー英語版・日本語版（Wiktextract経由、CC BY-SA 4.0）、JMDict（CC BY-SA 4.0）。使用頻度：OpenSubtitles（FrequencyWords、CC BY-SA 4.0）。ニュアンス判定：TypeSafe Jev。添削と例文：Claude。音声：ElevenLabs。",
+      "辞書データ：JMDict（Electronic Dictionary Research and Development Group、CC BY-SA 4.0）。例文：Tatoeba プロジェクト（CC BY 2.0 FR）。英単語：ウィクショナリー英語版・日本語版（Wiktextract経由、CC BY-SA 4.0）、JMDict（CC BY-SA 4.0）。使用頻度：OpenSubtitles（FrequencyWords、CC BY-SA 4.0）。丁寧さの判定：TypeSafe Jev。添削と例文：Claude。音声：ElevenLabs。",
     account: "アカウント",
     signOut: "ログアウト",
     server: "サーバー",

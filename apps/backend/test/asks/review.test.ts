@@ -129,7 +129,7 @@ layer(TestLayer)("proposal review", (it) => {
         [{ entryId: approved.entryId, everyday: false, spokenCount: null, familiarity: 4 }]
       )
       const jobs = yield* jobStatusFor(db, approved.entryId)
-      assert.deepStrictEqual([...jobs.keys()].toSorted(), ["audio", "examples", "nuance"])
+      assert.deepStrictEqual([...jobs.keys()].toSorted(), ["audio", "examples"])
 
       // The approved file replays the entry on the next import, familiarity included.
       const parsed = parseApproved((yield* fs.readFileString(files.en)).split("\n"))

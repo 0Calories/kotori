@@ -154,12 +154,28 @@ Decided with Ash after Phase 6:
 - A finished audio job is queued again on a look only for a sentence it hasn't tried: one written since it ran, or one no run has judged (at most hourly). A sentence a run tried and couldn't voice, and a missing headword clip, are no longer retried every hour. A failed job is still retried as before.
 - So the backfill on existing words covers only senses with seeded sentences and none of Kotori's.
 
-### ☐ Phase 7 — Remove the old model
+### ☑ Phase 7 — Remove the old model
 
-- Stop the `NuanceEnricher` job; the worker keeps examples and audio.
-- Remove `NuanceJudge`, `interpret.ts`, `questions.ts`, `TAG_JUDGMENTS`, `saidByNuance`.
-- Drop `sense_nuance`, `similar_words`, `loan_words`, `sense_notes`.
-- Remove the old contract fields.
+- The worker runs examples and audio only. Gone: `NuanceEnricher`, `NuanceJudge` and Jev's per-sense question sets with their `questionsVersion`s (`questions.ts`, `english.ts`, `interpret.ts`, `request.ts`, `state.ts`), `TAG_JUDGMENTS`, Claude's loan warning (`LoanWriter`), `kotori enrich nuance` (`--outdated`, `--reinterpret`), `kotori eval nuance|english`, `kotori golden` and its fixture (`packages/ai/golden`). `saidByNuance` went in Phase 5. `kotori eval asks` stays; the Choice helpers it and the triage use (`REVERSED`, `averagedChoice`) moved to `providers/choices.ts`.
+- One migration (`drop_nuance_model`) drops `sense_nuance`, `similar_words`, `loan_words`, `sense_notes` and the `difference` enum, deletes the `nuance` jobs, and remakes `job_kind` without the value. Tested by running the shipped SQL on old-shape rows.
+- Wire: `Sense` loses `nuance`, `note`, `noteJa`, `similar`, `misc` and `dialects` (the app read none of them; labels carry them). `Entry` loses `loan`, `Enrichment` loses `nuance`, and `Nuance`, `JudgedSimilarWord`, `Loanword` and `loanShown` leave the contracts.
+- Search results carry `EntrySummary.labels`, the word's labels as on `Entry`, in place of `formality` and `currency`. A result row shows at most two, loudest first and never a quiet one, coloured by severity like the entry page's (`resultLabels`, `LabelTag`).
+- `/health`'s `features.nuance` is `features.formality`: Jev still reads the Check tab's formality, routes Ask Kotori, and judges seeded sentences. The Settings line and the credits say formality.
+- The examples job sends Claude the dictionary's labels and notes, without `sense_nuance`'s register, and no longer asks for a usage note per sense (it went to `sense_notes`).
+
+Changes from the plan:
+
+- Kept on purpose: `NuanceScales.tsx` and `t.nuance.scale`/`poles`/`formality` (the Check tab's meter), and the Coach's formality rubric (casting's judge uses it).
+- The candidate searches went too, as nothing reads them now: `loanCandidates`, `loanCandidatesIn`, `KATAKANA_WORD`, `sharedGlossCandidates` (similar words use `sharedGlossesBySense`).
+
+Findings for Phase 8:
+
+- Lost with the tables, by decision (never evaluated): Jev's loan verdicts and Claude's loan warnings on English words, and Claude's sense notes. An English word shows no "same as" chip or false-friend warning, and no word shows a Kotori note, until Phase 8's loan and pitfall passes. No data moved into labels, pitfalls or loan links.
+- The loan pass needs candidates for English words without `lsource`: `loanCandidates` (common katakana words by gloss or `lsource`) is in `d0cb63a`, with its tests.
+- The removed sense-note prompt (in `d0cb63a`'s `examples/prompts.ts`) is a starting point for the pitfall pass's wording.
+- `kotori eval` has one kind, `asks`; the Phase 8 golden sets add theirs beside it, and `orderChecks` reads option-order bias.
+
+Deploy: the release command runs the migration before the machines roll. Until they are replaced, old API machines fail on search and entry pages (they read `sense_nuance`), and an old worker fails to claim jobs (it asks for `nuance`). Open web tabs fail to decode entries, search results and `/health` (fields removed or renamed) until they reload.
 
 ### ☐ Phase 8 — Offline inference passes
 
@@ -183,3 +199,4 @@ Decided with Ash after Phase 6:
 - 2026-11-06: Phases 1–4 reviewed; fixes committed before Phase 5 (see "Review of phases 1–4"). Phase 5 done.
 - 2026-11-06: Phase 6 done. Seeded sentences judged by Jev on the audio job, not a new job kind; `formality` stays a column (see Phase 6).
 - 2026-11-07: Seeded sentences voiced only where Kotori wrote none; finished audio jobs requeued only for untried sentences (see "After Phase 6").
+- 2026-11-07: Phase 7 done. The old tables are dropped with nothing carried over; search results show the word's labels (see Phase 7).

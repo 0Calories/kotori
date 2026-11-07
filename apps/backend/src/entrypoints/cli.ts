@@ -7,7 +7,6 @@ import { adminCommand, approve, archive, devAccount, requests, revoke, users } f
 import { enrich } from "../cli/enrich.ts"
 import { evaluate } from "../cli/evaluate.ts"
 import { familiarity } from "../cli/familiarity.ts"
-import { golden } from "../cli/golden.ts"
 import { migrate } from "../cli/migrate.ts"
 import { proposalsCommand } from "../cli/proposals.ts"
 import { seed } from "../cli/seed.ts"
@@ -32,7 +31,6 @@ const kotori = Command.make("kotori").pipe(
     enrich.pipe(Command.provide(WorkerLive)),
     familiarity.pipe(Command.provide(FamiliarityLive)),
     evaluate.pipe(Command.provide(Jev.layer)),
-    golden,
     status.pipe(Command.provide(WorkerLive)),
     storage.pipe(Command.provide(DatabaseLive)),
     requests.pipe(Command.provide(AccountsLive)),

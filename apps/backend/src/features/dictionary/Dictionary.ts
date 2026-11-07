@@ -1,4 +1,4 @@
-import { awaitsWarning, CASTS, Claude, Jev, nuanceOutdated, Pronouncer } from "@kotori/ai"
+import { CASTS, Claude, Pronouncer } from "@kotori/ai"
 import {
   type Enrichment,
   type EnrichmentStatus,
@@ -10,7 +10,6 @@ import {
   type Language,
   type SearchMatch,
   type SearchResult,
-  type JudgedSimilarWord,
   type Label,
   type Sense,
   type SimilarWord,
@@ -37,12 +36,11 @@ import { Clock, Context, Effect, Layer, Option } from "effect"
 import { Database } from "../../db/Database.ts"
 import { entryClips, exampleClips } from "../audio/index.ts"
 import type { ExampleRow, JobKind } from "../enrichment/index.ts"
-import { examplesFor, loanWordsFor, nuanceFor, senseNotesFor, similarFor } from "../enrichment/index.ts"
 import {
   enqueueJob,
+  examplesFor,
   jobStatusFor,
   refillJob,
-  requeueJob,
   sentencesToVoice,
   writingExamples
 } from "../enrichment/index.ts"
@@ -71,8 +69,8 @@ const ON_DEMAND = 1_000
 
 /** How long a finished audio job that left gaps waits before it is tried again. */
 const REFILL_AFTER = 60 * 60 * 1000
-/** How long after a nuance job a viewed entry's missing loan warning gets another try. */
-const WARNING_RETRY_AFTER = 10 * 60 * 1000
+/** How long after a job ran out of attempts a viewed entry gives it another try. */
+const RETRY_AFTER = 10 * 60 * 1000
 
 interface Hit {
   readonly entryId: EntryId
@@ -232,20 +230,6 @@ const firstGlosses = (entry: EntryRecord, count: number) => {
 const joinGlosses = (entry: EntryRecord, glosses: ReadonlyArray<string>) =>
   glosses.join(entry.language === "ja" ? "; " : "、")
 
-/**
- * What a similar word means where it is like the sense it is listed under: its earliest sense
- * sharing a gloss with that sense, as the nuance job's candidate search found it, so "strain"
- * under "tension" reads 緊張 rather than its first sense, 性質. A cross-reference shares none,
- * and shows the word's first meanings.
- */
-const similarMeaning = (sense: EntryRecord["senses"][number], similar: EntryRecord) => {
-  const shared = sharedSense(sense, similar)
-  return joinGlosses(
-    similar,
-    shared === null ? firstGlosses(similar, 2) : similar.senses[shared]!.glosses.slice(0, 2).map((gloss) => gloss.text)
-  )
-}
-
 /** The earliest sense of `similar` sharing a gloss with `sense`, or null when none does. */
 const sharedSense = (sense: EntryRecord["senses"][number], similar: EntryRecord): number | null => {
   // Glosses are in the other language from the headword, normalised as the import stores them.
@@ -254,6 +238,10 @@ const sharedSense = (sense: EntryRecord["senses"][number], similar: EntryRecord)
   const index = similar.senses.findIndex((candidate) => candidate.glosses.some((gloss) => own.has(norm(gloss.text))))
   return index === -1 ? null : index
 }
+
+/** The word's labels, those every sense carries (`senseLabels`), from its labels by sense. */
+const wordLabels = (entry: EntryRecord, bySense: ReadonlyMap<number, ReadonlyArray<Label>> | undefined) =>
+  senseLabels(entry.senses.map((_, index) => bySense?.get(index) ?? [])).word
 
 /** At most this many similar words under one sense: the closest, cross-references first. */
 const SIMILAR_PER_SENSE = 4
@@ -296,7 +284,6 @@ export class Dictionary extends Context.Service<
     Dictionary,
     Effect.gen(function* () {
       const db = yield* Database
-      const jev = yield* Jev
       const claude = yield* Claude
       const pronouncer = yield* Pronouncer
 
@@ -660,10 +647,7 @@ export class Dictionary extends Context.Service<
       const summaries = Effect.fnUntraced(function* (hits: ReadonlyArray<Hit>) {
         const ids = hits.map((hit) => hit.entryId)
         const entries = new Map((yield* getEntries(db, ids)).map((entry) => [entry.id, entry]))
-        const nuance = yield* nuanceFor(db, ids)
-        const first = nuance.filter((row) => row.sense === 0)
-        const formality = new Map(first.map((row) => [row.entryId, row.nuance.formality.value] as const))
-        const currency = new Map(first.map((row) => [row.entryId, row.nuance.currency.value] as const))
+        const labels = yield* labelsBySense(db, ids)
         const clips = yield* entryClips(db, ids)
         return hits.flatMap((hit): Array<EntrySummary> => {
           const entry = entries.get(hit.entryId)
@@ -679,8 +663,7 @@ export class Dictionary extends Context.Service<
               common: entry.common,
               meanings: firstGlosses(entry, 3),
               partOfSpeech: entry.senses[0]?.pos[0] ?? null,
-              formality: formality.get(entry.id) ?? null,
-              currency: currency.get(entry.id) ?? null,
+              labels: wordLabels(entry, labels.get(entry.id)),
               inflection: hit.inflection,
               audioUrl: firstClip === undefined ? null : audioUrl(firstClip.key)
             }
@@ -705,12 +688,6 @@ export class Dictionary extends Context.Service<
         ready ? "ready" : !available || job === "failed" ? "unavailable" : "queued"
 
       const enrichmentFor = Effect.fnUntraced(function* (entry: EntryRecord, enqueue: boolean) {
-        const nuanceRows = yield* nuanceFor(db, [entry.id])
-        const hasNuance = nuanceRows.length > 0
-        // Old rows stay valid and shown, but a viewed entry gets fresh judgments queued when they
-        // predate its question set, or a re-import has ranked an unjudged sense among them.
-        const outdated = nuanceOutdated(entry, nuanceRows)
-        const [loan] = yield* loanWordsFor(db, [entry.id])
         const examples = yield* examplesFor(db, [entry.id])
         // Sentences seeded from Tatoeba or Wiktionary don't stand in for Kotori's, which are
         // written for learners: Claude still writes them for a viewed word.
@@ -734,7 +711,7 @@ export class Dictionary extends Context.Service<
         const now = new Date(yield* Clock.currentTimeMillis)
 
         if (enqueue) {
-          const retryWindow = new Date(now.getTime() - WARNING_RETRY_AFTER)
+          const retryWindow = new Date(now.getTime() - RETRY_AFTER)
           // A job that already ran out of attempts stays `failed` while the entry is polled so its
           // status reports `unavailable` and the app stops polling; a later look gives it a new try.
           const queueOrRetry = (kind: JobKind) =>
@@ -742,19 +719,6 @@ export class Dictionary extends Context.Service<
               ? refillJob(db, kind, entry.id, retryWindow, ON_DEMAND, now)
               : enqueueJob(db, kind, entry.id, ON_DEMAND, now)
 
-          if (jev.configured) {
-            // Enqueueing a finished job is a no-op, so one that judged with an older question set is
-            // queued again; saving replaces every row of the entry, so it runs once per version.
-            if (outdated && before.get("nuance") === "done") {
-              yield* requeueJob(db, "nuance", entry.id, ON_DEMAND, now)
-            } else if (!hasNuance || outdated) {
-              yield* queueOrRetry("nuance")
-            } else if (coachAvailable && awaitsWarning(loan) && before.get("nuance") === "done") {
-              // A drifted loan judged while Claude was unavailable has no warning: the job writes
-              // just that, without Jev. Not on every look, in case Claude still can't write it.
-              yield* refillJob(db, "nuance", entry.id, retryWindow, ON_DEMAND, now)
-            }
-          }
           if (!hasExamples && coachAvailable) yield* queueOrRetry("examples")
           // The worker re-runs audio when Kotori's sentences are written, so they get voiced too. A
           // finished job runs again only for a sentence it hasn't tried: one written since it ran,
@@ -778,7 +742,6 @@ export class Dictionary extends Context.Service<
 
         const job = yield* jobStatusFor(db, entry.id)
         return {
-          nuance: status(hasNuance, jev.configured, job.get("nuance")),
           examples: status(hasExamples, coachAvailable, job.get("examples")),
           // A finished job has voiced what it can; whatever is still missing isn't on its way.
           audio: status(hasAudio || job.get("audio") === "done", pronouncer.configured, job.get("audio"))
@@ -789,9 +752,6 @@ export class Dictionary extends Context.Service<
         const tags = yield* tagLabels(db)
         const tag = (code: string): Tag => ({ code, label: tags.get(code) ?? code })
 
-        const nuance = new Map((yield* nuanceFor(db, [entry.id])).map((row) => [row.sense, row.nuance]))
-        const notes = new Map((yield* senseNotesFor(db, [entry.id])).map((row) => [row.sense, row]))
-        const [loan] = yield* loanWordsFor(db, [entry.id])
         const examples = yield* examplesFor(db, [entry.id])
         const exampleAudio = yield* exampleClips(
           db,
@@ -800,15 +760,6 @@ export class Dictionary extends Context.Service<
         const headwordClips = (yield* entryClips(db, [entry.id])).get(entry.id) ?? []
         const voiceName = (voice: string | null) =>
           voice === null ? null : (CASTS[entry.language].find((candidate) => candidate.id === voice)?.name ?? null)
-
-        const similarRows = yield* similarFor(db, entry.id)
-        const similarIds = unique(similarRows.map((row) => row.similarId))
-        const similarEntries = new Map((yield* getEntries(db, similarIds)).map((e) => [e.id, e]))
-        const similarFormality = new Map(
-          (yield* nuanceFor(db, similarIds))
-            .filter((row) => row.sense === 0)
-            .map((row) => [row.entryId, row.nuance.formality.value] as const)
-        )
 
         // Cross-references point within the entry's own dictionary: JMDict's are "text・reading・sense",
         // an English word's are its synonyms and antonyms, matched whatever their case.
@@ -899,33 +850,11 @@ export class Dictionary extends Context.Service<
           index,
           glosses: sense.glosses.map((gloss) => gloss.text),
           partsOfSpeech: sense.pos.map(tag),
-          misc: sense.misc.map(tag),
           fields: sense.fields.map(tag),
-          dialects: sense.dialects.map(tag),
           info: sense.info,
           appliesTo: [...sense.stagk, ...sense.stagr],
           related: sense.xrefs.map(resolve),
           antonyms: sense.antonyms.map(resolve),
-          nuance: nuance.get(index) ?? null,
-          note: notes.get(index)?.note ?? null,
-          noteJa: notes.get(index)?.noteJa ?? null,
-          similar: similarRows
-            .filter((row) => row.sense === index)
-            .flatMap((row): Array<JudgedSimilarWord> => {
-              const similar = similarEntries.get(row.similarId)
-              if (similar === undefined) return []
-              return [
-                {
-                  entryId: EntryId.make(similar.id),
-                  headword: similar.headword,
-                  reading: similar.reading,
-                  meaning: similarMeaning(sense, similar),
-                  difference: row.difference,
-                  confidence: row.confidence,
-                  formality: similarFormality.get(similar.id) ?? null
-                }
-              ]
-            }),
           examples: examples
             .filter((example) => example.sense === index)
             .map((example) => toExample(example, exampleAudio)),
@@ -957,10 +886,6 @@ export class Dictionary extends Context.Service<
             voice: clip.voice,
             voiceName: voiceName(clip.voice)
           })),
-          loan:
-            loan?.word == null || loan.verdict === null
-              ? null
-              : { word: loan.word, verdict: loan.verdict, trap: loan.trap },
           enrichment: yield* enrichmentFor(entry, true)
         } satisfies Entry
       })
