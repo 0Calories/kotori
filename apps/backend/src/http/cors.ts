@@ -35,18 +35,21 @@ export const webOriginAllowed =
     }
   }
 
+/** Comma-separated origins from `KOTORI_WEB_ORIGINS`. */
+export const configuredWebOrigins = Config.String("KOTORI_WEB_ORIGINS").pipe(
+  Config.map((list) =>
+    list
+      .split(",")
+      .map((origin) => origin.trim().replace(/\/$/, ""))
+      .filter(Boolean)
+  ),
+  Config.withDefault([])
+)
+
 /** CORS for the web app, from `KOTORI_WEB_ORIGINS` (comma-separated origins). */
 export const CorsLive = Layer.unwrap(
   Effect.gen(function* () {
-    const configured = yield* Config.String("KOTORI_WEB_ORIGINS").pipe(
-      Config.map((list) =>
-        list
-          .split(",")
-          .map((origin) => origin.trim().replace(/\/$/, ""))
-          .filter(Boolean)
-      ),
-      Config.withDefault([])
-    )
+    const configured = yield* configuredWebOrigins
     const production = process.env.NODE_ENV === "production"
     return HttpRouter.middleware(
       HttpMiddleware.cors({
