@@ -304,41 +304,77 @@ layer(testLayer(false))("Dictionary", (it) => {
       const db = yield* Database
       const hage: EntryRecord = {
         ...entry(
-          1477570,
+          1455410,
           "禿",
           "はげ",
-          [sense(["baldness", "bald head", "bald spot"], ["n"]), sense(["bald person", "baldy"], ["n"], ["derog"])],
-          false
+          [sense(["baldness", "bald head"], ["n"]), sense(["bald person", "baldy"], ["n"], ["derog", "uk"])],
+          true
         ),
+        priority: 40,
         forms: [
-          { kind: "kanji", text: "禿", common: false, tags: [], priorities: [], restrictions: [], noKanji: false },
-          { kind: "kanji", text: "禿げ", common: false, tags: [], priorities: [], restrictions: [], noKanji: false },
-          { kind: "kana", text: "はげ", common: false, tags: [], priorities: [], restrictions: [], noKanji: false },
-          { kind: "kana", text: "ハゲ", common: false, tags: [], priorities: [], restrictions: [], noKanji: false }
+          {
+            kind: "kanji",
+            text: "禿",
+            common: true,
+            tags: [],
+            priorities: ["ichi1"],
+            restrictions: [],
+            noKanji: false
+          },
+          {
+            kind: "kanji",
+            text: "禿げ",
+            common: false,
+            tags: ["io"],
+            priorities: [],
+            restrictions: [],
+            noKanji: false
+          },
+          {
+            kind: "kana",
+            text: "はげ",
+            common: true,
+            tags: [],
+            priorities: ["ichi1"],
+            restrictions: [],
+            noKanji: false
+          },
+          { kind: "kana", text: "ハゲ", common: true, tags: [], priorities: ["spec1"], restrictions: [], noKanji: true }
         ]
       }
       yield* insertEntries(db, [
         hage,
-        // As the import builds JMDict's English words: glossed with the Japanese words' headwords.
-        word(100000020, "baldy", [sense(["禿", "禿げちゃびん"], ["n"])], { common: false, priority: 5 }),
-        word(100000021, "baldness", [sense(["はげ", "脱毛症"], ["n"])], { common: false, priority: 20 }),
+        // Imperative lookalikes for はげ → はぐ (剥ぐ, and obscure 接ぐ read はぐ) must not hijack ハゲ/はげ.
+        entry(1582990, "剥ぐ", "はぐ", [sense(["to tear off", "to peel off", "to strip off"], ["v5g", "vt"])]),
+        entry(2429160, "接ぐ", "はぐ", [sense(["to join (cloth, wood, etc.)"], ["v5g", "vt"])], false),
+        // As Wiktionary and JMDict gloss them: bald in its の-modifier form, baldy and baldness with the headword 禿.
+        word(100000100, "bald", [sense(["禿げの", "禿げ頭の"], ["adj"])], { priority: 77 }),
+        word(100000101, "baldy", [sense(["禿"], ["n"])], { common: false, priority: 60 }),
+        word(100000102, "baldness", [sense(["禿", "裸", "禿髪", "脱毛症", "禿頭", "台湾ハゲ"], ["n"])], {
+          common: false,
+          priority: 47
+        }),
+        word(100000103, "strip off", [sense(["剥ぐ", "はがす"], ["v"])], { priority: 69 }),
+        word(100000104, "connect", [sense(["繫げる", "接ぐ", "接続する"], ["v"])], { priority: 85 }),
         // ハゲタカ is a vulture, not a bald person: a gloss that only contains the query.
-        word(100000022, "vulture", [sense(["ハゲタカ", "禿鷹"], ["n"])], { priority: 60 }),
-        word(100000023, "buzzard", [sense(["ノスリ", "ハゲワシ"], ["n"])], { priority: 30 })
+        word(100000105, "vulture", [sense(["ハゲタカ", "ハゲワシ", "禿鷹"], ["n"])], { priority: 71 }),
+        word(100000106, "buzzard", [sense(["のすり"], ["n"]), sense(["はげたか"], ["n"])], {
+          common: false,
+          priority: 60
+        })
       ])
       const dictionary = yield* Dictionary
       const headwords = (query: string) =>
         Effect.map(dictionary.search(query, "en", 10), (res) => res.entries.map((summary) => summary.headword))
 
-      // ハゲ is written 禿 in baldy's glosses: as exact as baldness's はげ, and above the vultures.
-      const katakana = yield* headwords("ハゲ")
-      assert.sameMembers(katakana.slice(0, 2), ["baldness", "baldy"])
-      assert.sameMembers(katakana.slice(2), ["vulture", "buzzard"])
-      assert.sameMembers(yield* headwords("はげ"), ["baldness", "baldy"])
+      // ハゲ and はげ reach 禿げの (bald) and 禿 (baldy, baldness) as exact kanji spellings, ahead of
+      // contained glosses (ハゲタカ, はげたか), without imperative lookalikes (剥ぐ, 接ぐ) intruding.
+      assert.deepStrictEqual(yield* headwords("ハゲ"), ["bald", "baldy", "baldness", "vulture"])
+      assert.deepStrictEqual(yield* headwords("はげ"), ["bald", "baldy", "baldness", "buzzard"])
+      assert.deepStrictEqual(yield* headwords("hage"), ["bald", "baldy", "baldness"])
       // Kanji in, kanji out: the 禿 of 禿鷹 doesn't make vulture an answer for 禿.
-      const kanji = yield* headwords("禿")
-      assert.strictEqual(kanji[0], "baldy")
-      assert.isAbove(kanji.indexOf("vulture"), kanji.indexOf("baldness"))
+      assert.deepStrictEqual(yield* headwords("禿"), ["bald", "baldy", "baldness", "vulture"])
+      assert.deepStrictEqual(yield* headwords("禿げ"), ["bald", "baldy", "baldness"])
     })
   )
 
