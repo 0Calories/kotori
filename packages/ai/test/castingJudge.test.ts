@@ -73,7 +73,7 @@ describe("judgeCasting", () => {
     }))
     const judged = await Effect.runPromise(judgeCasting(jev, "ja", sentences(CASTING_BATCH + 2)))
     expect(asked.map((request) => Object.keys(request.questions).length)).toEqual([CASTING_BATCH * 5, 2 * 5])
-    expect(judged.map((one) => one.formality)).toEqual([
+    expect(judged.map((one) => one?.formality)).toEqual([
       ...Array.from({ length: CASTING_BATCH }, () => "casual"),
       "formal",
       "formal"
@@ -123,6 +123,25 @@ describe("judgeCasting", () => {
         casting: { speakerGender: "unspecified", speakerAge: "unspecified", medium: null, variety: null, tone: null }
       }
     ])
+  })
+
+  it("leaves a sentence unjudged when its formality answer is missing or malformed, and judges the rest", async () => {
+    const { jev: full } = fakeJev()
+    // Sentence 1's formality is left out and sentence 2's has no usable level; sentence 0 is answered.
+    const jev = Jev.of({
+      ...full,
+      ask: (state, questions) =>
+        full.ask(state, questions).pipe(
+          Effect.map((result) => {
+            const { s1_formality: _, ...answers } = result.answers as Record<string, unknown>
+            const malformed = { type: "score", score: Number.NaN, confidence: 0, legend: {}, probabilities: {} }
+            return { ...result, answers: { ...answers, s2_formality: malformed } } as never
+          })
+        )
+    })
+    const judged = await Effect.runPromise(judgeCasting(jev, "ja", sentences(3)))
+    expect(judged.map((one) => one?.formality ?? null)).toEqual(["casual", null, null])
+    expect(judged[0]?.casting.speakerGender).toBe("masculine")
   })
 
   it("passes Jev's errors through, so the sentences stay unjudged and unvoiced", async () => {

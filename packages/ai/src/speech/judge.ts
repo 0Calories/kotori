@@ -93,14 +93,18 @@ const sentenceQuestions = (index: number, { sentence, translation }: SentenceToJ
   )
 })
 
-/** The most probable level of a score answer, not its expected score: casual-or-polite isn't neutral. */
-const levelOf = (answer: ScoreResponse): Formality => {
+/**
+ * The most probable level of a score answer, not its expected score: casual-or-polite isn't
+ * neutral. Null when the answer is missing or names no level, so the sentence stays unjudged.
+ */
+const levelOf = (answer: ScoreResponse | undefined): Formality | null => {
+  if (answer?.type !== "score") return null
   const levels = Formality.literals
-  const [best] = Object.entries(answer.probabilities as Readonly<Record<string, number>>).toSorted(
+  const [best] = Object.entries((answer.probabilities as Readonly<Record<string, number>> | undefined) ?? {}).toSorted(
     (a, b) => b[1] - a[1]
   )
   const index = best === undefined ? Math.round(answer.score) : Number(best[0])
-  return levels[Math.min(Math.max(index, 0), levels.length - 1)]!
+  return Number.isInteger(index) ? levels[Math.min(Math.max(index, 0), levels.length - 1)]! : null
 }
 
 /** The choice when it is one of `allowed` and sure enough, else null. */
@@ -119,10 +123,12 @@ const judgeBatch = (jev: Jev["Service"], language: Language, batch: ReadonlyArra
     .pipe(
       Effect.map(({ answers }) => {
         const all = answers as Readonly<Record<string, ScoreResponse | ChoiceResponse | undefined>>
-        return batch.map((_, index): JudgedCasting => {
+        return batch.map((_, index): JudgedCasting | null => {
           const choice = (signal: string) => all[`s${index}_${signal}`] as ChoiceResponse | undefined
+          const formality = levelOf(all[`s${index}_formality`] as ScoreResponse | undefined)
+          if (formality === null) return null
           return {
-            formality: levelOf(all[`s${index}_formality`] as ScoreResponse),
+            formality,
             casting: {
               speakerGender: sureChoice(choice("gender"), SpeakerGender.literals) ?? "unspecified",
               speakerAge: sureChoice(choice("age"), SpeakerAge.literals) ?? "unspecified",
@@ -139,13 +145,14 @@ const judgeBatch = (jev: Jev["Service"], language: Language, batch: ReadonlyArra
 /**
  * Each sentence's formality and casting, in order, judged by Jev in requests of `CASTING_BATCH`
  * sentences (one request for a typical entry). Fails as a whole on any Jev error: an unjudged
- * sentence keeps no formality, and is not voiced.
+ * sentence keeps no formality, and is not voiced. A sentence whose formality answer is missing or
+ * malformed is null, unjudged, and the rest are judged.
  */
 export const judgeCasting = (
   jev: Jev["Service"],
   language: Language,
   sentences: ReadonlyArray<SentenceToJudge>
-): Effect.Effect<ReadonlyArray<JudgedCasting>, JevError> => {
+): Effect.Effect<ReadonlyArray<JudgedCasting | null>, JevError> => {
   const batches: Array<ReadonlyArray<SentenceToJudge>> = []
   for (let start = 0; start < sentences.length; start += CASTING_BATCH) {
     batches.push(sentences.slice(start, start + CASTING_BATCH))

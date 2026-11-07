@@ -92,7 +92,10 @@ export class AudioEnricher extends Context.Service<
                   }))
                 )
                 .pipe(
-                  Effect.map((judged) => judged.map((one, index) => ({ id: unjudged[index]!.id, ...one }))),
+                  // A sentence Jev gave no usable formality stays unjudged, for a later run.
+                  Effect.map((judged) =>
+                    judged.flatMap((one, index) => (one === null ? [] : [{ id: unjudged[index]!.id, ...one }]))
+                  ),
                   Effect.tap((judged) => saveCasting(db, judged)),
                   Effect.result
                 )

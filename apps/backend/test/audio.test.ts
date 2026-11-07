@@ -37,6 +37,8 @@ const FakeElevenLabs = Layer.succeed(
 const votes: Array<unknown> = []
 const judgments: Array<ReadonlyArray<string>> = []
 let jevFails = false
+/** A sentence whose formality answer Jev leaves out, as a malformed reply would. */
+let jevSkips: string | null = null
 const sure = (choice: string) => ({ type: "choice", choice, confidence: 0.9, probabilities: { [choice]: 0.9 } })
 const FakeJev = Layer.succeed(
   Jev,
@@ -53,13 +55,15 @@ const FakeJev = Layer.succeed(
               .map(([, question]) => (question.instructions as { sentence: string }).sentence)
           )
           const answers = Object.fromEntries(
-            Object.keys(questions).map((name) => {
+            Object.entries(questions).flatMap(([name, question]) => {
               const kind = name.slice(name.indexOf("_") + 1)
+              const { sentence } = question.instructions as { sentence: string }
+              if (kind === "formality" && sentence === jevSkips) return []
               const answer =
                 kind === "formality"
                   ? { type: "score", score: 4, confidence: 0.9, legend: {}, probabilities: { "4": 0.9, "3": 0.1 } }
                   : sure({ gender: "masculine", age: "older", medium: "announcement", tone: "serious" }[kind]!)
-              return [name, answer]
+              return [[name, answer]]
             })
           )
           return { model: "jev-test", answers, usage: { input_tokens: 10, output_tokens: 0 } } as never
@@ -457,6 +461,35 @@ layer(testLayer(FakeJev))("Speech and AudioEnricher", (it) => {
       // The retry judges it and voices it.
       yield* (yield* AudioEnricher).enrich(EntryId.make(8))
       assert.strictEqual(voiceOf("雨が降る。").length, 1)
+    })
+  )
+
+  it.effect("voices the sentences Jev answered for when it leaves one out, and keeps that one unjudged", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      calls.length = 0
+      judgments.length = 0
+      yield* insertEntries(db, [withSeeded(entry(10, [{}]), ["窓を開ける。", "窓を閉める。"])], { seeded: true })
+
+      jevSkips = "窓を閉める。"
+      const summary = yield* (yield* AudioEnricher).enrich(EntryId.make(10))
+      jevSkips = null
+      assert.strictEqual(summary.judged, 1)
+      assert.deepStrictEqual(voiceOf("窓を開ける。"), ["fake-ja-announcer"])
+      assert.deepStrictEqual(voiceOf("窓を閉める。"), [])
+      const stored = yield* examplesFor(db, [EntryId.make(10)])
+      assert.deepStrictEqual(
+        stored.map((row) => [row.ja, row.formality, row.casting?.speakerAge ?? null]),
+        [
+          ["窓を開ける。", "formal", "older"],
+          ["窓を閉める。", null, null]
+        ]
+      )
+
+      // A later run asks about it again and voices it.
+      yield* (yield* AudioEnricher).enrich(EntryId.make(10))
+      assert.deepStrictEqual(judgments.at(-1), ["窓を閉める。"])
+      assert.strictEqual(voiceOf("窓を閉める。").length, 1)
     })
   )
 

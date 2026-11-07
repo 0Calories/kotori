@@ -66,12 +66,13 @@ export class Pronouncer extends Context.Service<
     readonly judges: boolean
     /**
      * The formality and speaker signals of sentences nobody judged as they were written (those
-     * seeded from Tatoeba and Wiktionary), in `language`, all in one or a few Jev requests.
+     * seeded from Tatoeba and Wiktionary), in `language`, all in one or a few Jev requests. Null
+     * for a sentence Jev gave no usable formality.
      */
     judge(
       language: Language,
       sentences: ReadonlyArray<SentenceToJudge>
-    ): Effect.Effect<ReadonlyArray<JudgedCasting>, JevError>
+    ): Effect.Effect<ReadonlyArray<JudgedCasting | null>, JevError>
   }
 >()("@kotori/ai/Pronouncer") {
   static readonly layer = Layer.effect(
