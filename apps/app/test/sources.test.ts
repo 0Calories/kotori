@@ -1,17 +1,37 @@
 import { readFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
+import type { Source } from "@kotori/contracts"
 import { assert, describe, it } from "vitest"
 import { strings } from "../src/i18n/strings.ts"
 import { entryAttributions, entryIdFromParam, entrySourcesHref, type SourcedEntry } from "../src/lib/sources.ts"
 
+type SourcedSense = SourcedEntry["senses"][number]
+
+const sense = (overrides: Partial<SourcedSense> = {}): SourcedSense => ({
+  labels: [],
+  patterns: [],
+  examples: [],
+  similarWords: [],
+  ...overrides
+})
+
 const entry = (overrides: Partial<SourcedEntry> = {}): SourcedEntry => ({
   language: "ja",
+  dictionary: "jmdict",
   audioUrl: null,
   audio: [],
-  loan: null,
-  senses: [{ nuance: null, examples: [], similar: [] }],
+  labels: [],
+  pitfalls: [],
+  loanLink: null,
+  senses: [sense()],
   ...overrides
+})
+
+const example = (source: Source, translationAudioUrl: string | null = null) => ({
+  source,
+  audioUrl: null,
+  translationAudioUrl
 })
 
 const appDir = join(dirname(fileURLToPath(import.meta.url)), "..")
@@ -56,26 +76,56 @@ describe("entry sources", () => {
 
     const rich = entry({
       language: "en",
+      dictionary: "enwiktionary",
       audioUrl: "/audio/head",
-      loan: { word: "スタイル" },
+      loanLink: { source: "jmdict" },
+      pitfalls: [{ source: "kotori" }],
       senses: [
-        { nuance: { formality: "neutral" }, examples: [{ audioUrl: null, translationAudioUrl: null }], similar: [{}] }
+        sense({
+          examples: [example("kotori"), example("tatoeba"), example("jawiktionary")],
+          similarWords: [{}]
+        })
       ]
     })
     assert.deepStrictEqual(
       entryAttributions(strings.en, rich).map((row) => row.id),
-      ["dictionary", "nuance", "examples", "similar", "audio", "loan"]
+      ["dictionary", "kotori", "examples", "tatoeba", "wiktionary", "similar", "audio", "loan"]
+    )
+    assert.equal(
+      entryAttributions(strings.en, rich).find((row) => row.id === "loan")?.body,
+      strings.en.entry.sourceLoanDictionary
     )
 
-    // A translation clip is pronunciation even when the headword has none.
-    const spoken = entry({
-      audioUrl: null,
-      senses: [{ nuance: null, examples: [{ audioUrl: null, translationAudioUrl: "/audio/en" }], similar: [] }]
-    })
+    // A translation clip is pronunciation even when the headword has none; seeded sentences
+    // aren't Kotori's, so they don't credit Claude.
+    const spoken = entry({ senses: [sense({ examples: [example("tatoeba", "/audio/en")] })] })
     assert.deepStrictEqual(
       entryAttributions(strings.en, spoken).map((row) => row.id),
-      ["dictionary", "examples", "audio"]
+      ["dictionary", "tatoeba", "audio"]
     )
+
+    // A Japanese word's loan is its own dictionary's; Kotori's verdict on it is credited.
+    assert.deepStrictEqual(
+      entryAttributions(strings.en, entry({ loanLink: { source: "jmdict" } })).map((row) => row.id),
+      ["dictionary"]
+    )
+    assert.equal(
+      entryAttributions(strings.en, entry({ loanLink: { source: "kotori" } })).at(-1)?.body,
+      strings.en.entry.sourceLoanKotori
+    )
+
+    // A Kotori label or note is credited; on an approved Ask Kotori word the dictionary row says it.
+    const marked = entry({ senses: [sense({ patterns: [{ source: "kotori" }] })] })
+    assert.deepStrictEqual(
+      entryAttributions(strings.en, marked).map((row) => row.id),
+      ["dictionary", "kotori"]
+    )
+    const approved = entryAttributions(strings.en, { ...marked, dictionary: "kotori" })
+    assert.deepStrictEqual(
+      approved.map((row) => row.id),
+      ["dictionary"]
+    )
+    assert.equal(approved[0]?.body, strings.en.entry.sourceDictionaryKotori)
 
     for (const row of entryAttributions(strings.ja, rich)) {
       assert.ok(row.title.length > 0)

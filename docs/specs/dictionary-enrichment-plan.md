@@ -103,10 +103,28 @@ Left as they are:
 - Kotori's pitfalls take the free ranks, so they can sit between pitfalls from other sources. A pitfall's `about` can name its own entry.
 - Older `data/approved/ja.jsonl` lines without `dictionary` would be skipped. No such file exists yet.
 
-### ☐ Phase 5 — Entry page
+### ☑ Phase 5 — Entry page
 
-- Rebuild `app/entry/[id].tsx` from the prototype; the Ask Kotori draft view renders through the same components.
-- Remove `NuanceScales.tsx`, `lib/nuance.ts`, the caution chips, and the prototype (`app/proto`, `src/proto`, `test/proto.test.ts`).
+- `app/entry/[id].tsx` is rebuilt on the model. The hero has the headword, reading, "usually written in kana", the loan origin line on a katakana word, other spellings, and one chip row: the usage chip, the same-meaning loan chip on an English word, and the word's labels. Under it come the word's pitfalls as "Watch out", then the senses: glosses, the part of speech and labels that differ from the word's, subject fields, the dictionary's patterns with Kotori's beside them on a tint, examples with non-Kotori sources named, sense pitfalls, and antonyms. Then the similar words with their derived difference, and a sources line that opens the sources screen, with the ✦ legend when anything is Kotori's.
+- Shared parts: `ChipRow` (`LabelChips.tsx`; chips coloured by severity that explain themselves, one at a time, on tap or hover), `Patterns.tsx`, `Pitfalls.tsx`, and the pure display logic in `lib/entry.ts`. The Ask Kotori `DraftCard` uses the same parts.
+- Copy is in `strings.ts`, in both languages: a name and a one-sentence explanation for every label code, pitfall kinds, similar-word differences and source names. The `caution` severity has its own amber tokens.
+- The sources screen credits the new model: the entry's dictionary (an approved Ask Kotori word says so), Kotori's notes, Kotori's, Tatoeba's and Wiktionary's sentences, similar words, audio, and a loan link that isn't the entry's own dictionary's.
+- A saved word's hint is its labels that aren't grammar facts, and its note is its pitfall, else its first pattern.
+- Removed: `lib/nuance.ts`, the nuance card, sliders and caution chips, the old `LoanNote`, Kotori's sense notes on the page, and the prototype (`app/proto`, `src/proto`, `test/proto.test.ts`, the unguarded routes).
+- Checked in Expo web on a mock API, in both interface languages: 食う, ご苦労様, マンション, 抱く, 鑑みる (dictionary only), 候 (archaic, examples queued), advice, mansion, yep, and the rizz draft.
+
+Changes from the plan and the prototype:
+
+- `NuanceScales.tsx` stays: the Check tab draws a sentence's formality with it.
+- "Rarely heard today" comes from familiarity ≤ 2 or an `arch`/`obs` label. `dated` words are still heard, and their label says so.
+- A word with only seeded sentences still counts as dictionary-only and offers "Ask for this word": the examples job writes Kotori's sentences for it. The waiting card shows only for queued examples, not for the nuance job.
+- Pitfalls and a Kotori loan verdict carry ✦ too, so the legend covers everything Kotori added.
+
+Findings for later phases:
+
+- An English word whose loan drifted shows nothing until Phase 8 writes its `false_friend` pitfall. The old Jev `loan` warning is no longer on the page.
+- Kotori's old sense notes (`sense_notes`) are no longer shown. Words that had one show no Kotori note until Phase 8's pitfalls.
+- Search results still read `EntrySummary.formality` and `currency` (`ResultRow`). Phase 7 removes them, so the result row needs labels first.
 
 ### ☐ Phase 6 — Voice casting on the new model
 
@@ -141,4 +159,4 @@ Left as they are:
 - 2026-11-06: Phase 2 done. Added Phase 6 (voice casting) after seeded sentences came in without formality.
 - 2026-11-06: Phase 3 done. Similar-word rules tightened against the full data (see Phase 3).
 - 2026-11-06: Phase 4 done. Drafts migrated, not regenerated; prompt tightened against live drafts (see Phase 4).
-- 2026-11-06: Phases 1–4 reviewed; fixes committed before Phase 5 (see "Review of phases 1–4").
+- 2026-11-06: Phases 1–4 reviewed; fixes committed before Phase 5 (see "Review of phases 1–4"). Phase 5 done.

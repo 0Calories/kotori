@@ -1,11 +1,4 @@
-import {
-  type Language,
-  loanShown,
-  type Loanword,
-  type Nuance,
-  type Sense,
-  type JudgedSimilarWord
-} from "@kotori/contracts"
+import type { Entry, Language, Sense, SimilarWord } from "@kotori/contracts"
 import { Link, useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { Platform, Share, View } from "react-native"
@@ -18,8 +11,10 @@ import { Chip } from "../../src/components/Chip.tsx"
 import { ExampleRow } from "../../src/components/ExampleRow.tsx"
 import { Headword } from "../../src/components/Headword.tsx"
 import { Icon } from "../../src/components/Icon.tsx"
+import { ChipRow } from "../../src/components/LabelChips.tsx"
 import { Mascot } from "../../src/components/Mascot.tsx"
-import { NuanceScales } from "../../src/components/NuanceScales.tsx"
+import { Patterns } from "../../src/components/Patterns.tsx"
+import { Pitfalls } from "../../src/components/Pitfalls.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
 import { removalErrorText, RemoveNoteDialog } from "../../src/components/RemoveNote.tsx"
 import { Header, Screen, Section } from "../../src/components/Screen.tsx"
@@ -27,9 +22,20 @@ import { Snow } from "../../src/components/Snow.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { posLabel, tagLabel } from "../../src/i18n/strings.ts"
+import {
+  contributors,
+  hasKotoriContent,
+  hasKotoriMarks,
+  heroItems,
+  labelItems,
+  loanLine,
+  saveDetails,
+  sensePitfalls,
+  similarWords,
+  wordPitfalls
+} from "../../src/lib/entry.ts"
 import { findForm } from "../../src/lib/forms.ts"
 import { wordNote } from "../../src/lib/notes.ts"
-import { CONFIDENT, dictionaryTags, nuanceNotes, registerDisplay, registers } from "../../src/lib/nuance.ts"
 import { entryIdFromParam, entrySourcesHref } from "../../src/lib/sources.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
@@ -37,126 +43,33 @@ import { useTheme } from "../../src/theme/ThemeProvider.tsx"
 /** Web browsers without the Web Share API can't share, so the button is left out there. */
 const canShare = Platform.OS !== "web" || (typeof navigator !== "undefined" && "share" in navigator)
 
-const NuanceNotes = ({ nuance }: { readonly nuance: Nuance }) => {
-  const { t } = useSession()
-  const { tags, cautions } = nuanceNotes(t, nuance)
-  if (tags.length + cautions.length === 0) return null
-  return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-      {tags.map((tag) => (
-        <Chip key={tag} label={tag} />
-      ))}
-      {cautions.map((caution) => (
-        <Chip key={caution.label} tone="accent" icon={caution.icon} label={caution.label} />
-      ))}
-    </View>
-  )
-}
-
-/** The register in words — "Casual · Speech" — expandable to the labelled scales where it has any. */
-const RegisterBlock = ({ nuance }: { readonly nuance: Nuance }) => {
-  const theme = useTheme()
-  const { t } = useSession()
-  const [expanded, setExpanded] = useState(false)
-  const { line, rows } = registerDisplay(t, nuance)
-  if (line.length === 0) return null
-  const text = (
-    <Text variant="small" weight="semibold" color="textMuted" style={{ flex: 1 }}>
-      {line.join(" · ")}
-    </Text>
-  )
-  if (rows.length === 0) return text
-  return (
-    <View style={{ gap: 12 }}>
-      <PressableScale
-        onPress={() => setExpanded(!expanded)}
-        accessibilityRole="button"
-        accessibilityLabel={expanded ? t.nuance.hideScales : t.nuance.showScales}
-        style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-      >
-        {text}
-        <Icon name={expanded ? "expand_less" : "expand_more"} size={20} color={theme.color.textMuted} />
-      </PressableScale>
-      {expanded ? <NuanceScales rows={rows} labelled /> : null}
-    </View>
-  )
-}
-
-/** Where the word sits between casual and formal, and between speech and writing. */
-const NuanceCard = ({ nuance }: { readonly nuance: Nuance }) => {
-  const { t } = useSession()
-  const { line } = registerDisplay(t, nuance)
-  const { tags, cautions } = nuanceNotes(t, nuance)
-  if (line.length + tags.length + cautions.length === 0) return null
-  return (
-    <Animated.View entering={FadeInDown.delay(60).duration(350)}>
-      <Card style={{ gap: 12, paddingHorizontal: 18, paddingVertical: 14 }}>
-        <RegisterBlock nuance={nuance} />
-        <NuanceNotes nuance={nuance} />
-      </Card>
-    </Animated.View>
-  )
-}
-
-/**
- * An English word's katakana loan, which Japanese speakers already think they know: a drifted
- * one (スタイル is first someone's figure) is the headline warning, with Claude's sentence on
- * how they differ; a matching one is quiet good news. Unsure verdicts, and loans Jev judges not
- * English, aren't shown.
- */
-const LoanNote = ({ loan }: { readonly loan: Loanword }) => {
-  const { t } = useSession()
-  const shown = loanShown(loan.verdict)
-  if (shown === null) return null
-  if (shown === "chip") {
-    return (
-      <View style={{ flexDirection: "row" }}>
-        <Chip icon="check" label={t.nuance.english.loanMatches(loan.word)} />
-      </View>
-    )
-  }
-  return (
-    <Card tone="accent" style={{ gap: 6 }}>
-      <View style={{ flexDirection: "row" }}>
-        <Chip tone="accent" icon="error" label={t.nuance.english.loanDiverges(loan.word)} />
-      </View>
-      {loan.trap ? (
-        <Text jp variant="small">
-          {loan.trap}
-        </Text>
-      ) : null}
-    </Card>
-  )
-}
-
 /** Glosses run together as their language lists them: "to eat; to dine", "食べる、食事をする". */
 const glossSeparator = (language: Language) => (language === "ja" ? "; " : "、")
 
+/**
+ * One meaning: its glosses, then what is true of this sense and not the word as a whole (a part
+ * of speech or label the hero doesn't show), the dictionary's usage notes with Kotori's beside
+ * them, examples, and any pitfall about this sense alone.
+ */
 const SenseCard = ({
+  entry,
   sense,
   number,
-  language,
   forms,
   partOfSpeech,
-  showNuance,
-  showScales,
   saved,
   onSave,
   saving,
   removing,
   onRemove
 }: {
+  readonly entry: Entry
   readonly sense: Sense
   readonly number: number
-  /** The headword's language; the glosses are in the other one. */
-  readonly language: Language
   /** Ways the headword is written or inflected, to find and mark it in examples. */
   readonly forms: ReadonlyArray<string>
   /** Already shown in the hero; repeated only when this sense differs. */
   readonly partOfSpeech: string | null
-  readonly showNuance: boolean
-  /** The sense's register reads differently from the word's card up top, so it carries its own. */
-  readonly showScales: boolean
   readonly saved: boolean
   readonly onSave: () => void
   readonly saving: boolean
@@ -166,15 +79,14 @@ const SenseCard = ({
   const theme = useTheme()
   const { t } = useSession()
   const router = useRouter()
+  const language = entry.language
   const [first, second, ...rest] = sense.glosses
   const separator = glossSeparator(language)
   const pos = [...new Set(sense.partsOfSpeech.map((tag) => posLabel(t, tag.code) ?? tag.label))].filter(
     (label) => label !== partOfSpeech
   )
-  const open = (id: number) => router.push({ pathname: "/entry/[id]", params: { id: String(id) } })
-  const tags = dictionaryTags(sense)
-  // The usage note in the learner's language: Japanese on an English word, English on a Japanese one.
-  const usage = language === "en" ? sense.noteJa : sense.note
+  const fields = sense.fields.map((tag) => tagLabel(t, tag))
+  const antonyms = sense.antonyms
 
   return (
     <Card style={{ flexDirection: "row", gap: 12, paddingBottom: 12 }}>
@@ -215,33 +127,13 @@ const SenseCard = ({
             />
           </View>
         </View>
-        {pos.length + tags.length > 0 ? (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-            {pos.map((label) => (
-              <Chip key={label} label={label} />
-            ))}
-            {tags.map((tag) => (
-              <Chip key={tag.code} label={tagLabel(t, tag)} />
-            ))}
-          </View>
-        ) : null}
-        {sense.info.map((note) => (
-          <Text key={note} color="textMuted">
-            {note}
-          </Text>
-        ))}
+        <ChipRow items={labelItems(t, sense.labels)} plain={[...pos, ...fields]} />
         {sense.appliesTo.length > 0 ? (
           <Text variant="caption" color="textFaint">
             {t.entry.appliesTo(sense.appliesTo.join("、"))}
           </Text>
         ) : null}
-        {showScales && sense.nuance ? <RegisterBlock nuance={sense.nuance} /> : null}
-        {showNuance && sense.nuance ? <NuanceNotes nuance={sense.nuance} /> : null}
-        {usage ? (
-          <Text jp={language === "en"} variant="small" color="textMuted">
-            {usage}
-          </Text>
-        ) : null}
+        <Patterns patterns={sense.patterns} />
         {sense.examples.map((example) => (
           <ExampleRow
             key={example.id}
@@ -250,15 +142,22 @@ const SenseCard = ({
             mark={findForm(language === "ja" ? example.ja : example.en, forms, language)}
           />
         ))}
-        {sense.related.length + sense.antonyms.length > 0 ? (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-            {sense.related.map((ref) => (
-              <PressableScale key={`r-${ref.text}`} onPress={ref.entryId ? () => open(ref.entryId!) : undefined}>
-                <Chip icon="link" label={ref.text} />
-              </PressableScale>
-            ))}
-            {sense.antonyms.map((ref) => (
-              <PressableScale key={`a-${ref.text}`} onPress={ref.entryId ? () => open(ref.entryId!) : undefined}>
+        <Pitfalls pitfalls={sensePitfalls(entry.pitfalls, sense.index)} headline={false} />
+        {antonyms.length > 0 ? (
+          <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+            <Text variant="caption" color="textFaint">
+              {t.entry.antonyms}
+            </Text>
+            {antonyms.map((ref) => (
+              <PressableScale
+                key={ref.text}
+                accessibilityRole={ref.entryId === null ? undefined : "link"}
+                onPress={
+                  ref.entryId === null
+                    ? undefined
+                    : () => router.push({ pathname: "/entry/[id]", params: { id: String(ref.entryId) } })
+                }
+              >
                 <Chip icon="swap_horiz" label={ref.text} />
               </PressableScale>
             ))}
@@ -269,12 +168,12 @@ const SenseCard = ({
   )
 }
 
-/** Words close to this one, each with how it differs. */
+/** Words close to this one, each with how it differs, read off the two words' labels. */
 const SimilarList = ({
   words,
   language
 }: {
-  readonly words: ReadonlyArray<JudgedSimilarWord>
+  readonly words: ReadonlyArray<SimilarWord>
   /** Similar words come from the same dictionary as the entry. */
   readonly language: Language
 }) => {
@@ -288,7 +187,7 @@ const SimilarList = ({
           key={word.entryId}
           scaleTo={0.98}
           accessibilityRole="link"
-          accessibilityLabel={`${word.headword}, ${t.nuance.difference[word.difference]}, ${word.meaning}`}
+          accessibilityLabel={`${word.headword}, ${t.entry.difference[word.difference]}, ${word.meaning}`}
           onPress={() => router.push({ pathname: "/entry/[id]", params: { id: String(word.entryId) } })}
           style={{
             flexDirection: "row",
@@ -312,7 +211,7 @@ const SimilarList = ({
             </View>
             <Text variant="small" color="textMuted" numberOfLines={2}>
               <Text variant="small" weight="semibold">
-                {t.nuance.difference[word.difference]}
+                {t.entry.difference[word.difference]}
               </Text>
               {` · ${word.meaning}`}
             </Text>
@@ -394,25 +293,20 @@ export default function EntryScreen() {
       setRemoveError(removalErrorText(t, error))
     }
   }
-  const save = (sense: Sense) => {
-    const formality = sense.nuance && sense.nuance.formality.confidence >= CONFIDENT ? sense.nuance.formality : null
-    const medium = sense.nuance && sense.nuance.medium.confidence >= CONFIDENT ? sense.nuance.medium : null
-    return addNote.mutate({
-      content: wordNote(t, {
+  const save = (sense: Sense) =>
+    addNote.mutate({
+      content: wordNote({
         entryId: data.id,
         language,
         sense: sense.index,
         headword: data.headword,
         reading: data.reading,
         glosses: sense.glosses,
-        formality: formality?.value ?? null,
-        medium: medium?.value ?? null,
-        note: (language === "en" ? sense.noteJa : sense.note) ?? null,
+        ...saveDetails(t, data, sense),
         example: sense.examples[0],
         audioUrl: data.audioUrl
       })
     })
-  }
   const reading = data.reading.length > 0 && data.reading !== data.headword ? data.reading : null
   const share = () =>
     Share.share({
@@ -427,22 +321,21 @@ export default function EntryScreen() {
   )
   const inflections = data.forms.filter((form) => form.kind === "inflection")
   const senses = showAll ? data.senses : data.senses.slice(0, 3)
-  const waiting = data.enrichment.examples === "queued" || data.enrichment.nuance === "queued"
-  const { featured, ownLine } = registers(t, data.senses)
-  const similar = [
-    ...new Map(data.senses.flatMap((sense) => sense.similar).map((word) => [word.entryId, word])).values()
-  ]
-  const byAi = data.senses.some((sense) => sense.nuance || sense.examples.length > 0 || sense.similar.length > 0)
+  const waiting = data.enrichment.examples === "queued"
+  const similar = similarWords(data.senses)
   const firstPos = data.senses[0]?.partsOfSpeech[0]
   const partOfSpeech = firstPos ? (posLabel(t, firstPos.code) ?? firstPos.label) : null
   const forms = [data.headword, ...data.forms.map((form) => form.text), ...(language === "ja" ? [data.reading] : [])]
   const size = headwordSize(data.headword, language)
   const headwordAudio = data.audioUrl
-  // Words with nothing from Kotori yet get a plain header, with the part of speech among the details.
-  const plain = !byAi && !waiting
-  const meta = [reading, data.common ? t.dictionary.common : null, plain ? partOfSpeech : null].filter(
+  // A word with nothing from Kotori yet gets a plain header, with the part of speech among the
+  // details, and an offer to ask for more.
+  const plain = !hasKotoriContent(data) && !waiting
+  const meta = [reading, data.usuallyKana ? t.entry.usuallyKana : null, plain ? partOfSpeech : null].filter(
     (part): part is string => part !== null
   )
+  const origin = loanLine(t, data)
+  const chips = heroItems(t, data)
 
   return (
     <Screen
@@ -498,14 +391,15 @@ export default function EntryScreen() {
         entering={FadeInDown.duration(350)}
         style={
           plain
-            ? { paddingHorizontal: 6, paddingTop: 4, marginBottom: 8 }
+            ? { paddingHorizontal: 6, paddingTop: 4, marginBottom: 8, gap: 2 }
             : {
                 borderRadius: theme.radius.xl,
                 overflow: "hidden",
                 backgroundColor: theme.color.primaryTint,
                 paddingHorizontal: 20,
                 paddingTop: 20,
-                paddingBottom: 18
+                paddingBottom: 18,
+                gap: 2
               }
         }
       >
@@ -530,23 +424,33 @@ export default function EntryScreen() {
             variant="caption"
             size={14}
             color="textMuted"
-            style={{ marginTop: plain ? 16 : 6, lineHeight: plain ? 17 : 18 }}
+            style={{ marginTop: plain ? 16 : 4, lineHeight: plain ? 17 : 18 }}
           >
             {meta.join(" · ")}
           </Text>
         ) : null}
+        {origin ? (
+          <Text variant="caption" color="textMuted">
+            {origin}
+          </Text>
+        ) : null}
         {others.length > 0 ? (
-          <Text variant="caption" color="textMuted" style={{ marginTop: 2 }}>
+          <Text variant="caption" color="textMuted">
             {t.entry.forms}: {others.map((form) => form.text).join(language === "ja" ? "・" : ", ")}
           </Text>
         ) : null}
         {inflections.length > 0 ? (
-          <Text variant="caption" color="textMuted" style={{ marginTop: 2 }}>
+          <Text variant="caption" color="textMuted">
             {t.entry.inflections}: {inflections.map((form) => form.text).join(", ")}
           </Text>
         ) : null}
+        {chips.length > 0 ? (
+          <View style={{ marginTop: 10 }}>
+            <ChipRow items={chips} onTint={!plain} />
+          </View>
+        ) : null}
         {plain && !headwordAudio ? null : (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14, minHeight: 44 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12, minHeight: 44 }}>
             {headwordAudio ? <AudioButton url={headwordAudio} label={t.common.listen} /> : null}
             <View style={{ flex: 1 }} />
             {partOfSpeech && !plain ? (
@@ -558,56 +462,30 @@ export default function EntryScreen() {
         )}
       </Animated.View>
 
-      {data.loan ? <LoanNote loan={data.loan} /> : null}
-
-      {featured?.nuance ? <NuanceCard nuance={featured.nuance} /> : null}
+      <Animated.View entering={FadeInDown.delay(60).duration(350)}>
+        <Pitfalls pitfalls={wordPitfalls(data.pitfalls)} headline />
+      </Animated.View>
 
       {waiting ? (
         <Animated.View entering={FadeIn}>
           <Card tone="primary" style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
             <Mascot size={52} mood="thinking" />
             <Text variant="small" style={{ flex: 1 }}>
-              {data.enrichment.examples === "queued" ? t.entry.writing : t.entry.judging}
+              {t.entry.writing}
             </Text>
           </Card>
         </Animated.View>
       ) : null}
 
-      <Section
-        title={data.senses.length === 1 ? t.entry.meaning : t.entry.meanings}
-        action={
-          byAi ? null : (
-            <Text variant="caption" color="textMuted">
-              {t.entry.fromDictionary}
-            </Text>
-          )
-        }
-      >
-        {byAi ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 6, marginTop: -4 }}>
-            <Icon name="info" size={16} color={theme.color.textMuted} />
-            <Text variant="caption" color="textMuted" style={{ flex: 1 }}>
-              {t.entry.byAi}
-            </Text>
-            <Link href={entrySourcesHref(data.id)} asChild>
-              <PressableScale accessibilityRole="link" hitSlop={12}>
-                <Text variant="caption" weight="semibold" style={{ textDecorationLine: "underline" }}>
-                  {t.entry.sources}
-                </Text>
-              </PressableScale>
-            </Link>
-          </View>
-        ) : null}
+      <Section title={data.senses.length === 1 ? t.entry.meaning : t.entry.meanings}>
         {senses.map((sense, index) => (
           <Animated.View key={sense.index} entering={FadeInDown.delay(80 + index * 60).duration(350)}>
             <SenseCard
+              entry={data}
               sense={sense}
               number={index + 1}
-              language={language}
               forms={forms}
               partOfSpeech={partOfSpeech}
-              showNuance={sense !== featured}
-              showScales={ownLine(sense)}
               saved={savedSenses.has(sense.index)}
               saving={addNote.isPending}
               removing={removeNote.isPending}
@@ -625,7 +503,7 @@ export default function EntryScreen() {
         ) : null}
       </Section>
 
-      {!byAi && !waiting ? (
+      {plain ? (
         <View
           style={{
             backgroundColor: theme.color.surfaceMuted,
@@ -677,6 +555,24 @@ export default function EntryScreen() {
           <SimilarList words={similar} language={language} />
         </Section>
       ) : null}
+
+      <View style={{ paddingHorizontal: 6, gap: 8 }}>
+        <Link href={entrySourcesHref(data.id)} asChild>
+          <PressableScale accessibilityRole="link" hitSlop={8} style={{ alignSelf: "flex-start" }}>
+            <Text variant="caption" color="textFaint">
+              <Text variant="caption" weight="semibold" color="textMuted" style={{ textDecorationLine: "underline" }}>
+                {t.entry.sources}
+              </Text>
+              {t.entry.sourcesList(contributors(t, data))}
+            </Text>
+          </PressableScale>
+        </Link>
+        {hasKotoriMarks(data) ? (
+          <Text variant="caption" color="textFaint">
+            {t.entry.kotoriLegend}
+          </Text>
+        ) : null}
+      </View>
     </Screen>
   )
 }
