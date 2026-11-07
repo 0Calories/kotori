@@ -177,13 +177,41 @@ Findings for Phase 8:
 
 Deploy: the release command runs the migration before the machines roll. Until they are replaced, old API machines fail on search and entry pages (they read `sense_nuance`), and an old worker fails to claim jobs (it asks for `nuance`). Open web tabs fail to decode entries, search results and `/health` (fields removed or renamed) until they reload.
 
-### ☐ Phase 8 — Offline inference passes
+### ◐ Phase 8 — Offline inference passes
 
-- `kotori judge <pass>` writes reviewed `data/*.jsonl` with a model and prompt-version header; the import fills empty cells only.
-- Golden sets first, both directions. Then one commit per pass, each only once it passes its eval:
-  1. `ja-form` fill for common untagged formal written words.
-  2. Pitfalls, `ja` and `en`, at most three per word; sense-scoped ones name the gloss, not the number.
-  3. Loan verdicts for English candidates with no `lsource`.
+Built and evaluated; no pass has been run over the dictionary, so no artifact is committed.
+
+- `kotori judge <pass>` (`ja-form`, `pitfalls-ja`, `pitfalls-en`, `loans`) picks candidates from the database (common words by default, `--uncommon` for all; approved Ask Kotori words never), asks the model, and rewrites the artifact after every batch. `--limit`, `--dry-run`, `--concurrency`; `--restart` to replace a file another model or prompt version wrote, which it otherwise refuses to extend. Jev judges `form` and loans; Claude writes pitfalls (`PitfallWriter`).
+- Artifacts: `data/labels/ja-form.jsonl`, `data/pitfalls/{ja,en}.jsonl`, `data/loans/verdicts.jsonl`, each with a header (pass, model, prompt version) and a CC BY-SA `NOTICE.md` beside it. Every judged word has a line, so a re-run asks only new words. Senses are named by their first gloss, never their position.
+- `kotori seed` applies whichever artifacts exist after its imports (`passes/apply.ts`). It fills empty cells only and is idempotent: `form` only on senses with no label but quiet ones, Kotori's pitfalls replaced and placed in the ranks other sources leave free, loan verdicts set with source `kotori` only where the meaning is null or already Kotori's. A word whose headword changed, a sense that is gone and an approved word are skipped.
+- Candidates: `ja-form` asks senses with no register label among a word's first six; pitfalls see the page (glosses, labels, the dictionary's notes, the loan and its verdict); loans restore `loanCandidates` from `d0cb63a` (lsource pairs first, then gloss matches) and the old loan questions, for English words with no verdict.
+- `kotori eval ja-form|loans|pitfalls|drafts` runs each golden set with the production builders and prints PASS or FAIL against its bar (`eval/passes.ts`). `drafts` scores the Lexicographer's pitfalls on Ask Kotori queries.
+- Golden sets (`packages/ai/src/eval/`, JMdict and Wiktionary excerpts under a NOTICE): 34 `form` senses, 31 pitfall words (both directions) plus 5 draft-only queries, 31 loan words. Each item names its evidence, and `judgement` marks those resting on judgement alone, for Ash to review.
+
+Scores (live, 2026-11-07):
+
+| Pass | Bar | Score |
+|---|---|---|
+| `ja-form` (jev-1.14.0) | precision ≥ 90%, recall ≥ 70% | 100% / 94%, then 100% / 89% (本日 at 0.68 and なお "furthermore" fall short) |
+| `loans` (jev-1.14.0) | each verdict precision ≥ 90%, recall ≥ 60% | divergent 100% / 92%, same 100% / 69%, twice; misses are unsure, never wrong (ナイーブ, テスト, ゲーム, カード, チャンス) |
+| `pitfalls` (claude-opus-5-5, prompt v3) | silent ≥ 90% where none is needed, caught ≥ 80% | v1 67% / 93%, v2 81% / 100%; v3 94% / 100%, then 81% / 100% on a rerun. Not yet passing reliably |
+| `drafts` (Lexicographer) | as pitfalls | 0/8 silent before the shared rules, 4–5/8 after; caught 3/3 |
+
+Decisions:
+
+- A `tone` kind, in both directions: how heavy or light a word lands (ぴえん is playful, never real grief), not politeness or a vulgar word's strength. Drafts filed it under `set_phrase`. Migration `pitfall_tone`; copy "How it lands" / 「言葉の重さ」. Its definition had to rule out roughness (食う is `rude_upward`) and slang's "sounds try-hard".
+- The bars weigh a wrong fill above a missing one: what a pass leaves out, the page shows as the dictionary has it.
+- An English false friend the curated file already notes (mansion, naive, cunning, claim, smart, tension, talent) needs no pitfall: the note is the warning, as with ご苦労様.
+- The pitfall rules are shared with the Lexicographer (`pitfallGuide.ts`), including a list of what is never a pitfall, so live Ask Kotori drafts now write fewer.
+
+Findings and what remains:
+
+- Golden set changes after the first pitfalls run: 水 now needs a pitfall (お湯), and table, 食べる and お前 were dropped as debatable. リフト is in neither set: no clear answer.
+- Pitfalls' remaining misses are plausible teachings on words the set says need none: "hot water" on *water*, "Happy wedding" on *happy*, 学校 not meaning university. Ash should decide whether those belong in the set as `none` before the prompt is tuned further.
+- The default `ja-form` candidates miss 鑑みる and 当該: JMdict doesn't mark them common. `--uncommon` covers them, at about ten times the requests.
+- To do, Ash's call: run each passing pass, review and commit its artifact, then reseed. Run loans before `pitfalls-en`, so false friends see their verdict.
+
+Deploy: the migration only adds an enum value. Once a `tone` pitfall exists (a new Ask Kotori draft can now write one), web tabs open from before the deploy fail to decode that entry or draft until they reload.
 
 ## Out of scope
 
@@ -200,3 +228,4 @@ Deploy: the release command runs the migration before the machines roll. Until t
 - 2026-11-06: Phase 6 done. Seeded sentences judged by Jev on the audio job, not a new job kind; `formality` stays a column (see Phase 6).
 - 2026-11-07: Seeded sentences voiced only where Kotori wrote none; finished audio jobs requeued only for untried sentences (see "After Phase 6").
 - 2026-11-07: Phase 7 done. The old tables are dropped with nothing carried over; search results show the word's labels (see Phase 7).
+- 2026-11-07: Phase 8 built: `kotori judge` and the artifact import, golden sets and evals for every pass, and a `tone` pitfall kind. `ja-form` and loans pass; pitfalls pass only on some runs. No artifact committed (see Phase 8).

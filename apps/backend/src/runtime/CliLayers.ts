@@ -25,6 +25,17 @@ export const FamiliarityLive = FamiliarityRater.layer.pipe(
   Layer.provideMerge(DatabaseLive)
 )
 
+/**
+ * What `kotori judge` needs: Jev for the typed passes (`ja-form`, `loans`), Claude's pitfall
+ * writer for the written ones, and the database for the candidates. Keys come from the
+ * environment; a pass whose model has none fails alone.
+ */
+export const JudgeLive = PitfallWriter.layer.pipe(
+  Layer.provideMerge(Claude.layer),
+  Layer.provideMerge(Jev.layer),
+  Layer.provideMerge(DatabaseLive)
+)
+
 /** What `kotori eval` needs: Jev, and Claude as the pitfall writer and the Lexicographer. No database. */
 export const EvalLive = Layer.mergeAll(PitfallWriter.layer, Lexicographer.layer).pipe(
   Layer.provideMerge(Claude.layer),

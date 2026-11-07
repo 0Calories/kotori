@@ -12,6 +12,7 @@ import {
   insertEntries,
   saveKotoriPitfalls
 } from "../features/dictionary/index.ts"
+import { applyArtifacts } from "../features/dictionary/passes/apply.ts"
 import { resolveFromRoot } from "../runtime/Paths.ts"
 
 export const seed = Command.make(
@@ -121,6 +122,9 @@ export const seed = Command.make(
         )
       }
     }
+    // The offline passes' committed judgments, on top of whatever was imported: they fill only
+    // what the dictionaries leave empty, and re-applying them changes nothing.
+    yield* applyArtifacts(db)
     yield* Console.log(`The dictionary has ${(yield* entryCount(db)).toLocaleString()} entries.`)
   })
 ).pipe(

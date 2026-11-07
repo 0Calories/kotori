@@ -6,13 +6,14 @@ import { adminCommand, approve, archive, devAccount, requests, revoke, users } f
 import { enrich } from "../cli/enrich.ts"
 import { evaluate } from "../cli/evaluate.ts"
 import { familiarity } from "../cli/familiarity.ts"
+import { judge } from "../cli/judge.ts"
 import { migrate } from "../cli/migrate.ts"
 import { proposalsCommand } from "../cli/proposals.ts"
 import { seed } from "../cli/seed.ts"
 import { status } from "../cli/status.ts"
 import { storage } from "../cli/storage.ts"
 import { DatabaseLive } from "../db/Database.ts"
-import { AccountsLive, EvalLive, FamiliarityLive, RedoLive, SeedLive } from "../runtime/CliLayers.ts"
+import { AccountsLive, EvalLive, FamiliarityLive, JudgeLive, RedoLive, SeedLive } from "../runtime/CliLayers.ts"
 import { loadDotEnv } from "../runtime/Paths.ts"
 import { loggerLayer, SentryLive } from "../runtime/Sentry.ts"
 import { WorkerLive } from "../runtime/WorkerLayers.ts"
@@ -29,6 +30,7 @@ const kotori = Command.make("kotori").pipe(
     seed.pipe(Command.provide(SeedLive)),
     enrich.pipe(Command.provide(WorkerLive)),
     familiarity.pipe(Command.provide(FamiliarityLive)),
+    judge.pipe(Command.provide(JudgeLive)),
     evaluate.pipe(Command.provide(EvalLive)),
     status.pipe(Command.provide(WorkerLive)),
     storage.pipe(Command.provide(DatabaseLive)),
