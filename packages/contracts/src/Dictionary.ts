@@ -1,5 +1,6 @@
 import {
   castBy,
+  Casting,
   entries,
   EntryId,
   examples,
@@ -13,11 +14,11 @@ import {
   proposalRoute,
   proposalStatus,
   senseNotes,
-  sentenceMedium,
-  sentenceTone,
+  SentenceMedium,
+  SentenceTone,
   similarWords,
-  speakerAge,
-  speakerGender,
+  SpeakerAge,
+  SpeakerGender,
   Source,
   tags,
   usageEvidence
@@ -28,7 +29,19 @@ import * as Struct from "effect/Struct"
 import { Language } from "./Language.ts"
 import { Currency, Loanword } from "./Nuance.ts"
 
-export { EntryId, LabelCode, LabelSeverity, LoanLinkMeaning, PitfallKind, Source }
+export {
+  Casting,
+  EntryId,
+  LabelCode,
+  LabelSeverity,
+  LoanLinkMeaning,
+  PitfallKind,
+  SentenceMedium,
+  SentenceTone,
+  Source,
+  SpeakerAge,
+  SpeakerGender
+}
 
 const EntryRow = createSelectSchema(entries, { id: EntryId })
 // `text` is a bytewise-collated custom column, which derives as unknown.
@@ -153,21 +166,6 @@ export const SimilarWord = Schema.Struct({
   via: Schema.Literals(["xref", "gloss"])
 })
 export type SimilarWord = typeof SimilarWord.Type
-
-/** Who would plausibly say an example sentence, as judged when it was written. */
-export const SpeakerGender = createSelectSchema(speakerGender)
-export type SpeakerGender = typeof SpeakerGender.Type
-
-export const SpeakerAge = createSelectSchema(speakerAge)
-export type SpeakerAge = typeof SpeakerAge.Type
-
-/** Conversation (someone talking to someone), announcement (news, notices, mail read aloud) or narration (prose). */
-export const SentenceMedium = createSelectSchema(sentenceMedium)
-export type SentenceMedium = typeof SentenceMedium.Type
-
-/** The dominant feel of the delivery; "humorous" sends a sentence to a comic voice, the rest is stored for voice settings. */
-export const SentenceTone = createSelectSchema(sentenceTone)
-export type SentenceTone = typeof SentenceTone.Type
 
 /** How a clip's voice was chosen: scoring alone, Jev breaking a tie, or a person via the CLI. */
 export const CastBy = createSelectSchema(castBy)

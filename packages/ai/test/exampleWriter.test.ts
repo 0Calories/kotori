@@ -103,17 +103,19 @@ const group = (
 ) => ({ sense, note: null, examples, ...extra }) as never
 
 describe("ExampleWriter.write", () => {
-  it("flattens the speaker and normalises the variety label", async () => {
+  it("gathers the speaker signals into the sentence's casting and normalises the variety label", async () => {
     const { examples } = await write({ senses: [group(0, [written()])] })
     expect(examples).toHaveLength(1)
     expect(examples[0]).toMatchObject({
       sense: 0,
       formality: "casual",
-      speakerGender: "masculine",
-      speakerAge: "adult",
-      medium: "conversation",
-      variety: "kansai",
-      tone: "rough"
+      casting: {
+        speakerGender: "masculine",
+        speakerAge: "adult",
+        medium: "conversation",
+        variety: "kansai",
+        tone: "rough"
+      }
     })
   })
 
@@ -128,7 +130,7 @@ describe("ExampleWriter.write", () => {
     const { examples } = await write({
       senses: [group(1, [written({ variety: label, gloss: "must not" })])]
     })
-    expect(examples[0]?.variety).toBe(expected)
+    expect(examples[0]?.casting.variety).toBe(expected)
   })
 
   it("keeps the usage note of each known sense", async () => {
@@ -214,7 +216,13 @@ describe("ExampleWriter.write for English words", () => {
       furigana: "気まずい沈黙が流れた。",
       note: null,
       noteJa: "「awkward silence」は決まった言い方。",
-      variety: null
+      casting: {
+        speakerGender: "unspecified",
+        speakerAge: "adult",
+        medium: "narration",
+        variety: null,
+        tone: "neutral"
+      }
     })
     // An English word's note is for Japanese speakers, in Japanese.
     expect(notes).toEqual([{ sense: 0, note: null, noteJa: "人間関係の気まずさにも、動作のぎこちなさにも使える。" }])

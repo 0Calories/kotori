@@ -14,3 +14,4 @@ export {
   sharedGlossCandidates,
   tagLabels
 } from "./queries.ts"
+export { labelsBySense } from "./usage.ts"

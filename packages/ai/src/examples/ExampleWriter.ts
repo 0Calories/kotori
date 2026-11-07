@@ -1,4 +1,12 @@
-import { Formality, type Language, SentenceMedium, SentenceTone, SpeakerAge, SpeakerGender } from "@kotori/contracts"
+import {
+  type Casting,
+  Formality,
+  type Language,
+  SentenceMedium,
+  SentenceTone,
+  SpeakerAge,
+  SpeakerGender
+} from "@kotori/contracts"
 import { furiganaToText, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
 import { Context, Effect, Layer, Schema } from "effect"
 import { Claude, type ClaudeError } from "../providers/Claude.ts"
@@ -90,12 +98,8 @@ export interface WrittenExample {
   readonly furigana: string
   readonly en: string
   readonly formality: Formality
-  readonly speakerGender: SpeakerGender
-  readonly speakerAge: SpeakerAge
-  readonly medium: SentenceMedium
-  /** Lowercased regional variety label, or null for the standard language. */
-  readonly variety: string | null
-  readonly tone: SentenceTone
+  /** Who says it and how, for voice casting; its variety is a lowercased label, or null for the standard language. */
+  readonly casting: Casting
   readonly note: string | null
   /** For Japanese speakers learning English, in Japanese. */
   readonly noteJa: string | null
@@ -132,6 +136,20 @@ const normalizeVariety = (label: string | null): string | null => {
     .trim()
   return normalized === "" || normalized === "standard" || normalized === "null" ? null : normalized
 }
+
+/** The speaker signals Claude judged for a sentence, as stored. */
+const castingOf = (example: {
+  readonly speaker: { readonly gender: SpeakerGender; readonly age: SpeakerAge }
+  readonly medium: SentenceMedium
+  readonly variety: string | null
+  readonly tone: SentenceTone
+}): Casting => ({
+  speakerGender: example.speaker.gender,
+  speakerAge: example.speaker.age,
+  medium: example.medium,
+  variety: normalizeVariety(example.variety),
+  tone: example.tone
+})
 
 export interface WrittenExamples {
   /** One usage note per sense; the examples only annotate what is specific to a sentence. */
@@ -207,11 +225,7 @@ export class ExampleWriter extends Context.Service<
               furigana: example.ja,
               en: example.en,
               formality: example.formality,
-              speakerGender: example.speaker.gender,
-              speakerAge: example.speaker.age,
-              medium: example.medium,
-              variety: normalizeVariety(example.variety),
-              tone: example.tone,
+              casting: castingOf(example),
               note: null,
               noteJa: example.noteJa
             }))
@@ -239,11 +253,7 @@ export class ExampleWriter extends Context.Service<
               furigana: furiganaToText(example.furigana) === example.ja ? example.furigana : example.ja,
               en: example.en,
               formality: example.formality,
-              speakerGender: example.speaker.gender,
-              speakerAge: example.speaker.age,
-              medium: example.medium,
-              variety: normalizeVariety(example.variety),
-              tone: example.tone,
+              casting: castingOf(example),
               note: example.note,
               // Japanese words are read by learners of Japanese, in English.
               noteJa: null

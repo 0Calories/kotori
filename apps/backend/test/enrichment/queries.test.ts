@@ -19,6 +19,7 @@ import {
   nuanceEntryIds,
   nuanceFor,
   outdatedNuanceEntryIds,
+  saveCasting,
   saveExamples,
   saveLoanTrap,
   saveLoanWord,
@@ -113,8 +114,7 @@ layer(TestLayer)("enrichment queries", (it) => {
       assert.strictEqual(first?.position, 0)
 
       // Examples written before voice casting carry no casting signals.
-      assert.strictEqual(first?.speakerGender, null)
-      assert.strictEqual(first?.variety, null)
+      assert.strictEqual(first?.casting, null)
 
       const clip = { key: "a".repeat(64), text: "食べる", language: "ja" as const, voiceId: "v", modelId: "m" }
       yield* saveAudio(db, { ...clip, voice: "ja-kyoko", characters: 3, bytes: 10, createdAt: new Date(1000) })
@@ -144,18 +144,34 @@ layer(TestLayer)("enrichment queries", (it) => {
             sense: 0,
             formality: "casual",
             ...example,
-            speakerGender: "feminine",
-            speakerAge: "youth",
-            medium: "conversation",
-            variety: "kansai",
-            tone: "cheerful"
+            casting: {
+              speakerGender: "feminine",
+              speakerAge: "youth",
+              medium: "conversation",
+              variety: "kansai",
+              tone: "cheerful"
+            }
           }
         ],
         new Date(1500)
       )
       const [cast] = yield* examplesFor(db, [taberu])
-      assert.strictEqual(cast?.speakerGender, "feminine")
-      assert.strictEqual(cast?.variety, "kansai")
+      assert.strictEqual(cast?.casting?.speakerGender, "feminine")
+      assert.strictEqual(cast?.casting?.variety, "kansai")
+
+      // A judgment fills only a sentence with no formality: Claude's own register stands.
+      const judged = {
+        formality: "formal" as const,
+        casting: { speakerGender: "unspecified", speakerAge: "older", medium: null, variety: null, tone: null } as const
+      }
+      yield* saveCasting(db, [{ id: cast!.id, ...judged }])
+      assert.strictEqual((yield* examplesFor(db, [taberu]))[0]?.formality, "casual")
+      yield* saveExamples(db, taberu, [{ sense: 0, formality: null, ...example }], new Date(1600))
+      const [unjudged] = yield* examplesFor(db, [taberu])
+      yield* saveCasting(db, [{ id: unjudged!.id, ...judged }])
+      const [filled] = yield* examplesFor(db, [taberu])
+      assert.strictEqual(filled?.formality, "formal")
+      assert.deepStrictEqual(filled?.casting, judged.casting)
 
       // Re-enriching replaces the examples; their audio links go with them.
       yield* saveExamples(db, taberu, [{ sense: 1, formality: "polite", ...example }], new Date(2000))

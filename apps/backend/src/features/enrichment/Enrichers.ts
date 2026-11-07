@@ -186,7 +186,14 @@ export class Enrichers extends Context.Service<
           case "examples":
             return examples(entryId)
           case "audio":
-            return audio.enrich(entryId).pipe(Effect.map((s) => `${s.clips} clips, ${s.characters} chars`))
+            return audio
+              .enrich(entryId)
+              .pipe(
+                Effect.map(
+                  (s) =>
+                    `${s.clips} clips, ${s.characters} chars${s.judged > 0 ? `, ${s.judged} seeded sentences judged` : ""}`
+                )
+              )
         }
       }
 

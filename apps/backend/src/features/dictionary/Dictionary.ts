@@ -713,10 +713,12 @@ export class Dictionary extends Context.Service<
           examples.map((example) => example.id)
         )
         // Ready once the headword and every example that can be voiced are, in the entry's language.
-        // Seeded sentences have no formality to cast a voice by, so they aren't voiced yet.
+        // A seeded sentence has no formality to cast a voice by until Jev judges it on the audio
+        // job; without Jev it is never voiced, as no register is assumed, so it isn't waited for.
+        const voiceable = (example: ExampleRow) => example.formality !== null || pronouncer.judges
         const hasAudio =
           (yield* entryClips(db, [entry.id])).size > 0 &&
-          examples.every((example) => example.formality === null || clips.has(`${example.id}:${entry.language}`))
+          examples.every((example) => !voiceable(example) || clips.has(`${example.id}:${entry.language}`))
         const coachAvailable = yield* claude.available
         const now = new Date(yield* Clock.currentTimeMillis)
 

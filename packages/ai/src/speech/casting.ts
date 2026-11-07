@@ -1,4 +1,4 @@
-import type { Formality, Language, Nuance, SentenceTone } from "@kotori/contracts"
+import type { Casting, Formality, Language } from "@kotori/contracts"
 import type { ChoiceQuestion } from "@typesafe-ai/sdk"
 import { Effect } from "effect"
 import type { Jev, JevError } from "../providers/Jev.ts"
@@ -36,32 +36,32 @@ export interface CastingBrief {
   readonly humorous: boolean
 }
 
-/** The sentence columns casting reads; the speaker columns are null on examples written before casting. */
-export interface SentenceSignals {
+/**
+ * The sentence signals casting reads: its formality, and its `Casting` spread beside it (absent
+ * on examples written before casting). A variety is the label Claude wrote ("kansai", "british"…).
+ */
+export interface SentenceSignals extends Partial<Casting> {
   readonly formality: Formality
-  readonly speakerGender?: "masculine" | "feminine" | "unspecified" | null
-  readonly speakerAge?: "child" | "youth" | "adult" | "middle-aged" | "older" | "unspecified" | null
-  readonly medium?: VoiceMedium | null
-  /** Regional variety label written by Claude ("kansai", "british"...); null for the default. */
-  readonly variety?: string | null
-  readonly tone?: SentenceTone | null
 }
 
+/**
+ * What the sentence's own sense says about its speaker: all of the sense's labels, whatever
+ * their source (a dictionary's, or Kotori's fill), and its subject fields. Not the word's labels,
+ * which are only those every sense shares.
+ */
 export interface SenseSignals {
-  readonly misc: ReadonlyArray<string>
-  readonly dialects: ReadonlyArray<string>
+  readonly labels: ReadonlyArray<string>
   readonly fields: ReadonlyArray<string>
 }
 
 export interface CastingInput {
   readonly sentence: SentenceSignals
   readonly sense: SenseSignals
-  readonly nuance: Nuance | null
 }
 
 /**
- * Dialect codes on a sense → the variety a voice must have: JMDict's (`dial`) for Japanese
- * words, regions of English for English ones. Codes without one stay default.
+ * Dialect and region labels on a sense → the variety a voice must have: JMDict's dialects for
+ * Japanese words, regions of English for English ones. Codes without one stay default.
  */
 const DIALECT_VARIETIES: Record<string, Variety> = {
   ksb: "kansai",
@@ -74,6 +74,12 @@ const DIALECT_VARIETIES: Record<string, Variety> = {
   "en-AU": "australian"
 }
 
+/** Labels that mark slang, which a casual or rough voice reads best; colloquial is a register, carried by formality. */
+const SLANG = new Set(["sl", "net-sl", "m-sl", "vulg"])
+
+/** Labels that mark a word as old, which an older voice reads best. */
+const ARCHAIC = new Set(["arch", "obs", "dated"])
+
 /** Sentence variety labels (free-form from Claude) → varieties. */
 const SENTENCE_VARIETIES: Record<string, Variety> = {
   kansai: "kansai",
@@ -84,63 +90,30 @@ const SENTENCE_VARIETIES: Record<string, Variety> = {
   australian: "australian"
 }
 
-/** Below this, a Jev nuance judgment is too unsure to steer casting. */
-const NUANCE_CONFIDENCE = 0.6
-
-const nuanceGender = (nuance: Nuance | null): CastingBrief["gender"] =>
-  nuance !== null &&
-  nuance.gender.confidence >= NUANCE_CONFIDENCE &&
-  (nuance.gender.value === "masculine" || nuance.gender.value === "feminine")
-    ? nuance.gender.value
-    : null
-
-const nuanceAge = (nuance: Nuance | null): VoiceAge | null => {
-  if (nuance === null || nuance.age.confidence < NUANCE_CONFIDENCE) return null
-  switch (nuance.age.value) {
-    case "children":
-      return "child"
-    case "youth":
-      return "youth"
-    case "older":
-      return "older"
-    default:
-      return null
-  }
-}
-
-/** Writes the casting brief for a sentence, merging its signals most specific first. */
-export const briefFor = ({ nuance, sense, sentence }: CastingInput): CastingBrief => {
+/** Writes the casting brief for a sentence, merging its signals most specific first: the sentence's, then its sense's labels. */
+export const briefFor = ({ sense, sentence }: CastingInput): CastingBrief => {
+  const labels = new Set(sense.labels)
   const sentenceVariety = sentence.variety == null ? null : (SENTENCE_VARIETIES[sentence.variety] ?? null)
-  const senseVariety = sense.dialects.map((code) => DIALECT_VARIETIES[code]).find((tag) => tag !== undefined) ?? null
+  const senseVariety = sense.labels.map((code) => DIALECT_VARIETIES[code]).find((tag) => tag !== undefined) ?? null
 
   const speakerGender =
     sentence.speakerGender === "masculine" || sentence.speakerGender === "feminine" ? sentence.speakerGender : null
-  const miscGender = sense.misc.includes("male") ? "masculine" : sense.misc.includes("fem") ? "feminine" : null
+  const labelGender = labels.has("male") ? "masculine" : labels.has("fem") ? "feminine" : null
 
   const speakerAge = sentence.speakerAge != null && sentence.speakerAge !== "unspecified" ? sentence.speakerAge : null
-  const miscAge = sense.misc.includes("chn") ? "child" : null
+  const labelAge = labels.has("chn") ? "child" : null
 
-  const formalWriting =
-    sentence.formality === "formal" &&
-    ((nuance !== null && nuance.medium.value === "written") || sense.fields.length > 0)
+  // A formal line of a formal written word (Kotori's `form` fill) or a field's term is read as an announcement.
+  const formalWriting = sentence.formality === "formal" && (labels.has("form") || sense.fields.length > 0)
 
   return {
     variety: sentenceVariety ?? senseVariety,
-    gender: speakerGender ?? miscGender ?? nuanceGender(nuance),
-    age: speakerAge ?? miscAge ?? nuanceAge(nuance),
+    gender: speakerGender ?? labelGender,
+    age: speakerAge ?? labelAge,
     formality: sentence.formality,
     medium: sentence.medium ?? (formalWriting ? "announcement" : null),
-    slang:
-      sentence.formality === "vulgar" ||
-      sense.misc.includes("sl") ||
-      sense.misc.includes("vulg") ||
-      (nuance !== null && nuance.cautions.slang >= NUANCE_CONFIDENCE),
-    archaic:
-      sense.misc.includes("arch") ||
-      sense.misc.includes("dated") ||
-      (nuance !== null &&
-        nuance.currency.confidence >= NUANCE_CONFIDENCE &&
-        (nuance.currency.value === "archaic" || nuance.currency.value === "dated")),
+    slang: sentence.formality === "vulgar" || sense.labels.some((code) => SLANG.has(code)),
+    archaic: sense.labels.some((code) => ARCHAIC.has(code)),
     humorous: sentence.tone === "humorous"
   }
 }

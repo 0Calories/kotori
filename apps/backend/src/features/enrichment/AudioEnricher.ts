@@ -1,15 +1,17 @@
-import { Pronouncer, type TtsError } from "@kotori/ai"
+import { type JevError, Pronouncer, type TtsError } from "@kotori/ai"
 import type { EntryId } from "@kotori/db"
-import { Config, Context, Effect, Layer, Option } from "effect"
+import { Config, Context, Effect, Layer, Option, Result } from "effect"
 import { Database } from "../../db/Database.ts"
 import { entryClips, exampleClips, linkEntryAudio, linkExampleAudio } from "../audio/index.ts"
 import { Speech } from "../audio/Speech.ts"
-import { getEntries } from "../dictionary/index.ts"
-import { examplesFor, nuanceFor } from "./queries.ts"
+import { getEntries, labelsBySense } from "../dictionary/index.ts"
+import { examplesFor, saveCasting } from "./queries.ts"
 
 export interface AudioSummary {
   readonly clips: number
   readonly characters: number
+  /** Seeded sentences whose casting signals Jev judged on the way. */
+  readonly judged: number
 }
 
 /** Voices dictionary entries: their headword, and their example sentences with a reader cast for each. */
@@ -21,8 +23,12 @@ export class AudioEnricher extends Context.Service<
      * its learners are learning), voices chosen per sentence. Only what is missing is voiced:
      * existing clips are left as they are, so re-running fills gaps (a run cut short) without
      * re-casting or paying twice.
+     *
+     * Seeded sentences, which come with no formality, have it and their speaker judged first, in
+     * one Jev request for the entry. If Jev fails, every other sentence is still voiced and the
+     * job then fails, so it is retried; a sentence never judged is never voiced.
      */
-    enrich(entryId: EntryId): Effect.Effect<AudioSummary, TtsError>
+    enrich(entryId: EntryId): Effect.Effect<AudioSummary, TtsError | JevError>
   }
 >()("@kotori/backend/AudioEnricher") {
   static readonly layer = Layer.effect(
@@ -35,7 +41,7 @@ export class AudioEnricher extends Context.Service<
 
       const enrich = Effect.fn("AudioEnricher.enrich")(function* (entryId: EntryId) {
         const [entry] = yield* getEntries(db, [entryId])
-        if (entry === undefined) return { clips: 0, characters: 0 }
+        if (entry === undefined) return { clips: 0, characters: 0, judged: 0 }
         let clips = 0
         let characters = 0
         const track = (text: string) => {
@@ -58,25 +64,51 @@ export class AudioEnricher extends Context.Service<
           track(spoken)
         }
 
-        const nuance = new Map((yield* nuanceFor(db, [entryId])).map((row) => [row.sense, row.nuance]))
-        const examples = yield* examplesFor(db, [entryId])
+        const labels = (yield* labelsBySense(db, [entryId])).get(entryId)
+        const stored = yield* examplesFor(db, [entryId])
         const linked = yield* exampleClips(
           db,
-          examples.map((example) => example.id)
+          stored.map((example) => example.id)
         )
+
+        // A seeded sentence has no formality, and a guessed one would cast the wrong voice: Jev
+        // judges it, with its speaker, before the sentence is voiced. Only sentences still to be
+        // voiced are asked about, so a judgment is paid for once.
+        const unjudged = stored.filter(
+          (example) => example.formality === null && !linked.has(`${example.id}:${language}`)
+        )
+        const judging =
+          unjudged.length > 0 && pronouncer.judges
+            ? yield* pronouncer
+                .judge(
+                  language,
+                  unjudged.map((example) => ({
+                    sentence: language === "ja" ? example.ja : example.en,
+                    translation: language === "ja" ? example.en : example.ja
+                  }))
+                )
+                .pipe(
+                  Effect.map((judged) => judged.map((one, index) => ({ id: unjudged[index]!.id, ...one }))),
+                  Effect.tap((judged) => saveCasting(db, judged)),
+                  Effect.result
+                )
+            : Result.succeed([])
+        const judged = new Map(Result.getOrElse(judging, () => []).map((one) => [one.id, one]))
+        const examples = stored.map((example) => ({ ...example, ...judged.get(example.id) }))
+
         yield* Effect.forEach(
           examples,
           (example) =>
             Effect.gen(function* () {
               if (linked.has(`${example.id}:${language}`)) return
-              // A seeded sentence has no formality, and a guessed one would cast the wrong voice.
               const { formality } = example
               if (formality === null) return
-              const sense = entry.senses[example.sense]
               const decision = yield* pronouncer.cast(
-                { ...example, formality },
-                { misc: sense?.misc ?? [], dialects: sense?.dialects ?? [], fields: sense?.fields ?? [] },
-                nuance.get(example.sense) ?? null,
+                { ...example.casting, id: example.id, ja: example.ja, en: example.en, formality },
+                {
+                  labels: (labels?.get(example.sense) ?? []).map((label) => label.code),
+                  fields: entry.senses[example.sense]?.fields ?? []
+                },
                 language
               )
               if (Option.isNone(decision)) return
@@ -89,7 +121,9 @@ export class AudioEnricher extends Context.Service<
           { concurrency: 2, discard: true }
         )
 
-        return { clips, characters }
+        // Everything that could be voiced is; the job fails now so the unjudged sentences get another try.
+        if (Result.isFailure(judging)) return yield* Effect.fail(judging.failure)
+        return { clips, characters, judged: judged.size }
       })
 
       return AudioEnricher.of({ enrich })

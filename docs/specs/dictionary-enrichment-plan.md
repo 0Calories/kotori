@@ -126,12 +126,25 @@ Findings for later phases:
 - Kotori's old sense notes (`sense_notes`) are no longer shown. Words that had one show no Kotori note until Phase 8's pitfalls.
 - Search results still read `EntrySummary.formality` and `currency` (`ResultRow`). Phase 7 removes them, so the result row needs labels first.
 
-### ☐ Phase 6 — Voice casting on the new model
+### ☑ Phase 6 — Voice casting on the new model
 
-- Casting reads labels instead of `sense_nuance`, which Phase 7 drops.
-- Seeded sentences get their casting signals (formality, speaker, medium, tone) judged on the worker path when their entry is viewed, then are voiced. No default register is ever assumed.
-- Fold the example casting columns into one nullable JSONB.
-- The audio status counts seeded sentences again once they can be voiced.
+- Casting reads the sentence's own sense's labels, all of them and from any source (Kotori's fill included), not the word's shared ones and not `sense_nuance`: dialects and regions give the variety, `male`/`fem` the gender, `chn` a child, `sl`/`net-sl`/`m-sl`/`vulg` slang, `arch`/`obs`/`dated` an older voice, and `form` (or a subject field) makes a formal line an announcement. Nothing in casting reads `sense_nuance` now.
+- `examples.speaker_gender`, `speaker_age`, `medium`, `variety` and `tone` are folded into one nullable `casting` JSONB (`Casting` in `examples.ts`), and their four enums dropped. `formality` stays a column: it is the register on the wire and casting's hard filter, and null is how a seeded sentence says it is unjudged. Two migrations: the first adds `casting` and carries every value over (a missing gender or age as `unspecified`; a sentence with no signals keeps a null `casting`), the second drops the columns. Tested by running the shipped SQL on old-shape rows.
+- Seeded sentences are judged on the audio job, not a job of their own: before voicing, `AudioEnricher` sends every sentence with no formality to Jev (`judgeCasting` in `speech/judge.ts`), five questions each (formality as a score with the Coach's rubric; gender, age, medium and tone as choices), up to ten sentences per request, so one request for a typical entry. The judgment is saved and the sentences voiced in the same run. A separate job kind would have needed a new enum value, a new status on the wire and a hand-off to audio, for a call that costs a fraction of a cent.
+- Never a default register: without Jev, or when Jev fails, a seeded sentence keeps a null formality and is not voiced. On a failure the rest of the entry is still voiced, then the job fails so it is retried.
+- The audio status counts a sentence with no formality as still to voice when Jev is configured, so a viewed word waits for its seeded sentences; without Jev they are left out, as before.
+
+Changes from the plan:
+
+- Formality is the score's most probable level, not its expected score, which would turn casual-or-polite into neutral. A gender, age, medium or tone below 0.6 is dropped (`unspecified` or null): a wrong gender or a child's voice is the most audible miscast, and an unsure "humorous" would send a plain line to a comic voice.
+- Jev doesn't judge a seeded sentence's variety (always null): its sense's dialect labels already give it.
+
+Findings for later phases:
+
+- Words already voiced are queued once more on their next look (at most hourly), to judge and voice their seeded sentences. Jev's cost is negligible; ElevenLabs characters grow by the seeded sentences of every viewed word, within `KOTORI_AUDIO_MONTHLY_CHARS`.
+- `kotori enrich audio` picks words with no headword audio, so it doesn't backfill seeded sentences on words already voiced. Viewing does.
+- The examples job still passes `sense_nuance`'s register to Claude as a hint; Phase 7 removes it with the table.
+- Deploy: the release command drops the old columns before the machines roll, so API and worker machines still on the old code fail to read example sentences until they are replaced.
 
 ### ☐ Phase 7 — Remove the old model
 
@@ -160,3 +173,4 @@ Findings for later phases:
 - 2026-11-06: Phase 3 done. Similar-word rules tightened against the full data (see Phase 3).
 - 2026-11-06: Phase 4 done. Drafts migrated, not regenerated; prompt tightened against live drafts (see Phase 4).
 - 2026-11-06: Phases 1–4 reviewed; fixes committed before Phase 5 (see "Review of phases 1–4"). Phase 5 done.
+- 2026-11-06: Phase 6 done. Seeded sentences judged by Jev on the audio job, not a new job kind; `formality` stays a column (see Phase 6).

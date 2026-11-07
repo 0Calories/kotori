@@ -1,0 +1,33 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "8daaaaa7-53fa-4740-be9e-aec56c8352da",
+  "prevIds": ["dbf7e178-18ec-417b-b86b-9841b3f93e14"],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "examples", "casting"],
+      "writes": ["s|col|public.examples.casting", "n|col|public.examples.casting", "e|col|public.examples.casting"],
+      "reads": ["n|tbl|public.examples", "n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "examples",
+        "name": "casting",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

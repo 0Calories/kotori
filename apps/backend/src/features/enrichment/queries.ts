@@ -1,7 +1,9 @@
 import {
+  type Casting,
   entries,
   type EntryId,
   examples,
+  type Formality,
   type Language,
   type LoanVerdict,
   loanWords,
@@ -10,7 +12,7 @@ import {
   senseNuance,
   similarWords
 } from "@kotori/db"
-import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm"
+import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm"
 import { Effect, Option } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 
@@ -276,11 +278,7 @@ export const examplesFor = Effect.fn("enrichment.examplesFor")(function* (
       formality: examples.formality,
       note: examples.note,
       noteJa: examples.noteJa,
-      speakerGender: examples.speakerGender,
-      speakerAge: examples.speakerAge,
-      medium: examples.medium,
-      variety: examples.variety,
-      tone: examples.tone,
+      casting: examples.casting,
       source: examples.source,
       model: examples.model
     })
@@ -288,6 +286,35 @@ export const examplesFor = Effect.fn("enrichment.examplesFor")(function* (
     .where(inArray(examples.entryId, entryIds))
     // Kotori's sentences, written for learners, before the ones seeded from Tatoeba and Wiktionary.
     .orderBy(examples.entryId, examples.sense, sql`${examples.source} <> 'kotori'`, examples.position)
+}, Effect.orDie)
+
+/** A seeded sentence's judged casting signals. */
+export interface JudgedExample {
+  readonly id: number
+  readonly formality: Formality
+  readonly casting: Casting
+}
+
+/**
+ * Saves the formality and casting judged for sentences that had none. A sentence judged in the
+ * meantime keeps its own: what is set is never overwritten.
+ */
+export const saveCasting = Effect.fn("enrichment.saveCasting")(function* (
+  db: DatabaseShape,
+  rows: ReadonlyArray<JudgedExample>
+) {
+  if (rows.length === 0) return
+  yield* db.transaction((tx) =>
+    Effect.forEach(
+      rows,
+      (row) =>
+        tx
+          .update(examples)
+          .set({ formality: row.formality, casting: row.casting })
+          .where(and(eq(examples.id, row.id), isNull(examples.formality))),
+      { discard: true }
+    )
+  )
 }, Effect.orDie)
 
 export const saveSenseNotes = Effect.fn("enrichment.saveSenseNotes")(function* (
@@ -321,5 +348,5 @@ export const senseNotesFor = Effect.fn("enrichment.senseNotesFor")(function* (
     .where(inArray(senseNotes.entryId, entryIds))
 }, Effect.orDie)
 
-/** An example sentence as stored, with the speaker signals casting reads. */
+/** An example sentence as stored, with the formality and casting signals voice casting reads. */
 export type ExampleRow = Effect.Success<ReturnType<typeof examplesFor>>[number]

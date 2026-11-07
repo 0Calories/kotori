@@ -30,6 +30,7 @@ import {
 } from "../src/features/enrichment/jobs.ts"
 import {
   examplesFor,
+  saveCasting,
   saveExamples,
   saveLoanTrap,
   saveLoanWord,
@@ -183,6 +184,18 @@ const clip = (key: string, text: string, language: "ja" | "en") => ({
   bytes: 1,
   createdAt: new Date(0)
 })
+
+/** A one-sense word with a Tatoeba sentence, as the seed import gives it. */
+const seededEntry = (id: number, headword: string, reading: string, sentence: string) => {
+  const record = entry(id, headword, reading, [sense(["rain"], ["n"])])
+  return {
+    ...record,
+    senses: record.senses.map((own) => ({
+      ...own,
+      examples: [{ ja: sentence, en: `(${sentence})`, source: "tatoeba" as const }]
+    }))
+  }
+}
 
 /** Runs every queued job of `kind` to completion, as a worker would. */
 const finishJobs = (kind: JobKind, now: number) =>
@@ -464,6 +477,20 @@ layer(testLayer(false))("Dictionary", (it) => {
       yield* TestClock.setTime(10 * hour)
       assert.strictEqual(yield* audioStatus, "ready")
       assert.strictEqual((yield* jobStatusFor(db, EntryId.make(20))).get("audio"), "done")
+    })
+  )
+
+  it.effect("doesn't hold the audio back for seeded sentences when Jev can't judge them", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      const id = EntryId.make(31)
+      yield* insertEntries(db, [seededEntry(31, "雪", "ゆき", "雪が降る。")], { seeded: true })
+      yield* saveAudio(db, clip("yuki", "ゆき", "ja"))
+      yield* linkEntryAudio(db, id, "yuki")
+      // Without Jev nobody can judge its register, and none is assumed: it stays unvoiced.
+      assert.strictEqual(Option.getOrThrow(yield* dictionary.requestEnrichment(id)).audio, "ready")
+      assert.isUndefined((yield* jobStatusFor(db, id)).get("audio"))
     })
   )
 
@@ -1012,6 +1039,38 @@ layer(testLayer(false))("Dictionary: labels, patterns, pitfalls and similar word
 })
 
 layer(testLayer(true))("Dictionary with Jev configured", (it) => {
+  it.effect("counts seeded sentences in the audio status until they are judged and voiced", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      const id = EntryId.make(30)
+      const audioStatus = Effect.map(dictionary.requestEnrichment(id), (s) => Option.getOrThrow(s).audio)
+      yield* insertEntries(db, [seededEntry(30, "雨", "あめ", "雨が降る。")], { seeded: true })
+      yield* saveAudio(db, clip("ame", "あめ", "ja"))
+      yield* linkEntryAudio(db, id, "ame")
+
+      // The headword is voiced, but the seeded sentence can be judged and voiced: audio is on its way.
+      assert.strictEqual(yield* audioStatus, "queued")
+      assert.strictEqual((yield* jobStatusFor(db, id)).get("audio"), "queued")
+
+      // The worker judges it and voices it: the entry's audio is complete.
+      const [seeded] = yield* examplesFor(db, [id])
+      const casting = {
+        speakerGender: "unspecified",
+        speakerAge: "unspecified",
+        medium: null,
+        variety: null,
+        tone: null
+      } as const
+      yield* saveCasting(db, [{ id: seeded!.id, formality: "neutral", casting }])
+      yield* saveAudio(db, clip("ame-sentence", "雨が降る。", "ja"))
+      yield* linkExampleAudio(db, seeded!.id, "ja", "ame-sentence")
+      yield* finishJobs("audio", 1)
+      assert.strictEqual(yield* audioStatus, "ready")
+      assert.strictEqual((yield* jobStatusFor(db, id)).get("audio"), "done")
+    })
+  )
+
   it.effect("queues a finished nuance job again once its answers predate the word's question set, once", () =>
     Effect.gen(function* () {
       const db = yield* Database

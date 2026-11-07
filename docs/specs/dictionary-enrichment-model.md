@@ -89,7 +89,7 @@ A pitfall is **not** written when the labels already say it: てめえ (derog), 
 
 ### What goes away
 
-`sense_nuance` (nuance and answers), `similar_words.difference`, `loan_words.answers/trap`, `examples`' six casting columns (folded into one nullable JSONB or onto `example_audio`), `sense_notes` (becomes patterns/pitfalls), Jev's per-sense question set, `interpret.ts`, `TAG_JUDGMENTS`, `saidByNuance`, the nuance sliders and caution chips, and every per-dimension `questionsVersion`.
+`sense_nuance` (nuance and answers), `similar_words.difference`, `loan_words.answers/trap`, `examples`' five speaker columns (folded into one nullable `casting` JSONB; `formality` stays a column), `sense_notes` (becomes patterns/pitfalls), Jev's per-sense question set, `interpret.ts`, `TAG_JUDGMENTS`, `saidByNuance`, the nuance sliders and caution chips, and every per-dimension `questionsVersion`.
 
 ## Per-dimension decision
 

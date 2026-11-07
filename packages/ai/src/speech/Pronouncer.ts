@@ -1,7 +1,7 @@
-import type { Language, Nuance } from "@kotori/contracts"
+import type { Language } from "@kotori/contracts"
 import { Context, Effect, Layer, Option } from "effect"
 import { ElevenLabs, TtsError } from "../providers/ElevenLabs.ts"
-import { Jev } from "../providers/Jev.ts"
+import { Jev, type JevError } from "../providers/Jev.ts"
 import {
   briefFor,
   CAST_CONFIDENCE_FLOOR,
@@ -13,6 +13,7 @@ import {
   type SentenceSignals,
   tied
 } from "./casting.ts"
+import { type JudgedCasting, judgeCasting, type SentenceToJudge } from "./judge.ts"
 import { CASTS, type Casts, headwordVoices, type Voice } from "./voices.ts"
 
 /** The curated voices in use; defaults to the checked-in casts, overridden in tests. */
@@ -20,7 +21,7 @@ export const VoiceCasts = Context.Reference<Casts>("@kotori/ai/VoiceCasts", {
   defaultValue: () => CASTS
 })
 
-/** An example sentence as casting reads it: both sides, and the speaker signals its writer judged. */
+/** An example sentence as casting reads it: both sides, its formality and its speaker signals. */
 export interface CastingSentence extends SentenceSignals {
   /** For logs. */
   readonly id: number
@@ -59,9 +60,18 @@ export class Pronouncer extends Context.Service<
     cast(
       sentence: CastingSentence,
       sense: SenseSignals,
-      nuance: Nuance | null,
       language: Language
     ): Effect.Effect<Option.Option<CastingDecision>>
+    /** Whether `judge` can run: Jev is configured. Without it, seeded sentences stay unvoiced. */
+    readonly judges: boolean
+    /**
+     * The formality and speaker signals of sentences nobody judged as they were written (those
+     * seeded from Tatoeba and Wiktionary), in `language`, all in one or a few Jev requests.
+     */
+    judge(
+      language: Language,
+      sentences: ReadonlyArray<SentenceToJudge>
+    ): Effect.Effect<ReadonlyArray<JudgedCasting>, JevError>
   }
 >()("@kotori/ai/Pronouncer") {
   static readonly layer = Layer.effect(
@@ -88,10 +98,9 @@ export class Pronouncer extends Context.Service<
       const cast = Effect.fn("Pronouncer.cast")(function* (
         sentence: CastingSentence,
         sense: SenseSignals,
-        nuance: Nuance | null,
         language: Language
       ) {
-        const brief: CastingBrief = briefFor({ sentence, sense, nuance })
+        const brief: CastingBrief = briefFor({ sentence, sense })
         // A brief may ask for a variety nobody is cast in yet (see docs/voice-casting.md);
         // the standard voices then read the sentence rather than nobody.
         let ranked: ReadonlyArray<RankedVoice> = rank(brief, language, casts)
@@ -136,7 +145,9 @@ export class Pronouncer extends Context.Service<
         headwordVoices: (language) => headwordVoices(language, casts),
         defaultVoice,
         synthesize,
-        cast
+        cast,
+        judges: jev.configured,
+        judge: (language, sentences) => judgeCasting(jev, language, sentences)
       })
     })
   )
