@@ -38,7 +38,14 @@ import { Database } from "../../db/Database.ts"
 import { entryClips, exampleClips } from "../audio/index.ts"
 import type { ExampleRow, JobKind } from "../enrichment/index.ts"
 import { examplesFor, loanWordsFor, nuanceFor, senseNotesFor, similarFor } from "../enrichment/index.ts"
-import { enqueueJob, jobStatusFor, refillJob, requeueJob } from "../enrichment/index.ts"
+import {
+  enqueueJob,
+  jobStatusFor,
+  refillJob,
+  requeueJob,
+  sentencesToVoice,
+  writingExamples
+} from "../enrichment/index.ts"
 import type { FormMatch, GlossMatch } from "./queries.ts"
 import {
   findFormPrefix,
@@ -708,22 +715,25 @@ export class Dictionary extends Context.Service<
         // Sentences seeded from Tatoeba or Wiktionary don't stand in for Kotori's, which are
         // written for learners: Claude still writes them for a viewed word.
         const hasExamples = examples.some((example) => example.source === "kotori")
+        const before = yield* jobStatusFor(db, entry.id)
+        // The sentences that get audio: Kotori's, and seeded ones only where Kotori wrote none.
+        const toVoice = sentencesToVoice(examples, { writing: writingExamples(before.get("examples")) })
         const clips = yield* exampleClips(
           db,
           examples.map((example) => example.id)
         )
-        // Ready once the headword and every example that can be voiced are, in the entry's language.
-        // A seeded sentence has no formality to cast a voice by until Jev judges it on the audio
-        // job; without Jev it is never voiced, as no register is assumed, so it isn't waited for.
+        // Ready once the headword and every sentence to voice that can be are, in the entry's
+        // language. A seeded sentence has no formality to cast a voice by until Jev judges it on the
+        // audio job; without Jev it is never voiced, as no register is assumed, so it isn't waited for.
         const voiceable = (example: ExampleRow) => example.formality !== null || pronouncer.judges
-        const hasAudio =
-          (yield* entryClips(db, [entry.id])).size > 0 &&
-          examples.every((example) => !voiceable(example) || clips.has(`${example.id}:${entry.language}`))
+        const unvoiced = toVoice.filter(
+          (example) => voiceable(example) && !clips.has(`${example.id}:${entry.language}`)
+        )
+        const hasAudio = (yield* entryClips(db, [entry.id])).size > 0 && unvoiced.length === 0
         const coachAvailable = yield* claude.available
         const now = new Date(yield* Clock.currentTimeMillis)
 
         if (enqueue) {
-          const before = yield* jobStatusFor(db, entry.id)
           const retryWindow = new Date(now.getTime() - WARNING_RETRY_AFTER)
           // A job that already ran out of attempts stays `failed` while the entry is polled so its
           // status reports `unavailable` and the app stops polling; a later look gives it a new try.
@@ -746,15 +756,22 @@ export class Dictionary extends Context.Service<
             }
           }
           if (!hasExamples && coachAvailable) yield* queueOrRetry("examples")
-          // The worker re-runs audio once example sentences exist, so they get voiced too. A finished
-          // job can still leave gaps (sentences written after it ran), so it runs again to fill
-          // them, but at most once an hour, in case the gap is one the worker can't fill.
+          // The worker re-runs audio when Kotori's sentences are written, so they get voiced too. A
+          // finished job runs again only for a sentence it hasn't tried: one written since it ran,
+          // or one no run has judged (seeded since, or from before seeded sentences were voiced),
+          // the latter at most once an hour. A sentence a run tried and couldn't voice (no voice
+          // fits it) isn't retried on every look.
           if (!hasAudio && pronouncer.configured) {
-            // Enqueueing a finished job would touch it, putting its next try off with every look.
-            if (before.get("audio") === "done") {
-              yield* refillJob(db, "audio", entry.id, new Date(now.getTime() - REFILL_AFTER), ON_DEMAND, now)
-            } else {
+            if (before.get("audio") !== "done") {
               yield* queueOrRetry("audio")
+            } else {
+              const untried = Math.max(
+                ...unvoiced.map((example) =>
+                  example.formality === null ? now.getTime() - REFILL_AFTER : example.createdAt.getTime()
+                )
+              )
+              // Enqueueing a finished job would touch it, putting its next try off with every look.
+              if (unvoiced.length > 0) yield* refillJob(db, "audio", entry.id, new Date(untried), ON_DEMAND, now)
             }
           }
         }

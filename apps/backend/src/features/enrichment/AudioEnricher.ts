@@ -5,7 +5,9 @@ import { Database } from "../../db/Database.ts"
 import { entryClips, exampleClips, linkEntryAudio, linkExampleAudio } from "../audio/index.ts"
 import { Speech } from "../audio/Speech.ts"
 import { getEntries, labelsBySense } from "../dictionary/index.ts"
+import { jobStatusFor } from "./jobs.ts"
 import { examplesFor, saveCasting } from "./queries.ts"
+import { sentencesToVoice, writingExamples } from "./voicing.ts"
 
 export interface AudioSummary {
   readonly clips: number
@@ -24,9 +26,10 @@ export class AudioEnricher extends Context.Service<
      * existing clips are left as they are, so re-running fills gaps (a run cut short) without
      * re-casting or paying twice.
      *
-     * Seeded sentences, which come with no formality, have it and their speaker judged first, in
-     * one Jev request for the entry. If Jev fails, every other sentence is still voiced and the
-     * job then fails, so it is retried; a sentence never judged is never voiced.
+     * Seeded sentences are voiced only on a sense with none of Kotori's (`sentencesToVoice`).
+     * They come with no formality, so it and their speaker are judged first, in one Jev request
+     * for the entry. If Jev fails, every other sentence is still voiced and the job then fails, so
+     * it is retried; a sentence never judged is never voiced.
      */
     enrich(entryId: EntryId): Effect.Effect<AudioSummary, TtsError | JevError>
   }
@@ -65,7 +68,8 @@ export class AudioEnricher extends Context.Service<
         }
 
         const labels = (yield* labelsBySense(db, [entryId])).get(entryId)
-        const stored = yield* examplesFor(db, [entryId])
+        const writing = writingExamples((yield* jobStatusFor(db, entryId)).get("examples"))
+        const stored = sentencesToVoice(yield* examplesFor(db, [entryId]), { writing })
         const linked = yield* exampleClips(
           db,
           stored.map((example) => example.id)

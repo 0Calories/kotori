@@ -25,3 +25,4 @@ export {
   type Job,
   type JobKind
 } from "./jobs.ts"
+export { sentencesToVoice, writingExamples } from "./voicing.ts"

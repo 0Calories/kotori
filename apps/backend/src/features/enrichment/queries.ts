@@ -280,7 +280,8 @@ export const examplesFor = Effect.fn("enrichment.examplesFor")(function* (
       noteJa: examples.noteJa,
       casting: examples.casting,
       source: examples.source,
-      model: examples.model
+      model: examples.model,
+      createdAt: examples.createdAt
     })
     .from(examples)
     .where(inArray(examples.entryId, entryIds))

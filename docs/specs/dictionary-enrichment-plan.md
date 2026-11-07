@@ -141,10 +141,18 @@ Changes from the plan:
 
 Findings for later phases:
 
-- Words already voiced are queued once more on their next look (at most hourly), to judge and voice their seeded sentences. Jev's cost is negligible; ElevenLabs characters grow by the seeded sentences of every viewed word, within `KOTORI_AUDIO_MONTHLY_CHARS`.
+- Words already voiced are queued once more on their next look (at most hourly), to judge and voice their seeded sentences. Jev's cost is negligible; ElevenLabs characters grow by the seeded sentences of every viewed word, within `KOTORI_AUDIO_MONTHLY_CHARS`. Narrowed right after (see "After Phase 6").
 - `kotori enrich audio` picks words with no headword audio, so it doesn't backfill seeded sentences on words already voiced. Viewing does.
 - The examples job still passes `sense_nuance`'s register to Claude as a hint; Phase 7 removes it with the table.
 - Deploy: the release command drops the old columns before the machines roll, so API and worker machines still on the old code fail to read example sentences until they are replaced.
+
+### ☑ After Phase 6 — Voice only the sentences learners need
+
+Decided with Ash after Phase 6:
+
+- A seeded sentence is voiced only on a sense Kotori wrote no sentence for, where it is the example the learner hears (`sentencesToVoice` in `enrichment/voicing.ts`, used by the audio job and the audio status). Beside Kotori's it is shown but not read aloud. While the entry's examples job is still to run, its seeded sentences wait, since Kotori's may cover their senses; the job runner queues audio again once they are written.
+- A finished audio job is queued again on a look only for a sentence it hasn't tried: one written since it ran, or one no run has judged (at most hourly). A sentence a run tried and couldn't voice, and a missing headword clip, are no longer retried every hour. A failed job is still retried as before.
+- So the backfill on existing words covers only senses with seeded sentences and none of Kotori's.
 
 ### ☐ Phase 7 — Remove the old model
 
@@ -174,3 +182,4 @@ Findings for later phases:
 - 2026-11-06: Phase 4 done. Drafts migrated, not regenerated; prompt tightened against live drafts (see Phase 4).
 - 2026-11-06: Phases 1–4 reviewed; fixes committed before Phase 5 (see "Review of phases 1–4"). Phase 5 done.
 - 2026-11-06: Phase 6 done. Seeded sentences judged by Jev on the audio job, not a new job kind; `formality` stays a column (see Phase 6).
+- 2026-11-07: Seeded sentences voiced only where Kotori wrote none; finished audio jobs requeued only for untried sentences (see "After Phase 6").

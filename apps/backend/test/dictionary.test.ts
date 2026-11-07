@@ -13,7 +13,8 @@ import {
   TtsError
 } from "@kotori/ai"
 import { EntryId, type EntryRecord } from "@kotori/contracts"
-import { patterns, pitfalls } from "@kotori/db"
+import { jobs, patterns, pitfalls } from "@kotori/db"
+import { inArray } from "drizzle-orm"
 import { Effect, Layer, Option } from "effect"
 import { TestClock } from "effect/testing"
 import { Database } from "../src/db/Database.ts"
@@ -438,11 +439,12 @@ layer(testLayer(false))("Dictionary", (it) => {
     })
   )
 
-  it.effect("voices examples again when a finished audio job left one unvoiced, at most hourly", () =>
+  it.effect("runs a finished audio job again for a sentence written since, not for one it couldn't voice", () =>
     Effect.gen(function* () {
       const db = yield* Database
       const dictionary = yield* Dictionary
       const audioStatus = Effect.map(dictionary.requestEnrichment(EntryId.make(20)), (s) => Option.getOrThrow(s).audio)
+      const audioJob = Effect.map(jobStatusFor(db, EntryId.make(20)), (jobs) => jobs.get("audio"))
       const hour = 60 * 60 * 1000
       yield* insertEntries(db, [entry(20, "食べる", "たべる", [sense(["to eat"], ["v1"])])])
 
@@ -451,32 +453,41 @@ layer(testLayer(false))("Dictionary", (it) => {
       yield* linkEntryAudio(db, EntryId.make(20), "headword")
       yield* enqueueJob(db, "audio", EntryId.make(20), 0, new Date(0))
       yield* finishJobs("audio", 1)
-      yield* saveExamples(db, EntryId.make(20), [example(0, "パンを食べる。", "I eat bread.")], new Date(1))
-      const [written] = yield* examplesFor(db, [EntryId.make(20)])
+      yield* saveExamples(db, EntryId.make(20), [example(0, "パンを食べる。", "I eat bread.")], new Date(2))
 
-      // Looking at it later queues the job again to fill the gap.
+      // Looking at it later queues the job again to voice the new sentence.
       yield* TestClock.setTime(2 * hour)
       assert.strictEqual(yield* audioStatus, "queued")
-      assert.strictEqual((yield* jobStatusFor(db, EntryId.make(20))).get("audio"), "queued")
+      assert.strictEqual(yield* audioJob, "queued")
 
-      // The worker runs but can't fill it: the entry isn't queued again on every look,
-      // and its audio stops counting as on its way, so the app stops polling.
+      // The worker runs but can't voice it: its audio stops counting as on its way, so the app
+      // stops polling, and it isn't queued again on later looks, an hour on or a day on.
       yield* finishJobs("audio", 2 * hour)
-      yield* TestClock.setTime(2 * hour + 3000)
-      assert.strictEqual(yield* audioStatus, "ready")
-      assert.strictEqual((yield* jobStatusFor(db, EntryId.make(20))).get("audio"), "done")
+      for (const later of [2 * hour + 3000, 3 * hour + 1, 26 * hour]) {
+        yield* TestClock.setTime(later)
+        assert.strictEqual(yield* audioStatus, "ready")
+        assert.strictEqual(yield* audioJob, "done")
+      }
 
-      // An hour on, it gets one more try.
-      yield* TestClock.setTime(3 * hour + 1)
+      // Another sentence written since is tried once more.
+      yield* saveExamples(
+        db,
+        EntryId.make(20),
+        [example(0, "パンを食べる。", "I eat bread."), example(0, "朝ご飯を食べた。", "I had breakfast.")],
+        new Date(27 * hour)
+      )
+      yield* TestClock.setTime(27 * hour + 1)
       assert.strictEqual(yield* audioStatus, "queued")
+      yield* finishJobs("audio", 27 * hour + 2)
 
-      // Once the sentence is voiced in Japanese, the entry's audio is complete and nothing is queued again.
-      yield* saveAudio(db, clip("sentence-ja", "パンを食べる。", "ja"))
-      yield* linkExampleAudio(db, written!.id, "ja", "sentence-ja")
-      yield* finishJobs("audio", 3 * hour + 2)
-      yield* TestClock.setTime(10 * hour)
+      // Once every sentence is voiced in Japanese, the entry's audio is complete and nothing is queued again.
+      for (const [index, written] of (yield* examplesFor(db, [EntryId.make(20)])).entries()) {
+        yield* saveAudio(db, clip(`sentence-${index}`, written.ja, "ja"))
+        yield* linkExampleAudio(db, written.id, "ja", `sentence-${index}`)
+      }
+      yield* TestClock.setTime(40 * hour)
       assert.strictEqual(yield* audioStatus, "ready")
-      assert.strictEqual((yield* jobStatusFor(db, EntryId.make(20))).get("audio"), "done")
+      assert.strictEqual(yield* audioJob, "done")
     })
   )
 
@@ -1144,6 +1155,52 @@ layer(testLayer(true))("Dictionary with Jev configured", (it) => {
       yield* finishJobs("nuance", 1)
       yield* dictionary.requestEnrichment(EntryId.make(100000031))
       assert.strictEqual((yield* jobStatusFor(db, EntryId.make(100000031))).get("nuance"), "queued")
+    })
+  )
+  it.effect("voices a seeded sentence only where Kotori wrote none, judging an untried one at most hourly", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      const hour = 60 * 60 * 1000
+      const status = (id: EntryId) => Effect.map(dictionary.requestEnrichment(id), (s) => Option.getOrThrow(s).audio)
+      const audioJob = (id: EntryId) => Effect.map(jobStatusFor(db, id), (jobs) => jobs.get("audio"))
+
+      // Voiced before seeded sentences were: its Tatoeba sentence was never judged. A look queues
+      // the job for it, at most once an hour while it stays untried.
+      const ame = EntryId.make(32)
+      yield* insertEntries(db, [seededEntry(32, "雨", "あめ", "雨が降っている。")], { seeded: true })
+      yield* saveAudio(db, clip("ame", "あめ", "ja"))
+      yield* linkEntryAudio(db, ame, "ame")
+      yield* enqueueJob(db, "audio", ame, 0, new Date(0))
+      yield* finishJobs("audio", 1)
+      yield* TestClock.setTime(2 * hour)
+      assert.strictEqual(yield* status(ame), "queued")
+      yield* finishJobs("audio", 2 * hour)
+      yield* TestClock.setTime(2 * hour + 1000)
+      assert.strictEqual(yield* audioJob(ame), "done")
+      yield* status(ame)
+      assert.strictEqual(yield* audioJob(ame), "done")
+      yield* TestClock.setTime(3 * hour + 1)
+      yield* status(ame)
+      assert.strictEqual(yield* audioJob(ame), "queued")
+
+      // Beside Kotori's voiced sentence on the same sense, the seeded one isn't waited for or queued.
+      const kasa = EntryId.make(33)
+      yield* insertEntries(db, [seededEntry(33, "傘", "かさ", "傘を忘れた。")], { seeded: true })
+      yield* saveExamples(db, kasa, [example(0, "傘ある？", "Got an umbrella?")], new Date(1))
+      yield* saveAudio(db, clip("kasa", "かさ", "ja"))
+      yield* linkEntryAudio(db, kasa, "kasa")
+      const kotori = (yield* examplesFor(db, [kasa])).find((row) => row.source === "kotori")!
+      yield* saveAudio(db, clip("kasa-sentence", kotori.ja, "ja"))
+      yield* linkExampleAudio(db, kotori.id, "ja", "kasa-sentence")
+      yield* enqueueJob(db, "audio", kasa, 0, new Date(0))
+      yield* finishJobs("audio", 2)
+      yield* TestClock.setTime(10 * hour)
+      assert.strictEqual(yield* status(kasa), "ready")
+      assert.strictEqual(yield* audioJob(kasa), "done")
+
+      // Looking queued other jobs for these words; they aren't the other tests' to run.
+      yield* db.delete(jobs).where(inArray(jobs.entryId, [ame, kasa]))
     })
   )
 })
