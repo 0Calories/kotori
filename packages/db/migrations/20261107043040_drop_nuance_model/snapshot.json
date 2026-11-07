@@ -1,0 +1,255 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "1ceca975-a2d0-454f-bc8e-b85238f4f522",
+  "prevIds": ["a88d5976-6082-4125-b2d6-486f01a45381"],
+  "footprints": [
+    {
+      "statementType": "drop_table",
+      "statementTarget": ["table", "public", "sense_nuance"],
+      "writes": [
+        "s|tbl|public.sense_nuance",
+        "n|tbl|public.sense_nuance",
+        "e|tbl|public.sense_nuance",
+        "n|rel|public.sense_nuance",
+        "n|type|public.sense_nuance"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "drop_table",
+      "statementTarget": ["table", "public", "similar_words"],
+      "writes": [
+        "s|tbl|public.similar_words",
+        "n|tbl|public.similar_words",
+        "e|tbl|public.similar_words",
+        "n|rel|public.similar_words",
+        "n|type|public.similar_words"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "drop_table",
+      "statementTarget": ["table", "public", "loan_words"],
+      "writes": [
+        "s|tbl|public.loan_words",
+        "n|tbl|public.loan_words",
+        "e|tbl|public.loan_words",
+        "n|rel|public.loan_words",
+        "n|type|public.loan_words"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "drop_table",
+      "statementTarget": ["table", "public", "sense_notes"],
+      "writes": [
+        "s|tbl|public.sense_notes",
+        "n|tbl|public.sense_notes",
+        "e|tbl|public.sense_notes",
+        "n|rel|public.sense_notes",
+        "n|type|public.sense_notes"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "recreate_enum",
+      "statementTarget": ["enum", "public", "job_kind"],
+      "writes": [
+        "s|enum|public.job_kind",
+        "n|enum|public.job_kind",
+        "e|enum|public.job_kind",
+        "n|type|public.job_kind",
+        "s|colprop|public.jobs.kind.type",
+        "s|colprop|public.jobs.kind.default"
+      ],
+      "reads": ["n|sch|public", "n|tbl|public.jobs", "n|sch|public", "n|col|public.jobs.kind"],
+      "sqlHash": "ad9169b672a08dc0"
+    },
+    {
+      "statementType": "drop_enum",
+      "statementTarget": ["enum", "public", "difference"],
+      "writes": [
+        "s|enum|public.difference",
+        "n|enum|public.difference",
+        "e|enum|public.difference",
+        "n|type|public.difference"
+      ],
+      "reads": ["n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "drop",
+      "key": "tables\u0000[\"public\",\"sense_nuance\"]"
+    },
+    {
+      "op": "drop",
+      "key": "tables\u0000[\"public\",\"similar_words\"]"
+    },
+    {
+      "op": "drop",
+      "key": "tables\u0000[\"public\",\"loan_words\"]"
+    },
+    {
+      "op": "drop",
+      "key": "tables\u0000[\"public\",\"sense_notes\"]"
+    },
+    {
+      "op": "drop",
+      "key": "enums\u0000[\"public\",\"difference\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"sense_nuance\",\"entry_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"sense_nuance\",\"sense\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"sense_nuance\",\"nuance\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"sense_nuance\",\"answers\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"sense_nuance\",\"model\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"sense_nuance\",\"created_at\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"similar_words\",\"entry_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"similar_words\",\"sense\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"similar_words\",\"similar_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"similar_words\",\"similarity\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"similar_words\",\"difference\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"similar_words\",\"confidence\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"loan_words\",\"entry_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"loan_words\",\"word\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"loan_words\",\"verdict\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"loan_words\",\"answers\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"loan_words\",\"trap\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"loan_words\",\"model\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"loan_words\",\"questions_version\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"loan_words\",\"created_at\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"sense_notes\",\"entry_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"sense_notes\",\"sense\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"sense_notes\",\"note\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"sense_notes\",\"note_ja\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"sense_notes\",\"model\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"sense_notes\",\"created_at\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"sense_nuance\",\"questions_version\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"sense_nuance\",\"sense_nuance_entry_id_sense_senses_entry_id_position_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"similar_words\",\"similar_words_similar_id_entries_id_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"similar_words\",\"similar_words_entry_id_sense_senses_entry_id_position_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"loan_words\",\"loan_words_entry_id_entries_id_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"sense_notes\",\"sense_notes_entry_id_sense_senses_entry_id_position_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "pks\u0000[\"public\",\"sense_nuance\",\"sense_nuance_pkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "pks\u0000[\"public\",\"similar_words\",\"similar_words_pkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "pks\u0000[\"public\",\"sense_notes\",\"sense_notes_pkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "pks\u0000[\"public\",\"loan_words\",\"loan_words_pkey\"]"
+    },
+    {
+      "op": "alter",
+      "key": "enums\u0000[\"public\",\"job_kind\"]",
+      "set": {
+        "values": ["examples", "audio"]
+      }
+    }
+  ]
+}

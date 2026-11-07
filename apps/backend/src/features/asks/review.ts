@@ -1,13 +1,23 @@
 import { Claude, interpretTriage } from "@kotori/ai"
-import { AiUnavailable, type DraftEntry, type DraftSense, EntryRecord, type SenseRecord } from "@kotori/contracts"
-import { entries, EntryId, FIRST_APPROVED_JA_ID, FIRST_ENGLISH_ID, proposals } from "@kotori/db"
+import { AiUnavailable, EntryRecord, type SenseRecord } from "@kotori/contracts"
+import {
+  DraftPitfall,
+  type DraftEntry,
+  type DraftSense,
+  entries,
+  EntryId,
+  FIRST_APPROVED_JA_ID,
+  FIRST_ENGLISH_ID,
+  proposals
+} from "@kotori/db"
 import { and, eq, gte, max } from "drizzle-orm"
 import { Effect, FileSystem, Option, Schema } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 import { APPROVED_EN_FILE, serializeApprovedLine } from "../dictionary/import/eiwa/approved.ts"
 import { toConsolidatedWord } from "../dictionary/import/eiwa/words.ts"
-import { findForms, getEntries, insertEntries } from "../dictionary/queries.ts"
-import { enqueueJob, saveSenseNotes } from "../enrichment/index.ts"
+import type { ImportEntry, SeedEvidence } from "../dictionary/import/seedFacts.ts"
+import { findForms, getEntries, insertEntries, saveKotoriPitfalls } from "../dictionary/queries.ts"
+import { enqueueJob } from "../enrichment/index.ts"
 import { judge } from "./judge.ts"
 import { updateVerdict } from "./queries.ts"
 
@@ -21,7 +31,12 @@ import { updateVerdict } from "./queries.ts"
 export const APPROVED_JA_FILE = "data/approved/ja.jsonl"
 
 export const ApprovedJaLine = Schema.Union([
-  Schema.Struct({ entry: EntryRecord }),
+  Schema.Struct({
+    entry: EntryRecord,
+    /** How familiar the word is to natives, 1–5, as the draft judged it: its only evidence of use. */
+    familiarity: Schema.optional(Schema.Int),
+    pitfalls: Schema.optional(Schema.Array(DraftPitfall))
+  }),
   Schema.Struct({ alias: Schema.Struct({ text: Schema.String, base: Schema.String }) })
 ])
 export type ApprovedJaLine = typeof ApprovedJaLine.Type
@@ -49,14 +64,20 @@ export class NoSuchAlias extends Schema.TaggedError<NoSuchAlias>()("NoSuchAlias"
 
 const kanaOnly = /^[\u3040-\u30ffー]+$/u
 
-/** A draft sense as the dictionary stores senses; the note is kept apart (see `approveProposal`). */
-const toSense = (sense: DraftSense, extraMisc: ReadonlyArray<string>): SenseRecord => ({
+/** A drafted word's evidence of use: the familiarity Claude judged, nothing counted. */
+const draftEvidence = (familiarity: number): SeedEvidence => ({ everyday: false, spokenCount: null, familiarity })
+
+/**
+ * A draft sense as the dictionary stores senses: its labels as usage codes and its patterns as
+ * notes, which the import reads back as labels and patterns with the entry's source, Kotori.
+ */
+const toSense = (sense: DraftSense): SenseRecord => ({
   glosses: sense.glosses.map((text) => ({ text, type: null })),
-  pos: sense.partOfSpeech === null ? [] : [sense.partOfSpeech],
-  misc: [...new Set([...sense.labels, ...extraMisc])],
+  pos: [...sense.pos],
+  misc: [...sense.labels],
   fields: [],
   dialects: [],
-  info: [],
+  info: [...sense.patterns],
   stagk: [],
   stagr: [],
   xrefs: [],
@@ -65,21 +86,13 @@ const toSense = (sense: DraftSense, extraMisc: ReadonlyArray<string>): SenseReco
   wasei: false
 })
 
-/** The usage tags a draft's currency adds, mirroring how the dictionary marks datedness. */
-const currencyMisc = (draft: DraftEntry): ReadonlyArray<string> =>
-  draft.currency === "archaic" ? ["arch"] : draft.currency === "dated" ? ["dated"] : []
-
-/** The familiarity a draft's currency implies, for the import's priority floors. */
-const currencyFamiliarity = (draft: DraftEntry): number =>
-  draft.currency === "archaic" ? 1 : draft.currency === "dated" ? 2 : 4
-
 /** The entry a draft becomes, in the language's record shape, with the given id. */
 export const draftToRecord = (draft: DraftEntry, language: "en" | "ja", id: EntryId): EntryRecord => {
-  const extra = currencyMisc(draft)
   const spellings = [...new Set(draft.spellings.filter((text) => text !== draft.headword))]
   return {
     id,
     language,
+    dictionary: "kotori",
     headword: draft.headword,
     reading: draft.reading,
     common: false,
@@ -128,7 +141,7 @@ export const draftToRecord = (draft: DraftEntry, language: "en" | "ja", id: Entr
               noKanji: false
             }))
           ],
-    senses: draft.senses.map((sense) => toSense(sense, extra))
+    senses: draft.senses.map(toSense)
   }
 }
 
@@ -216,25 +229,10 @@ export const approveProposal = Effect.fn("review.approveProposal")(function* (
   const draft = approval.headword === undefined ? proposal.draft : { ...proposal.draft, headword: approval.headword }
   const entryId = yield* nextEntryId(db, language)
   const record = draftToRecord(draft, language, entryId)
-  yield* insertEntries(db, [record])
-  yield* saveSenseNotes(
-    db,
-    entryId,
-    draft.senses.flatMap((sense, index) =>
-      sense.note === null
-        ? []
-        : [
-            {
-              sense: index,
-              note: language === "ja" ? sense.note : null,
-              noteJa: language === "en" ? sense.note : null,
-              model: proposal.model
-            }
-          ]
-    ),
-    now
-  )
-  for (const kind of ["nuance", "examples", "audio"] as const) yield* enqueueJob(db, kind, entryId, 500, now)
+  // Seeded, so the draft's familiarity is the word's evidence of use from the start.
+  yield* insertEntries(db, [{ ...record, evidence: draftEvidence(draft.familiarity) }], { seeded: true })
+  yield* saveKotoriPitfalls(db, entryId, language, draft.pitfalls)
+  for (const kind of ["examples", "audio"] as const) yield* enqueueJob(db, kind, entryId, 500, now)
   yield* appendLine(
     file,
     language === "en"
@@ -247,10 +245,15 @@ export const approveProposal = Effect.fn("review.approveProposal")(function* (
               inflections: [],
               senses: record.senses
             }),
-            familiarity: currencyFamiliarity(draft)
-          }
+            familiarity: draft.familiarity
+          },
+          ...(draft.pitfalls.length > 0 ? { pitfalls: draft.pitfalls } : {})
         })
-      : `${encodeJaLine({ entry: record })}\n`
+      : `${encodeJaLine({
+          entry: record,
+          familiarity: draft.familiarity,
+          ...(draft.pitfalls.length > 0 ? { pitfalls: draft.pitfalls } : {})
+        })}\n`
   )
   yield* db
     .update(proposals)
@@ -310,17 +313,28 @@ export const redoProposal = Effect.fn("review.redoProposal")(function* (db: Data
 /** The approved ja file's entries and aliases; see `APPROVED_JA_FILE`. */
 export const parseApprovedJa = (
   lines: Iterable<string>
-): { readonly records: Array<EntryRecord>; readonly aliases: Array<{ text: string; base: string }> } => {
-  const records: Array<EntryRecord> = []
+): {
+  /** Entries with the familiarity they were approved with, if their line carries one. */
+  readonly records: Array<ImportEntry>
+  readonly pitfalls: Array<{ readonly entryId: EntryId; readonly pitfalls: ReadonlyArray<DraftPitfall> }>
+  readonly aliases: Array<{ text: string; base: string }>
+} => {
+  const records: Array<ImportEntry> = []
+  const pitfalls: Array<{ readonly entryId: EntryId; readonly pitfalls: ReadonlyArray<DraftPitfall> }> = []
   const aliases: Array<{ text: string; base: string }> = []
   for (const line of lines) {
     if (line.trim().length === 0) continue
     const decoded = decodeJaLine(line)
     if (Option.isNone(decoded)) continue
-    if ("entry" in decoded.value) records.push(decoded.value.entry)
-    else aliases.push(decoded.value.alias)
+    if ("entry" in decoded.value) {
+      const { entry, familiarity } = decoded.value
+      records.push(familiarity === undefined ? entry : { ...entry, evidence: draftEvidence(familiarity) })
+      if (decoded.value.pitfalls !== undefined) {
+        pitfalls.push({ entryId: decoded.value.entry.id, pitfalls: decoded.value.pitfalls })
+      }
+    } else aliases.push(decoded.value.alias)
   }
-  return { records, aliases }
+  return { records, pitfalls, aliases }
 }
 
 export { APPROVED_EN_FILE }

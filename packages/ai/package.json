@@ -2,7 +2,7 @@
   "name": "@kotori/ai",
   "version": "0.1.0",
   "private": true,
-  "description": "Kotori's AI capabilities, stateless and database-free: coaching, example sentences, nuance judgments, speech and voice casting, and the golden-set evals",
+  "description": "Kotori's AI capabilities, stateless and database-free: coaching, Ask Kotori drafts and routing, example sentences, speech and voice casting, and golden-set evals",
   "type": "module",
   "exports": {
     ".": {

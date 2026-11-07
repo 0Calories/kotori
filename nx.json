@@ -34,8 +34,7 @@
       "!{projectRoot}/test/**/*",
       "!{projectRoot}/src/testing/**/*",
       "!{projectRoot}/tsconfig.spec.json",
-      "!{projectRoot}/vitest.config.ts",
-      "!{projectRoot}/golden/**/*"
+      "!{projectRoot}/vitest.config.ts"
     ]
   },
   "targetDefaults": {

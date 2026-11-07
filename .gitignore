@@ -19,6 +19,9 @@ coverage/
 data/*
 !data/.gitkeep
 !data/approved/
+!data/labels/
+!data/pitfalls/
+!data/loans/
 !data/eiwa/
 data/eiwa/*
 !data/eiwa/enwiktionary-ja.jsonl

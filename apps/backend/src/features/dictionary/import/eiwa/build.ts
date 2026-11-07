@@ -1,6 +1,7 @@
-import { EntryId, type EntryRecord, type FormRecord, type SenseRecord } from "@kotori/contracts"
-import { FIRST_ENGLISH_ID } from "@kotori/db"
+import { EntryId, type FormRecord, type SenseRecord } from "@kotori/contracts"
+import { FIRST_ENGLISH_ID, type Source as Dictionary } from "@kotori/db"
 import { type EnglishInflection, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
+import type { ImportEntry } from "../seedFacts.ts"
 import type { FormOf, InflectedForm, References, Word } from "./words.ts"
 
 /** How many of the most used words count as common, as JMDict's markers make about a tenth of its words common. */
@@ -19,6 +20,13 @@ const FAMILIARITY_FLOOR: Readonly<Record<number, number>> = { 1: 300, 2: 600, 3:
 
 export type Source = "curated" | "wiktionary" | "jmdict"
 
+/** The dictionary each source's senses come from, as labels and patterns name it. */
+const DICTIONARY: Readonly<Record<Source, Dictionary>> = {
+  curated: "enwiktionary",
+  wiktionary: "jawiktionary",
+  jmdict: "jmdict"
+}
+
 /** A word as the dictionary will hold it, with where it came from. */
 interface Built {
   readonly headword: string
@@ -30,6 +38,7 @@ interface Built {
   readonly references: ReadonlyArray<References>
   readonly mayBeName: boolean
   readonly familiarity?: number | undefined
+  readonly dictionary: Dictionary
 }
 
 const built = (word: Word, source: Source): Built => ({
@@ -41,7 +50,8 @@ const built = (word: Word, source: Source): Built => ({
   senses: word.senses,
   references: word.references ?? [],
   mayBeName: word.mayBeName ?? false,
-  familiarity: word.familiarity
+  familiarity: word.familiarity,
+  dictionary: word.dictionary ?? DICTIONARY[source]
 })
 
 const addInflection = (word: Built, form: InflectedForm) => {
@@ -140,7 +150,7 @@ const placeReferences = (words: ReadonlyArray<Built>) => {
     return new Set(word?.senses.flatMap((sense) => [...meanings(sense)]) ?? [])
   }
 
-  return (word: Built): ReadonlyArray<SenseRecord> => {
+  return (word: Built): Built["senses"] => {
     if (word.references.length === 0) return word.senses
     const xrefs = word.senses.map((sense) => [...sense.xrefs])
     const antonyms = word.senses.map((sense) => [...sense.antonyms])
@@ -193,10 +203,10 @@ const namedWords = (gloss: string) => {
  * ("sad": 満足した, obsolete). A sense's weight is its heaviest word's, not their sum: summed,
  * senses listing more synonyms won ("cool" led with 冷淡な, "kid" with からかう).
  */
-export const commonestFirst = (
-  senses: ReadonlyArray<SenseRecord>,
+export const commonestFirst = <S extends SenseRecord>(
+  senses: ReadonlyArray<S>,
   attested: ReadonlyMap<string, number> = new Map()
-): Array<SenseRecord> => {
+): Array<S> => {
   const littleUsed = (sense: SenseRecord) => sense.misc.some((tag) => LITTLE_USED.has(tag))
   const weight = (sense: SenseRecord) =>
     Math.max(0, ...sense.glosses.flatMap((gloss) => namedWords(gloss.text).map((word) => attested.get(word) ?? 0)))
@@ -232,7 +242,8 @@ const usage = (
   ratings: ReadonlyMap<string, number>
 ) => {
   const twin = lowercase.get(word.headword.toLowerCase())
-  if (twin !== undefined && twin !== word && !(pronoun(word) && !pronoun(twin))) return { count: 0, rawCount: 0 }
+  if (twin !== undefined && twin !== word && !(pronoun(word) && !pronoun(twin)))
+    return { count: 0, rawCount: 0, familiarity: undefined }
   const forms = new Set([word.headword, ...word.inflections.keys()].map((form) => form.toLowerCase()))
   let rawCount = 0
   for (const form of forms) rawCount += frequency.get(form) ?? 0
@@ -240,15 +251,15 @@ const usage = (
   if (familiarity !== undefined || word.source === "curated") {
     const floor = FAMILIARITY_FLOOR[familiarity ?? 3] ?? CURATED_FLOOR
     const count = rawCount === 0 || (familiarity ?? 3) >= 3 ? Math.max(rawCount, floor) : rawCount
-    return { count, rawCount }
+    return { count, rawCount, familiarity }
   }
   if (rawCount === 0 && word.headword.includes(" ")) {
     const attested = attestedTranslations(word.headword, translations)
     const bestWeight = attested !== undefined ? Math.max(0, ...attested.values()) : 0
     const count = bestWeight >= 45 ? 2_500 : bestWeight >= 30 ? 1_000 : bestWeight > 0 ? 300 : 0
-    return { count, rawCount }
+    return { count, rawCount, familiarity }
   }
-  return { count: rawCount, rawCount }
+  return { count: rawCount, rawCount, familiarity }
 }
 
 /** Usage folded into a priority on the scale of JMDict's (about 0–150), so ranking treats both alike. */
@@ -280,7 +291,7 @@ export const toEntries = (
   existing: ReadonlyMap<string, number>,
   translations: ReadonlyMap<string, ReadonlyMap<string, number>> = new Map(),
   ratings: ReadonlyMap<string, number> = new Map()
-): Array<EntryRecord & { readonly source: Source }> => {
+): Array<ImportEntry & { readonly source: Source }> => {
   const lowercase = new Map(
     words.filter((word) => word.headword === word.headword.toLowerCase()).map((word) => [word.headword, word])
   )
@@ -292,7 +303,7 @@ export const toEntries = (
   next++
   const sensesOf = placeReferences(words)
   let commonSoFar = 0
-  return ranked.map(({ word, count, rawCount }) => {
+  return ranked.map(({ word, count, rawCount, familiarity }) => {
     const common = !word.mayBeName && (rawCount > 0 || count >= 2_500) && count > 0 && commonSoFar < COMMON_WORDS
     if (common) commonSoFar++
     const spellings = [...word.spellings].filter((spelling) => !word.inflections.has(spelling))
@@ -301,10 +312,14 @@ export const toEntries = (
       id: EntryId.make(existing.get(word.headword) ?? next++),
       language: "en" as const,
       source: word.source,
+      dictionary: word.dictionary,
       headword: word.headword,
       reading: word.ipa ?? "",
       common,
       priority: priorityOf(count),
+      // Everyday is the dictionary's own common mark (the most used words); the spoken count is the
+      // subtitles' own, before any familiarity floor, so a phrase they can't see has none.
+      evidence: { everyday: common, spokenCount: rawCount > 0 ? rawCount : null, familiarity: familiarity ?? null },
       forms: [
         form(word.headword, "spelling", common, []),
         ...spellings.map((spelling) => form(spelling, "spelling", false, [])),

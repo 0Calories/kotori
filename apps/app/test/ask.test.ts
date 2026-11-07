@@ -21,8 +21,18 @@ const draft: DraftEntry = {
   headword: "ぴえん",
   reading: "ぴえん",
   spellings: [],
-  currency: "trendy",
-  senses: [{ glosses: ["boo-hoo (crying sound)"], partOfSpeech: "int", labels: ["net-sl"], note: null }]
+  familiarity: 4,
+  labels: [{ code: "net-sl", severity: "caution", source: "kotori" }],
+  senses: [
+    {
+      index: 0,
+      glosses: ["boo-hoo (crying sound)"],
+      partsOfSpeech: [{ code: "int", label: "interjection" }],
+      labels: [],
+      patterns: []
+    }
+  ],
+  pitfalls: []
 }
 
 const entry: EntrySummary = {
@@ -34,8 +44,7 @@ const entry: EntrySummary = {
   romaji: "",
   meanings: ["しかたがない"],
   partOfSpeech: "exp",
-  formality: null,
-  currency: null,
+  labels: [],
   inflection: [],
   audioUrl: null
 }

@@ -31,7 +31,7 @@ apps/
 packages/
   db/         The data model: Drizzle tables and the migrations generated from them
   contracts/  The HTTP contract (KotoriApi), its schemas derived from the tables
-  ai/         Claude, Jev and ElevenLabs: coaching, examples, nuance, speech, golden evals
+  ai/         Claude, Jev and ElevenLabs: coaching, Ask Kotori, examples, speech, golden evals
   language/   Japanese and English text: rōmaji ↔ kana, deinflection, furigana, glosses
   srs/        Pure, fully tested implementation of Anki's SM-2 scheduler
 tools/
@@ -98,7 +98,7 @@ Dictionary search and flashcard reviews work without any API keys. To enable coa
 | Variable | Powers | Behavior without key |
 | --- | --- | --- |
 | `ANTHROPIC_API_KEY` | Naturalness check, *How do I say…*, example sentences | Coaching shows "not set up"; no new examples generated |
-| `TYPESAFE_API_KEY` | Word nuance and similar-word judgments (Jev) | Entries show dictionary meanings without nuance scales |
+| `TYPESAFE_API_KEY` | The naturalness check's formality meter, Ask Kotori routing, and judging seeded example sentences so they can be voiced (Jev) | No formality meter; every Ask Kotori query goes to Claude; seeded sentences stay unvoiced |
 | `ELEVENLABS_API_KEY` | Headword and example pronunciation audio | Audio buttons are hidden for unvoiced items |
 
 The Anthropic client also accepts `ANTHROPIC_AUTH_TOKEN` or an `ant auth login` profile. See `.env.example` for model, voice, and rate-limit settings.
@@ -108,7 +108,6 @@ The Anthropic client also accepts `ANTHROPIC_AUTH_TOKEN` or an `ant auth login` 
 When a learner opens an unenriched entry, the API queues high-priority jobs that the background worker (`pnpm dev`) picks up automatically. You can also backfill common words in batches:
 
 ```sh
-pnpm kotori enrich nuance --limit 2000      # Jev register & similar words
 pnpm kotori enrich examples --limit 500     # Claude example sentences
 pnpm kotori enrich audio --limit 100        # ElevenLabs pronunciation clips
 pnpm kotori status                          # check coverage and queue depth
@@ -116,10 +115,10 @@ pnpm kotori status                          # check coverage and queue depth
 
 All enrichment commands skip entries that are already complete, so they can be interrupted and re-run safely.
 
-- **Nuance (Jev)** — TypeSafe's Jev (`jev-1.14.0`) evaluates an entry in a single pass, scoring formality and spoken vs. written register alongside keigo, speaker gender/age, currency, connotation, learner cautions, and candidate synonyms. Explicit dictionary usage tags (such as `hon`, `col`, or `male`) take precedence over model guesses, and low-confidence judgments are hidden. Raw probability distributions are stored in Postgres so display labels can be re-derived without re-running inference (`pnpm kotori enrich nuance --reinterpret`) and benchmarked against a golden set (`pnpm kotori eval nuance` and `pnpm kotori eval english`).
-- **English dictionary & katakana loans** — For Japanese speakers learning English, the backend's dictionary import (`features/dictionary/import/eiwa`) assembles ~50k English headwords and idioms from [English Wiktionary](https://en.wiktionary.org), [Japanese Wiktionary](https://ja.wiktionary.org), and attested English glosses in JMDict, ranked by [OpenSubtitles word frequency](https://github.com/hermitdave/FrequencyWords). In addition to register and US/UK variety, Jev checks whether an English word's katakana loanword has drifted in meaning — warning Japanese learners when a familiar katakana word like スタイル (*body figure*) doesn't match English *style*.
+- **Labels, patterns and pitfalls** — What an entry says about using a word comes from the dictionaries at import time, each fact marked with its source: usage labels such as `col`, `hon`, `arch` or `en-GB`, the dictionary's own usage notes, example sentences from Tatoeba and Wiktionary, evidence of how much the word is used, and katakana ↔ English loan links. Similar words, and how each one differs, are derived from cross-references, shared glosses and labels. Kotori's own inference comes back only through offline passes that must pass a golden eval first (see [`docs/specs/dictionary-enrichment-plan.md`](docs/specs/dictionary-enrichment-plan.md)).
+- **English dictionary & katakana loans** — For Japanese speakers learning English, the backend's dictionary import (`features/dictionary/import/eiwa`) assembles ~50k English headwords and idioms from [English Wiktionary](https://en.wiktionary.org), [Japanese Wiktionary](https://ja.wiktionary.org), and attested English glosses in JMDict, ranked by [OpenSubtitles word frequency](https://github.com/hermitdave/FrequencyWords). JMDict's loanword sources tie a katakana word such as マンション to the English word it came from, and both entries show the link.
 - **Examples (Claude)** — Generated via structured outputs validated with Effect Schema. Furigana is written inline as `{漢字|かんじ}` and verified against the Japanese text before saving.
-- **Audio (ElevenLabs)** — Cached by content hash `(voice, model, text)` so each clip is synthesized once, guarded by a 30-day character budget (`KOTORI_AUDIO_MONTHLY_CHARS`, default `500000`).
+- **Audio (ElevenLabs)** — Each sentence gets a voice cast from its register and its sense's labels. Sentences seeded from Tatoeba and Wiktionary come with no register, so Jev judges their formality and speaker first. Clips are cached by content hash `(voice, model, text)` so each clip is synthesized once, guarded by a 30-day character budget (`KOTORI_AUDIO_MONTHLY_CHARS`, default `500000`).
 
 ## Accounts and authentication
 
@@ -176,4 +175,3 @@ Production runs on **Fly.io** (compute), **Neon** (Postgres 18 + Managed Better 
 - **Japanese dictionary:** [JMDict](https://www.edrdg.org/jmdict/j_jmdict.html) by the Electronic Dictionary Research and Development Group ([CC BY-SA 4.0](https://www.edrdg.org/edrdg/licence.html)).
 - **English dictionary:** [English Wiktionary](https://en.wiktionary.org) and [Japanese Wiktionary](https://ja.wiktionary.org) via [Wiktextract](https://github.com/tatuylonen/wiktextract) / [kaikki.org](https://kaikki.org/jawiktionary/) (CC BY-SA 4.0).
 - **Word frequencies:** [FrequencyWords](https://github.com/hermitdave/FrequencyWords) from OpenSubtitles 2018 (CC BY-SA 4.0).
-- **Evaluation fixture:** [`packages/ai/golden/entries.json`](packages/ai/golden/entries.json) contains excerpts from the sources above and is shared under CC BY-SA 4.0 (see [`packages/ai/golden/NOTICE.md`](packages/ai/golden/NOTICE.md)).

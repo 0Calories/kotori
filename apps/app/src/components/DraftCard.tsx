@@ -1,4 +1,4 @@
-import type { DraftEntry, DraftSense, Language } from "@kotori/contracts"
+import type { DraftEntry, DraftSense, Language, WordPitfall } from "@kotori/contracts"
 import { LinearGradient } from "expo-linear-gradient"
 import { useEffect, useState } from "react"
 import { StyleSheet, View } from "react-native"
@@ -12,15 +12,18 @@ import Animated, {
   withDelay,
   withTiming
 } from "react-native-reanimated"
-import { draftTagLabel, posLabel } from "../i18n/strings.ts"
+import { posLabel } from "../i18n/strings.ts"
 import { draftHeadwordSize } from "../lib/ask.ts"
-import { currencyTone } from "../lib/tones.ts"
+import { labelItems, sensePitfalls, wordPitfalls } from "../lib/entry.ts"
 import { useSession } from "../session/SessionProvider.tsx"
 import { easeOut } from "../theme/easing.ts"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Card } from "./Card.tsx"
 import { Chip } from "./Chip.tsx"
 import { Headword } from "./Headword.tsx"
+import { ChipRow } from "./LabelChips.tsx"
+import { Patterns } from "./Patterns.tsx"
+import { Pitfalls } from "./Pitfalls.tsx"
 import { Snow } from "./Snow.tsx"
 import { Text } from "./Text.tsx"
 
@@ -91,56 +94,43 @@ const SenseNumber = ({ number }: { readonly number: number }) => {
   )
 }
 
+/** A drafted sense, read as an entry's is: glosses, the labels it adds, usage notes, its own pitfalls. */
 const DraftSenseRow = ({
   sense,
-  number,
   language,
-  shown
+  pitfalls
 }: {
   readonly sense: DraftSense
-  readonly number: number
-  /** The headword's language; glosses and notes are in the other one. */
+  /** The headword's language; glosses and patterns are in the other one. */
   readonly language: Language
-  /** Labels already on the band (its currency), so a sense doesn't repeat them. */
-  readonly shown: ReadonlyArray<string>
+  readonly pitfalls: ReadonlyArray<WordPitfall>
 }) => {
   const { t } = useSession()
   const separator = language === "ja" ? "; " : "、"
   const [first, second, ...rest] = sense.glosses
-  const pos = posLabel(t, sense.partOfSpeech)
-  const repeated = new Set(shown.map((label) => label.toLowerCase()))
-  const labels = [...new Set(sense.labels.map((code) => draftTagLabel(t, code)))].filter(
-    (label) => !repeated.has(label.toLowerCase())
-  )
+  const pos = [...new Set(sense.partsOfSpeech.map((tag) => posLabel(t, tag.code) ?? tag.label))]
   return (
     <View style={{ flexDirection: "row", gap: 12 }}>
-      <SenseNumber number={number} />
-      <View style={{ flex: 1, gap: 6, paddingTop: 1 }}>
-        <Text variant="heading" selectable>
-          {second ? `${first}${separator}${second}` : first}
-        </Text>
-        {rest.length > 0 ? <Text color="textMuted">{rest.join(separator)}</Text> : null}
-        {pos || labels.length > 0 ? (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-            {pos ? <Chip label={pos} /> : null}
-            {labels.map((label) => (
-              <Chip key={label} label={label} />
-            ))}
-          </View>
-        ) : null}
-        {sense.note ? (
-          <Text jp={language === "en"} variant="small" color="textMuted" selectable>
-            {sense.note}
+      <SenseNumber number={sense.index + 1} />
+      <View style={{ flex: 1, gap: 8, paddingTop: 1 }}>
+        <View style={{ gap: 4 }}>
+          <Text variant="heading" selectable>
+            {second ? `${first}${separator}${second}` : first}
           </Text>
-        ) : null}
+          {rest.length > 0 ? <Text color="textMuted">{rest.join(separator)}</Text> : null}
+        </View>
+        <ChipRow items={labelItems(t, sense.labels)} plain={pos} />
+        <Patterns patterns={sense.patterns} />
+        <Pitfalls pitfalls={pitfalls} headline={false} />
       </View>
     </View>
   )
 }
 
 /**
- * Kotori's drafted entry, laid out like a small entry page: the headword on a snowy band
- * marked as an unchecked AI draft, then each sense. A `live` draft — one Kotori has just
+ * Kotori's drafted entry, laid out like a small entry page and read through the same parts:
+ * the headword and its labels on a snowy band marked as an unchecked AI draft, the word's
+ * pitfalls, then each sense. A `live` draft — one Kotori has just
  * written — lands as Kotori celebrates: the card drops in, its parts follow one by one, and a
  * glint crosses the band; a draft seen again simply fades in.
  */
@@ -158,8 +148,6 @@ export const DraftCard = ({
   const { t } = useSession()
   const size = draftHeadwordSize(draft.headword, language)
   const reading = draft.reading.length > 0 && draft.reading !== draft.headword ? draft.reading : null
-  const currency = draft.currency === "current" ? null : draft.currency
-  const currencyLabel = currency === null ? null : t.nuance.currency[currency]
   // Each part follows the one before it by a beat, after the card itself has landed.
   const step = (index: number) =>
     live
@@ -168,6 +156,7 @@ export const DraftCard = ({
           .easing(easeOut)
       : undefined
   const inner = theme.radius.lg - 1
+  const headline = wordPitfalls(draft.pitfalls)
 
   return (
     <Animated.View
@@ -199,33 +188,33 @@ export const DraftCard = ({
             >
               {draft.headword}
             </Headword>
-            {reading !== null || currencyLabel !== null ? (
-              <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                {reading === null ? null : (
-                  <Text jp={language === "ja"} variant="caption" size={14} color="textMuted" selectable>
-                    {reading}
-                  </Text>
-                )}
-                {currency === null ? null : <Chip tone={currencyTone[currency]} label={t.nuance.currency[currency]} />}
-              </View>
-            ) : null}
+            {reading === null ? null : (
+              <Text jp={language === "ja"} variant="caption" size={14} color="textMuted" selectable>
+                {reading}
+              </Text>
+            )}
             {draft.spellings.length > 0 ? (
               <Text variant="caption" color="textMuted" style={{ marginTop: 2 }}>
                 {t.entry.forms}: {draft.spellings.join(language === "ja" ? "・" : ", ")}
               </Text>
             ) : null}
+            {draft.labels.length > 0 ? (
+              <View style={{ marginTop: 8 }}>
+                <ChipRow items={labelItems(t, draft.labels)} onTint />
+              </View>
+            ) : null}
           </Animated.View>
           {live ? <Glint /> : null}
         </View>
         <View style={{ paddingHorizontal: 18, paddingTop: 16, paddingBottom: 18, gap: 18 }}>
+          {headline.length > 0 ? (
+            <Animated.View entering={step(1)}>
+              <Pitfalls pitfalls={headline} headline />
+            </Animated.View>
+          ) : null}
           {draft.senses.map((sense, index) => (
-            <Animated.View key={sense.glosses.join("\n")} entering={step(index + 1)}>
-              <DraftSenseRow
-                sense={sense}
-                number={index + 1}
-                language={language}
-                shown={currencyLabel === null ? [] : [currencyLabel]}
-              />
+            <Animated.View key={sense.glosses.join("\n")} entering={step(index + (headline.length > 0 ? 2 : 1))}>
+              <DraftSenseRow sense={sense} language={language} pitfalls={sensePitfalls(draft.pitfalls, sense.index)} />
             </Animated.View>
           ))}
         </View>

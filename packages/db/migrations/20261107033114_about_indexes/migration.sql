@@ -1,0 +1,2 @@
+CREATE INDEX "patterns_about" ON "patterns" ("about_entry_id") WHERE "about_entry_id" IS NOT NULL;--> statement-breakpoint
+CREATE INDEX "pitfalls_about" ON "pitfalls" ("about_entry_id") WHERE "about_entry_id" IS NOT NULL;

@@ -1,6 +1,8 @@
 import type { SenseRecord } from "@kotori/contracts"
+import type { DraftPitfall, Source } from "@kotori/db"
 import { type EnglishInflection, normalizeGloss } from "@kotori/language"
 import { Option, Schema } from "effect"
+import type { ImportSense } from "../seedFacts.ts"
 
 /** An inflected form of a word and what it is: "ate", past. */
 export interface InflectedForm {
@@ -30,8 +32,12 @@ export interface Word {
   /** Other ways the word is spelled ("colour"). */
   readonly spellings: ReadonlyArray<string>
   readonly inflections: ReadonlyArray<InflectedForm>
-  readonly senses: ReadonlyArray<SenseRecord>
+  readonly senses: ReadonlyArray<ImportSense>
   readonly references?: ReadonlyArray<References>
+  /** Where its senses came from, when not its source's dictionary: Kotori, for approved Ask Kotori words. */
+  readonly dictionary?: Source | undefined
+  /** Kotori's pitfalls on an approved Ask Kotori word, written once the word has its id. */
+  readonly pitfalls?: ReadonlyArray<DraftPitfall> | undefined
   /**
    * The subtitles may count a name spelled the same way ("kim", "erica"), so the count
    * can't say the word is common.

@@ -65,7 +65,7 @@ erDiagram
 
 `source` is `jmdict | jawiktionary | enwiktionary | tatoeba | kotori | user`.
 
-**Labels** replace the nuance JSONB, `TAG_JUDGMENTS`, the tag/judgment dedupe and the caution probabilities. One list per sense in one vocabulary: JMDict's codes, the English dictionary's region codes, and Kotori's `form` fill. Each label has a severity for display: `avoid` (vulg, X, derog, arch, obs), `caution` (col, sl, male, fem, chn, dated, rare…), `info` (hon, hum, pol, form, regions), `quiet` (id, uncountable, abbr). Grammar facts such as countability are quiet labels with an explanation, never pitfalls. Labels are per sense; the word shows its first sense's, and a sense shows only what differs.
+**Labels** replace the nuance JSONB, `TAG_JUDGMENTS`, the tag/judgment dedupe and the caution probabilities. One list per sense in one vocabulary: JMDict's codes, the English dictionary's region codes, and Kotori's `form` fill. Each label has a severity for display: `avoid` (vulg, X, derog, arch, obs), `caution` (col, sl, male, fem, chn, dated, rare…), `info` (hon, hum, pol, form, regions), `quiet` (id, uncountable, abbr). Grammar facts such as countability are quiet labels with an explanation, never pitfalls. Labels are per sense. The word shows only the labels every sense carries, so a single-sense word shows all of its own, and one sense of several never speaks for the rest; each sense shows the labels it has beyond the word's.
 
 **Patterns** are the dictionary's own usage notes plus Kotori's added context, side by side, Kotori's marked. ご苦労様 shows JMDict's "usu. to one's subordinate" and under it Kotori's "Upward it sounds condescending; say お疲れ様です", with a compare link. No red warning when the dictionary already flagged it.
 
@@ -85,11 +85,11 @@ A pitfall is **not** written when the labels already say it: てめえ (derog), 
 
 **Loan link** is one fact read from both ends. On the Japanese entry it is a quiet origin line ("from English mansion, but not what mansion means"). On the English entry, `divergent` is a `false_friend` pitfall and `same` is a quiet "same as 「アドバイス」" chip.
 
-**Similar words** are no longer a stored judgment. Candidates come from cross-references and shared glosses; the difference label is derived from the two words' labels (hon → "the respectful form", col → "more casual", en-GB → "the British word"). Words with the same labels show "similar meaning".
+**Similar words** are no longer a stored judgment. Candidates come from cross-references and shared glosses (two shared, or the same leading gloss); the difference label is derived from the two words' labels (hon → "the respectful form", col → "more casual", en-GB → "the British word"). Only a label the other word has says how it differs; an unmarked word beside a marked one is "the plain word". Words with the same labels show "similar meaning".
 
 ### What goes away
 
-`sense_nuance` (nuance and answers), `similar_words.difference`, `loan_words.answers/trap`, `examples`' six casting columns (folded into one nullable JSONB or onto `example_audio`), `sense_notes` (becomes patterns/pitfalls), Jev's per-sense question set, `interpret.ts`, `TAG_JUDGMENTS`, `saidByNuance`, the nuance sliders and caution chips, and every per-dimension `questionsVersion`.
+`sense_nuance` (nuance and answers), `similar_words.difference`, `loan_words.answers/trap`, `examples`' five speaker columns (folded into one nullable `casting` JSONB; `formality` stays a column), `sense_notes` (becomes patterns/pitfalls), Jev's per-sense question set, `interpret.ts`, `TAG_JUDGMENTS`, `saidByNuance`, the nuance sliders and caution chips, and every per-dimension `questionsVersion`.
 
 ## Per-dimension decision
 

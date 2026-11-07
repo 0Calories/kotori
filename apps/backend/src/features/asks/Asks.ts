@@ -15,6 +15,7 @@ import { scopedToUser } from "../../db/scopedToUser.ts"
 import { reserveUsage } from "../coaching/queries.ts"
 import { Dictionary } from "../dictionary/Dictionary.ts"
 import { turnAway } from "./garbage.ts"
+import { viewDrafts } from "./draft.ts"
 import { judge, type Triaged } from "./judge.ts"
 import { asksFor, findProposal, insertProposal, type ProposalRow, recordAsk, type Verdict } from "./queries.ts"
 
@@ -52,20 +53,29 @@ export class Asks extends Context.Service<
       const askDaily = yield* Config.Int("KOTORI_ASK_DAILY_LIMIT").pipe(Config.withDefault(30))
       const triageHourly = yield* Config.Int("KOTORI_TRIAGE_HOURLY_LIMIT").pipe(Config.withDefault(60))
 
-      const toProposal = Effect.fnUntraced(function* (row: ProposalRow) {
-        const linked =
-          row.linkedEntryId === null ? null : ((yield* dictionary.summarize([row.linkedEntryId]))[0] ?? null)
-        return {
+      /** Proposals as the app reads them; a list of them costs the same few queries as one. */
+      const toProposals = Effect.fnUntraced(function* (rows: ReadonlyArray<ProposalRow>) {
+        const linkedIds = [...new Set(rows.flatMap((row) => (row.linkedEntryId === null ? [] : [row.linkedEntryId])))]
+        const linked = new Map(
+          (linkedIds.length === 0 ? [] : yield* dictionary.summarize(linkedIds)).map((entry) => [entry.id, entry])
+        )
+        const drafted = rows.flatMap((row) =>
+          row.draft === null ? [] : [{ id: row.id, draft: row.draft, language: row.language }]
+        )
+        const views = yield* viewDrafts(db, drafted)
+        const drafts = new Map(drafted.map((stored, index) => [stored.id, views[index]!]))
+        return rows.map((row): Proposal => ({
           id: ProposalId.make(row.id),
           query: row.query,
           language: row.language,
           status: row.status,
-          draft: row.draft,
-          linked,
+          draft: drafts.get(row.id) ?? null,
+          linked: row.linkedEntryId === null ? null : (linked.get(row.linkedEntryId) ?? null),
           reason: row.reason,
           route: row.route
-        } satisfies Proposal
+        }))
       })
+      const toProposal = (row: ProposalRow) => toProposals([row]).pipe(Effect.map((proposals) => proposals[0]!))
 
       /**
        * Takes one of the learner's requests of `kind` (`ask`: Claude, per hour and per day;
@@ -163,7 +173,7 @@ export class Asks extends Context.Service<
       })
 
       const asks = Effect.fn("Asks.asks")(function* (user: Profile) {
-        return yield* Effect.forEach(yield* asksFor(db, user.id), toProposal)
+        return yield* toProposals(yield* asksFor(db, user.id))
       })
 
       return Asks.of({ ask, asks })

@@ -1,5 +1,4 @@
-# drizzle-kit's schema snapshots and generated dictionary/eval datasets:
+# drizzle-kit's schema snapshots and generated dictionary datasets:
 # collapsed in GitHub diffs and left out of language stats.
 packages/db/migrations/*/snapshot.json linguist-generated=true
 data/eiwa/*.json* linguist-generated=true
-packages/ai/golden/entries.json linguist-generated=true

@@ -1,4 +1,4 @@
-import { awaitsWarning, CASTS, Claude, Jev, nuanceOutdated, Pronouncer } from "@kotori/ai"
+import { CASTS, Claude, Pronouncer } from "@kotori/ai"
 import {
   type Enrichment,
   type EnrichmentStatus,
@@ -10,6 +10,7 @@ import {
   type Language,
   type SearchMatch,
   type SearchResult,
+  type Label,
   type Sense,
   type SimilarWord,
   type Tag
@@ -35,8 +36,14 @@ import { Clock, Context, Effect, Layer, Option } from "effect"
 import { Database } from "../../db/Database.ts"
 import { entryClips, exampleClips } from "../audio/index.ts"
 import type { ExampleRow, JobKind } from "../enrichment/index.ts"
-import { examplesFor, loanWordsFor, nuanceFor, senseNotesFor, similarFor } from "../enrichment/index.ts"
-import { enqueueJob, jobStatusFor, refillJob, requeueJob } from "../enrichment/index.ts"
+import {
+  enqueueJob,
+  examplesFor,
+  jobStatusFor,
+  refillJob,
+  sentencesToVoice,
+  writingExamples
+} from "../enrichment/index.ts"
 import type { FormMatch, GlossMatch } from "./queries.ts"
 import {
   findFormPrefix,
@@ -52,6 +59,8 @@ import {
   searchJapaneseGlosses,
   tagLabels
 } from "./queries.ts"
+import { type Candidate, differenceOf, pickCandidates, senseLabels } from "./similar.ts"
+import { evidenceFor, labelsBySense, loanLinkFor, patternsBySense, pitfallsFor, sharedGlossesBySense } from "./usage.ts"
 
 export const audioUrl = (key: string) => `/audio/${key}.mp3`
 
@@ -60,8 +69,8 @@ const ON_DEMAND = 1_000
 
 /** How long a finished audio job that left gaps waits before it is tried again. */
 const REFILL_AFTER = 60 * 60 * 1000
-/** How long after a nuance job a viewed entry's missing loan warning gets another try. */
-const WARNING_RETRY_AFTER = 10 * 60 * 1000
+/** How long after a job ran out of attempts a viewed entry gives it another try. */
+const RETRY_AFTER = 10 * 60 * 1000
 
 interface Hit {
   readonly entryId: EntryId
@@ -207,6 +216,7 @@ const toExample = (example: ExampleRow, clips: ReadonlyMap<string, string>): Exa
     formality: example.formality,
     note: example.note,
     noteJa: example.noteJa,
+    source: example.source,
     audioUrl: ja === undefined ? null : audioUrl(ja),
     translationAudioUrl: en === undefined ? null : audioUrl(en)
   }
@@ -222,21 +232,26 @@ const firstGlosses = (entry: EntryRecord, count: number) => {
 const joinGlosses = (entry: EntryRecord, glosses: ReadonlyArray<string>) =>
   glosses.join(entry.language === "ja" ? "; " : "、")
 
-/**
- * What a similar word means where it is like the sense it is listed under: its earliest sense
- * sharing a gloss with that sense, as the nuance job's candidate search found it, so "strain"
- * under "tension" reads 緊張 rather than its first sense, 性質. A cross-reference shares none,
- * and shows the word's first meanings.
- */
-const similarMeaning = (sense: EntryRecord["senses"][number], similar: EntryRecord) => {
+/** The earliest sense of `similar` sharing a gloss with `sense`, or null when none does. */
+const sharedSense = (sense: EntryRecord["senses"][number], similar: EntryRecord): number | null => {
   // Glosses are in the other language from the headword, normalised as the import stores them.
   const norm = similar.language === "ja" ? normalizeGloss : normalizeJapaneseGloss
   const own = new Set(sense.glosses.map((gloss) => norm(gloss.text)).filter((text) => text.length > 1))
-  const shared = similar.senses.find((candidate) => candidate.glosses.some((gloss) => own.has(norm(gloss.text))))
-  return joinGlosses(
-    similar,
-    shared === undefined ? firstGlosses(similar, 2) : shared.glosses.slice(0, 2).map((gloss) => gloss.text)
-  )
+  const index = similar.senses.findIndex((candidate) => candidate.glosses.some((gloss) => own.has(norm(gloss.text))))
+  return index === -1 ? null : index
+}
+
+/** The word's labels, those every sense carries (`senseLabels`), from its labels by sense. */
+const wordLabels = (entry: EntryRecord, bySense: ReadonlyMap<number, ReadonlyArray<Label>> | undefined) =>
+  senseLabels(entry.senses.map((_, index) => bySense?.get(index) ?? [])).word
+
+/** At most this many similar words under one sense: the closest, cross-references first. */
+const SIMILAR_PER_SENSE = 4
+
+/** The sense a JMDict cross-reference names ("食べる・たべる・2"), counted from 0; null when it names none. */
+const xrefSense = (xref: string) => {
+  const last = xref.split("・").at(-1) ?? ""
+  return xref.includes("・") && /^\d+$/.test(last) ? Number(last) - 1 : null
 }
 
 /**
@@ -271,7 +286,6 @@ export class Dictionary extends Context.Service<
     Dictionary,
     Effect.gen(function* () {
       const db = yield* Database
-      const jev = yield* Jev
       const claude = yield* Claude
       const pronouncer = yield* Pronouncer
 
@@ -669,10 +683,7 @@ export class Dictionary extends Context.Service<
       const summaries = Effect.fnUntraced(function* (hits: ReadonlyArray<Hit>) {
         const ids = hits.map((hit) => hit.entryId)
         const entries = new Map((yield* getEntries(db, ids)).map((entry) => [entry.id, entry]))
-        const nuance = yield* nuanceFor(db, ids)
-        const first = nuance.filter((row) => row.sense === 0)
-        const formality = new Map(first.map((row) => [row.entryId, row.nuance.formality.value] as const))
-        const currency = new Map(first.map((row) => [row.entryId, row.nuance.currency.value] as const))
+        const labels = yield* labelsBySense(db, ids)
         const clips = yield* entryClips(db, ids)
         return hits.flatMap((hit): Array<EntrySummary> => {
           const entry = entries.get(hit.entryId)
@@ -688,8 +699,7 @@ export class Dictionary extends Context.Service<
               common: entry.common,
               meanings: firstGlosses(entry, 3),
               partOfSpeech: entry.senses[0]?.pos[0] ?? null,
-              formality: formality.get(entry.id) ?? null,
-              currency: currency.get(entry.id) ?? null,
+              labels: wordLabels(entry, labels.get(entry.id)),
               inflection: hit.inflection,
               audioUrl: firstClip === undefined ? null : audioUrl(firstClip.key)
             }
@@ -714,28 +724,30 @@ export class Dictionary extends Context.Service<
         ready ? "ready" : !available || job === "failed" ? "unavailable" : "queued"
 
       const enrichmentFor = Effect.fnUntraced(function* (entry: EntryRecord, enqueue: boolean) {
-        const nuanceRows = yield* nuanceFor(db, [entry.id])
-        const hasNuance = nuanceRows.length > 0
-        // Old rows stay valid and shown, but a viewed entry gets fresh judgments queued when they
-        // predate its question set, or a re-import has ranked an unjudged sense among them.
-        const outdated = nuanceOutdated(entry, nuanceRows)
-        const [loan] = yield* loanWordsFor(db, [entry.id])
         const examples = yield* examplesFor(db, [entry.id])
-        const hasExamples = examples.length > 0
+        // Sentences seeded from Tatoeba or Wiktionary don't stand in for Kotori's, which are
+        // written for learners: Claude still writes them for a viewed word.
+        const hasExamples = examples.some((example) => example.source === "kotori")
+        const before = yield* jobStatusFor(db, entry.id)
+        // The sentences that get audio: Kotori's, and seeded ones only where Kotori wrote none.
+        const toVoice = sentencesToVoice(examples, { writing: writingExamples(before.get("examples")) })
         const clips = yield* exampleClips(
           db,
           examples.map((example) => example.id)
         )
-        // Ready once the headword and every example are voiced in the entry's language.
-        const hasAudio =
-          (yield* entryClips(db, [entry.id])).size > 0 &&
-          examples.every((example) => clips.has(`${example.id}:${entry.language}`))
+        // Ready once the headword and every sentence to voice that can be are, in the entry's
+        // language. A seeded sentence has no formality to cast a voice by until Jev judges it on the
+        // audio job; without Jev it is never voiced, as no register is assumed, so it isn't waited for.
+        const voiceable = (example: ExampleRow) => example.formality !== null || pronouncer.judges
+        const unvoiced = toVoice.filter(
+          (example) => voiceable(example) && !clips.has(`${example.id}:${entry.language}`)
+        )
+        const hasAudio = (yield* entryClips(db, [entry.id])).size > 0 && unvoiced.length === 0
         const coachAvailable = yield* claude.available
         const now = new Date(yield* Clock.currentTimeMillis)
 
         if (enqueue) {
-          const before = yield* jobStatusFor(db, entry.id)
-          const retryWindow = new Date(now.getTime() - WARNING_RETRY_AFTER)
+          const retryWindow = new Date(now.getTime() - RETRY_AFTER)
           // A job that already ran out of attempts stays `failed` while the entry is polled so its
           // status reports `unavailable` and the app stops polling; a later look gives it a new try.
           const queueOrRetry = (kind: JobKind) =>
@@ -743,36 +755,29 @@ export class Dictionary extends Context.Service<
               ? refillJob(db, kind, entry.id, retryWindow, ON_DEMAND, now)
               : enqueueJob(db, kind, entry.id, ON_DEMAND, now)
 
-          if (jev.configured) {
-            // Enqueueing a finished job is a no-op, so one that judged with an older question set is
-            // queued again; saving replaces every row of the entry, so it runs once per version.
-            if (outdated && before.get("nuance") === "done") {
-              yield* requeueJob(db, "nuance", entry.id, ON_DEMAND, now)
-            } else if (!hasNuance || outdated) {
-              yield* queueOrRetry("nuance")
-            } else if (coachAvailable && awaitsWarning(loan) && before.get("nuance") === "done") {
-              // A drifted loan judged while Claude was unavailable has no warning: the job writes
-              // just that, without Jev. Not on every look, in case Claude still can't write it.
-              yield* refillJob(db, "nuance", entry.id, retryWindow, ON_DEMAND, now)
-            }
-          }
           if (!hasExamples && coachAvailable) yield* queueOrRetry("examples")
-          // The worker re-runs audio once example sentences exist, so they get voiced too. A finished
-          // job can still leave gaps (sentences written after it ran), so it runs again to fill
-          // them, but at most once an hour, in case the gap is one the worker can't fill.
+          // The worker re-runs audio when Kotori's sentences are written, so they get voiced too. A
+          // finished job runs again only for a sentence it hasn't tried: one written since it ran,
+          // or one no run has judged (seeded since, or from before seeded sentences were voiced),
+          // the latter at most once an hour. A sentence a run tried and couldn't voice (no voice
+          // fits it) isn't retried on every look.
           if (!hasAudio && pronouncer.configured) {
-            // Enqueueing a finished job would touch it, putting its next try off with every look.
-            if (before.get("audio") === "done") {
-              yield* refillJob(db, "audio", entry.id, new Date(now.getTime() - REFILL_AFTER), ON_DEMAND, now)
-            } else {
+            if (before.get("audio") !== "done") {
               yield* queueOrRetry("audio")
+            } else {
+              const untried = Math.max(
+                ...unvoiced.map((example) =>
+                  example.formality === null ? now.getTime() - REFILL_AFTER : example.createdAt.getTime()
+                )
+              )
+              // Enqueueing a finished job would touch it, putting its next try off with every look.
+              if (unvoiced.length > 0) yield* refillJob(db, "audio", entry.id, new Date(untried), ON_DEMAND, now)
             }
           }
         }
 
         const job = yield* jobStatusFor(db, entry.id)
         return {
-          nuance: status(hasNuance, jev.configured, job.get("nuance")),
           examples: status(hasExamples, coachAvailable, job.get("examples")),
           // A finished job has voiced what it can; whatever is still missing isn't on its way.
           audio: status(hasAudio || job.get("audio") === "done", pronouncer.configured, job.get("audio"))
@@ -783,9 +788,6 @@ export class Dictionary extends Context.Service<
         const tags = yield* tagLabels(db)
         const tag = (code: string): Tag => ({ code, label: tags.get(code) ?? code })
 
-        const nuance = new Map((yield* nuanceFor(db, [entry.id])).map((row) => [row.sense, row.nuance]))
-        const notes = new Map((yield* senseNotesFor(db, [entry.id])).map((row) => [row.sense, row]))
-        const [loan] = yield* loanWordsFor(db, [entry.id])
         const examples = yield* examplesFor(db, [entry.id])
         const exampleAudio = yield* exampleClips(
           db,
@@ -795,74 +797,121 @@ export class Dictionary extends Context.Service<
         const voiceName = (voice: string | null) =>
           voice === null ? null : (CASTS[entry.language].find((candidate) => candidate.id === voice)?.name ?? null)
 
-        const similarRows = yield* similarFor(db, entry.id)
-        const similarIds = unique(similarRows.map((row) => row.similarId))
-        const similarEntries = new Map((yield* getEntries(db, similarIds)).map((e) => [e.id, e]))
-        const similarFormality = new Map(
-          (yield* nuanceFor(db, similarIds))
-            .filter((row) => row.sense === 0)
-            .map((row) => [row.entryId, row.nuance.formality.value] as const)
-        )
-
         // Cross-references point within the entry's own dictionary: JMDict's are "text・reading・sense",
         // an English word's are its synonyms and antonyms, matched whatever their case.
         const xrefTexts = unique(entry.senses.flatMap((s) => [...s.xrefs, ...s.antonyms]).map((x) => x.split("・")[0]!))
         const xrefMatches = yield* findForms(db, xrefTexts, entry.language)
+        // "上手・うわて" names the 上手 read うわて, not じょうず: a reading picks among words spelled alike.
+        const readingOf = (xref: string) => {
+          const reading = xref.split("・")[1]
+          return reading !== undefined && !/^\d+$/.test(reading) ? reading : null
+        }
+        const xrefReadings = unique(
+          entry.senses.flatMap((s) => [...s.xrefs, ...s.antonyms]).flatMap((x) => readingOf(x) ?? [])
+        )
+        const readAs = new Set(
+          (yield* findForms(db, xrefReadings, entry.language)).map((m) => `${m.entryId}\u0000${m.text}`)
+        )
         const fold = (text: string) => (entry.language === "en" ? text.toLowerCase() : text)
         const resolve = (xref: string) => {
           const [text = xref, reading] = xref.split("・")
+          const read = readingOf(xref)
+          const pick = (pool: ReadonlyArray<(typeof xrefMatches)[number]>) =>
+            pool.find((m) => m.text === text && m.kind !== "inflection") ??
+            pool.find((m) => fold(m.text) === fold(text))
           const match =
-            xrefMatches.find((m) => m.text === text && m.kind !== "inflection") ??
-            xrefMatches.find((m) => fold(m.text) === fold(text))
+            (read === null ? undefined : pick(xrefMatches.filter((m) => readAs.has(`${m.entryId}\u0000${read}`)))) ??
+            pick(xrefMatches)
           return {
             text: reading !== undefined && !/^\d+$/.test(reading) ? `${text}（${reading}）` : text,
             entryId: match ? EntryId.make(match.entryId) : null
           }
         }
 
+        // The enrichment model: labels (the word's, then what each sense adds), patterns, pitfalls,
+        // evidence, the loan link, and similar words derived from cross-references and shared glosses.
+        const ownLabels = (yield* labelsBySense(db, [entry.id])).get(entry.id) ?? new Map<number, Array<Label>>()
+        const stated = senseLabels(entry.senses.map((_, index) => ownLabels.get(index) ?? []))
+        const patternRows = yield* patternsBySense(db, entry.id)
+
+        const candidates: Array<Candidate> = [
+          ...entry.senses.flatMap((sense, index) =>
+            sense.xrefs.flatMap((xref): Array<Candidate> => {
+              const { entryId } = resolve(xref)
+              return entryId === null ? [] : [{ sense: index, entryId, otherSense: xrefSense(xref), via: "xref" }]
+            })
+          ),
+          ...(yield* sharedGlossesBySense(db, entry.id, SIMILAR_PER_SENSE)).map((row): Candidate => ({
+            ...row,
+            via: "gloss"
+          }))
+        ]
+        const picked = pickCandidates(entry.id, candidates, SIMILAR_PER_SENSE)
+        const pickedIds = unique(picked.map((candidate) => EntryId.make(candidate.entryId)))
+        const pickedEntries = new Map((yield* getEntries(db, pickedIds)).map((e) => [e.id, e]))
+        const pickedLabels = yield* labelsBySense(db, pickedIds)
+        const codes = (labels: ReadonlyArray<Label> | undefined) => (labels ?? []).map((label) => label.code)
+        const similarWords = (index: number) =>
+          picked
+            .filter((candidate) => candidate.sense === index)
+            .flatMap((candidate): Array<SimilarWord> => {
+              const other = pickedEntries.get(EntryId.make(candidate.entryId))
+              if (other === undefined) return []
+              // A cross-reference naming no sense is close where the two share a gloss, else at
+              // the word's first meanings.
+              const shared = candidate.otherSense ?? sharedSense(entry.senses[index]!, other)
+              const otherSense = shared !== null && other.senses[shared] !== undefined ? shared : null
+              return [
+                {
+                  entryId: EntryId.make(other.id),
+                  headword: other.headword,
+                  reading: other.reading,
+                  meaning:
+                    otherSense === null
+                      ? joinGlosses(other, firstGlosses(other, 2))
+                      : joinGlosses(
+                          other,
+                          other.senses[otherSense]!.glosses.slice(0, 2).map((gloss) => gloss.text)
+                        ),
+                  difference: differenceOf(
+                    codes(ownLabels.get(index)),
+                    codes(pickedLabels.get(other.id)?.get(otherSense ?? 0))
+                  ),
+                  via: candidate.via
+                }
+              ]
+            })
+
         const senses = entry.senses.map((sense, index): Sense => ({
           index,
           glosses: sense.glosses.map((gloss) => gloss.text),
           partsOfSpeech: sense.pos.map(tag),
-          misc: sense.misc.map(tag),
           fields: sense.fields.map(tag),
-          dialects: sense.dialects.map(tag),
           info: sense.info,
           appliesTo: [...sense.stagk, ...sense.stagr],
           related: sense.xrefs.map(resolve),
           antonyms: sense.antonyms.map(resolve),
-          nuance: nuance.get(index) ?? null,
-          note: notes.get(index)?.note ?? null,
-          noteJa: notes.get(index)?.noteJa ?? null,
-          similar: similarRows
-            .filter((row) => row.sense === index)
-            .flatMap((row): Array<SimilarWord> => {
-              const similar = similarEntries.get(row.similarId)
-              if (similar === undefined) return []
-              return [
-                {
-                  entryId: EntryId.make(similar.id),
-                  headword: similar.headword,
-                  reading: similar.reading,
-                  meaning: similarMeaning(sense, similar),
-                  difference: row.difference,
-                  confidence: row.confidence,
-                  formality: similarFormality.get(similar.id) ?? null
-                }
-              ]
-            }),
           examples: examples
             .filter((example) => example.sense === index)
-            .map((example) => toExample(example, exampleAudio))
+            .map((example) => toExample(example, exampleAudio)),
+          labels: stated.senses[index] ?? [],
+          patterns: patternRows.get(index) ?? [],
+          similarWords: similarWords(index)
         }))
 
         return {
           id: EntryId.make(entry.id),
           language: entry.language,
+          dictionary: entry.dictionary,
           headword: entry.headword,
           reading: entry.reading,
           romaji: entry.language === "ja" ? romanize(entry.reading) : "",
           common: entry.common,
+          usuallyKana: entry.senses[0]?.misc.includes("uk") ?? false,
+          labels: stated.word,
+          evidence: yield* evidenceFor(db, entry.id),
+          loanLink: yield* loanLinkFor(db, entry.id),
+          pitfalls: yield* pitfallsFor(db, entry.id),
           forms: entry.forms
             .filter((form) => !form.tags.includes("sK") && !form.tags.includes("sk"))
             .map((form) => ({ text: form.text, kind: form.kind, common: form.common, tags: form.tags.map(tag) })),
@@ -873,10 +922,6 @@ export class Dictionary extends Context.Service<
             voice: clip.voice,
             voiceName: voiceName(clip.voice)
           })),
-          loan:
-            loan?.word == null || loan.verdict === null
-              ? null
-              : { word: loan.word, verdict: loan.verdict, trap: loan.trap },
           enrichment: yield* enrichmentFor(entry, true)
         } satisfies Entry
       })

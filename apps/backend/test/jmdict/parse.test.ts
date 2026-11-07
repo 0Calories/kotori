@@ -84,6 +84,25 @@ describe("JMDict parser", () => {
     expect(taberu?.senses[0]).toMatchObject({ sources: [], wasei: false })
   })
 
+  it("reads Tatoeba's sentence pairs, ichi1 as evidence of everyday use, and JMDict as the source", () => {
+    const [kuu, kurou] = [
+      ...parseEntries(`<JMdict>
+<entry><ent_seq>1</ent_seq><k_ele><keb>食う</keb><ke_pri>ichi1</ke_pri></k_ele><r_ele><reb>くう</reb></r_ele>
+<sense><gloss>to eat</gloss>
+<example><ex_srce exsrc_type="tat">157430</ex_srce><ex_text>食う</ex_text>
+<ex_sent xml:lang="jpn">飯を食おう。</ex_sent><ex_sent xml:lang="eng">Let&apos;s eat.</ex_sent></example>
+</sense></entry>
+<entry><ent_seq>2</ent_seq><k_ele><keb>ご苦労様</keb></k_ele><r_ele><reb>ごくろうさま</reb></r_ele>
+<sense><s_inf>usu. to one's subordinate</s_inf><gloss>thank you for your hard work</gloss></sense></entry>
+</JMdict>`)
+    ]
+    expect(kuu?.dictionary).toBe("jmdict")
+    expect(kuu?.evidence).toEqual({ everyday: true, spokenCount: null, familiarity: null })
+    expect(kuu?.senses[0]?.examples).toEqual([{ ja: "飯を食おう。", en: "Let's eat.", source: "tatoeba" }])
+    expect(kurou?.evidence?.everyday).toBe(false)
+    expect(kurou?.senses[0]?.examples).toEqual([])
+  })
+
   it("scores newspaper frequency bands", () => {
     expect(priorityScore(["nf01"])).toBeGreaterThan(priorityScore(["nf40"]))
     expect(priorityScore([])).toBe(0)

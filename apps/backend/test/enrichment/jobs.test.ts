@@ -24,6 +24,7 @@ const stubEntries = (ids: ReadonlyArray<number>) =>
       ids.map((id) => ({
         id: EntryId.make(id),
         language: "ja" as const,
+        dictionary: "jmdict" as const,
         headword: `w${id}`,
         reading: `r${id}`,
         common: false,
@@ -65,13 +66,13 @@ layer(DatabaseMemory)("the job queue", (it) => {
     Effect.gen(function* () {
       const db = yield* Database
       yield* stubEntries([10])
-      yield* enqueueJob(db, "nuance", EntryId.make(10), 0, at(1000))
-      const claimed = Option.getOrThrow(yield* claimJob(db, ["nuance"], at(2000)))
+      yield* enqueueJob(db, "examples", EntryId.make(10), 0, at(1000))
+      const claimed = Option.getOrThrow(yield* claimJob(db, ["examples"], at(2000)))
       assert.strictEqual(claimed.attempts, 1)
 
       yield* releaseJob(db, claimed.id, at(2500))
-      assert.strictEqual((yield* jobStatusFor(db, EntryId.make(10))).get("nuance"), "queued")
-      const again = Option.getOrThrow(yield* claimJob(db, ["nuance"], at(3000)))
+      assert.strictEqual((yield* jobStatusFor(db, EntryId.make(10))).get("examples"), "queued")
+      const again = Option.getOrThrow(yield* claimJob(db, ["examples"], at(3000)))
       assert.strictEqual(again.id, claimed.id)
       assert.strictEqual(again.attempts, 1)
     })
@@ -82,28 +83,28 @@ layer(DatabaseMemory)("the job queue", (it) => {
       const db = yield* Database
       yield* stubEntries([20])
       const id = EntryId.make(20)
-      yield* enqueueJob(db, "nuance", id, 0, at(1000))
+      yield* enqueueJob(db, "examples", id, 0, at(1000))
 
       for (const tick of [1000, 2000, 3000]) {
-        const claimed = Option.getOrThrow(yield* claimJob(db, ["nuance"], at(tick)))
+        const claimed = Option.getOrThrow(yield* claimJob(db, ["examples"], at(tick)))
         yield* failJob(db, claimed.id, "quota", at(tick + 500), at(tick))
       }
-      assert.strictEqual((yield* jobStatusFor(db, id)).get("nuance"), "failed")
+      assert.strictEqual((yield* jobStatusFor(db, id)).get("examples"), "failed")
 
       // A soon refill leaves the failed job alone; once the cool-off passes, it queues again.
-      yield* refillJob(db, "nuance", id, at(2500), 0, at(4000))
-      assert.strictEqual((yield* jobStatusFor(db, id)).get("nuance"), "failed")
-      yield* refillJob(db, "nuance", id, at(3500), 0, at(4000))
-      assert.strictEqual((yield* jobStatusFor(db, id)).get("nuance"), "queued")
+      yield* refillJob(db, "examples", id, at(2500), 0, at(4000))
+      assert.strictEqual((yield* jobStatusFor(db, id)).get("examples"), "failed")
+      yield* refillJob(db, "examples", id, at(3500), 0, at(4000))
+      assert.strictEqual((yield* jobStatusFor(db, id)).get("examples"), "queued")
 
       // Failing all three attempts again leaves a future retry timestamp, which enqueueJob clears.
       for (const tick of [4000, 5000, 6000]) {
-        const claimed = Option.getOrThrow(yield* claimJob(db, ["nuance"], at(tick)))
+        const claimed = Option.getOrThrow(yield* claimJob(db, ["examples"], at(tick)))
         yield* failJob(db, claimed.id, "quota", at(tick === 6000 ? 240_000 : tick + 500), at(tick))
       }
-      assert.strictEqual((yield* jobStatusFor(db, id)).get("nuance"), "failed")
-      yield* enqueueJob(db, "nuance", id, 0, at(7000))
-      const revived = Option.getOrThrow(yield* claimJob(db, ["nuance"], at(7000)))
+      assert.strictEqual((yield* jobStatusFor(db, id)).get("examples"), "failed")
+      yield* enqueueJob(db, "examples", id, 0, at(7000))
+      const revived = Option.getOrThrow(yield* claimJob(db, ["examples"], at(7000)))
       assert.strictEqual(revived.attempts, 1)
     })
   )

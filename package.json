@@ -18,7 +18,6 @@
     "sync": "nx sync",
     "assets": "tsx tools/render-assets.ts",
     "motion": "tsx tools/render-motion.ts",
-    "golden": "pnpm kotori golden",
     "graph": "nx graph",
     "knip": "knip"
   },

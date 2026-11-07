@@ -4,7 +4,15 @@ import { Database } from "../db/Database.ts"
 import { APPROVED_JA_FILE, parseApprovedJa } from "../features/asks/review.ts"
 import * as Eiwa from "../features/dictionary/import/eiwa/Eiwa.ts"
 import * as JMDict from "../features/dictionary/import/jmdict/JMDict.ts"
-import { countOf, entryCount, findForms, getEntries, insertEntries } from "../features/dictionary/index.ts"
+import {
+  countOf,
+  entryCount,
+  findForms,
+  getEntries,
+  insertEntries,
+  saveKotoriPitfalls
+} from "../features/dictionary/index.ts"
+import { applyArtifacts } from "../features/dictionary/passes/apply.ts"
 import { resolveFromRoot } from "../runtime/Paths.ts"
 
 export const seed = Command.make(
@@ -43,7 +51,7 @@ export const seed = Command.make(
     let jmdictFile = Option.getOrUndefined(file)
     const jmdict = Effect.gen(function* () {
       if (jmdictFile !== undefined) return jmdictFile
-      const previous = resolveFromRoot("data/jmdict/JMdict_e.gz")
+      const previous = resolveFromRoot(JMDict.JMDICT_FILE)
       jmdictFile = which !== "jmdict" && (yield* fs.exists(previous)) ? previous : yield* JMDict.download("data/jmdict")
       return jmdictFile
     })
@@ -63,7 +71,8 @@ export const seed = Command.make(
       const approvedJa = resolveFromRoot(APPROVED_JA_FILE)
       if (yield* fs.exists(approvedJa)) {
         const approved = parseApprovedJa((yield* fs.readFileString(approvedJa)).split("\n"))
-        if (approved.records.length > 0) yield* insertEntries(db, approved.records)
+        if (approved.records.length > 0) yield* insertEntries(db, approved.records, { seeded: true })
+        for (const { entryId, pitfalls } of approved.pitfalls) yield* saveKotoriPitfalls(db, entryId, "ja", pitfalls)
         for (const alias of approved.aliases) {
           const base = (yield* findForms(db, [alias.base])).find((match) => match.kind !== "inflection")
           if (base === undefined) continue
@@ -113,6 +122,9 @@ export const seed = Command.make(
         )
       }
     }
+    // The offline passes' committed judgments, on top of whatever was imported: they fill only
+    // what the dictionaries leave empty, and re-applying them changes nothing.
+    yield* applyArtifacts(db)
     yield* Console.log(`The dictionary has ${(yield* entryCount(db)).toLocaleString()} entries.`)
   })
 ).pipe(

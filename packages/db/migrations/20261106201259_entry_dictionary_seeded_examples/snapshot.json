@@ -1,0 +1,51 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "01cb03b9-a649-461e-a6e3-56c11f15f593",
+  "prevIds": ["9eeb6696-c70f-4149-ae9c-b202244c44d3"],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "entries", "dictionary"],
+      "writes": [
+        "s|col|public.entries.dictionary",
+        "n|col|public.entries.dictionary",
+        "e|col|public.entries.dictionary"
+      ],
+      "reads": ["n|tbl|public.entries", "n|sch|public", "n|enum|public.source"]
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "examples", "formality"],
+      "writes": ["s|colprop|public.examples.formality.notNull"],
+      "reads": ["n|tbl|public.examples", "n|sch|public", "n|col|public.examples.formality"],
+      "sqlHash": "7a7581c0b7c48316"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "entries",
+        "name": "dictionary",
+        "type": "source",
+        "typeSchema": "public",
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"examples\",\"formality\"]",
+      "set": {
+        "notNull": false
+      }
+    }
+  ]
+}

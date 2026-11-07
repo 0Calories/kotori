@@ -57,6 +57,7 @@ export const EntryRecord = Schema.Struct({
   ...Struct.pick(createSelectSchema(entries, { id: EntryId }).fields, [
     "id",
     "language",
+    "dictionary",
     "headword",
     "reading",
     "common",

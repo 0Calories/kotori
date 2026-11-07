@@ -1,0 +1,81 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "dbf7e178-18ec-417b-b86b-9841b3f93e14",
+  "prevIds": ["65809900-3c46-4bea-805e-61d61869df58"],
+  "footprints": [
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "patterns", "patterns_about"],
+      "writes": [
+        "s|idx|public.patterns_about",
+        "n|idx|public.patterns_about",
+        "e|idx|public.patterns_about",
+        "n|rel|public.patterns_about"
+      ],
+      "reads": ["n|tbl|public.patterns", "n|sch|public", "n|col|public.patterns.about_entry_id"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "pitfalls", "pitfalls_about"],
+      "writes": [
+        "s|idx|public.pitfalls_about",
+        "n|idx|public.pitfalls_about",
+        "e|idx|public.pitfalls_about",
+        "n|rel|public.pitfalls_about"
+      ],
+      "reads": ["n|tbl|public.pitfalls", "n|sch|public", "n|col|public.pitfalls.about_entry_id"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "patterns",
+        "name": "patterns_about",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "about_entry_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": "\"about_entry_id\" IS NOT NULL",
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "pitfalls",
+        "name": "pitfalls_about",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "about_entry_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": "\"about_entry_id\" IS NOT NULL",
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    }
+  ]
+}

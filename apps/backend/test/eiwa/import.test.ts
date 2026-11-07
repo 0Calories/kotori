@@ -1,4 +1,6 @@
 import { afterAll, assert, layer } from "@effect/vitest"
+import { labels, patterns, pitfalls } from "@kotori/db"
+import { eq } from "drizzle-orm"
 import { Effect } from "effect"
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -97,8 +99,9 @@ layer(TestLayer)("Eiwa.importFiles", (it) => {
             headword: "rizzler",
             ipa: "/ˈɹɪzlɚ/",
             familiarity: 4,
-            senses: [{ pos: ["n"], misc: ["sl"], glosses: ["モテる人"] }]
-          }
+            senses: [{ pos: ["n"], misc: ["sl"], glosses: ["モテる人"], info: ["主に若者が使う。"] }]
+          },
+          pitfalls: [{ kind: "variety", text: "主にアメリカ英語です。", sense: null, about: null }]
         }),
         JSON.stringify({ alias: { text: "walking on thin ice", base: "on thin ice" } })
       ])
@@ -109,6 +112,26 @@ layer(TestLayer)("Eiwa.importFiles", (it) => {
       const ids = yield* headwordIds(db, "en")
       const [rizzler] = yield* findForms(db, ["rizzler"], "en")
       assert.strictEqual(rizzler?.entryId, ids.get("rizzler"))
+      // Approved words are Kotori's: their labels, patterns and pitfalls come back with them.
+      const rizzlerId = ids.get("rizzler")!
+      const [entry] = yield* getEntries(db, [rizzlerId])
+      assert.strictEqual(entry?.dictionary, "kotori")
+      assert.deepStrictEqual(
+        (yield* db.select().from(labels).where(eq(labels.entryId, rizzlerId))).map((row) => [row.code, row.source]),
+        [["sl", "kotori"]]
+      )
+      assert.deepStrictEqual(
+        (yield* db.select().from(patterns).where(eq(patterns.entryId, rizzlerId))).map((row) => [row.text, row.source]),
+        [["主に若者が使う。", "kotori"]]
+      )
+      const pitfallsOf = Effect.map(db.select().from(pitfalls).where(eq(pitfalls.entryId, rizzlerId)), (rows) =>
+        rows.map((row) => [row.rank, row.kind, row.source])
+      )
+      assert.deepStrictEqual(yield* pitfallsOf, [[1, "variety", "kotori"]])
+      // A re-import replaces them rather than adding a second copy.
+      yield* Eiwa.importFiles({ files: { ...files(true), approved }, jmdict: jmdictFile })
+      assert.deepStrictEqual(yield* pitfallsOf, [[1, "variety", "kotori"]])
+
       const [walking] = yield* findForms(db, ["walking on thin ice"], "en")
       assert.strictEqual(walking?.entryId, ids.get("on thin ice"))
 

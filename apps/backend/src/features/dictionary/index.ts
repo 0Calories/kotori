@@ -7,7 +7,9 @@ export {
   findForms,
   getEntries,
   insertEntries,
-  loanCandidates,
-  sharedGlossCandidates,
+  linkLoans,
+  resolveWord,
+  saveKotoriPitfalls,
   tagLabels
 } from "./queries.ts"
+export { labelsBySense } from "./usage.ts"

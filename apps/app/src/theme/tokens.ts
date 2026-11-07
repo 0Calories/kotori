@@ -49,6 +49,10 @@ const wakatake = {
   accent: "#B03D5B",
   /** Blush: behind warnings. */
   accentSoft: "#FFEEF0",
+  /** Amber dark: "caution" labels, which can misfire (casual, gendered, dated) but aren't to avoid. 6.5:1 on its soft. */
+  caution: "#7A4E00",
+  /** Amber cream: behind caution labels. */
+  cautionSoft: "#FFF3D6",
   /** The marker behind the word being looked up in an example. */
   highlight: "#FDC5CC",
   /** A pressed or selected row: ink at 7.5%. */

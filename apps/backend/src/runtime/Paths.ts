@@ -13,7 +13,7 @@ const findRoot = (start: string): string => {
 }
 
 /** The monorepo root, so every app resolves `data/` and `.env` to the same place. */
-export const workspaceRoot = findRoot(process.cwd())
+const workspaceRoot = findRoot(process.cwd())
 
 export const resolveFromRoot = (path: string) => (isAbsolute(path) ? path : resolve(workspaceRoot, path))
 
