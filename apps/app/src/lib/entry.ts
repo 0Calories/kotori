@@ -196,7 +196,8 @@ export const PITFALL_ICON: Record<PitfallKind, IconName> = {
   directness: "forum",
   variety: "call_split",
   confusable: "call_split",
-  collocation: "link"
+  collocation: "link",
+  tone: "monitoring"
 }
 
 /**

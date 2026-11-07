@@ -376,7 +376,8 @@ const en = {
     directness: "Directness",
     variety: "Variety",
     confusable: "Easily confused",
-    collocation: "Goes with"
+    collocation: "Goes with",
+    tone: "How it lands"
   } satisfies Record<PitfallKind, string>,
   nuance: {
     formality: "Formality",
@@ -941,7 +942,8 @@ const ja: Strings = {
     directness: "直接さの感覚",
     variety: "地域差",
     confusable: "混同しやすい",
-    collocation: "よくある組み合わせ"
+    collocation: "よくある組み合わせ",
+    tone: "言葉の重さ"
   },
   nuance: {
     formality: "丁寧さ",

@@ -1,0 +1,1 @@
+ALTER TYPE "pitfall_kind" ADD VALUE 'tone';

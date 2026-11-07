@@ -8,7 +8,9 @@ import { senses } from "./senses.ts"
 /**
  * What would surprise a learner. The kinds differ by direction: English speakers learning
  * Japanese meet politeness traps, Japanese speakers learning English meet katakana false
- * friends; `confusable` and `collocation` meet both. Grammar facts (countability) are labels.
+ * friends; `confusable`, `collocation` and `tone` meet both. `tone` is how heavy or light a word
+ * lands (ぴえん is playful, never real grief; "hate" is stronger than 嫌い), which no other kind
+ * says. Grammar facts (countability) are labels.
  */
 export const pitfallKind = pgEnum("pitfall_kind", [
   // Learning Japanese
@@ -24,7 +26,8 @@ export const pitfallKind = pgEnum("pitfall_kind", [
   "variety",
   // Both
   "confusable",
-  "collocation"
+  "collocation",
+  "tone"
 ])
 
 export const PitfallKind = Schema.Literals(pitfallKind.enumValues)
@@ -44,9 +47,10 @@ export const PITFALL_KINDS: Readonly<Record<"ja" | "en", ReadonlyArray<PitfallKi
     "particle_pattern",
     "gendered_speech",
     "confusable",
-    "collocation"
+    "collocation",
+    "tone"
   ],
-  en: ["false_friend", "textbook_english", "directness", "variety", "confusable", "collocation"]
+  en: ["false_friend", "textbook_english", "directness", "variety", "confusable", "collocation", "tone"]
 }
 
 /** A word carries at most this many pitfalls; `rank` runs from 1 to it. */

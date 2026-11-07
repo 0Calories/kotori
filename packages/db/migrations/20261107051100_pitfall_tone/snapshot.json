@@ -1,0 +1,37 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "d3c24187-921a-40ec-9a3d-b7ebe64b779a",
+  "prevIds": ["1ceca975-a2d0-454f-bc8e-b85238f4f522"],
+  "footprints": [
+    {
+      "statementType": "alter_enum",
+      "statementTarget": ["enum", "public", "pitfall_kind"],
+      "writes": ["s|enum|public.pitfall_kind"],
+      "reads": ["n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "alter",
+      "key": "enums\u0000[\"public\",\"pitfall_kind\"]",
+      "set": {
+        "values": [
+          "rude_upward",
+          "keigo_direction",
+          "set_phrase",
+          "particle_pattern",
+          "gendered_speech",
+          "false_friend",
+          "textbook_english",
+          "directness",
+          "variety",
+          "confusable",
+          "collocation",
+          "tone"
+        ]
+      }
+    }
+  ]
+}

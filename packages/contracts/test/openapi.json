@@ -1171,7 +1171,8 @@
                               "directness",
                               "variety",
                               "confusable",
-                              "collocation"
+                              "collocation",
+                              "tone"
                             ]
                           },
                           "text": {
@@ -2359,7 +2360,8 @@
                                       "directness",
                                       "variety",
                                       "confusable",
-                                      "collocation"
+                                      "collocation",
+                                      "tone"
                                     ]
                                   },
                                   "text": {
@@ -3125,7 +3127,8 @@
                                         "directness",
                                         "variety",
                                         "confusable",
-                                        "collocation"
+                                        "collocation",
+                                        "tone"
                                       ]
                                     },
                                     "text": {
