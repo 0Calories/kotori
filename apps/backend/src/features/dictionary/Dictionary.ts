@@ -175,6 +175,8 @@ const BRIDGE_GLOSSES = 4
 const INSIDE_GLOSS_MAX = 20
 /** A word inside a gloss is 2 to this many characters: no particle, no phrase. */
 const INSIDE_WORD_MAX = 10
+/** How far a gloss in another spelling of the Japanese word the query is (禿 for ハゲ) ranks below one as typed. */
+const SPELLING_PENALTY = 10
 /** How far a word inside a gloss ranks below one the whole gloss names. */
 const INSIDE_PENALTY = 30
 
@@ -584,34 +586,68 @@ export class Dictionary extends Context.Service<
        * (たべる → 食べる → "to eat" → eat). Glosses that only contain the query come last.
        */
       const japaneseGlossHits = Effect.fnUntraced(function* (query: string) {
-        const variants = unique([query, katakanaToHiragana(query)])
-        const terms = unique(variants.flatMap((variant) => deinflect(variant).map((candidate) => candidate.term)))
-        // Adjectival nouns are glossed as they modify a noun: きれい → きれいな.
-        const norms = unique(terms.flatMap((term) => [normalizeJapaneseGloss(term), `${term}な`, `${term}の`]))
-        const norm = normalizeJapaneseGloss(query)
-        const exact = yield* findJapaneseGlosses(db, norms, 300)
-        const fuzzy = exact.length >= 20 ? [] : yield* searchJapaneseGlosses(db, norm, 200)
-
-        // The Japanese words the query is, and the English words their glosses name. A deinflected
-        // form is as exact as the word written out: the rules are checked against its part of speech.
-        const japanese = (yield* japaneseHits(query)).filter((hit) => hit.score >= 700).slice(0, BRIDGE_WORDS)
+        // Adjectival nouns and no-adjectives are glossed as they modify a noun: きれい → きれいな, 禿げ → 禿げの.
+        const glossNorms = (term: string) => {
+          const base = normalizeJapaneseGloss(term)
+          return base.length === 0 ? [] : [base, `${base}な`, `${base}の`]
+        }
+        // The Japanese words the query is, and the English words their glosses name. When the query is
+        // already a dictionary word (ハゲ → 禿), imperative lookalikes (はげ → 剥ぐ, 接ぐ) are left aside.
+        const allJapanese = (yield* japaneseHits(query)).filter((hit) => hit.score >= 700)
+        const uninflected = allJapanese.filter((hit) => hit.inflection.length === 0)
+        const japanese = (uninflected.length > 0 ? uninflected : allJapanese).slice(0, BRIDGE_WORDS)
         const records = yield* getEntries(
           db,
           japanese.map((hit) => hit.entryId)
         )
+
+        const variants = unique([query, katakanaToHiragana(query)])
+        const terms = unique(
+          variants.flatMap((variant) =>
+            deinflect(variant)
+              .filter((candidate) => uninflected.length === 0 || candidate.reasons.length === 0)
+              .map((candidate) => candidate.term)
+          )
+        )
+        const norms = unique(terms.flatMap(glossNorms))
+        const norm = normalizeJapaneseGloss(query)
+        // Glosses write those words in kanji where the query may be their reading: baldy is glossed
+        // 禿 and bald 禿げの, not ハゲ. Only kanji, which is the word's own; a reading is shared with
+        // its homophones, and an obscure homophone (接ぐ as はぐ) yields when a common word matches.
+        const commonRecords = records.filter((record) => record.common)
+        const spellingRecords = commonRecords.length > 0 ? commonRecords : records
+        const spellings = new Set(
+          spellingRecords
+            .flatMap((record) => record.forms.filter((form) => form.kind === "kanji" && !form.tags.includes("sK")))
+            .flatMap((form) => glossNorms(form.text))
+            .filter((spelling) => !norms.includes(spelling))
+        )
+        const exact = yield* findJapaneseGlosses(db, [...norms, ...spellings], 300)
+        const fuzzy = exact.length >= 20 ? [] : yield* searchJapaneseGlosses(db, norm, 200)
         const viaJmdict = yield* bridgeHits(
           records.map((record) => ({ record, exact: true })),
           "en"
         )
 
         const ranks = yield* entryRanks(db, unique([...exact, ...fuzzy].map((match) => match.entryId)))
-        const score = (match: GlossMatch, isExact: boolean): Hit => ({
+        const score = (match: GlossMatch, isExact: boolean, penalty = 0): Hit => ({
           entryId: match.entryId,
-          score: glossScore(match, isExact, norm, normalizeJapaneseGloss, ranks.get(match.entryId)),
+          score: glossScore(match, isExact, norm, normalizeJapaneseGloss, ranks.get(match.entryId)) - penalty,
           inflection: [],
           strong: isExact
         })
-        return keepBest([...exact.map((m) => score(m, true)), ...viaJmdict, ...fuzzy.map((m) => score(m, false))])
+        const answers = keepBest([
+          ...exact.map((m) => score(m, true, spellings.has(normalizeJapaneseGloss(m.text)) ? SPELLING_PENALTY : 0)),
+          ...viaJmdict
+        ])
+        // A gloss that only contains the query names something else (ハゲタカ is a vulture), so it
+        // comes after every word that answers the query, in its own order.
+        const answered = new Set(answers.map((hit) => hit.entryId))
+        const contains = keepBest(fuzzy.filter((m) => !answered.has(m.entryId)).map((m) => score(m, false)))
+        const lowest = Math.min(...answers.map((hit) => hit.score))
+        const highest = Math.max(...contains.map((hit) => hit.score))
+        const shift = Math.max(0, highest - lowest + 1)
+        return [...answers, ...contains.map((hit) => ({ ...hit, score: hit.score - shift }))]
       })
 
       const searchEnglish = Effect.fnUntraced(function* (query: string) {
