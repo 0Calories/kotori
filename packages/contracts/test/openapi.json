@@ -1131,6 +1131,24 @@
                                 "kotori",
                                 "user"
                               ]
+                            },
+                            "meaningSource": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "jmdict",
+                                    "jawiktionary",
+                                    "enwiktionary",
+                                    "tatoeba",
+                                    "kotori",
+                                    "user"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -1139,7 +1157,8 @@
                             "english",
                             "englishEntryId",
                             "meaning",
-                            "source"
+                            "source",
+                            "meaningSource"
                           ],
                           "additionalProperties": false
                         },

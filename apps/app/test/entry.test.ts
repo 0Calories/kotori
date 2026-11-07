@@ -187,7 +187,8 @@ describe("loan link", () => {
     english: "advice",
     englishEntryId: EntryId.make(3),
     meaning,
-    source: "kotori" as const
+    source: "kotori" as const,
+    meaningSource: meaning === null ? null : ("kotori" as const)
   })
 
   it("reads as an origin line on the katakana word", () => {
@@ -206,6 +207,18 @@ describe("loan link", () => {
     assert.equal(hasKotoriMarks(english("same")), true)
     assert.equal(loanChip(t, english("divergent")), null)
     assert.equal(loanChip(t, english(null)), null)
+
+    // JMDict named the pair and Kotori judged it: the verdict still carries the mark.
+    const named = entry({ language: "en", loanLink: { ...link("same"), source: "jmdict" } })
+    assert.equal(loanChip(t, named)?.kotori, true)
+    assert.equal(hasKotoriMarks(named), true)
+    assert.deepStrictEqual(contributors(t, { ...named, dictionary: "enwiktionary" }), [
+      "Wiktionary",
+      "JMDict",
+      "Kotori"
+    ])
+    const unjudged = entry({ language: "en", loanLink: { ...link(null), source: "jmdict" } })
+    assert.equal(hasKotoriMarks(unjudged), false)
   })
 
   it("leads the hero's chips with usage and loan, then the word's labels", () => {
@@ -269,7 +282,8 @@ describe("sources line", () => {
           english: "mansion",
           englishEntryId: null,
           meaning: null,
-          source: "jmdict"
+          source: "jmdict",
+          meaningSource: null
         },
         pitfalls: [pitfall(1, null)],
         senses: [sense(0, { examples: [example(1, "tatoeba"), example(2, "kotori"), example(3, "tatoeba")] })]

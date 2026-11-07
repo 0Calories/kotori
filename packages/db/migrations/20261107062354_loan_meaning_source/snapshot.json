@@ -1,0 +1,63 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "d11e5cfa-6a80-4389-ae37-72b12e146b5e",
+  "prevIds": ["d3c24187-921a-40ec-9a3d-b7ebe64b779a"],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "loan_links", "meaning_source"],
+      "writes": [
+        "s|col|public.loan_links.meaning_source",
+        "n|col|public.loan_links.meaning_source",
+        "e|col|public.loan_links.meaning_source"
+      ],
+      "reads": ["n|tbl|public.loan_links", "n|sch|public", "n|enum|public.source"]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": ["table", "public", "loan_links"],
+      "writes": [
+        "s|ck|public.loan_links.loan_links_meaning_source",
+        "n|ck|public.loan_links.loan_links_meaning_source",
+        "e|ck|public.loan_links.loan_links_meaning_source",
+        "n|con|public.loan_links.loan_links_meaning_source"
+      ],
+      "reads": [
+        "n|tbl|public.loan_links",
+        "n|sch|public",
+        "n|col|public.loan_links.meaning",
+        "n|col|public.loan_links.meaning_source"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_links",
+        "name": "meaning_source",
+        "type": "source",
+        "typeSchema": "public",
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_links",
+        "name": "loan_links_meaning_source",
+        "value": "(\"meaning\" IS NULL) = (\"meaning_source\" IS NULL)",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

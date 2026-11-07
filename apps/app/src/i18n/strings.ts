@@ -240,6 +240,8 @@ const en = {
     sourceLoan: "Katakana loan",
     sourceLoanDictionary: "Which English word the katakana word comes from is from JMDict (CC BY-SA 4.0).",
     sourceLoanKotori: "Whether the katakana word still means the same is judged by Kotori's AI.",
+    sourceLoanBoth:
+      "Which English word the katakana word comes from is from JMDict (CC BY-SA 4.0). Whether it still means the same is judged by Kotori's AI.",
     dictionaryOnly: "Dictionary entry only",
     dictionaryOnlyBody: (word: string) =>
       `Kotori adds example sentences and audio to the most common words first. ${word} isn’t one of them yet.`,
@@ -809,6 +811,8 @@ const ja: Strings = {
     sourceLoan: "カタカナ語",
     sourceLoanDictionary: "カタカナ語の元になった英語は JMDict（CC BY-SA 4.0）によります。",
     sourceLoanKotori: "カタカナ語が同じ意味かどうかは、コトリの AI が判定しています。",
+    sourceLoanBoth:
+      "カタカナ語の元になった英語は JMDict（CC BY-SA 4.0）によります。同じ意味かどうかは、コトリの AI が判定しています。",
     dictionaryOnly: "辞書の情報のみ",
     dictionaryOnlyBody: (word: string) =>
       `例文と音声は、よく使われる単語から順に追加しています。${word} はまだ対象外です。`,

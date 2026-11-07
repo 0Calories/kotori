@@ -853,7 +853,8 @@ layer(testLayer(false))("Dictionary: labels, patterns, pitfalls and similar word
         english: "mansion",
         englishEntryId: mansionEn,
         meaning: null,
-        source: "jmdict" as const
+        source: "jmdict" as const,
+        meaningSource: null
       }
       assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.entry(mansion)).loanLink, link)
       assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.entry(mansionEn)).loanLink, link)

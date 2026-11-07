@@ -183,7 +183,7 @@ Built and evaluated; no pass has been run over the dictionary, so no artifact is
 
 - `kotori judge <pass>` (`ja-form`, `pitfalls-ja`, `pitfalls-en`, `loans`) picks candidates from the database (common words by default, `--uncommon` for all; approved Ask Kotori words never), asks the model, and rewrites the artifact after every batch. `--limit`, `--dry-run`, `--concurrency`; `--restart` to replace a file another model or prompt version wrote, which it otherwise refuses to extend. Jev judges `form` and loans; Claude writes pitfalls (`PitfallWriter`).
 - Artifacts: `data/labels/ja-form.jsonl`, `data/pitfalls/{ja,en}.jsonl`, `data/loans/verdicts.jsonl`, each with a header (pass, model, prompt version) and a CC BY-SA `NOTICE.md` beside it. Every judged word has a line, so a re-run asks only new words. Senses are named by their first gloss, never their position.
-- `kotori seed` applies whichever artifacts exist after its imports (`passes/apply.ts`). It fills empty cells only and is idempotent: `form` only on senses with no label but quiet ones, Kotori's pitfalls replaced and placed in the ranks other sources leave free, loan verdicts set with source `kotori` only where the meaning is null or already Kotori's. A word whose headword changed, a sense that is gone and an approved word are skipped.
+- `kotori seed` applies each pass's artifact after its imports (`passes/apply.ts`). It fills empty cells only and is idempotent: `form` only on senses with no label but quiet ones, Kotori's pitfalls replaced and placed in the ranks other sources leave free, loan verdicts set with `meaning_source` `kotori` only where the meaning is null or already Kotori's. A word whose headword changed, a sense that is gone and an approved word are skipped. Each file decides what its pass gave: what it no longer covers is removed, and all of it when the file is gone.
 - Candidates: `ja-form` asks senses with no register label among a word's first six; pitfalls see the page (glosses, labels, the dictionary's notes, the loan and its verdict); loans restore `loanCandidates` from `d0cb63a` (lsource pairs first, then gloss matches) and the old loan questions, for English words with no verdict.
 - `kotori eval ja-form|loans|pitfalls|drafts` runs each golden set with the production builders and prints PASS or FAIL against its bar (`eval/passes.ts`). `drafts` scores the Lexicographer's pitfalls on Ask Kotori queries.
 - Golden sets (`packages/ai/src/eval/`, JMdict and Wiktionary excerpts under a NOTICE): 34 `form` senses, 31 pitfall words (both directions) plus 5 draft-only queries, 31 loan words. Each item names its evidence, and `judgement` marks those resting on judgement alone, for Ash to review.
@@ -204,6 +204,14 @@ Decisions:
 - An English false friend the curated file already notes (mansion, naive, cunning, claim, smart, tension, talent) needs no pitfall: the note is the warning, as with ご苦労様.
 - The pitfall rules are shared with the Lexicographer (`pitfallGuide.ts`), including a list of what is never a pitfall, so live Ask Kotori drafts now write fewer.
 
+Review fixes (draft PR #106):
+
+- Who named a loan pair and who judged its meaning are kept apart: `loan_links.meaning_source`, set exactly when `meaning` is (a check holds it). Before, a reseed's `linkLoans` relabelled Kotori's verdict as JMDict's, so it lost its ✦, the sources screen credited JMDict, and a corrected file could no longer change it. `linkLoans` now keeps a verdict and whose it is, and drops a pair JMDict stops naming whoever judged it. The wire `LoanLink` gains `meaningSource`: the "same as" chip's ✦ follows it, and the sources screen credits JMDict for naming the pair and Kotori for the verdict, both on an English word. Migration `loan_meaning_source` credits every meaning set so far to Kotori, the only writer of one.
+- Reverting or trimming an artifact now removes what it gave. On each seed, per pass, Kotori's rows on non-approved words that the file doesn't cover are removed (`form` labels on Japanese words, pitfalls in each language, loan verdicts: a pair only Kotori named goes, one JMDict names loses its verdict), and all of them when the file is absent. Nothing else writes those: approved words' labels and pitfalls are their approved files'. One effect: an English word the curated file took over from Ask Kotori loses the draft's leftover pitfalls on the next seed.
+- The loan import skips a line unless both its words are still the words judged and neither is approved, as the other passes do. Before, it set verdicts on approved words, and on a word whose entry had changed, by its text.
+- `readArtifact` fails on a file whose header names another pass or that has no header (which would otherwise read as absent and remove the pass's data), and warns of lines that don't decode, with their count and line numbers.
+- Voice casting: a sentence whose formality answer Jev leaves out or malforms stays unjudged (null formality, not voiced), and the entry's other sentences are judged and voiced. Before, it was a defect that stopped the whole audio job.
+
 Findings and what remains:
 
 - Golden set changes after the first pitfalls run: 水 now needs a pitfall (お湯), and table, 食べる and お前 were dropped as debatable. リフト is in neither set: no clear answer.
@@ -211,7 +219,7 @@ Findings and what remains:
 - The default `ja-form` candidates miss 鑑みる and 当該: JMdict doesn't mark them common. `--uncommon` covers them, at about ten times the requests.
 - To do, Ash's call: run each passing pass, review and commit its artifact, then reseed. Run loans before `pitfalls-en`, so false friends see their verdict.
 
-Deploy: the migration only adds an enum value. Once a `tone` pitfall exists (a new Ask Kotori draft can now write one), web tabs open from before the deploy fail to decode that entry or draft until they reload.
+Deploy: two migrations, both additive. `pitfall_tone` adds an enum value; `loan_meaning_source` adds a nullable column, fills it where a meaning is set, and adds a check. Neither breaks old machines while they roll. Once a `tone` pitfall exists (a new Ask Kotori draft can now write one), web tabs open from before the deploy fail to decode that entry or draft until they reload.
 
 ## Out of scope
 
@@ -229,3 +237,4 @@ Deploy: the migration only adds an enum value. Once a `tone` pitfall exists (a n
 - 2026-11-07: Seeded sentences voiced only where Kotori wrote none; finished audio jobs requeued only for untried sentences (see "After Phase 6").
 - 2026-11-07: Phase 7 done. The old tables are dropped with nothing carried over; search results show the word's labels (see Phase 7).
 - 2026-11-07: Phase 8 built: `kotori judge` and the artifact import, golden sets and evals for every pass, and a `tone` pitfall kind. `ja-form` and loans pass; pitfalls pass only on some runs. No artifact committed (see Phase 8).
+- 2026-11-07: Phase 8 review fixes: a loan's meaning source kept apart from its pair's (migration `loan_meaning_source`), a trimmed or reverted artifact removes what it gave, approved words skipped by the loan import, artifacts checked on read, and a missing Jev answer no longer stops the audio job (see Phase 8).

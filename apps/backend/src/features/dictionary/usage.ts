@@ -119,7 +119,8 @@ export const loanLinkFor = Effect.fn("dictionary.loanLinkFor")(function* (db: Da
       english: loanLinks.english,
       englishEntryId: loanLinks.englishEntryId,
       meaning: loanLinks.meaning,
-      source: loanLinks.source
+      source: loanLinks.source,
+      meaningSource: loanLinks.meaningSource
     })
     .from(loanLinks)
     .leftJoin(

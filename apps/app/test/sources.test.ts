@@ -78,7 +78,7 @@ describe("entry sources", () => {
       language: "en",
       dictionary: "enwiktionary",
       audioUrl: "/audio/head",
-      loanLink: { source: "jmdict" },
+      loanLink: { source: "jmdict", meaningSource: null },
       pitfalls: [{ source: "kotori" }],
       senses: [
         sense({
@@ -104,15 +104,29 @@ describe("entry sources", () => {
       ["dictionary", "tatoeba", "audio"]
     )
 
-    // A Japanese word's loan is its own dictionary's; Kotori's verdict on it is credited.
+    // A Japanese word's loan is its own dictionary's; Kotori's verdict on it is credited, whoever
+    // named the pair, and on an English word beside JMDict's naming of it.
     assert.deepStrictEqual(
-      entryAttributions(strings.en, entry({ loanLink: { source: "jmdict" } })).map((row) => row.id),
+      entryAttributions(strings.en, entry({ loanLink: { source: "jmdict", meaningSource: null } })).map(
+        (row) => row.id
+      ),
       ["dictionary"]
     )
     assert.equal(
-      entryAttributions(strings.en, entry({ loanLink: { source: "kotori" } })).at(-1)?.body,
+      entryAttributions(strings.en, entry({ loanLink: { source: "kotori", meaningSource: "kotori" } })).at(-1)?.body,
       strings.en.entry.sourceLoanKotori
     )
+    assert.equal(
+      entryAttributions(strings.en, entry({ loanLink: { source: "jmdict", meaningSource: "kotori" } })).at(-1)?.body,
+      strings.en.entry.sourceLoanKotori
+    )
+    const judgedEnglish = entry({
+      language: "en",
+      dictionary: "enwiktionary",
+      loanLink: { source: "jmdict", meaningSource: "kotori" }
+    })
+    assert.equal(entryAttributions(strings.en, judgedEnglish).at(-1)?.body, strings.en.entry.sourceLoanBoth)
+    assert.equal(entryAttributions(strings.ja, judgedEnglish).at(-1)?.body, strings.ja.entry.sourceLoanBoth)
 
     // A Kotori label or note is credited; on an approved Ask Kotori word the dictionary row says it.
     const marked = entry({ senses: [sense({ patterns: [{ source: "kotori" }] })] })

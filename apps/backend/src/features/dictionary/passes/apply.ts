@@ -1,18 +1,27 @@
 import type { Language } from "@kotori/contracts"
 import { entries, type EntryId, glosses, labels, labelSeverity, loanLinks, MAX_PITFALLS, pitfalls } from "@kotori/db"
-import { and, asc, eq, inArray, sql } from "drizzle-orm"
+import { and, asc, eq, inArray, ne, sql } from "drizzle-orm"
 import { Console, Effect } from "effect"
 import { chunks } from "../../../db/chunks.ts"
-import { type DatabaseShape, rawRows } from "../../../db/Database.ts"
+import type { DatabaseShape } from "../../../db/Database.ts"
 import { findForms } from "../queries.ts"
-import { ARTIFACTS, FormLine, LoanLine, PitfallLine, readArtifact } from "./artifacts.ts"
+import { ARTIFACTS, FormLine, LoanLine, type Pass, PitfallLine, readArtifact } from "./artifacts.ts"
 
 /**
  * The import's half of the offline passes: reads each committed artifact, if there is one, and
- * fills only the cells the dictionary left empty. Re-running it with the same files changes
- * nothing. Approved Ask Kotori words are never touched: their labels and pitfalls are the approved
- * files'. Runs after the dictionaries are imported, so every sense it names is in place.
+ * fills only the cells the dictionary left empty. Each file decides what its pass gave: what it
+ * no longer covers (a trimmed or reverted file, a word that changed) is removed, and all of it
+ * when the file is gone, so a bad pass is a `git revert` and a reseed. Re-running it with the same
+ * files changes nothing. Approved Ask Kotori words are never touched: their labels and pitfalls
+ * are the approved files'. Runs after the dictionaries are imported, so every sense it names is in
+ * place.
  */
+
+/** What applying one file did: rows written, and words (or loan pairs) whose earlier rows it removed. */
+export interface Applied {
+  readonly written: number
+  readonly removed: number
+}
 
 /** The judged entries that are still the words judged: same language and headword, not approved. */
 const stillJudged = Effect.fnUntraced(function* (
@@ -63,8 +72,9 @@ const sensesByGloss = Effect.fnUntraced(function* (db: DatabaseShape, ids: Reado
 
 /**
  * Kotori's `form` labels from `data/labels/ja-form.jsonl`: on each judged sense that still carries
- * no label but quiet ones from another source. Kotori's earlier `form` labels on the file's words
- * are replaced, so the file decides.
+ * no label but quiet ones from another source. Kotori's earlier `form` labels on dictionary words
+ * are replaced, those on words the file doesn't name removed, so the file decides. Nothing else
+ * writes a Kotori `form` label on a dictionary word: an approved word's are its approved file's.
  */
 export const applyFormLabels = Effect.fn("passes.applyFormLabels")(function* (
   db: DatabaseShape,
@@ -74,14 +84,24 @@ export const applyFormLabels = Effect.fn("passes.applyFormLabels")(function* (
   const ids = [...valid]
   const bySense = yield* sensesByGloss(db, ids)
   const rows: Array<typeof labels.$inferInsert> = []
+  const kotoriForm = and(eq(labels.code, "form"), eq(labels.source, "kotori"))
+  let removed = 0
   yield* db
     .transaction((tx) =>
       Effect.gen(function* () {
+        const held = yield* tx
+          .selectDistinct({ entryId: labels.entryId })
+          .from(labels)
+          .innerJoin(entries, eq(entries.id, labels.entryId))
+          .where(and(kotoriForm, eq(entries.language, "ja"), ne(entries.dictionary, "kotori")))
+        const stale = held.map((row) => row.entryId).filter((id) => !valid.has(id))
+        removed = stale.length
         const existing = new Map<string, Array<string>>()
+        for (const chunk of chunks(stale, 5000)) {
+          yield* tx.delete(labels).where(and(inArray(labels.entryId, [...chunk]), kotoriForm))
+        }
         for (const chunk of chunks(ids, 5000)) {
-          yield* tx
-            .delete(labels)
-            .where(and(inArray(labels.entryId, [...chunk]), eq(labels.code, "form"), eq(labels.source, "kotori")))
+          yield* tx.delete(labels).where(and(inArray(labels.entryId, [...chunk]), kotoriForm))
           for (const row of yield* tx
             .select({ entryId: labels.entryId, sense: labels.sense, code: labels.code })
             .from(labels)
@@ -110,7 +130,7 @@ export const applyFormLabels = Effect.fn("passes.applyFormLabels")(function* (
       })
     )
     .pipe(Effect.orDie)
-  return rows.length
+  return { written: rows.length, removed } satisfies Applied
 })
 
 /** Entries written exactly as `texts`, inflections aside, by text: a word names one only when one matches. */
@@ -133,8 +153,10 @@ const wordsNamed = Effect.fnUntraced(function* (db: DatabaseShape, texts: Readon
 
 /**
  * Kotori's pitfalls from `data/pitfalls/{ja,en}.jsonl`, replacing Kotori's earlier ones on the
- * file's words (none are anyone else's: approved words are skipped) and taking only the ranks other
- * sources leave free, so the cap holds. A pitfall about a sense no longer there is left out.
+ * language's dictionary words and removing them from words the file doesn't name. Nothing else
+ * writes a Kotori pitfall on a dictionary word: approved words' are their approved files', and are
+ * skipped. Only the ranks other sources leave free are taken, so the cap holds. A pitfall about a
+ * sense no longer there is left out.
  */
 export const applyPitfalls = Effect.fn("passes.applyPitfalls")(function* (
   db: DatabaseShape,
@@ -150,9 +172,20 @@ export const applyPitfalls = Effect.fn("passes.applyPitfalls")(function* (
     language
   )
   let written = 0
+  let removed = 0
   yield* db
     .transaction((tx) =>
       Effect.gen(function* () {
+        const held = yield* tx
+          .selectDistinct({ entryId: pitfalls.entryId })
+          .from(pitfalls)
+          .innerJoin(entries, eq(entries.id, pitfalls.entryId))
+          .where(and(eq(pitfalls.source, "kotori"), eq(entries.language, language), ne(entries.dictionary, "kotori")))
+        const stale = held.map((row) => row.entryId).filter((id) => !valid.has(id))
+        removed = stale.length
+        for (const chunk of chunks(stale, 5000)) {
+          yield* tx.delete(pitfalls).where(and(inArray(pitfalls.entryId, [...chunk]), eq(pitfalls.source, "kotori")))
+        }
         const taken = new Map<EntryId, Set<number>>()
         for (const chunk of chunks(ids, 5000)) {
           yield* tx.delete(pitfalls).where(and(inArray(pitfalls.entryId, [...chunk]), eq(pitfalls.source, "kotori")))
@@ -185,13 +218,16 @@ export const applyPitfalls = Effect.fn("passes.applyPitfalls")(function* (
       })
     )
     .pipe(Effect.orDie)
-  return written
+  return { written, removed } satisfies Applied
 })
 
 /**
- * Kotori's loan verdicts from `data/loans/verdicts.jsonl`: each sets `meaning` on its pair, with
- * source `kotori`, adding the pair where JMdict doesn't name it. A meaning already set by another
- * source is kept; Kotori's own is replaced, so the file decides. A verdict-less line adds nothing.
+ * Kotori's loan verdicts from `data/loans/verdicts.jsonl`: each sets `meaning` on its pair, judged
+ * by Kotori (`meaning_source`), adding the pair as Kotori's where JMdict doesn't name it. A
+ * meaning another source judged is kept; Kotori's own is replaced, so the file decides. A verdict
+ * the file no longer gives is removed: a pair only Kotori named goes, and one JMdict names loses
+ * its verdict. The loan import is the only writer of a verdict. A verdict-less line adds nothing,
+ * and a line counts only while both its words are still the words judged, neither approved.
  */
 export const applyLoanVerdicts = Effect.fn("passes.applyLoanVerdicts")(function* (
   db: DatabaseShape,
@@ -201,74 +237,107 @@ export const applyLoanVerdicts = Effect.fn("passes.applyLoanVerdicts")(function*
     (line): line is LoanLine & { katakana: string; meaning: "same" | "divergent" } =>
       line.katakana !== null && line.meaning !== null
   )
-  if (verdicts.length === 0) return 0
-  // An id names its entry only while that entry is still the word: ids are stable, words may go.
-  const ids = [
-    ...new Set(verdicts.flatMap((line) => [line.englishId, ...(line.katakanaId === null ? [] : [line.katakanaId])]))
-  ]
-  const stored = new Map<number, { readonly headword: string; readonly language: Language }>()
-  for (const chunk of chunks(ids, 5000)) {
-    const rows = yield* db
-      .select({ id: entries.id, headword: entries.headword, language: entries.language })
-      .from(entries)
-      .where(inArray(entries.id, chunk as Array<EntryId>))
-      .pipe(Effect.orDie)
-    for (const row of rows) stored.set(row.id, row)
-  }
-  const entryFor = (id: number | null, word: string, language: Language) => {
-    const row = id === null ? undefined : stored.get(id)
-    return row !== undefined && row.language === language && row.headword === word ? (id as EntryId) : null
-  }
-  let written = 0
-  for (const chunk of chunks(verdicts, 1000)) {
-    const values = sql.join(
-      chunk.map(
-        (line) =>
-          sql`(${line.katakana}, ${entryFor(line.katakanaId, line.katakana, "ja")}::integer, ${line.english}, ${entryFor(line.englishId, line.english, "en")}::integer, ${line.meaning}::loan_meaning)`
-      ),
-      sql`, `
+  const english = yield* stillJudged(
+    db,
+    "en",
+    verdicts.map((line) => ({ entryId: line.englishId, headword: line.english }))
+  )
+  const katakana = yield* stillJudged(
+    db,
+    "ja",
+    verdicts.flatMap((line) =>
+      line.katakanaId === null ? [] : [{ entryId: line.katakanaId, headword: line.katakana }]
     )
-    const result = yield* rawRows(
-      db,
-      sql`
-          INSERT INTO ${loanLinks} (katakana, katakana_entry_id, english, english_entry_id, meaning, source)
-          SELECT katakana, katakana_entry_id, english, english_entry_id, meaning, 'kotori'
-          FROM (VALUES ${values}) AS v(katakana, katakana_entry_id, english, english_entry_id, meaning)
-          ON CONFLICT (katakana, english) DO UPDATE
-          SET meaning = excluded.meaning,
-              source = 'kotori',
-              katakana_entry_id = coalesce(${loanLinks}.katakana_entry_id, excluded.katakana_entry_id),
-              english_entry_id = coalesce(${loanLinks}.english_entry_id, excluded.english_entry_id)
-          WHERE (${loanLinks}.meaning IS NULL OR ${loanLinks}.source = 'kotori')
-            AND (${loanLinks}.meaning, ${loanLinks}.source) IS DISTINCT FROM (excluded.meaning, 'kotori')
-          RETURNING 1
-        `
-    ).pipe(Effect.orDie)
-    written += result.length
-  }
-  return written
+  )
+  const valid = verdicts.filter(
+    (line) =>
+      english.has(line.englishId as EntryId) && (line.katakanaId === null || katakana.has(line.katakanaId as EntryId))
+  )
+  const pair = (katakana: string, english: string) => `${katakana}\u0000${english}`
+  const covered = new Set(valid.map((line) => pair(line.katakana, line.english)))
+  let written = 0
+  let removed = 0
+  yield* db
+    .transaction((tx) =>
+      Effect.gen(function* () {
+        const held = yield* tx
+          .select({
+            id: loanLinks.id,
+            katakana: loanLinks.katakana,
+            english: loanLinks.english,
+            source: loanLinks.source
+          })
+          .from(loanLinks)
+          .where(eq(loanLinks.meaningSource, "kotori"))
+        const stale = held.filter((row) => !covered.has(pair(row.katakana, row.english)))
+        removed = stale.length
+        const onlyKotori = stale.flatMap((row) => (row.source === "kotori" ? [row.id] : []))
+        const named = stale.flatMap((row) => (row.source === "kotori" ? [] : [row.id]))
+        for (const chunk of chunks(onlyKotori, 5000)) {
+          yield* tx.delete(loanLinks).where(inArray(loanLinks.id, [...chunk]))
+        }
+        for (const chunk of chunks(named, 5000)) {
+          yield* tx
+            .update(loanLinks)
+            .set({ meaning: null, meaningSource: null })
+            .where(inArray(loanLinks.id, [...chunk]))
+        }
+        for (const chunk of chunks(valid, 1000)) {
+          const values = sql.join(
+            chunk.map(
+              (line) =>
+                sql`(${line.katakana}, ${line.katakanaId}::integer, ${line.english}, ${line.englishId}::integer, ${line.meaning}::loan_meaning)`
+            ),
+            sql`, `
+          )
+          const result = yield* tx.execute(sql`
+            INSERT INTO ${loanLinks} (katakana, katakana_entry_id, english, english_entry_id, meaning, meaning_source, source)
+            SELECT katakana, katakana_entry_id, english, english_entry_id, meaning, 'kotori', 'kotori'
+            FROM (VALUES ${values}) AS v(katakana, katakana_entry_id, english, english_entry_id, meaning)
+            ON CONFLICT (katakana, english) DO UPDATE
+            SET meaning = excluded.meaning,
+                meaning_source = 'kotori',
+                katakana_entry_id = coalesce(${loanLinks}.katakana_entry_id, excluded.katakana_entry_id),
+                english_entry_id = coalesce(${loanLinks}.english_entry_id, excluded.english_entry_id)
+            WHERE (${loanLinks}.meaning IS NULL OR ${loanLinks}.meaning_source = 'kotori')
+              AND (${loanLinks}.meaning, ${loanLinks}.meaning_source) IS DISTINCT FROM (excluded.meaning, 'kotori')
+            RETURNING 1
+          `)
+          written += (result as { readonly rows: ReadonlyArray<unknown> }).rows.length
+        }
+      })
+    )
+    .pipe(Effect.orDie)
+  return { written, removed } satisfies Applied
 })
 
 /**
- * Applies every artifact present, in an order that needs both dictionaries for loans, and says
- * what each filled. Called by `kotori seed` after its imports.
+ * Applies every pass's artifact, in an order that needs both dictionaries for loans, and says
+ * what each filled and removed. A pass whose file is absent removes all it gave. Called by
+ * `kotori seed` after its imports; `files` points elsewhere in tests.
  */
-export const applyArtifacts = Effect.fn("passes.applyArtifacts")(function* (db: DatabaseShape) {
-  const form = yield* readArtifact(ARTIFACTS["ja-form"], FormLine)
-  if (form !== null) {
-    const filled = yield* applyFormLabels(db, form.lines)
-    yield* Console.log(`Applied ${ARTIFACTS["ja-form"]}: ${filled.toLocaleString()} form labels.`)
+export const applyArtifacts = Effect.fn("passes.applyArtifacts")(function* (
+  db: DatabaseShape,
+  files: { readonly [P in Pass]: string } = ARTIFACTS
+) {
+  const report = (path: string, present: boolean, applied: Applied, what: string, gone: string, unit = "words") => {
+    const removed = applied.removed > 0 ? `removed ${gone} from ${applied.removed.toLocaleString()} ${unit}` : null
+    if (!present) return removed === null ? Effect.void : Console.log(`No ${path}: ${removed}.`)
+    return Console.log(
+      `Applied ${path}: ${applied.written.toLocaleString()} ${what}` +
+        (removed === null ? "." : `; ${removed} it no longer names.`)
+    )
   }
+  const form = yield* readArtifact(files["ja-form"], FormLine, "ja-form")
+  const formApplied = yield* applyFormLabels(db, form?.lines ?? [])
+  yield* report(files["ja-form"], form !== null, formApplied, "form labels", "Kotori's form labels")
   for (const language of ["ja", "en"] as const) {
-    const path = ARTIFACTS[`pitfalls-${language}`]
-    const file = yield* readArtifact(path, PitfallLine)
-    if (file === null) continue
-    const written = yield* applyPitfalls(db, language, file.lines)
-    yield* Console.log(`Applied ${path}: ${written.toLocaleString()} pitfalls.`)
+    const pass = `pitfalls-${language}` as const
+    const file = yield* readArtifact(files[pass], PitfallLine, pass)
+    const applied = yield* applyPitfalls(db, language, file?.lines ?? [])
+    yield* report(files[pass], file !== null, applied, "pitfalls", "Kotori's pitfalls")
   }
-  const loans = yield* readArtifact(ARTIFACTS.loans, LoanLine)
-  if (loans !== null) {
-    const set = yield* applyLoanVerdicts(db, loans.lines)
-    yield* Console.log(`Applied ${ARTIFACTS.loans}: ${set.toLocaleString()} loan verdicts changed.`)
-  }
+  const loans = yield* readArtifact(files.loans, LoanLine, "loans")
+  const loansApplied = yield* applyLoanVerdicts(db, loans?.lines ?? [])
+  yield* report(files.loans, loans !== null, loansApplied, "loan verdicts changed", "Kotori's verdicts", "pairs")
 })

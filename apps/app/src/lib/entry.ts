@@ -92,7 +92,8 @@ export const loanChip = (t: Strings, entry: Pick<Entry, "language" | "loanLink">
         help: t.entry.loanSameHelp(entry.loanLink.katakana),
         severity: "info",
         icon: "check",
-        kotori: entry.loanLink.source === "kotori"
+        // The chip is the verdict, so its mark is whoever judged the meaning.
+        kotori: entry.loanLink.meaningSource === "kotori"
       }
     : null
 
@@ -131,11 +132,20 @@ interface Sourced {
   readonly source: Source
 }
 
+/** A loan link: who named the pair, and who judged its meaning. */
+interface SourcedLoan extends Sourced {
+  readonly meaningSource: Source | null
+}
+
+/** A loan link's facts with a source: the pair, and its verdict when there is one. */
+const loanFacts = (link: SourcedLoan | null | undefined): ReadonlyArray<Sourced> =>
+  link ? [link, ...(link.meaningSource === null ? [] : [{ source: link.meaningSource }])] : []
+
 /** The facts on a page that carry a source: the word's labels, pitfalls and loan, and each sense's. */
 interface SourcedFacts {
   readonly labels: ReadonlyArray<Sourced>
   readonly pitfalls: ReadonlyArray<Sourced>
-  readonly loanLink?: Sourced | null
+  readonly loanLink?: SourcedLoan | null
   readonly senses: ReadonlyArray<{
     readonly labels: ReadonlyArray<Sourced>
     readonly patterns: ReadonlyArray<Sourced>
@@ -147,7 +157,7 @@ export const hasKotoriMarks = (entry: SourcedFacts): boolean =>
   [
     ...entry.labels,
     ...entry.pitfalls,
-    ...(entry.loanLink ? [entry.loanLink] : []),
+    ...loanFacts(entry.loanLink),
     ...entry.senses.flatMap((sense) => [...sense.labels, ...sense.patterns])
   ].some((fact) => fact.source === "kotori")
 
@@ -172,7 +182,7 @@ export const contributors = (
     ...entry.labels,
     ...entry.senses.flatMap((sense) => [...sense.labels, ...sense.patterns, ...sense.examples]),
     ...entry.pitfalls,
-    ...(entry.loanLink === null ? [] : [entry.loanLink])
+    ...loanFacts(entry.loanLink)
   ]) {
     sources.add(fact.source)
   }

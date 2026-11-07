@@ -513,7 +513,9 @@ export const insertEntries = Effect.fn("dictionary.insertEntries")(function* (
  * one row per pair, read from both entries. Re-run after either dictionary is imported, it adds
  * the pairs JMDict names now, drops those it no longer names, and points each at the English
  * entry spelled like it (exactly, else in another case). A verdict on the meaning, which JMDict
- * doesn't give, survives on a pair JMDict still names.
+ * doesn't give, survives on a pair JMDict still names, with whose it is (`meaning_source`); a
+ * pair it no longer names goes, verdict and all. A pair Kotori named that JMDict now names
+ * becomes JMDict's, keeping its verdict. Pairs only Kotori names are the loan file's to keep.
  */
 export const linkLoans = Effect.fn("dictionary.linkLoans")(function* (db: DatabaseShape) {
   yield* db.transaction((tx) =>

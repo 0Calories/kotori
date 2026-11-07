@@ -25,7 +25,8 @@ export interface SourcedEntry {
   readonly audio: ReadonlyArray<unknown>
   readonly labels: ReadonlyArray<{ readonly source: Source }>
   readonly pitfalls: ReadonlyArray<{ readonly source: Source }>
-  readonly loanLink: { readonly source: Source } | null
+  /** Who named the loan pair, and who judged whether its meaning drifted. */
+  readonly loanLink: { readonly source: Source; readonly meaningSource: Source | null } | null
   readonly senses: ReadonlyArray<{
     readonly labels: ReadonlyArray<{ readonly source: Source }>
     readonly patterns: ReadonlyArray<{ readonly source: Source }>
@@ -107,12 +108,18 @@ export const entryAttributions = (t: Strings, entry: SourcedEntry): ReadonlyArra
     rows.push({ id: "audio", title: t.entry.sourceAudio, body: t.entry.sourceAudioBody })
   }
   // A Japanese word's own dictionary names its loan; an English word's link comes from JMDict.
-  if (entry.loanLink !== null && entry.loanLink.source !== entry.dictionary) {
-    rows.push({
-      id: "loan",
-      title: t.entry.sourceLoan,
-      body: entry.loanLink.source === "kotori" ? t.entry.sourceLoanKotori : t.entry.sourceLoanDictionary
-    })
+  // Kotori's verdict on the meaning is credited whoever named the pair.
+  const link = entry.loanLink
+  if (link !== null) {
+    const named = link.source !== entry.dictionary && link.source !== "kotori"
+    const judged = link.meaningSource === "kotori"
+    if (named || judged) {
+      rows.push({
+        id: "loan",
+        title: t.entry.sourceLoan,
+        body: named && judged ? t.entry.sourceLoanBoth : named ? t.entry.sourceLoanDictionary : t.entry.sourceLoanKotori
+      })
+    }
   }
   return rows
 }

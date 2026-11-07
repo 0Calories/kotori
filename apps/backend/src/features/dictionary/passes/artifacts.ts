@@ -73,22 +73,27 @@ export type LoanLine = typeof LoanLine.Type
 export interface Artifact<L> {
   readonly header: ArtifactHeader
   readonly lines: ReadonlyArray<L>
+  /** The file's line numbers (the header is 1) of lines that didn't decode, and were left out. */
+  readonly skipped: ReadonlyArray<number>
 }
 
 const decodeHeader = Schema.decodeUnknownOption(Schema.fromJsonString(ArtifactHeader))
 
-/** The artifact's header and the lines that decode; null when the file is absent or has no header. */
+/** The artifact's header and the lines that decode, noting those that don't; null when it has no header. */
 export const parseArtifact = <A>(text: string, line: Schema.Codec<A, unknown>): Artifact<A> | null => {
   const [first, ...rest] = text.split("\n")
   const header = decodeHeader(first ?? "")
   if (Option.isNone(header)) return null
   const decode = Schema.decodeUnknownOption(Schema.fromJsonString(line))
-  const lines = rest.flatMap((raw) => {
-    if (raw.trim().length === 0) return []
+  const lines: Array<A> = []
+  const skipped: Array<number> = []
+  rest.forEach((raw, index) => {
+    if (raw.trim().length === 0) return
     const decoded = decode(raw)
-    return Option.isSome(decoded) ? [decoded.value] : []
+    if (Option.isSome(decoded)) lines.push(decoded.value)
+    else skipped.push(index + 2)
   })
-  return { header: header.value, lines }
+  return { header: header.value, lines, skipped }
 }
 
 /** The file's text: the header, then the lines sorted by `key`. */
@@ -104,10 +109,26 @@ export const serializeArtifact = <L>(
   return [header, ...sorted].map((line) => JSON.stringify(line)).join("\n") + "\n"
 }
 
-/** Reads an artifact from the repository, or null when it isn't there. */
-export const readArtifact = Effect.fnUntraced(function* <A>(path: string, line: Schema.Codec<A, unknown>) {
+/**
+ * Reads `pass`'s artifact from the repository, or null when it isn't there. Fails on a file with
+ * no header or one naming another pass, and warns of lines that don't decode, which are left out.
+ */
+export const readArtifact = Effect.fnUntraced(function* <A>(path: string, line: Schema.Codec<A, unknown>, pass: Pass) {
   const fs = yield* FileSystem.FileSystem
   const file = resolveFromRoot(path)
   if (!(yield* fs.exists(file))) return null
-  return parseArtifact(yield* fs.readFileString(file), line)
+  const artifact = parseArtifact(yield* fs.readFileString(file), line)
+  // A file that is there but unreadable must not pass for an absent one, which removes the pass's data.
+  if (artifact === null) return yield* Effect.fail(`${path} has no header naming its pass.`)
+  if (artifact.header.pass !== pass) {
+    return yield* Effect.fail(`${path} holds the ${artifact.header.pass} pass, not ${pass}.`)
+  }
+  if (artifact.skipped.length > 0) {
+    const count = artifact.skipped.length
+    yield* Effect.logWarning(
+      `${path}: skipped ${count} ${count === 1 ? "line" : "lines"} that don't decode ` +
+        `(${count === 1 ? "line" : "lines"} ${artifact.skipped.join(", ")})`
+    )
+  }
+  return artifact
 })

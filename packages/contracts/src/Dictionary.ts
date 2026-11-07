@@ -120,7 +120,10 @@ export const LoanLink = Schema.Struct({
   englishEntryId: Schema.NullOr(EntryId),
   /** Whether the loan kept the English meaning; null until a source says. */
   meaning: Schema.NullOr(LoanLinkMeaning),
-  source: Source
+  /** Who named the pair: JMDict, or Kotori for a pair JMDict doesn't name. */
+  source: Source,
+  /** Who judged `meaning` (Kotori, for every verdict so far); null with it. */
+  meaningSource: Schema.NullOr(Source)
 })
 export type LoanLink = typeof LoanLink.Type
 

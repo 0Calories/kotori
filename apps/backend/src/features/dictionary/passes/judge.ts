@@ -196,7 +196,13 @@ export const judgeFormPass = Effect.fn("judge.ja-form")(function* (db: DatabaseS
   const jev = yield* Jev
   const header: ArtifactHeader = { pass: "ja-form", model: jev.model, promptVersion: FORM_VERSION, licence: LICENCE }
   const file = options.file ?? ARTIFACTS["ja-form"]
-  const lines = yield* startFrom("ja-form", file, yield* readArtifact(file, FormLine), header, options.restart)
+  const lines = yield* startFrom(
+    "ja-form",
+    file,
+    yield* readArtifact(file, FormLine, "ja-form"),
+    header,
+    options.restart
+  )
   const candidates = yield* formCandidates(db, {
     commonOnly: options.commonOnly,
     judged: new Set([...lines.keys()].map(Number)),
@@ -265,7 +271,7 @@ export const judgePitfallPass = Effect.fn("judge.pitfalls")(function* (
   const pass = `pitfalls-${language}` as const
   const header: ArtifactHeader = { pass, model: writer.model, promptVersion: PITFALLS_VERSION, licence: LICENCE }
   const file = options.file ?? ARTIFACTS[pass]
-  const lines = yield* startFrom(pass, file, yield* readArtifact(file, PitfallLine), header, options.restart)
+  const lines = yield* startFrom(pass, file, yield* readArtifact(file, PitfallLine, pass), header, options.restart)
   const candidates = yield* pitfallCandidates(db, {
     language,
     commonOnly: options.commonOnly,
@@ -306,7 +312,7 @@ export const judgeLoanPass = Effect.fn("judge.loans")(function* (db: DatabaseSha
   const jev = yield* Jev
   const header: ArtifactHeader = { pass: "loans", model: jev.model, promptVersion: LOANS_VERSION, licence: LICENCE }
   const file = options.file ?? ARTIFACTS.loans
-  const lines = yield* startFrom("loans", file, yield* readArtifact(file, LoanLine), header, options.restart)
+  const lines = yield* startFrom("loans", file, yield* readArtifact(file, LoanLine, "loans"), header, options.restart)
   const words = yield* loanCandidateWords(
     db,
     { commonOnly: options.commonOnly, judged: new Set([...lines.keys()].map(Number)), limit: options.limit },
