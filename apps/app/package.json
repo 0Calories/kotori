@@ -95,6 +95,23 @@
           "{projectRoot}/dist"
         ]
       },
+      "deploy-preview": {
+        "executor": "nx:run-commands",
+        "inputs": [
+          "production",
+          "^production",
+          "{workspaceRoot}/vercel.json",
+          "{workspaceRoot}/tools/upload-web-sourcemaps.sh"
+        ],
+        "options": {
+          "commands": [
+            "vercel pull --yes --environment=preview",
+            "vercel build",
+            "vercel deploy --prebuilt"
+          ],
+          "parallel": false
+        }
+      },
       "deploy": {
         "executor": "nx:run-commands",
         "inputs": [

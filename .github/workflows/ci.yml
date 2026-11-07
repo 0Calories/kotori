@@ -19,7 +19,7 @@ env:
 
 jobs:
   checks:
-    name: Sync, format, lint, typecheck, test, build
+    name: Sync, format, lint, typecheck, test
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -48,8 +48,23 @@ jobs:
       - run: pnpm format:check
       - name: Lint root scripts
         run: pnpm exec oxlint neon.ts vitest.shared.ts tools/*.ts
-      - name: Lint, typecheck, test and build affected projects
-        run: pnpm nx affected -t lint typecheck test build check
+      # `typecheck` depends on `build` for every TypeScript project; `@kotori/app` builds once inside `vercel build`.
+      - name: Lint, typecheck, test and check affected projects
+        run: pnpm nx affected -t lint typecheck test check
+      # Requires VERCEL_TOKEN as a repository secret (`production` environment secrets only reach `main`).
+      - name: Deploy web preview
+        if: github.event_name == 'pull_request'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::warning::VERCEL_TOKEN is not set as a repository secret; verifying web build without deploying preview."
+            pnpm nx affected -t build --exclude='*,!@kotori/app' --outputStyle=static
+            exit 0
+          fi
+          pnpm nx affected -t deploy-preview --outputStyle=static
 
   deploy:
     name: Deploy affected apps
