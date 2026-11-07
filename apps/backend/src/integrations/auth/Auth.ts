@@ -188,8 +188,10 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/backend/
             // the web app's; native apps send none, and preview deployments each have their own
             // subdomain, so stand in with the auth server's own origin when none was sent or when
             // `KOTORI_WEB_ORIGINS` already allows the browser's origin.
+
             const requestOrigin = headers.get("origin")
-            if (requestOrigin === null || allowedWebOrigin(requestOrigin)) headers.set("origin", origin)
+            if (requestOrigin === null) headers.set("origin", origin)
+
             const options: RequestInit = {
               method: init.method,
               headers,
