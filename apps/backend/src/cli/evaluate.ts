@@ -1,9 +1,15 @@
 import {
+  Claude,
+  FORM_VERSION,
+  Lexicographer,
+  PitfallWriter,
   GOLDEN_ASKS,
   interpretTriage,
   Jev,
   type JevError,
+  LOANS_VERSION,
   orderChecks,
+  PITFALLS_VERSION,
   TRIAGE_VERSION,
   triageRequest
 } from "@kotori/ai"
@@ -13,6 +19,7 @@ import type { EntryType, Question } from "@typesafe-ai/sdk"
 import { Console, Effect, FileSystem, Option, Schema } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { turnAway } from "../features/asks/garbage.ts"
+import { evalDrafts, evalForm, evalLoans, evalPitfalls } from "./evalPasses.ts"
 
 interface Tally {
   n: number
@@ -76,6 +83,16 @@ const two = (x: number | null) => (x === null ? "  — " : x.toFixed(2))
 
 const report = (results: Results) =>
   Effect.gen(function* () {
+    // The passes' evals report their own scores (`evalPasses.ts`); only the asks fill the table.
+    if (results.rows.size > 0) yield* table(results)
+    if (results.failures.length > 0) {
+      yield* Console.log("\nFailed requests:")
+      for (const failure of results.failures) yield* Console.log(`  ${failure}`)
+    }
+  })
+
+const table = (results: Results) =>
+  Effect.gen(function* () {
     yield* Console.log(
       [
         "",
@@ -98,10 +115,6 @@ const report = (results: Results) =>
     if (results.misses.length > 0) {
       yield* Console.log("\nMisses:")
       for (const miss of results.misses) yield* Console.log(`  ${miss}`)
-    }
-    if (results.failures.length > 0) {
-      yield* Console.log("\nFailed requests:")
-      for (const failure of results.failures) yield* Console.log(`  ${failure}`)
     }
   })
 
@@ -132,7 +145,29 @@ type Answers = Readonly<Record<string, unknown>>
 const KINDS = {
   asks: {
     version: TRIAGE_VERSION,
+    model: "jev",
     about: "Ask Kotori queries: Jev's routing of those the free checks let through"
+  },
+  "ja-form": {
+    version: FORM_VERSION,
+    model: "jev",
+    about: "Jev's `form` fill on formal written Japanese words JMdict leaves untagged"
+  },
+  loans: {
+    version: LOANS_VERSION,
+    model: "jev",
+    about: "Jev's verdict on whether English words' katakana loans kept their meaning"
+  },
+  pitfalls: {
+    version: PITFALLS_VERSION,
+    model: "claude",
+    about: "Claude's pitfalls on dictionary words, both directions"
+  },
+  drafts: {
+    // The Lexicographer's prompt carries no version; recordings say only which model ran.
+    version: 0,
+    model: "claude",
+    about: "the pitfalls in Claude's Ask Kotori drafts"
   }
 } as const
 type Kind = keyof typeof KINDS
@@ -162,14 +197,18 @@ export const evaluate = Command.make(
   },
   Effect.fn(function* ({ kind, record, from, concurrency }) {
     const jev = yield* Jev
+    const claude = yield* Claude
     const fs = yield* FileSystem.FileSystem
     const recording = Option.isSome(from)
       ? yield* fs
           .readFileString(from.value)
           .pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Recording))))
       : null
-    if (recording === null && !jev.configured) {
-      return yield* Console.error("TYPESAFE_API_KEY is not set; eval needs Jev (or --from a recording).")
+    if (recording === null && KINDS[kind].model === "jev" && !jev.configured) {
+      return yield* Console.error("TYPESAFE_API_KEY is not set; this eval needs Jev (or --from a recording).")
+    }
+    if (recording === null && KINDS[kind].model === "claude" && !(yield* claude.available)) {
+      return yield* Console.error("Claude isn't reachable with the configured credentials (ANTHROPIC_API_KEY).")
     }
     if (recording !== null && recording.kind !== kind) {
       return yield* Console.error(`${from.pipe(Option.getOrElse(() => ""))} records a ${recording.kind} eval.`)
@@ -210,10 +249,30 @@ export const evaluate = Command.make(
       )
     }
 
-    const model = recording?.model ?? jev.model
+    /** Claude's result (fresh, or recorded), kept for --record; a failed request is reported and skipped. */
+    const remember = <A extends Answers>(key: string, run: Effect.Effect<A, unknown>): Effect.Effect<A | undefined> => {
+      const result: Effect.Effect<A | undefined, unknown> =
+        recording === null ? run : Effect.succeed(recording.answers[key] as A | undefined)
+      return result.pipe(
+        Effect.tap((result) =>
+          Effect.sync(() => {
+            if (result !== undefined) recorded[key] = result
+          })
+        ),
+        Effect.catch((error) =>
+          Effect.sync(() => {
+            results.failures.push(`${key}: ${error instanceof Error ? error.message : String(error)}`)
+            return undefined
+          })
+        )
+      )
+    }
+    const context = { ask: answersFor, remember, concurrency }
+
+    const model = recording?.model ?? (KINDS[kind].model === "jev" ? jev.model : claude.model)
     const version = recording?.questionsVersion ?? KINDS[kind].version
 
-    const run: Record<Kind, () => Effect.Effect<void>> = {
+    const run: Record<Kind, () => Effect.Effect<void, never, PitfallWriter | Lexicographer>> = {
       asks: () =>
         Effect.gen(function* () {
           yield* Console.log(`Routing ${GOLDEN_ASKS.length} golden asks with ${model}, triage version ${version}…`)
@@ -258,7 +317,11 @@ export const evaluate = Command.make(
             yield* Console.log(`\nTurned away before Jev (${turnedAway.length}, not scored):`)
             for (const line of turnedAway) yield* Console.log(`  ${line}`)
           }
-        })
+        }),
+      "ja-form": () => evalForm(context),
+      loans: () => evalLoans(context),
+      pitfalls: () => evalPitfalls(context),
+      drafts: () => evalDrafts(context)
     }
     yield* run[kind]()
 
