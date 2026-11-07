@@ -15,7 +15,7 @@ import { SearchField } from "../src/components/SearchField.tsx"
 import { Segmented } from "../src/components/Segmented.tsx"
 import { ErrorState, MascotMessage } from "../src/components/States.tsx"
 import { Text } from "../src/components/Text.tsx"
-import { searchNotes } from "../src/lib/noteSearch.ts"
+import { searchNotesByKind } from "../src/lib/noteSearch.ts"
 import { useSession } from "../src/session/SessionProvider.tsx"
 import { theme } from "../src/theme/tokens.ts"
 
@@ -105,12 +105,15 @@ export default function SavedScreen() {
   const notes = useNotes()
   const [kind, setKind] = useState<"word" | "phrase">("word")
   const [query, setQuery] = useState("")
-  const searching = query.trim().length > 0
-  // Every saved note is loaded, so the search runs here, as the notes are typed for.
-  const found = useMemo(() => searchNotes(notes.data ?? [], query), [notes.data, query])
-  const ofKind = (which: "word" | "phrase") => found.notes.filter((note) => note.content.kind === which)
-  const shown = ofKind(kind)
-  const label = (which: "word" | "phrase", text: string) => (searching ? `${text} · ${ofKind(which).length}` : text)
+  const hasNotes = (notes.data?.length ?? 0) > 0
+  const searching = hasNotes && query.trim().length > 0
+  // Every saved note is loaded, so the search runs here, per tab so each tab has its own
+  // fallback threshold and lookalike label while both tabs show their match counts.
+  const byKind = useMemo(() => searchNotesByKind(notes.data ?? [], query), [notes.data, query])
+  const found = byKind[kind]
+  const shown = found.notes
+  const label = (which: "word" | "phrase", text: string) =>
+    searching ? `${text} · ${byKind[which].notes.length}` : text
 
   return (
     <Screen
@@ -120,9 +123,7 @@ export default function SavedScreen() {
       <Text variant="title" accessibilityRole="header" style={{ paddingHorizontal: 2 }}>
         {t.saved.title}
       </Text>
-      {notes.data && notes.data.length > 0 ? (
-        <SearchField size="md" value={query} onChangeText={setQuery} placeholder={t.saved.search} />
-      ) : null}
+      {hasNotes ? <SearchField size="md" value={query} onChangeText={setQuery} placeholder={t.saved.search} /> : null}
       <Segmented
         value={kind}
         onChange={setKind}
