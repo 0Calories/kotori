@@ -203,8 +203,8 @@ export const Sense = Schema.Struct({
   similar: Schema.Array(JudgedSimilarWord),
   examples: Schema.Array(Example),
   /**
-   * The labels this sense has that the word's (`Entry.labels`, the first sense's) don't: empty on
-   * the first sense, so a page states each label once.
+   * The labels this sense has beyond the word's (`Entry.labels`, those every sense shares), so a
+   * page states each label once.
    */
   labels: Schema.Array(Label),
   patterns: Schema.Array(Pattern),
@@ -242,7 +242,10 @@ export const Entry = Schema.Struct({
   romaji: Schema.String,
   /** Usually written in kana (JMDict's `uk`): a spelling fact, not a register label. */
   usuallyKana: Schema.Boolean,
-  /** The word's labels: its first sense's. */
+  /**
+   * The word's labels: those every sense carries. A single-sense word's are its sense's; one sense
+   * of several never speaks for the others.
+   */
   labels: Schema.Array(Label),
   /** Null when no seed source says how much the word is used. */
   evidence: Schema.NullOr(UsageEvidence),
@@ -289,7 +292,7 @@ export type DraftSense = typeof DraftSense.Type
 
 /**
  * Kotori's draft of an entry, in the entry's own model and read the same way: the word's labels
- * (its first sense's), senses, and pitfalls. Unverified until the admin approves it, when it
+ * (those every sense carries), senses, and pitfalls. Unverified until the admin approves it, when it
  * becomes an entry with these same facts.
  */
 export const DraftEntry = Schema.Struct({

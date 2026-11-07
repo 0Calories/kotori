@@ -42,7 +42,7 @@ Findings for later phases:
 
 ### ☑ Phase 3 — Contracts and API
 
-- `Entry` gains `dictionary`, `usuallyKana`, `labels` (the first sense's), `evidence`, `loanLink` and `pitfalls` (first first, `about` resolved to the word). `Sense` gains `labels` (only what it adds to the word's), `patterns` and `similarWords`; `Example` gains `source`. Labels carry their severity, so the app needs no copy of the table.
+- `Entry` gains `dictionary`, `usuallyKana`, `labels` (the first sense's; every sense's shared ones since Phase 5), `evidence`, `loanLink` and `pitfalls` (first first, `about` resolved to the word). `Sense` gains `labels` (only what it adds to the word's), `patterns` and `similarWords`; `Example` gains `source`. Labels carry their severity, so the app needs no copy of the table.
 - The old fields stay until Phase 7. The old similar-word type is renamed `JudgedSimilarWord`; the dictionary's pitfall type is `WordPitfall` (the Coach owns `Pitfall`).
 - Similar words are derived on view (`similar.ts`, `usage.ts`): cross-references first, then common words close by gloss, at most four per sense, each word once under its first sense. The difference is a code the app words: `respectful`, `humble`, `more_casual`, `more_formal`, `plain`, `masculine`, `feminine`, `american`, `british`, `older`, `similar`.
 - A loan link shown from either end; with several, the one with a verdict, then the most used.
@@ -97,7 +97,7 @@ Two reviews read phases 1–4 before Phase 5 and found these, now fixed:
 
 Left as they are:
 
-- A sense shows only the labels it adds to the word's; it can't say it lacks one of the word's. Where the first sense is `arch` and a later one is current, the page calls the whole word archaic. This is a choice to confirm.
+- Decided after Phase 5 (Ash): one sense of several no longer speaks for the word. The word's labels are those every sense carries, from the same source; a single-sense word's are its own, and each sense shows what it has beyond them.
 - Two JMDict homographs that name the same English word share one link row, held by the lower id; the other entry shows no loan line.
 - Gloss candidates are capped at four per sense before duplicates are removed, so a sense can show fewer similar words than exist.
 - Kotori's pitfalls take the free ranks, so they can sit between pitfalls from other sources. A pitfall's `about` can name its own entry.

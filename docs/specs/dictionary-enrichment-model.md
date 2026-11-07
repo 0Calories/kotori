@@ -65,7 +65,7 @@ erDiagram
 
 `source` is `jmdict | jawiktionary | enwiktionary | tatoeba | kotori | user`.
 
-**Labels** replace the nuance JSONB, `TAG_JUDGMENTS`, the tag/judgment dedupe and the caution probabilities. One list per sense in one vocabulary: JMDict's codes, the English dictionary's region codes, and Kotori's `form` fill. Each label has a severity for display: `avoid` (vulg, X, derog, arch, obs), `caution` (col, sl, male, fem, chn, dated, rare…), `info` (hon, hum, pol, form, regions), `quiet` (id, uncountable, abbr). Grammar facts such as countability are quiet labels with an explanation, never pitfalls. Labels are per sense; the word shows its first sense's, and a sense shows only what differs.
+**Labels** replace the nuance JSONB, `TAG_JUDGMENTS`, the tag/judgment dedupe and the caution probabilities. One list per sense in one vocabulary: JMDict's codes, the English dictionary's region codes, and Kotori's `form` fill. Each label has a severity for display: `avoid` (vulg, X, derog, arch, obs), `caution` (col, sl, male, fem, chn, dated, rare…), `info` (hon, hum, pol, form, regions), `quiet` (id, uncountable, abbr). Grammar facts such as countability are quiet labels with an explanation, never pitfalls. Labels are per sense. The word shows only the labels every sense carries, so a single-sense word shows all of its own, and one sense of several never speaks for the rest; each sense shows the labels it has beyond the word's.
 
 **Patterns** are the dictionary's own usage notes plus Kotori's added context, side by side, Kotori's marked. ご苦労様 shows JMDict's "usu. to one's subordinate" and under it Kotori's "Upward it sounds condescending; say お疲れ様です", with a compare link. No red warning when the dictionary already flagged it.
 
