@@ -158,7 +158,7 @@ pnpm motion        # preview a mascot animation clip, e.g. `pnpm motion celebrat
 
 Production runs on **Fly.io** (compute), **Neon** (Postgres 18 + Managed Better Auth), and **Vercel** (static Expo web bundle).
 
-- **CI/CD** (`.github/workflows/ci.yml`) runs `nx sync:check`, `pnpm format:check`, and `nx affected -t lint typecheck test check` on every push. On pull requests that affect `@kotori/app`, it runs `@kotori/app:deploy-preview` (`vercel pull --environment=preview && vercel build && vercel deploy --prebuilt`) to deploy a Vercel preview connected to the production API. On `main`, it runs `nx affected -t deploy`:
+- **CI/CD** (`.github/workflows/ci.yml`) runs `nx sync:check`, `pnpm format:check`, and `nx affected -t lint typecheck test check` on every push. On pull requests that affect `@kotori/app`, it runs `@kotori/app:deploy-preview` (`vercel pull --environment=preview && vercel build && vercel deploy --prebuilt`, using repository secret `VERCEL_TOKEN`) to deploy a Vercel preview connected to the production API. On `main`, it runs `nx affected -t deploy`:
   - `@kotori/backend:deploy` (`flyctl deploy --remote-only`, using `FLY_API_TOKEN`) deploys one Docker image for the `api` and `worker` process groups (`fly.toml`), running `kotori migrate` as Fly's `release_command` before rolling new machines.
   - `@kotori/app:deploy` (`vercel pull && vercel build --prod && vercel deploy --prebuilt --prod`, using `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`) deploys the static web bundle (`vercel.json`).
   - Manual deploys: `pnpm nx run @kotori/backend:deploy`, `pnpm nx run @kotori/app:deploy`, or `pnpm nx run @kotori/app:deploy-preview`.

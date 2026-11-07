@@ -7,11 +7,12 @@ const LOCAL_HOST =
 
 /**
  * Matches an exact origin (`https://hellokotori.com`) or a single-label wildcard
- * subdomain (`https://kotori-*.vercel.app`, where `*` matches `[a-z0-9-]+`).
+ * subdomain (`https://kotori-*-0calories-projects.vercel.app`, where `*` matches a non-empty
+ * alphanumeric/hyphen segment without dots).
  */
 const matchesOrigin = (pattern: string, origin: string): boolean => {
   if (!pattern.includes("*")) return pattern === origin
-  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replaceAll("*", "[a-z0-9-]+")
+  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replaceAll("*", "[a-z0-9](?:[a-z0-9-]*[a-z0-9])?")
   return new RegExp(`^${escaped}$`, "i").test(origin)
 }
 
