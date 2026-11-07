@@ -16,7 +16,6 @@ import {
 import { KeyObject } from "node:crypto"
 import { Database } from "../../db/Database.ts"
 import { authSessions, authUsers } from "../../db/neonAuth.ts"
-import { configuredWebOrigins, webOriginAllowed } from "../../http/cors.ts"
 import { ed25519Key, signWebhook } from "./WebhookSignature.ts"
 
 /** A Managed Better Auth user as Kotori reads it. Approval status and role live on the learner profile. */
@@ -168,7 +167,6 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/backend/
     Effect.gen(function* () {
       const baseUrl = (yield* Config.String("NEON_AUTH_BASE_URL")).replace(/\/$/, "")
       const db = yield* Database
-      const allowedWebOrigin = webOriginAllowed(yield* configuredWebOrigins, true)
       // Managed JWTs name the auth endpoint's origin as issuer and audience.
       const origin = new URL(baseUrl).origin
       const jwks = createRemoteJWKSet(new URL(`${baseUrl}/.well-known/jwks.json`))
@@ -185,13 +183,9 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/backend/
               if (value !== undefined) headers.set(name, value)
             }
             // Better Auth requires an Origin (CSRF check, relative callback URLs). Browsers send
-            // the web app's; native apps send none, and preview deployments each have their own
-            // subdomain, so stand in with the auth server's own origin when none was sent or when
-            // `KOTORI_WEB_ORIGINS` already allows the browser's origin.
-
-            const requestOrigin = headers.get("origin")
-            if (requestOrigin === null) headers.set("origin", origin)
-
+            // the web app's; native apps send none, so stand in with the auth server's own origin,
+            // which is trusted by definition.
+            if (!headers.has("origin")) headers.set("origin", origin)
             const options: RequestInit = {
               method: init.method,
               headers,
