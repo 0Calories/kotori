@@ -66,7 +66,7 @@ describe("review session reducer", () => {
     assert.strictEqual(twice.reviewed, 1)
   })
 
-  it("does not show the old card's answer after a failed answer rolls it back (bug 1)", () => {
+  it("does not show the old card's answer after a failed answer rolls it back", () => {
     const state = run([...open(), answerA, { type: "reveal", cardId: "b" }, { type: "answerFailed", item: A }])
     const view = reviewView(state, queue)
     assert.strictEqual(view.current?.card.id, "a")
@@ -75,7 +75,7 @@ describe("review session reducer", () => {
     assert.deepStrictEqual(state.inFlight, [])
   })
 
-  it("ignores a reveal with no card, so the next card arrives unrevealed (bug 2)", () => {
+  it("ignores a reveal with no card, so the next card arrives unrevealed", () => {
     const state = run([
       { type: "reveal", cardId: null },
       { type: "pin", item: A }
@@ -83,7 +83,7 @@ describe("review session reducer", () => {
     assert.isFalse(reviewView(state, queue).revealed)
   })
 
-  it("ignores key repeats and keys with no card (bug 3)", () => {
+  it("ignores key repeats and keys with no card", () => {
     const front = { hasCard: true, revealed: false }
     const back = { hasCard: true, revealed: true }
     assert.deepStrictEqual(reviewKeyAction({ key: " " }, front), { type: "reveal" })
@@ -97,13 +97,13 @@ describe("review session reducer", () => {
     assert.deepStrictEqual(reviewKeyAction({ key: "Escape" }, { hasCard: false, revealed: false }), { type: "close" })
   })
 
-  it("retries a refetch whose due time is already past (bug 4)", () => {
+  it("retries a refetch whose due time is already past", () => {
     assert.strictEqual(waitRefetchDelay(10_000, 4_000), 6_500)
     assert.strictEqual(waitRefetchDelay(4_000, 4_000), WAIT_RETRY_MS)
     assert.strictEqual(waitRefetchDelay(1_000, 4_000), WAIT_RETRY_MS)
   })
 
-  it("shows a message on a failed answer, and clears it on dismiss or the next answer (bug 5)", () => {
+  it("shows a message on a failed answer, and clears it on dismiss or the next answer", () => {
     const failed = run([...open(), answerA, { type: "answerFailed", item: A }])
     assert.strictEqual(failed.notice, "answerFailed")
     assert.isNull(run([{ type: "dismissNotice" }], failed).notice)
@@ -111,7 +111,7 @@ describe("review session reducer", () => {
     assert.isNull(again.notice)
   })
 
-  it("shows the leech warning only under the card on screen when it arrived (bug 5)", () => {
+  it("shows the leech warning only under the card on screen when it arrived", () => {
     const saved = run([...open(), answerA, { type: "answerSaved", cardId: "a", leech: true }])
     assert.isTrue(reviewView(saved, [B, C]).leech)
     assert.isFalse(reviewView(saved, [B, C]).revealed)

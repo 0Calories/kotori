@@ -243,6 +243,9 @@ export default function ReviewSession() {
   const answer = useAnswer()
   const [state, dispatch] = useReducer(reduceReviewSession, initialReviewSession)
   const shownAt = useRef(Date.now())
+  // Answers sent and not yet settled. Two taps in one frame both see the card as revealed, and the
+  // reducer only drops the second locally, so this keeps it from reaching the server too.
+  const sending = useRef(new Set<string>())
   const [now, setNow] = useState(Date.now())
 
   const queueItems = queue.data?.items ?? []
@@ -292,6 +295,8 @@ export default function ReviewSession() {
       if (current === undefined || !revealed) return
       const item = current
       const id = item.card.id
+      if (sending.current.has(id)) return
+      sending.current.add(id)
       if (Platform.OS !== "web")
         Haptics.impactAsync(
           rating === "again" ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light
@@ -302,9 +307,11 @@ export default function ReviewSession() {
         result = await answer.mutateAsync({ id, rating, durationMs: Date.now() - shownAt.current })
       } catch {
         // Not recorded: put this card back. The advance above already pinned the next one.
+        sending.current.delete(id)
         dispatch({ type: "answerFailed", item })
         return
       }
+      sending.current.delete(id)
       // Recorded. A failed refetch just leaves the next one to the wait or retry.
       await queue.refetch().catch(() => {})
       dispatch({ type: "answerSaved", cardId: id, leech: result.leech })
