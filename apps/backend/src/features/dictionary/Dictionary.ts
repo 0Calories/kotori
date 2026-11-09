@@ -710,8 +710,10 @@ export class Dictionary extends Context.Service<
       // Entries
       // ---------------------------------------------------------------------
 
+      // A job that settled (`done` or `failed`) is not on its way, so whatever it left missing is
+      // `unavailable` and the app stops polling. Looking again may queue it anew (see `enrichmentFor`).
       const status = (ready: boolean, available: boolean, job: string | undefined): EnrichmentStatus =>
-        ready ? "ready" : !available || job === "failed" ? "unavailable" : "queued"
+        ready ? "ready" : !available || job === "failed" || job === "done" ? "unavailable" : "queued"
 
       const enrichmentFor = Effect.fnUntraced(function* (entry: EntryRecord, enqueue: boolean) {
         const nuanceRows = yield* nuanceFor(db, [entry.id])
@@ -736,12 +738,22 @@ export class Dictionary extends Context.Service<
         if (enqueue) {
           const before = yield* jobStatusFor(db, entry.id)
           const retryWindow = new Date(now.getTime() - WARNING_RETRY_AFTER)
-          // A job that already ran out of attempts stays `failed` while the entry is polled so its
-          // status reports `unavailable` and the app stops polling; a later look gives it a new try.
-          const queueOrRetry = (kind: JobKind) =>
-            before.get(kind) === "failed"
-              ? refillJob(db, kind, entry.id, retryWindow, ON_DEMAND, now)
-              : enqueueJob(db, kind, entry.id, ON_DEMAND, now)
+          const refillWindow = new Date(now.getTime() - REFILL_AFTER)
+          // Only called for data the entry lacks. A job that settled without supplying it stays
+          // settled while the entry is polled, so its status reports `unavailable` and the app stops
+          // polling; a later look gives it a new try: after ten minutes for a job that ran out of
+          // attempts, after an hour for one that finished with a gap (nothing judged, no sentence
+          // kept, a clip the worker can't fill). Enqueueing a settled job would only touch it.
+          const queueOrRetry = (kind: JobKind) => {
+            switch (before.get(kind)) {
+              case "failed":
+                return refillJob(db, kind, entry.id, retryWindow, ON_DEMAND, now)
+              case "done":
+                return refillJob(db, kind, entry.id, refillWindow, ON_DEMAND, now)
+              default:
+                return enqueueJob(db, kind, entry.id, ON_DEMAND, now)
+            }
+          }
 
           if (jev.configured) {
             // Enqueueing a finished job is a no-op, so one that judged with an older question set is
@@ -758,24 +770,15 @@ export class Dictionary extends Context.Service<
           }
           if (!hasExamples && coachAvailable) yield* queueOrRetry("examples")
           // The worker re-runs audio once example sentences exist, so they get voiced too. A finished
-          // job can still leave gaps (sentences written after it ran), so it runs again to fill
-          // them, but at most once an hour, in case the gap is one the worker can't fill.
-          if (!hasAudio && pronouncer.configured) {
-            // Enqueueing a finished job would touch it, putting its next try off with every look.
-            if (before.get("audio") === "done") {
-              yield* refillJob(db, "audio", entry.id, new Date(now.getTime() - REFILL_AFTER), ON_DEMAND, now)
-            } else {
-              yield* queueOrRetry("audio")
-            }
-          }
+          // job can still leave gaps (sentences written after it ran), so it runs again to fill them.
+          if (!hasAudio && pronouncer.configured) yield* queueOrRetry("audio")
         }
 
         const job = yield* jobStatusFor(db, entry.id)
         return {
           nuance: status(hasNuance, jev.configured, job.get("nuance")),
           examples: status(hasExamples, coachAvailable, job.get("examples")),
-          // A finished job has voiced what it can; whatever is still missing isn't on its way.
-          audio: status(hasAudio || job.get("audio") === "done", pronouncer.configured, job.get("audio"))
+          audio: status(hasAudio, pronouncer.configured, job.get("audio"))
         }
       })
 

@@ -526,7 +526,7 @@ layer(testLayer(false))("Dictionary", (it) => {
       // and its audio stops counting as on its way, so the app stops polling.
       yield* finishJobs("audio", 2 * hour)
       yield* TestClock.setTime(2 * hour + 3000)
-      assert.strictEqual(yield* audioStatus, "ready")
+      assert.strictEqual(yield* audioStatus, "unavailable")
       assert.strictEqual((yield* jobStatusFor(db, EntryId.make(20))).get("audio"), "done")
 
       // An hour on, it gets one more try.
@@ -880,6 +880,42 @@ layer(testLayer(false))("Dictionary: what Kotori wrote on an English word", (it)
           ["stress", "圧力、圧迫"]
         ]
       )
+    })
+  )
+})
+
+layer(testLayer(true, true))("Dictionary with a finished job that saved nothing", (it) => {
+  it.effect("reports nuance and examples as unavailable, not queued, then retries them hourly", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      const id = EntryId.make(100000070)
+      const hour = 60 * 60 * 1000
+      const look = (at: number) =>
+        TestClock.setTime(at).pipe(Effect.andThen(dictionary.requestEnrichment(id)), Effect.map(Option.getOrThrow))
+      yield* insertEntries(db, [word(100000070, "gist", [sense(["要点"], ["n"])])])
+
+      // First look queues both.
+      const first = yield* look(0)
+      assert.strictEqual(first.nuance, "queued")
+      assert.strictEqual(first.examples, "queued")
+
+      // The worker finishes both without saving a row: nothing judged, every sentence filtered out.
+      yield* finishJobs("nuance", 1)
+      yield* finishJobs("examples", 1)
+
+      // Nothing is on its way, so the app must stop polling.
+      const settled = yield* look(3000)
+      assert.strictEqual(settled.nuance, "unavailable")
+      assert.strictEqual(settled.examples, "unavailable")
+      const jobs = yield* jobStatusFor(db, id)
+      assert.strictEqual(jobs.get("nuance"), "done")
+      assert.strictEqual(jobs.get("examples"), "done")
+
+      // An hour on, a look gives each one more try.
+      const retry = yield* look(hour + 2000)
+      assert.strictEqual(retry.nuance, "queued")
+      assert.strictEqual(retry.examples, "queued")
     })
   )
 })
