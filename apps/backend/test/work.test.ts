@@ -203,9 +203,8 @@ layer(TestLayer)("the worker", (it) => {
         entry(kuu, "食う", "くう", [["to eat"]])
       ])
 
-      const kinds = yield* (yield* Enrichers).available
-      assert.deepStrictEqual(kinds, ["nuance", "examples", "audio"])
-      const step = yield* makeJobRunner(kinds)
+      assert.deepStrictEqual(yield* (yield* Enrichers).available, ["nuance", "examples", "audio"])
+      const step = yield* makeJobRunner()
 
       // What the API does when a learner opens an entry.
       yield* enqueueJob(db, "nuance", taberu, 100, new Date(0))
@@ -271,7 +270,7 @@ layer(TestLayer)("the worker", (it) => {
           ]
         }
       ])
-      const step = yield* makeJobRunner(["nuance"])
+      const step = yield* makeJobRunner()
 
       // What the API queues when a Japanese speaker opens the English word.
       yield* enqueueJob(db, "nuance", styleEnglish, 100, new Date(0))
@@ -327,7 +326,7 @@ layer(TestLayer)("the worker", (it) => {
           ]
         }
       ])
-      const step = yield* makeJobRunner(["nuance"])
+      const step = yield* makeJobRunner()
       const before = { jev: jevRequests, claude: loanRequests }
       const trap = Effect.map(loanWordsFor(db, [mansion]), ([row]) => [row?.verdict?.value, row?.trap])
 
@@ -362,7 +361,7 @@ layer(TestLayer)("the worker", (it) => {
   it.effect("puts a failed job back with a delay and runs it once that has passed", () =>
     Effect.gen(function* () {
       const db = yield* Database
-      const step = yield* makeJobRunner(["nuance"])
+      const step = yield* makeJobRunner()
 
       jevDown = true
       yield* enqueueJob(db, "nuance", kuu, 10, new Date(0))
@@ -375,6 +374,32 @@ layer(TestLayer)("the worker", (it) => {
       assert.isTrue(yield* step)
       assert.strictEqual((yield* jobStatusFor(db, kuu)).get("nuance"), "done")
       assert.strictEqual((yield* nuanceFor(db, [kuu])).length, 1)
+    })
+  )
+
+  it.effect("claims a kind whose provider was unavailable when the worker started once it is back", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const nabe = EntryId.make(1000)
+      yield* insertEntries(db, [entry(nabe, "鍋", "なべ", [["pot"]])])
+      // The worker starts while the Claude probe fails, as it can during a deploy.
+      claudeUp = false
+      const step = yield* makeJobRunner()
+
+      yield* enqueueJob(db, "examples", nabe, 100, new Date(0))
+      assert.isFalse(yield* step)
+      assert.strictEqual((yield* jobStatusFor(db, nabe)).get("examples"), "queued")
+
+      // Claude is back: the same runner picks the job up, and voices the new examples too.
+      claudeUp = true
+      assert.strictEqual(yield* drain(step), 2)
+      assert.deepStrictEqual(
+        [...(yield* jobStatusFor(db, nabe))].sort(([a], [b]) => a.localeCompare(b)),
+        [
+          ["audio", "done"],
+          ["examples", "done"]
+        ]
+      )
     })
   )
 })
