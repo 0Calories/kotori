@@ -1,7 +1,7 @@
 import { Cause, Clock, Effect, ErrorReporter, Exit, Option } from "effect"
 import { Database } from "../db/Database.ts"
 import { Enrichers } from "../features/enrichment/Enrichers.ts"
-import type { Job, JobKind } from "../features/enrichment/index.ts"
+import type { Job } from "../features/enrichment/index.ts"
 import {
   claimJob,
   completeJob,
@@ -19,17 +19,21 @@ const SWEEP_EVERY = 60_000
 const RETRY_AFTER = 30_000
 
 /**
- * One cycle of the enrichment queue for the given kinds: puts stale jobs back when a sweep
- * is due, claims the most urgent runnable job, runs it and settles it. Succeeds with whether
+ * One cycle of the enrichment queue: puts stale jobs back when a sweep is due, claims the most
+ * urgent runnable job of a kind that has a provider, runs it and settles it. Succeeds with whether
  * there was a job, so the caller knows when to wait. The worker runs it forever.
+ *
+ * Which kinds have a provider is read afresh every cycle, not once at startup: Claude's probe can
+ * fail while the worker boots (during a deploy) and pass a moment later, and a worker that
+ * remembered the failure would leave its jobs queued for good. The probes are cached, so it is cheap.
  */
-export const makeJobRunner = Effect.fn("makeJobRunner")(function* (kinds: ReadonlyArray<JobKind>) {
+export const makeJobRunner = Effect.fn("makeJobRunner")(function* () {
   const db = yield* Database
   const enrichers = yield* Enrichers
 
   // Only the enrichment itself is interruptible, so every claimed job is settled: on shutdown
   // (SIGTERM during a deploy) an interrupted job goes back in the queue instead of staying `running`.
-  const runJob = (job: Job) =>
+  const runJob = (job: Job, audio: boolean) =>
     Effect.uninterruptibleMask((restore) =>
       Effect.gen(function* () {
         const { id, kind, entryId, priority, attempts } = job
@@ -39,8 +43,7 @@ export const makeJobRunner = Effect.fn("makeJobRunner")(function* (kinds: Readon
         if (Exit.isSuccess(exit)) {
           // New example sentences need voicing too; queue audio before marking examples done so a
           // concurrent poll never sees the new examples with audio already settled.
-          if (kind === "examples" && kinds.includes("audio"))
-            yield* requeueJob(db, "audio", entryId, priority, finished)
+          if (kind === "examples" && audio) yield* requeueJob(db, "audio", entryId, priority, finished)
           yield* completeJob(db, id, finished)
           yield* Effect.logInfo(`${kind} ${entryId}: ${exit.value}`)
         } else if (Cause.hasInterrupts(exit.cause)) {
@@ -61,15 +64,27 @@ export const makeJobRunner = Effect.fn("makeJobRunner")(function* (kinds: Readon
     )
 
   let nextSweep = 0
+  let announced: string | undefined
   return Effect.gen(function* () {
     const now = yield* Clock.currentTimeMillis
     if (now >= nextSweep) {
       yield* requeueStaleJobs(db, new Date(now - STALE_AFTER), new Date(now))
       nextSweep = now + SWEEP_EVERY
     }
+    const kinds = yield* enrichers.available
+    // Say so when the set changes, so a kind that drops out or comes back shows in the logs.
+    const listed = kinds.join(", ")
+    if (listed !== announced) {
+      announced = listed
+      yield* Effect.logInfo(
+        kinds.length === 0
+          ? "No enrichment providers are available; waiting anyway. See .env.example."
+          : `Worker ready for: ${listed}`
+      )
+    }
     const job = yield* claimJob(db, kinds, new Date(now))
     if (Option.isNone(job)) return false
-    yield* runJob(job.value)
+    yield* runJob(job.value, kinds.includes("audio"))
     return true
   })
 })
