@@ -349,7 +349,8 @@ const en = {
     sessionDone: "Nice work!",
     sessionDoneHint: (n: number) => (n === 1 ? "You reviewed 1 card." : `You reviewed ${n} cards.`),
     finish: "Finish",
-    remaining: "left"
+    remaining: "left",
+    answerFailed: "Oops, that answer got lost on the way. Give it another go!"
   },
   saved: {
     title: "Saved",
@@ -804,7 +805,8 @@ const ja: Strings = {
     sessionDone: "おつかれさまでした！",
     sessionDoneHint: (n: number) => `${n}枚のカードを復習しました。`,
     finish: "終わる",
-    remaining: "残り"
+    remaining: "残り",
+    answerFailed: "答えがうまく届きませんでした。もう一度どうぞ！"
   },
   saved: {
     title: "保存済み",

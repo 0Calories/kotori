@@ -3,7 +3,7 @@ import { formatDelay } from "@kotori/srs"
 import { useQueryClient } from "@tanstack/react-query"
 import * as Haptics from "expo-haptics"
 import { useRouter } from "expo-router"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useReducer, useRef, useState } from "react"
 import { Platform, View } from "react-native"
 import Animated, { FadeIn, FadeInDown, FadeInUp, useAnimatedStyle, withTiming } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -19,7 +19,13 @@ import { PressableScale } from "../../src/components/PressableScale.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { spokenGloss } from "../../src/lib/english.ts"
-import { shownReviewCard } from "../../src/lib/review.ts"
+import {
+  initialReviewSession,
+  reduceReviewSession,
+  reviewKeyAction,
+  reviewView,
+  waitRefetchDelay
+} from "../../src/lib/reviewSession.ts"
 import { registerTone } from "../../src/lib/tones.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
@@ -235,25 +241,19 @@ export default function ReviewSession() {
   const target: Language = profile?.targetLanguage ?? "ja"
   const queue = useQueue()
   const answer = useAnswer()
-  const [answered, setAnswered] = useState<ReadonlySet<string>>(new Set())
-  const [revealed, setRevealed] = useState(false)
-  const [reviewed, setReviewed] = useState(0)
-  const [leech, setLeech] = useState(false)
-  // The card on screen. A refetch gathers the queue again and can put a different card first;
-  // this stays until the learner answers it.
-  const [pinned, setPinned] = useState<ReviewItem | null>(null)
+  const [state, dispatch] = useReducer(reduceReviewSession, initialReviewSession)
   const shownAt = useRef(Date.now())
+  // Answers sent and not yet settled. Two taps in one frame both see the card as revealed, and the
+  // reducer only drops the second locally, so this keeps it from reaching the server too.
+  const sending = useRef(new Set<string>())
   const [now, setNow] = useState(Date.now())
 
   const queueItems = queue.data?.items ?? []
-  // Answered cards are skipped locally so the next one appears before the refetch lands.
-  const current = shownReviewCard(queueItems, pinned, answered)
-  // Record the opening card before paint. `respond` pins each card after that, so a
+  const { current, revealed, leech, remaining } = reviewView(state, queueItems)
+  // Record the opening card before paint. The reducer pins each card after that, so a
   // refetch that gathers a new head can't replace whichever one is already showing.
-  if (pinned === null && current !== undefined) setPinned(current)
-  const remaining =
-    queueItems.filter((item) => !answered.has(item.card.id) && item.card.id !== current?.card.id).length +
-    (current === undefined ? 0 : 1)
+  if (state.pinned === null && current !== undefined) dispatch({ type: "pin", item: current })
+  const { reviewed } = state
   const total = remaining + reviewed
   const nextDue = queue.data?.nextDue?.getTime() ?? null
 
@@ -261,16 +261,26 @@ export default function ReviewSession() {
     shownAt.current = Date.now()
   }, [current?.card.id])
 
-  // When only learning cards remain, wait for the next one to come due.
+  // When only learning cards remain, wait for the next one to come due. Each completed fetch
+  // (even one that returns the same due time) schedules the next, with a floor on the delay.
+  const fetchedAt = Math.max(queue.dataUpdatedAt, queue.errorUpdatedAt)
+  const refetchQueue = queue.refetch
   useEffect(() => {
     if (current !== undefined || nextDue === null) return
     const timer = setInterval(() => setNow(Date.now()), 1000)
-    const refetch = setTimeout(() => void queue.refetch(), Math.max(nextDue - Date.now(), 0) + 500)
+    const refetch = setTimeout(() => void refetchQueue(), waitRefetchDelay(nextDue, Date.now()))
     return () => {
       clearInterval(timer)
       clearTimeout(refetch)
     }
-  }, [current, nextDue])
+  }, [current === undefined, nextDue, fetchedAt, refetchQueue])
+
+  // A failed-answer message stays a moment, then goes.
+  useEffect(() => {
+    if (state.notice === null) return
+    const timer = setTimeout(() => dispatch({ type: "dismissNotice" }), 4000)
+    return () => clearTimeout(timer)
+  }, [state.notice])
 
   const close = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: keys.stats })
@@ -278,58 +288,51 @@ export default function ReviewSession() {
     router.canGoBack() ? router.back() : router.replace("/review")
   }, [queryClient, router])
 
+  const reveal = useCallback(() => dispatch({ type: "reveal", cardId: current?.card.id ?? null }), [current?.card.id])
+
   const respond = useCallback(
     async (rating: Rating) => {
       if (current === undefined || !revealed) return
       const item = current
       const id = item.card.id
+      if (sending.current.has(id)) return
+      sending.current.add(id)
       if (Platform.OS !== "web")
         Haptics.impactAsync(
           rating === "again" ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light
         ).catch(() => {})
-      const nextAnswered = new Set(answered).add(id)
-      setAnswered(nextAnswered)
-      // Pin the card this answer reveals before the refetch. Gathering again re-spaces new
-      // cards and pulls newly due learning cards forward, which would otherwise replace it.
-      setPinned(shownReviewCard(queue.data?.items ?? [], item, nextAnswered) ?? null)
-      setRevealed(false)
-      setReviewed((n) => n + 1)
+      dispatch({ type: "answer", item, rating, items: queueItems })
+      let result
       try {
-        const result = await answer.mutateAsync({ id, rating, durationMs: Date.now() - shownAt.current })
-        setLeech(result.leech)
-        await queue.refetch()
+        result = await answer.mutateAsync({ id, rating, durationMs: Date.now() - shownAt.current })
       } catch {
         // Not recorded: put this card back. The advance above already pinned the next one.
-        setReviewed((n) => n - 1)
-        setPinned(item)
-      } finally {
-        setAnswered((set) => {
-          const next = new Set(set)
-          next.delete(id)
-          return next
-        })
+        sending.current.delete(id)
+        dispatch({ type: "answerFailed", item })
+        return
       }
+      sending.current.delete(id)
+      // Recorded. A failed refetch just leaves the next one to the wait or retry.
+      await queue.refetch().catch(() => {})
+      dispatch({ type: "answerSaved", cardId: id, leech: result.leech })
     },
-    [current, revealed, answer, queue, answered]
+    [current, revealed, answer, queue, queueItems]
   )
 
   // Keyboard shortcuts on the web: space to reveal, 1-4 to answer, Escape to leave.
   useEffect(() => {
     if (Platform.OS !== "web" || typeof window === "undefined") return
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") return close()
-      if (event.key === " " || event.key === "Enter") {
-        event.preventDefault()
-        if (!revealed) setRevealed(true)
-        else void respond("good")
-        return
-      }
-      const choice = RATINGS.find((r) => r.key === event.key)
-      if (choice && revealed) void respond(choice.rating)
+      const action = reviewKeyAction(event, { hasCard: current !== undefined, revealed })
+      if (event.key === " " || event.key === "Enter") event.preventDefault()
+      if (action === null) return
+      if (action.type === "close") close()
+      else if (action.type === "reveal") reveal()
+      else void respond(action.rating)
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [revealed, respond, close])
+  }, [current, revealed, respond, reveal, close])
 
   const progress = useAnimatedStyle(() => ({
     width: withTiming(`${total === 0 ? 0 : (reviewed / total) * 100}%`, { duration: 300 })
@@ -359,12 +362,7 @@ export default function ReviewSession() {
         entering={FadeIn.duration(220)}
         style={{ flex: 1, justifyContent: "center" }}
       >
-        <PressableScale
-          onPress={() => setRevealed(true)}
-          disabled={revealed}
-          scaleTo={0.99}
-          accessibilityLabel={t.review.showAnswer}
-        >
+        <PressableScale onPress={reveal} disabled={revealed} scaleTo={0.99} accessibilityLabel={t.review.showAnswer}>
           <Card
             style={{
               paddingVertical: theme.space.xxl,
@@ -380,6 +378,13 @@ export default function ReviewSession() {
           <Animated.View entering={FadeInUp}>
             <Text variant="caption" color="accent" align="center" style={{ marginTop: 12 }}>
               {t.review.leech}
+            </Text>
+          </Animated.View>
+        ) : null}
+        {state.notice === "answerFailed" ? (
+          <Animated.View entering={FadeInUp}>
+            <Text variant="caption" color="accent" align="center" style={{ marginTop: 12 }}>
+              {t.review.answerFailed}
             </Text>
           </Animated.View>
         ) : null}
@@ -441,7 +446,7 @@ export default function ReviewSession() {
               ))}
             </Animated.View>
           ) : (
-            <Button label={t.review.showAnswer} size="lg" full onPress={() => setRevealed(true)} />
+            <Button label={t.review.showAnswer} size="lg" full onPress={reveal} />
           )
         ) : null}
       </View>
