@@ -34,3 +34,17 @@ pnpm nx run <project>:<target>                         # Run a single project ta
 - **Inferred targets**: `typecheck`, `build`, and `lint` are inferred by `@nx/js/typescript` and `@nx/oxlint` in `nx.json` rather than listed in every `package.json`. Inspect a project's resolved targets with `pnpm nx show project <project> --json`.
 - **Workspace linking & TypeScript project references**: Add internal dependencies with `pnpm add @kotori/<pkg> --filter <consumer> --workspace`, then run `pnpm sync` (`pnpm nx sync`) so `tsconfig` project references stay in sync (checked in CI via `pnpm nx sync:check`).
 - **Tests require no external services**: Database tests run against in-process PGlite (`@effect/sql-pglite`) and auth tests use an in-memory fake — no Docker container, running server, or API keys are needed to run `pnpm test`.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues on `0Calories/kotori`, accessed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default triage labels are used unchanged (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
