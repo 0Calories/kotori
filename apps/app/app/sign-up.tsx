@@ -8,6 +8,7 @@ import { Button, IconButton } from "../src/components/Button.tsx"
 import { GoogleButton, OrDivider } from "../src/components/GoogleButton.tsx"
 import { Input } from "../src/components/Input.tsx"
 import { LanguageChoice } from "../src/components/LanguageChoice.tsx"
+import { LegalLinks } from "../src/components/LegalLinks.tsx"
 import { Notice } from "../src/components/Notice.tsx"
 import { Screen } from "../src/components/Screen.tsx"
 import { Text } from "../src/components/Text.tsx"
@@ -124,6 +125,7 @@ export default function SignUp() {
         <Text variant="caption" color="textFaint" align="center">
           {t.auth.beta}
         </Text>
+        <LegalLinks />
         <View style={{ alignItems: "center" }}>
           <Button label={t.auth.toSignIn} variant="ghost" size="sm" onPress={() => router.replace("/sign-in")} />
         </View>

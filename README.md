@@ -140,7 +140,7 @@ For day-to-day development, `pnpm dev` runs `tools/local-auth` on port 4001 to e
 
 - To test the real sign-up, sign-in, and pending screens locally, set `EXPO_PUBLIC_DEV_SIGN_IN=off`. Verification and password-reset codes are printed to the console when `RESEND_API_KEY` is unset.
 - To test **Continue with Google** against `tools/local-auth`, set `LOCAL_AUTH_GOOGLE_CLIENT_ID` and `LOCAL_AUTH_GOOGLE_CLIENT_SECRET` in `.env` using a Google OAuth **Web application** client with redirect URI `http://localhost:4001/neondb/auth/callback/google`.
-- To run against a live Neon branch instead of local Docker, run `neon checkout <branch>` (which writes `DATABASE_URL` and `NEON_AUTH_BASE_URL` to `.env.local`, using Neon's Managed Auth credentials directly).
+- To run against a live Neon branch instead of local Docker, run `neon checkout <branch>` (which writes `DATABASE_URL` and `NEON_AUTH_BASE_URL` to `.env.local`). Neon's shared Google credentials work for development sign-in, while account linking (`/link-social`) and production require custom Google OAuth credentials on the branch (see **Deploying** below).
 
 ## Development commands
 
@@ -165,11 +165,14 @@ Production runs on **Fly.io** (compute), **Neon** (Postgres 18 + Managed Better 
   - Manual deploys: `pnpm nx run @kotori/backend:deploy`, `pnpm nx run @kotori/app:deploy`, or `pnpm nx run @kotori/app:deploy-preview`.
 - **Database migrations** (`packages/db/migrations`, generated via `pnpm --filter @kotori/db generate`) are forward-only. Because `release_command` migrates before new machines roll, destructive schema changes must use two deploys (expand first, contract in a later release).
 - **Seeding production dictionaries**: `pnpm kotori seed` (`--dictionary jmdict|english`) imports or updates dictionaries in place while preserving sense-linked enrichment and saved notes. Because the English Wiktionary stream peaks around ~500 MB RAM, run `pnpm kotori seed --dictionary english` from a local machine with the production `DATABASE_URL` rather than on the 512 MB Fly worker.
-- **Managed Auth & webhooks**: The API proxies `/api/auth/*` to `NEON_AUTH_BASE_URL` and verifies 15-minute EdDSA JWTs against Neon's JWKS (plus checking `neon_auth.session` for immediate revocation). `KOTORI_WEB_ORIGINS` in `fly.toml` controls CORS for browser cookies and validates team-scoped Vercel preview origins at the `/api/auth/*` proxy (since Neon Auth domain rules only accept leftmost-label wildcards). Verification and password-reset codes are delivered by Neon to `POST /webhooks/neon-auth` (verified via `X-Neon-Signature-Kid` and sent via Resend):
+- **Managed Auth & webhooks**: The API proxies `/api/auth/*` to `NEON_AUTH_BASE_URL` and verifies 15-minute EdDSA JWTs against Neon's JWKS (plus checking `neon_auth.session` for immediate revocation). `KOTORI_WEB_ORIGINS` in `fly.toml` controls CORS for browser cookies and validates team-scoped Vercel preview origins at the `/api/auth/*` proxy (since Neon Auth domain rules only accept leftmost-label wildcards). On the production Neon branch, register `<api-host>` as a trusted redirect domain (for `/auth/return`), configure custom Google OAuth **Web application** credentials with redirect URI `<NEON_AUTH_BASE_URL>/callback/google` (required for Kotori consent-screen branding and `/link-social` account linking, since Neon's shared Google broker only wraps `/sign-in/social`), and point verification/password-reset webhooks at `POST /webhooks/neon-auth` (verified via `X-Neon-Signature-Kid` and sent via Resend):
   ```sh
-  neon neon-auth config email-password update --email-verification-method otp
-  neon neon-auth config webhook update --enabled --url https://<api-host>/webhooks/neon-auth \
-    --enabled-events send.otp send.magic_link --timeout 10
+  neon neon-auth domain add https://<api-host> --branch production
+  neon neon-auth oauth-provider update --branch production --provider-id google \
+    --oauth-client-id <client-id> --oauth-client-secret <client-secret>
+  neon neon-auth config email-password update --branch production --email-verification-method otp
+  neon neon-auth config webhook update --branch production --enabled \
+    --url https://<api-host>/webhooks/neon-auth --enabled-events send.otp send.magic_link --timeout 10
   ```
 
 ## Data sources and credits

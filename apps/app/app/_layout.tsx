@@ -24,6 +24,7 @@ import { Button } from "../src/components/Button.tsx"
 import { iconFonts } from "../src/components/Icon.tsx"
 import { Screen } from "../src/components/Screen.tsx"
 import { MascotMessage } from "../src/components/States.tsx"
+import { isUnguardedRoute } from "../src/lib/legal.ts"
 import { SessionProvider, useSession } from "../src/session/SessionProvider.tsx"
 import { ThemeProvider, useTheme } from "../src/theme/ThemeProvider.tsx"
 
@@ -62,9 +63,9 @@ const statusBarStyle = "dark" as const
 const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
   const theme = useTheme()
   const { status, t, retry } = useSession()
-  const ready = fontsLoaded && status !== "loading"
-  // PROTOTYPE: the data-model mock-ups under /proto need neither a session nor the API.
-  const prototyping = usePathname().startsWith("/proto")
+  // Public pages (/privacy, /terms) and /proto mock-ups need neither a session nor the API.
+  const unguarded = isUnguardedRoute(usePathname())
+  const ready = fontsLoaded && (unguarded || status !== "loading")
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync().catch(() => {})
@@ -72,7 +73,7 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
 
   if (!ready) return null
 
-  if (status === "offline" && !prototyping) {
+  if (status === "offline" && !unguarded) {
     return (
       <Screen bottomInset={40}>
         <MascotMessage mood="sleepy" title={t.appName} body={t.common.offline} size={140}>
@@ -86,7 +87,9 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
     <>
       <StatusBar style={statusBarStyle} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.color.background } }}>
-        {/* PROTOTYPE: unguarded, so the mock-ups open without signing in. */}
+        {/* Unguarded: public legal pages and prototype mock-ups open without signing in. */}
+        <Stack.Screen name="privacy" />
+        <Stack.Screen name="terms" />
         <Stack.Screen name="proto/index" />
         <Stack.Screen name="proto/[id]" />
         <Stack.Protected guard={status === "ready"}>

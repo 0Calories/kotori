@@ -8,6 +8,7 @@ import { Button, IconButton } from "../src/components/Button.tsx"
 import { Card } from "../src/components/Card.tsx"
 import { ConfirmEmail } from "../src/components/ConfirmEmail.tsx"
 import { Icon } from "../src/components/Icon.tsx"
+import { LegalLinks } from "../src/components/LegalLinks.tsx"
 import { Mascot } from "../src/components/Mascot.tsx"
 import { Header, Screen, Section } from "../src/components/Screen.tsx"
 import { Segmented } from "../src/components/Segmented.tsx"
@@ -155,6 +156,7 @@ export default function SettingsScreen() {
             {t.settings.aboutBody}
           </Text>
         </Card>
+        <LegalLinks />
       </Section>
 
       <Section title={t.settings.account}>

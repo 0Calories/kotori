@@ -2,6 +2,7 @@ import { useRouter } from "expo-router"
 import { View } from "react-native"
 import Animated, { FadeInDown } from "react-native-reanimated"
 import { Button } from "../src/components/Button.tsx"
+import { LegalLinks } from "../src/components/LegalLinks.tsx"
 import { Mascot } from "../src/components/Mascot.tsx"
 import { Screen } from "../src/components/Screen.tsx"
 import { Text } from "../src/components/Text.tsx"
@@ -41,6 +42,7 @@ export default function Welcome() {
         <Text variant="caption" color="textFaint" align="center" style={{ marginTop: theme.space.sm }}>
           {t.auth.beta}
         </Text>
+        <LegalLinks />
       </Animated.View>
     </Screen>
   )
