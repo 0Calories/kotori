@@ -46,6 +46,8 @@ jobs:
       - name: Project references are in sync
         run: pnpm nx sync:check
       - run: pnpm format:check
+      - name: Unused files, dependencies, and exports
+        run: pnpm knip
       - name: Lint root scripts
         run: pnpm exec oxlint neon.ts vitest.shared.ts tools/*.ts
       # `typecheck` depends on `build` for every TypeScript project; `@kotori/app` builds once inside `vercel build`.
