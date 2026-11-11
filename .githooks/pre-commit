@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+# Skip in lightweight worktrees where dependencies haven't been installed yet (CI enforces both).
+if [ ! -d node_modules ]; then
+  exit 0
+fi
+
+# Sub-second formatting and TypeScript project-reference checks before commit.
+pnpm format:check
+NX_DAEMON=false pnpm nx sync:check
