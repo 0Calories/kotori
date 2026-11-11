@@ -1,5 +1,5 @@
 import { storage } from "../session/storage"
-import { applySetCookie, cookieHeader, type SessionCookies } from "./cookies.ts"
+import { applySetCookie, cookieHeader, hasSessionToken, type SessionCookies } from "./cookies.ts"
 
 const KEY = "kotori.session"
 
@@ -25,7 +25,7 @@ const save = async (cookies: SessionCookies) => {
  */
 export const transport = {
   /** Whether this device holds a session to mint JWTs from. */
-  hasCredential: async () => Object.keys(await load()).length > 0,
+  hasCredential: async () => hasSessionToken(await load()),
   fetch: async (url: string, init: RequestInit): Promise<Response> => {
     const stored = await load()
     const headers = new Headers(init.headers)

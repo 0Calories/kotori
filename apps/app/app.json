@@ -35,6 +35,7 @@
     "plugins": [
       ["expo-router", { "adaptiveColors": false }],
       "expo-secure-store",
+      "expo-web-browser",
       "expo-audio",
       "expo-font",
       [

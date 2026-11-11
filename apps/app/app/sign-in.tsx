@@ -5,6 +5,7 @@ import Animated, { FadeInDown } from "react-native-reanimated"
 import { devCredentials } from "../src/auth/dev.ts"
 import { authMessage } from "../src/auth/messages.ts"
 import { Button, IconButton } from "../src/components/Button.tsx"
+import { GoogleButton, OrDivider } from "../src/components/GoogleButton.tsx"
 import { Input } from "../src/components/Input.tsx"
 import { Mascot } from "../src/components/Mascot.tsx"
 import { Notice } from "../src/components/Notice.tsx"
@@ -14,12 +15,13 @@ import { useSession } from "../src/session/SessionProvider.tsx"
 import { theme } from "../src/theme/tokens.ts"
 
 export default function SignIn() {
-  const { t, signIn } = useSession()
+  const { t, signIn, signInWithGoogle, googleError } = useSession()
   const router = useRouter()
   const dev = devCredentials()
   const [email, setEmail] = useState(dev?.email ?? "")
   const [password, setPassword] = useState(dev?.password ?? "")
   const [busy, setBusy] = useState(false)
+  const [googleBusy, setGoogleBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const passwordRef = useRef<TextInput>(null)
   const ready = email.trim().length > 0 && password.length > 0
@@ -37,6 +39,20 @@ export default function SignIn() {
     }
   }
 
+  const continueWithGoogle = async () => {
+    if (busy || googleBusy) return
+    setGoogleBusy(true)
+    setError(null)
+    try {
+      await signInWithGoogle()
+    } catch (e) {
+      setError(authMessage(t, e))
+    }
+    setGoogleBusy(false)
+  }
+
+  const shown = error ?? (googleError === null ? null : authMessage(t, googleError))
+
   return (
     <Screen bottomInset={40}>
       <IconButton
@@ -51,6 +67,13 @@ export default function SignIn() {
         </Text>
       </Animated.View>
       <Animated.View entering={FadeInDown.delay(100).duration(400)} style={{ gap: theme.space.md }}>
+        <GoogleButton
+          label={googleBusy ? t.auth.googleOpening : t.auth.google}
+          loading={googleBusy}
+          disabled={busy}
+          onPress={() => void continueWithGoogle()}
+        />
+        <OrDivider label={t.auth.or} />
         <Input
           label={t.auth.email}
           value={email}
@@ -75,13 +98,13 @@ export default function SignIn() {
           returnKeyType="go"
           onSubmitEditing={() => void submit()}
         />
-        <Notice message={error} />
+        <Notice message={shown} />
         <Button
           label={busy ? t.auth.signingIn : t.auth.signIn}
           size="lg"
           full
           icon="arrow_forward"
-          disabled={!ready}
+          disabled={!ready || googleBusy}
           loading={busy}
           onPress={() => void submit()}
         />

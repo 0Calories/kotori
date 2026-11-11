@@ -3,7 +3,8 @@ import { transport } from "./transport"
 
 /**
  * A Managed Auth refusal, by Better Auth's error code (INVALID_EMAIL_OR_PASSWORD,
- * USER_ALREADY_EXISTS, INVALID_OTP…), or OFFLINE when it, or the API's proxy to it,
+ * USER_ALREADY_EXISTS, INVALID_OTP…), a Google sign-in's `error` (access_denied,
+ * account_not_linked…), or OFFLINE when it, or the API's proxy to it,
  * can't be reached.
  */
 export class AuthError extends Error {
@@ -51,6 +52,21 @@ export const managedAuth = {
   signIn: (input: { readonly email: string; readonly password: string }) =>
     request<unknown>("POST", "/sign-in/email", input),
   signOut: () => request<unknown>("POST", "/sign-out", {}),
+  /**
+   * Starts a Google sign-in (or sign-up: Managed Auth makes the account on first sight).
+   * Answers Google's consent page; the response also sets the challenge cookie the
+   * return is traded with. Google's answer comes back to `callbackURL`, failures included.
+   */
+  startGoogle: (callbackURL: string) =>
+    request<{ readonly url: string }>("POST", "/sign-in/social", {
+      provider: "google",
+      callbackURL,
+      errorCallbackURL: callbackURL,
+      disableRedirect: true
+    }),
+  /** Trades the verifier Managed Auth appended to `callbackURL`, plus the challenge cookie, for a session. */
+  finishGoogle: (verifier: string) =>
+    request<unknown>("GET", `/get-session?neon_auth_session_verifier=${encodeURIComponent(verifier)}`),
   /** A 15-minute EdDSA JWT for the session (the JWT plugin's `GET /token`). */
   token: () => request<{ readonly token: string }>("GET", "/token"),
   /** Emails a verification code (Email OTP); Kotori's webhook sends it in the learner's language. */

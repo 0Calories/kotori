@@ -6,8 +6,13 @@
  */
 export type SessionCookies = Readonly<Record<string, string>>
 
-/** Better Auth's session cookie, whatever its prefix; the cookie cache and the rest aren't needed to mint a JWT. */
-const isSessionCookie = (name: string) => name === "session_token" || name.endsWith(".session_token")
+/**
+ * Better Auth's session cookie, whatever its prefix, and the challenge cookie Managed Auth
+ * sets when a Google sign-in starts, which the return from Google is traded with. The
+ * cookie cache and the rest aren't needed to mint a JWT.
+ */
+const KEPT = ["session_token", "session_challenge", "session_challange"] // Neon still accepts the misspelling.
+const isSessionCookie = (name: string) => KEPT.some((kept) => name === kept || name.endsWith(`.${kept}`))
 
 /**
  * Splits a `Set-Cookie` header that React Native has joined with commas. A comma
@@ -46,6 +51,10 @@ export const applySetCookie = (stored: SessionCookies, header: string | null, no
   }
   return next
 }
+
+/** Whether a session is held, not just a Google sign-in's challenge. */
+export const hasSessionToken = (stored: SessionCookies) =>
+  Object.keys(stored).some((name) => name === "session_token" || name.endsWith(".session_token"))
 
 export const cookieHeader = (stored: SessionCookies) =>
   Object.entries(stored)

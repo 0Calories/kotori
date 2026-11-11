@@ -5,9 +5,11 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useM
 import { ApiError, call } from "../api/client.ts"
 import { AuthError, managedAuth } from "../auth/client.ts"
 import { devCredentials } from "../auth/dev.ts"
+import { google } from "../auth/google"
 import { tokens } from "../auth/tokens.ts"
 import { transport } from "../auth/transport"
 import { strings, type Strings } from "../i18n/strings.ts"
+import { storage } from "./storage"
 
 /**
  * Where the learner is: signed out; signed in but waiting for approval (archived
@@ -30,6 +32,14 @@ interface Session {
   readonly t: Strings
   readonly signIn: (email: string, password: string) => Promise<void>
   readonly signUp: (input: SignUp) => Promise<void>
+  /**
+   * Signs in with Google, making the account if there isn't one; `nativeLanguage` (from
+   * the sign-up screen) is applied to a new account. On the web the page leaves for
+   * Google and this never settles; it comes back signed in, or with `googleError`.
+   */
+  readonly signInWithGoogle: (nativeLanguage?: Language) => Promise<void>
+  /** Why the Google sign-in the web app just came back from didn't work, for the sign-in screens. */
+  readonly googleError: AuthError | null
   readonly signOut: () => Promise<void>
   readonly sendVerificationCode: () => Promise<void>
   readonly verifyEmail: (code: string) => Promise<void>
@@ -57,6 +67,9 @@ const sessionToken = async () => {
   if ((await tokens.refresh()) === null) throw new AuthError("NO_SESSION", "", 401)
 }
 
+/** The sign-up screen's language, kept across the web's round trip to Google. */
+const GOOGLE_LANGUAGE = "kotori.googleSignUpLanguage"
+
 /** Whether a session was established as the development account; always false in a release build. */
 const signInAsDeveloper = async (): Promise<boolean> => {
   const credentials = devCredentials()
@@ -79,6 +92,7 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
   const [status, setStatus] = useState<Status>("loading")
   const [profile, setProfile] = useState<Profile | null>(null)
   const [attempt, setAttempt] = useState(0)
+  const [googleError, setGoogleError] = useState<AuthError | null>(null)
 
   const enter = useCallback((me: Profile) => {
     setProfile(me)
@@ -95,9 +109,44 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
   // A session that ends elsewhere (sign-out on another device, revocation, deletion) lands here.
   useEffect(() => tokens.onSignedOut(leave), [leave])
 
+  /** Trades Google's verifier for a session, then applies what the sign-up screen chose to a new account. */
+  const finishGoogle = useCallback(
+    async (verifier: string) => {
+      const language = await storage.get(GOOGLE_LANGUAGE).catch(() => null)
+      await storage.remove(GOOGLE_LANGUAGE).catch(() => {})
+      try {
+        await managedAuth.finishGoogle(verifier)
+        await sessionToken()
+      } catch (error) {
+        // An expired or replayed verifier, or a challenge cookie that didn't survive the trip.
+        if (error instanceof AuthError && error.code !== "OFFLINE") {
+          throw new AuthError("GOOGLE_FAILED", error.message, error.status)
+        }
+        throw error
+      }
+      const me = await call((api) => api.account.me())
+      const nativeLanguage: Language | undefined = language === "en" || language === "ja" ? language : undefined
+      // Only a learner who hasn't picked yet: signing up with an existing Google account just signs in.
+      const patch: UpdateProfileRequest = {
+        ...(nativeLanguage !== undefined && !me.onboarded ? { nativeLanguage } : {}),
+        ...(me.timezone !== timeZone() ? { timezone: timeZone() } : {})
+      }
+      enter(Object.keys(patch).length > 0 ? await call((api) => api.account.update({ payload: patch })) : me)
+    },
+    [enter]
+  )
+
   useEffect(() => {
     let cancelled = false
     const load = async () => {
+      // On the web, the page may be coming back from Google.
+      try {
+        const back = google.returned()
+        if (back !== null) return await finishGoogle(back.verifier)
+      } catch (error) {
+        if (!(error instanceof AuthError) || error.code === "OFFLINE") throw error
+        if (!cancelled) setGoogleError(error)
+      }
       if ((await tokens.current()) === null && !(await signInAsDeveloper())) {
         return cancelled || setStatus("signedOut")
       }
@@ -116,7 +165,7 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
     return () => {
       cancelled = true
     }
-  }, [attempt, enter])
+  }, [attempt, enter, finishGoogle])
 
   const refresh = useCallback(async () => enter(await call((api) => api.account.me())), [enter])
 
@@ -145,6 +194,23 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
       await managedAuth.sendVerificationCode(address).catch(() => {})
     },
     [enter]
+  )
+
+  const signInWithGoogle = useCallback(
+    async (nativeLanguage?: Language) => {
+      setGoogleError(null)
+      if (nativeLanguage === undefined) await storage.remove(GOOGLE_LANGUAGE).catch(() => {})
+      else await storage.set(GOOGLE_LANGUAGE, nativeLanguage)
+      const back = await google.start()
+      // The web page is on its way to Google; the next load picks it up.
+      if (back === "redirected") return new Promise<void>(() => {})
+      if (back === null) {
+        await storage.remove(GOOGLE_LANGUAGE).catch(() => {})
+        return
+      }
+      await finishGoogle(back.verifier)
+    },
+    [finishGoogle]
   )
 
   const signOut = useCallback(async () => {
@@ -199,6 +265,8 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
       t: strings[profile?.nativeLanguage ?? deviceLanguage()],
       signIn,
       signUp,
+      signInWithGoogle,
+      googleError,
       signOut,
       sendVerificationCode,
       verifyEmail,
@@ -216,6 +284,8 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
       profile,
       signIn,
       signUp,
+      signInWithGoogle,
+      googleError,
       signOut,
       sendVerificationCode,
       verifyEmail,

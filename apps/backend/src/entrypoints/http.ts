@@ -9,6 +9,7 @@ import { AuthorizationLive } from "../http/Authorization.ts"
 import { CorsLive } from "../http/cors.ts"
 import { AllHandlers } from "../http/handlers.ts"
 import { AuthRoute } from "../http/neon-auth.ts"
+import { OAuthReturnRoute } from "../http/oauth-return.ts"
 import { WebhooksRoute } from "../http/webhooks.ts"
 import { AppLive } from "../runtime/HttpLayers.ts"
 import { loadDotEnv } from "../runtime/Paths.ts"
@@ -25,6 +26,7 @@ const Routes = Layer.mergeAll(
   ApiRoutes,
   AudioRoute,
   AuthRoute,
+  OAuthReturnRoute,
   WebhooksRoute,
   HttpApiScalar.layer(KotoriApi, { path: "/docs" }),
   CorsLive

@@ -1,5 +1,5 @@
 import { assert, describe, it } from "vitest"
-import { applySetCookie, cookieHeader, splitSetCookie } from "../src/auth/cookies.ts"
+import { applySetCookie, cookieHeader, hasSessionToken, splitSetCookie } from "../src/auth/cookies.ts"
 
 // React Native joins repeated Set-Cookie headers with ", ", as iOS's URL loading system does.
 const signIn = [
@@ -38,5 +38,28 @@ describe("the native session cookie", () => {
       "better-auth.session_token=two; Path=/; HttpOnly"
     )
     assert.deepStrictEqual(refreshed, { "better-auth.session_token": "two" })
+  })
+
+  it("holds a Google sign-in's challenge until it's traded for a session", () => {
+    const now = Date.parse("2026-10-22T12:00:00Z")
+    const started = applySetCookie(
+      {},
+      "__Secure-neon-auth.session_challenge=chal; Path=/; Max-Age=600; HttpOnly; Secure; SameSite=None",
+      now
+    )
+    assert.deepStrictEqual(started, { "__Secure-neon-auth.session_challenge": "chal" })
+    // A challenge alone isn't being signed in.
+    assert.isFalse(hasSessionToken(started))
+
+    const finished = applySetCookie(
+      started,
+      [
+        "__Secure-neon-auth.session_token=tok; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=None",
+        "__Secure-neon-auth.session_challenge=; Path=/; Max-Age=0"
+      ].join(", "),
+      now
+    )
+    assert.deepStrictEqual(finished, { "__Secure-neon-auth.session_token": "tok" })
+    assert.isTrue(hasSessionToken(finished))
   })
 })

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { ActivityIndicator, View } from "react-native"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Icon, type IconName } from "./Icon.tsx"
@@ -11,6 +12,8 @@ export interface ButtonProps {
   readonly variant?: "primary" | "dark" | "secondary" | "soft" | "ghost"
   readonly size?: "md" | "lg" | "sm"
   readonly icon?: IconName
+  /** Drawn where the icon goes, for marks that aren't glyphs (Google's "G"). */
+  readonly leading?: ReactNode
   readonly loading?: boolean
   readonly disabled?: boolean
   readonly full?: boolean
@@ -23,6 +26,7 @@ export const Button = ({
   variant = "primary",
   size = "md",
   icon,
+  leading,
   loading,
   disabled,
   full,
@@ -52,8 +56,8 @@ export const Button = ({
       hitSlop={size === "sm" ? 4 : 0}
       style={{
         height,
-        paddingLeft: icon ? (size === "sm" ? 10 : play ? 12 : 14) : size === "sm" ? 14 : 20,
-        paddingRight: size === "sm" ? 14 : icon ? 18 : 20,
+        paddingLeft: icon || leading ? (size === "sm" ? 10 : play ? 12 : 14) : size === "sm" ? 14 : 20,
+        paddingRight: size === "sm" ? 14 : icon || leading ? 18 : 20,
         borderRadius: radius.pill,
         backgroundColor: palette.bg,
         borderWidth: 1,
@@ -61,7 +65,7 @@ export const Button = ({
         alignItems: "center",
         justifyContent: "center",
         flexDirection: "row",
-        gap: 6,
+        gap: leading ? 10 : 6,
         opacity: disabled ? 0.45 : 1,
         alignSelf: full ? "stretch" : undefined
       }}
@@ -70,7 +74,9 @@ export const Button = ({
         <ActivityIndicator color={palette.fg} />
       ) : icon ? (
         <Icon name={icon} size={size === "sm" ? 18 : play ? 24 : 19} color={palette.fg} filled={play} />
-      ) : null}
+      ) : (
+        (leading ?? null)
+      )}
       <View>
         <Text
           variant="strong"

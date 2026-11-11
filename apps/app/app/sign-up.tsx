@@ -5,6 +5,7 @@ import { Platform, type TextInput, View } from "react-native"
 import Animated, { FadeInDown } from "react-native-reanimated"
 import { authMessage } from "../src/auth/messages.ts"
 import { Button, IconButton } from "../src/components/Button.tsx"
+import { GoogleButton, OrDivider } from "../src/components/GoogleButton.tsx"
 import { Input } from "../src/components/Input.tsx"
 import { LanguageChoice } from "../src/components/LanguageChoice.tsx"
 import { Notice } from "../src/components/Notice.tsx"
@@ -17,13 +18,14 @@ import { theme } from "../src/theme/tokens.ts"
 const MIN_PASSWORD = 8
 
 export default function SignUp() {
-  const { t, signUp } = useSession()
+  const { t, signUp, signInWithGoogle, googleError } = useSession()
   const router = useRouter()
   const [native, setNative] = useState<Language | null>(null)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [busy, setBusy] = useState(false)
+  const [googleBusy, setGoogleBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const emailRef = useRef<TextInput>(null)
   const passwordRef = useRef<TextInput>(null)
@@ -40,6 +42,21 @@ export default function SignUp() {
       setBusy(false)
     }
   }
+
+  // Google brings the name and a confirmed address; the language is the one thing to ask first.
+  const continueWithGoogle = async () => {
+    if (native === null || busy || googleBusy) return
+    setGoogleBusy(true)
+    setError(null)
+    try {
+      await signInWithGoogle(native)
+    } catch (e) {
+      setError(authMessage(t, e))
+    }
+    setGoogleBusy(false)
+  }
+
+  const shown = error ?? (googleError === null ? null : authMessage(t, googleError))
 
   return (
     <Screen bottomInset={40}>
@@ -58,6 +75,13 @@ export default function SignUp() {
         <LanguageChoice value={native} onChange={setNative} />
       </Animated.View>
       <Animated.View entering={FadeInDown.delay(100).duration(400)} style={{ gap: theme.space.md }}>
+        <GoogleButton
+          label={googleBusy ? t.auth.googleOpening : t.auth.google}
+          loading={googleBusy}
+          disabled={native === null || busy}
+          onPress={() => void continueWithGoogle()}
+        />
+        <OrDivider label={t.auth.or} />
         <Input
           label={t.auth.name}
           placeholder={t.auth.namePlaceholder}
@@ -94,13 +118,13 @@ export default function SignUp() {
           returnKeyType="go"
           onSubmitEditing={() => void submit()}
         />
-        <Notice message={error} />
+        <Notice message={shown} />
         <Button
           label={busy ? t.auth.signingUp : t.auth.signUp}
           size="lg"
           full
           icon="arrow_forward"
-          disabled={!ready}
+          disabled={!ready || googleBusy}
           loading={busy}
           onPress={() => void submit()}
         />
