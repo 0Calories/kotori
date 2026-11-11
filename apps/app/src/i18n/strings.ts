@@ -79,6 +79,9 @@ const en = {
     resettingPassword: "Setting your password…",
     passwordReset: "That's done. Sign in with your new password.",
     toSignInFromReset: "Back to sign in",
+    google: "Continue with Google",
+    googleOpening: "Off to Google…",
+    or: "or",
     errors: {
       invalidCredentials: "That email and password don't match.",
       wrongPassword: "That isn't your current password.",
@@ -90,7 +93,12 @@ const en = {
       codeExpired: "That code has expired. Send yourself a new one.",
       tooManyAttempts: "Too many tries with that code. Send yourself a new one.",
       slowDown: "Too many attempts. Wait a minute, then try again.",
-      verifyFirst: "Confirm your email first, then sign in."
+      verifyFirst: "Confirm your email first, then sign in.",
+      googleFailed: "Google sign-in got lost on the way back. Give it another go, or use your email.",
+      googleNotLinked:
+        "That email already has a Kotori password. Sign in with it first, then connect Google in Settings.",
+      googleEmailMismatch: "Pick the Google account that uses this email address.",
+      googleAlreadyLinked: "That Google account is already connected to another Kotori account."
     }
   },
   pending: {
@@ -389,6 +397,9 @@ const en = {
     newPassword: "New password",
     changingPassword: "Changing your password…",
     passwordChanged: "Password changed. Your other devices were signed out.",
+    connectGoogle: "Connect Google",
+    googleConnected: "Connected with Google",
+    googleLinked: "Google is connected. You can sign in with it next time.",
     deleteAccount: "Delete account",
     deleteTitle: "Delete your account?",
     deleteBody:
@@ -554,6 +565,9 @@ const ja: Strings = {
     resettingPassword: "設定しています…",
     passwordReset: "設定しました。新しいパスワードでログインしてください。",
     toSignInFromReset: "ログインに戻る",
+    google: "Googleで続ける",
+    googleOpening: "Googleに移動しています…",
+    or: "または",
     errors: {
       invalidCredentials: "メールアドレスかパスワードが正しくありません。",
       wrongPassword: "現在のパスワードが正しくありません。",
@@ -565,7 +579,12 @@ const ja: Strings = {
       codeExpired: "コードの有効期限が切れました。新しいコードを送ってください。",
       tooManyAttempts: "試行回数が多すぎます。新しいコードを送ってください。",
       slowDown: "試行回数が多すぎます。少し待ってから、もう一度お試しください。",
-      verifyFirst: "メールアドレスを確認してから、ログインしてください。"
+      verifyFirst: "メールアドレスを確認してから、ログインしてください。",
+      googleFailed: "Googleからの帰り道で迷子になりました。もう一度試すか、メールアドレスでどうぞ。",
+      googleNotLinked:
+        "このメールアドレスにはパスワードが登録されています。まずはパスワードでログインして、設定からGoogleを連携してください。",
+      googleEmailMismatch: "このメールアドレスと同じGoogleアカウントを選んでください。",
+      googleAlreadyLinked: "そのGoogleアカウントは、別のKotoriアカウントに連携されています。"
     }
   },
   pending: {
@@ -845,6 +864,9 @@ const ja: Strings = {
     newPassword: "新しいパスワード",
     changingPassword: "変更しています…",
     passwordChanged: "パスワードを変更しました。他の端末からはログアウトされました。",
+    connectGoogle: "Googleを連携",
+    googleConnected: "Googleと連携済み",
+    googleLinked: "Googleを連携しました。次回からGoogleでログインできます。",
     deleteAccount: "アカウントを削除",
     deleteTitle: "アカウントを削除しますか？",
     deleteBody: "アカウント、ノート、学習した内容がすべて消えます。元に戻すことはできません。",

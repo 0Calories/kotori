@@ -1,20 +1,9 @@
 import { apiUrl } from "../api/config.ts"
+import { AuthError } from "./error.ts"
+import { callbackURL, linkCallbackURL, VERIFIER_PARAM } from "./googleReturn.ts"
 import { transport } from "./transport"
 
-/**
- * A Managed Auth refusal, by Better Auth's error code (INVALID_EMAIL_OR_PASSWORD,
- * USER_ALREADY_EXISTS, INVALID_OTP…), or OFFLINE when it, or the API's proxy to it,
- * can't be reached.
- */
-export class AuthError extends Error {
-  constructor(
-    readonly code: string,
-    message: string,
-    readonly status: number
-  ) {
-    super(message)
-  }
-}
+export { AuthError } from "./error.ts"
 
 const field = (body: unknown, name: string) => {
   const value = typeof body === "object" && body !== null ? (body as Record<string, unknown>)[name] : undefined
@@ -44,6 +33,14 @@ const request = async <A>(method: "GET" | "POST", path: string, body?: object): 
   throw new AuthError(field(json, "code") ?? "UNKNOWN", message, response.status)
 }
 
+const socialRequest = (path: string, callback: string) =>
+  request<{ readonly url: string }>("POST", path, {
+    provider: "google",
+    callbackURL: callback,
+    errorCallbackURL: callback,
+    disableRedirect: true
+  })
+
 /** Managed Better Auth's REST endpoints, through the API's `/api/auth` proxy. */
 export const managedAuth = {
   signUp: (input: { readonly email: string; readonly password: string; readonly name: string }) =>
@@ -51,6 +48,22 @@ export const managedAuth = {
   signIn: (input: { readonly email: string; readonly password: string }) =>
     request<unknown>("POST", "/sign-in/email", input),
   signOut: () => request<unknown>("POST", "/sign-out", {}),
+  /**
+   * Starts a Google sign-in (or sign-up: Managed Auth makes the account on first sight).
+   * Answers Google's consent page; the response also sets the challenge cookie the
+   * return is traded with. Google's answer comes back through `/auth/return` to `returnTo`.
+   */
+  startGoogle: (returnTo: string) => socialRequest("/sign-in/social", callbackURL(apiUrl, returnTo)),
+  /**
+   * Attaches Google to the signed-in learner's account, so they can sign in with Google
+   * from then on instead of typing their password.
+   */
+  linkGoogle: (returnTo: string) => socialRequest("/link-social", linkCallbackURL(apiUrl, returnTo)),
+  /** The sign-in methods (`"credential"`, `"google"`, …) attached to the signed-in account. */
+  listAccounts: () => request<ReadonlyArray<{ readonly providerId: string }>>("GET", "/list-accounts"),
+  /** Trades the verifier Managed Auth appended to `callbackURL`, plus the challenge cookie, for a session. */
+  finishGoogle: (verifier: string) =>
+    request<unknown>("GET", `/get-session?${VERIFIER_PARAM}=${encodeURIComponent(verifier)}`),
   /** A 15-minute EdDSA JWT for the session (the JWT plugin's `GET /token`). */
   token: () => request<{ readonly token: string }>("GET", "/token"),
   /** Emails a verification code (Email OTP); Kotori's webhook sends it in the learner's language. */

@@ -5,13 +5,15 @@ import { emailOTP } from "better-auth/plugins/email-otp"
 import { jwt } from "better-auth/plugins/jwt"
 import { createServer } from "node:http"
 import pg from "pg"
+import { sessionVerifier } from "./sessionVerifier.ts"
 
 /**
  * A stand-in for Neon's Managed Better Auth, so the API and worker run on a laptop
  * without a Neon branch. It is Better Auth configured the way Managed Auth is: users
  * and sessions in the `neon_auth` schema with UUID ids, email and password, Email OTP,
- * and 15-minute EdDSA JWTs whose issuer and audience are the auth URL's origin, with
- * the key set at `/.well-known/jwks.json`. Kotori's `Auth` layer talks to it exactly
+ * 15-minute EdDSA JWTs whose issuer and audience are the auth URL's origin, with
+ * the key set at `/.well-known/jwks.json`, and Google sign-in with Neon's session
+ * verifier handoff (see `sessionVerifier`). Kotori's `Auth` layer talks to it exactly
  * as it does to Managed Auth, at `NEON_AUTH_BASE_URL`.
  *
  * Development only: it refuses to start with NODE_ENV=production, and it is not a
@@ -62,6 +64,22 @@ const pool = new pg.Pool({
   options: "-c search_path=neon_auth"
 })
 
+/**
+ * Managed Auth signs in with Google on Neon's shared credentials; locally that needs an
+ * OAuth client of your own (type "Web application", redirect URI
+ * `<NEON_AUTH_BASE_URL>/callback/google`). Without one, the Google button reports an error.
+ */
+const googleClientId = process.env["LOCAL_AUTH_GOOGLE_CLIENT_ID"]
+const googleClientSecret = process.env["LOCAL_AUTH_GOOGLE_CLIENT_SECRET"]
+const google =
+  googleClientId && googleClientSecret ? { google: { clientId: googleClientId, clientSecret: googleClientSecret } } : {}
+if (!googleClientId || !googleClientSecret) {
+  const missing = !googleClientId ? "LOCAL_AUTH_GOOGLE_CLIENT_ID" : "LOCAL_AUTH_GOOGLE_CLIENT_SECRET"
+  console.log(`[local-auth] ${missing} is not set, so Google sign-in is off.`)
+}
+
+const PRIVATE_172_ORIGINS = Array.from({ length: 16 }, (_, i) => `http://172.${16 + i}.*.*:*`)
+
 const options = {
   baseURL: base.origin,
   basePath: base.pathname,
@@ -69,14 +87,29 @@ const options = {
   secret: "kotori-local-auth-development-only-secret",
   database: pool,
   emailAndPassword: { enabled: true },
+  socialProviders: google,
   // The API stands in for native apps with its own origin, which is local in development too.
+  // The patterns let a social sign-in name the API's `/auth/return` (port 4000) as its callback.
   trustedOrigins: (request) => {
     const origin = request?.headers.get("origin")
-    return origin != null && isLocalOrigin(origin) ? [origin] : []
+    return [
+      ...(origin != null && isLocalOrigin(origin) ? [origin] : []),
+      "http://localhost:*",
+      "http://127.0.0.1:*",
+      "http://10.*.*.*:*",
+      "http://192.168.*.*:*",
+      ...PRIVATE_172_ORIGINS
+    ]
   },
+  // The provider's callback reaches this server directly, without the state cookie the API's
+  // proxy received: sign-in ties the flow to its browser with the session verifier's challenge
+  // cookie (without silently linking onto an existing password account), and explicit linking in
+  // Settings requires the Google email to match the signed-in learner's email.
+  account: { skipStateCookieCheck: true, accountLinking: { disableImplicitLinking: true } },
   advanced: { database: { generateId: "uuid" }, cookiePrefix: "neonauth" },
   telemetry: { enabled: false },
   plugins: [
+    sessionVerifier(),
     jwt({
       jwks: { jwksPath: "/.well-known/jwks.json" },
       jwt: { issuer: base.origin, audience: base.origin, expirationTime: "15m" }

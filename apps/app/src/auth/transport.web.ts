@@ -7,6 +7,7 @@ export const transport = {
   /** Unknown to scripts; minting a JWT finds out. */
   hasCredential: async () => true,
   fetch: (url: string, init: RequestInit): Promise<Response> => fetch(url, { ...init, credentials: "include" }),
+  clearChallenge: async () => {},
   /** Sign-out clears the cookie server-side. */
   forget: async () => {}
 }

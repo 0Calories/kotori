@@ -3,7 +3,7 @@ import { useRouter } from "expo-router"
 import { Switch, View } from "react-native"
 import { apiUrl } from "../src/api/config.ts"
 import { useHealth } from "../src/api/queries.ts"
-import { ChangePassword, DeleteAccount } from "../src/components/AccountSettings.tsx"
+import { ChangePassword, DeleteAccount, GoogleAccount } from "../src/components/AccountSettings.tsx"
 import { Button, IconButton } from "../src/components/Button.tsx"
 import { Card } from "../src/components/Card.tsx"
 import { ConfirmEmail } from "../src/components/ConfirmEmail.tsx"
@@ -164,6 +164,7 @@ export default function SettingsScreen() {
             <Text variant="small" color="textMuted">
               {profile.email}
             </Text>
+            <GoogleAccount />
             <ChangePassword />
             <Button label={t.settings.signOut} variant="secondary" icon="logout" onPress={() => void signOut()} />
           </Card>

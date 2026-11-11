@@ -6,8 +6,18 @@
  */
 export type SessionCookies = Readonly<Record<string, string>>
 
-/** Better Auth's session cookie, whatever its prefix; the cookie cache and the rest aren't needed to mint a JWT. */
-const isSessionCookie = (name: string) => name === "session_token" || name.endsWith(".session_token")
+const matchesCookie = (name: string, target: string) => name === target || name.endsWith(`.${target}`)
+
+const CHALLENGES = ["session_challenge", "session_challange"] // Neon still accepts the misspelling.
+const isSessionToken = (name: string) => matchesCookie(name, "session_token")
+const isChallengeCookie = (name: string) => CHALLENGES.some((kept) => matchesCookie(name, kept))
+
+/**
+ * Better Auth's session cookie, whatever its prefix, and the challenge cookie Managed Auth
+ * sets when a Google sign-in starts, which the return from Google is traded with. The
+ * cookie cache and the rest aren't needed to mint a JWT.
+ */
+const isSessionCookie = (name: string) => isSessionToken(name) || isChallengeCookie(name)
 
 /**
  * Splits a `Set-Cookie` header that React Native has joined with commas. A comma
@@ -45,6 +55,15 @@ export const applySetCookie = (stored: SessionCookies, header: string | null, no
     }
   }
   return next
+}
+
+/** Whether a session is held, not just a Google sign-in's challenge. */
+export const hasSessionToken = (stored: SessionCookies) => Object.keys(stored).some(isSessionToken)
+
+/** Drops any pending Google challenge cookie when a native OAuth sheet is cancelled or fails. */
+export const dropChallenges = (stored: SessionCookies): SessionCookies => {
+  if (!Object.keys(stored).some(isChallengeCookie)) return stored
+  return Object.fromEntries(Object.entries(stored).filter(([name]) => !isChallengeCookie(name)))
 }
 
 export const cookieHeader = (stored: SessionCookies) =>
