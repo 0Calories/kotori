@@ -1,5 +1,24 @@
-# drizzle-kit's schema snapshots and generated dictionary/eval datasets:
+# Normalize text files to LF across platforms and cloud-agent containers.
+* text=auto eol=lf
+
+# Binary assets (never attempt line-ending conversion or text diffs).
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.mp3 binary
+*.m4a binary
+*.wav binary
+*.gz binary
+
+# drizzle-kit's schema snapshots, OpenAPI contract snapshots, and generated dictionary/eval datasets:
 # collapsed in GitHub diffs and left out of language stats.
 packages/db/migrations/*/snapshot.json linguist-generated=true
+packages/contracts/test/openapi.json linguist-generated=true
 data/eiwa/*.json* linguist-generated=true
 packages/ai/golden/entries.json linguist-generated=true

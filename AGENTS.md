@@ -34,6 +34,7 @@ pnpm nx run <project>:<target>                         # Run a single project ta
 - **Inferred targets**: `typecheck`, `build`, and `lint` are inferred by `@nx/js/typescript` and `@nx/oxlint` in `nx.json` rather than listed in every `package.json`. Inspect a project's resolved targets with `pnpm nx show project <project> --json`.
 - **Workspace linking & TypeScript project references**: Add internal dependencies with `pnpm add @kotori/<pkg> --filter <consumer> --workspace`, then run `pnpm sync` (`pnpm nx sync`) so `tsconfig` project references stay in sync (checked in CI via `pnpm nx sync:check`).
 - **Tests require no external services**: Database tests run against in-process PGlite (`@effect/sql-pglite`) and auth tests use an in-memory fake — no Docker container, running server, or API keys are needed to run `pnpm test`.
+- **Pull requests**: Squash-merged into `main` with Conventional Commit titles (`feat(app): ...`, `fix: ...`) and `Closes #<issue>` when resolving an issue. Commit PR screenshots to the shared orphan `assets` branch under `<slug>/<file>`.
 
 ## Agent skills
 

@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prepare": "command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
     "dev": "nx run-many -t dev -p @kotori/local-auth @kotori/backend --outputStyle=stream",
     "dev:app": "pnpm --filter @kotori/app run dev",
     "dev:setup": "tsx tools/dev-setup.ts",
@@ -20,7 +21,8 @@
     "motion": "tsx tools/render-motion.ts",
     "golden": "pnpm kotori golden",
     "graph": "nx graph",
-    "knip": "knip"
+    "knip": "knip",
+    "git:cleanup": "tsx tools/git-cleanup.ts"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",

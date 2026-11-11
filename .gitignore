@@ -6,7 +6,8 @@ out-tsc/
 web-build/
 *.tsbuildinfo
 .env
-.env.local
+.env.*
+!.env.example
 
 # Vercel CLI link state, pulled environment and build output (`nx run @kotori/app:deploy`)
 .vercel
@@ -34,4 +35,5 @@ apps/app/android/
 
 .claude/worktrees
 .claude/settings.local.json
+.gemini/settings.local.json
 
