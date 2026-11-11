@@ -11,7 +11,7 @@ import { EntryId, type EntryRecord, type FormRecord, type SenseRecord } from "@k
 
 export interface JMDictTag {
   readonly code: string
-  readonly label: string
+  readonly name: string
 }
 
 const XML_ENTITIES: Record<string, string> = { lt: "<", gt: ">", amp: "&", quot: '"', apos: "'" }
@@ -27,10 +27,10 @@ export const parseTags = (xml: string): Array<JMDictTag> => {
   const dtd = end === -1 ? "" : xml.slice(0, end)
   // A few codes are declared more than once; the first declaration wins.
   const tags = new Map<string, string>()
-  for (const [, code, label] of dtd.matchAll(ENTITY_DECLARATION)) {
-    if (!tags.has(code!)) tags.set(code!, label!)
+  for (const [, code, name] of dtd.matchAll(ENTITY_DECLARATION)) {
+    if (!tags.has(code!)) tags.set(code!, name!)
   }
-  return Array.from(tags, ([code, label]) => ({ code, label }))
+  return Array.from(tags, ([code, name]) => ({ code, name }))
 }
 
 const elements = (block: string, name: string): Array<string> =>

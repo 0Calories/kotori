@@ -24,7 +24,7 @@ export const examples = table(
     en: text().notNull(),
     formality: formality().notNull(),
     note: text(),
-    /** The usage note for Japanese speakers learning English, in Japanese; null on sentences written before it. */
+    /** The usage note for English learners, in Japanese; null on sentences written before it. */
     noteJa: text(),
     // Casting signals, judged by the writer; null on sentences written before voice casting.
     speakerGender: speakerGender(),

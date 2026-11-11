@@ -3,7 +3,7 @@
   "info": {
     "title": "Kotori API",
     "version": "0.0.1",
-    "description": "Dictionary, coaching and spaced repetition for learners of Japanese and English."
+    "description": "Dictionary, coaching and spaced repetition for Japanese and English learners."
   },
   "paths": {
     "/health": {
@@ -871,13 +871,13 @@
                                 "code": {
                                   "type": "string"
                                 },
-                                "label": {
+                                "name": {
                                   "type": "string"
                                 }
                               },
                               "required": [
                                 "code",
-                                "label"
+                                "name"
                               ],
                               "additionalProperties": false
                             }
@@ -916,13 +916,13 @@
                                 "code": {
                                   "type": "string"
                                 },
-                                "label": {
+                                "name": {
                                   "type": "string"
                                 }
                               },
                               "required": [
                                 "code",
-                                "label"
+                                "name"
                               ],
                               "additionalProperties": false
                             }
@@ -935,13 +935,13 @@
                                 "code": {
                                   "type": "string"
                                 },
-                                "label": {
+                                "name": {
                                   "type": "string"
                                 }
                               },
                               "required": [
                                 "code",
-                                "label"
+                                "name"
                               ],
                               "additionalProperties": false
                             }
@@ -954,13 +954,13 @@
                                 "code": {
                                   "type": "string"
                                 },
-                                "label": {
+                                "name": {
                                   "type": "string"
                                 }
                               },
                               "required": [
                                 "code",
-                                "label"
+                                "name"
                               ],
                               "additionalProperties": false
                             }
@@ -973,13 +973,13 @@
                                 "code": {
                                   "type": "string"
                                 },
-                                "label": {
+                                "name": {
                                   "type": "string"
                                 }
                               },
                               "required": [
                                 "code",
-                                "label"
+                                "name"
                               ],
                               "additionalProperties": false
                             }
@@ -3629,67 +3629,87 @@
                       "createdAt": {
                         "type": "string"
                       },
-                      "cards": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "id": {
-                              "type": "string"
-                            },
-                            "template": {
-                              "type": "string",
-                              "enum": [
-                                "recognize",
-                                "produce"
-                              ]
-                            },
-                            "queue": {
-                              "type": "string",
-                              "enum": [
-                                "new",
-                                "learning",
-                                "review",
-                                "relearning"
-                              ]
-                            },
-                            "due": {
-                              "type": "string"
-                            },
-                            "interval": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991,
-                              "allOf": [
-                                {
-                                  "minimum": -2147483648
-                                },
-                                {
-                                  "maximum": 2147483647
-                                }
-                              ]
-                            },
-                            "leech": {
-                              "type": "boolean"
-                            }
+                      "retentionStage": {
+                        "type": "string",
+                        "enum": [
+                          "new",
+                          "learning",
+                          "review",
+                          "relearning"
+                        ]
+                      },
+                      "due": {
+                        "type": "string"
+                      },
+                      "interval": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "allOf": [
+                          {
+                            "minimum": -2147483648
                           },
-                          "required": [
-                            "id",
-                            "template",
-                            "queue",
-                            "due",
-                            "interval",
-                            "leech"
-                          ],
-                          "additionalProperties": false
-                        }
+                          {
+                            "maximum": 2147483647
+                          }
+                        ]
+                      },
+                      "ease": {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "Infinity",
+                              "-Infinity",
+                              "NaN"
+                            ]
+                          }
+                        ]
+                      },
+                      "reps": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "allOf": [
+                          {
+                            "minimum": -2147483648
+                          },
+                          {
+                            "maximum": 2147483647
+                          }
+                        ]
+                      },
+                      "lapses": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "allOf": [
+                          {
+                            "minimum": -2147483648
+                          },
+                          {
+                            "maximum": 2147483647
+                          }
+                        ]
+                      },
+                      "leech": {
+                        "type": "boolean"
                       }
                     },
                     "required": [
                       "id",
                       "content",
                       "createdAt",
-                      "cards"
+                      "retentionStage",
+                      "due",
+                      "interval",
+                      "ease",
+                      "reps",
+                      "lapses",
+                      "leech"
                     ],
                     "additionalProperties": false
                   }
@@ -3973,67 +3993,87 @@
                     "createdAt": {
                       "type": "string"
                     },
-                    "cards": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "template": {
-                            "type": "string",
-                            "enum": [
-                              "recognize",
-                              "produce"
-                            ]
-                          },
-                          "queue": {
-                            "type": "string",
-                            "enum": [
-                              "new",
-                              "learning",
-                              "review",
-                              "relearning"
-                            ]
-                          },
-                          "due": {
-                            "type": "string"
-                          },
-                          "interval": {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991,
-                            "allOf": [
-                              {
-                                "minimum": -2147483648
-                              },
-                              {
-                                "maximum": 2147483647
-                              }
-                            ]
-                          },
-                          "leech": {
-                            "type": "boolean"
-                          }
+                    "retentionStage": {
+                      "type": "string",
+                      "enum": [
+                        "new",
+                        "learning",
+                        "review",
+                        "relearning"
+                      ]
+                    },
+                    "due": {
+                      "type": "string"
+                    },
+                    "interval": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "allOf": [
+                        {
+                          "minimum": -2147483648
                         },
-                        "required": [
-                          "id",
-                          "template",
-                          "queue",
-                          "due",
-                          "interval",
-                          "leech"
-                        ],
-                        "additionalProperties": false
-                      }
+                        {
+                          "maximum": 2147483647
+                        }
+                      ]
+                    },
+                    "ease": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "Infinity",
+                            "-Infinity",
+                            "NaN"
+                          ]
+                        }
+                      ]
+                    },
+                    "reps": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "allOf": [
+                        {
+                          "minimum": -2147483648
+                        },
+                        {
+                          "maximum": 2147483647
+                        }
+                      ]
+                    },
+                    "lapses": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "allOf": [
+                        {
+                          "minimum": -2147483648
+                        },
+                        {
+                          "maximum": 2147483647
+                        }
+                      ]
+                    },
+                    "leech": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
                     "id",
                     "content",
                     "createdAt",
-                    "cards"
+                    "retentionStage",
+                    "due",
+                    "interval",
+                    "ease",
+                    "reps",
+                    "lapses",
+                    "leech"
                   ],
                   "additionalProperties": false
                 }
@@ -4386,12 +4426,12 @@
         }
       }
     },
-    "/study/queue": {
+    "/study/due": {
       "get": {
         "tags": [
           "study"
         ],
-        "operationId": "study.queue",
+        "operationId": "study.due",
         "parameters": [
           {
             "name": "limit",
@@ -4424,90 +4464,11 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "card": {
+                          "note": {
                             "type": "object",
                             "properties": {
                               "id": {
                                 "type": "string"
-                              },
-                              "noteId": {
-                                "type": "string"
-                              },
-                              "template": {
-                                "type": "string",
-                                "enum": [
-                                  "recognize",
-                                  "produce"
-                                ]
-                              },
-                              "queue": {
-                                "type": "string",
-                                "enum": [
-                                  "new",
-                                  "learning",
-                                  "review",
-                                  "relearning"
-                                ]
-                              },
-                              "due": {
-                                "type": "string"
-                              },
-                              "interval": {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991,
-                                "allOf": [
-                                  {
-                                    "minimum": -2147483648
-                                  },
-                                  {
-                                    "maximum": 2147483647
-                                  }
-                                ]
-                              },
-                              "ease": {
-                                "anyOf": [
-                                  {
-                                    "type": "number"
-                                  },
-                                  {
-                                    "type": "string",
-                                    "enum": [
-                                      "Infinity",
-                                      "-Infinity",
-                                      "NaN"
-                                    ]
-                                  }
-                                ]
-                              },
-                              "reps": {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991,
-                                "allOf": [
-                                  {
-                                    "minimum": -2147483648
-                                  },
-                                  {
-                                    "maximum": 2147483647
-                                  }
-                                ]
-                              },
-                              "lapses": {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991,
-                                "allOf": [
-                                  {
-                                    "minimum": -2147483648
-                                  },
-                                  {
-                                    "maximum": 2147483647
-                                  }
-                                ]
-                              },
-                              "leech": {
-                                "type": "boolean"
                               },
                               "content": {
                                 "anyOf": [
@@ -4731,20 +4692,91 @@
                                     "additionalProperties": false
                                   }
                                 ]
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "retentionStage": {
+                                "type": "string",
+                                "enum": [
+                                  "new",
+                                  "learning",
+                                  "review",
+                                  "relearning"
+                                ]
+                              },
+                              "due": {
+                                "type": "string"
+                              },
+                              "interval": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "allOf": [
+                                  {
+                                    "minimum": -2147483648
+                                  },
+                                  {
+                                    "maximum": 2147483647
+                                  }
+                                ]
+                              },
+                              "ease": {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "Infinity",
+                                      "-Infinity",
+                                      "NaN"
+                                    ]
+                                  }
+                                ]
+                              },
+                              "reps": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "allOf": [
+                                  {
+                                    "minimum": -2147483648
+                                  },
+                                  {
+                                    "maximum": 2147483647
+                                  }
+                                ]
+                              },
+                              "lapses": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "allOf": [
+                                  {
+                                    "minimum": -2147483648
+                                  },
+                                  {
+                                    "maximum": 2147483647
+                                  }
+                                ]
+                              },
+                              "leech": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
                               "id",
-                              "noteId",
-                              "template",
-                              "queue",
+                              "content",
+                              "createdAt",
+                              "retentionStage",
                               "due",
                               "interval",
                               "ease",
                               "reps",
                               "lapses",
-                              "leech",
-                              "content"
+                              "leech"
                             ],
                             "additionalProperties": false
                           },
@@ -4774,7 +4806,7 @@
                           }
                         },
                         "required": [
-                          "card",
+                          "note",
                           "labels"
                         ],
                         "additionalProperties": false
@@ -4806,37 +4838,30 @@
                       ],
                       "additionalProperties": false
                     },
-                    "dueCards": {
-                      "anyOf": [
-                        {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "noteId": {
-                                "type": "string"
-                              },
-                              "queue": {
-                                "type": "string",
-                                "enum": [
-                                  "new",
-                                  "learning",
-                                  "review",
-                                  "relearning"
-                                ]
-                              }
-                            },
-                            "required": [
-                              "noteId",
-                              "queue"
-                            ],
-                            "additionalProperties": false
+                    "all": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "retentionStage": {
+                            "type": "string",
+                            "enum": [
+                              "new",
+                              "learning",
+                              "review",
+                              "relearning"
+                            ]
                           }
                         },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                        "required": [
+                          "id",
+                          "retentionStage"
+                        ],
+                        "additionalProperties": false
+                      }
                     },
                     "nextDue": {
                       "anyOf": [
@@ -4852,6 +4877,7 @@
                   "required": [
                     "items",
                     "counts",
+                    "all",
                     "nextDue"
                   ],
                   "additionalProperties": false
@@ -4892,7 +4918,7 @@
         }
       }
     },
-    "/study/cards/{id}/answer": {
+    "/study/notes/{id}/answer": {
       "post": {
         "tags": [
           "study"
@@ -4917,90 +4943,11 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "card": {
+                    "note": {
                       "type": "object",
                       "properties": {
                         "id": {
                           "type": "string"
-                        },
-                        "noteId": {
-                          "type": "string"
-                        },
-                        "template": {
-                          "type": "string",
-                          "enum": [
-                            "recognize",
-                            "produce"
-                          ]
-                        },
-                        "queue": {
-                          "type": "string",
-                          "enum": [
-                            "new",
-                            "learning",
-                            "review",
-                            "relearning"
-                          ]
-                        },
-                        "due": {
-                          "type": "string"
-                        },
-                        "interval": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991,
-                          "allOf": [
-                            {
-                              "minimum": -2147483648
-                            },
-                            {
-                              "maximum": 2147483647
-                            }
-                          ]
-                        },
-                        "ease": {
-                          "anyOf": [
-                            {
-                              "type": "number"
-                            },
-                            {
-                              "type": "string",
-                              "enum": [
-                                "Infinity",
-                                "-Infinity",
-                                "NaN"
-                              ]
-                            }
-                          ]
-                        },
-                        "reps": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991,
-                          "allOf": [
-                            {
-                              "minimum": -2147483648
-                            },
-                            {
-                              "maximum": 2147483647
-                            }
-                          ]
-                        },
-                        "lapses": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991,
-                          "allOf": [
-                            {
-                              "minimum": -2147483648
-                            },
-                            {
-                              "maximum": 2147483647
-                            }
-                          ]
-                        },
-                        "leech": {
-                          "type": "boolean"
                         },
                         "content": {
                           "anyOf": [
@@ -5224,20 +5171,91 @@
                               "additionalProperties": false
                             }
                           ]
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "retentionStage": {
+                          "type": "string",
+                          "enum": [
+                            "new",
+                            "learning",
+                            "review",
+                            "relearning"
+                          ]
+                        },
+                        "due": {
+                          "type": "string"
+                        },
+                        "interval": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "allOf": [
+                            {
+                              "minimum": -2147483648
+                            },
+                            {
+                              "maximum": 2147483647
+                            }
+                          ]
+                        },
+                        "ease": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "Infinity",
+                                "-Infinity",
+                                "NaN"
+                              ]
+                            }
+                          ]
+                        },
+                        "reps": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "allOf": [
+                            {
+                              "minimum": -2147483648
+                            },
+                            {
+                              "maximum": 2147483647
+                            }
+                          ]
+                        },
+                        "lapses": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "allOf": [
+                            {
+                              "minimum": -2147483648
+                            },
+                            {
+                              "maximum": 2147483647
+                            }
+                          ]
+                        },
+                        "leech": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
                         "id",
-                        "noteId",
-                        "template",
-                        "queue",
+                        "content",
+                        "createdAt",
+                        "retentionStage",
                         "due",
                         "interval",
                         "ease",
                         "reps",
                         "lapses",
-                        "leech",
-                        "content"
+                        "leech"
                       ],
                       "additionalProperties": false
                     },
@@ -5246,7 +5264,7 @@
                     }
                   },
                   "required": [
-                    "card",
+                    "note",
                     "leech"
                   ],
                   "additionalProperties": false
@@ -5391,11 +5409,6 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
-                    "cards": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
                     "unseen": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -5447,7 +5460,6 @@
                     "reviewedToday",
                     "streak",
                     "notes",
-                    "cards",
                     "unseen",
                     "young",
                     "mature",

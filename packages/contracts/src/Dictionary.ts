@@ -101,7 +101,7 @@ export const Sense = Schema.Struct({
   related: Schema.Array(CrossReference),
   antonyms: Schema.Array(CrossReference),
   nuance: Schema.NullOr(Nuance),
-  /** Kotori's usage note for learners of Japanese, in English (on Japanese words), and for learners of English, in Japanese (on English words). */
+  /** Kotori's usage note for Japanese learners, in English (on Japanese words), and for English learners, in Japanese (on English words). */
   ...Struct.pick(SenseNoteRow.fields, ["note", "noteJa"]),
   similar: Schema.Array(SimilarWord),
   examples: Schema.Array(Example)
@@ -129,7 +129,7 @@ export type EntryAudio = typeof EntryAudio.Type
 
 /**
  * A word in the learner's target language, explained in their own: a Japanese word from
- * JMDict for English speakers, an English word for Japanese speakers.
+ * JMDict for Japanese learners, an English word for English learners.
  */
 export const Entry = Schema.Struct({
   ...Struct.pick(EntryRow.fields, ["id", "language", "headword", "reading", "common"]),

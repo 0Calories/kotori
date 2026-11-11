@@ -50,19 +50,14 @@ export const relations = defineRelations(schema, (r) => ({
     file: r.one.audioFiles({ from: r.audio.key, to: r.audioFiles.key })
   },
   users: {
-    notes: r.many.notes({ from: r.users.id, to: r.notes.userId }),
-    cards: r.many.cards({ from: r.users.id, to: r.cards.userId })
+    notes: r.many.notes({ from: r.users.id, to: r.notes.userId })
   },
   notes: {
     user: r.one.users({ from: r.notes.userId, to: r.users.id, optional: false }),
     entry: r.one.entries({ from: r.notes.entryId, to: r.entries.id }),
-    cards: r.many.cards({ from: r.notes.id, to: r.cards.noteId })
-  },
-  cards: {
-    note: r.one.notes({ from: r.cards.noteId, to: r.notes.id, optional: false }),
-    reviews: r.many.reviewLogs({ from: r.cards.id, to: r.reviewLogs.cardId })
+    reviews: r.many.reviewLogs({ from: r.notes.id, to: r.reviewLogs.noteId })
   },
   reviewLogs: {
-    card: r.one.cards({ from: r.reviewLogs.cardId, to: r.cards.id, optional: false })
+    note: r.one.notes({ from: r.reviewLogs.noteId, to: r.notes.id, optional: false })
   }
 }))

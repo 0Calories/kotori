@@ -4,12 +4,12 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Database } from "../../src/db/Database.ts"
-import * as Eiwa from "../../src/features/dictionary/import/eiwa/Eiwa.ts"
-import { findForms, getEntries, headwordIds, tagLabels } from "../../src/features/dictionary/queries.ts"
+import * as EnglishDictionary from "../../src/features/dictionary/import/english/EnglishDictionary.ts"
+import { findForms, getEntries, headwordIds, tagNames } from "../../src/features/dictionary/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
 // The importer streams its sources from disk, so the fixtures are real files.
-const directory = mkdtempSync(join(tmpdir(), "eiwa-"))
+const directory = mkdtempSync(join(tmpdir(), "english-"))
 afterAll(() => rmSync(directory, { recursive: true, force: true }))
 const file = (name: string, lines: ReadonlyArray<string>) => {
   const path = join(directory, name)
@@ -66,10 +66,10 @@ const jmdictFile = file("JMdict.xml", [jmdict])
 
 const TestLayer = DatabaseMemory
 
-layer(TestLayer)("Eiwa.importFiles", (it) => {
+layer(TestLayer)("EnglishDictionary.importFiles", (it) => {
   it.effect("loads each word from the first source that has it, next to JMDict's", () =>
     Effect.gen(function* () {
-      const result = yield* Eiwa.importFiles({ files: files(true), jmdict: jmdictFile })
+      const result = yield* EnglishDictionary.importFiles({ files: files(true), jmdict: jmdictFile })
       assert.deepStrictEqual(result, { removed: 0, entries: 5, curated: 2, wiktionary: 2, jmdict: 1 })
 
       const db = yield* Database
@@ -85,7 +85,7 @@ layer(TestLayer)("Eiwa.importFiles", (it) => {
         selfie?.senses.map((sense) => sense.glosses[0]?.text),
         ["自撮り"]
       )
-      assert.strictEqual((yield* tagLabels(db)).get("en-GB"), "British English")
+      assert.strictEqual((yield* tagNames(db)).get("en-GB"), "British English")
     })
   )
 
@@ -102,7 +102,7 @@ layer(TestLayer)("Eiwa.importFiles", (it) => {
         }),
         JSON.stringify({ alias: { text: "walking on thin ice", base: "on thin ice" } })
       ])
-      const result = yield* Eiwa.importFiles({ files: { ...files(true), approved }, jmdict: jmdictFile })
+      const result = yield* EnglishDictionary.importFiles({ files: { ...files(true), approved }, jmdict: jmdictFile })
       assert.strictEqual(result.curated, 3)
 
       const db = yield* Database
@@ -113,7 +113,7 @@ layer(TestLayer)("Eiwa.importFiles", (it) => {
       assert.strictEqual(walking?.entryId, ids.get("on thin ice"))
 
       // Without the approved file, its words go the way of any removed source word.
-      const without = yield* Eiwa.importFiles({ files: files(true), jmdict: jmdictFile })
+      const without = yield* EnglishDictionary.importFiles({ files: files(true), jmdict: jmdictFile })
       assert.strictEqual(without.removed, 1)
     })
   )
@@ -124,10 +124,13 @@ layer(TestLayer)("Eiwa.importFiles", (it) => {
       const before = yield* headwordIds(db, "en")
 
       // A partial import never removes anything.
-      assert.strictEqual((yield* Eiwa.importFiles({ files: files(false), jmdict: jmdictFile, limit: 1 })).removed, 0)
+      assert.strictEqual(
+        (yield* EnglishDictionary.importFiles({ files: files(false), jmdict: jmdictFile, limit: 1 })).removed,
+        0
+      )
       assert.strictEqual((yield* headwordIds(db, "en")).size, 5)
 
-      const result = yield* Eiwa.importFiles({ files: files(false), jmdict: jmdictFile })
+      const result = yield* EnglishDictionary.importFiles({ files: files(false), jmdict: jmdictFile })
       assert.strictEqual(result.removed, 1)
       const after = yield* headwordIds(db, "en")
       assert.isFalse(after.has("walk"))

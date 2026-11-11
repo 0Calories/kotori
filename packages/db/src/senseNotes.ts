@@ -9,9 +9,9 @@ export const senseNotes = table(
   {
     entryId: integer().$type<EntryId>().notNull(),
     sense: integer().notNull(),
-    /** On a Japanese word, for learners of Japanese, in English; null when the glosses say it all. */
+    /** On a Japanese word, for Japanese learners, in English; null when the glosses say it all. */
     note: text(),
-    /** On an English word, for learners of English, in Japanese; null likewise. */
+    /** On an English word, for English learners, in Japanese; null likewise. */
     noteJa: text(),
     model: text().notNull(),
     createdAt: createdAt()

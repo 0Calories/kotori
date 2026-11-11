@@ -395,8 +395,8 @@ const mergeInflections = (forms: ReadonlyArray<InflectedForm>): Array<InflectedF
 }
 
 /**
- * Reads `data/eiwa/enwiktionary-ja.jsonl`: curated English Wiktionary entries whose senses
- * have been consolidated and ordered for Japanese learners.
+ * Reads `data/english/enwiktionary-ja.jsonl`: curated English Wiktionary entries whose senses
+ * have been consolidated and ordered for English learners.
  */
 export const curatedParser = () => {
   const byHeadword = new Map<string, Word>()

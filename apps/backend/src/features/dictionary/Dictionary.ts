@@ -50,7 +50,7 @@ import {
   searchGlosses,
   searchGlossesFuzzy,
   searchJapaneseGlosses,
-  tagLabels
+  tagNames
 } from "./queries.ts"
 
 export const audioUrl = (key: string) => `/audio/${key}.mp3`
@@ -253,7 +253,7 @@ const guessedInflection = (tags: ReadonlyArray<string>, entry: EntryRecord | und
 export class Dictionary extends Context.Service<
   Dictionary,
   {
-    /** Searches the dictionary of `language`: Japanese words for learners of Japanese, English ones for learners of English. */
+    /** Searches the dictionary of `language`: Japanese words for Japanese learners, English ones for English learners. */
     search(query: string, language: Language, limit: number): Effect.Effect<SearchResult>
     entry(id: EntryId): Effect.Effect<Option.Option<Entry>>
     /** Queues whatever enrichment an entry is missing, returning its status. */
@@ -483,7 +483,7 @@ export class Dictionary extends Context.Service<
       })
 
       // ---------------------------------------------------------------------
-      // Search: English words, the same way round for Japanese speakers
+      // Search: English words, the same way round for English learners
       // ---------------------------------------------------------------------
 
       /**
@@ -783,8 +783,8 @@ export class Dictionary extends Context.Service<
       })
 
       const assemble = Effect.fnUntraced(function* (entry: EntryRecord) {
-        const tags = yield* tagLabels(db)
-        const tag = (code: string): Tag => ({ code, label: tags.get(code) ?? code })
+        const tags = yield* tagNames(db)
+        const tag = (code: string): Tag => ({ code, name: tags.get(code) ?? code })
 
         const nuance = new Map((yield* nuanceFor(db, [entry.id])).map((row) => [row.sense, row.nuance]))
         const notes = new Map((yield* senseNotesFor(db, [entry.id])).map((row) => [row.sense, row]))

@@ -272,7 +272,7 @@ layer(TestLayer)("the worker", (it) => {
       ])
       const step = yield* makeJobRunner()
 
-      // What the API queues when a Japanese speaker opens the English word.
+      // What the API queues when an English learner opens the English word.
       yield* enqueueJob(db, "nuance", styleEnglish, 100, new Date(0))
       assert.strictEqual(yield* drain(step), 1)
       const judged = Effect.map(loanWordsFor(db, [styleEnglish]), (rows) =>

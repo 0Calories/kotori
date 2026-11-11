@@ -4,20 +4,20 @@
  * learning steps, graduating/easy intervals, ease adjustments, late/early
  * review credit, lapses with relearning steps, leech detection and fuzz.
  */
-import type { CardQueue, Rating } from "@kotori/contracts"
+import type { RetentionStage, Rating } from "@kotori/contracts"
 import { defaultConfig, type SchedulerConfig } from "./config.ts"
 import { dayNumber, dayStart, type ReviewContext } from "./time.ts"
 
-export type { CardQueue, Rating }
+export type { RetentionStage, Rating }
 export const ratings: ReadonlyArray<Rating> = ["again", "hard", "good", "easy"]
 
-export interface CardState {
-  readonly queue: CardQueue
-  /** Epoch ms when the card is next due. Review cards are due at the start of a study day. */
+export interface NoteState {
+  readonly retentionStage: RetentionStage
+  /** Epoch ms when the note is next due. Review notes are due at the start of a study day. */
   readonly due: number
-  /** Review interval in days. For relearning cards, the interval they return to review with. */
+  /** Review interval in days. For relearning notes, the interval they return to review with. */
   readonly interval: number
-  /** Ease factor (2.5 = 250%). Zero until the card first graduates. */
+  /** Ease factor (2.5 = 250%). Zero until the note first graduates. */
   readonly ease: number
   /** Index into the (re)learning steps. */
   readonly step: number
@@ -28,25 +28,25 @@ export interface CardState {
 
 export interface ReviewLog {
   readonly rating: Rating
-  readonly queueBefore: CardQueue
-  readonly queue: CardQueue
+  readonly retentionStageBefore: RetentionStage
+  readonly retentionStage: RetentionStage
   readonly intervalBefore: number
   readonly interval: number
   readonly easeBefore: number
   readonly ease: number
-  /** Milliseconds until the card is due again. */
+  /** Milliseconds until the note is due again. */
   readonly delay: number
-  /** True when this answer pushed the card over the leech threshold. */
+  /** True when this answer pushed the note over the leech threshold. */
   readonly leech: boolean
 }
 
 export interface ReviewOutcome {
-  readonly card: CardState
+  readonly note: NoteState
   readonly log: ReviewLog
 }
 
-export const newCard = (now: number): CardState => ({
-  queue: "new",
+export const newNote = (now: number): NoteState => ({
+  retentionStage: "new",
   due: now,
   interval: 0,
   ease: 0,
@@ -152,18 +152,18 @@ const hardDelaySecs = (steps: ReadonlyArray<number>, index: number) => {
 const today = (s: Scheduler) => dayNumber(s.ctx.now, s.ctx)
 
 interface Next {
-  readonly queue: CardQueue
+  readonly retentionStage: RetentionStage
   readonly step: number
   readonly interval: number
   readonly ease: number
   readonly lapses: number
-  /** Learning delay in seconds; review cards are scheduled by interval instead. */
+  /** Learning delay in seconds; review notes are scheduled by interval instead. */
   readonly delaySecs?: number
   readonly leech?: boolean
 }
 
 const toReview = (interval: number, ease: number, lapses: number): Next => ({
-  queue: "review",
+  retentionStage: "review",
   step: 0,
   interval,
   ease,
@@ -172,26 +172,26 @@ const toReview = (interval: number, ease: number, lapses: number): Next => ({
 
 const learning = (
   s: Scheduler,
-  queue: "learning" | "relearning",
+  retentionStage: "learning" | "relearning",
   step: number,
   secs: number,
-  card: Omit<Next, "queue" | "step">
+  note: Omit<Next, "retentionStage" | "step">
 ): Next => ({
-  ...card,
-  queue,
+  ...note,
+  retentionStage,
   step,
   delaySecs: withLearningFuzz(s, secs)
 })
 
-const answerLearning = (s: Scheduler, card: CardState, rating: Rating): Next => {
+const answerLearning = (s: Scheduler, note: NoteState, rating: Rating): Next => {
   const steps = s.config.learningSteps
   const ease = s.config.startingEase
-  const index = Math.min(card.step, Math.max(steps.length - 1, 0))
-  const base = { interval: 0, ease: 0, lapses: card.lapses }
+  const index = Math.min(note.step, Math.max(steps.length - 1, 0))
+  const base = { interval: 0, ease: 0, lapses: note.lapses }
 
   const graduate = () => {
     const [min, max] = reviewBounds(s, 1)
-    return toReview(withReviewFuzz(s, s.config.graduatingInterval, min, max), ease, card.lapses)
+    return toReview(withReviewFuzz(s, s.config.graduatingInterval, min, max), ease, note.lapses)
   }
 
   switch (rating) {
@@ -209,7 +209,7 @@ const answerLearning = (s: Scheduler, card: CardState, rating: Rating): Next => 
     }
     case "easy": {
       const [min, max] = reviewBounds(s, s.config.graduatingInterval + 1)
-      return toReview(withReviewFuzz(s, s.config.easyInterval, min, max), ease, card.lapses)
+      return toReview(withReviewFuzz(s, s.config.easyInterval, min, max), ease, note.lapses)
     }
   }
 }
@@ -220,9 +220,9 @@ const isLeech = (lapses: number, threshold: number) => {
   return lapses >= threshold && (lapses - threshold) % half === 0
 }
 
-const passingIntervals = (s: Scheduler, card: CardState) => {
-  const scheduled = card.interval
-  const daysLate = today(s) - dayNumber(card.due, s.ctx)
+const passingIntervals = (s: Scheduler, note: NoteState) => {
+  const scheduled = note.interval
+  const daysLate = today(s) - dayNumber(note.due, s.ctx)
   const { hardMultiplier, easyBonus } = s.config
 
   if (daysLate < 0) {
@@ -233,26 +233,26 @@ const passingIntervals = (s: Scheduler, card: CardState) => {
       0,
       false
     )
-    const good = constrainPassingInterval(s, Math.max(elapsed * card.ease, scheduled), 0, false)
+    const good = constrainPassingInterval(s, Math.max(elapsed * note.ease, scheduled), 0, false)
     const reducedBonus = easyBonus - (easyBonus - 1) / 2
-    const easy = constrainPassingInterval(s, Math.max(elapsed * card.ease, scheduled) * reducedBonus, 0, false)
+    const easy = constrainPassingInterval(s, Math.max(elapsed * note.ease, scheduled) * reducedBonus, 0, false)
     return { hard, good, easy }
   }
 
   const hardMinimum = hardMultiplier <= 1 ? 0 : scheduled + 1
   const hard = constrainPassingInterval(s, scheduled * hardMultiplier, hardMinimum, true)
   const goodMinimum = hardMultiplier <= 1 ? scheduled + 1 : hard + 1
-  const good = constrainPassingInterval(s, (scheduled + daysLate / 2) * card.ease, goodMinimum, true)
-  const easy = constrainPassingInterval(s, (scheduled + daysLate) * card.ease * easyBonus, good + 1, true)
+  const good = constrainPassingInterval(s, (scheduled + daysLate / 2) * note.ease, goodMinimum, true)
+  const easy = constrainPassingInterval(s, (scheduled + daysLate) * note.ease * easyBonus, good + 1, true)
   return { hard, good, easy }
 }
 
-const answerReview = (s: Scheduler, card: CardState, rating: Rating): Next => {
+const answerReview = (s: Scheduler, note: NoteState, rating: Rating): Next => {
   if (rating === "again") {
-    const lapses = card.lapses + 1
-    const ease = Math.max(round2(card.ease - 0.2), MIN_EASE)
+    const lapses = note.lapses + 1
+    const ease = Math.max(round2(note.ease - 0.2), MIN_EASE)
     const [min, max] = reviewBounds(s, s.config.minimumInterval)
-    const interval = clamp(Math.round(card.interval * s.config.lapseMultiplier), min, max)
+    const interval = clamp(Math.round(note.interval * s.config.lapseMultiplier), min, max)
     const leech = isLeech(lapses, s.config.leechThreshold)
     const secs = stepSecs(s.config.relearningSteps, 0)
     return secs === undefined
@@ -260,22 +260,22 @@ const answerReview = (s: Scheduler, card: CardState, rating: Rating): Next => {
       : { ...learning(s, "relearning", 0, secs, { interval, ease, lapses }), leech }
   }
 
-  const { hard, good, easy } = passingIntervals(s, card)
+  const { hard, good, easy } = passingIntervals(s, note)
   switch (rating) {
     case "hard":
-      return toReview(hard, Math.max(round2(card.ease - 0.15), MIN_EASE), card.lapses)
+      return toReview(hard, Math.max(round2(note.ease - 0.15), MIN_EASE), note.lapses)
     case "good":
-      return toReview(good, card.ease, card.lapses)
+      return toReview(good, note.ease, note.lapses)
     case "easy":
-      return toReview(easy, round2(card.ease + 0.15), card.lapses)
+      return toReview(easy, round2(note.ease + 0.15), note.lapses)
   }
 }
 
-const answerRelearning = (s: Scheduler, card: CardState, rating: Rating): Next => {
+const answerRelearning = (s: Scheduler, note: NoteState, rating: Rating): Next => {
   const steps = s.config.relearningSteps
-  const index = Math.min(card.step, Math.max(steps.length - 1, 0))
-  const base = { interval: card.interval, ease: card.ease, lapses: card.lapses }
-  const backToReview = () => toReview(card.interval, card.ease, card.lapses)
+  const index = Math.min(note.step, Math.max(steps.length - 1, 0))
+  const base = { interval: note.interval, ease: note.ease, lapses: note.lapses }
+  const backToReview = () => toReview(note.interval, note.ease, note.lapses)
 
   switch (rating) {
     case "again": {
@@ -292,49 +292,49 @@ const answerRelearning = (s: Scheduler, card: CardState, rating: Rating): Next =
     }
     case "easy": {
       const [min, max] = reviewBounds(s, 1)
-      return toReview(clamp(card.interval + 1, min, max), card.ease, card.lapses)
+      return toReview(clamp(note.interval + 1, min, max), note.ease, note.lapses)
     }
   }
 }
 
-/** Answers a card, returning its next state and a review log entry. */
+/** Answers a note, returning its next state and a review log entry. */
 export const answer = (
-  card: CardState,
+  note: NoteState,
   rating: Rating,
   ctx: ReviewContext,
   config: SchedulerConfig = defaultConfig
 ): ReviewOutcome => {
-  const s: Scheduler = { config, ctx, fuzz: config.fuzz ? fuzzFactor(ctx.seed, card.reps) : null }
+  const s: Scheduler = { config, ctx, fuzz: config.fuzz ? fuzzFactor(ctx.seed, note.reps) : null }
 
   const next =
-    card.queue === "review"
-      ? answerReview(s, card, rating)
-      : card.queue === "relearning"
-        ? answerRelearning(s, card, rating)
-        : answerLearning(s, card, rating)
+    note.retentionStage === "review"
+      ? answerReview(s, note, rating)
+      : note.retentionStage === "relearning"
+        ? answerRelearning(s, note, rating)
+        : answerLearning(s, note, rating)
 
   const due = next.delaySecs !== undefined ? ctx.now + next.delaySecs * 1000 : dayStart(today(s) + next.interval, ctx)
 
-  const updated: CardState = {
-    queue: next.queue,
+  const updated: NoteState = {
+    retentionStage: next.retentionStage,
     due,
     interval: next.interval,
     ease: next.ease,
     step: next.step,
-    reps: card.reps + 1,
+    reps: note.reps + 1,
     lapses: next.lapses,
     lastReview: ctx.now
   }
 
   return {
-    card: updated,
+    note: updated,
     log: {
       rating,
-      queueBefore: card.queue,
-      queue: updated.queue,
-      intervalBefore: card.interval,
+      retentionStageBefore: note.retentionStage,
+      retentionStage: updated.retentionStage,
+      intervalBefore: note.interval,
       interval: updated.interval,
-      easeBefore: card.ease,
+      easeBefore: note.ease,
       ease: updated.ease,
       delay: due - ctx.now,
       leech: next.leech ?? false
@@ -343,20 +343,20 @@ export const answer = (
 }
 
 export interface Preview {
-  readonly queue: CardQueue
+  readonly retentionStage: RetentionStage
   readonly due: number
   readonly interval: number
 }
 
 /** The outcome of each answer button, for labelling them ("10m", "1d", "4d"…). */
 export const preview = (
-  card: CardState,
+  note: NoteState,
   ctx: ReviewContext,
   config: SchedulerConfig = defaultConfig
 ): Record<Rating, Preview> => {
   const of = (rating: Rating): Preview => {
-    const { card: next } = answer(card, rating, ctx, config)
-    return { queue: next.queue, due: next.due, interval: next.interval }
+    const { note: next } = answer(note, rating, ctx, config)
+    return { retentionStage: next.retentionStage, due: next.due, interval: next.interval }
   }
   return { again: of("again"), hard: of("hard"), good: of("good"), easy: of("easy") }
 }

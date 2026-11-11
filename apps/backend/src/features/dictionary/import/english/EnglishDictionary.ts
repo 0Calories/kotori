@@ -18,7 +18,7 @@ import { ENGLISH_TAGS } from "./tags.ts"
 import { curatedParser, parsePhraseIndex, WIKTIONARY_URL, wiktionaryParser } from "./wiktionary.ts"
 import { addRedirect, type FormOf, type Word } from "./words.ts"
 
-export class EiwaError extends Schema.TaggedError<EiwaError>()("EiwaError", {
+export class EnglishDictionaryError extends Schema.TaggedError<EnglishDictionaryError>()("EnglishDictionaryError", {
   message: Schema.String,
   cause: Schema.optional(Schema.Defect())
 }) {}
@@ -40,7 +40,7 @@ export interface Files {
 }
 
 /** Downloads the English dictionary's sources into `directory` (~65 MB, mostly Wiktionary). */
-export const download = Effect.fn("Eiwa.download")(
+export const download = Effect.fn("EnglishDictionary.download")(
   function* (directory: string) {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
@@ -66,7 +66,9 @@ export const download = Effect.fn("Eiwa.download")(
     }
     return files
   },
-  Effect.mapError((cause) => new EiwaError({ message: "Could not download the English dictionary", cause }))
+  Effect.mapError(
+    (cause) => new EnglishDictionaryError({ message: "Could not download the English dictionary", cause })
+  )
 )
 
 /** Feeds each line of a text file, gzipped or not, to `read`, streaming it rather than loading it whole. */
@@ -80,7 +82,7 @@ const eachLine = (file: string, read: (line: string) => void) =>
       })
       for await (const line of lines) read(line)
     },
-    catch: (cause) => new EiwaError({ message: `Could not read ${file}`, cause })
+    catch: (cause) => new EnglishDictionaryError({ message: `Could not read ${file}`, cause })
   })
 
 const readLines = (file: string) =>
@@ -105,7 +107,7 @@ const eachJmdictEntry = (file: string, read: (entry: EntryRecord) => void) =>
         for (const entry of split(chunk as string)) read(entry)
       }
     },
-    catch: (cause) => new EiwaError({ message: `Could not read ${file}`, cause })
+    catch: (cause) => new EnglishDictionaryError({ message: `Could not read ${file}`, cause })
   })
 
 /** What the dictionary already knows before JMDict is read backwards for what is missing. */
@@ -216,7 +218,7 @@ export const buildEntries = (options: ImportOptions) => build(options, new Map()
  * Builds the English dictionary from its sources and loads it alongside JMDict. Re-importing
  * updates words in place, keeping their ids, so enrichment and saved words survive.
  */
-export const importFiles = Effect.fn("Eiwa.importFiles")(function* (options: ImportOptions) {
+export const importFiles = Effect.fn("EnglishDictionary.importFiles")(function* (options: ImportOptions) {
   const db = yield* Database
   const existing = yield* headwordIds(db, "en")
   const entries: ReadonlyArray<EntryRecord & { readonly source: Source }> = yield* build(options, existing)

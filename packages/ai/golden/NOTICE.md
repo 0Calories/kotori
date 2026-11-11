@@ -13,8 +13,8 @@ Attribution-ShareAlike 4.0 International licence, and is shared under that licen
 - **English Wiktionary** (<https://en.wiktionary.org>), by its contributors, CC BY-SA 4.0, as
   extracted by Wiktextract (<https://github.com/tatuylonen/wiktextract>) for kaikki.org
   (<https://kaikki.org/dictionary/English/>). Consolidated and translated into Japanese in
-  `data/eiwa/enwiktionary-ja.jsonl` and indexed in `data/eiwa/enwiktionary-phrases.json` (see
-  `data/eiwa/NOTICE.md`) for curated English words, idioms, and slang.
+  `data/english/enwiktionary-ja.jsonl` and indexed in `data/english/enwiktionary-phrases.json` (see
+  `data/english/NOTICE.md`) for curated English words, idioms, and slang.
 - **Japanese Wiktionary** (<https://ja.wiktionary.org>), by its contributors, CC BY-SA 4.0, as
   extracted by Wiktextract (<https://github.com/tatuylonen/wiktextract>) for kaikki.org
   (<https://kaikki.org/jawiktionary/>). Most remaining English words' senses, readings and usage
@@ -23,6 +23,6 @@ Attribution-ShareAlike 4.0 International licence, and is shared under that licen
   OpenSubtitles 2018, CC BY-SA 4.0. The word counts behind English words' `common` mark.
 
 Changes: entries are cut to the senses Kotori judges and reduced to their glosses, parts of
-speech, tags and sources; English words are built from the sources above as `Eiwa`
+speech, tags and sources; English words are built from the sources above as `EnglishDictionary`
 imports them (senses consolidated or merged, ranked and relabelled in JMdict's codes), and each
 golden English word's katakana loan candidates are listed under `loans`.

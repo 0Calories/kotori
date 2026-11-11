@@ -2,7 +2,7 @@ import { Console, Effect, FileSystem, Option } from "effect"
 import { Command, Flag } from "effect/cli"
 import { Database } from "../db/Database.ts"
 import { APPROVED_JA_FILE, parseApprovedJa } from "../features/asks/review.ts"
-import * as Eiwa from "../features/dictionary/import/eiwa/Eiwa.ts"
+import * as EnglishDictionary from "../features/dictionary/import/english/EnglishDictionary.ts"
 import * as JMDict from "../features/dictionary/import/jmdict/JMDict.ts"
 import { countOf, entryCount, findForms, getEntries, insertEntries } from "../features/dictionary/index.ts"
 import { resolveFromRoot } from "../runtime/Paths.ts"
@@ -12,7 +12,7 @@ export const seed = Command.make(
   {
     dictionary: Flag.Literals("dictionary", ["all", "jmdict", "english"]).pipe(
       Flag.withDescription(
-        "Which dictionary to import: JMDict (Japanese words, for English speakers), the English one (for Japanese speakers), or both"
+        "Which dictionary to import: JMDict (Japanese words, for Japanese learners), the English one (for English learners), or both"
       ),
       Flag.withDefault("all")
     ),
@@ -97,9 +97,9 @@ export const seed = Command.make(
       if (ifEmpty && existing > 0) {
         yield* Console.log(`The English dictionary already has ${existing.toLocaleString()} words.`)
       } else {
-        const files = yield* Eiwa.download("data/eiwa")
+        const files = yield* EnglishDictionary.download("data/english")
         const started = Date.now()
-        const result = yield* Eiwa.importFiles({
+        const result = yield* EnglishDictionary.importFiles({
           files,
           jmdict: yield* jmdict,
           limit: Option.getOrUndefined(limit),

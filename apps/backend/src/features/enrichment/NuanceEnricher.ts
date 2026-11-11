@@ -15,7 +15,7 @@ import type { EntryRecord } from "@kotori/contracts"
 import type { EntryId } from "@kotori/db"
 import { Clock, Context, Effect, Layer, Option, Schema } from "effect"
 import { Database } from "../../db/Database.ts"
-import { findForms, getEntries, loanCandidates, sharedGlossCandidates, tagLabels } from "../dictionary/index.ts"
+import { findForms, getEntries, loanCandidates, sharedGlossCandidates, tagNames } from "../dictionary/index.ts"
 import {
   loanAnswersFor,
   nuanceAnswersFor,
@@ -95,7 +95,7 @@ export class NuanceEnricher extends Context.Service<
 
         const judgment = yield* judge.judge({
           entry,
-          tags: yield* tagLabels(db),
+          tags: yield* tagNames(db),
           candidates: yield* Effect.forEach(senses, (_, index) =>
             index < SIMILAR_SENSES ? candidatesFor(entry, index) : Effect.succeed([])
           ),

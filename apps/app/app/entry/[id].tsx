@@ -19,7 +19,7 @@ import { Header, Screen, Section } from "../../src/components/Screen.tsx"
 import { Snow } from "../../src/components/Snow.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
-import { posLabel, tagLabel } from "../../src/i18n/strings.ts"
+import { posLabel, tagName } from "../../src/i18n/strings.ts"
 import { findForm } from "../../src/lib/forms.ts"
 import { wordNote } from "../../src/lib/notes.ts"
 import { CONFIDENT, dictionaryTags, nuanceNotes, registerDisplay, registers } from "../../src/lib/nuance.ts"
@@ -92,7 +92,7 @@ const NuanceCard = ({ nuance }: { readonly nuance: Nuance }) => {
 }
 
 /**
- * An English word's katakana loan, which Japanese speakers already think they know: a drifted
+ * An English word's katakana loan, which English learners already think they know: a drifted
  * one (スタイル is first someone's figure) is the headline warning, with Claude's sentence on
  * how they differ; a matching one is quiet good news. Unsure verdicts, and loans Jev judges not
  * English, aren't shown.
@@ -161,7 +161,7 @@ const SenseCard = ({
   const router = useRouter()
   const [first, second, ...rest] = sense.glosses
   const separator = glossSeparator(language)
-  const pos = [...new Set(sense.partsOfSpeech.map((tag) => posLabel(t, tag.code) ?? tag.label))].filter(
+  const pos = [...new Set(sense.partsOfSpeech.map((tag) => posLabel(t, tag.code) ?? tag.name))].filter(
     (label) => label !== partOfSpeech
   )
   const open = (id: number) => router.push({ pathname: "/entry/[id]", params: { id: String(id) } })
@@ -214,7 +214,7 @@ const SenseCard = ({
               <Chip key={label} label={label} />
             ))}
             {tags.map((tag) => (
-              <Chip key={tag.code} label={tagLabel(t, tag)} />
+              <Chip key={tag.code} label={tagName(t, tag)} />
             ))}
           </View>
         ) : null}
@@ -427,7 +427,7 @@ export default function EntryScreen() {
   ]
   const byAi = data.senses.some((sense) => sense.nuance || sense.examples.length > 0 || sense.similar.length > 0)
   const firstPos = data.senses[0]?.partsOfSpeech[0]
-  const partOfSpeech = firstPos ? (posLabel(t, firstPos.code) ?? firstPos.label) : null
+  const partOfSpeech = firstPos ? (posLabel(t, firstPos.code) ?? firstPos.name) : null
   const forms = [data.headword, ...data.forms.map((form) => form.text), ...(language === "ja" ? [data.reading] : [])]
   const size = headwordSize(data.headword, language)
   const headwordAudio = data.audioUrl

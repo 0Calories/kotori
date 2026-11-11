@@ -22,4 +22,4 @@ export const formatDelay = (ms: number) => {
 
 /** Label for an answer button, given what that answer would schedule. */
 export const formatPreview = (preview: Preview, now: number) =>
-  preview.queue === "review" ? formatDays(preview.interval) : formatDelay(preview.due - now)
+  preview.retentionStage === "review" ? formatDays(preview.interval) : formatDelay(preview.due - now)

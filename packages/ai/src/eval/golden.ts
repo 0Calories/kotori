@@ -229,7 +229,7 @@ export const GOLDEN_PAIRS: ReadonlyArray<GoldenPair> = [
   p("学校", 1206730, 0, "会社", 1198550, 0, { similar: false })
 ]
 
-// --- English words, for Japanese speakers ------------------------------------------
+// --- English words, for English learners -------------------------------------------
 //
 // Senses of the English dictionary, named by headword: its ids are numbered at import. Each
 // names how its sense's Japanese glosses start, so a re-import that reorders senses is caught.

@@ -50,11 +50,12 @@ export const englishDocument = (column: AnyPgColumn) =>
 
 export const language = pgEnum("language", ["en", "ja"])
 
-export const cardQueue = pgEnum("card_queue", ["new", "learning", "review", "relearning"])
+/** How far along a note is in being learned. */
+export const retentionStage = pgEnum("retention_stage", ["new", "learning", "review", "relearning"])
 
 export const formality = pgEnum("formality", ["vulgar", "casual", "neutral", "polite", "formal"])
 
-/** Kotori teaches in both directions: English speakers learning Japanese and Japanese speakers learning English. */
+/** Kotori teaches in both directions: Japanese learners and English learners. */
 export const Language = Schema.Literals(language.enumValues)
 export type Language = typeof Language.Type
 

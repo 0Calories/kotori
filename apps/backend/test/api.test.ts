@@ -9,7 +9,7 @@ import { Database } from "../src/db/Database.ts"
 import { scopedToUser } from "../src/db/scopedToUser.ts"
 import { updateUser, userById } from "../src/features/accounts/queries.ts"
 import { insertEntries } from "../src/features/dictionary/queries.ts"
-import { cardWithContent, noteCount, studyDays } from "../src/features/study/queries.ts"
+import { noteById, noteCount, studyDays } from "../src/features/study/queries.ts"
 import { AuthorizationLive } from "../src/http/Authorization.ts"
 import { AllHandlers } from "../src/http/handlers.ts"
 import { Auth, TestAuth } from "../src/integrations/auth/Auth.ts"
@@ -229,7 +229,7 @@ layer(TestLayer)("Kotori API", (it) => {
       const missing = yield* api.dictionary.entry({ params: { id: 999 as never } }).pipe(Effect.flip)
       assert.strictEqual(missing._tag, "NotFound")
 
-      // Japanese speakers learning English search the English dictionary the same way round.
+      // English learners search the English dictionary the same way round.
       yield* insertEntries(db, [
         {
           ...entry(100000001, "eat", "/iːt/", ["～を食べる"], ["v"]),
@@ -268,27 +268,27 @@ layer(TestLayer)("Kotori API", (it) => {
           }
         }
       })
-      assert.strictEqual(note.cards.length, 1)
-      assert.strictEqual(note.cards[0]?.template, "recognize")
+      assert.strictEqual(note.retentionStage, "new")
 
       // Saving the same sense again is idempotent.
       const again = yield* api.study.addNote({ payload: { content: note.content } })
       assert.strictEqual(again.id, note.id)
 
-      const queue = yield* api.study.queue({ query: {} })
-      assert.deepStrictEqual(queue.counts, { new: 1, learning: 0, review: 0 })
-      assert.strictEqual(queue.items.length, 1)
-      const first = queue.items[0]!
+      const due = yield* api.study.due({ query: {} })
+      assert.deepStrictEqual(due.counts, { new: 1, learning: 0, review: 0 })
+      assert.strictEqual(due.items.length, 1)
+      const first = due.items[0]!
+      assert.strictEqual(first.note.id, note.id)
       assert.strictEqual(first.labels.again, "1m")
 
-      const answered = yield* api.study.answer({ params: { id: first.card.id }, payload: { rating: "easy" } })
-      assert.strictEqual(answered.card.queue, "review")
-      assert.isAtLeast(answered.card.interval, 3)
+      const answered = yield* api.study.answer({ params: { id: first.note.id }, payload: { rating: "easy" } })
+      assert.strictEqual(answered.note.retentionStage, "review")
+      assert.isAtLeast(answered.note.interval, 3)
 
       const stats = yield* api.study.stats()
       assert.strictEqual(stats.reviewedToday, 1)
       assert.strictEqual(stats.streak, 1)
-      assert.strictEqual(stats.cards, 1)
+      assert.strictEqual(stats.notes, 1)
       assert.strictEqual(stats.unseen, 0)
 
       yield* api.study.removeNote({ params: { id: note.id } })
@@ -296,9 +296,9 @@ layer(TestLayer)("Kotori API", (it) => {
     }).pipe(Effect.provide(Session))
   )
 
-  it.effect("returns every counted card even when the queue page is smaller", () =>
+  it.effect("returns every counted due note even when the page is smaller", () =>
     Effect.gen(function* () {
-      yield* signedIn("queue-membership@example.com")
+      yield* signedIn("due-membership@example.com")
       const api = yield* client
       yield* api.account.update({ payload: { dailyNewLimit: 2 } })
       const saved = []
@@ -319,17 +319,17 @@ layer(TestLayer)("Kotori API", (it) => {
           })
         )
       }
-      const queue = yield* api.study.queue({ query: { limit: 1 } })
-      assert.strictEqual(queue.items.length, 1)
-      assert.deepStrictEqual(queue.counts, { new: 2, learning: 0, review: 0 })
+      const due = yield* api.study.due({ query: { limit: 1 } })
+      assert.strictEqual(due.items.length, 1)
+      assert.deepStrictEqual(due.counts, { new: 2, learning: 0, review: 0 })
       assert.deepStrictEqual(
-        queue.dueCards,
-        saved.slice(0, 2).map((note) => ({ noteId: note.id, queue: "new" }))
+        due.all,
+        saved.slice(0, 2).map((note) => ({ id: note.id, retentionStage: "new" }))
       )
     }).pipe(Effect.provide(Session))
   )
 
-  it.effect("deletes a note for its owner only, along with the card and review log", () =>
+  it.effect("deletes a note for its owner only, along with its review log", () =>
     Effect.gen(function* () {
       const owner = yield* signedIn("remove-owner@example.com")
       const api = yield* client
@@ -345,8 +345,7 @@ layer(TestLayer)("Kotori API", (it) => {
         source: "manual" as const
       }
       const note = yield* api.study.addNote({ payload: { content: phrase } })
-      const cardId = note.cards[0]!.id
-      yield* api.study.answer({ params: { id: cardId }, payload: { rating: "good" } })
+      yield* api.study.answer({ params: { id: note.id }, payload: { rating: "good" } })
       assert.isAtLeast((yield* studyDays(own)).length, 1)
 
       // No session: refused before the note is looked up.
@@ -368,12 +367,11 @@ layer(TestLayer)("Kotori API", (it) => {
       assert.strictEqual((yield* api.study.notes()).map((row) => row.id).join(), note.id)
       yield* api.study.removeNote({ params: { id: note.id } })
       assert.deepStrictEqual(yield* api.study.notes(), [])
-      assert.deepStrictEqual((yield* api.study.queue({ query: {} })).counts, { new: 0, learning: 0, review: 0 })
+      assert.deepStrictEqual((yield* api.study.due({ query: {} })).counts, { new: 0, learning: 0, review: 0 })
       const stats = yield* api.study.stats()
       assert.strictEqual(stats.notes, 0)
-      assert.strictEqual(stats.cards, 0)
       assert.deepStrictEqual(stats.due, { new: 0, learning: 0, review: 0 })
-      assert.isTrue(Option.isNone(yield* cardWithContent(own, cardId)))
+      assert.isTrue(Option.isNone(yield* noteById(own, note.id)))
       assert.deepStrictEqual(yield* studyDays(own), [])
       assert.strictEqual(yield* noteCount(own), 0)
 
@@ -386,13 +384,13 @@ layer(TestLayer)("Kotori API", (it) => {
         (yield* api.study.notes()).map((row) => row.id),
         [kept.id]
       )
-      assert.isTrue(Option.isSome(yield* cardWithContent(scopedToUser(db, other.id), kept.cards[0]!.id)))
+      assert.isTrue(Option.isSome(yield* noteById(scopedToUser(db, other.id), kept.id)))
     }).pipe(Effect.provide(Session))
   )
 
-  it.effect("saves one target-language card per note", () =>
+  it.effect("saves a note as new and due at once", () =>
     Effect.gen(function* () {
-      yield* signedIn("one-card@example.com")
+      yield* signedIn("new-note@example.com")
       const api = yield* client
       const note = yield* api.study.addNote({
         payload: {
@@ -407,13 +405,10 @@ layer(TestLayer)("Kotori API", (it) => {
           }
         }
       })
-      assert.deepStrictEqual(
-        note.cards.map((card) => card.template),
-        ["recognize"]
-      )
-      const queue = yield* api.study.queue({ query: {} })
-      assert.deepStrictEqual(queue.counts, { new: 1, learning: 0, review: 0 })
-      assert.strictEqual(queue.items[0]?.card.id, note.cards[0]?.id)
+      assert.strictEqual(note.retentionStage, "new")
+      const due = yield* api.study.due({ query: {} })
+      assert.deepStrictEqual(due.counts, { new: 1, learning: 0, review: 0 })
+      assert.strictEqual(due.items[0]?.note.id, note.id)
     }).pipe(Effect.provide(Session))
   )
 

@@ -1,0 +1,609 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "34794aec-6319-40a2-bd4a-9e543289a3de",
+  "prevIds": ["ccf3baca-15d1-4aab-b7ac-68d669094873"],
+  "footprints": [
+    {
+      "statementType": "rename_enum",
+      "statementTarget": ["enum", "public", "card_queue"],
+      "writes": [
+        "s|enum|public.card_queue",
+        "n|enum|public.card_queue",
+        "n|type|public.card_queue",
+        "s|enum|public.retention_stage",
+        "n|enum|public.retention_stage",
+        "n|type|public.retention_stage"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "drop_fk",
+      "statementTarget": ["table", "public", "review_logs"],
+      "writes": [
+        "s|fk|public.review_logs.review_logs_card_id_cards_id_fkey",
+        "n|fk|public.review_logs.review_logs_card_id_cards_id_fkey",
+        "e|fk|public.review_logs.review_logs_card_id_cards_id_fkey",
+        "n|con|public.review_logs.review_logs_card_id_cards_id_fkey"
+      ],
+      "reads": ["n|tbl|public.review_logs", "n|sch|public", "e|col|public.review_logs.card_id"]
+    },
+    {
+      "statementType": "drop_table",
+      "statementTarget": ["table", "public", "cards"],
+      "writes": [
+        "s|tbl|public.cards",
+        "n|tbl|public.cards",
+        "e|tbl|public.cards",
+        "n|rel|public.cards",
+        "n|type|public.cards"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "tags", "name"],
+      "writes": ["s|col|public.tags.name", "n|col|public.tags.name", "e|col|public.tags.name"],
+      "reads": ["n|tbl|public.tags", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "notes", "retention_stage"],
+      "writes": [
+        "s|col|public.notes.retention_stage",
+        "n|col|public.notes.retention_stage",
+        "e|col|public.notes.retention_stage"
+      ],
+      "reads": ["n|tbl|public.notes", "n|sch|public", "n|enum|public.retention_stage"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "notes", "due"],
+      "writes": ["s|col|public.notes.due", "n|col|public.notes.due", "e|col|public.notes.due"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "notes", "interval"],
+      "writes": ["s|col|public.notes.interval", "n|col|public.notes.interval", "e|col|public.notes.interval"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "notes", "ease"],
+      "writes": ["s|col|public.notes.ease", "n|col|public.notes.ease", "e|col|public.notes.ease"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "notes", "step"],
+      "writes": ["s|col|public.notes.step", "n|col|public.notes.step", "e|col|public.notes.step"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "notes", "reps"],
+      "writes": ["s|col|public.notes.reps", "n|col|public.notes.reps", "e|col|public.notes.reps"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "notes", "lapses"],
+      "writes": ["s|col|public.notes.lapses", "n|col|public.notes.lapses", "e|col|public.notes.lapses"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "notes", "leech"],
+      "writes": ["s|col|public.notes.leech", "n|col|public.notes.leech", "e|col|public.notes.leech"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "notes", "last_review"],
+      "writes": ["s|col|public.notes.last_review", "n|col|public.notes.last_review", "e|col|public.notes.last_review"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "notes", "seed"],
+      "writes": ["s|col|public.notes.seed", "n|col|public.notes.seed", "e|col|public.notes.seed"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "notes", "position"],
+      "writes": ["s|col|public.notes.position", "n|col|public.notes.position", "e|col|public.notes.position"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "review_logs", "note_id"],
+      "writes": [
+        "s|col|public.review_logs.note_id",
+        "n|col|public.review_logs.note_id",
+        "e|col|public.review_logs.note_id"
+      ],
+      "reads": ["n|tbl|public.review_logs", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "review_logs", "retention_stage_before"],
+      "writes": [
+        "s|col|public.review_logs.retention_stage_before",
+        "n|col|public.review_logs.retention_stage_before",
+        "e|col|public.review_logs.retention_stage_before"
+      ],
+      "reads": ["n|tbl|public.review_logs", "n|sch|public", "n|enum|public.retention_stage"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "tags", "label"],
+      "writes": ["s|col|public.tags.label", "n|col|public.tags.label", "e|col|public.tags.label"],
+      "reads": ["n|tbl|public.tags", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "review_logs", "card_id"],
+      "writes": [
+        "s|col|public.review_logs.card_id",
+        "n|col|public.review_logs.card_id",
+        "e|col|public.review_logs.card_id"
+      ],
+      "reads": ["n|tbl|public.review_logs", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "review_logs", "queue_before"],
+      "writes": [
+        "s|col|public.review_logs.queue_before",
+        "n|col|public.review_logs.queue_before",
+        "e|col|public.review_logs.queue_before"
+      ],
+      "reads": ["n|tbl|public.review_logs", "n|sch|public"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "notes", "notes_due"],
+      "writes": [
+        "s|idx|public.notes_due",
+        "n|idx|public.notes_due",
+        "e|idx|public.notes_due",
+        "n|rel|public.notes_due"
+      ],
+      "reads": [
+        "n|tbl|public.notes",
+        "n|sch|public",
+        "n|col|public.notes.user_id",
+        "n|col|public.notes.retention_stage",
+        "n|col|public.notes.due"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "review_logs"],
+      "writes": [
+        "s|fk|public.review_logs.review_logs_note_id_notes_id_fkey",
+        "n|fk|public.review_logs.review_logs_note_id_notes_id_fkey",
+        "e|fk|public.review_logs.review_logs_note_id_notes_id_fkey",
+        "n|con|public.review_logs.review_logs_note_id_notes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.review_logs",
+        "n|sch|public",
+        "n|tbl|public.notes",
+        "n|sch|public",
+        "n|col|public.review_logs.note_id",
+        "n|col|public.notes.id",
+        "e|uniqueness|public.notes.id"
+      ]
+    },
+    {
+      "statementType": "drop_enum",
+      "statementTarget": ["enum", "public", "card_template"],
+      "writes": [
+        "s|enum|public.card_template",
+        "n|enum|public.card_template",
+        "e|enum|public.card_template",
+        "n|type|public.card_template"
+      ],
+      "reads": ["n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "rename",
+      "key": "enums\u0000[\"public\",\"card_queue\"]",
+      "set": {
+        "name": "retention_stage"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "tags",
+        "name": "name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "notes",
+        "name": "retention_stage",
+        "type": "retention_stage",
+        "typeSchema": "public",
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'new'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "notes",
+        "name": "due",
+        "type": "timestamp(3) with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "notes",
+        "name": "interval",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "notes",
+        "name": "ease",
+        "type": "double precision",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "notes",
+        "name": "step",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "notes",
+        "name": "reps",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "notes",
+        "name": "lapses",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "notes",
+        "name": "leech",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "notes",
+        "name": "last_review",
+        "type": "timestamp(3) with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "notes",
+        "name": "seed",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "notes",
+        "name": "position",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "review_logs",
+        "name": "note_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "review_logs",
+        "name": "retention_stage_before",
+        "type": "retention_stage",
+        "typeSchema": "public",
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "notes",
+        "name": "notes_due",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "user_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "retention_stage",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "due",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "review_logs",
+        "name": "review_logs_note_id_notes_id_fkey",
+        "nameExplicit": false,
+        "columns": ["note_id"],
+        "schemaTo": "public",
+        "tableTo": "notes",
+        "columnsTo": ["id"],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "drop",
+      "key": "tables\u0000[\"public\",\"cards\"]"
+    },
+    {
+      "op": "drop",
+      "key": "enums\u0000[\"public\",\"card_template\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"tags\",\"label\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"cards\",\"id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"cards\",\"note_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"cards\",\"user_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"cards\",\"template\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"cards\",\"queue\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"cards\",\"due\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"cards\",\"interval\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"cards\",\"ease\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"cards\",\"step\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"cards\",\"reps\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"cards\",\"lapses\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"cards\",\"leech\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"cards\",\"last_review\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"cards\",\"seed\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"cards\",\"position\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"cards\",\"created_at\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"review_logs\",\"card_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"review_logs\",\"queue_before\"]"
+    },
+    {
+      "op": "drop",
+      "key": "indexes\u0000[\"public\",\"cards_queue\"]"
+    },
+    {
+      "op": "drop",
+      "key": "indexes\u0000[\"public\",\"cards_note\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"cards\",\"cards_note_id_notes_id_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"cards\",\"cards_user_id_users_id_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"review_logs\",\"review_logs_card_id_cards_id_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "pks\u0000[\"public\",\"cards\",\"cards_pkey\"]"
+    }
+  ]
+}

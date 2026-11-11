@@ -118,7 +118,7 @@ export const TAG_JUDGMENTS: {
 /** Tags that make a sense slang outright, which the slang caution then says. */
 export const SLANG_TAGS: ReadonlyArray<string> = ["sl", "net-sl", "m-sl"]
 
-/** The katakana loan of an English word, which Japanese speakers already think they know. */
+/** The katakana loan of an English word, which English learners already think they know. */
 export const Loanword = Schema.Struct({
   /** The katakana word, as JMDict spells it. */
   word: Schema.String,

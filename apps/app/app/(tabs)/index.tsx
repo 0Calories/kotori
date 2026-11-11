@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react"
 import { type TextInput, useWindowDimensions, View } from "react-native"
 import Animated, { FadeIn, FadeInDown, LinearTransition } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { useAsks, useQueue, useSearch, useStats } from "../../src/api/queries.ts"
+import { useAsks, useDueNotes, useSearch, useStats } from "../../src/api/queries.ts"
 import { AskKotori } from "../../src/components/AskKotori.tsx"
 import { Button } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
@@ -53,16 +53,16 @@ const LANGUAGE_NAMES: Record<Language, { readonly short: string; readonly long: 
 const ReviewTeaser = () => {
   const { t } = useSession()
   const router = useRouter()
-  const queue = useQueue()
+  const dueNotes = useDueNotes()
   const stats = useStats()
-  const due = queue.data ? queue.data.counts.new + queue.data.counts.learning + queue.data.counts.review : 0
-  if (!queue.data) return null
+  const due = dueNotes.data ? dueNotes.data.counts.new + dueNotes.data.counts.learning + dueNotes.data.counts.review : 0
+  if (!dueNotes.data) return null
   return (
     <Animated.View entering={FadeInDown.duration(400)}>
       <Card style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
         <Mascot size={56} mood={due > 0 ? "neutral" : "sleepy"} />
         <View style={{ flex: 1, gap: 6 }}>
-          <Text variant="strong">{due > 0 ? t.dictionary.reviewCard(due) : t.dictionary.reviewCardNone}</Text>
+          <Text variant="strong">{due > 0 ? t.dictionary.reviewDue(due) : t.dictionary.reviewDueNone}</Text>
           {stats.data && stats.data.streak > 0 ? (
             <Chip tone="accent" icon="local_fire_department" label={t.dictionary.streak(stats.data.streak)} />
           ) : null}

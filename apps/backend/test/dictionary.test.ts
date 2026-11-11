@@ -207,7 +207,7 @@ const senseAnswers = {
 } as unknown as SenseAnswers
 
 layer(testLayer(false))("Dictionary", (it) => {
-  it.effect("searches English words for Japanese speakers by spelling, inflection and prefix", () =>
+  it.effect("searches English words for English learners by spelling, inflection and prefix", () =>
     Effect.gen(function* () {
       const db = yield* Database
       yield* insertEntries(db, [
@@ -378,7 +378,7 @@ layer(testLayer(false))("Dictionary", (it) => {
     })
   )
 
-  it.effect("keeps learners of Japanese in the Japanese dictionary", () =>
+  it.effect("keeps Japanese learners in the Japanese dictionary", () =>
     Effect.gen(function* () {
       const dictionary = yield* Dictionary
       const eat = yield* dictionary.search("eat", "ja", 10)
@@ -438,7 +438,7 @@ layer(testLayer(false))("Dictionary", (it) => {
           { reading: "/kənˈsjuːm/", inflections: [["consumed", ["past", "past-participle"]]] }
         )
       ])
-      yield* saveTags(db, [{ code: "form", label: "formal or literary term" }])
+      yield* saveTags(db, [{ code: "form", name: "formal or literary term" }])
       yield* saveExamples(
         db,
         EntryId.make(100000021),
@@ -463,7 +463,7 @@ layer(testLayer(false))("Dictionary", (it) => {
         ]
       )
       assert.deepStrictEqual(consume.senses[0]?.glosses, ["消費する"])
-      assert.deepStrictEqual(consume.senses[0]?.misc, [{ code: "form", label: "formal or literary term" }])
+      assert.deepStrictEqual(consume.senses[0]?.misc, [{ code: "form", name: "formal or literary term" }])
       // Its synonym links to the English word, whatever the case it was written in.
       assert.deepStrictEqual(consume.senses[0]?.related, [{ text: "Dine", entryId: EntryId.make(100000020) }])
       assert.strictEqual(consume.audioUrl, "/audio/consume.mp3")
@@ -589,7 +589,7 @@ layer(testLayer(false))("Dictionary", (it) => {
       const headwords = (query: string, language: "ja" | "en") =>
         Effect.map(dictionary.search(query, language, 10), (res) => res.entries.map((e) => e.headword))
 
-      // Japanese dictionary (English native speaker): "my", omitted pronoun, "someone's", inflected verb, or typo.
+      // Japanese dictionary (Japanese learner): "my", omitted pronoun, "someone's", inflected verb, or typo.
       for (const query of [
         "get on my nerves",
         "get on nerves",
@@ -753,7 +753,7 @@ layer(testLayer(false))("Dictionary", (it) => {
       )
       assert.strictEqual(yield* match("xqzvy", "en"), "none")
 
-      // The same for learners of Japanese, by form and by gloss.
+      // The same for Japanese learners, by form and by gloss.
       assert.strictEqual(yield* match("食べる", "ja"), "exact")
       assert.strictEqual(yield* match("食べ", "ja"), "weak")
       assert.strictEqual(yield* match("eat", "ja"), "exact")
@@ -774,8 +774,8 @@ layer(testLayer(false))("Dictionary", (it) => {
         entry(2858544, "蛙化現象", "かえるかげんしょう", [sense(["frogification phenomenon"], ["n"])], false),
         entry(2195830, "ドン引き", "どんびき", [sense(["being completely turned off"], ["n"])], false),
         entry(1591290, "きっかけ", "きっかけ", [sense(["chance", "start"], ["n"])]),
-        // The English dictionary's "ick", glossed as the real one is (data/eiwa/enwiktionary-ja.jsonl,
-        // CC BY-SA 4.0: see data/eiwa/NOTICE.md), and an acronym spelled the same.
+        // The English dictionary's "ick", glossed as the real one is (data/english/enwiktionary-ja.jsonl,
+        // CC BY-SA 4.0: see data/english/NOTICE.md), and an acronym spelled the same.
         word(100010602, "ick", [
           sense(["(恋愛対象などに突然冷める)ドン引きポイント", "蛙化現象のきっかけ", "生理的嫌悪感"], ["n"], ["col"]),
           sense(["うわっ", "げっ", "キモい"], ["int"], ["col"])
@@ -812,7 +812,7 @@ layer(testLayer(false))("Dictionary", (it) => {
 })
 
 layer(testLayer(false))("Dictionary: what Kotori wrote on an English word", (it) => {
-  it.effect("shows its usage note for Japanese speakers and its katakana loan", () =>
+  it.effect("shows its usage note for English learners and its katakana loan", () =>
     Effect.gen(function* () {
       const db = yield* Database
       const dictionary = yield* Dictionary

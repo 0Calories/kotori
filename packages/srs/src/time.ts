@@ -9,7 +9,7 @@ export interface ReviewContext {
   readonly utcOffsetMinutes: number
   /** Local hour at which a new study day starts. Anki defaults to 4am. */
   readonly rolloverHour?: number
-  /** Stable per-card seed (e.g. the card id) for deterministic fuzz. */
+  /** Stable per-note seed (e.g. the note id) for deterministic fuzz. */
   readonly seed: number
 }
 

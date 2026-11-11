@@ -207,26 +207,26 @@ export const TRANSITIVITY: Readonly<Record<string, string>> = {
 }
 
 /** Labels for the codes only English words use, for the `tags` table. */
-export const ENGLISH_TAGS: ReadonlyArray<{ readonly code: string; readonly label: string }> = [
-  { code: "v", label: "verb" },
-  { code: "adj", label: "adjective" },
-  { code: "prep", label: "preposition" },
-  { code: "det", label: "determiner" },
-  { code: "art", label: "article" },
-  { code: "contr", label: "contraction" },
-  { code: "postp", label: "postposition" },
-  { code: "countable", label: "countable" },
-  { code: "uncountable", label: "uncountable" },
-  { code: "nonstd", label: "nonstandard" },
-  { code: "en-US", label: "American English" },
-  { code: "en-GB", label: "British English" },
-  { code: "en-CA", label: "Canadian English" },
-  { code: "en-AU", label: "Australian English" },
-  { code: "en-NZ", label: "New Zealand English" },
-  { code: "en-IE", label: "Irish English" },
-  { code: "en-scotland", label: "Scottish English" },
-  { code: "en-IN", label: "Indian English" },
-  { code: "en-PH", label: "Philippine English" },
-  { code: "en-SG", label: "Singapore English" },
-  { code: "en-ZA", label: "South African English" }
+export const ENGLISH_TAGS: ReadonlyArray<{ readonly code: string; readonly name: string }> = [
+  { code: "v", name: "verb" },
+  { code: "adj", name: "adjective" },
+  { code: "prep", name: "preposition" },
+  { code: "det", name: "determiner" },
+  { code: "art", name: "article" },
+  { code: "contr", name: "contraction" },
+  { code: "postp", name: "postposition" },
+  { code: "countable", name: "countable" },
+  { code: "uncountable", name: "uncountable" },
+  { code: "nonstd", name: "nonstandard" },
+  { code: "en-US", name: "American English" },
+  { code: "en-GB", name: "British English" },
+  { code: "en-CA", name: "Canadian English" },
+  { code: "en-AU", name: "Australian English" },
+  { code: "en-NZ", name: "New Zealand English" },
+  { code: "en-IE", name: "Irish English" },
+  { code: "en-scotland", name: "Scottish English" },
+  { code: "en-IN", name: "Indian English" },
+  { code: "en-PH", name: "Philippine English" },
+  { code: "en-SG", name: "Singapore English" },
+  { code: "en-ZA", name: "South African English" }
 ]

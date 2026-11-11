@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest"
 import {
   answer,
-  type CardState,
+  type NoteState,
   defaultConfig,
   type ReviewContext,
-  newCard,
+  newNote,
   preview,
   type SchedulerConfig
 } from "../src/index.ts"
@@ -26,9 +26,9 @@ const studyDayStart = (now: number, days: number) => {
   return day * DAY - JST * MINUTE + 4 * HOUR
 }
 
-const reviewCard = (overrides: Partial<CardState> = {}): CardState => ({
-  ...newCard(NOON_JST - 30 * DAY),
-  queue: "review",
+const reviewNote = (overrides: Partial<NoteState> = {}): NoteState => ({
+  ...newNote(NOON_JST - 30 * DAY),
+  retentionStage: "review",
   interval: 10,
   ease: 2.5,
   reps: 5,
@@ -37,62 +37,62 @@ const reviewCard = (overrides: Partial<CardState> = {}): CardState => ({
   ...overrides
 })
 
-describe("new cards", () => {
-  const card = newCard(NOON_JST)
+describe("new notes", () => {
+  const note = newNote(NOON_JST)
 
   it("again restarts the first learning step", () => {
-    const { card: next } = answer(card, "again", ctx(), noFuzz)
-    expect(next.queue).toBe("learning")
+    const { note: next } = answer(note, "again", ctx(), noFuzz)
+    expect(next.retentionStage).toBe("learning")
     expect(next.step).toBe(0)
     expect(next.due - NOON_JST).toBe(1 * MINUTE)
   })
 
   it("hard on the first step waits the average of the first two steps", () => {
-    const { card: next } = answer(card, "hard", ctx(), noFuzz)
-    expect(next.queue).toBe("learning")
+    const { note: next } = answer(note, "hard", ctx(), noFuzz)
+    expect(next.retentionStage).toBe("learning")
     expect(next.step).toBe(0)
     expect(next.due - NOON_JST).toBe(5.5 * MINUTE)
   })
 
   it("hard with a single learning step waits 1.5x that step", () => {
-    const { card: next } = answer(card, "hard", ctx(), { ...noFuzz, learningSteps: [10] })
+    const { note: next } = answer(note, "hard", ctx(), { ...noFuzz, learningSteps: [10] })
     expect(next.due - NOON_JST).toBe(15 * MINUTE)
   })
 
   it("good advances to the next learning step", () => {
-    const { card: next } = answer(card, "good", ctx(), noFuzz)
-    expect(next.queue).toBe("learning")
+    const { note: next } = answer(note, "good", ctx(), noFuzz)
+    expect(next.retentionStage).toBe("learning")
     expect(next.step).toBe(1)
     expect(next.due - NOON_JST).toBe(10 * MINUTE)
   })
 
   it("easy graduates immediately with the easy interval", () => {
-    const { card: next } = answer(card, "easy", ctx(), noFuzz)
-    expect(next.queue).toBe("review")
+    const { note: next } = answer(note, "easy", ctx(), noFuzz)
+    expect(next.retentionStage).toBe("review")
     expect(next.interval).toBe(4)
     expect(next.ease).toBe(2.5)
     expect(next.due).toBe(studyDayStart(NOON_JST, 4))
   })
 
   it("good graduates when there is only one learning step", () => {
-    const { card: next } = answer(card, "good", ctx(), { ...noFuzz, learningSteps: [10] })
-    expect(next.queue).toBe("review")
+    const { note: next } = answer(note, "good", ctx(), { ...noFuzz, learningSteps: [10] })
+    expect(next.retentionStage).toBe("review")
     expect(next.interval).toBe(1)
   })
 
   it("counts every answer as a repetition", () => {
-    const { card: next } = answer(card, "again", ctx(), noFuzz)
+    const { note: next } = answer(note, "again", ctx(), noFuzz)
     expect(next.reps).toBe(1)
     expect(next.lastReview).toBe(NOON_JST)
   })
 })
 
-describe("learning cards", () => {
-  const onLastStep: CardState = { ...newCard(NOON_JST), queue: "learning", step: 1, reps: 1, due: NOON_JST }
+describe("learning notes", () => {
+  const onLastStep: NoteState = { ...newNote(NOON_JST), retentionStage: "learning", step: 1, reps: 1, due: NOON_JST }
 
   it("good on the last step graduates with the graduating interval", () => {
-    const { card: next } = answer(onLastStep, "good", ctx(), noFuzz)
-    expect(next.queue).toBe("review")
+    const { note: next } = answer(onLastStep, "good", ctx(), noFuzz)
+    expect(next.retentionStage).toBe("review")
     expect(next.interval).toBe(1)
     expect(next.ease).toBe(2.5)
     expect(next.step).toBe(0)
@@ -100,32 +100,32 @@ describe("learning cards", () => {
   })
 
   it("hard on a later step repeats that step", () => {
-    const { card: next } = answer(onLastStep, "hard", ctx(), noFuzz)
-    expect(next.queue).toBe("learning")
+    const { note: next } = answer(onLastStep, "hard", ctx(), noFuzz)
+    expect(next.retentionStage).toBe("learning")
     expect(next.step).toBe(1)
     expect(next.due - NOON_JST).toBe(10 * MINUTE)
   })
 
   it("again goes back to the first step", () => {
-    const { card: next } = answer(onLastStep, "again", ctx(), noFuzz)
+    const { note: next } = answer(onLastStep, "again", ctx(), noFuzz)
     expect(next.step).toBe(0)
     expect(next.due - NOON_JST).toBe(1 * MINUTE)
   })
 
-  it("graduated cards become due when the next study day starts, not 24h later", () => {
+  it("graduated notes become due when the next study day starts, not 24h later", () => {
     // 02:00 JST still belongs to the previous study day (rollover is 04:00).
     const twoAm = Date.UTC(2026, 9, 11, 17, 0)
-    const { card: next } = answer(onLastStep, "good", ctx(twoAm), noFuzz)
+    const { note: next } = answer(onLastStep, "good", ctx(twoAm), noFuzz)
     expect(next.due - twoAm).toBe(2 * HOUR)
   })
 })
 
-describe("review cards", () => {
+describe("review notes", () => {
   it("answered on time: hard x1.2, good x ease, easy x ease x easy bonus", () => {
-    const card = reviewCard()
-    const hard = answer(card, "hard", ctx(), noFuzz).card
-    const good = answer(card, "good", ctx(), noFuzz).card
-    const easy = answer(card, "easy", ctx(), noFuzz).card
+    const note = reviewNote()
+    const hard = answer(note, "hard", ctx(), noFuzz).note
+    const good = answer(note, "good", ctx(), noFuzz).note
+    const easy = answer(note, "easy", ctx(), noFuzz).note
 
     expect([hard.interval, good.interval, easy.interval]).toEqual([12, 25, 33])
     expect([hard.ease, good.ease, easy.ease]).toEqual([2.35, 2.5, 2.65])
@@ -133,19 +133,19 @@ describe("review cards", () => {
   })
 
   it("late answers credit half the delay for good and all of it for easy", () => {
-    const card = reviewCard({ due: studyDayStart(NOON_JST, -4) })
-    const hard = answer(card, "hard", ctx(), noFuzz).card
-    const good = answer(card, "good", ctx(), noFuzz).card
-    const easy = answer(card, "easy", ctx(), noFuzz).card
+    const note = reviewNote({ due: studyDayStart(NOON_JST, -4) })
+    const hard = answer(note, "hard", ctx(), noFuzz).note
+    const good = answer(note, "good", ctx(), noFuzz).note
+    const easy = answer(note, "easy", ctx(), noFuzz).note
 
     expect([hard.interval, good.interval, easy.interval]).toEqual([12, 30, 46])
   })
 
   it("keeps hard < good < easy even for tiny intervals and low ease", () => {
-    const card = reviewCard({ interval: 1, ease: 1.3 })
-    const hard = answer(card, "hard", ctx(), noFuzz).card
-    const good = answer(card, "good", ctx(), noFuzz).card
-    const easy = answer(card, "easy", ctx(), noFuzz).card
+    const note = reviewNote({ interval: 1, ease: 1.3 })
+    const hard = answer(note, "hard", ctx(), noFuzz).note
+    const good = answer(note, "good", ctx(), noFuzz).note
+    const easy = answer(note, "easy", ctx(), noFuzz).note
 
     expect(hard.interval).toBe(2)
     expect(good.interval).toBe(3)
@@ -153,38 +153,38 @@ describe("review cards", () => {
   })
 
   it("applies the interval modifier", () => {
-    const card = reviewCard()
-    const good = answer(card, "good", ctx(), { ...noFuzz, intervalModifier: 0.8 }).card
+    const note = reviewNote()
+    const good = answer(note, "good", ctx(), { ...noFuzz, intervalModifier: 0.8 }).note
     expect(good.interval).toBe(20)
   })
 
   it("early reviews only credit the time actually elapsed", () => {
-    const card = reviewCard({ due: studyDayStart(NOON_JST, 4) })
-    const hard = answer(card, "hard", ctx(), noFuzz).card
-    const good = answer(card, "good", ctx(), noFuzz).card
-    const easy = answer(card, "easy", ctx(), noFuzz).card
+    const note = reviewNote({ due: studyDayStart(NOON_JST, 4) })
+    const hard = answer(note, "hard", ctx(), noFuzz).note
+    const good = answer(note, "good", ctx(), noFuzz).note
+    const easy = answer(note, "easy", ctx(), noFuzz).note
 
     expect([hard.interval, good.interval, easy.interval]).toEqual([7, 15, 17])
   })
 
   it("never exceeds the maximum interval", () => {
-    const card = reviewCard({ interval: 30_000 })
-    expect(answer(card, "easy", ctx(), noFuzz).card.interval).toBe(36_500)
+    const note = reviewNote({ interval: 30_000 })
+    expect(answer(note, "easy", ctx(), noFuzz).note.interval).toBe(36_500)
   })
 
   it("never lets ease fall below 130%", () => {
-    const card = reviewCard({ ease: 1.35 })
-    expect(answer(card, "again", ctx(), noFuzz).card.ease).toBe(1.3)
-    expect(answer({ ...card, ease: 1.3 }, "hard", ctx(), noFuzz).card.ease).toBe(1.3)
+    const note = reviewNote({ ease: 1.35 })
+    expect(answer(note, "again", ctx(), noFuzz).note.ease).toBe(1.3)
+    expect(answer({ ...note, ease: 1.3 }, "hard", ctx(), noFuzz).note.ease).toBe(1.3)
   })
 })
 
 describe("lapses", () => {
-  const card = reviewCard()
+  const note = reviewNote()
 
-  it("again sends the card to relearning and lowers ease by 20%", () => {
-    const { card: next, log } = answer(card, "again", ctx(), noFuzz)
-    expect(next.queue).toBe("relearning")
+  it("again sends the note to relearning and lowers ease by 20%", () => {
+    const { note: next, log } = answer(note, "again", ctx(), noFuzz)
+    expect(next.retentionStage).toBe("relearning")
     expect(next.step).toBe(0)
     expect(next.lapses).toBe(1)
     expect(next.ease).toBe(2.3)
@@ -194,40 +194,40 @@ describe("lapses", () => {
   })
 
   it("the post-lapse interval honours the new-interval multiplier", () => {
-    const { card: next } = answer(card, "again", ctx(), { ...noFuzz, lapseMultiplier: 0.5 })
+    const { note: next } = answer(note, "again", ctx(), { ...noFuzz, lapseMultiplier: 0.5 })
     expect(next.interval).toBe(5)
   })
 
   it("good after relearning returns to review with the post-lapse interval", () => {
-    const relearning = answer(card, "again", ctx(), noFuzz).card
+    const relearning = answer(note, "again", ctx(), noFuzz).note
     const later = NOON_JST + 10 * MINUTE
-    const { card: next } = answer(relearning, "good", ctx(later), noFuzz)
-    expect(next.queue).toBe("review")
+    const { note: next } = answer(relearning, "good", ctx(later), noFuzz)
+    expect(next.retentionStage).toBe("review")
     expect(next.interval).toBe(1)
     expect(next.due).toBe(studyDayStart(later, 1))
   })
 
   it("easy during relearning adds a day to the post-lapse interval", () => {
-    const relearning = answer(card, "again", ctx(), noFuzz).card
-    expect(answer(relearning, "easy", ctx(), noFuzz).card.interval).toBe(2)
+    const relearning = answer(note, "again", ctx(), noFuzz).note
+    expect(answer(relearning, "easy", ctx(), noFuzz).note.interval).toBe(2)
   })
 
   it("again during relearning does not count as another lapse", () => {
-    const relearning = answer(card, "again", ctx(), noFuzz).card
-    const { card: next } = answer(relearning, "again", ctx(), noFuzz)
+    const relearning = answer(note, "again", ctx(), noFuzz).note
+    const { note: next } = answer(relearning, "again", ctx(), noFuzz)
     expect(next.lapses).toBe(1)
     expect(next.ease).toBe(2.3)
-    expect(next.queue).toBe("relearning")
+    expect(next.retentionStage).toBe("relearning")
   })
 
   it("lapses straight back to review when there are no relearning steps", () => {
-    const { card: next } = answer(card, "again", ctx(), { ...noFuzz, relearningSteps: [] })
-    expect(next.queue).toBe("review")
+    const { note: next } = answer(note, "again", ctx(), { ...noFuzz, relearningSteps: [] })
+    expect(next.retentionStage).toBe("review")
     expect(next.due).toBe(studyDayStart(NOON_JST, 1))
   })
 
   it("flags leeches at the threshold and every half-threshold after", () => {
-    const leechAt = (lapses: number) => answer(reviewCard({ lapses }), "again", ctx(), noFuzz).log.leech
+    const leechAt = (lapses: number) => answer(reviewNote({ lapses }), "again", ctx(), noFuzz).log.leech
     expect(leechAt(6)).toBe(false)
     expect(leechAt(7)).toBe(true)
     expect(leechAt(8)).toBe(false)
@@ -236,12 +236,12 @@ describe("lapses", () => {
 })
 
 describe("fuzz", () => {
-  const card = reviewCard()
+  const note = reviewNote()
 
   it("spreads review intervals within Anki's fuzz range", () => {
     const intervals = new Set<number>()
     for (let seed = 0; seed < 200; seed++) {
-      const next = answer(card, "good", { ...ctx(), seed }, defaultConfig).card
+      const next = answer(note, "good", { ...ctx(), seed }, defaultConfig).note
       intervals.add(next.interval)
       expect(next.interval).toBeGreaterThanOrEqual(22)
       expect(next.interval).toBeLessThanOrEqual(28)
@@ -249,23 +249,23 @@ describe("fuzz", () => {
     expect(intervals.size).toBeGreaterThan(3)
   })
 
-  it("is deterministic for a given card, so previews match answers", () => {
-    const shown = preview(card, ctx(), defaultConfig)
+  it("is deterministic for a given note, so previews match answers", () => {
+    const shown = preview(note, ctx(), defaultConfig)
     for (const rating of ["again", "hard", "good", "easy"] as const) {
-      const actual = answer(card, rating, ctx(), defaultConfig).card
+      const actual = answer(note, rating, ctx(), defaultConfig).note
       expect(shown[rating].due).toBe(actual.due)
       expect(shown[rating].interval).toBe(actual.interval)
     }
   })
 
   it("never fuzzes short intervals", () => {
-    const short = reviewCard({ interval: 1, ease: 1.3 })
-    expect(answer(short, "hard", ctx(), defaultConfig).card.interval).toBe(2)
+    const short = reviewNote({ interval: 1, ease: 1.3 })
+    expect(answer(short, "hard", ctx(), defaultConfig).note.interval).toBe(2)
   })
 
   it("adds at most 25% (capped at 5 minutes) to learning steps", () => {
     for (let seed = 0; seed < 50; seed++) {
-      const next = answer(newCard(NOON_JST), "good", { ...ctx(), seed }, defaultConfig).card
+      const next = answer(newNote(NOON_JST), "good", { ...ctx(), seed }, defaultConfig).note
       const delay = next.due - NOON_JST
       expect(delay).toBeGreaterThanOrEqual(10 * MINUTE)
       expect(delay).toBeLessThan(12.5 * MINUTE)

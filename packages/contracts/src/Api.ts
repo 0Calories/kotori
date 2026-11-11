@@ -20,7 +20,7 @@ import {
   Unauthorized
 } from "./Errors.ts"
 import { Language } from "./Language.ts"
-import { AddNoteRequest, AnswerRequest, AnswerResult, CardId, Note, NoteId, ReviewQueue, StudyStats } from "./Study.ts"
+import { AddNoteRequest, AnswerRequest, AnswerResult, DueNotes, Note, NoteId, StudyStats } from "./Study.ts"
 
 export class CurrentUser extends Context.Service<
   CurrentUser,
@@ -79,7 +79,7 @@ export class AccountApi extends HttpApiGroup.make("account")
 export class DictionaryApi extends HttpApiGroup.make("dictionary")
   .add(
     // Searches the dictionary of the language the learner is learning: Japanese words for
-    // English speakers, English words for Japanese speakers.
+    // Japanese learners, English words for English learners.
     HttpApiEndpoint.get("search", "/search", {
       query: {
         q: Schema.String,
@@ -139,12 +139,12 @@ export class StudyApi extends HttpApiGroup.make("study")
       success: HttpApiSchema.NoContent,
       error: NotFound
     }),
-    HttpApiEndpoint.get("queue", "/queue", {
+    HttpApiEndpoint.get("due", "/due", {
       query: { limit: Schema.optional(Schema.Int) },
-      success: ReviewQueue
+      success: DueNotes
     }),
-    HttpApiEndpoint.post("answer", "/cards/:id/answer", {
-      params: { id: CardId },
+    HttpApiEndpoint.post("answer", "/notes/:id/answer", {
+      params: { id: NoteId },
       payload: AnswerRequest,
       success: AnswerResult,
       error: NotFound
@@ -185,6 +185,6 @@ export class KotoriApi extends HttpApi.make("kotori")
   .annotateMerge(
     OpenApi.annotations({
       title: "Kotori API",
-      description: "Dictionary, coaching and spaced repetition for learners of Japanese and English."
+      description: "Dictionary, coaching and spaced repetition for Japanese and English learners."
     })
   ) {}

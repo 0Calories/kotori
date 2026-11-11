@@ -12,7 +12,7 @@ export const wordNote = (
     readonly headword: string
     readonly reading: string
     readonly glosses: ReadonlyArray<string>
-    /** The sense's register, shown as a hint on production cards. */
+    /** The sense's register, shown as a hint in reviews. */
     readonly formality: Formality | null
     readonly medium: Medium | null
     /** The sense's usage note, in the learner's language. */

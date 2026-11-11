@@ -7,13 +7,13 @@ import {
   FAMILIARITY_FILE,
   parseFamiliarity,
   serializeFamiliarity
-} from "../features/dictionary/import/eiwa/familiarity.ts"
-import { parseConsolidatedLine } from "../features/dictionary/import/eiwa/words.ts"
+} from "../features/dictionary/import/english/familiarity.ts"
+import { parseConsolidatedLine } from "../features/dictionary/import/english/words.ts"
 import { headwordIds } from "../features/dictionary/queries.ts"
 import { resolveFromRoot } from "../runtime/Paths.ts"
 
 /** The curated entries, whose own ratings the import prefers, so they aren't rated again. */
-const CURATED_FILE = "data/eiwa/enwiktionary-ja.jsonl"
+const CURATED_FILE = "data/english/enwiktionary-ja.jsonl"
 
 export const familiarity = Command.make(
   "familiarity",
@@ -93,6 +93,6 @@ export const familiarity = Command.make(
   })
 ).pipe(
   Command.withDescription(
-    "Rate how familiar multi-word English entries are to native speakers (1–5) with Claude, into data/eiwa/familiarity.json"
+    "Rate how familiar multi-word English entries are to native speakers (1–5) with Claude, into data/english/familiarity.json"
   )
 )

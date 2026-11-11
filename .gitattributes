@@ -20,5 +20,5 @@
 # collapsed in GitHub diffs and left out of language stats.
 packages/db/migrations/*/snapshot.json linguist-generated=true
 packages/contracts/test/openapi.json linguist-generated=true
-data/eiwa/*.json* linguist-generated=true
+data/english/*.json* linguist-generated=true
 packages/ai/golden/entries.json linguist-generated=true

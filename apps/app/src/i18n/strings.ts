@@ -9,13 +9,13 @@ const enTabs = {
   notReady: "This feature isn't ready yet"
 }
 
-/** Ask Kotori looks into the language being learned; English copy is for learners of Japanese. */
+/** Ask Kotori looks into the language being learned; English copy is for Japanese learners. */
 const enWrongLanguage =
   "That doesn't look like Japanese. Kotori can only look into Japanese words and expressions here."
 
 /**
- * Interface copy. Learners see Kotori in their native language: English
- * speakers learning Japanese get English, Japanese speakers learning English get Japanese.
+ * Interface copy. Learners see Kotori in their native language: Japanese
+ * learners get English, English learners get Japanese.
  */
 const en = {
   appName: "Kotori",
@@ -165,8 +165,8 @@ const en = {
     removeRecent: (term: string) => `Remove ${term} from recent searches`,
     common: "common",
     inflected: (forms: string) => `${forms} form`,
-    reviewCard: (n: number) => (n === 1 ? "1 card is waiting for you" : `${n} cards are waiting for you`),
-    reviewCardNone: "You're all caught up",
+    reviewDue: (n: number) => (n === 1 ? "1 note is waiting for you" : `${n} notes are waiting for you`),
+    reviewDueNone: "You're all caught up",
     startReview: "Review now",
     streak: (n: number) => `${n}-day streak`,
     title: "What do you want to look up?",
@@ -333,13 +333,13 @@ const en = {
     toReview: "Review",
     start: "Start review",
     allDone: "All caught up!",
-    allDoneHint: "New cards appear when you save words and phrases.",
-    nextIn: (when: string) => `Next card ${when}`,
+    allDoneHint: "New notes appear when you save words and phrases.",
+    nextIn: (when: string) => `Next note ${when}`,
     stats: "Your progress",
     streak: "Day streak",
     reviewedToday: "Reviewed today",
     retention: "Retention",
-    cards: "Cards",
+    notes: "Notes",
     mature: "Mature",
     forecast: "Coming up this week",
     today: "Today",
@@ -351,11 +351,9 @@ const en = {
     good: "Good",
     easy: "Easy",
     recallMeaning: "What does this mean?",
-    recallWord: "How do you say this in Japanese?",
-    recallPhrase: "How would you say this?",
-    leech: "This card keeps slipping. Try making a sentence with it!",
+    leech: "This note keeps slipping. Try making a sentence with it!",
     sessionDone: "Nice work!",
-    sessionDoneHint: (n: number) => (n === 1 ? "You reviewed 1 card." : `You reviewed ${n} cards.`),
+    sessionDoneHint: (n: number) => (n === 1 ? "You reviewed 1 note." : `You reviewed ${n} notes.`),
     finish: "Finish",
     remaining: "left",
     answerFailed: "Oops, that answer got lost on the way. Give it another go!"
@@ -369,7 +367,7 @@ const en = {
     similar: "Close matches",
     remove: "Remove from deck",
     removeTitle: "Remove this from your deck?",
-    removeBody: "Its cards and the review history for them are deleted. This can't be undone.",
+    removeBody: "Its review history is deleted too. This can't be undone.",
     removeConfirm: "Remove",
     removing: "Removing…",
     removeFailed: "Couldn't remove it. Try again."
@@ -379,7 +377,7 @@ const en = {
     learning: "I'm learning",
     japanese: "Japanese",
     english: "English",
-    dailyNew: "New cards per day",
+    dailyNew: "New notes per day",
     dailyReviews: "Reviews per day",
     furigana: "Show furigana",
     theme: "Theme",
@@ -504,7 +502,7 @@ const jaTabs: Strings["tabs"] = {
   notReady: "この機能はまだ準備中です"
 }
 
-/** Japanese copy is for learners of English. */
+/** Japanese copy is for English learners. */
 const jaWrongLanguage = "英語ではないようです。ここでは英語の単語や表現だけを調べられます。"
 
 const ja: Strings = {
@@ -648,8 +646,8 @@ const ja: Strings = {
     removeRecent: (term: string) => `「${term}」を最近の検索から削除`,
     common: "よく使う",
     inflected: (forms: string) => forms,
-    reviewCard: (n: number) => `${n}枚のカードが待っています`,
-    reviewCardNone: "今日の復習は完了です",
+    reviewDue: (n: number) => `${n}件のノートが待っています`,
+    reviewDueNone: "今日の復習は完了です",
     startReview: "復習する",
     streak: (n: number) => `${n}日連続`,
     title: "何を調べたい？",
@@ -804,13 +802,13 @@ const ja: Strings = {
     toReview: "復習",
     start: "復習をはじめる",
     allDone: "今日の分は完了！",
-    allDoneHint: "単語やフレーズを保存すると、新しいカードが追加されます。",
-    nextIn: (when: string) => `次のカード：${when}`,
+    allDoneHint: "単語やフレーズを保存すると、新しいノートが追加されます。",
+    nextIn: (when: string) => `次のノート：${when}`,
     stats: "学習の記録",
     streak: "連続日数",
     reviewedToday: "今日の復習",
     retention: "定着率",
-    cards: "カード",
+    notes: "ノート",
     mature: "定着",
     forecast: "今週の予定",
     today: "今日",
@@ -822,11 +820,9 @@ const ja: Strings = {
     good: "正解",
     easy: "簡単",
     recallMeaning: "どういう意味？",
-    recallWord: "英語ではどう言う？",
-    recallPhrase: "どう言いますか？",
-    leech: "何度も間違えているカードです。例文を作ってみましょう！",
+    leech: "何度も間違えているノートです。例文を作ってみましょう！",
     sessionDone: "おつかれさまでした！",
-    sessionDoneHint: (n: number) => `${n}枚のカードを復習しました。`,
+    sessionDoneHint: (n: number) => `${n}件のノートを復習しました。`,
     finish: "終わる",
     remaining: "残り",
     answerFailed: "答えがうまく届きませんでした。もう一度どうぞ！"
@@ -840,7 +836,7 @@ const ja: Strings = {
     similar: "近いもの",
     remove: "デッキから削除",
     removeTitle: "デッキから削除しますか？",
-    removeBody: "このノートのカードと、その復習の記録も削除されます。元に戻せません。",
+    removeBody: "このノートの復習の記録も削除されます。元に戻せません。",
     removeConfirm: "削除する",
     removing: "削除しています…",
     removeFailed: "削除できませんでした。もう一度お試しください。"
@@ -850,7 +846,7 @@ const ja: Strings = {
     learning: "勉強している言語",
     japanese: "日本語",
     english: "英語",
-    dailyNew: "1日の新規カード",
+    dailyNew: "1日の新規ノート",
     dailyReviews: "1日の復習上限",
     furigana: "ふりがなを表示",
     theme: "テーマ",
@@ -1030,9 +1026,9 @@ const ja: Strings = {
 
 export const strings = { en, ja }
 
-/** A usage, field or region tag in the interface language, falling back to the dictionary's own label. */
-export const tagLabel = (t: Strings, tag: { readonly code: string; readonly label: string }) =>
-  t.tags[tag.code] ?? tag.label
+/** A usage, field or region tag in the interface language, falling back to the dictionary's own name. */
+export const tagName = (t: Strings, tag: { readonly code: string; readonly name: string }) =>
+  t.tags[tag.code] ?? tag.name
 
 /** A usage label on an Ask Kotori draft (`sl`, `net-sl`…) in the interface language. */
 export const draftTagLabel = (t: Strings, code: string) => t.tags[code] ?? t.draftTags[code] ?? code

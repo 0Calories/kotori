@@ -17,8 +17,8 @@ export const removalErrorText = (t: Strings, error: unknown): string =>
   error instanceof ApiError && error.tag === "Offline" ? t.common.offline : t.saved.removeFailed
 
 /**
- * Confirmation before a saved note is erased. The API deletes the note, its cards
- * and their review logs together, so the learner has to ask twice.
+ * Confirmation before a saved note is erased. The API deletes the note and
+ * its review logs together, so the learner has to ask twice.
  */
 export const RemoveNoteConfirm = ({
   busy,
