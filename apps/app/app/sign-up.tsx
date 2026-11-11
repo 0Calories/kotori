@@ -11,30 +11,31 @@ import { LanguageChoice } from "../src/components/LanguageChoice.tsx"
 import { Notice } from "../src/components/Notice.tsx"
 import { Screen } from "../src/components/Screen.tsx"
 import { Text } from "../src/components/Text.tsx"
-import { useSession } from "../src/session/SessionProvider.tsx"
+import { useGoogleSignIn, useSession } from "../src/session/SessionProvider.tsx"
 import { theme } from "../src/theme/tokens.ts"
 
 /** Better Auth's default minimum; Managed Auth's own answer wins if it differs. */
 const MIN_PASSWORD = 8
 
 export default function SignUp() {
-  const { t, signUp, signInWithGoogle, googleError } = useSession()
+  const { t, signUp } = useSession()
+  const { googleBusy, continueWithGoogle, googleMessage, resetGoogleError } = useGoogleSignIn()
   const router = useRouter()
   const [native, setNative] = useState<Language | null>(null)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [busy, setBusy] = useState(false)
-  const [googleBusy, setGoogleBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const emailRef = useRef<TextInput>(null)
   const passwordRef = useRef<TextInput>(null)
   const ready = native !== null && email.trim().length > 0 && password.length >= MIN_PASSWORD
 
   const submit = async () => {
-    if (!ready || busy) return
+    if (!ready || busy || googleBusy) return
     setBusy(true)
     setError(null)
+    resetGoogleError()
     try {
       await signUp({ email, password, name, nativeLanguage: native })
     } catch (e) {
@@ -44,19 +45,11 @@ export default function SignUp() {
   }
 
   // Google brings the name and a confirmed address; the language is the one thing to ask first.
-  const continueWithGoogle = async () => {
+  const startGoogle = () => {
     if (native === null || busy || googleBusy) return
-    setGoogleBusy(true)
     setError(null)
-    try {
-      await signInWithGoogle(native)
-    } catch (e) {
-      setError(authMessage(t, e))
-    }
-    setGoogleBusy(false)
+    void continueWithGoogle(native)
   }
-
-  const shown = error ?? (googleError === null ? null : authMessage(t, googleError))
 
   return (
     <Screen bottomInset={40}>
@@ -79,7 +72,7 @@ export default function SignUp() {
           label={googleBusy ? t.auth.googleOpening : t.auth.google}
           loading={googleBusy}
           disabled={native === null || busy}
-          onPress={() => void continueWithGoogle()}
+          onPress={startGoogle}
         />
         <OrDivider label={t.auth.or} />
         <Input
@@ -118,7 +111,7 @@ export default function SignUp() {
           returnKeyType="go"
           onSubmitEditing={() => void submit()}
         />
-        <Notice message={shown} />
+        <Notice message={error ?? googleMessage} />
         <Button
           label={busy ? t.auth.signingUp : t.auth.signUp}
           size="lg"

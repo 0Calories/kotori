@@ -4,7 +4,7 @@ import { expireCookie, setSessionCookie } from "better-auth/cookies"
 import { randomUUID } from "node:crypto"
 
 /** The query parameter Neon appends to `callbackURL` after a social sign-in. */
-export const VERIFIER_PARAM = "neon_auth_session_verifier"
+const VERIFIER_PARAM = "neon_auth_session_verifier"
 
 /** How long a challenge (sign-in → callback) and a verifier (callback → exchange) stay good. */
 const TTL_MS = 10 * 60_000
@@ -60,6 +60,8 @@ export const sessionVerifier = (): BetterAuthPlugin => {
         {
           matcher: (context) => context.path === "/sign-in/social",
           handler: createAuthMiddleware(async (ctx) => {
+            const now = Date.now()
+            sweep(now)
             const returned = ctx.context.returned
             const url =
               typeof returned === "object" && returned !== null && "url" in returned ? returned.url : undefined
@@ -67,7 +69,7 @@ export const sessionVerifier = (): BetterAuthPlugin => {
             const state = new URL(url).searchParams.get("state")
             if (state === null) return
             const challenge = randomUUID()
-            challenges.set(state, { challenge, expiresAt: Date.now() + TTL_MS })
+            challenges.set(state, { challenge, expiresAt: now + TTL_MS })
             const cookie = ctx.context.createAuthCookie("session_challenge", { maxAge: TTL_MS / 1000 })
             ctx.setCookie(cookie.name, challenge, cookie.attributes)
           })
@@ -75,17 +77,19 @@ export const sessionVerifier = (): BetterAuthPlugin => {
         {
           matcher: (context) => context.path === "/callback/:id",
           handler: createAuthMiddleware(async (ctx) => {
+            const now = Date.now()
+            sweep(now)
             const location = ctx.context.responseHeaders?.get("location")
             const session = ctx.context.newSession
             const state = ctx.query?.state ?? (ctx.body as { state?: unknown } | undefined)?.state
             const pending = typeof state === "string" ? challenges.get(state) : undefined
             if (typeof state === "string") challenges.delete(state)
-            if (!location || session === null || pending === undefined) return
+            if (!location || session === null || pending === undefined || pending.expiresAt < now) return
             const verifier = randomUUID()
             verifiers.set(verifier, {
               challenge: pending.challenge,
               sessionToken: session.session.token,
-              expiresAt: Date.now() + TTL_MS
+              expiresAt: now + TTL_MS
             })
             const next = new URL(location)
             next.searchParams.set(VERIFIER_PARAM, verifier)

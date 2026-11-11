@@ -25,12 +25,13 @@ describe("where a Google sign-in may land", () => {
   it("allows the web app, its previews and the native app", () => {
     assert.isNotNull(returnTarget("https://hellokotori.com/sign-in", production, true))
     assert.isNotNull(returnTarget("https://kotori-abc123-0calories-projects.vercel.app/sign-up", production, true))
-    assert.isNotNull(returnTarget("kotori://sign-in", production, true))
+    assert.isNotNull(returnTarget("kotori://auth/callback", production, true))
+    assert.isNotNull(returnTarget("kotori:///auth/callback", production, true))
   })
 
   it("allows Expo Go and local dev servers only outside production", () => {
-    assert.isNull(returnTarget("exp://192.168.1.20:8081/--/sign-in", production, true))
-    assert.isNotNull(returnTarget("exp://192.168.1.20:8081/--/sign-in", development, false))
+    assert.isNull(returnTarget("exp://192.168.1.20:8081/--/auth/callback", production, true))
+    assert.isNotNull(returnTarget("exp://192.168.1.20:8081/--/auth/callback", development, false))
     assert.isNull(returnTarget("http://localhost:8081/sign-in", production, true))
     assert.isNotNull(returnTarget("http://localhost:8081/sign-in", development, false))
   })
@@ -58,8 +59,13 @@ describe("GET /auth/return", () => {
       assert.strictEqual(signedIn.status, 302)
       assert.strictEqual(signedIn.location, "https://hellokotori.com/sign-up?neon_auth_session_verifier=v-123")
 
-      const native = yield* get(`to=${encodeURIComponent("kotori://sign-in")}&error=access_denied`)
-      assert.strictEqual(native.location, "kotori://sign-in?error=access_denied")
+      const native = yield* get(`to=${encodeURIComponent("kotori://auth/callback")}&error=access_denied`)
+      assert.strictEqual(native.location, "kotori://auth/callback?error=access_denied")
+
+      const nativeTripleSlash = yield* get(
+        `to=${encodeURIComponent("kotori:///auth/callback")}&neon_auth_session_verifier=v-456`
+      )
+      assert.strictEqual(nativeTripleSlash.location, "kotori:///auth/callback?neon_auth_session_verifier=v-456")
 
       const linked = yield* get(`to=${encodeURIComponent("https://hellokotori.com/settings?google=linked")}`)
       assert.strictEqual(linked.location, "https://hellokotori.com/settings?google=linked")

@@ -73,7 +73,12 @@ const googleClientId = process.env["LOCAL_AUTH_GOOGLE_CLIENT_ID"]
 const googleClientSecret = process.env["LOCAL_AUTH_GOOGLE_CLIENT_SECRET"]
 const google =
   googleClientId && googleClientSecret ? { google: { clientId: googleClientId, clientSecret: googleClientSecret } } : {}
-if (!googleClientId) console.log("[local-auth] LOCAL_AUTH_GOOGLE_CLIENT_ID is not set, so Google sign-in is off.")
+if (!googleClientId || !googleClientSecret) {
+  const missing = !googleClientId ? "LOCAL_AUTH_GOOGLE_CLIENT_ID" : "LOCAL_AUTH_GOOGLE_CLIENT_SECRET"
+  console.log(`[local-auth] ${missing} is not set, so Google sign-in is off.`)
+}
+
+const PRIVATE_172_ORIGINS = Array.from({ length: 16 }, (_, i) => `http://172.${16 + i}.*.*:*`)
 
 const options = {
   baseURL: base.origin,
@@ -92,12 +97,15 @@ const options = {
       "http://localhost:*",
       "http://127.0.0.1:*",
       "http://10.*.*.*:*",
-      "http://192.168.*.*:*"
+      "http://192.168.*.*:*",
+      ...PRIVATE_172_ORIGINS
     ]
   },
   // The provider's callback reaches this server directly, without the state cookie the API's
-  // proxy received; the session verifier's challenge cookie ties the flow to its browser instead.
-  account: { skipStateCookieCheck: true },
+  // proxy received: sign-in ties the flow to its browser with the session verifier's challenge
+  // cookie (without silently linking onto an existing password account), and explicit linking in
+  // Settings requires the Google email to match the signed-in learner's email.
+  account: { skipStateCookieCheck: true, accountLinking: { disableImplicitLinking: true } },
   advanced: { database: { generateId: "uuid" }, cookiePrefix: "neonauth" },
   telemetry: { enabled: false },
   plugins: [

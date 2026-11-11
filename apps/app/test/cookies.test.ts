@@ -1,5 +1,5 @@
 import { assert, describe, it } from "vitest"
-import { applySetCookie, cookieHeader, hasSessionToken, splitSetCookie } from "../src/auth/cookies.ts"
+import { applySetCookie, cookieHeader, dropChallenges, hasSessionToken, splitSetCookie } from "../src/auth/cookies.ts"
 
 // React Native joins repeated Set-Cookie headers with ", ", as iOS's URL loading system does.
 const signIn = [
@@ -61,5 +61,17 @@ describe("the native session cookie", () => {
     )
     assert.deepStrictEqual(finished, { "__Secure-neon-auth.session_token": "tok" })
     assert.isTrue(hasSessionToken(finished))
+  })
+
+  it("drops an abandoned challenge cookie without touching an existing session", () => {
+    const withBoth = {
+      "__Secure-neon-auth.session_token": "tok",
+      "__Secure-neon-auth.session_challenge": "chal",
+      "__Secure-neon-auth.session_challange": "typo"
+    }
+    const cleaned = dropChallenges(withBoth)
+    assert.deepStrictEqual(cleaned, { "__Secure-neon-auth.session_token": "tok" })
+    // Nothing to drop returns the same reference, so storage isn't rewritten.
+    assert.strictEqual(dropChallenges(cleaned), cleaned)
   })
 })

@@ -2,7 +2,7 @@ import { Effect, Layer } from "effect"
 import { HttpRouter, HttpServerResponse } from "effect/http"
 import { configuredWebOrigins, webOriginAllowed } from "./cors.ts"
 
-export const OAUTH_RETURN_PATH = "/auth/return"
+const OAUTH_RETURN_PATH = "/auth/return"
 
 /** The app's own URL scheme (app.json `scheme`), which iOS and Android hand back to Kotori. */
 const APP_SCHEME = "kotori:"

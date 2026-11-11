@@ -1,39 +1,54 @@
-import { apiUrl } from "../api/config.ts"
-import { AuthError } from "./client.ts"
+import { AuthError } from "./error.ts"
 
-/** What came back from Google: a verifier to trade for a session, or nothing (the learner backed out). */
-export type GoogleReturn = { readonly verifier: string } | null
+/** The query parameter Managed Auth appends to `callbackURL` after a social sign-in. */
+export const VERIFIER_PARAM = "neon_auth_session_verifier"
 
-/** What came back from linking Google in Settings: an optional verifier, or nothing (the learner backed out). */
-export type GoogleLinkReturn = { readonly verifier: string | null } | null
+/** Dedicated native deep-link path for OAuth returns, ignored by Expo Router (`app/+native-intent.ts`). */
+export const NATIVE_CALLBACK_PATH = "auth/callback"
+
+/** What came back from Google: a verifier to trade, `"cancelled"` if backed out, or `null` on a normal load. */
+export type GoogleReturn = { readonly verifier: string } | "cancelled" | null
+
+/** What came back from linking Google in Settings: an optional verifier, `"cancelled"`, or `null`. */
+export type GoogleLinkReturn = { readonly verifier: string | null } | "cancelled" | null
 
 /** The query parameters Managed Auth adds to the return URL. */
-export const RETURN_PARAMS = ["neon_auth_session_verifier", "error", "error_description"] as const
+export const RETURN_PARAMS = [VERIFIER_PARAM, "error", "error_description"] as const
 
 /** Marks a return URL as coming from linking Google in Settings rather than signing in. */
 export const LINK_PARAM = "google"
 export const LINK_VALUE = "linked"
 
 /** The API's `/auth/return`, which forwards Managed Auth's answer on to `to`. */
-export const callbackURL = (to: string) => `${apiUrl}/auth/return?to=${encodeURIComponent(to)}`
+export const callbackURL = (apiUrl: string, to: string) => `${apiUrl}/auth/return?to=${encodeURIComponent(to)}`
 
 /** The API's `/auth/return` for linking Google in Settings, tagged with `google=linked`. */
-export const linkCallbackURL = (to: string) => {
+export const linkCallbackURL = (apiUrl: string, to: string) => {
   const url = new URL(to)
   url.searchParams.set(LINK_PARAM, LINK_VALUE)
-  return callbackURL(url.toString())
+  return callbackURL(apiUrl, url.toString())
+}
+
+/** Whether a deep-link URL is the native OAuth return (`kotori://auth/callback` or Expo Go's `/--/auth/callback`). */
+export const isNativeAuthCallback = (path: string): boolean => {
+  const stripped = (path.split(/[?#]/, 1)[0] ?? "").replace(/^([a-z][a-z0-9+.-]*):\/+/i, "$1://")
+  return (
+    stripped === `/${NATIVE_CALLBACK_PATH}` ||
+    stripped.endsWith(`://${NATIVE_CALLBACK_PATH}`) ||
+    stripped.endsWith(`/--/${NATIVE_CALLBACK_PATH}`)
+  )
 }
 
 /**
- * Managed Auth's answer in a return URL: the verifier, or AuthError (GOOGLE_NOT_LINKED,
- * GOOGLE_FAILED) for an error Google or Neon gave.
+ * Managed Auth's answer in a return URL: the verifier, `"cancelled"` if the learner backed
+ * out, `null` when untouched, or AuthError (GOOGLE_NOT_LINKED, GOOGLE_FAILED) on refusal.
  */
 export const readReturn = (params: URLSearchParams): GoogleReturn => {
-  const verifier = params.get("neon_auth_session_verifier")
+  const verifier = params.get(VERIFIER_PARAM)
   if (verifier !== null && verifier !== "") return { verifier }
   const error = params.get("error")
-  // No answer, or the learner said no on Google's page: as good as closing it.
-  if (error === null || error === "access_denied") return null
+  if (error === null) return null
+  if (error === "access_denied") return "cancelled"
   // Better Auth's codes when the address already has a password account it won't attach Google to.
   const notLinked = error === "account_not_linked" || error === "unable_to_link_account"
   throw new AuthError(notLinked ? "GOOGLE_NOT_LINKED" : "GOOGLE_FAILED", params.get("error_description") ?? error, 400)
@@ -41,12 +56,11 @@ export const readReturn = (params: URLSearchParams): GoogleReturn => {
 
 /**
  * Managed Auth's answer after linking Google in Settings: `{ verifier }` on success,
- * `null` if the learner backed out, or AuthError (GOOGLE_EMAIL_MISMATCH,
- * GOOGLE_ALREADY_LINKED, GOOGLE_FAILED) if Google or Neon refused.
+ * `"cancelled"` if backed out, `null` when untouched, or AuthError on refusal.
  */
 export const readLinkReturn = (params: URLSearchParams): GoogleLinkReturn => {
   const error = params.get("error")
-  if (error === "access_denied") return null
+  if (error === "access_denied") return "cancelled"
   if (error !== null) {
     const code =
       error === "email_does_not_match"
@@ -57,6 +71,6 @@ export const readLinkReturn = (params: URLSearchParams): GoogleLinkReturn => {
     throw new AuthError(code, params.get("error_description") ?? error, 400)
   }
   if (params.get(LINK_PARAM) !== LINK_VALUE) return null
-  const verifier = params.get("neon_auth_session_verifier")
+  const verifier = params.get(VERIFIER_PARAM)
   return { verifier: verifier !== null && verifier !== "" ? verifier : null }
 }

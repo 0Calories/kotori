@@ -123,7 +123,7 @@ All enrichment commands skip entries that are already complete, so they can be i
 
 ## Accounts and authentication
 
-Authentication uses Neon's [Managed Better Auth](https://neon.com/docs/auth/overview), proxied by the API at `/api/auth/*`. Kotori is currently in private beta: anyone can sign up and verify their email, but new accounts start in a **pending** state until approved via the CLI:
+Authentication uses Neon's [Managed Better Auth](https://neon.com/docs/auth/overview), proxied by the API at `/api/auth/*` (plus `GET /auth/return` to hand Google OAuth callbacks back to the web or native app). Learners can sign up and sign in with email + password or Google, and existing password learners can connect Google in **Settings**. Kotori is currently in private beta: anyone can sign up, but new accounts start in a **pending** state until approved via the CLI:
 
 ```sh
 pnpm kotori requests                  # list sign-ups awaiting approval (--all includes archived)
@@ -139,7 +139,8 @@ pnpm kotori revoke user@example.com   # revoke sessions across all devices
 For day-to-day development, `pnpm dev` runs `tools/local-auth` on port 4001 to emulate Neon Managed Auth locally, and the app signs in automatically as `dev@kotori.test`.
 
 - To test the real sign-up, sign-in, and pending screens locally, set `EXPO_PUBLIC_DEV_SIGN_IN=off`. Verification and password-reset codes are printed to the console when `RESEND_API_KEY` is unset.
-- To run against a live Neon branch instead of local Docker, run `neon checkout <branch>` (which writes `DATABASE_URL` and `NEON_AUTH_BASE_URL` to `.env.local`).
+- To test **Continue with Google** against `tools/local-auth`, set `LOCAL_AUTH_GOOGLE_CLIENT_ID` and `LOCAL_AUTH_GOOGLE_CLIENT_SECRET` in `.env` using a Google OAuth **Web application** client with redirect URI `http://localhost:4001/neondb/auth/callback/google`.
+- To run against a live Neon branch instead of local Docker, run `neon checkout <branch>` (which writes `DATABASE_URL` and `NEON_AUTH_BASE_URL` to `.env.local`, using Neon's Managed Auth credentials directly).
 
 ## Development commands
 

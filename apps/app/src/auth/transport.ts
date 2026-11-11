@@ -1,5 +1,5 @@
 import { storage } from "../session/storage"
-import { applySetCookie, cookieHeader, hasSessionToken, type SessionCookies } from "./cookies.ts"
+import { applySetCookie, cookieHeader, dropChallenges, hasSessionToken, type SessionCookies } from "./cookies.ts"
 
 const KEY = "kotori.session"
 
@@ -34,6 +34,11 @@ export const transport = {
     const next = applySetCookie(stored, response.headers.get("set-cookie"))
     if (next !== stored) await save(next)
     return response
+  },
+  clearChallenge: async () => {
+    const stored = await load()
+    const next = dropChallenges(stored)
+    if (next !== stored) await save(next)
   },
   forget: () => save({})
 }
