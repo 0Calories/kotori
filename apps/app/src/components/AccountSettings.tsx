@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { type TextInput, View } from "react-native"
 import { AuthError, managedAuth } from "../auth/client.ts"
 import { google } from "../auth/google"
+import type { GoogleLinkReturn } from "../auth/googleReturn.ts"
 import { authMessage } from "../auth/messages.ts"
 import { tokens } from "../auth/tokens.ts"
 import { useSession } from "../session/SessionProvider.tsx"
@@ -39,19 +40,37 @@ export const GoogleAccount = () => {
   const [justLinked, setJustLinked] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const pendingReturn = useRef<Exclude<GoogleLinkReturn, "cancelled" | null> | null>(null)
+
   const completeLink = useCallback(
-    async (verifier: string | null, isCancelled?: () => boolean) => {
-      if (verifier !== null) {
+    async (
+      back: Exclude<GoogleLinkReturn, "cancelled" | null>,
+      onConsumed?: () => void,
+      isCancelled?: () => boolean
+    ) => {
+      if (back.kind === "id_token") {
         try {
-          await managedAuth.finishGoogle(verifier)
+          await managedAuth.completeGoogleLink({ token: back.idToken, nonce: back.nonce })
+          onConsumed?.()
+        } catch (e) {
+          if (e instanceof AuthError && e.code !== "OFFLINE") onConsumed?.()
+          throw e
+        }
+      } else if (back.verifier !== null) {
+        try {
+          await managedAuth.finishGoogle(back.verifier)
           tokens.clear()
           await tokens.refresh()
+          onConsumed?.()
         } catch (e) {
           if (e instanceof AuthError && e.code !== "OFFLINE") {
+            onConsumed?.()
             throw new AuthError("GOOGLE_FAILED", e.message, e.status)
           }
           throw e
         }
+      } else {
+        onConsumed?.()
       }
       await queryClient.refetchQueries({ queryKey: ACCOUNTS_KEY })
       if (!isCancelled?.()) setJustLinked(true)
@@ -62,9 +81,21 @@ export const GoogleAccount = () => {
   useEffect(() => {
     let cancelled = false
     const finish = async () => {
-      const back = google.linkReturned()
-      if (back === null || back === "cancelled") return
-      await completeLink(back.verifier, () => cancelled)
+      try {
+        const back = google.linkReturned()
+        if (back !== null && back !== "cancelled") pendingReturn.current = back
+      } catch (e) {
+        pendingReturn.current = null
+        throw e
+      }
+      if (pendingReturn.current === null) return
+      await completeLink(
+        pendingReturn.current,
+        () => {
+          pendingReturn.current = null
+        },
+        () => cancelled
+      )
     }
     finish().catch((e: unknown) => {
       if (!cancelled) setError(authMessage(t, e))
@@ -80,7 +111,7 @@ export const GoogleAccount = () => {
     setError(null)
     try {
       const back = await google.link()
-      if (back !== null && back !== "cancelled") await completeLink(back.verifier)
+      if (back !== null && back !== "cancelled") await completeLink(back)
     } catch (e) {
       setError(authMessage(t, e))
     } finally {

@@ -1,9 +1,13 @@
 import { assert, describe, it } from "vitest"
 import { AuthError } from "../src/auth/error.ts"
 import {
+  buildGoogleIdTokenUrl,
   callbackURL,
+  extractGoogleClientId,
   isNativeAuthCallback,
   linkCallbackURL,
+  normalizeGoogleLinkError,
+  readIdTokenReturn,
   readLinkReturn,
   readReturn
 } from "../src/auth/googleReturn.ts"
@@ -36,6 +40,78 @@ describe("Google return URLs", () => {
     )
   })
 
+  it("extracts Google client_id from Better Auth's authorization URL and builds an OIDC id_token URL", () => {
+    const clientId = extractGoogleClientId(
+      "https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=919653962426-abc.apps.googleusercontent.com&state=s1"
+    )
+    assert.strictEqual(clientId, "919653962426-abc.apps.googleusercontent.com")
+    expectAuthError(
+      () => extractGoogleClientId("https://accounts.google.com/o/oauth2/v2/auth?state=s1"),
+      "GOOGLE_FAILED"
+    )
+    expectAuthError(() => extractGoogleClientId("not a url"), "GOOGLE_FAILED")
+
+    const oidcUrl = new URL(
+      buildGoogleIdTokenUrl({
+        clientId,
+        redirectUri: "https://hellokotori.com/settings",
+        state: "state-123",
+        nonce: "nonce-456"
+      })
+    )
+    assert.strictEqual(oidcUrl.origin + oidcUrl.pathname, "https://accounts.google.com/o/oauth2/v2/auth")
+    assert.strictEqual(oidcUrl.searchParams.get("client_id"), "919653962426-abc.apps.googleusercontent.com")
+    assert.strictEqual(oidcUrl.searchParams.get("redirect_uri"), "https://hellokotori.com/settings")
+    assert.strictEqual(oidcUrl.searchParams.get("response_type"), "id_token")
+    assert.strictEqual(oidcUrl.searchParams.get("scope"), "openid email profile")
+    assert.strictEqual(oidcUrl.searchParams.get("state"), "state-123")
+    assert.strictEqual(oidcUrl.searchParams.get("nonce"), "nonce-456")
+    assert.strictEqual(oidcUrl.searchParams.get("prompt"), "select_account")
+  })
+
+  it("validates OIDC id_token link returns against CSRF state and maps cancellation and errors", () => {
+    const expected = { state: "state-123", nonce: "nonce-456" }
+    assert.isNull(readIdTokenReturn(new URLSearchParams("state=state-123&id_token=jwt-1"), null))
+    assert.deepStrictEqual(readIdTokenReturn(new URLSearchParams("state=state-123&id_token=jwt-1"), expected), {
+      kind: "id_token",
+      idToken: "jwt-1",
+      nonce: "nonce-456"
+    })
+    assert.strictEqual(
+      readIdTokenReturn(new URLSearchParams("state=state-123&error=access_denied"), expected),
+      "cancelled"
+    )
+
+    expectAuthError(
+      () => readIdTokenReturn(new URLSearchParams("state=wrong&id_token=jwt-1"), expected),
+      "GOOGLE_FAILED"
+    )
+    expectAuthError(() => readIdTokenReturn(new URLSearchParams("id_token=jwt-1"), expected), "GOOGLE_FAILED")
+    expectAuthError(() => readIdTokenReturn(new URLSearchParams("state=state-123"), expected), "GOOGLE_FAILED")
+    expectAuthError(
+      () => readIdTokenReturn(new URLSearchParams("state=state-123&error=redirect_uri_mismatch"), expected),
+      "GOOGLE_FAILED"
+    )
+  })
+
+  it("normalizes Better Auth idToken account-linking error codes while preserving OFFLINE and RATE_LIMITED", () => {
+    expectAuthError(() => {
+      throw normalizeGoogleLinkError(new AuthError("LINKING_DIFFERENT_EMAILS_NOT_ALLOWED", "Different emails", 401))
+    }, "GOOGLE_EMAIL_MISMATCH")
+    expectAuthError(() => {
+      throw normalizeGoogleLinkError(new AuthError("SOCIAL_ACCOUNT_ALREADY_LINKED", "Already linked", 409))
+    }, "GOOGLE_ALREADY_LINKED")
+    expectAuthError(() => {
+      throw normalizeGoogleLinkError(new AuthError("INVALID_TOKEN", "Invalid id token", 401))
+    }, "GOOGLE_FAILED")
+    expectAuthError(() => {
+      throw normalizeGoogleLinkError(new AuthError("OFFLINE", "Network down", 0))
+    }, "OFFLINE")
+    expectAuthError(() => {
+      throw normalizeGoogleLinkError(new AuthError("RATE_LIMITED", "Slow down", 429))
+    }, "RATE_LIMITED")
+  })
+
   it("recognises only the native OAuth callback path across custom schemes and Expo Go", () => {
     assert.isTrue(isNativeAuthCallback("kotori://auth/callback?neon_auth_session_verifier=v-1"))
     assert.isTrue(isNativeAuthCallback("kotori:///auth/callback?error=access_denied"))
@@ -65,9 +141,11 @@ describe("Google return URLs", () => {
 
   it("reads a Settings link return, distinguishes cancellation, and maps linking errors", () => {
     assert.deepStrictEqual(readLinkReturn(new URLSearchParams("google=linked&neon_auth_session_verifier=v-456")), {
+      kind: "verifier",
       verifier: "v-456"
     })
     assert.deepStrictEqual(readLinkReturn(new URLSearchParams("google=linked")), {
+      kind: "verifier",
       verifier: null
     })
     assert.isNull(readLinkReturn(new URLSearchParams()))
