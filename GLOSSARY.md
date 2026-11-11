@@ -7,12 +7,24 @@ Kotori helps intermediate and advanced learners sound natural in Japanese or Eng
 ### Learners and languages
 
 **Learner**:
-A person studying with Kotori.
-_Avoid_: User, student
+A person studying with Kotori; also called a user.
+_Avoid_: Student
+
+**English learner**:
+A learner studying English, explained in Japanese.
+_Avoid_: Learner of English, Japanese speaker learning English, Japanese learner (for someone studying English)
+
+**Japanese learner**:
+A learner studying Japanese, explained in English.
+_Avoid_: Learner of Japanese, English speaker learning Japanese, English learner (for someone studying Japanese)
 
 **Account**:
-A learner's sign-up, which is pending until an admin approves it.
-_Avoid_: Profile, registration
+A user's sign-up, which is pending until an admin approves it.
+_Avoid_: Registration
+
+**Profile**:
+A user's language direction, display name, time zone and daily study limits.
+_Avoid_: Settings, preferences
 
 **Admin**:
 A person who approves accounts and reviews proposals.
@@ -27,7 +39,7 @@ The language a learner is studying.
 _Avoid_: Foreign language, learning language, L2
 
 **Direction**:
-One of the two pairings Kotori teaches: an English speaker learning Japanese, or a Japanese speaker learning English.
+One of the two pairings Kotori teaches: a Japanese learner or an English learner.
 _Avoid_: Mode, language pair, locale
 
 ### Dictionary
@@ -69,11 +81,11 @@ An outside data set the dictionary is built from: JMDict, the Wiktionaries, Tato
 _Avoid_: Import, dataset, upstream
 
 **English dictionary**:
-The entries for English words, explained in Japanese, that Kotori assembles from several seeds for learners of English.
+The entries for English words, explained in Japanese, that Kotori assembles from several seeds for English learners.
 _Avoid_: Eiwa, reverse dictionary
 
 **Source**:
-Where a dictionary fact came from: a named seed, Kotori, or a learner.
+Where a dictionary fact came from: a named seed, Kotori, or a user.
 _Avoid_: Origin, provenance, author
 
 **Kotori** (as a source):
