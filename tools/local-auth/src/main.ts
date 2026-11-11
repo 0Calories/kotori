@@ -65,9 +65,10 @@ const pool = new pg.Pool({
 })
 
 /**
- * Managed Auth signs in with Google on Neon's shared credentials; locally that needs an
- * OAuth client of your own (type "Web application", redirect URI
- * `<NEON_AUTH_BASE_URL>/callback/google`). Without one, the Google button reports an error.
+ * Google OAuth against the local stand-in needs a "Web application" OAuth client of your
+ * own with redirect URI `<NEON_AUTH_BASE_URL>/callback/google` (production Neon branches
+ * need their own too, since Neon's shared credentials don't wrap `/link-social`). Without
+ * one, the Google button reports an error.
  */
 const googleClientId = process.env["LOCAL_AUTH_GOOGLE_CLIENT_ID"]
 const googleClientSecret = process.env["LOCAL_AUTH_GOOGLE_CLIENT_SECRET"]

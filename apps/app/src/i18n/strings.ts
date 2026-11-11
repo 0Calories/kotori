@@ -407,6 +407,10 @@ const en = {
     deleteConfirm: "Yes, delete everything",
     deleting: "Deleting your account…"
   },
+  legal: {
+    privacy: "Privacy Policy",
+    terms: "Terms of Service"
+  },
   pos: {
     n: "noun",
     v1: "verb (ichidan)",
@@ -872,6 +876,10 @@ const ja: Strings = {
     deleteBody: "アカウント、ノート、学習した内容がすべて消えます。元に戻すことはできません。",
     deleteConfirm: "すべて削除する",
     deleting: "削除しています…"
+  },
+  legal: {
+    privacy: "プライバシーポリシー",
+    terms: "利用規約"
   },
   pos: {
     n: "名詞",
