@@ -1,4 +1,4 @@
-import type { DraftEntry, DraftSense, Language } from "@kotori/contracts"
+import type { DraftEntry, DraftSense, Label, Language } from "@kotori/contracts"
 import { LinearGradient } from "expo-linear-gradient"
 import { useEffect, useState } from "react"
 import { StyleSheet, View } from "react-native"
@@ -12,9 +12,8 @@ import Animated, {
   withDelay,
   withTiming
 } from "react-native-reanimated"
-import { draftTagLabel, posLabel } from "../i18n/strings.ts"
+import { draftTagLabel } from "../i18n/strings.ts"
 import { draftHeadwordSize } from "../lib/ask.ts"
-import { currencyTone } from "../lib/tones.ts"
 import { useSession } from "../session/SessionProvider.tsx"
 import { easeOut } from "../theme/easing.ts"
 import { useTheme } from "../theme/ThemeProvider.tsx"
@@ -91,48 +90,49 @@ const SenseNumber = ({ number }: { readonly number: number }) => {
   )
 }
 
+/** Label chips, worded as the dictionary's tags are. Phase 5 gives them severity and help. */
+const Labels = ({ labels }: { readonly labels: ReadonlyArray<Label> }) => {
+  const { t } = useSession()
+  return labels.length === 0 ? null : (
+    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+      {labels.map((label) => (
+        <Chip key={label.code} label={draftTagLabel(t, label.code)} />
+      ))}
+    </View>
+  )
+}
+
 const DraftSenseRow = ({
   sense,
-  number,
-  language,
-  shown
+  language
 }: {
   readonly sense: DraftSense
-  readonly number: number
-  /** The headword's language; glosses and notes are in the other one. */
+  /** The headword's language; glosses and usage patterns are in the other one. */
   readonly language: Language
-  /** Labels already on the band (its currency), so a sense doesn't repeat them. */
-  readonly shown: ReadonlyArray<string>
 }) => {
-  const { t } = useSession()
   const separator = language === "ja" ? "; " : "、"
   const [first, second, ...rest] = sense.glosses
-  const pos = posLabel(t, sense.partOfSpeech)
-  const repeated = new Set(shown.map((label) => label.toLowerCase()))
-  const labels = [...new Set(sense.labels.map((code) => draftTagLabel(t, code)))].filter(
-    (label) => !repeated.has(label.toLowerCase())
-  )
   return (
     <View style={{ flexDirection: "row", gap: 12 }}>
-      <SenseNumber number={number} />
+      <SenseNumber number={sense.index + 1} />
       <View style={{ flex: 1, gap: 6, paddingTop: 1 }}>
         <Text variant="heading" selectable>
           {second ? `${first}${separator}${second}` : first}
         </Text>
         {rest.length > 0 ? <Text color="textMuted">{rest.join(separator)}</Text> : null}
-        {pos || labels.length > 0 ? (
+        {sense.partsOfSpeech.length > 0 || sense.labels.length > 0 ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-            {pos ? <Chip label={pos} /> : null}
-            {labels.map((label) => (
-              <Chip key={label} label={label} />
+            {sense.partsOfSpeech.map((pos) => (
+              <Chip key={pos.code} label={pos.name} />
             ))}
+            <Labels labels={sense.labels} />
           </View>
         ) : null}
-        {sense.note ? (
-          <Text jp={language === "en"} variant="small" color="textMuted" selectable>
-            {sense.note}
+        {sense.usagePatterns.map((usagePattern) => (
+          <Text key={usagePattern.text} jp={language === "en"} variant="small" color="textMuted" selectable>
+            {usagePattern.text}
           </Text>
-        ) : null}
+        ))}
       </View>
     </View>
   )
@@ -158,8 +158,6 @@ export const DraftCard = ({
   const { t } = useSession()
   const size = draftHeadwordSize(draft.headword, language)
   const reading = draft.reading.length > 0 && draft.reading !== draft.headword ? draft.reading : null
-  const currency = draft.currency === "current" ? null : draft.currency
-  const currencyLabel = currency === null ? null : t.nuance.currency[currency]
   // Each part follows the one before it by a beat, after the card itself has landed.
   const step = (index: number) =>
     live
@@ -199,14 +197,14 @@ export const DraftCard = ({
             >
               {draft.headword}
             </Headword>
-            {reading !== null || currencyLabel !== null ? (
+            {reading !== null || draft.labels.length > 0 ? (
               <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                 {reading === null ? null : (
                   <Text jp={language === "ja"} variant="caption" size={14} color="textMuted" selectable>
                     {reading}
                   </Text>
                 )}
-                {currency === null ? null : <Chip tone={currencyTone[currency]} label={t.nuance.currency[currency]} />}
+                <Labels labels={draft.labels} />
               </View>
             ) : null}
             {draft.spellings.length > 0 ? (
@@ -220,12 +218,14 @@ export const DraftCard = ({
         <View style={{ paddingHorizontal: 18, paddingTop: 16, paddingBottom: 18, gap: 18 }}>
           {draft.senses.map((sense, index) => (
             <Animated.View key={sense.glosses.join("\n")} entering={step(index + 1)}>
-              <DraftSenseRow
-                sense={sense}
-                number={index + 1}
-                language={language}
-                shown={currencyLabel === null ? [] : [currencyLabel]}
-              />
+              <DraftSenseRow sense={sense} language={language} />
+            </Animated.View>
+          ))}
+          {draft.cautions.map((caution, index) => (
+            <Animated.View key={caution.id} entering={step(draft.senses.length + index + 1)}>
+              <Text jp={language === "en"} variant="small" selectable>
+                {caution.text}
+              </Text>
             </Animated.View>
           ))}
         </View>

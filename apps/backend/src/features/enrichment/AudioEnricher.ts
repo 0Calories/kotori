@@ -69,9 +69,12 @@ export class AudioEnricher extends Context.Service<
           (example) =>
             Effect.gen(function* () {
               if (linked.has(`${example.id}:${language}`)) return
+              // A seeded sentence has no formality, and a guessed one would cast the wrong voice.
+              const { formality } = example
+              if (formality === null) return
               const sense = entry.senses[example.sense]
               const decision = yield* pronouncer.cast(
-                example,
+                { ...example, formality },
                 { misc: sense?.misc ?? [], dialects: sense?.dialects ?? [], fields: sense?.fields ?? [] },
                 nuance.get(example.sense) ?? null,
                 language

@@ -28,10 +28,10 @@ export const bytewiseText = customType<{ data: string }>({
  */
 export const textList = () => text().array()
 
-export const nullIfEmpty = (values: ReadonlyArray<string>): Array<string> | null =>
+export const nullIfEmpty = <T = string>(values: ReadonlyArray<T>): Array<T> | null =>
   values.length === 0 ? null : [...values]
 
-export const emptyIfNull = (values: ReadonlyArray<string> | null): ReadonlyArray<string> => values ?? []
+export const emptyIfNull = <T = string>(values: ReadonlyArray<T> | null): ReadonlyArray<T> => values ?? []
 
 /**
  * The full-text document of an English column: `to_tsvector('english', column)`, which stems
@@ -62,3 +62,12 @@ export type Language = typeof Language.Type
 /** How formal a word or sentence sounds, from crude to ceremonious. */
 export const Formality = Schema.Literals(formality.enumValues)
 export type Formality = typeof Formality.Type
+
+/**
+ * Where a dictionary fact came from: one of the seed dictionaries, Tatoeba's sentences, Kotori's
+ * AI, or a user. Kotori's inference fills cells a dictionary left empty and never overwrites one.
+ */
+export const source = pgEnum("source", ["jmdict", "jawiktionary", "enwiktionary", "tatoeba", "kotori", "user"])
+
+export const Source = Schema.Literals(source.enumValues)
+export type Source = typeof Source.Type

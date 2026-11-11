@@ -21,8 +21,18 @@ const draft: DraftEntry = {
   headword: "ぴえん",
   reading: "ぴえん",
   spellings: [],
-  currency: "trendy",
-  senses: [{ glosses: ["boo-hoo (crying sound)"], partOfSpeech: "int", labels: ["net-sl"], note: null }]
+  frequency: 4,
+  labels: [{ code: "net-sl", severity: "warning", source: "kotori" }],
+  senses: [
+    {
+      index: 0,
+      glosses: ["boo-hoo (crying sound)"],
+      partsOfSpeech: [{ code: "int", name: "interjection" }],
+      labels: [],
+      usagePatterns: []
+    }
+  ],
+  cautions: []
 }
 
 const entry: EntrySummary = {

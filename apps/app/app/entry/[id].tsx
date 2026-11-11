@@ -1,4 +1,11 @@
-import { type Language, loanShown, type Loanword, type Nuance, type Sense, type SimilarWord } from "@kotori/contracts"
+import {
+  type Language,
+  loanShown,
+  type Loanword,
+  type Nuance,
+  type Sense,
+  type JudgedSimilarWord
+} from "@kotori/contracts"
 import { Link, useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { Platform, Share, View } from "react-native"
@@ -267,7 +274,7 @@ const SimilarList = ({
   words,
   language
 }: {
-  readonly words: ReadonlyArray<SimilarWord>
+  readonly words: ReadonlyArray<JudgedSimilarWord>
   /** Similar words come from the same dictionary as the entry. */
   readonly language: Language
 }) => {

@@ -41,10 +41,16 @@ const profile = {
 const entry = {
   id: 1,
   language: "ja",
+  source: "jmdict",
   headword: "食べる",
   reading: "たべる",
   common: true,
   romaji: "taberu",
+  usuallyKana: false,
+  labels: [],
+  frequency: null,
+  loanLink: null,
+  cautions: [],
   forms: [],
   audioUrl: null,
   audio: [],
@@ -65,11 +71,15 @@ const entry = {
     appliesTo: [],
     related: [],
     antonyms: [],
+    origins: [],
     nuance: null,
     note: null,
     noteJa: null,
     similar: [],
-    examples: []
+    examples: [],
+    labels: [],
+    usagePatterns: [],
+    similarWords: []
   }))
 }
 

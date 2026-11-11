@@ -6,7 +6,7 @@ import { Command } from "effect/cli"
 import { adminCommand, approve, archive, devAccount, requests, revoke, users } from "../cli/accounts.ts"
 import { enrich } from "../cli/enrich.ts"
 import { evaluate } from "../cli/evaluate.ts"
-import { familiarity } from "../cli/familiarity.ts"
+import { frequency } from "../cli/frequency.ts"
 import { golden } from "../cli/golden.ts"
 import { migrate } from "../cli/migrate.ts"
 import { proposalsCommand } from "../cli/proposals.ts"
@@ -14,7 +14,7 @@ import { seed } from "../cli/seed.ts"
 import { status } from "../cli/status.ts"
 import { storage } from "../cli/storage.ts"
 import { DatabaseLive } from "../db/Database.ts"
-import { AccountsLive, FamiliarityLive, RedoLive, SeedLive } from "../runtime/CliLayers.ts"
+import { AccountsLive, FrequencyLive, RedoLive, SeedLive } from "../runtime/CliLayers.ts"
 import { loadDotEnv } from "../runtime/Paths.ts"
 import { loggerLayer, SentryLive } from "../runtime/Sentry.ts"
 import { WorkerLive } from "../runtime/WorkerLayers.ts"
@@ -30,7 +30,7 @@ const kotori = Command.make("kotori").pipe(
     proposalsCommand(RedoLive).pipe(Command.provide(DatabaseLive)),
     seed.pipe(Command.provide(SeedLive)),
     enrich.pipe(Command.provide(WorkerLive)),
-    familiarity.pipe(Command.provide(FamiliarityLive)),
+    frequency.pipe(Command.provide(FrequencyLive)),
     evaluate.pipe(Command.provide(Jev.layer)),
     golden,
     status.pipe(Command.provide(WorkerLive)),

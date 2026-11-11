@@ -19,6 +19,7 @@ import { join } from "node:path"
 import { gunzipSync } from "node:zlib"
 import { buildEntries } from "../features/dictionary/import/english/EnglishDictionary.ts"
 import { ENGLISH_TAGS } from "../features/dictionary/import/english/tags.ts"
+import { JMDICT_FILE } from "../features/dictionary/import/jmdict/JMDict.ts"
 import { parseEntries, parseTags } from "../features/dictionary/import/jmdict/parse.ts"
 import { workspaceRoot } from "../runtime/Paths.ts"
 
@@ -28,7 +29,7 @@ const data = (path: string) => join(workspaceRoot, "data", path)
  * Rebuilds the golden fixture (`GOLDEN_FIXTURE`) from the local downloads: every entry the golden
  * set names, in JMDict and in the English dictionary, cut to the senses Kotori judges, with the
  * names of the tags they use, and the golden English words' katakana loan candidates as the
- * nuance job's lookup finds them. It reads `data/jmdict/JMdict_e.gz` and the English dictionary's
+ * nuance job's lookup finds them. It reads `data/jmdict/JMdict_e_examp.gz` and the English dictionary's
  * sources in `data/english` (both downloaded by `kotori seed`), builds the English dictionary in
  * memory as an import would, writes the fixture, and touches no database. Run it after editing the
  * golden set or downloading newer sources, and commit the result: `kotori eval` reads only the fixture.
@@ -39,11 +40,11 @@ export const golden = Command.make(
   Effect.fn(function* () {
     const fs = yield* FileSystem.FileSystem
     const files = {
-      jmdict: data("jmdict/JMdict_e.gz"),
+      jmdict: join(workspaceRoot, JMDICT_FILE),
       curated: data("english/enwiktionary-ja.jsonl"),
       phrases: data("english/enwiktionary-phrases.json"),
       wiktionary: data("english/ja-wiktionary.jsonl.gz"),
-      frequency: data("english/en_50k.txt")
+      subtitles: data("english/en_50k.txt")
     }
     for (const file of Object.values(files)) {
       if (!(yield* fs.exists(file))) {
@@ -68,15 +69,15 @@ export const golden = Command.make(
     // The loan candidates, by the same rules as the nuance job's lookup: once as production
     // finds them until JMDict is re-imported with lsource (gloss matches only), once as after.
     const words = GOLDEN_LOANS.map((golden) => golden.word)
-    const withoutSources = all.map((entry) => ({
+    const withoutOrigins = all.map((entry) => ({
       ...entry,
-      senses: entry.senses.map((sense) => ({ ...sense, sources: [] }))
+      senses: entry.senses.map((sense) => ({ ...sense, origins: [] }))
     }))
     const idsOf = (candidates: ReturnType<typeof loanCandidatesIn>, word: string) =>
       candidates
         .filter((candidate) => candidate.word === normalizeGloss(word))
         .map(({ entryId, by }) => ({ entryId, by }))
-    const glossesOnly = loanCandidatesIn(withoutSources, words, MAX_LOANS)
+    const glossesOnly = loanCandidatesIn(withoutOrigins, words, MAX_LOANS)
     const withSources = loanCandidatesIn(all, words, MAX_LOANS)
     const loans = Object.fromEntries(
       words.map((word) => [
@@ -94,7 +95,7 @@ export const golden = Command.make(
         curated: files.curated,
         phrases: files.phrases,
         wiktionary: files.wiktionary,
-        frequency: files.frequency
+        subtitles: files.subtitles
       },
       jmdict: files.jmdict
     })
@@ -169,7 +170,7 @@ export const golden = Command.make(
     const created = /JMdict created: (\d{4}-\d{2}-\d{2})/.exec(xml)?.[1] ?? "an unknown date"
 
     const fixture: GoldenFixture = {
-      about: `The entries the golden set names, cut from JMdict_e.gz (created ${created}) and the English dictionary built from data/english, by \`kotori golden\`. Regenerate it; don't edit it. Excerpts of JMdict (© EDRDG), English and Japanese Wiktionary, and FrequencyWords, shared under CC BY-SA 4.0: see NOTICE.md beside this file.`,
+      about: `The entries the golden set names, cut from JMdict_e_examp.gz (created ${created}) and the English dictionary built from data/english, by \`kotori golden\`. Regenerate it; don't edit it. Excerpts of JMdict (© EDRDG), English and Japanese Wiktionary, and FrequencyWords, shared under CC BY-SA 4.0: see NOTICE.md beside this file.`,
       tags: Object.fromEntries([...codes].sort().map((code) => [code, tagNames.get(code) ?? code])),
       entries,
       loans

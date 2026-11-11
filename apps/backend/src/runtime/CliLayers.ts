@@ -1,5 +1,5 @@
 import { NodeHttpClient } from "@effect/platform-node"
-import { AiProviders, Claude, FamiliarityRater, Lexicographer, Pronouncer } from "@kotori/ai"
+import { AiProviders, Claude, FrequencyRater, Lexicographer, Pronouncer } from "@kotori/ai"
 import { Layer } from "effect"
 import { DatabaseLive } from "../db/Database.ts"
 import { Approvals } from "../features/accounts/Approvals.ts"
@@ -19,8 +19,8 @@ export const AccountsLive = Approvals.layer.pipe(
   Layer.provideMerge(NodeHttpClient.layerUndici)
 )
 
-/** What `kotori familiarity` needs: Claude to rate phrases, and the database for the phrases to rate. */
-export const FamiliarityLive = FamiliarityRater.layer.pipe(
+/** What `kotori frequency` needs: Claude to rate phrases, and the database for the phrases to rate. */
+export const FrequencyLive = FrequencyRater.layer.pipe(
   Layer.provideMerge(Claude.layer),
   Layer.provideMerge(DatabaseLive)
 )

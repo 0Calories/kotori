@@ -163,13 +163,14 @@ const sense = (glosses: Array<string>) => ({
   stagr: [],
   xrefs: [],
   antonyms: [],
-  sources: [],
+  origins: [],
   wasei: false
 })
 
 const entry = (id: number, headword: string, reading: string, senses: Array<Array<string>>): EntryRecord => ({
   id: EntryId.make(id),
   language: "ja",
+  source: "jmdict",
   headword,
   reading,
   common: true,

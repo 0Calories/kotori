@@ -1,11 +1,12 @@
 import { type ClaudeError, CONTESTED_AT, type DraftCandidate, Lexicographer, type Triage } from "@kotori/ai"
-import { AiUnavailable, type DraftEntry, type Language, RateLimited } from "@kotori/contracts"
-import type { AskTriage } from "@kotori/db"
+import { AiUnavailable, type Language, RateLimited } from "@kotori/contracts"
+import type { AskTriage, DraftEntry } from "@kotori/db"
 import { katakanaToHiragana } from "@kotori/language"
 import { Effect, Option } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 import { Dictionary } from "../dictionary/Dictionary.ts"
 import { findForms } from "../dictionary/queries.ts"
+import { checkDraft } from "./draft.ts"
 import type { Verdict } from "./queries.ts"
 
 /** Jev's routing of a query: as stored with the proposal, and as read (`interpretTriage`). */
@@ -75,18 +76,11 @@ export const judge = Effect.fn("asks.judge")(function* (
   // Candidates are numbered from 1, in the order Claude saw them.
   const linked = output.verdict === "link" && output.link !== null ? found.entries[output.link - 1] : undefined
   if (linked !== undefined) return linkTo(linked.id)
-  const draft = output.entry
-  if ((output.verdict === "entry" || output.verdict === "link") && draft !== null && draft.senses.length > 0) {
+  const draft = output.entry === null ? null : checkDraft(output.entry, language)
+  if ((output.verdict === "entry" || output.verdict === "link") && draft !== null) {
     const duplicate = yield* duplicateOf(db, draft, language)
     if (Option.isSome(duplicate)) return linkTo(duplicate.value)
-    const spellings = draft.spellings.filter((spelling) => spelling !== draft.headword)
-    return {
-      ...base,
-      status: "pending",
-      draft: { ...draft, spellings } satisfies DraftEntry,
-      linkedEntryId: null,
-      reason: null
-    } satisfies Verdict
+    return { ...base, status: "pending", draft, linkedEntryId: null, reason: null } satisfies Verdict
   }
   return {
     ...base,

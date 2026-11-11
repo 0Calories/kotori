@@ -207,7 +207,7 @@ export interface KnownEnglish {
   readonly phrases: ReadonlySet<string>
   /** Variant idiom phrasings mapped to their canonical headword ("skate on thin ice" -> "on thin ice"). */
   readonly redirects?: ReadonlyMap<string, string> | undefined
-  readonly frequency: ReadonlyMap<string, number>
+  readonly subtitles: ReadonlyMap<string, number>
 }
 
 /** Reads JMDict an entry at a time, collecting the English words its glosses name; see `wordsFromJmdict`. */
@@ -232,7 +232,7 @@ export const jmdictReader = (known: KnownEnglish) => {
     if (words.length === 1) {
       if (known.words.has(term)) return { headword: term }
       // Single words: ones people use, and not inflections of words already in.
-      return known.frequency.has(term) && !uninflect(term).some(({ base }) => known.words.has(base))
+      return known.subtitles.has(term) && !uninflect(term).some(({ base }) => known.words.has(base))
         ? { headword: term }
         : null
     }

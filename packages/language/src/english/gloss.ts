@@ -47,8 +47,8 @@ export interface GlossedEntry {
   readonly priority: number
   readonly senses: ReadonlyArray<{
     readonly glosses: ReadonlyArray<{ readonly text: string }>
-    /** The English words a loanword sense comes from, where JMDict names them (`lsource`). */
-    readonly sources: ReadonlyArray<string>
+    /** The languages and words a loanword sense came from, where JMDict names them (`lsource`). */
+    readonly origins: ReadonlyArray<{ readonly language: string; readonly word: string | null }>
   }>
 }
 
@@ -57,13 +57,13 @@ export interface LoanCandidate {
   /** The English word, normalised (`normalizeGloss`). */
   readonly word: string
   readonly entryId: number
-  /** `gloss`: the entry has the word as a gloss; `source`: JMDict names it as the loan's source. */
+  /** `gloss`: the entry has the word as a gloss; `source`: JMDict names it as the loan's origin. */
   readonly by: "gloss" | "source"
 }
 
 /**
  * The loan candidates of English words among `entries`: common katakana words with the word as
- * a gloss or as their JMDict source, most frequent first, at most `limit` per word.
+ * a gloss or as their JMDict English origin, most frequent first, at most `limit` per word.
  * The backend's `loanCandidates` query is the same search in SQL; the golden fixture is cut with this.
  */
 export const loanCandidatesIn = (
@@ -82,8 +82,9 @@ export const loanCandidatesIn = (
         const word = normalizeGloss(gloss.text)
         if (wanted.has(word) && !by.has(word)) by.set(word, "gloss")
       }
-      for (const source of sense.sources) {
-        const word = normalizeGloss(source)
+      for (const origin of sense.origins) {
+        if (origin.language !== "eng" || origin.word === null) continue
+        const word = normalizeGloss(origin.word)
         if (wanted.has(word)) by.set(word, "source")
       }
     }

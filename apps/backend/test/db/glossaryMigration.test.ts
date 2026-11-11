@@ -39,8 +39,9 @@ layer(PgliteClient.layer({ dataDir: "memory://", extensions: { pg_trgm } }))("th
         .filter((entry) => entry.isDirectory())
         .map((entry) => entry.name)
         .sort()
-      assert.strictEqual(folders.at(-1), GLOSSARY, "a later migration needs its own test, or this one a fixed cut-off")
-      for (const folder of folders.slice(0, -1)) yield* run(folder)
+      // Only the migrations before it: later ones are written against the glossary's names.
+      assert.include(folders, GLOSSARY)
+      for (const folder of folders.filter((own) => own < GLOSSARY)) yield* run(folder)
 
       yield* sql.unsafe(`
         INSERT INTO users (id, status, role) VALUES ('${U1}', 'approved', 'user'), ('${U2}', 'approved', 'admin')`)

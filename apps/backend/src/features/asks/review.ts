@@ -1,13 +1,23 @@
 import { Claude, interpretTriage } from "@kotori/ai"
-import { AiUnavailable, type DraftEntry, type DraftSense, EntryRecord, type SenseRecord } from "@kotori/contracts"
-import { entries, EntryId, FIRST_APPROVED_JA_ID, FIRST_ENGLISH_ID, proposals } from "@kotori/db"
+import { AiUnavailable, EntryRecord, SenseRecord } from "@kotori/contracts"
+import {
+  DraftCaution,
+  type DraftEntry,
+  type DraftSense,
+  entries,
+  EntryId,
+  FIRST_APPROVED_JA_ID,
+  FIRST_ENGLISH_ID,
+  proposals
+} from "@kotori/db"
 import { and, eq, gte, max } from "drizzle-orm"
 import { Effect, FileSystem, Option, Schema } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 import { APPROVED_EN_FILE, serializeApprovedLine } from "../dictionary/import/english/approved.ts"
 import { toConsolidatedWord } from "../dictionary/import/english/words.ts"
-import { findForms, getEntries, insertEntries } from "../dictionary/queries.ts"
-import { enqueueJob, saveSenseNotes } from "../enrichment/index.ts"
+import type { ImportEntry, SeedFrequency } from "../dictionary/import/seedFacts.ts"
+import { findForms, getEntries, insertEntries, saveKotoriCautions } from "../dictionary/queries.ts"
+import { enqueueJob } from "../enrichment/index.ts"
 import { judge } from "./judge.ts"
 import { updateVerdict } from "./queries.ts"
 
@@ -20,8 +30,28 @@ import { updateVerdict } from "./queries.ts"
  */
 export const APPROVED_JA_FILE = "data/approved/ja.jsonl"
 
+const ApprovedJaSense = Schema.Struct({
+  ...SenseRecord.fields,
+  origins: SenseRecord.fields.origins.pipe(Schema.withDecodingDefaultKey(Effect.succeed([] as const)))
+})
+
+/**
+ * An approved entry as its line stores it. A line written before entries named their source
+ * has none, and is an Ask Kotori word like every approved one: Kotori's.
+ */
+const ApprovedJaEntry = Schema.Struct({
+  ...EntryRecord.fields,
+  source: EntryRecord.fields.source.pipe(Schema.withDecodingDefaultKey(Effect.succeed("kotori" as const))),
+  senses: Schema.Array(ApprovedJaSense)
+})
+
 export const ApprovedJaLine = Schema.Union([
-  Schema.Struct({ entry: EntryRecord }),
+  Schema.Struct({
+    entry: ApprovedJaEntry,
+    /** How commonly the word is used today, 1–5, as the draft judged it: its only frequency signal. */
+    frequency: Schema.optional(Schema.Int),
+    cautions: Schema.optional(Schema.Array(DraftCaution))
+  }),
   Schema.Struct({ alias: Schema.Struct({ text: Schema.String, base: Schema.String }) })
 ])
 export type ApprovedJaLine = typeof ApprovedJaLine.Type
@@ -49,37 +79,35 @@ export class NoSuchAlias extends Schema.TaggedError<NoSuchAlias>()("NoSuchAlias"
 
 const kanaOnly = /^[\u3040-\u30ffー]+$/u
 
-/** A draft sense as the dictionary stores senses; the note is kept apart (see `approveProposal`). */
-const toSense = (sense: DraftSense, extraMisc: ReadonlyArray<string>): SenseRecord => ({
+/** A drafted word's frequency signals: the 1–5 score Claude judged, nothing counted. */
+const draftFrequency = (score: number): SeedFrequency => ({ everyday: false, spokenCount: null, score })
+
+/**
+ * A draft sense as the dictionary stores senses: its labels as usage codes and its usage patterns as
+ * notes, which the import reads back as labels and usage patterns with the entry's source, Kotori.
+ */
+const toSense = (sense: DraftSense): SenseRecord => ({
   glosses: sense.glosses.map((text) => ({ text, type: null })),
-  pos: sense.partOfSpeech === null ? [] : [sense.partOfSpeech],
-  misc: [...new Set([...sense.labels, ...extraMisc])],
+  pos: [...sense.pos],
+  misc: [...sense.labels],
   fields: [],
   dialects: [],
-  info: [],
+  info: [...sense.usagePatterns],
   stagk: [],
   stagr: [],
   xrefs: [],
   antonyms: [],
-  sources: [],
+  origins: [],
   wasei: false
 })
 
-/** The usage tags a draft's currency adds, mirroring how the dictionary marks datedness. */
-const currencyMisc = (draft: DraftEntry): ReadonlyArray<string> =>
-  draft.currency === "archaic" ? ["arch"] : draft.currency === "dated" ? ["dated"] : []
-
-/** The familiarity a draft's currency implies, for the import's priority floors. */
-const currencyFamiliarity = (draft: DraftEntry): number =>
-  draft.currency === "archaic" ? 1 : draft.currency === "dated" ? 2 : 4
-
 /** The entry a draft becomes, in the language's record shape, with the given id. */
 export const draftToRecord = (draft: DraftEntry, language: "en" | "ja", id: EntryId): EntryRecord => {
-  const extra = currencyMisc(draft)
   const spellings = [...new Set(draft.spellings.filter((text) => text !== draft.headword))]
   return {
     id,
     language,
+    source: "kotori",
     headword: draft.headword,
     reading: draft.reading,
     common: false,
@@ -128,7 +156,7 @@ export const draftToRecord = (draft: DraftEntry, language: "en" | "ja", id: Entr
               noKanji: false
             }))
           ],
-    senses: draft.senses.map((sense) => toSense(sense, extra))
+    senses: draft.senses.map(toSense)
   }
 }
 
@@ -216,24 +244,9 @@ export const approveProposal = Effect.fn("review.approveProposal")(function* (
   const draft = approval.headword === undefined ? proposal.draft : { ...proposal.draft, headword: approval.headword }
   const entryId = yield* nextEntryId(db, language)
   const record = draftToRecord(draft, language, entryId)
-  yield* insertEntries(db, [record])
-  yield* saveSenseNotes(
-    db,
-    entryId,
-    draft.senses.flatMap((sense, index) =>
-      sense.note === null
-        ? []
-        : [
-            {
-              sense: index,
-              note: language === "ja" ? sense.note : null,
-              noteJa: language === "en" ? sense.note : null,
-              model: proposal.model
-            }
-          ]
-    ),
-    now
-  )
+  // Seeded, so the draft's frequency score is the word's frequency signal from the start.
+  yield* insertEntries(db, [{ ...record, frequency: draftFrequency(draft.frequency) }], { seeded: true })
+  yield* saveKotoriCautions(db, entryId, language, draft.cautions)
   for (const kind of ["nuance", "examples", "audio"] as const) yield* enqueueJob(db, kind, entryId, 500, now)
   yield* appendLine(
     file,
@@ -247,10 +260,15 @@ export const approveProposal = Effect.fn("review.approveProposal")(function* (
               inflections: [],
               senses: record.senses
             }),
-            familiarity: currencyFamiliarity(draft)
-          }
+            frequency: draft.frequency
+          },
+          ...(draft.cautions.length > 0 ? { cautions: draft.cautions } : {})
         })
-      : `${encodeJaLine({ entry: record })}\n`
+      : `${encodeJaLine({
+          entry: record,
+          frequency: draft.frequency,
+          ...(draft.cautions.length > 0 ? { cautions: draft.cautions } : {})
+        })}\n`
   )
   yield* db
     .update(proposals)
@@ -310,17 +328,42 @@ export const redoProposal = Effect.fn("review.redoProposal")(function* (db: Data
 /** The approved ja file's entries and aliases; see `APPROVED_JA_FILE`. */
 export const parseApprovedJa = (
   lines: Iterable<string>
-): { readonly records: Array<EntryRecord>; readonly aliases: Array<{ text: string; base: string }> } => {
-  const records: Array<EntryRecord> = []
+): {
+  /** Entries with the frequency score they were approved with, if their line carries one. */
+  readonly records: Array<ImportEntry>
+  readonly cautions: Array<{
+    readonly entryId: EntryId
+    readonly cautions: ReadonlyArray<DraftCaution>
+  }>
+  readonly aliases: Array<{ text: string; base: string }>
+  /** The numbers (from 1) of the lines that don't decode, which are left out. */
+  readonly skipped: Array<number>
+} => {
+  const records: Array<ImportEntry> = []
+  const cautions: Array<{
+    readonly entryId: EntryId
+    readonly cautions: ReadonlyArray<DraftCaution>
+  }> = []
   const aliases: Array<{ text: string; base: string }> = []
+  const skipped: Array<number> = []
+  let number = 0
   for (const line of lines) {
+    number++
     if (line.trim().length === 0) continue
     const decoded = decodeJaLine(line)
-    if (Option.isNone(decoded)) continue
-    if ("entry" in decoded.value) records.push(decoded.value.entry)
-    else aliases.push(decoded.value.alias)
+    if (Option.isNone(decoded)) {
+      skipped.push(number)
+      continue
+    }
+    if ("entry" in decoded.value) {
+      const { entry, frequency } = decoded.value
+      records.push(frequency === undefined ? entry : { ...entry, frequency: draftFrequency(frequency) })
+      if (decoded.value.cautions !== undefined) {
+        cautions.push({ entryId: decoded.value.entry.id, cautions: decoded.value.cautions })
+      }
+    } else aliases.push(decoded.value.alias)
   }
-  return { records, aliases }
+  return { records, cautions, aliases, skipped }
 }
 
 export { APPROVED_EN_FILE }

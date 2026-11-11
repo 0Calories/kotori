@@ -536,6 +536,8 @@ export const goldenEntry = (entry: FixtureEntry): EntryRecord => {
   return {
     id: entry.id,
     language: entry.language ?? "ja",
+    // The fixture keeps no source; the judges don't read it.
+    source: (entry.language ?? "ja") === "ja" ? "jmdict" : "enwiktionary",
     headword: entry.headword,
     reading: entry.reading,
     common: entry.common,
@@ -556,7 +558,7 @@ export const goldenEntry = (entry: FixtureEntry): EntryRecord => {
       stagr: [],
       xrefs: [],
       antonyms: [],
-      sources: sense.sources ?? [],
+      origins: (sense.sources ?? []).map((word) => ({ language: "eng", word })),
       wasei: sense.wasei ?? false
     }))
   }
@@ -576,16 +578,21 @@ export const fixtureEntry = (entry: EntryRecord, senses: number): FixtureEntry =
     ...(kanji.length > 0 ? { kanji } : {}),
     ...(kana.length > 0 ? { kana } : {}),
     ...(spellings.length > 0 ? { spellings } : {}),
-    senses: entry.senses.slice(0, senses).map((sense) => ({
-      glosses: sense.glosses.map((gloss) => gloss.text),
-      pos: sense.pos,
-      ...(sense.misc.length > 0 ? { misc: sense.misc } : {}),
-      ...(sense.fields.length > 0 ? { fields: sense.fields } : {}),
-      ...(sense.dialects.length > 0 ? { dialects: sense.dialects } : {}),
-      ...(sense.info.length > 0 ? { info: sense.info } : {}),
-      ...(sense.sources.length > 0 ? { sources: sense.sources } : {}),
-      ...(sense.wasei ? { wasei: true } : {})
-    }))
+    senses: entry.senses.slice(0, senses).map((sense) => {
+      const sources = sense.origins.flatMap((origin) =>
+        origin.language === "eng" && origin.word !== null ? [origin.word] : []
+      )
+      return {
+        glosses: sense.glosses.map((gloss) => gloss.text),
+        pos: sense.pos,
+        ...(sense.misc.length > 0 ? { misc: sense.misc } : {}),
+        ...(sense.fields.length > 0 ? { fields: sense.fields } : {}),
+        ...(sense.dialects.length > 0 ? { dialects: sense.dialects } : {}),
+        ...(sense.info.length > 0 ? { info: sense.info } : {}),
+        ...(sources.length > 0 ? { sources } : {}),
+        ...(sense.wasei ? { wasei: true } : {})
+      }
+    })
   }
 }
 

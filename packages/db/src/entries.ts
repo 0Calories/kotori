@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm"
 import { type AnyPgColumn, boolean, index, integer, text } from "drizzle-orm/pg-core"
 import * as Schema from "effect/Schema"
-import { language, table } from "./columns.ts"
+import { language, source, table } from "./columns.ts"
 
 /** JMDict's `ent_seq` for Japanese words; English words are numbered from 100,000,000. */
 export const EntryId = Schema.Int.pipe(Schema.brand("EntryId"))
@@ -29,6 +29,12 @@ export const entries = table(
     id: integer().primaryKey().$type<EntryId>(),
     /** The headword's language: Japanese for JMDict, English for the English dictionary. */
     language: language().notNull().default("ja"),
+    /**
+     * Where the entry and its senses came from: JMDict, English or Japanese Wiktionary, or Kotori
+     * for words approved out of Ask Kotori. Labels and usage patterns read from the senses carry it
+     * as their source.
+     */
+    source: source().notNull(),
     headword: text().notNull(),
     /** Kana for Japanese words; IPA for English ones, or empty when the sources have none. */
     reading: text().notNull(),

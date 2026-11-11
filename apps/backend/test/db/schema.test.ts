@@ -1,8 +1,18 @@
 import { assert, describe, it, layer } from "@effect/vitest"
 import { EntryId } from "@kotori/contracts"
-import { englishDocument, entries, forms, glosses, senses } from "@kotori/db"
+import {
+  cautions,
+  englishDocument,
+  entries,
+  entryFrequency,
+  forms,
+  glosses,
+  labels,
+  loanLinks,
+  senses
+} from "@kotori/db"
 import { eq, sql } from "drizzle-orm"
-import { Effect } from "effect"
+import { Effect, Exit } from "effect"
 import { Database } from "../../src/db/Database.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
@@ -15,8 +25,8 @@ const seed = Effect.gen(function* () {
   const db = yield* Database
   yield* db.execute(sql`TRUNCATE ${entries} CASCADE`)
   yield* db.insert(entries).values([
-    { id: EntryId.make(1), headword: "食べる", reading: "たべる", common: true, priority: 90 },
-    { id: EntryId.make(2), headword: "食う", reading: "くう", common: false, priority: 10 }
+    { id: EntryId.make(1), source: "jmdict", headword: "食べる", reading: "たべる", common: true, priority: 90 },
+    { id: EntryId.make(2), source: "jmdict", headword: "食う", reading: "くう", common: false, priority: 10 }
   ])
   yield* db.insert(forms).values([
     { entryId: EntryId.make(1), kind: "kanji", position: 0, text: "食べる", common: true, priorities: ["ichi1"] },
@@ -108,6 +118,78 @@ layer(DatabaseMemory)("schema", (it) => {
       const left = yield* db.$count(glosses)
       assert.strictEqual(left, 1)
       assert.strictEqual(yield* db.$count(forms), 2)
+    })
+  )
+})
+
+// Labels, cautions, frequency and loan links: the constraints that keep the enrichment model honest.
+layer(DatabaseMemory)("enrichment schema", (it) => {
+  const caution = (rank: number, sense: number | null = null) => ({
+    entryId: EntryId.make(2),
+    sense,
+    rank,
+    kind: "rude_upward" as const,
+    text: "Rough; say 食べる to anyone above you.",
+    aboutEntryId: EntryId.make(1),
+    source: "kotori" as const
+  })
+
+  it.effect("caps a word's cautions at three, one per rank", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      yield* seed
+      yield* db.insert(cautions).values([caution(1), caution(2, 0), caution(3)])
+      assert.isTrue(Exit.isFailure(yield* db.insert(cautions).values(caution(4)).pipe(Effect.exit)))
+      assert.isTrue(Exit.isFailure(yield* db.insert(cautions).values(caution(2)).pipe(Effect.exit)))
+      assert.isTrue(Exit.isFailure(yield* db.insert(cautions).values(caution(0)).pipe(Effect.exit)))
+    })
+  )
+
+  it.effect("ties a sense-scoped caution to a sense that exists", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      yield* seed
+      assert.isTrue(Exit.isFailure(yield* db.insert(cautions).values(caution(1, 5)).pipe(Effect.exit)))
+    })
+  )
+
+  it.effect("reads labels, cautions and frequency with the entry, and cascades or unlinks on delete", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      yield* seed
+      yield* db.insert(labels).values({ entryId: EntryId.make(2), sense: 0, code: "male", source: "jmdict" })
+      yield* db.insert(cautions).values(caution(1))
+      yield* db.insert(entryFrequency).values({ entryId: EntryId.make(1), everyday: true })
+      yield* db.insert(loanLinks).values({
+        katakana: "クウ",
+        katakanaEntryId: EntryId.make(2),
+        english: "coo",
+        meaning: "true_loanword",
+        source: "jmdict"
+      })
+
+      const entry = yield* db.query.entries.findFirst({
+        where: { id: EntryId.make(2) },
+        with: { senses: { with: { labels: true } }, cautions: { with: { about: true } }, loansFrom: true }
+      })
+      assert.deepStrictEqual(
+        entry?.senses[0]?.labels.map((label) => label.code),
+        ["male"]
+      )
+      assert.strictEqual(entry?.cautions[0]?.about?.headword, "食べる")
+      assert.strictEqual(entry?.loansFrom[0]?.english, "coo")
+
+      // The word a caution compares with going away leaves the caution standing.
+      yield* db.delete(entries).where(eq(entries.id, EntryId.make(1)))
+      assert.strictEqual(yield* db.$count(cautions), 1)
+      assert.strictEqual(yield* db.$count(entryFrequency), 0)
+
+      // The word itself going away takes its labels and cautions, and leaves the loan link's text.
+      yield* db.delete(entries).where(eq(entries.id, EntryId.make(2)))
+      assert.strictEqual(yield* db.$count(labels), 0)
+      assert.strictEqual(yield* db.$count(cautions), 0)
+      const [link] = yield* db.select().from(loanLinks)
+      assert.strictEqual(link?.katakanaEntryId, null)
     })
   )
 })

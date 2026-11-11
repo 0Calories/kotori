@@ -13,12 +13,13 @@ import {
   TtsError
 } from "@kotori/ai"
 import { EntryId, type EntryRecord } from "@kotori/contracts"
+import { cautions, usagePatterns } from "@kotori/db"
 import { Effect, Layer, Option } from "effect"
 import { TestClock } from "effect/testing"
 import { Database } from "../src/db/Database.ts"
 import { linkEntryAudio, linkExampleAudio, saveAudio } from "../src/features/audio/queries.ts"
 import { Dictionary } from "../src/features/dictionary/Dictionary.ts"
-import { insertEntries, saveTags } from "../src/features/dictionary/queries.ts"
+import { insertEntries, linkLoans, saveTags } from "../src/features/dictionary/queries.ts"
 import {
   claimJob,
   completeJob,
@@ -91,7 +92,7 @@ const sense = (glosses: Array<string>, pos: Array<string>, misc: Array<string> =
   stagr: [],
   xrefs: [],
   antonyms: [],
-  sources: [],
+  origins: [],
   wasei: false
 })
 
@@ -104,6 +105,7 @@ const entry = (
 ): EntryRecord => ({
   id: EntryId.make(id),
   language: "ja",
+  source: "jmdict",
   headword,
   reading,
   common,
@@ -130,6 +132,7 @@ const word = (
 ): EntryRecord => ({
   id: EntryId.make(id),
   language: "en",
+  source: "enwiktionary",
   headword,
   reading: options.reading ?? "",
   common: options.common ?? true,
@@ -879,6 +882,213 @@ layer(testLayer(false))("Dictionary: what Kotori wrote on an English word", (it)
           ["strain", "緊張、重圧"],
           ["stress", "圧力、圧迫"]
         ]
+      )
+    })
+  )
+})
+
+// The enrichment model as the entry page reads it: the dictionary's labels stated once, usage patterns
+// and cautions with the words they name, frequency, the loan link from either end, and similar
+// words derived from shared glosses and cross-references.
+layer(testLayer(false))("Dictionary: labels, usage patterns, cautions and similar words", (it) => {
+  const taberu = EntryId.make(1358280)
+  const kuu = EntryId.make(1269130)
+  const meshiagaru = EntryId.make(1594790)
+  const gokurou = EntryId.make(1270560)
+  const mansion = EntryId.make(1079450)
+  const mansionEn = EntryId.make(100000060)
+  const eat = EntryId.make(100000061)
+  const dine = EntryId.make(100000062)
+
+  const seed = Effect.gen(function* () {
+    const db = yield* Database
+    yield* insertEntries(
+      db,
+      [
+        {
+          ...entry(taberu, "食べる", "たべる", [sense(["to eat"], ["v1"]), sense(["to live on"], ["v1"])]),
+          priority: 90
+        },
+        {
+          ...entry(kuu, "食う", "くう", [
+            sense(["to eat"], ["v5u"], ["male"]),
+            sense(["to bite"], ["v5u"], ["male", "col"])
+          ]),
+          priority: 80,
+          frequency: { everyday: true, spokenCount: null, score: null }
+        },
+        {
+          ...entry(meshiagaru, "召し上がる", "めしあがる", [sense(["to eat", "to drink"], ["v5r"], ["hon"])]),
+          priority: 60
+        },
+        entry(gokurou, "ご苦労様", "ごくろうさま", [
+          { ...sense(["thank you for your hard work"], ["exp"], ["pol"]), info: ["usu. to one's subordinate"] }
+        ]),
+        {
+          ...entry(mansion, "マンション", "マンション", [
+            { ...sense(["condominium"], ["n"]), origins: [{ language: "eng", word: "mansion" }] }
+          ])
+        },
+        word(Number(mansionEn), "mansion", [sense(["大邸宅"], ["n"])]),
+        word(Number(eat), "eat", [sense(["食べる"], ["v"]), { ...sense(["食事をする"], ["v"]), xrefs: ["dine"] }]),
+        word(Number(dine), "dine", [sense(["食事をする", "正餐を取る"], ["v"], ["form"])], { common: false })
+      ],
+      { seeded: true }
+    )
+    yield* linkLoans(db)
+  })
+
+  it.effect("states the word's labels once, and a sense only what it adds", () =>
+    Effect.gen(function* () {
+      const dictionary = yield* Dictionary
+      yield* seed
+      const shown = Option.getOrThrow(yield* dictionary.entry(kuu))
+      assert.deepStrictEqual(shown.labels, [{ code: "male", severity: "warning", source: "jmdict" }])
+      assert.deepStrictEqual(
+        shown.senses.map((own) => own.labels.map((label) => label.code)),
+        [[], ["col"]]
+      )
+      assert.strictEqual(shown.source, "jmdict")
+      assert.deepStrictEqual(shown.frequency, { everyday: true, spokenCount: null, score: null })
+      assert.isNull(Option.getOrThrow(yield* dictionary.entry(taberu)).frequency)
+    })
+  )
+
+  it.effect("shows the dictionary's usage pattern beside Kotori's, and cautions with the word they name", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      yield* seed
+      yield* db.insert(usagePatterns).values({
+        entryId: gokurou,
+        sense: 0,
+        position: 1,
+        text: "Upward it sounds condescending; say お疲れ様です.",
+        source: "kotori",
+        aboutEntryId: taberu
+      })
+      yield* db.insert(cautions).values([
+        { entryId: kuu, sense: 0, rank: 2, kind: "confusable", text: "Not 喰う.", source: "kotori" },
+        {
+          entryId: kuu,
+          sense: null,
+          rank: 1,
+          kind: "rude_upward",
+          text: "Rough upward.",
+          aboutEntryId: taberu,
+          source: "kotori"
+        }
+      ])
+
+      const kurou = Option.getOrThrow(yield* dictionary.entry(gokurou))
+      assert.deepStrictEqual(kurou.senses[0]?.usagePatterns, [
+        { text: "usu. to one's subordinate", source: "jmdict", about: null },
+        {
+          text: "Upward it sounds condescending; say お疲れ様です.",
+          source: "kotori",
+          about: { entryId: taberu, headword: "食べる", reading: "たべる" }
+        }
+      ])
+      const shown = Option.getOrThrow(yield* dictionary.entry(kuu))
+      assert.deepStrictEqual(
+        shown.cautions.map((caution) => [caution.kind, caution.sense, caution.about?.headword ?? null]),
+        [
+          ["rude_upward", null, "食べる"],
+          ["confusable", 0, null]
+        ]
+      )
+    })
+  )
+
+  it.effect("reads the loan link from both ends", () =>
+    Effect.gen(function* () {
+      const dictionary = yield* Dictionary
+      yield* seed
+      const link = {
+        katakana: "マンション",
+        katakanaEntryId: mansion,
+        english: "mansion",
+        englishEntryId: mansionEn,
+        meaning: null,
+        source: "jmdict" as const
+      }
+      assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.entry(mansion)).loanLink, link)
+      assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.entry(mansionEn)).loanLink, link)
+      assert.isNull(Option.getOrThrow(yield* dictionary.entry(taberu)).loanLink)
+    })
+  )
+
+  it.effect("derives similar words and how they differ from shared glosses and cross-references", () =>
+    Effect.gen(function* () {
+      const dictionary = yield* Dictionary
+      yield* seed
+      const shown = Option.getOrThrow(yield* dictionary.entry(taberu))
+      assert.deepStrictEqual(
+        shown.senses[0]?.similarWords.map((similar) => [
+          similar.headword,
+          similar.meaning,
+          similar.difference,
+          similar.via
+        ]),
+        [
+          ["食う", "to eat", "masculine", "gloss"],
+          ["召し上がる", "to eat; to drink", "respectful", "gloss"]
+        ]
+      )
+      assert.deepStrictEqual(shown.senses[1]?.similarWords, [])
+
+      // From 召し上がる, 食べる is the plain word; 食う, marked male, is the masculine one.
+      const polite = Option.getOrThrow(yield* dictionary.entry(meshiagaru))
+      assert.deepStrictEqual(
+        polite.senses[0]?.similarWords.map((similar) => [similar.headword, similar.difference]),
+        [
+          ["食べる", "plain"],
+          ["食う", "masculine"]
+        ]
+      )
+      // From 食う, 食べる is the plain word.
+      assert.deepStrictEqual(
+        Option.getOrThrow(yield* dictionary.entry(kuu)).senses[0]?.similarWords.map((similar) => [
+          similar.headword,
+          similar.difference
+        ]),
+        [
+          ["食べる", "plain"],
+          ["召し上がる", "respectful"]
+        ]
+      )
+
+      // "dine" is too rare to come in by a shared gloss, but eat's second sense lists it.
+      const english = Option.getOrThrow(yield* dictionary.entry(eat))
+      assert.deepStrictEqual(
+        english.senses[1]?.similarWords.map((similar) => [
+          similar.headword,
+          similar.meaning,
+          similar.difference,
+          similar.via
+        ]),
+        [["dine", "食事をする、正餐を取る", "more_formal", "xref"]]
+      )
+    })
+  )
+
+  it.effect("follows a cross-reference to the word with the reading it names, among words spelled alike", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      const jouzu = EntryId.make(1580940)
+      const uwate = EntryId.make(1580960)
+      const shitate = EntryId.make(1302260)
+      yield* insertEntries(db, [
+        { ...entry(jouzu, "上手", "じょうず", [sense(["skillful"], ["adj-na"])]), priority: 90 },
+        { ...entry(uwate, "上手", "うわて", [sense(["upper hand"], ["n"])]), priority: 40 },
+        entry(shitate, "下手", "したて", [{ ...sense(["inferiority"], ["n"]), xrefs: ["上手・うわて"] }])
+      ])
+      const shown = Option.getOrThrow(yield* dictionary.entry(shitate))
+      assert.deepStrictEqual(shown.senses[0]?.related, [{ text: "上手（うわて）", entryId: uwate }])
+      assert.deepStrictEqual(
+        shown.senses[0]?.similarWords.map((similar) => [similar.entryId, similar.meaning]),
+        [[uwate, "upper hand"]]
       )
     })
   )

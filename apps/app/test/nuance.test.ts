@@ -31,11 +31,15 @@ const sense = (index: number, overrides: Partial<Sense> = {}): Sense => ({
   appliesTo: [],
   related: [],
   antonyms: [],
+  origins: [],
   nuance: nuance(),
   note: null,
   noteJa: null,
   similar: [],
   examples: [],
+  labels: [],
+  usagePatterns: [],
+  similarWords: [],
   ...overrides
 })
 
