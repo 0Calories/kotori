@@ -10,12 +10,13 @@ packages/contracts  → HTTP contract (`KotoriApi`), request/response schemas de
 packages/language   → Japanese/English text utilities (rōmaji ↔ kana, deinflection, furigana, phrase normalization)
 packages/srs        → Pure Anki SM-2 (v3) spaced-repetition scheduler
 packages/ai         → Claude, Jev, and ElevenLabs integrations + golden evaluations
-apps/backend        → HTTP API, enrichment worker, and `kotori` CLI (`src/entrypoints/{http,worker,cli}.ts`)
+apps/backend        → HTTP API, enrichment worker, `kotori` CLI, and admin console (`src/entrypoints/{http,worker,cli}.ts`, `console.tsx`)
 apps/app            → Expo Router app for iOS, Android, and web
 tools/local-auth    → Local stand-in for Neon Managed Better Auth (:4001)
 ```
 
 - **Schema-first flow**: Queries in `@kotori/backend` and wire schemas in `@kotori/contracts` derive from `@kotori/db` tables, and `@kotori/app` is typed by `@kotori/contracts`. After changing `packages/db/src`, generate migrations with `pnpm --filter @kotori/db generate` (verified in CI by `pnpm nx run @kotori/db:check`).
+- **Admin console**: `pnpm kotori` with no arguments opens an OpenTUI terminal UI over the CLI (`apps/backend/src/console`). It runs on Node 26 with `--experimental-ffi`, fetched by `pnx` in the backend's `console` script; its packages (`@opentui/*`, `react`) are devDependencies, absent from the Fly image, so nothing outside `src/console` and `src/entrypoints/console.tsx` may import them. Its jobs list is built from the CLI's own command definitions, so a new command or flag appears there without console changes. Keep logic in `src/console/model` (tested on the repo's Node by Vitest) and out of the views, which only OpenTUI can render.
 - **Module boundaries**: Enforced by `@nx/enforce-module-boundaries` in `.oxlintrc.json`. Shared and client packages (`packages/db`, `packages/contracts`, `packages/language`, `packages/srs`, `apps/app`) must stay runtime-agnostic — no Node.js built-ins (`import/no-nodejs-modules`) or database drivers (`pg`, `@effect/sql-*`).
 
 ## Running Tasks with Nx

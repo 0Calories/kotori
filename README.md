@@ -27,7 +27,8 @@ Kotori is an [Nx](https://nx.dev) workspace managed with `pnpm`. The backend and
 ```text
 apps/
   app/        Expo (Router) app for iOS, Android, and web
-  backend/    HTTP API, enrichment worker and `kotori` CLI: one deployable, three entry points
+  backend/    HTTP API, enrichment worker and `kotori` CLI: one deployable, three entry points,
+              plus the admin console (`pnpm kotori`), which runs the CLI locally
 packages/
   db/         The data model: Drizzle tables and the migrations generated from them
   contracts/  The HTTP contract (KotoriApi), its schemas derived from the tables
@@ -103,6 +104,28 @@ Dictionary search and flashcard reviews work without any API keys. To enable coa
 
 The Anthropic client also accepts `ANTHROPIC_AUTH_TOKEN` or an `ant auth login` profile. See `.env.example` for model, voice, and rate-limit settings.
 
+## Admin console
+
+`pnpm kotori` on its own opens the admin console, a terminal UI built with
+[OpenTUI](https://opentui.com) over the same commands, for the database `DATABASE_URL` names. With a
+command it is the CLI, unchanged: `pnpm kotori status`, `pnpm kotori seed`, and so on, in scripts
+and on Fly.
+
+| Section | What it covers | CLI equivalent |
+| --- | --- | --- |
+| 1 Overview | Sign-ups and drafts waiting, coverage, the audio budget, the job queue | `status` |
+| 2 Accounts | Sign-ups and accounts: approve, archive, make or remove admins, sign out everywhere | `requests`, `users`, `approve`, `archive`, `admin`, `revoke` |
+| 3 Proposals | Ask Kotori drafts: who asked, the draft as they see it, and exactly what approving writes, with a live preview as you change the headword or approve it as an alias | `proposals list`, `show`, `approve`, `discard`, `redo` |
+| 4 Jobs | Every other command, as a form built from its flags, showing the command line it runs | `seed`, `enrich`, `eval`, `migrate`, `storage …`, … |
+| 5 Runs | Each job run this session with its full output; stop one with `c` | |
+
+The header names the database, in rose when it isn't local, and every write asks first and names it
+again. Press `?` for the keys; `q` or `ctrl+c` quits (asking first while a job runs).
+
+OpenTUI renders through Node's FFI, so the console runs on Node 26.4 or later with
+`--experimental-ffi`. The backend's `console` script fetches Node 26 with `pnx` (pnpm 12) the first
+time and caches it; the rest of the repository stays on the Node in `.node-version`.
+
 ## Enrichment and dictionary data
 
 When a learner opens an unenriched entry, the API queues high-priority jobs that the background worker (`pnpm dev`) picks up automatically. You can also backfill common words in batches:
@@ -145,6 +168,7 @@ For day-to-day development, `pnpm dev` runs `tools/local-auth` on port 4001 to e
 ## Development commands
 
 ```sh
+pnpm kotori        # open the admin console (with a command: run the CLI, e.g. `pnpm kotori --help`)
 pnpm test          # run all unit and integration tests (Vitest + @effect/vitest)
 pnpm typecheck     # typecheck the workspace with TypeScript 7 (tsc --build)
 pnpm build         # compile backend packages to dist/ and export the web app

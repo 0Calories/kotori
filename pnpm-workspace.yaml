@@ -44,6 +44,9 @@ catalog:
   vercel: ^65.5.0
   "@sentry/react-native": ~8.33.0
   "@sentry/effect": ^11.10.0
+  # The app renders with React Native; the backend's admin console renders the same React with OpenTUI.
+  react: 19.2.3
+  "@types/react": ~19.2.2
 
 allowBuilds:
   "@resvg/resvg-js": true
@@ -70,3 +73,8 @@ minimumReleaseAgeExclude:
   - expo-router@57.0.26
   - expo-splash-screen@57.0.10
   - expo@57.0.28
+
+peerDependencyRules:
+  allowedVersions:
+    # OpenTUI's FFI struct layouts only read TypeScript's types, which 6 still provides.
+    bun-ffi-structs>typescript: "6"
