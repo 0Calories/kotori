@@ -32,6 +32,10 @@ export const authMessage = (t: Strings, error: unknown): string => {
         return t.auth.errors.tooManyAttempts
       case "GOOGLE_NOT_LINKED":
         return t.auth.errors.googleNotLinked
+      case "GOOGLE_EMAIL_MISMATCH":
+        return t.auth.errors.googleEmailMismatch
+      case "GOOGLE_ALREADY_LINKED":
+        return t.auth.errors.googleAlreadyLinked
       case "GOOGLE_FAILED":
         return t.auth.errors.googleFailed
       // Signed up but no session to go on with: Managed Auth wants the email confirmed first.

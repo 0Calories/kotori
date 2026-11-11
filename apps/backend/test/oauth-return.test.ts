@@ -60,6 +60,17 @@ describe("GET /auth/return", () => {
 
       const native = yield* get(`to=${encodeURIComponent("kotori://sign-in")}&error=access_denied`)
       assert.strictEqual(native.location, "kotori://sign-in?error=access_denied")
+
+      const linked = yield* get(`to=${encodeURIComponent("https://hellokotori.com/settings?google=linked")}`)
+      assert.strictEqual(linked.location, "https://hellokotori.com/settings?google=linked")
+
+      const linkError = yield* get(
+        `to=${encodeURIComponent("https://hellokotori.com/settings?google=linked")}&error=email_does_not_match`
+      )
+      assert.strictEqual(
+        linkError.location,
+        "https://hellokotori.com/settings?google=linked&error=email_does_not_match"
+      )
     })
   )
 

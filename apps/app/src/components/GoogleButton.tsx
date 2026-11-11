@@ -5,7 +5,7 @@ import { Button } from "./Button.tsx"
 import { Text } from "./Text.tsx"
 
 /** Google's four-colour "G", which its branding guidelines ask for on every sign-in button. */
-const GoogleMark = ({ size = 18 }: { readonly size?: number }) => (
+export const GoogleMark = ({ size = 18 }: { readonly size?: number }) => (
   // Decoration: the button's label already says Google.
   <View aria-hidden>
     <Svg width={size} height={size} viewBox="0 0 48 48">

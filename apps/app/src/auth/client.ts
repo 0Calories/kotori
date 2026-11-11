@@ -64,6 +64,19 @@ export const managedAuth = {
       errorCallbackURL: callbackURL,
       disableRedirect: true
     }),
+  /**
+   * Attaches Google to the signed-in learner's account, so they can sign in with Google
+   * from then on instead of typing their password.
+   */
+  linkGoogle: (callbackURL: string) =>
+    request<{ readonly url: string }>("POST", "/link-social", {
+      provider: "google",
+      callbackURL,
+      errorCallbackURL: callbackURL,
+      disableRedirect: true
+    }),
+  /** The sign-in methods (`"credential"`, `"google"`, …) attached to the signed-in account. */
+  listAccounts: () => request<ReadonlyArray<{ readonly providerId: string }>>("GET", "/list-accounts"),
   /** Trades the verifier Managed Auth appended to `callbackURL`, plus the challenge cookie, for a session. */
   finishGoogle: (verifier: string) =>
     request<unknown>("GET", `/get-session?neon_auth_session_verifier=${encodeURIComponent(verifier)}`),
