@@ -1,6 +1,12 @@
 import { apiUrl } from "../api/config.ts"
 import { AuthError } from "./error.ts"
-import { callbackURL, linkCallbackURL, VERIFIER_PARAM } from "./googleReturn.ts"
+import {
+  callbackURL,
+  extractGoogleClientId,
+  linkCallbackURL,
+  normalizeGoogleLinkError,
+  VERIFIER_PARAM
+} from "./googleReturn.ts"
 import { transport } from "./transport"
 
 export { AuthError } from "./error.ts"
@@ -59,6 +65,29 @@ export const managedAuth = {
    * from then on instead of typing their password.
    */
   linkGoogle: (returnTo: string) => socialRequest("/link-social", linkCallbackURL(apiUrl, returnTo)),
+  /**
+   * Reads the Google OAuth `client_id` configured on Managed Auth (verifying the active session
+   * at the same time) so web account linking can request an OIDC `id_token` directly from Google.
+   */
+  googleLinkClientId: async (): Promise<string> => {
+    try {
+      const { url } = await request<{ readonly url: string }>("POST", "/link-social", {
+        provider: "google",
+        disableRedirect: true
+      })
+      return extractGoogleClientId(url)
+    } catch (error) {
+      throw normalizeGoogleLinkError(error)
+    }
+  },
+  /** Attaches Google to the signed-in learner's account using a verified Google OIDC `id_token`. */
+  completeGoogleLink: async (idToken: { readonly token: string; readonly nonce: string }) => {
+    try {
+      return await request<unknown>("POST", "/link-social", { provider: "google", idToken })
+    } catch (error) {
+      throw normalizeGoogleLinkError(error)
+    }
+  },
   /** The sign-in methods (`"credential"`, `"google"`, …) attached to the signed-in account. */
   listAccounts: () => request<ReadonlyArray<{ readonly providerId: string }>>("GET", "/list-accounts"),
   /** Trades the verifier Managed Auth appended to `callbackURL`, plus the challenge cookie, for a session. */

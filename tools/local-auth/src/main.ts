@@ -66,9 +66,10 @@ const pool = new pg.Pool({
 
 /**
  * Google OAuth against the local stand-in needs a "Web application" OAuth client of your
- * own with redirect URI `<NEON_AUTH_BASE_URL>/callback/google` (production Neon branches
- * need their own too, since Neon's shared credentials don't wrap `/link-social`). Without
- * one, the Google button reports an error.
+ * own with redirect URIs `<NEON_AUTH_BASE_URL>/callback/google` and `<web-origin>/settings`
+ * (production Neon branches need both too: `<NEON_AUTH_BASE_URL>/callback/google` for
+ * `/sign-in/social` and `<web-origin>/settings` for OIDC `id_token` linking in Settings).
+ * Without one, the Google button reports an error.
  */
 const googleClientId = process.env["LOCAL_AUTH_GOOGLE_CLIENT_ID"]
 const googleClientSecret = process.env["LOCAL_AUTH_GOOGLE_CLIENT_SECRET"]
