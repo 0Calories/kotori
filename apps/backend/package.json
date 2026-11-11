@@ -2,7 +2,7 @@
   "name": "@kotori/backend",
   "version": "0.1.0",
   "private": true,
-  "description": "Kotori's backend: the HTTP API, the enrichment worker and the kotori CLI, one deployable with three entry points",
+  "description": "Kotori's backend: the HTTP API, the enrichment worker and the kotori CLI, one deployable with three entry points, plus the admin console that runs the CLI locally",
   "bin": {
     "kotori": "./dist/entrypoints/cli.js"
   },
@@ -10,7 +10,9 @@
   "scripts": {
     "dev:http": "tsx watch --clear-screen=false -C @kotori/source src/entrypoints/http.ts",
     "dev:worker": "tsx watch --clear-screen=false -C @kotori/source src/entrypoints/worker.ts",
+    "kotori": "sh -c 'if [ $# -eq 0 ] && [ -t 0 ] && [ -t 1 ]; then exec pnpm run --silent console; fi; exec pnpm run --silent cli \"$@\"' kotori",
     "cli": "tsx -C @kotori/source src/entrypoints/cli.ts",
+    "console": "TSX_TSCONFIG_PATH=tsconfig.lib.json pnx --silent node@26.13.0 --experimental-ffi --disable-warning=ExperimentalWarning --import tsx -C @kotori/source src/entrypoints/console.tsx",
     "test": "vitest run"
   },
   "dependencies": {
@@ -28,7 +30,11 @@
   },
   "devDependencies": {
     "@effect/sql-pglite": "catalog:",
-    "@typesafe-ai/sdk": "catalog:"
+    "@opentui/core": "0.8.2",
+    "@opentui/react": "0.8.2",
+    "@types/react": "catalog:",
+    "@typesafe-ai/sdk": "catalog:",
+    "react": "catalog:"
   },
   "nx": {
     "tags": [

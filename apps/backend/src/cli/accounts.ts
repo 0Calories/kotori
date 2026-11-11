@@ -5,6 +5,7 @@ import { Database } from "../db/Database.ts"
 import { type Account, Approvals } from "../features/accounts/Approvals.ts"
 import { ensureUser, updateUser } from "../features/accounts/index.ts"
 import { Auth } from "../integrations/auth/Auth.ts"
+import { CommandFailed } from "./failure.ts"
 
 const email = Argument.String("email").pipe(Argument.withDescription("The learner's email address"))
 
@@ -21,7 +22,7 @@ const line = (user: Account) =>
 const table = (users: ReadonlyArray<Account>, empty: string) =>
   users.length === 0 ? Console.log(empty) : Effect.forEach(users, (user) => Console.log(line(user)), { discard: true })
 
-const notFound = (email: string) => Console.error(`No account with the email ${email}.`)
+const notFound = (email: string) => Effect.fail(new CommandFailed({ message: `No account with the email ${email}.` }))
 
 /** Sign-ups waiting for the admin. */
 export const requests = Command.make(
@@ -125,10 +126,12 @@ export const devAccount = Command.make(
   Effect.fn(function* ({ email, password, language, admin }) {
     // This writes a known password into the identity store, so it must not reach production.
     if (process.env["NODE_ENV"] === "production") {
-      return yield* Console.error("Refusing to create a development account with NODE_ENV=production.")
+      return yield* new CommandFailed({
+        message: "Refusing to create a development account with NODE_ENV=production."
+      })
     }
     if (language !== "en" && language !== "ja") {
-      return yield* Console.error(`--language must be en or ja, not ${language}.`)
+      return yield* new CommandFailed({ message: `--language must be en or ja, not ${language}.` })
     }
     const nativeLanguage: Language = language
     const targetLanguage: Language = language === "en" ? "ja" : "en"

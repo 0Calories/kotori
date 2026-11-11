@@ -9,6 +9,9 @@
     "apps/app": {
       "entry": ["e2e/*.mjs", "src/**/*.web.{ts,tsx}"],
       "ignoreDependencies": ["playwright"]
+    },
+    "apps/backend": {
+      "entry": ["src/entrypoints/*.{ts,tsx}"]
     }
   },
   "ignoreBinaries": ["flyctl"]
