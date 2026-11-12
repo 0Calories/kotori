@@ -1217,4 +1217,51 @@ layer(testLayer(true, true))("Dictionary with Jev and Claude", (it) => {
       assert.deepStrictEqual([...(yield* jobStatusFor(db, id)).keys()].toSorted(), ["audio", "examples"])
     })
   )
+
+  it.effect("reports an entry's enrichment progress without queuing or touching a job", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      const hour = 60 * 60 * 1000
+      const allJobs = db.select().from(jobs).orderBy(jobs.id)
+      const progress = (id: EntryId) => Effect.map(dictionary.enrichment(id), Option.getOrThrow)
+      const [ready, queued, unavailable] = [EntryId.make(41), EntryId.make(42), EntryId.make(43)]
+      yield* insertEntries(db, [
+        entry(41, "傘", "かさ", [sense(["umbrella"], ["n"])]),
+        entry(42, "窓", "まど", [sense(["window"], ["n"])]),
+        entry(43, "雪", "ゆき", [sense(["snow"], ["n"])])
+      ])
+
+      assert.isTrue(Option.isNone(yield* dictionary.enrichment(EntryId.make(999))))
+
+      // Kotori's sentence and the headword are voiced: everything is ready.
+      yield* saveExamples(db, ready, [example(0, "傘ある？", "Got an umbrella?")], new Date(1))
+      const [written] = yield* examplesFor(db, [ready])
+      yield* saveAudio(db, clip("kasa", "かさ", "ja"))
+      yield* linkEntryAudio(db, ready, "kasa")
+      yield* saveAudio(db, clip("kasa-sentence", written!.ja, "ja"))
+      yield* linkExampleAudio(db, written!.id, "ja", "kasa-sentence")
+
+      // Both jobs finished without supplying anything: nothing is on its way.
+      yield* enqueueJob(db, "examples", unavailable, 0, new Date(0))
+      yield* enqueueJob(db, "audio", unavailable, 0, new Date(0))
+      yield* finishJobs("examples", 1)
+      yield* finishJobs("audio", 1)
+
+      // Asked for, so both are queued.
+      yield* TestClock.setTime(1000)
+      yield* dictionary.requestEnrichment(queued)
+
+      // Hours on, a request would retry the settled jobs; the progress, polled again and again, doesn't.
+      const before = yield* allJobs
+      yield* TestClock.setTime(3 * hour)
+      for (let poll = 0; poll < 3; poll++) {
+        assert.deepStrictEqual(yield* progress(ready), { examples: "ready", audio: "ready" })
+        assert.deepStrictEqual(yield* progress(queued), { examples: "queued", audio: "queued" })
+        assert.deepStrictEqual(yield* progress(unavailable), { examples: "unavailable", audio: "unavailable" })
+      }
+      assert.deepStrictEqual(yield* allJobs, before)
+      assert.isFalse((yield* jobStatusFor(db, ready)).size > 0)
+    })
+  )
 })
