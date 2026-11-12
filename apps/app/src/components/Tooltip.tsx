@@ -14,8 +14,10 @@ import { Platform, Pressable, type StyleProp, StyleSheet, View, type ViewStyle }
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { type Box, placeTooltip, type Size, TOOLTIP_MARGIN } from "../lib/tooltip.ts"
+import { useT } from "../session/SessionProvider.tsx"
 import { easeOut } from "../theme/easing.ts"
 import { useTheme } from "../theme/ThemeProvider.tsx"
+import { KotoriNotesBadge } from "./KotoriMark.tsx"
 import { PressableScale } from "./PressableScale.tsx"
 import { Text } from "./Text.tsx"
 
@@ -57,7 +59,10 @@ const TooltipContext = createContext<Tooltips>({ open: null, show: () => {}, hid
 
 const Bubble = ({ tip, layer }: { readonly tip: Tip; readonly layer: Box }) => {
   const { color, shadow } = useTheme()
+  const t = useT()
   const insets = useSafeAreaInsets()
+  // A note marked ✦ says Kotori's AI added the fact: the "Kotori's Notes · AI" lockup says it for it.
+  const kotoriNote = tip.note?.startsWith("✦") ?? false
   // The size belongs to the tooltip it was measured for: the next one hides until it is measured too.
   const [size, setSize] = useState<(Size & { readonly id: string }) | null>(null)
   const measured = size !== null && size.id === tip.id
@@ -107,7 +112,18 @@ const Bubble = ({ tip, layer }: { readonly tip: Tip; readonly layer: Box }) => {
           <Text variant="small" color="onPrimaryDark" style={{ lineHeight: 18 }}>
             {tip.text}
           </Text>
-          {tip.note ? (
+          {kotoriNote ? (
+            <View
+              style={{
+                marginTop: 8,
+                paddingTop: 8,
+                borderTopWidth: 1,
+                borderTopColor: "rgba(255, 255, 255, 0.12)"
+              }}
+            >
+              <KotoriNotesBadge title={t.entry.sourceKotori} tone="dark" compact />
+            </View>
+          ) : tip.note ? (
             <Text variant="caption" color="onPrimaryDark" style={{ marginTop: 5, opacity: 0.72 }}>
               {tip.note}
             </Text>

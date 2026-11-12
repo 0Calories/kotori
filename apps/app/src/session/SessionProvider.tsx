@@ -1,7 +1,17 @@
 import type { Language, Profile, UpdateProfileRequest } from "@kotori/contracts"
 import { useQueryClient } from "@tanstack/react-query"
 import { getLocales } from "expo-localization"
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore
+} from "react"
 import { ApiError, call } from "../api/client.ts"
 import { AuthError, managedAuth } from "../auth/client.ts"
 import { devCredentials } from "../auth/dev.ts"
@@ -57,6 +67,25 @@ interface Session {
 }
 
 const SessionContext = createContext<Session | null>(null)
+
+// PROTOTYPE: in-memory UI language override so root overlays (`TooltipProvider`) translate in sync.
+let devLanguageOverride: Language | null = null
+const devLanguageListeners = new Set<() => void>()
+
+export const setDevLanguageOverride = (next: Language | null) => {
+  devLanguageOverride = next
+  for (const listener of devLanguageListeners) listener()
+}
+
+export const useDevLanguageOverride = () =>
+  useSyncExternalStore(
+    (listener) => {
+      devLanguageListeners.add(listener)
+      return () => devLanguageListeners.delete(listener)
+    },
+    () => devLanguageOverride,
+    () => null
+  )
 
 const deviceLanguage = (): Language => (getLocales()[0]?.languageCode === "ja" ? "ja" : "en")
 
@@ -309,12 +338,17 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
     [enter, queryClient]
   )
 
+  const devLanguage = useDevLanguageOverride()
+  const activeLanguage =
+    (__DEV__ && devLanguage !== null ? devLanguage : null) ??
+    (profile?.onboarded ? profile.nativeLanguage : deviceLanguage())
+
   const value = useMemo<Session>(
     () => ({
       status,
       profile,
       // Until the learner picks a language (onboarding), follow the device rather than the table's `"en"` default.
-      t: strings[profile?.onboarded ? profile.nativeLanguage : deviceLanguage()],
+      t: strings[activeLanguage],
       signIn,
       signUp,
       signInWithGoogle,
@@ -335,6 +369,7 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
     [
       status,
       profile,
+      activeLanguage,
       signIn,
       signUp,
       signInWithGoogle,
@@ -399,4 +434,17 @@ export const useT = () => useSession().t
 export const useInterfaceLanguage = (): Language => {
   const session = useContext(SessionContext)
   return session?.t === strings.ja ? "ja" : "en"
+}
+
+/** PROTOTYPE: in-memory interface language override for throwaway UI prototypes, without persistence. */
+export const PrototypeLanguageProvider = ({
+  language,
+  children
+}: {
+  readonly language: Language
+  readonly children: ReactNode
+}) => {
+  const session = useSession()
+  const overridden = useMemo<Session>(() => ({ ...session, t: strings[language] }), [session, language])
+  return <SessionContext.Provider value={overridden}>{children}</SessionContext.Provider>
 }
