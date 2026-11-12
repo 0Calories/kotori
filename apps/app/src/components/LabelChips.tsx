@@ -1,6 +1,9 @@
 import type { LabelSeverity } from "@kotori/contracts"
 import { View } from "react-native"
 import type { ChipItem } from "../lib/entry.ts"
+import { SnowPebbleRow, VariantLabelTag } from "../proto/ChipVariants.tsx"
+import { useChipVariant } from "../proto/chipVariant.tsx"
+import { type GrammarTagItem, plainToGrammarTags } from "../proto/grammar.ts"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { fade } from "../theme/tokens.ts"
 import { Chip, type ChipColors, ChipFace } from "./Chip.tsx"
@@ -35,9 +38,12 @@ const named = (item: ChipItem) => (item.kotori ? `${item.label} ✦` : item.labe
  * A label chip that doesn't explain itself, for a place that is a link as a whole, such as a
  * search result: coloured by severity, Kotori's carrying the ✦ mark.
  */
-export const LabelTag = ({ item }: { readonly item: ChipItem }) => (
-  <ChipFace label={named(item)} colors={useSeverityColors(item.severity, false)} />
-)
+export const LabelTag = ({ item }: { readonly item: ChipItem }) => {
+  const variant = useChipVariant()
+  const colors = useSeverityColors(item.severity, false)
+  if (variant !== "OLD") return <VariantLabelTag item={item} />
+  return <ChipFace label={named(item)} colors={colors} />
+}
 
 /**
  * A chip coloured by how loudly it should speak (`useSeverityColors`), led by a dot (or its icon)
@@ -61,16 +67,25 @@ const NO_PLAIN: ReadonlyArray<string> = []
 export const ChipRow = ({
   items,
   plain = NO_PLAIN,
+  grammar,
   onTint = false
 }: {
   readonly items: ReadonlyArray<ChipItem>
   readonly plain?: ReadonlyArray<string>
+  readonly grammar?: ReadonlyArray<GrammarTagItem>
   /** On the hero's tint rather than a white card. */
   readonly onTint?: boolean
-}) =>
-  items.length + plain.length === 0 ? null : (
+}) => {
+  const variant = useChipVariant()
+  const resolvedGrammar = grammar ?? plainToGrammarTags(plain)
+  if (items.length + resolvedGrammar.length === 0 && plain.length === 0) return null
+  if (variant !== "OLD") {
+    return <SnowPebbleRow items={items} grammar={resolvedGrammar} onTint={onTint} />
+  }
+  const oldPlain = plain.length > 0 ? plain : resolvedGrammar.map((item) => item.label)
+  return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-      {plain.map((label) => (
+      {oldPlain.map((label) => (
         <Chip key={label} label={label} />
       ))}
       {items.map((item) => (
@@ -78,3 +93,4 @@ export const ChipRow = ({
       ))}
     </View>
   )
+}

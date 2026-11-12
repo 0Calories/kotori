@@ -1,4 +1,6 @@
 import { type StyleProp, View, type ViewStyle } from "react-native"
+import { VariantChip } from "../proto/ChipVariants.tsx"
+import { useChipVariant } from "../proto/chipVariant.tsx"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { fade } from "../theme/tokens.ts"
 import { Icon, type IconName } from "./Icon.tsx"
@@ -98,4 +100,11 @@ export const Chip = ({
   readonly tone?: Tone
   readonly icon?: IconName
   readonly style?: StyleProp<ViewStyle>
-}) => <ChipFace label={label} colors={useChipColors(tone)} icon={icon} style={style} />
+}) => {
+  const variant = useChipVariant()
+  const colors = useChipColors(tone)
+  if (variant !== "OLD") {
+    return <VariantChip label={label} tone={tone} icon={icon} style={style} />
+  }
+  return <ChipFace label={label} colors={colors} icon={icon} style={style} />
+}

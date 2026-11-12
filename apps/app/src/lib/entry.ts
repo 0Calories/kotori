@@ -93,6 +93,7 @@ export const loanChip = (t: Strings, entry: Pick<Entry, "language" | "loanLink">
         key: "loan",
         label: t.entry.loanSame(entry.loanLink.katakana),
         help: t.entry.loanSameHelp(entry.loanLink.katakana),
+        ...(entry.loanLink.meaningSource === "kotori" ? { note: `✦ ${t.labels.kotori}` } : {}),
         severity: "info",
         icon: "check",
         // The chip is the verdict, so its mark is whoever judged the meaning.
