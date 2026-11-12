@@ -1,11 +1,11 @@
-import { AskRefused, type AskRefusal, Authorization, KotoriApi, RateLimited } from "@kotori/contracts"
+import { Authorization, KotoriApi } from "@kotori/contracts"
+import * as Sentry from "@sentry/react-native"
 import * as Cause from "effect/Cause"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Layer from "effect/Layer"
 import * as ManagedRuntime from "effect/ManagedRuntime"
-import * as Predicate from "effect/Predicate"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as HttpClient from "effect/http/HttpClient"
 import * as HttpClientRequest from "effect/http/HttpClientRequest"
@@ -13,6 +13,9 @@ import * as HttpApiClient from "effect/http-api/HttpApiClient"
 import * as HttpApiMiddleware from "effect/http-api/HttpApiMiddleware"
 import { tokens } from "../auth/tokens.ts"
 import { apiUrl } from "./config.ts"
+import { ApiError, failureContext, toApiError } from "./errors.ts"
+
+export { ApiError } from "./errors.ts"
 
 /** The JWT sent with requests; `call` keeps it fresh. */
 let token: string | null = null
@@ -31,55 +34,6 @@ const ApiLive = Layer.effect(
 ).pipe(Layer.provide(AuthorizationClient), Layer.provide(FetchHttpClient.layer))
 
 const runtime = ManagedRuntime.make(ApiLive)
-
-export type ApiErrorTag =
-  | "NotFound"
-  | "Unauthorized"
-  | "PendingApproval"
-  | "InvalidRequest"
-  | "AskRefused"
-  | "AiUnavailable"
-  | "RateLimited"
-  | "Offline"
-  | "Unexpected"
-
-export class ApiError extends Error {
-  constructor(
-    readonly tag: ApiErrorTag,
-    message: string,
-    /** Why Ask Kotori turned the query away, for an `AskRefused`: a code the app words. */
-    readonly refusal: AskRefusal | null = null,
-    /** For a `RateLimited`: how long the server said to wait, and when that wait ends (epoch ms). */
-    readonly retry: { readonly afterSeconds: number; readonly at: number } | null = null
-  ) {
-    super(message)
-  }
-}
-
-const KNOWN = new Set<string>([
-  "NotFound",
-  "Unauthorized",
-  "PendingApproval",
-  "InvalidRequest",
-  "AiUnavailable",
-  "RateLimited"
-])
-
-const toApiError = (error: unknown): ApiError => {
-  if (error instanceof AskRefused) return new ApiError("AskRefused", "", error.reason)
-  if (error instanceof RateLimited) {
-    const retry = { afterSeconds: error.retryAfterSeconds, at: Date.now() + error.retryAfterSeconds * 1000 }
-    return new ApiError("RateLimited", error.message, null, retry)
-  }
-  if (Predicate.hasProperty(error, "_tag") && Predicate.isString(error._tag)) {
-    const message = Predicate.hasProperty(error, "message") && Predicate.isString(error.message) ? error.message : ""
-    if (KNOWN.has(error._tag)) return new ApiError(error._tag as ApiErrorTag, message)
-    if (error._tag === "HttpClientError") return new ApiError("Offline", message)
-    // Managed Auth is down: the stored token is still good, so this is not a sign-out.
-    if (error._tag === "AuthUnavailable") return new ApiError("Offline", message)
-  }
-  return new ApiError("Unexpected", error instanceof Error ? error.message : String(error))
-}
 
 /** A JWT from Managed Auth; it being unreachable is offline, as for the API. */
 const bearer = async (get: () => Promise<string | null>) => {
@@ -116,5 +70,18 @@ export const call = async <A, E>(request: (api: Api["Service"]) => Effect.Effect
     if (Exit.isFailure(exit) && toApiError(Cause.squash(exit.cause)).tag === "Unauthorized") await tokens.end()
   }
   if (Exit.isSuccess(exit)) return exit.value
-  throw toApiError(Cause.squash(exit.cause))
+  const failure = Cause.squash(exit.cause)
+  const error = toApiError(failure)
+  if (error.tag === "Unexpected") report(failure)
+  throw error
+}
+
+/** An `Unexpected` failure is a bug or a wire-shape mismatch (the API deploys first), so Sentry hears of it. */
+const report = (failure: unknown) => {
+  const { kind, method, path, status, detail } = failureContext(failure)
+  const where = [method, path, status].filter((part) => part !== undefined).join(" ")
+  Sentry.captureException(new Error(`API call failed unexpectedly: ${kind}${where ? ` (${where})` : ""}`), {
+    tags: { "api.failure": kind, ...(status === undefined ? {} : { "api.status": String(status) }) },
+    extra: { method, path, status, detail }
+  })
 }

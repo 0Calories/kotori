@@ -1,4 +1,4 @@
-import { ApiError } from "../api/client.ts"
+import { apiErrorMessage } from "../api/errors.ts"
 import type { Strings } from "../i18n/strings.ts"
 import { AuthError } from "./client.ts"
 
@@ -45,9 +45,8 @@ export const authMessage = (t: Strings, error: unknown): string => {
       case "EMAIL_NOT_VERIFIED":
         return t.auth.errors.verifyFirst
     }
-    return error.message || t.common.somethingWrong
+    // Managed Auth's own message is English and not written for learners.
+    return t.common.somethingWrong
   }
-  if (error instanceof ApiError)
-    return error.tag === "Offline" ? t.common.offline : error.message || t.common.somethingWrong
-  return t.common.somethingWrong
+  return apiErrorMessage(t, error)
 }

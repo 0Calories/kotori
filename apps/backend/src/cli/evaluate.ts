@@ -15,11 +15,11 @@ import {
   triageRequest
 } from "@kotori/ai"
 import { normalizeAsk } from "@kotori/language"
-import * as Sentry from "@sentry/effect/server"
 import type { EntryType, Question } from "@typesafe-ai/sdk"
 import { Console, Effect, FileSystem, Option, Schema } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { turnAway } from "../features/asks/garbage.ts"
+import * as Sentry from "../runtime/Sentry.ts"
 import { evalCautions, evalDrafts, evalFormalLabels, evalLoans } from "./evalPasses.ts"
 
 interface Tally {
@@ -227,9 +227,9 @@ export const evaluate = Command.make(
     ): Effect.Effect<Answers | undefined> => {
       const answers: Effect.Effect<Answers | undefined, JevError> =
         recording === null
-          ? Effect.sync(() => Sentry.setConversationId(key)).pipe(
-              // An offline run: give Jev the bulk budget even for questions learners wait on.
-              Effect.andThen(jev.ask(state, { ...questions }, { timeout: JevDeadline.bulk })),
+          ? // An offline run: give Jev the bulk budget even for questions learners wait on.
+            jev.ask(state, { ...questions }, { timeout: JevDeadline.bulk }).pipe(
+              Sentry.withScope((scope) => scope.setConversationId(key)),
               Effect.map((result) => {
                 inputTokens += result.usage.input_tokens
                 return result.answers

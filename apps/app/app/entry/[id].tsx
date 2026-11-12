@@ -14,6 +14,7 @@ import { Headword } from "../../src/components/Headword.tsx"
 import { Icon } from "../../src/components/Icon.tsx"
 import { ChipRow } from "../../src/components/LabelChips.tsx"
 import { Mascot } from "../../src/components/Mascot.tsx"
+import { Notice } from "../../src/components/Notice.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
 import { removalErrorText, RemoveNoteDialog } from "../../src/components/RemoveNote.tsx"
 import { Header, Screen, Section } from "../../src/components/Screen.tsx"
@@ -247,7 +248,9 @@ export default function EntryScreen() {
   const [removeError, setRemoveError] = useState<string | null>(null)
   const back = () => (router.canGoBack() ? router.back() : router.replace("/"))
 
-  if (id === null || entry.isError) {
+  // A failed refetch (one of the polls while the entry is being enriched, say) keeps the entry
+  // already loaded, with a notice until a later one succeeds. Only a failed first load has nothing to show.
+  if (id === null || entry.isLoadingError) {
     return (
       <Screen bottomInset={40} header={<Header onBack={back} />}>
         <ErrorState error={entry.error} onRetry={id === null ? undefined : () => entry.refetch()} />
@@ -387,6 +390,12 @@ export default function EntryScreen() {
           setRemoveError(null)
         }}
       />
+      {entry.isRefetchError ? (
+        <Notice
+          message={t.common.notRefreshed}
+          action={{ label: t.common.retry, onPress: () => void entry.refetch() }}
+        />
+      ) : null}
       <Animated.View
         entering={FadeInDown.duration(350)}
         style={

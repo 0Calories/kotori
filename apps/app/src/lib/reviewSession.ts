@@ -124,6 +124,17 @@ export const reviewView = (state: ReviewSessionState, items: readonly ReviewItem
   }
 }
 
+/**
+ * The due notes as last fetched, less the ones answered since. A refetch that fails keeps the
+ * old list, which still holds notes answered after it was fetched; without this they would come
+ * round again. `savedAt` is when the server recorded each answer, `fetchedAt` when the list arrived.
+ */
+export const unansweredItems = (
+  items: readonly ReviewItem[],
+  savedAt: ReadonlyMap<string, number>,
+  fetchedAt: number
+): readonly ReviewItem[] => items.filter((item) => (savedAt.get(item.note.id) ?? -Infinity) < fetchedAt)
+
 export type ReviewKeyAction =
   | { readonly type: "close" }
   | { readonly type: "reveal" }

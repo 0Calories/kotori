@@ -23,6 +23,9 @@ const en = {
   greeting: { morning: "Good morning", afternoon: "Good afternoon", evening: "Good evening" },
   common: {
     retry: "Try again",
+    /** Above a screen that is still showing what was loaded before. */
+    notRefreshed:
+      "Kotori flew off to check for anything new and came back empty-handed. This might be a little behind.",
     cancel: "Cancel",
     done: "Done",
     save: "Save",
@@ -36,7 +39,25 @@ const en = {
     close: "Close",
     offline: "Kotori got lost and couldn't find the server. Are you connected to the internet?",
     somethingWrong: "Something went wrong.",
-    back: "Back"
+    back: "Back",
+    /** Why a call to Kotori failed, by `ApiError` tag; never the server's own words. */
+    errors: {
+      /** `Unexpected`: Kotori's own fault, including at start-up. */
+      trouble: "Kotori tripped over something on its end. It's not you! Give it another go in a moment.",
+      notFound: "Kotori looked everywhere but couldn't find that. It may have been removed.",
+      signedOut: "You've been signed out. Sign in again to carry on.",
+      pendingApproval: "Your account is still waiting for approval. We'll email you as soon as it's ready.",
+      invalid: "Kotori couldn't make sense of that one. Check it and try again.",
+      thinkingUnavailable: "Kotori can't think this one through right now. Please try again in a little while.",
+      rateLimited: (minutes: number) =>
+        minutes <= 1
+          ? "Kotori needs a little breather. Try again in a minute."
+          : minutes < 60
+            ? `Kotori needs a little breather. Try again in ${minutes} minutes.`
+            : minutes <= 60
+              ? "Kotori needs a little breather. Try again in an hour."
+              : `Kotori needs a little breather. Try again in ${Math.ceil(minutes / 60)} hours.`
+    }
   },
   onboarding: {
     title: "Hi, I'm Kotori!",
@@ -618,6 +639,7 @@ const ja: Strings = {
   greeting: { morning: "おはよう", afternoon: "こんにちは", evening: "こんばんは" },
   common: {
     retry: "もう一度",
+    notRefreshed: "コトリが新しい情報を見に行ったけど、手ぶらで戻ってきました。表示が少し古いかもしれません。",
     cancel: "キャンセル",
     done: "完了",
     save: "保存",
@@ -631,7 +653,19 @@ const ja: Strings = {
     close: "閉じる",
     offline: "コトリが迷子になって、サーバーにたどり着けませんでした。インターネットにつながっていますか？",
     somethingWrong: "エラーが発生しました。",
-    back: "戻る"
+    back: "戻る",
+    errors: {
+      trouble: "コトリのほうでつまずいてしまいました。あなたのせいではありません！少ししてから、もう一度どうぞ。",
+      notFound: "コトリがあちこち探しましたが、見つかりませんでした。削除されたのかもしれません。",
+      signedOut: "ログアウトされました。もう一度ログインしてください。",
+      pendingApproval: "アカウントはまだ承認待ちです。承認されたら、メールでお知らせします。",
+      invalid: "コトリにはうまく読み取れませんでした。内容を確かめて、もう一度お試しください。",
+      thinkingUnavailable: "コトリは今、考えごとができないようです。少ししてから、もう一度お試しください。",
+      rateLimited: (minutes: number) =>
+        minutes < 60
+          ? `コトリはひと休み中です。${Math.max(1, minutes)}分ほどしてから、もう一度お試しください。`
+          : `コトリはひと休み中です。${Math.ceil(minutes / 60)}時間ほどしてから、もう一度お試しください。`
+    }
   },
   onboarding: {
     title: "こんにちは、ことりです！",
