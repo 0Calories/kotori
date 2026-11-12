@@ -28,7 +28,7 @@ export const pebbleLift = (shadowHex: string, strong = false): ViewStyle =>
       }
 
 // ============================================================================
-// 1. 4-Bar Frequency Signal Meter (`Everyday` 4/4 -> `Rare` 1/4)
+// 1. 4-Bar Frequency Signal Meter (`Very common` 4/4 -> `Archaic` 0/4)
 // ============================================================================
 
 const FrequencyMeter = ({
@@ -37,7 +37,7 @@ const FrequencyMeter = ({
   mutedColor,
   size = "md"
 }: {
-  readonly level: 1 | 2 | 3 | 4
+  readonly level: 0 | 1 | 2 | 3 | 4
   readonly activeColor: string
   readonly mutedColor: string
   readonly size?: "sm" | "md"
@@ -65,6 +65,7 @@ const resolveFrequencyTier = (item: ChipItem): FrequencyTier | null => {
   if (isFrequencyChipKey(item.key)) return tierFromChipKey(item.key)
   if (item.key === "common") return "common"
   if (item.key === "rare") return "rare"
+  if (item.key === "arch" || item.key === "obs") return "archaic"
   return null
 }
 
@@ -75,9 +76,9 @@ const resolveFrequencyTier = (item: ChipItem): FrequencyTier | null => {
 const usePebblePalette = (severity: LabelSeverity, onTint: boolean, tier: FrequencyTier | null) => {
   const { color } = useTheme()
 
-  // `Everyday` (4/4) gets a solid `primaryDark` circular emblem with crisp white bars so the #1
-  // everyday word stands out immediately from `Common` (3/4), `Uncommon` (2/4), and `Rare` (1/4).
-  if (tier === "everyday") {
+  // `Very common` (4/4) gets a solid `primaryDark` circular emblem with crisp white bars so top-tier
+  // vocabulary stands out immediately from `Common` (3/4), `Uncommon` (2/4), `Rare` (1/4), and `Archaic` (0/4).
+  if (tier === "very_common") {
     return {
       fg: color.primaryDeep,
       bg: onTint ? "#FFFFFF" : fade(color.primaryTint, 0.85),
@@ -120,7 +121,7 @@ const usePebblePalette = (severity: LabelSeverity, onTint: boolean, tier: Freque
         ring: fade(color.accent, 0.17),
         emblemBg: "#FDD9E0",
         meterActive: color.accent,
-        meterMuted: fade(color.accent, 0.22)
+        meterMuted: fade(color.accent, 0.38)
       }
     }[severity]
   }
@@ -155,7 +156,7 @@ const usePebblePalette = (severity: LabelSeverity, onTint: boolean, tier: Freque
       ring: fade(color.accent, 0.16),
       emblemBg: "#FDD6DE",
       meterActive: color.accent,
-      meterMuted: fade(color.accent, 0.22)
+      meterMuted: fade(color.accent, 0.38)
     }
   }[severity]
 }
@@ -289,7 +290,7 @@ export const SnowPebbleFace = ({
       />
       <Text
         variant="caption"
-        weight={tier === "everyday" ? "bold" : "semibold"}
+        weight={tier === "very_common" ? "bold" : "semibold"}
         style={{
           color: lit ? color.onPrimaryDark : palette.fg,
           fontSize: compact ? 12 : 12.5,

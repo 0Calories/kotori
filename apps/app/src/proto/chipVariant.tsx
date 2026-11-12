@@ -19,9 +19,9 @@ export const CHIP_VARIANTS: ReadonlyArray<ChipVariantSpec> = [
     key: "A",
     name: "Proposed Design",
     tagline:
-      "Nest Shelf headboard, soft-stone grammar keycaps, 4-tier Frequency Snow Pebbles, below-example Kotori's Notes, and curated Snow-Tray search rows.",
+      "Nest Shelf headboard, soft-stone grammar keycaps, 5-tier Frequency Snow Pebbles, below-example Kotori's Notes, and curated Snow-Tray search rows.",
     searchRowRule:
-      "Snow-Tray row led by 4-tier Frequency first (`Everyday` / `Common` / `Uncommon` / `Rare`) + inflection match + at most 1 differentiating label",
+      "Snow-Tray row led by 5-tier Frequency first (`Very common` / `Common` / `Uncommon` / `Rare` / `Archaic`) + inflection match + at most 1 differentiating label",
     entryLockedRule:
       "Nest Shelf headboard: top-right 44pt speaker, atomic grammar keycaps (`verb`, `godan`, `transitive`), hairline Snow-Pebble shelf",
     kotoriNotesRule: "Mascot portrait `Kotori's Note [AI]` card positioned below example sentences"

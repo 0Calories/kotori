@@ -1,6 +1,6 @@
 /**
  * PROTOTYPE: Switchable Proposed Design (`A`) vs PR 151 Baseline (`OLD`) for Snow-Pebble entry
- * chips, Nest Shelf headboard, 4-tier Frequency, curated Snow-Tray search rows, and "Kotori's Notes".
+ * chips, Nest Shelf headboard, 5-tier Frequency, curated Snow-Tray search rows, and "Kotori's Notes".
  */
 import type { Entry, Language, Sense } from "@kotori/contracts"
 import { useLocalSearchParams, useRouter } from "expo-router"
@@ -374,13 +374,13 @@ const EntrySurface = ({
         </View>
       ) : null}
 
-      {/* Search ResultRow preview + 4-tier Frequency scale */}
+      {/* Search ResultRow preview + 5-tier Frequency scale */}
       <Section title="In search results">
         <Card tone="primary" style={{ gap: 8, paddingVertical: 12, paddingHorizontal: 14 }}>
           <Text variant="caption" weight="semibold" style={{ color: theme.color.primaryDeep }}>
             Frequency tiers (tap or hover each Snow Pebble):
           </Text>
-          <ChipRow items={FREQUENCY_TIERS.map((tier) => frequencyTierChip(uiLanguage, tier, "word"))} onTint />
+          <ChipRow items={FREQUENCY_TIERS.map((tier) => frequencyTierChip(uiLanguage, tier))} onTint />
         </Card>
         <Card list padded={false} style={{ paddingHorizontal: theme.space.lg }}>
           {SAMPLE_SEARCH_RESULTS.map((row, index) => (

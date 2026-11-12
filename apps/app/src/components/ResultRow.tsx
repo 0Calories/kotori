@@ -5,7 +5,12 @@ import { posLabel } from "../i18n/strings.ts"
 import { type ChipItem, labelItems, resultLabels } from "../lib/entry.ts"
 import { pebbleLift, SnowPebbleFace } from "../proto/ChipVariants.tsx"
 import { useChipVariant } from "../proto/chipVariant.tsx"
-import { deriveSummaryFrequencyTier, type FrequencyTier, frequencyTierChip } from "../proto/frequency.ts"
+import {
+  deriveSummaryFrequencyTier,
+  type FrequencyTier,
+  frequencyTierChip,
+  withoutRedundantFrequencyLabels
+} from "../proto/frequency.ts"
 import { basePosLabel } from "../proto/grammar.ts"
 import { useInterfaceLanguage, useSession } from "../session/SessionProvider.tsx"
 import { useTheme } from "../theme/ThemeProvider.tsx"
@@ -67,11 +72,11 @@ const ResultRowAudio = ({
 /**
  * A dictionary entry in a list of search results:
  * - Upper zone: `Headword`, `reading`, quiet base part of speech (`verb`, `noun`), and glosses,
- *   paired with a top-right speaker button + chevron.
+ *   paired with a top-right audio button + chevron.
  * - Lower Snow-Tray: only the small decision subset that tells a learner whether to consider this
- *   alternative and how it differs — led by **4-tier Frequency first** (`Everyday`, `Common`,
- *   `Uncommon`, `Rare`), followed by an inflection match chip (`past form`, when applicable) and
- *   **at most one** primary differentiating usage label (`Casual [AI]`, `Respectful`, `Vulgar`).
+ *   alternative and how it differs — led by **5-tier Frequency first** (`Very common`, `Common`,
+ *   `Uncommon`, `Rare`, `Archaic`), followed by an inflection match chip (`past form`, when
+ *   applicable) and **at most one** primary differentiating usage label (`Casual [AI]`, `Respectful`).
  */
 export const ResultRow = ({
   entry,
@@ -163,10 +168,10 @@ export const ResultRow = ({
   const meaningsText = entry.meanings.join(entry.language === "ja" ? "; " : "、")
 
   // Curated decision subset for the Snow-Tray:
-  // 1. Frequency ALWAYS first (`Everyday` / `Common` / `Uncommon` / `Rare`)
+  // 1. Frequency ALWAYS first (`Very common` / `Common` / `Uncommon` / `Rare` / `Archaic`)
   // 2. Inflection match (`past form`) only when the query matched an inflected form
   // 3. At most ONE primary differentiating usage label (`Casual [AI]`, `Respectful`, `Vulgar`)
-  const freqPebble = frequencyTierChip(uiLanguage, deriveSummaryFrequencyTier(entry), "short")
+  const freqPebble = frequencyTierChip(uiLanguage, deriveSummaryFrequencyTier(entry))
   const inflectionPebble: ChipItem | null =
     entry.inflection.length > 0
       ? {
@@ -177,7 +182,7 @@ export const ResultRow = ({
           icon: "call_split"
         }
       : null
-  const primaryDiffLabel = labelItems(t, resultLabels(entry.labels, 1))[0] ?? null
+  const primaryDiffLabel = labelItems(t, resultLabels(withoutRedundantFrequencyLabels(entry.labels), 1))[0] ?? null
   const trayItems: ReadonlyArray<ChipItem> = [freqPebble, inflectionPebble, primaryDiffLabel].filter(
     (item): item is ChipItem => item !== null
   )

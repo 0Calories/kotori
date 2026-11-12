@@ -394,7 +394,7 @@ export const SAMPLE_SEARCH_RESULTS: ReadonlyArray<ProtoSearchResult> = [
     reading: "たべる",
     romaji: "taberu",
     common: true,
-    frequencyTier: "everyday",
+    frequencyTier: "very_common",
     meanings: ["to eat", "to have a meal"],
     partOfSpeech: "v1",
     labels: [],
@@ -454,6 +454,20 @@ export const SAMPLE_SEARCH_RESULTS: ReadonlyArray<ProtoSearchResult> = [
     meanings: ["you (hostile)"],
     partOfSpeech: "pn",
     labels: [lbl("vulg", "avoid", "jmdict"), lbl("male", "warning", "jmdict")],
+    inflection: [],
+    audioUrl: null
+  },
+  {
+    id: EntryId.make(1577950),
+    language: "ja",
+    headword: "饗す",
+    reading: "きょうす",
+    romaji: "kyousu",
+    common: false,
+    frequencyTier: "archaic",
+    meanings: ["to host a banquet", "to feast"],
+    partOfSpeech: "v5s",
+    labels: [lbl("arch", "avoid", "jmdict"), lbl("form", "info", "jmdict")],
     inflection: [],
     audioUrl: null
   }
