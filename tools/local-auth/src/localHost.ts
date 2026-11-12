@@ -14,10 +14,19 @@ export const isLocalHost = (hostname: string) => LOOPBACK.test(hostname.toLowerC
 /**
  * Where a Postgres connection string connects, if any of it is not this machine: its host, or
  * the `host` parameter that overrides it, or `PGHOST` when it names neither, as `pg` resolves
- * them. A socket directory such as `/var/run/postgresql` is local.
+ * them. A socket directory such as `/var/run/postgresql` is local, including libpq's
+ * percent-encoded form in the host position (`postgres://user@%2Fvar%2Frun%2Fpostgresql/db`),
+ * which `URL` leaves encoded for a `postgres:` URL.
  */
 export const remoteDatabaseHost = (connectionString: string): string | undefined => {
   const url = new URL(connectionString)
-  const hosts = url.searchParams.get("host") || url.hostname || process.env["PGHOST"] || "localhost"
+  const hostname = (() => {
+    try {
+      return decodeURIComponent(url.hostname)
+    } catch {
+      return url.hostname
+    }
+  })()
+  const hosts = url.searchParams.get("host") || hostname || process.env["PGHOST"] || "localhost"
   return hosts.split(",").find((host) => !host.startsWith("/") && !isLocalHost(host))
 }
