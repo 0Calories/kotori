@@ -80,6 +80,8 @@ This one-time script is safe to re-run (each step skips work that's already done
 4. Downloads and builds the English dictionary (~65k English entries).
 5. Creates a pre-approved development account (`dev@kotori.test` / `kotori-dev-account`).
 
+It only sets up a database and auth server on this machine. If `DATABASE_URL` or `NEON_AUTH_BASE_URL` points anywhere else, it stops before touching either; run `pnpm dev:setup --remote` to set up a remote development database on purpose, such as a Neon branch of your own.
+
 To re-import dictionary data later without losing enrichment, run `pnpm seed` (or pass `--dictionary jmdict` / `--dictionary english`). To wipe the database and start fresh, run `docker compose down -v`.
 
 ### 4. Start the backend and app
