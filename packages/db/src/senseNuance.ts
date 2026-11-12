@@ -57,7 +57,7 @@ const scale = <S extends Schema.Top>(value: S) =>
 export const RegisterShape = Schema.Literals(["scaled", "fixed", "split"])
 export type RegisterShape = typeof RegisterShape.Type
 
-// --- Judged on English words only, for Japanese speakers learning them --------
+// --- Judged on English words only, for English learners ------------------------
 
 /** Whose English a word is: everyone's, or mainly American or British. */
 export const Variety = Schema.Literals(["universal", "american", "british"])

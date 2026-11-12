@@ -5,9 +5,9 @@ import { CONNOTATIONS, REVERSED, reversedChoice, SUBJECT_NOT_REGISTER } from "./
 import { judgedSenses } from "./state.ts"
 
 /**
- * The judgments Jev makes about each sense of an English word, for Japanese speakers learning
- * English: the Japanese questions' counterparts, without keigo, which English doesn't have, and
- * the traps Japanese learners fall into that Japanese words don't have (regional variety,
+ * The judgments Jev makes about each sense of an English word, for English learners: the
+ * Japanese questions' counterparts, without keigo, which English doesn't have, and the traps
+ * English learners fall into that Japanese words don't have (regional variety,
  * profanity strength, textbook English, and drifted katakana loans). The meaning Jev reads is the
  * Japanese gloss, so each question says which language is which.
  */

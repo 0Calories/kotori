@@ -13,7 +13,7 @@ const CURATED_FLOOR = 1_000
  * Baseline usage count for a phrase at each familiarity rating, since the unigram counts can't
  * see phrases: 5 ranks with everyday words, 3 with words in ordinary use, 1 with words that are
  * only just understood. Curated entries carry their rating; the rest get theirs from
- * `data/eiwa/familiarity.json` (`kotori familiarity`).
+ * `data/english/familiarity.json` (`kotori familiarity`).
  */
 const FAMILIARITY_FLOOR: Readonly<Record<number, number>> = { 1: 300, 2: 600, 3: CURATED_FLOOR, 4: 3_000, 5: 10_000 }
 

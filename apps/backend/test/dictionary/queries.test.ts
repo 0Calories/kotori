@@ -36,7 +36,7 @@ import {
   senseNotesFor,
   similarFor
 } from "../../src/features/enrichment/queries.ts"
-import { insertNote, notesWithCards } from "../../src/features/study/queries.ts"
+import { insertNote, allNotes } from "../../src/features/study/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 import { english, entries, kana, kanji, learner, sense, spelling, U1 } from "../fixtures.ts"
 
@@ -443,29 +443,28 @@ layer(TestLayer)("dictionary re-imports", (it) => {
       )
       const sentenceIds = new Map((yield* examplesFor(db, [style])).map((row) => [row.ja, row.id]))
       const saveWord = (id: string, sense: number) =>
-        insertNote(
-          scopedToUser(db, U1),
-          {
-            id: NoteId.make(id),
+        insertNote(scopedToUser(db, U1), {
+          id: NoteId.make(id),
+          kind: "word",
+          content: {
             kind: "word",
-            content: {
-              kind: "word",
-              entryId: style,
-              senseIndex: sense,
-              language: "en",
-              headword: "style",
-              reading: "",
-              meaning: markers[sense]!,
-              hint: null,
-              example: null,
-              audioUrl: null
-            },
             entryId: style,
-            sense,
-            createdAt: new Date(0)
+            senseIndex: sense,
+            language: "en",
+            headword: "style",
+            reading: "",
+            meaning: markers[sense]!,
+            hint: null,
+            example: null,
+            audioUrl: null
           },
-          []
-        )
+          entryId: style,
+          sense,
+          due: new Date(0),
+          seed: 7,
+          position: sense,
+          createdAt: new Date(0)
+        })
       yield* saveWord("00000000-0000-4000-8000-0000000000e1", 2)
       yield* saveWord("00000000-0000-4000-8000-0000000000e2", 3)
       yield* saveWord("00000000-0000-4000-8000-0000000000e3", 0)
@@ -510,8 +509,8 @@ layer(TestLayer)("dictionary re-imports", (it) => {
           [2, ["やり方", sentenceIds.get("やり方")]]
         ]
       )
-      // Saved words follow in the column and the card content; the dropped sense's loses its place.
-      const saved = (yield* notesWithCards(scopedToUser(db, U1))).flatMap((note) =>
+      // Saved words follow in the column and the note content; the dropped sense's loses its place.
+      const saved = (yield* allNotes(scopedToUser(db, U1))).flatMap((note) =>
         note.content.kind === "word" ? [[note.content.meaning, note.sense, note.content.senseIndex]] : []
       )
       assert.sameDeepMembers(saved, [

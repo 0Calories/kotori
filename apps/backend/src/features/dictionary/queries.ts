@@ -181,9 +181,9 @@ const moveSenseRows = Effect.fnUntraced(function* (
   }
   for (const chunk of chunks(unheard, 5000)) yield* tx.delete(examples).where(inArray(examples.id, [...chunk]))
 
-  // Saved words follow too, in the column and in the card content the entry page reads.
-  // (user, entry, sense) is unique, so they pass through negative positions: a swap made
-  // in one step would collide halfway. A word whose sense is gone keeps its cards and
+  // Saved words follow too, in the column and in the note content the entry page reads.
+  // (learner, entry, sense) is unique, so they pass through negative positions: a swap made
+  // in one step would collide halfway. A word whose sense is gone keeps its schedule and
   // loses only its place on the entry page.
   const saved = new Map<number, Array<NoteId>>()
   const orphaned: Array<NoteId> = []
@@ -349,28 +349,28 @@ export const deleteEntries = Effect.fn("dictionary.deleteEntries")(function* (
   for (const chunk of chunks(ids, 5000)) yield* db.delete(entries).where(inArray(entries.id, [...chunk]))
 }, Effect.orDie)
 
-/** Adds tag labels, replacing those of codes already known; codes the other dictionary uses are kept. */
+/** Adds tag names, replacing those of codes already known; codes the other dictionary uses are kept. */
 export const saveTags = Effect.fn("dictionary.saveTags")(function* (
   db: DatabaseShape,
-  rows: ReadonlyArray<{ readonly code: string; readonly label: string }>
+  rows: ReadonlyArray<{ readonly code: string; readonly name: string }>
 ) {
-  // One row per code, or the upsert would touch a row twice; the first label wins.
-  const labels = new Map<string, string>()
-  for (const tag of rows) if (!labels.has(tag.code)) labels.set(tag.code, tag.label)
-  for (const chunk of chunks([...labels], 1000)) {
+  // One row per code, or the upsert would touch a row twice; the first name wins.
+  const names = new Map<string, string>()
+  for (const tag of rows) if (!names.has(tag.code)) names.set(tag.code, tag.name)
+  for (const chunk of chunks([...names], 1000)) {
     yield* db
       .insert(tags)
-      .values(chunk.map(([code, label]) => ({ code, label })))
-      .onConflictDoUpdate({ target: tags.code, set: { label: sql`excluded.label` } })
+      .values(chunk.map(([code, name]) => ({ code, name })))
+      .onConflictDoUpdate({ target: tags.code, set: { name: sql`excluded.name` } })
   }
 }, Effect.orDie)
 
-export const tagLabels = (db: DatabaseShape) =>
+export const tagNames = (db: DatabaseShape) =>
   db
     .select()
     .from(tags)
     .pipe(
-      Effect.map((rows) => new Map(rows.map((row) => [row.code, row.label]))),
+      Effect.map((rows) => new Map(rows.map((row) => [row.code, row.name]))),
       Effect.orDie
     )
 

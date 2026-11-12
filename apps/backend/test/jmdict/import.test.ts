@@ -3,7 +3,7 @@ import { EntryId } from "@kotori/contracts"
 import { Effect, FileSystem, Layer } from "effect"
 import { Database } from "../../src/db/Database.ts"
 import * as JMDict from "../../src/features/dictionary/import/jmdict/JMDict.ts"
-import { entryCount, getEntries, tagLabels } from "../../src/features/dictionary/queries.ts"
+import { entryCount, getEntries, tagNames } from "../../src/features/dictionary/queries.ts"
 import { enqueueJob, jobStatusFor } from "../../src/features/enrichment/jobs.ts"
 import {
   examplesFor,
@@ -100,7 +100,7 @@ layer(TestLayer)("JMDict.importFile", (it) => {
       assert.deepStrictEqual(yield* JMDict.importFile({ file: "JMdict_e.gz" }), { entries: 2, tags: 3 })
       assert.strictEqual(yield* entryCount(db), 2)
       assert.deepStrictEqual(yield* getEntries(db, [taberu, EntryId.make(1001720)]), seeded)
-      assert.strictEqual((yield* tagLabels(db)).size, 3)
+      assert.strictEqual((yield* tagNames(db)).size, 3)
       assert.deepStrictEqual(
         (yield* nuanceFor(db, [taberu])).map((row) => row.sense).sort((a, b) => a - b),
         [0, 1]
@@ -121,7 +121,7 @@ layer(TestLayer)("JMDict.importFile", (it) => {
         updated?.senses.map((sense) => sense.glosses.map((gloss) => gloss.text)),
         [["to eat", "to have a meal"]]
       )
-      assert.strictEqual((yield* tagLabels(db)).get("hon"), "honorific")
+      assert.strictEqual((yield* tagNames(db)).get("hon"), "honorific")
       assert.deepStrictEqual(
         (yield* nuanceFor(db, [taberu])).map((row) => row.sense),
         [0]

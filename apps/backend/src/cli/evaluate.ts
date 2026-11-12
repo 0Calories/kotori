@@ -239,7 +239,7 @@ const KINDS = {
   },
   asks: {
     version: TRIAGE_VERSION,
-    about: "Ask Kotori queries: Jev's routing of those the free checks let through"
+    about: "Ask Kotori queries: Jev's triage of those the free checks let through"
   }
 } as const
 type Kind = keyof typeof KINDS
@@ -424,7 +424,7 @@ export const evaluate = Command.make(
     const run: Record<Kind, () => Effect.Effect<void>> = {
       asks: () =>
         Effect.gen(function* () {
-          yield* Console.log(`Routing ${GOLDEN_ASKS.length} golden asks with ${model}, triage version ${version}…`)
+          yield* Console.log(`Triaging ${GOLDEN_ASKS.length} golden asks with ${model}, triage version ${version}…`)
           // Jev sees what production gives it: the query normalized, and only if the free checks let it by.
           const turnedAway: Array<string> = []
           const reaching = GOLDEN_ASKS.flatMap((golden) => {
@@ -453,7 +453,7 @@ export const evaluate = Command.make(
                   "route",
                   false,
                   { correct: triage.route === golden.expect, confidence: triage.probabilities[triage.route] },
-                  `${golden.language} "${golden.query}": routed ${triage.route}${triage.decided ? "" : " (undecided, fell open)"}, wanted ${golden.expect}`
+                  `${golden.language} "${golden.query}": triaged ${triage.route}${triage.decided ? "" : " (undecided, fell open)"}, wanted ${golden.expect}`
                 )
               }),
             { concurrency, discard: true }

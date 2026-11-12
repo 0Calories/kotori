@@ -22,9 +22,9 @@ const content = {
   example: null,
   audioUrl: null
 }
-const summary = { id: "card150", template: "recognize", queue: "review", due: at, interval: 30, leech: false }
+const schedule = { retentionStage: "review", due: at, interval: 30, ease: 2.5, reps: 1, lapses: 0, leech: false }
 const profile = {
-  id: "learner",
+  id: "user",
   email: "browser-test@example.com",
   emailVerified: true,
   status: "approved",
@@ -92,12 +92,12 @@ try {
       const refetching = new Promise((resolve) => {
         finishRefetch = resolve
       })
-      const dueCards = Array.from({ length: 200 }, (_, i) => ({
-        noteId: i === 150 ? noteId : `note${i}`,
-        queue: "review"
+      const all = Array.from({ length: 200 }, (_, i) => ({
+        id: i === 150 ? noteId : `note${i}`,
+        retentionStage: "review"
       }))
-      const items = dueCards.slice(0, 100).map((card, i) => ({
-        card: { ...summary, ...card, id: `card${i}`, ease: 2.5, reps: 1, lapses: 0, content },
+      const items = all.slice(0, 100).map((note) => ({
+        note: { ...schedule, id: note.id, content, createdAt: at },
         labels: { again: "1m", hard: "1d", good: "4d", easy: "7d" }
       }))
       const errors = []
@@ -107,16 +107,15 @@ try {
         const pathname = new URL(request.url()).pathname
         const json = (body, status = 200) => route.fulfill({ status, json: body })
         // Hold post-delete refetches so assertions must see the immediate cache update.
-        if (deleted && ["/study/notes", "/study/queue", "/study/stats"].includes(pathname)) await refetching
-        if (pathname === "/study/queue")
-          return json({ items, dueCards, counts: { new: 0, learning: 0, review: deleted ? 199 : 200 }, nextDue: null })
+        if (deleted && ["/study/notes", "/study/due", "/study/stats"].includes(pathname)) await refetching
+        if (pathname === "/study/due")
+          return json({ items, all, counts: { new: 0, learning: 0, review: deleted ? 199 : 200 }, nextDue: null })
         if (pathname === "/study/stats")
           return json({
             due: { new: 0, learning: 0, review: deleted ? 199 : 200 },
             reviewedToday: 0,
             streak: 0,
             notes: deleted ? 199 : 200,
-            cards: deleted ? 199 : 200,
             unseen: 0,
             young: 0,
             mature: deleted ? 199 : 200,
@@ -127,7 +126,7 @@ try {
         if (pathname === "/account/me") return json(profile)
         if (pathname === "/dictionary/entries/1") return json(entry)
         if (pathname === "/study/notes")
-          return json(deleted ? [] : [{ id: noteId, content, cards: [summary], createdAt: at }])
+          return json(deleted ? [] : [{ ...schedule, id: noteId, content, createdAt: at }])
         if (pathname === `/study/notes/${noteId}` && request.method() === "DELETE") {
           attempts += 1
           if (attempts === 1) return json({ _tag: "NotFound", message: "test failure" }, 404)

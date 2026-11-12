@@ -1,24 +1,24 @@
 import type { Rating, ReviewItem } from "@kotori/contracts"
-import { shownReviewCard } from "./review.ts"
+import { shownReviewNote } from "./review.ts"
 
 /**
  * A review session as one state machine. The screen sends events, the reducer returns the next
- * state, and `reviewView` derives what to draw. Per-card facts (revealed, leech) are keyed to a
- * card id, so they cannot outlive the card they describe.
+ * state, and `reviewView` derives what to draw. Per-note facts (revealed, leech) are keyed to a
+ * note id, so they cannot outlive the note they describe.
  */
 
 export type ReviewNotice = "answerFailed"
 
 export type ReviewSessionState = {
-  /** The card on screen. A refetch can't replace it until it is answered. */
+  /** The note on screen. A refetch can't replace it until it is answered. */
   readonly pinned: ReviewItem | null
-  /** Ids of cards whose answer is still on its way to the server. They are skipped locally. */
+  /** Ids of notes whose answer is still on its way to the server. They are skipped locally. */
   readonly inFlight: readonly string[]
-  /** Cards answered and saved, or on their way. */
+  /** Notes answered and saved, or on their way. */
   readonly reviewed: number
-  /** The card whose answer is showing. Any other card shows its front. */
+  /** The note whose answer is showing. Any other note shows its front. */
   readonly revealedId: string | null
-  /** The card the leech warning belongs to. */
+  /** The note the leech warning belongs to. */
   readonly leechId: string | null
   readonly notice: ReviewNotice | null
 }
@@ -33,20 +33,20 @@ export const initialReviewSession: ReviewSessionState = {
 }
 
 export type ReviewSessionEvent =
-  /** The opening card, or the first one after the queue ran dry. Never replaces a card on screen. */
+  /** The opening note, or the first one after the due notes ran out. Never replaces a note on screen. */
   | { readonly type: "pin"; readonly item: ReviewItem }
-  /** Show the answer of this card. `null` means no card is on screen, so nothing happens. */
-  | { readonly type: "reveal"; readonly cardId: string | null }
-  /** Rate the card on screen. `items` is the queue as last fetched. */
+  /** Show the answer of this note. `null` means no note is on screen, so nothing happens. */
+  | { readonly type: "reveal"; readonly noteId: string | null }
+  /** Rate the note on screen. `items` is the due notes as last fetched. */
   | {
       readonly type: "answer"
       readonly item: ReviewItem
       readonly rating: Rating
       readonly items: readonly ReviewItem[]
     }
-  /** The server recorded the answer and the queue was fetched again. */
-  | { readonly type: "answerSaved"; readonly cardId: string; readonly leech: boolean }
-  /** The server did not record the answer: put the card back. */
+  /** The server recorded the answer and the due notes were fetched again. */
+  | { readonly type: "answerSaved"; readonly noteId: string; readonly leech: boolean }
+  /** The server did not record the answer: put the note back. */
   | { readonly type: "answerFailed"; readonly item: ReviewItem }
   | { readonly type: "dismissNotice" }
 
@@ -57,16 +57,16 @@ export const reduceReviewSession = (state: ReviewSessionState, event: ReviewSess
     case "pin":
       return state.pinned === null ? { ...state, pinned: event.item } : state
     case "reveal":
-      if (event.cardId === null || event.cardId === state.revealedId) return state
-      return { ...state, revealedId: event.cardId }
+      if (event.noteId === null || event.noteId === state.revealedId) return state
+      return { ...state, revealedId: event.noteId }
     case "answer": {
-      const id = event.item.card.id
-      // Only a revealed card on screen can be answered, and only once.
-      if (state.revealedId !== id || state.pinned?.card.id !== id || state.inFlight.includes(id)) return state
+      const id = event.item.note.id
+      // Only a revealed note on screen can be answered, and only once.
+      if (state.revealedId !== id || state.pinned?.note.id !== id || state.inFlight.includes(id)) return state
       const inFlight = [...state.inFlight, id]
-      // Pin the card this answer reveals before the refetch. Gathering again re-spaces new
-      // cards and pulls newly due learning cards forward, which would otherwise replace it.
-      const next = shownReviewCard(event.items, event.item, new Set(inFlight)) ?? null
+      // Pin the note this answer reveals before the refetch. Gathering again re-spaces new
+      // notes and pulls newly due learning notes forward, which would otherwise replace it.
+      const next = shownReviewNote(event.items, event.item, new Set(inFlight)) ?? null
       return {
         ...state,
         inFlight,
@@ -78,18 +78,18 @@ export const reduceReviewSession = (state: ReviewSessionState, event: ReviewSess
       }
     }
     case "answerSaved": {
-      const inFlight = without(state.inFlight, event.cardId)
-      const onScreen = state.pinned?.card.id ?? null
+      const inFlight = without(state.inFlight, event.noteId)
+      const onScreen = state.pinned?.note.id ?? null
       return { ...state, inFlight, leechId: event.leech ? onScreen : state.leechId }
     }
     case "answerFailed": {
-      const id = event.item.card.id
+      const id = event.item.note.id
       return {
         ...state,
         inFlight: without(state.inFlight, id),
         reviewed: Math.max(state.reviewed - 1, 0),
         pinned: event.item,
-        // The card comes back as a fresh front, not with its answer showing.
+        // The note comes back as a fresh front, not with its answer showing.
         revealedId: null,
         leechId: null,
         notice: "answerFailed"
@@ -108,13 +108,13 @@ export type ReviewView = {
   readonly total: number
 }
 
-/** What the screen shows for `state` given the queue as last fetched. */
+/** What the screen shows for `state` given the due notes as last fetched. */
 export const reviewView = (state: ReviewSessionState, items: readonly ReviewItem[]): ReviewView => {
   const skipped = new Set(state.inFlight)
-  const current = shownReviewCard(items, state.pinned, skipped)
-  const id = current?.card.id
+  const current = shownReviewNote(items, state.pinned, skipped)
+  const id = current?.note.id
   const remaining =
-    items.filter((item) => !skipped.has(item.card.id) && item.card.id !== id).length + (current === undefined ? 0 : 1)
+    items.filter((item) => !skipped.has(item.note.id) && item.note.id !== id).length + (current === undefined ? 0 : 1)
   return {
     current,
     revealed: id !== undefined && state.revealedId === id,
@@ -133,15 +133,15 @@ const RATING_KEYS: Readonly<Record<string, Rating>> = { "1": "again", "2": "hard
 
 /**
  * What a key press does. Auto-repeat is ignored, so holding Space can't reveal and then answer.
- * Reveal and answer keys do nothing without a card on screen.
+ * Reveal and answer keys do nothing without a note on screen.
  */
 export const reviewKeyAction = (
   event: { readonly key: string; readonly repeat?: boolean },
-  view: { readonly hasCard: boolean; readonly revealed: boolean }
+  view: { readonly hasNote: boolean; readonly revealed: boolean }
 ): ReviewKeyAction | null => {
   if (event.repeat === true) return null
   if (event.key === "Escape") return { type: "close" }
-  if (!view.hasCard) return null
+  if (!view.hasNote) return null
   if (event.key === " " || event.key === "Enter") {
     return view.revealed ? { type: "answer", rating: "good" } : { type: "reveal" }
   }
@@ -149,12 +149,12 @@ export const reviewKeyAction = (
   return rating !== undefined && view.revealed ? { type: "answer", rating } : null
 }
 
-/** How soon to ask the server again when only learning cards remain. */
+/** How soon to ask the server again when only learning notes remain. */
 export const WAIT_RETRY_MS = 2000
 const WAIT_GRACE_MS = 500
 
 /**
- * Delay before the next refetch while waiting for a card to come due. A due time already past
+ * Delay before the next refetch while waiting for a note to come due. A due time already past
  * (the device clock is ahead of the server) retries after a pause, so it can't spin.
  */
 export const waitRefetchDelay = (nextDue: number, now: number): number =>

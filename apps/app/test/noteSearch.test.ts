@@ -6,7 +6,13 @@ const note = (id: string, content: WordNote | PhraseNote): Note => ({
   id: id as NoteId,
   createdAt: new Date(0),
   content,
-  cards: []
+  retentionStage: "new",
+  due: new Date(0),
+  interval: 0,
+  ease: 0,
+  reps: 0,
+  lapses: 0,
+  leech: false
 })
 
 const word = (

@@ -114,7 +114,7 @@ export const devAccount = Command.make(
     email: Flag.String("email").pipe(Flag.withDescription("Address to use"), Flag.withDefault(DEV_EMAIL)),
     password: Flag.String("password").pipe(Flag.withDescription("Password to set"), Flag.withDefault(DEV_PASSWORD)),
     language: Flag.String("language").pipe(
-      Flag.withDescription("Native language: en (learning Japanese) or ja (learning English)"),
+      Flag.withDescription("Native language: en (Japanese learner) or ja (English learner)"),
       Flag.withDefault("en")
     ),
     admin: Flag.Boolean("admin").pipe(

@@ -26,8 +26,8 @@ const NoteRow = ({ note }: { readonly note: Note }) => {
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const content = note.content
-  const learning = note.cards.some((card) => card.queue !== "new")
-  const leech = note.cards.some((card) => card.leech)
+  const learning = note.retentionStage !== "new"
+  const leech = note.leech
 
   const confirm = async () => {
     setError(null)

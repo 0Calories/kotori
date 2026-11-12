@@ -8,13 +8,13 @@ The app runs on iOS, Android, and the web from a single Expo codebase, with the 
   <img src="docs/screenshots/onboarding.jpg" width="200" alt="Choosing a language during onboarding">
   <img src="docs/screenshots/search.jpg" width="200" alt="Searching “eat”, with formality tags on each result">
   <img src="docs/screenshots/entry.jpg" width="200" alt="食べる with its register scales, example sentence, and similar words">
-  <img src="docs/screenshots/review.jpg" width="200" alt="A review card showing Anki intervals">
+  <img src="docs/screenshots/review.jpg" width="200" alt="A note under review, with Anki intervals on the rating buttons">
 </p>
 
 ## What's inside
 
-- **Bilingual dictionary** — English speakers get all ~219k Japanese entries from [JMDict](https://www.edrdg.org/jmdict/j_jmdict.html); Japanese speakers get ~65k English entries explained in Japanese. Search in either language or in rōmaji, including conjugated forms (`食べなかった` finds `食べる`, `"ate"` finds `eat`).
-- **Nuance and register** — Each meaning is rated for formality, spoken vs. written usage, keigo, speaker demographics, connotation, and common learner pitfalls (*"Can sound rude to your boss or customers"*, *"Not the katakana 「スタイル」"*), alongside similar words and how they differ.
+- **Bilingual dictionary** — Japanese learners get all ~219k Japanese entries from [JMDict](https://www.edrdg.org/jmdict/j_jmdict.html); English learners get ~65k English entries explained in Japanese. Search in either language or in rōmaji, including conjugated forms (`食べなかった` finds `食べる`, `"ate"` finds `eat`).
+- **Usage and cautions** — Each sense is rated for formality, spoken vs. written usage, keigo, speaker demographics, connotation, and learner cautions (*"Can sound rude to your boss or customers"*, *"Not the katakana 「スタイル」"*), alongside similar words and how they differ.
 - **Examples and audio** — Natural example sentences with furigana (written by **Claude**) and spoken audio for headwords and sentences (voiced by **ElevenLabs**).
 - **Naturalness check** — Write a sentence in the language you're learning to see how it comes across to a native speaker, what to fix, and natural ways to phrase it.
 - **How do I say…** — Describe what you want to say in your own language and get idiomatic ways natives actually say it, with tone, literal meaning, key vocabulary, and pitfalls to avoid.
@@ -93,12 +93,12 @@ In development, the app automatically signs in as `dev@kotori.test` on launch an
 
 ### API keys (optional for local dev)
 
-Dictionary search and flashcard reviews work without any API keys. To enable coaching and enrichment, add keys to `.env`:
+Dictionary search and reviews work without any API keys. To enable coaching and enrichment, add keys to `.env`:
 
 | Variable | Powers | Behavior without key |
 | --- | --- | --- |
 | `ANTHROPIC_API_KEY` | Naturalness check, *How do I say…*, example sentences | Coaching shows "not set up"; no new examples generated |
-| `TYPESAFE_API_KEY` | Word nuance and similar-word judgments (Jev) | Entries show dictionary meanings without nuance scales |
+| `TYPESAFE_API_KEY` | Word nuance and similar-word judgments (Jev) | Entries show the dictionary's glosses without nuance scales |
 | `ELEVENLABS_API_KEY` | Headword and example pronunciation audio | Audio buttons are hidden for unvoiced items |
 
 The Anthropic client also accepts `ANTHROPIC_AUTH_TOKEN` or an `ant auth login` profile. See `.env.example` for model, voice, and rate-limit settings.
@@ -117,7 +117,7 @@ pnpm kotori status                          # check coverage and queue depth
 All enrichment commands skip entries that are already complete, so they can be interrupted and re-run safely.
 
 - **Nuance (Jev)** — TypeSafe's Jev (`jev-1.14.0`) evaluates an entry in a single pass, scoring formality and spoken vs. written register alongside keigo, speaker gender/age, currency, connotation, learner cautions, and candidate synonyms. Explicit dictionary usage tags (such as `hon`, `col`, or `male`) take precedence over model guesses, and low-confidence judgments are hidden. Raw probability distributions are stored in Postgres so display labels can be re-derived without re-running inference (`pnpm kotori enrich nuance --reinterpret`) and benchmarked against a golden set (`pnpm kotori eval nuance` and `pnpm kotori eval english`).
-- **English dictionary & katakana loans** — For Japanese speakers learning English, the backend's dictionary import (`features/dictionary/import/eiwa`) assembles ~50k English headwords and idioms from [English Wiktionary](https://en.wiktionary.org), [Japanese Wiktionary](https://ja.wiktionary.org), and attested English glosses in JMDict, ranked by [OpenSubtitles word frequency](https://github.com/hermitdave/FrequencyWords). In addition to register and US/UK variety, Jev checks whether an English word's katakana loanword has drifted in meaning — warning Japanese learners when a familiar katakana word like スタイル (*body figure*) doesn't match English *style*.
+- **English dictionary & katakana loans** — For English learners, the backend's dictionary import (`features/dictionary/import/english`) assembles ~50k English headwords and idioms from [English Wiktionary](https://en.wiktionary.org), [Japanese Wiktionary](https://ja.wiktionary.org), and attested English glosses in JMDict, ranked by [OpenSubtitles word frequency](https://github.com/hermitdave/FrequencyWords). In addition to usage and US/UK variety, Jev checks whether an English word's katakana loanword has drifted in meaning — warning English learners when a familiar wasei-eigo like スタイル (*body figure*) doesn't match English *style*.
 - **Examples (Claude)** — Generated via structured outputs validated with Effect Schema. Furigana is written inline as `{漢字|かんじ}` and verified against the Japanese text before saving.
 - **Audio (ElevenLabs)** — Cached by content hash `(voice, model, text)` so each clip is synthesized once, guarded by a 30-day character budget (`KOTORI_AUDIO_MONTHLY_CHARS`, default `500000`).
 

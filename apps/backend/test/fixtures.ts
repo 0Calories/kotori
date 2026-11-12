@@ -1,4 +1,4 @@
-import { CardId, EntryId, type EntryRecord, NoteId, UserId } from "@kotori/contracts"
+import { EntryId, type EntryRecord, NoteId, UserId } from "@kotori/contracts"
 import type { users } from "@kotori/db"
 
 // Dictionary entries and learner ids shared by the PGlite query suites.
@@ -129,16 +129,11 @@ export const english: Array<EntryRecord> = [
   }
 ]
 
-// Study ids are uuids, as Better Auth's user ids and the API's note and card ids are.
+// Study ids are uuids, as Better Auth's user ids and the API's note ids are.
 export const U1 = UserId.make("00000000-0000-4000-8000-000000000001")
 export const N1 = NoteId.make("00000000-0000-4000-8000-00000000000a")
-export const C1 = CardId.make("00000000-0000-4000-8000-0000000000c1")
-export const C2 = CardId.make("00000000-0000-4000-8000-0000000000c2")
 export const N2 = NoteId.make("00000000-0000-4000-8000-00000000000b")
-export const C3 = CardId.make("00000000-0000-4000-8000-0000000000c3")
-export const C4 = CardId.make("00000000-0000-4000-8000-0000000000c4")
-export const C5 = CardId.make("00000000-0000-4000-8000-0000000000c5")
-export const C6 = CardId.make("00000000-0000-4000-8000-0000000000c6")
+export const N3 = NoteId.make("00000000-0000-4000-8000-00000000000c")
 
 /** A learner profile to hang study data on; the database's defaults fill in the rest. */
 export const learner = {

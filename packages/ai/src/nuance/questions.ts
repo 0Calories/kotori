@@ -1,7 +1,7 @@
 import type { ChoiceQuestion, NoulQuestion, ScoreQuestion } from "@typesafe-ai/sdk"
 
 /**
- * The judgments Jev makes about each sense of a Japanese word, for learners of Japanese;
+ * The judgments Jev makes about each sense of a Japanese word, for Japanese learners;
  * english.ts has their English counterparts. Each is narrow and independent (Jev answers them
  * in parallel), and refers by backticked name to the entry's state (`word`, `senses`) and to
  * its sense's scope in its own instructions (`meaning`, …), both built in `state.ts`;

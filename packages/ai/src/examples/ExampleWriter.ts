@@ -8,7 +8,7 @@ export const ExamplesOutput = Schema.Struct({
   senses: Schema.Array(
     Schema.Struct({
       sense: Schema.Int,
-      /** The sense's usage note for learners of Japanese, in English; null when the glosses say it all. */
+      /** The sense's usage note for Japanese learners, in English; null when the glosses say it all. */
       note: Schema.NullOr(Schema.String),
       examples: Schema.Array(
         Schema.Struct({
@@ -35,7 +35,7 @@ export const EnglishExamplesOutput = Schema.Struct({
   senses: Schema.Array(
     Schema.Struct({
       sense: Schema.Int,
-      /** The sense's usage note for Japanese speakers, in Japanese; null when the glosses say it all. */
+      /** The sense's usage note for English learners, in Japanese; null when the glosses say it all. */
       noteJa: Schema.NullOr(Schema.String),
       examples: Schema.Array(
         Schema.Struct({
@@ -97,7 +97,7 @@ export interface WrittenExample {
   readonly variety: string | null
   readonly tone: SentenceTone
   readonly note: string | null
-  /** For Japanese speakers learning English, in Japanese. */
+  /** For English learners, in Japanese. */
   readonly noteJa: string | null
 }
 
@@ -187,7 +187,7 @@ export class ExampleWriter extends Context.Service<
     Effect.gen(function* () {
       const claude = yield* Claude
 
-      /** English sentences with Japanese translations, for Japanese speakers learning the word. */
+      /** English sentences with Japanese translations, for English learners. */
       const writeEnglish = Effect.fn("ExampleWriter.writeEnglish")(function* (request: ExampleRequest) {
         const output = yield* claude.generate({
           schema: EnglishExamplesOutput,
@@ -245,7 +245,7 @@ export class ExampleWriter extends Context.Service<
               variety: normalizeVariety(example.variety),
               tone: example.tone,
               note: example.note,
-              // Japanese words are read by learners of Japanese, in English.
+              // Japanese words are read by Japanese learners, in English.
               noteJa: null
             }))
           )

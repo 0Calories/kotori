@@ -147,13 +147,15 @@ const StudyHandlers = HttpApiBuilder.group(
             return yield* new NotFound({ message: "No such note" })
           }
         }),
-      queue: ({ query }) =>
-        Effect.flatMap(CurrentUser, (user) => study.queue(user.profile, Math.min(Math.max(query.limit ?? 50, 1), 200))),
+      due: ({ query }) =>
+        Effect.flatMap(CurrentUser, (user) =>
+          study.dueNotes(user.profile, Math.min(Math.max(query.limit ?? 50, 1), 200))
+        ),
       answer: ({ params, payload }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const result = yield* study.answer(user.profile, params.id, payload.rating, payload.durationMs)
-          return yield* orNotFound<typeof result extends Option.Option<infer A> ? A : never>("No such card")(result)
+          return yield* orNotFound<typeof result extends Option.Option<infer A> ? A : never>("No such note")(result)
         }),
       stats: () => Effect.flatMap(CurrentUser, (user) => study.stats(user.profile))
     })

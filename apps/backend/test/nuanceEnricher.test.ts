@@ -127,7 +127,7 @@ layer(TestLayer)("NuanceEnricher", (it) => {
         entry(2, "食う", "くう", [sense(["to eat"], ["male"])]),
         entry(3, "召し上がる", "めしあがる", [sense(["to eat", "to drink"], ["hon"])])
       ])
-      yield* saveTags(db, [{ code: "v1", label: "Ichidan verb" }])
+      yield* saveTags(db, [{ code: "v1", name: "Ichidan verb" }])
       requests.length = 0
 
       // One request for the whole entry: both senses' questions and the candidate comparisons.

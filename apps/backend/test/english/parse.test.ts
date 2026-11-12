@@ -1,16 +1,16 @@
 import { EntryId, type EntryRecord } from "@kotori/contracts"
 import { describe, expect, it } from "vitest"
-import { commonestFirst, mergeSources, toEntries } from "../../src/features/dictionary/import/eiwa/build.ts"
-import { parseFrequency } from "../../src/features/dictionary/import/eiwa/frequency.ts"
-import { jmdictReader, wordsFromJmdict } from "../../src/features/dictionary/import/eiwa/jmdict.ts"
-import { splitDefinition } from "../../src/features/dictionary/import/eiwa/text.ts"
+import { commonestFirst, mergeSources, toEntries } from "../../src/features/dictionary/import/english/build.ts"
+import { parseFrequency } from "../../src/features/dictionary/import/english/frequency.ts"
+import { jmdictReader, wordsFromJmdict } from "../../src/features/dictionary/import/english/jmdict.ts"
+import { splitDefinition } from "../../src/features/dictionary/import/english/text.ts"
 import {
   cleanIpa,
   parseCurated,
   parsePhraseIndex,
   parseWiktionary
-} from "../../src/features/dictionary/import/eiwa/wiktionary.ts"
-import { emptySense, formOf, type Word } from "../../src/features/dictionary/import/eiwa/words.ts"
+} from "../../src/features/dictionary/import/english/wiktionary.ts"
+import { emptySense, formOf, type Word } from "../../src/features/dictionary/import/english/words.ts"
 
 // Lines as Wiktextract writes them for Japanese Wiktionary, trimmed to the fields read.
 const line = (entry: object) => JSON.stringify({ lang_code: "en", lang: "英語", ...entry })

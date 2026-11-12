@@ -39,30 +39,27 @@ const sense = (index: number, overrides: Partial<Sense> = {}): Sense => ({
   ...overrides
 })
 
-const usOnly = { code: "en-US", label: "US English" }
+const usOnly = { code: "en-US", name: "US English" }
 
 describe("the entry page's nuance", () => {
   it("doesn't repeat a dictionary tag that the judged nuance already shows", () => {
     // "elevator": the dictionary's en-US decides the variety, which the nuance card shows.
     const american = sense(0, {
       dialects: [usOnly],
-      fields: [{ code: "aviat", label: "aviation" }],
+      fields: [{ code: "aviat", name: "aviation" }],
       nuance: nuance({ variety: { value: "american", confidence: 1, source: "jmdict" } })
     })
-    assert.deepStrictEqual(dictionaryTags(american), [{ code: "aviat", label: "aviation" }])
+    assert.deepStrictEqual(dictionaryTags(american), [{ code: "aviat", name: "aviation" }])
     // Too unsure to show, the judgment leaves the tag where it is.
     const unsure = { ...american, nuance: nuance({ variety: judged("american" as const, 0.3) }) }
-    assert.deepStrictEqual(dictionaryTags(unsure), [{ code: "aviat", label: "aviation" }, usOnly])
-    assert.deepStrictEqual(dictionaryTags({ ...american, nuance: null }), [
-      { code: "aviat", label: "aviation" },
-      usOnly
-    ])
+    assert.deepStrictEqual(dictionaryTags(unsure), [{ code: "aviat", name: "aviation" }, usOnly])
+    assert.deepStrictEqual(dictionaryTags({ ...american, nuance: null }), [{ code: "aviat", name: "aviation" }, usOnly])
   })
 
   it("leaves out a tag whose register the page shows, by its code in either language", () => {
     const fromTag = <A>(value: A) => ({ value, confidence: 1, source: "jmdict" as const })
     // ご苦労様: pol makes it polite 丁寧語, shown as "Polite (丁寧語)" whatever the tag's label says.
-    const pol = { code: "pol", label: "polite (teineigo) language" }
+    const pol = { code: "pol", name: "polite (teineigo) language" }
     const gokurousama = sense(0, {
       misc: [pol],
       nuance: nuance({
@@ -72,7 +69,7 @@ describe("the entry page's nuance", () => {
     })
     assert.deepStrictEqual(dictionaryTags(gokurousama), [])
     // col makes a sense casual and spoken: 口語 would repeat 「カジュアル · 話し言葉」.
-    const col = { code: "col", label: "colloquial" }
+    const col = { code: "col", name: "colloquial" }
     const casual = nuance({
       formality: { ...fromTag("casual" as const), position: 0.25 },
       medium: { ...fromTag("spoken" as const), position: 0 }
@@ -86,7 +83,7 @@ describe("the entry page's nuance", () => {
       formality: { ...fromTag("formal" as const), position: 1 },
       keigo: fromTag("sonkeigo" as const)
     })
-    const both = sense(0, { misc: [{ code: "hon", label: "honorific" }, pol], nuance: honorific })
+    const both = sense(0, { misc: [{ code: "hon", name: "honorific" }, pol], nuance: honorific })
     assert.deepStrictEqual(dictionaryTags(both), [pol])
   })
 

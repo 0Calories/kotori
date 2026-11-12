@@ -15,7 +15,7 @@ import type { EntryId } from "@kotori/db"
 import * as Sentry from "@sentry/effect/server"
 import { Clock, Context, Effect, Layer } from "effect"
 import { Database } from "../../db/Database.ts"
-import { getEntries, loanCandidates, tagLabels } from "../dictionary/index.ts"
+import { getEntries, loanCandidates, tagNames } from "../dictionary/index.ts"
 import { AudioEnricher } from "./AudioEnricher.ts"
 import type { JobKind } from "./jobs.ts"
 import { NuanceEnricher } from "./NuanceEnricher.ts"
@@ -79,8 +79,8 @@ export class Enrichers extends Context.Service<
       const examples = Effect.fn("Enrichers.examples")(function* (entryId: EntryId) {
         const [entry] = yield* getEntries(db, [entryId])
         if (entry === undefined) return "missing entry"
-        const tags = yield* tagLabels(db)
-        const label = (code: string) => tags.get(code) ?? code
+        const tags = yield* tagNames(db)
+        const tagName = (code: string) => tags.get(code) ?? code
         const judged = new Map((yield* nuanceFor(db, [entryId])).map((row) => [row.sense, row.nuance]))
 
         const senses = entry.senses.slice(0, EXAMPLE_SENSES).map((sense, index) => {
@@ -88,10 +88,10 @@ export class Enrichers extends Context.Service<
           return {
             index,
             glosses: sense.glosses.map((gloss) => gloss.text),
-            partsOfSpeech: sense.pos.map(label),
-            dialects: sense.dialects.map(label),
+            partsOfSpeech: sense.pos.map(tagName),
+            dialects: sense.dialects.map(tagName),
             notes: [
-              ...[...sense.misc, ...sense.fields].map(label),
+              ...[...sense.misc, ...sense.fields].map(tagName),
               ...sense.info,
               ...(nuance ? [`register: ${nuance.formality.value}, ${nuance.medium.value}`] : [])
             ]
@@ -135,7 +135,7 @@ export class Enrichers extends Context.Service<
         if (loan?.word == null || !awaitsWarning(loan) || !(yield* claude.available)) return false
         const [entry] = yield* getEntries(db, [entryId])
         if (entry === undefined) return false
-        const tags = yield* tagLabels(db)
+        const tags = yield* tagNames(db)
         // The katakana word's own meanings, as Jev saw them: JMDict's, with their usage notes.
         const candidates = yield* loanCandidates(db, [entry.headword], MAX_LOANS)
         const katakana = (yield* getEntries(

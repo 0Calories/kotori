@@ -36,7 +36,7 @@ const xml = `<?xml version="1.0" encoding="UTF-8"?>
 
 describe("JMDict parser", () => {
   it("reads tag descriptions from the DTD", () => {
-    expect(parseTags(xml)).toContainEqual({ code: "hon", label: "honorific or respectful (sonkeigo) language" })
+    expect(parseTags(xml)).toContainEqual({ code: "hon", name: "honorific or respectful (sonkeigo) language" })
   })
 
   it("parses forms, senses and priorities", () => {

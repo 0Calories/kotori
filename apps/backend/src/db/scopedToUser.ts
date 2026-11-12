@@ -1,9 +1,9 @@
-import { type cards, type coachUsage, type notes, type reviewLogs, type UserId } from "@kotori/db"
+import { type coachUsage, type notes, type reviewLogs, type UserId } from "@kotori/db"
 import { and, eq, type SQL } from "drizzle-orm"
 import type { DatabaseShape } from "./Database.ts"
 
 /** The tables whose every row belongs to one learner, named by its `user_id`. */
-type LearnerTable = typeof notes | typeof cards | typeof reviewLogs | typeof coachUsage
+type LearnerTable = typeof notes | typeof reviewLogs | typeof coachUsage
 
 /**
  * The database as one learner sees it. Queries on a learner's data take this instead of the bare

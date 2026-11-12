@@ -139,7 +139,7 @@ describe("ExampleWriter.write", () => {
         group(9, [], { note: "Not a listed sense." })
       ]
     })
-    // A Japanese word's note is for learners of Japanese, in English.
+    // A Japanese word's note is for Japanese learners, in English.
     expect(notes).toEqual([
       { sense: 0, note: "Kansai speech.", noteJa: null },
       { sense: 1, note: null, noteJa: null }
@@ -216,7 +216,7 @@ describe("ExampleWriter.write for English words", () => {
       noteJa: "「awkward silence」は決まった言い方。",
       variety: null
     })
-    // An English word's note is for Japanese speakers, in Japanese.
+    // An English word's note is for English learners, in Japanese.
     expect(notes).toEqual([{ sense: 0, note: null, noteJa: "人間関係の気まずさにも、動作のぎこちなさにも使える。" }])
   })
 

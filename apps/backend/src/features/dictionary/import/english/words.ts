@@ -120,7 +120,7 @@ export const addRedirect = (redirects: Map<string, string>, variant: string, tar
   return false
 }
 
-// --- Consolidated JSONL schema (`data/eiwa/enwiktionary-ja.jsonl`) ----------------------
+// --- Consolidated JSONL schema (`data/english/enwiktionary-ja.jsonl`) ----------------------
 
 export const EnglishInflectionSchema = Schema.Literals([
   "plural",
@@ -151,7 +151,7 @@ export const ConsolidatedSense = Schema.Struct({
 export type ConsolidatedSense = typeof ConsolidatedSense.Type
 
 /**
- * One line of `data/eiwa/enwiktionary-ja.jsonl`: an English Wiktionary entry whose senses
+ * One line of `data/english/enwiktionary-ja.jsonl`: an English Wiktionary entry whose senses
  * have been consolidated, ranked commonest-first, and glossed in Japanese.
  */
 export const ConsolidatedWord = Schema.Struct({

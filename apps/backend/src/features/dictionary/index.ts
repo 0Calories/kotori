@@ -9,5 +9,5 @@ export {
   insertEntries,
   loanCandidates,
   sharedGlossCandidates,
-  tagLabels
+  tagNames
 } from "./queries.ts"
