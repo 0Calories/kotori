@@ -29,7 +29,7 @@ export const WordNote = Schema.Struct({
   reading: Schema.String,
   /** The glosses of the saved sense, in the other language from the headword. */
   meaning: Schema.String,
-  /** A short usage hint, e.g. "Casual · Speech". */
+  /** A short usage hint shown in reviews: the sense's labels, worded, e.g. "Casual · Masculine". */
   hint: Schema.NullOr(Schema.String),
   /** How the sense is used, shown with the answer; absent on notes saved before it existed. */
   note: Schema.optional(Schema.NullOr(Schema.String)),

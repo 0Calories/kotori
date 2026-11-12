@@ -20,6 +20,9 @@ coverage/
 data/*
 !data/.gitkeep
 !data/approved/
+!data/labels/
+!data/cautions/
+!data/loans/
 !data/english/
 data/english/*
 !data/english/enwiktionary-ja.jsonl

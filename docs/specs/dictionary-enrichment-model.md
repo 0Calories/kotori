@@ -1,6 +1,6 @@
 # Dictionary enrichment: labels, usage patterns, cautions
 
-Status: agreed direction, 2026-11-05. Prototype under `apps/app/app/proto` (mock data, no API). Not yet scheduled.
+Status: agreed direction, 2026-11-05. Implemented in Phases 1–8 (see [`dictionary-enrichment-plan.md`](dictionary-enrichment-plan.md)).
 
 ## Problem
 
@@ -57,15 +57,15 @@ erDiagram
 
     labels { text code "JMDict codes + form fill + regions"  enum source }
     usage_patterns { text text  enum source  int about_entry_id "optional" }
-    examples { text ja  text furigana  text en  enum formality  enum source  jsonb voice_signals "nullable, audio only" }
+    examples { text ja  text furigana  text en  enum formality  enum source  jsonb casting "nullable, audio only" }
     cautions { enum kind  text text  int sense "NULL = word"  int about_entry_id  smallint rank  enum source }
     entry_frequency { bool everyday  int spoken_count  smallint score }
-    loan_links { text katakana  text english  enum meaning "true_loanword | wasei_eigo | NULL"  enum source }
+    loan_links { text katakana  text english  enum meaning "true_loanword | wasei_eigo | NULL"  enum source  enum meaning_source "nullable" }
 ```
 
 `source` is `jmdict | jawiktionary | enwiktionary | tatoeba | kotori | user`.
 
-**Labels** replace the nuance JSONB, `TAG_JUDGMENTS`, the tag/judgment dedupe and the warning probabilities. One list per sense in one vocabulary: JMDict's codes, the English dictionary's region codes, and Kotori's `form` fill. Each label has a severity for display: `avoid` (vulg, X, derog, arch, obs), `warning` (col, sl, male, fem, chn, dated, rare…), `info` (hon, hum, pol, form, regions), `quiet` (id, uncountable, abbr). Grammar facts such as countability are quiet labels with an explanation, never cautions. Labels are per sense; the word shows its first sense's, and a sense shows only what differs.
+**Labels** replace the nuance JSONB, `TAG_JUDGMENTS`, the tag/judgment dedupe and the warning probabilities. One list per sense in one vocabulary: JMDict's codes, the English dictionary's region codes, and Kotori's `form` fill. Each label has a severity for display: `avoid` (vulg, X, derog, arch, obs), `warning` (col, sl, male, fem, chn, dated, rare…), `info` (hon, hum, pol, form, regions), `quiet` (id, uncountable, abbr). Grammar facts such as countability are quiet labels with an explanation, never cautions. Labels are per sense. The word shows only the labels every sense carries, so a single-sense word shows all of its own, and one sense of several never speaks for the rest; each sense shows the labels it has beyond the word's.
 
 **Usage patterns** are the dictionary's own usage notes plus Kotori's added context, side by side, Kotori's marked. ご苦労様 shows JMDict's "usu. to one's subordinate" and under it Kotori's "Upward it sounds condescending; say お疲れ様です", with a compare link. No red warning when the dictionary already flagged it.
 
@@ -75,7 +75,7 @@ erDiagram
 |---|---|---|
 | rude_upward (了解, 食う) | wasei_eigo (マンション, ナイーブ, リフト) | confusable |
 | keigo_direction (召し上がる vs いただく) | textbook_english (How do you do) | collocation |
-| set_phrase (お疲れ様, 結構です) | directness (sorry overuse) | |
+| set_phrase (お疲れ様, 結構です) | directness (sorry overuse) | tone (ぴえん) |
 | particle_pattern | variety | |
 | gendered_speech (あたし) | | |
 
@@ -89,7 +89,7 @@ A caution is **not** written when the labels already say it: てめえ (derog), 
 
 ### What goes away
 
-`sense_nuance` (nuance and answers), `similar_words.difference`, `loan_words.answers/trap`, `examples`' six voice-signal columns (folded into one nullable JSONB), `sense_notes` (becomes usage patterns/cautions), Jev's per-sense question set, `interpret.ts`, `TAG_JUDGMENTS`, `saidByNuance`, the nuance sliders and warning chips, and every per-dimension `questionsVersion`.
+`sense_nuance` (nuance and answers), `similar_words.difference`, `loan_words.answers/trap`, `examples`' five speaker columns (folded into one nullable `casting` JSONB; `formality` stays a column), `sense_notes` (becomes usage patterns/cautions), Jev's per-sense question set, `interpret.ts`, `TAG_JUDGMENTS`, `saidByNuance`, the nuance sliders and warning chips, and every per-dimension `questionsVersion`.
 
 ## Per-dimension decision
 
@@ -127,7 +127,7 @@ Candidate artifact files: `data/labels/ja-form.jsonl`, `data/cautions/{ja,en}.js
 
 ## Entry page
 
-Top to bottom: hero (headword, reading, forms, chip row: frequency chip, true-loanword chip, the word's labels), word-level cautions as a "Watch out" card, senses (glosses, part of speech and labels that differ from the word's, usage patterns with Kotori's marked ✦, examples with non-Kotori sources named, sense-level cautions), similar words with derived differences, sources line, and a ✦ legend when anything on the page is Kotori's.
+Top to bottom: hero (headword, reading, forms, chip row: frequency chip, true-loanword chip, the word's labels), word-level cautions as a "Cautions" card, senses (glosses, part of speech and labels that differ from the word's, usage patterns with Kotori's marked ✦, examples with non-Kotori sources named, sense-level cautions), similar words with derived differences, sources line, and a ✦ legend when anything on the page is Kotori's.
 
 Chips are coloured by severity and explain themselves on tap or hover, one at a time, in a line under the row. A ✦ on a chip or note means "added by Kotori's AI, not taken from the dictionary", and the explanation says so.
 

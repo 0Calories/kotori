@@ -63,7 +63,7 @@ const statusBarStyle = "dark" as const
 const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
   const theme = useTheme()
   const { status, t, retry } = useSession()
-  // Public pages (/privacy, /terms) and /proto mock-ups need neither a session nor the API.
+  // Public legal pages (/privacy, /terms) need neither a session nor the API.
   const unguarded = isUnguardedRoute(usePathname())
   const ready = fontsLoaded && (unguarded || status !== "loading")
 
@@ -87,11 +87,9 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
     <>
       <StatusBar style={statusBarStyle} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.color.background } }}>
-        {/* Unguarded: public legal pages and prototype mock-ups open without signing in. */}
+        {/* Unguarded: public legal pages open without signing in. */}
         <Stack.Screen name="privacy" />
         <Stack.Screen name="terms" />
-        <Stack.Screen name="proto/index" />
-        <Stack.Screen name="proto/[id]" />
         <Stack.Protected guard={status === "ready"}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="entry/[id]" />

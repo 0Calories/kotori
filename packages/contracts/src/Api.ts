@@ -52,7 +52,11 @@ export const Health = Schema.Struct({
   /** Which optional providers are configured on this server. */
   features: Schema.Struct({
     coach: Schema.Boolean,
-    nuance: Schema.Boolean,
+    /**
+     * Whether Jev is configured: it reads a checked sentence's formality, and also routes Ask
+     * Kotori queries and judges seeded example sentences so they can be voiced.
+     */
+    formality: Schema.Boolean,
     audio: Schema.Boolean,
     /** Whether an email provider is configured (verification, reset and approval emails). */
     email: Schema.Boolean

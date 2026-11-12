@@ -1,17 +1,13 @@
 import { assert, layer } from "@effect/vitest"
 import { EntryId } from "@kotori/contracts"
+import { labels } from "@kotori/db"
+import { eq } from "drizzle-orm"
 import { Effect, FileSystem, Layer } from "effect"
 import { Database } from "../../src/db/Database.ts"
 import * as JMDict from "../../src/features/dictionary/import/jmdict/JMDict.ts"
 import { entryCount, getEntries, tagNames } from "../../src/features/dictionary/queries.ts"
 import { enqueueJob, jobStatusFor } from "../../src/features/enrichment/jobs.ts"
-import {
-  examplesFor,
-  nuanceFor,
-  saveExamples,
-  saveNuance,
-  type NuanceInput
-} from "../../src/features/enrichment/queries.ts"
+import { examplesFor, saveExamples } from "../../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
 const release = (
@@ -49,22 +45,12 @@ const Files = FileSystem.layerNoop({ readFile: () => Effect.sync(() => new TextE
 const TestLayer = Layer.mergeAll(Files).pipe(Layer.provideMerge(DatabaseMemory))
 
 const taberu = EntryId.make(1358280)
-const judgment = { value: "neutral" as const, confidence: 0.9, source: "jev" as const }
-const nuance = (sense: number): NuanceInput => ({
-  sense,
-  nuance: {
-    formality: { value: "neutral", position: 0.5, confidence: 0.9, source: "jev" },
-    medium: { value: "both", position: 0.5, confidence: 0.8, source: "jev" },
-    keigo: { ...judgment, value: "none" },
-    gender: judgment,
-    age: { ...judgment, value: "any" },
-    currency: { ...judgment, value: "current" },
-    connotation: judgment,
-    cautions: { rudeToSuperiors: 0.1, stiffWithFriends: 0.1, slang: 0.05 }
-  },
-  answers: {},
-  model: "jev-test",
-  questionsVersion: 1
+/** Kotori's labels on the word's senses: enrichment the import keeps, following its sense. */
+const kotoriLabel = (sense: number) => ({ entryId: taberu, sense, code: "form" as const, source: "kotori" as const })
+const labelledSenses = Effect.gen(function* () {
+  const db = yield* Database
+  const rows = yield* db.select().from(labels).where(eq(labels.entryId, taberu))
+  return rows.flatMap((row) => (row.source === "kotori" ? [row.sense] : [])).sort((a, b) => a - b)
 })
 
 // Dictionary and enrichment are rebuildable, so moving to a new JMDict release is a reseed:
@@ -78,7 +64,7 @@ layer(TestLayer)("JMDict.importFile", (it) => {
       const seeded = yield* getEntries(db, [taberu, EntryId.make(1001720)])
       assert.strictEqual(seeded[0]?.senses[1]?.glosses[1]?.type, "fig")
 
-      yield* saveNuance(db, taberu, [nuance(0), nuance(1)], new Date(1000))
+      yield* db.insert(labels).values([kotoriLabel(0), kotoriLabel(1)])
       yield* saveExamples(
         db,
         taberu,
@@ -101,10 +87,7 @@ layer(TestLayer)("JMDict.importFile", (it) => {
       assert.strictEqual(yield* entryCount(db), 2)
       assert.deepStrictEqual(yield* getEntries(db, [taberu, EntryId.make(1001720)]), seeded)
       assert.strictEqual((yield* tagNames(db)).size, 3)
-      assert.deepStrictEqual(
-        (yield* nuanceFor(db, [taberu])).map((row) => row.sense).sort((a, b) => a - b),
-        [0, 1]
-      )
+      assert.deepStrictEqual(yield* labelledSenses, [0, 1])
       assert.strictEqual((yield* examplesFor(db, [taberu])).length, 1)
       assert.strictEqual((yield* jobStatusFor(db, taberu)).get("audio"), "queued")
     })
@@ -122,10 +105,7 @@ layer(TestLayer)("JMDict.importFile", (it) => {
         [["to eat", "to have a meal"]]
       )
       assert.strictEqual((yield* tagNames(db)).get("hon"), "honorific")
-      assert.deepStrictEqual(
-        (yield* nuanceFor(db, [taberu])).map((row) => row.sense),
-        [0]
-      )
+      assert.deepStrictEqual(yield* labelledSenses, [0])
       assert.strictEqual((yield* examplesFor(db, [taberu])).length, 0)
       assert.strictEqual(yield* entryCount(db), 2)
     })

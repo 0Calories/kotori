@@ -34,7 +34,7 @@
                         "coach": {
                           "type": "boolean"
                         },
-                        "nuance": {
+                        "formality": {
                           "type": "boolean"
                         },
                         "audio": {
@@ -46,7 +46,7 @@
                       },
                       "required": [
                         "coach",
-                        "nuance",
+                        "formality",
                         "audio",
                         "email"
                       ],
@@ -680,38 +680,99 @@
                               }
                             ]
                           },
-                          "formality": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "enum": [
-                                  "vulgar",
-                                  "casual",
-                                  "neutral",
-                                  "polite",
-                                  "formal"
-                                ]
+                          "labels": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "code": {
+                                  "type": "string",
+                                  "enum": [
+                                    "vulg",
+                                    "X",
+                                    "derog",
+                                    "arch",
+                                    "obs",
+                                    "col",
+                                    "sl",
+                                    "net-sl",
+                                    "fam",
+                                    "joc",
+                                    "euph",
+                                    "male",
+                                    "fem",
+                                    "chn",
+                                    "dated",
+                                    "hist",
+                                    "rare",
+                                    "m-sl",
+                                    "sens",
+                                    "nonstd",
+                                    "hon",
+                                    "hum",
+                                    "pol",
+                                    "form",
+                                    "poet",
+                                    "ksb",
+                                    "osb",
+                                    "ktb",
+                                    "kyb",
+                                    "kyu",
+                                    "hob",
+                                    "thb",
+                                    "tsb",
+                                    "tsug",
+                                    "rkb",
+                                    "nab",
+                                    "bra",
+                                    "en-US",
+                                    "en-GB",
+                                    "en-AU",
+                                    "en-CA",
+                                    "en-NZ",
+                                    "en-IE",
+                                    "en-scotland",
+                                    "en-IN",
+                                    "en-PH",
+                                    "en-SG",
+                                    "en-ZA",
+                                    "id",
+                                    "on-mim",
+                                    "abbr",
+                                    "proverb",
+                                    "yoji",
+                                    "wasei",
+                                    "uncountable"
+                                  ]
+                                },
+                                "severity": {
+                                  "type": "string",
+                                  "enum": [
+                                    "avoid",
+                                    "warning",
+                                    "info",
+                                    "quiet"
+                                  ]
+                                },
+                                "source": {
+                                  "type": "string",
+                                  "enum": [
+                                    "jmdict",
+                                    "jawiktionary",
+                                    "enwiktionary",
+                                    "tatoeba",
+                                    "kotori",
+                                    "user"
+                                  ]
+                                }
                               },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "currency": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "enum": [
-                                  "archaic",
-                                  "dated",
-                                  "current",
-                                  "trendy"
-                                ]
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
+                              "required": [
+                                "code",
+                                "severity",
+                                "source"
+                              ],
+                              "additionalProperties": false
+                            }
                           },
                           "inflection": {
                             "type": "array",
@@ -739,8 +800,7 @@
                           "romaji",
                           "meanings",
                           "partOfSpeech",
-                          "formality",
-                          "currency",
+                          "labels",
                           "inflection",
                           "audioUrl"
                         ],
@@ -1071,6 +1131,24 @@
                                 "kotori",
                                 "user"
                               ]
+                            },
+                            "meaningSource": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "jmdict",
+                                    "jawiktionary",
+                                    "enwiktionary",
+                                    "tatoeba",
+                                    "kotori",
+                                    "user"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -1079,7 +1157,8 @@
                             "english",
                             "englishEntryId",
                             "meaning",
-                            "source"
+                            "source",
+                            "meaningSource"
                           ],
                           "additionalProperties": false
                         },
@@ -1111,7 +1190,8 @@
                               "directness",
                               "variety",
                               "confusable",
-                              "collocation"
+                              "collocation",
+                              "tone"
                             ]
                           },
                           "text": {
@@ -1265,45 +1345,7 @@
                               "additionalProperties": false
                             }
                           },
-                          "misc": {
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {
-                                "code": {
-                                  "type": "string"
-                                },
-                                "name": {
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "code",
-                                "name"
-                              ],
-                              "additionalProperties": false
-                            }
-                          },
                           "fields": {
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {
-                                "code": {
-                                  "type": "string"
-                                },
-                                "name": {
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "code",
-                                "name"
-                              ],
-                              "additionalProperties": false
-                            }
-                          },
-                          "dialects": {
                             "type": "array",
                             "items": {
                               "type": "object",
@@ -1412,676 +1454,6 @@
                               "required": [
                                 "language",
                                 "word"
-                              ],
-                              "additionalProperties": false
-                            }
-                          },
-                          "nuance": {
-                            "anyOf": [
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "formality": {
-                                    "type": "object",
-                                    "properties": {
-                                      "value": {
-                                        "type": "string",
-                                        "enum": [
-                                          "vulgar",
-                                          "casual",
-                                          "neutral",
-                                          "polite",
-                                          "formal"
-                                        ]
-                                      },
-                                      "position": {
-                                        "anyOf": [
-                                          {
-                                            "type": "number"
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "Infinity",
-                                              "-Infinity",
-                                              "NaN"
-                                            ]
-                                          }
-                                        ]
-                                      },
-                                      "confidence": {
-                                        "anyOf": [
-                                          {
-                                            "type": "number"
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "Infinity",
-                                              "-Infinity",
-                                              "NaN"
-                                            ]
-                                          }
-                                        ]
-                                      },
-                                      "source": {
-                                        "type": "string",
-                                        "enum": [
-                                          "jmdict",
-                                          "jev"
-                                        ]
-                                      }
-                                    },
-                                    "required": [
-                                      "value",
-                                      "position",
-                                      "confidence",
-                                      "source"
-                                    ],
-                                    "additionalProperties": false
-                                  },
-                                  "medium": {
-                                    "type": "object",
-                                    "properties": {
-                                      "value": {
-                                        "type": "string",
-                                        "enum": [
-                                          "spoken",
-                                          "both",
-                                          "written"
-                                        ]
-                                      },
-                                      "position": {
-                                        "anyOf": [
-                                          {
-                                            "type": "number"
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "Infinity",
-                                              "-Infinity",
-                                              "NaN"
-                                            ]
-                                          }
-                                        ]
-                                      },
-                                      "confidence": {
-                                        "anyOf": [
-                                          {
-                                            "type": "number"
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "Infinity",
-                                              "-Infinity",
-                                              "NaN"
-                                            ]
-                                          }
-                                        ]
-                                      },
-                                      "source": {
-                                        "type": "string",
-                                        "enum": [
-                                          "jmdict",
-                                          "jev"
-                                        ]
-                                      }
-                                    },
-                                    "required": [
-                                      "value",
-                                      "position",
-                                      "confidence",
-                                      "source"
-                                    ],
-                                    "additionalProperties": false
-                                  },
-                                  "keigo": {
-                                    "type": "object",
-                                    "properties": {
-                                      "value": {
-                                        "type": "string",
-                                        "enum": [
-                                          "none",
-                                          "teineigo",
-                                          "sonkeigo",
-                                          "kenjougo",
-                                          "bikago"
-                                        ]
-                                      },
-                                      "confidence": {
-                                        "anyOf": [
-                                          {
-                                            "type": "number"
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "Infinity",
-                                              "-Infinity",
-                                              "NaN"
-                                            ]
-                                          }
-                                        ]
-                                      },
-                                      "source": {
-                                        "type": "string",
-                                        "enum": [
-                                          "jmdict",
-                                          "jev"
-                                        ]
-                                      }
-                                    },
-                                    "required": [
-                                      "value",
-                                      "confidence",
-                                      "source"
-                                    ],
-                                    "additionalProperties": false
-                                  },
-                                  "gender": {
-                                    "type": "object",
-                                    "properties": {
-                                      "value": {
-                                        "type": "string",
-                                        "enum": [
-                                          "neutral",
-                                          "masculine",
-                                          "feminine"
-                                        ]
-                                      },
-                                      "confidence": {
-                                        "anyOf": [
-                                          {
-                                            "type": "number"
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "Infinity",
-                                              "-Infinity",
-                                              "NaN"
-                                            ]
-                                          }
-                                        ]
-                                      },
-                                      "source": {
-                                        "type": "string",
-                                        "enum": [
-                                          "jmdict",
-                                          "jev"
-                                        ]
-                                      }
-                                    },
-                                    "required": [
-                                      "value",
-                                      "confidence",
-                                      "source"
-                                    ],
-                                    "additionalProperties": false
-                                  },
-                                  "age": {
-                                    "type": "object",
-                                    "properties": {
-                                      "value": {
-                                        "type": "string",
-                                        "enum": [
-                                          "any",
-                                          "children",
-                                          "youth",
-                                          "older"
-                                        ]
-                                      },
-                                      "confidence": {
-                                        "anyOf": [
-                                          {
-                                            "type": "number"
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "Infinity",
-                                              "-Infinity",
-                                              "NaN"
-                                            ]
-                                          }
-                                        ]
-                                      },
-                                      "source": {
-                                        "type": "string",
-                                        "enum": [
-                                          "jmdict",
-                                          "jev"
-                                        ]
-                                      }
-                                    },
-                                    "required": [
-                                      "value",
-                                      "confidence",
-                                      "source"
-                                    ],
-                                    "additionalProperties": false
-                                  },
-                                  "currency": {
-                                    "type": "object",
-                                    "properties": {
-                                      "value": {
-                                        "type": "string",
-                                        "enum": [
-                                          "archaic",
-                                          "dated",
-                                          "current",
-                                          "trendy"
-                                        ]
-                                      },
-                                      "confidence": {
-                                        "anyOf": [
-                                          {
-                                            "type": "number"
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "Infinity",
-                                              "-Infinity",
-                                              "NaN"
-                                            ]
-                                          }
-                                        ]
-                                      },
-                                      "source": {
-                                        "type": "string",
-                                        "enum": [
-                                          "jmdict",
-                                          "jev"
-                                        ]
-                                      }
-                                    },
-                                    "required": [
-                                      "value",
-                                      "confidence",
-                                      "source"
-                                    ],
-                                    "additionalProperties": false
-                                  },
-                                  "connotation": {
-                                    "type": "object",
-                                    "properties": {
-                                      "value": {
-                                        "type": "string",
-                                        "enum": [
-                                          "negative",
-                                          "neutral",
-                                          "positive"
-                                        ]
-                                      },
-                                      "confidence": {
-                                        "anyOf": [
-                                          {
-                                            "type": "number"
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "Infinity",
-                                              "-Infinity",
-                                              "NaN"
-                                            ]
-                                          }
-                                        ]
-                                      },
-                                      "source": {
-                                        "type": "string",
-                                        "enum": [
-                                          "jmdict",
-                                          "jev"
-                                        ]
-                                      }
-                                    },
-                                    "required": [
-                                      "value",
-                                      "confidence",
-                                      "source"
-                                    ],
-                                    "additionalProperties": false
-                                  },
-                                  "registerShape": {
-                                    "anyOf": [
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "value": {
-                                            "type": "string",
-                                            "enum": [
-                                              "scaled",
-                                              "fixed",
-                                              "split"
-                                            ]
-                                          },
-                                          "confidence": {
-                                            "anyOf": [
-                                              {
-                                                "type": "number"
-                                              },
-                                              {
-                                                "type": "string",
-                                                "enum": [
-                                                  "Infinity",
-                                                  "-Infinity",
-                                                  "NaN"
-                                                ]
-                                              }
-                                            ]
-                                          },
-                                          "source": {
-                                            "type": "string",
-                                            "enum": [
-                                              "jmdict",
-                                              "jev"
-                                            ]
-                                          }
-                                        },
-                                        "required": [
-                                          "value",
-                                          "confidence",
-                                          "source"
-                                        ],
-                                        "additionalProperties": false
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
-                                  },
-                                  "cautions": {
-                                    "type": "object",
-                                    "properties": {
-                                      "rudeToSuperiors": {
-                                        "anyOf": [
-                                          {
-                                            "type": "number"
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "Infinity",
-                                              "-Infinity",
-                                              "NaN"
-                                            ]
-                                          }
-                                        ]
-                                      },
-                                      "stiffWithFriends": {
-                                        "anyOf": [
-                                          {
-                                            "type": "number"
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "Infinity",
-                                              "-Infinity",
-                                              "NaN"
-                                            ]
-                                          }
-                                        ]
-                                      },
-                                      "slang": {
-                                        "anyOf": [
-                                          {
-                                            "type": "number"
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "Infinity",
-                                              "-Infinity",
-                                              "NaN"
-                                            ]
-                                          }
-                                        ]
-                                      },
-                                      "textbook": {
-                                        "anyOf": [
-                                          {
-                                            "anyOf": [
-                                              {
-                                                "type": "number"
-                                              },
-                                              {
-                                                "type": "string",
-                                                "enum": [
-                                                  "Infinity",
-                                                  "-Infinity",
-                                                  "NaN"
-                                                ]
-                                              }
-                                            ]
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
-                                        ]
-                                      }
-                                    },
-                                    "required": [
-                                      "rudeToSuperiors",
-                                      "stiffWithFriends",
-                                      "slang"
-                                    ],
-                                    "additionalProperties": false
-                                  },
-                                  "variety": {
-                                    "anyOf": [
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "value": {
-                                            "type": "string",
-                                            "enum": [
-                                              "universal",
-                                              "american",
-                                              "british"
-                                            ]
-                                          },
-                                          "confidence": {
-                                            "anyOf": [
-                                              {
-                                                "type": "number"
-                                              },
-                                              {
-                                                "type": "string",
-                                                "enum": [
-                                                  "Infinity",
-                                                  "-Infinity",
-                                                  "NaN"
-                                                ]
-                                              }
-                                            ]
-                                          },
-                                          "source": {
-                                            "type": "string",
-                                            "enum": [
-                                              "jmdict",
-                                              "jev"
-                                            ]
-                                          }
-                                        },
-                                        "required": [
-                                          "value",
-                                          "confidence",
-                                          "source"
-                                        ],
-                                        "additionalProperties": false
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
-                                  },
-                                  "profanity": {
-                                    "anyOf": [
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "value": {
-                                            "type": "string",
-                                            "enum": [
-                                              "none",
-                                              "mild",
-                                              "strong",
-                                              "avoid"
-                                            ]
-                                          },
-                                          "confidence": {
-                                            "anyOf": [
-                                              {
-                                                "type": "number"
-                                              },
-                                              {
-                                                "type": "string",
-                                                "enum": [
-                                                  "Infinity",
-                                                  "-Infinity",
-                                                  "NaN"
-                                                ]
-                                              }
-                                            ]
-                                          },
-                                          "source": {
-                                            "type": "string",
-                                            "enum": [
-                                              "jmdict",
-                                              "jev"
-                                            ]
-                                          }
-                                        },
-                                        "required": [
-                                          "value",
-                                          "confidence",
-                                          "source"
-                                        ],
-                                        "additionalProperties": false
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
-                                  }
-                                },
-                                "required": [
-                                  "formality",
-                                  "medium",
-                                  "keigo",
-                                  "gender",
-                                  "age",
-                                  "currency",
-                                  "connotation",
-                                  "cautions"
-                                ],
-                                "additionalProperties": false
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "note": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "noteJa": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "similar": {
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {
-                                "entryId": {
-                                  "type": "integer",
-                                  "minimum": -9007199254740991,
-                                  "maximum": 9007199254740991
-                                },
-                                "headword": {
-                                  "type": "string"
-                                },
-                                "reading": {
-                                  "type": "string"
-                                },
-                                "meaning": {
-                                  "type": "string"
-                                },
-                                "difference": {
-                                  "type": "string",
-                                  "enum": [
-                                    "more_casual",
-                                    "more_formal",
-                                    "more_literary",
-                                    "more_colloquial",
-                                    "respectful",
-                                    "humble",
-                                    "more_specific",
-                                    "more_general",
-                                    "different_feeling",
-                                    "different_usage"
-                                  ]
-                                },
-                                "confidence": {
-                                  "anyOf": [
-                                    {
-                                      "type": "number"
-                                    },
-                                    {
-                                      "type": "string",
-                                      "enum": [
-                                        "Infinity",
-                                        "-Infinity",
-                                        "NaN"
-                                      ]
-                                    }
-                                  ]
-                                },
-                                "formality": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string",
-                                      "enum": [
-                                        "vulgar",
-                                        "casual",
-                                        "neutral",
-                                        "polite",
-                                        "formal"
-                                      ]
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                }
-                              },
-                              "required": [
-                                "entryId",
-                                "headword",
-                                "reading",
-                                "meaning",
-                                "difference",
-                                "confidence",
-                                "formality"
                               ],
                               "additionalProperties": false
                             }
@@ -2407,18 +1779,12 @@
                           "index",
                           "glosses",
                           "partsOfSpeech",
-                          "misc",
                           "fields",
-                          "dialects",
                           "info",
                           "appliesTo",
                           "related",
                           "antonyms",
                           "origins",
-                          "nuance",
-                          "note",
-                          "noteJa",
-                          "similar",
                           "examples",
                           "labels",
                           "usagePatterns",
@@ -2474,89 +1840,9 @@
                         "additionalProperties": false
                       }
                     },
-                    "loan": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "word": {
-                              "type": "string"
-                            },
-                            "verdict": {
-                              "type": "object",
-                              "properties": {
-                                "value": {
-                                  "type": "string",
-                                  "enum": [
-                                    "same",
-                                    "divergent",
-                                    "not_english"
-                                  ]
-                                },
-                                "probability": {
-                                  "anyOf": [
-                                    {
-                                      "type": "number"
-                                    },
-                                    {
-                                      "type": "string",
-                                      "enum": [
-                                        "Infinity",
-                                        "-Infinity",
-                                        "NaN"
-                                      ]
-                                    }
-                                  ]
-                                },
-                                "source": {
-                                  "type": "string",
-                                  "enum": [
-                                    "jmdict",
-                                    "jev"
-                                  ]
-                                }
-                              },
-                              "required": [
-                                "value",
-                                "probability",
-                                "source"
-                              ],
-                              "additionalProperties": false
-                            },
-                            "trap": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            }
-                          },
-                          "required": [
-                            "word",
-                            "verdict",
-                            "trap"
-                          ],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
                     "enrichment": {
                       "type": "object",
                       "properties": {
-                        "nuance": {
-                          "type": "string",
-                          "enum": [
-                            "ready",
-                            "queued",
-                            "unavailable"
-                          ]
-                        },
                         "examples": {
                           "type": "string",
                           "enum": [
@@ -2575,7 +1861,6 @@
                         }
                       },
                       "required": [
-                        "nuance",
                         "examples",
                         "audio"
                       ],
@@ -2599,7 +1884,6 @@
                     "senses",
                     "audioUrl",
                     "audio",
-                    "loan",
                     "enrichment"
                   ],
                   "additionalProperties": false
@@ -2676,14 +1960,6 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "nuance": {
-                      "type": "string",
-                      "enum": [
-                        "ready",
-                        "queued",
-                        "unavailable"
-                      ]
-                    },
                     "examples": {
                       "type": "string",
                       "enum": [
@@ -2702,7 +1978,6 @@
                     }
                   },
                   "required": [
-                    "nuance",
                     "examples",
                     "audio"
                   ],
@@ -3131,7 +2406,8 @@
                                       "directness",
                                       "variety",
                                       "confusable",
-                                      "collocation"
+                                      "collocation",
+                                      "tone"
                                     ]
                                   },
                                   "text": {
@@ -3263,38 +2539,99 @@
                                 }
                               ]
                             },
-                            "formality": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "enum": [
-                                    "vulgar",
-                                    "casual",
-                                    "neutral",
-                                    "polite",
-                                    "formal"
-                                  ]
+                            "labels": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "code": {
+                                    "type": "string",
+                                    "enum": [
+                                      "vulg",
+                                      "X",
+                                      "derog",
+                                      "arch",
+                                      "obs",
+                                      "col",
+                                      "sl",
+                                      "net-sl",
+                                      "fam",
+                                      "joc",
+                                      "euph",
+                                      "male",
+                                      "fem",
+                                      "chn",
+                                      "dated",
+                                      "hist",
+                                      "rare",
+                                      "m-sl",
+                                      "sens",
+                                      "nonstd",
+                                      "hon",
+                                      "hum",
+                                      "pol",
+                                      "form",
+                                      "poet",
+                                      "ksb",
+                                      "osb",
+                                      "ktb",
+                                      "kyb",
+                                      "kyu",
+                                      "hob",
+                                      "thb",
+                                      "tsb",
+                                      "tsug",
+                                      "rkb",
+                                      "nab",
+                                      "bra",
+                                      "en-US",
+                                      "en-GB",
+                                      "en-AU",
+                                      "en-CA",
+                                      "en-NZ",
+                                      "en-IE",
+                                      "en-scotland",
+                                      "en-IN",
+                                      "en-PH",
+                                      "en-SG",
+                                      "en-ZA",
+                                      "id",
+                                      "on-mim",
+                                      "abbr",
+                                      "proverb",
+                                      "yoji",
+                                      "wasei",
+                                      "uncountable"
+                                    ]
+                                  },
+                                  "severity": {
+                                    "type": "string",
+                                    "enum": [
+                                      "avoid",
+                                      "warning",
+                                      "info",
+                                      "quiet"
+                                    ]
+                                  },
+                                  "source": {
+                                    "type": "string",
+                                    "enum": [
+                                      "jmdict",
+                                      "jawiktionary",
+                                      "enwiktionary",
+                                      "tatoeba",
+                                      "kotori",
+                                      "user"
+                                    ]
+                                  }
                                 },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "currency": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "enum": [
-                                    "archaic",
-                                    "dated",
-                                    "current",
-                                    "trendy"
-                                  ]
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
+                                "required": [
+                                  "code",
+                                  "severity",
+                                  "source"
+                                ],
+                                "additionalProperties": false
+                              }
                             },
                             "inflection": {
                               "type": "array",
@@ -3322,8 +2659,7 @@
                             "romaji",
                             "meanings",
                             "partOfSpeech",
-                            "formality",
-                            "currency",
+                            "labels",
                             "inflection",
                             "audioUrl"
                           ],
@@ -3837,7 +3173,8 @@
                                         "directness",
                                         "variety",
                                         "confusable",
-                                        "collocation"
+                                        "collocation",
+                                        "tone"
                                       ]
                                     },
                                     "text": {
@@ -3969,38 +3306,99 @@
                                   }
                                 ]
                               },
-                              "formality": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "enum": [
-                                      "vulgar",
-                                      "casual",
-                                      "neutral",
-                                      "polite",
-                                      "formal"
-                                    ]
+                              "labels": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "code": {
+                                      "type": "string",
+                                      "enum": [
+                                        "vulg",
+                                        "X",
+                                        "derog",
+                                        "arch",
+                                        "obs",
+                                        "col",
+                                        "sl",
+                                        "net-sl",
+                                        "fam",
+                                        "joc",
+                                        "euph",
+                                        "male",
+                                        "fem",
+                                        "chn",
+                                        "dated",
+                                        "hist",
+                                        "rare",
+                                        "m-sl",
+                                        "sens",
+                                        "nonstd",
+                                        "hon",
+                                        "hum",
+                                        "pol",
+                                        "form",
+                                        "poet",
+                                        "ksb",
+                                        "osb",
+                                        "ktb",
+                                        "kyb",
+                                        "kyu",
+                                        "hob",
+                                        "thb",
+                                        "tsb",
+                                        "tsug",
+                                        "rkb",
+                                        "nab",
+                                        "bra",
+                                        "en-US",
+                                        "en-GB",
+                                        "en-AU",
+                                        "en-CA",
+                                        "en-NZ",
+                                        "en-IE",
+                                        "en-scotland",
+                                        "en-IN",
+                                        "en-PH",
+                                        "en-SG",
+                                        "en-ZA",
+                                        "id",
+                                        "on-mim",
+                                        "abbr",
+                                        "proverb",
+                                        "yoji",
+                                        "wasei",
+                                        "uncountable"
+                                      ]
+                                    },
+                                    "severity": {
+                                      "type": "string",
+                                      "enum": [
+                                        "avoid",
+                                        "warning",
+                                        "info",
+                                        "quiet"
+                                      ]
+                                    },
+                                    "source": {
+                                      "type": "string",
+                                      "enum": [
+                                        "jmdict",
+                                        "jawiktionary",
+                                        "enwiktionary",
+                                        "tatoeba",
+                                        "kotori",
+                                        "user"
+                                      ]
+                                    }
                                   },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
-                              },
-                              "currency": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "enum": [
-                                      "archaic",
-                                      "dated",
-                                      "current",
-                                      "trendy"
-                                    ]
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
+                                  "required": [
+                                    "code",
+                                    "severity",
+                                    "source"
+                                  ],
+                                  "additionalProperties": false
+                                }
                               },
                               "inflection": {
                                 "type": "array",
@@ -4028,8 +3426,7 @@
                               "romaji",
                               "meanings",
                               "partOfSpeech",
-                              "formality",
-                              "currency",
+                              "labels",
                               "inflection",
                               "audioUrl"
                             ],

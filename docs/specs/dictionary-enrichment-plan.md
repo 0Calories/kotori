@@ -43,7 +43,7 @@ Findings for later phases:
 
 ### ☑ Phase 3 — Contracts and API
 
-- `Entry` gains `source`, `usuallyKana`, `labels` (the first sense's), `frequency`, `loanLink` and `cautions` (first first, `about` resolved to the word). `Sense` gains `origins`, `labels` (only what it adds to the word's), `usagePatterns` and `similarWords`; `Example` gains `source`. Labels carry their severity, so the app needs no copy of the table.
+- `Entry` gains `source`, `usuallyKana`, `labels` (the first sense's; every sense's shared ones since Phase 5), `frequency`, `loanLink` and `cautions` (first first, `about` resolved to the word). `Sense` gains `origins`, `labels` (only what it adds to the word's), `usagePatterns` and `similarWords`; `Example` gains `source`. Labels carry their severity, so the app needs no copy of the table.
 - The old fields stay until Phase 7. The old similar-word type is renamed `JudgedSimilarWord`; the dictionary's caution type is `EntryCaution`.
 - Similar words are derived on view (`similar.ts`, `usage.ts`): cross-references first, then common words close by gloss, at most four per sense, each word once under its first sense. The difference is a code the app words: `respectful`, `humble`, `more_casual`, `more_formal`, `plain`, `masculine`, `feminine`, `american`, `british`, `older`, `similar`.
 - A loan link shown from either end; with several, the one with a verdict, then the most used.
@@ -66,7 +66,7 @@ Findings for later phases:
 - A caution's `about` links to an entry only when exactly one word is written that way (上手 links to neither).
 - Approval writes labels as `misc` and usage patterns as `info`, so the import reads them back as Kotori's; cautions are saved directly and carried in both approved files, so a reseed restores them.
 - Existing drafts are migrated in SQL, nothing inferred: `currency` → `arch`/`dated` labels and frequency 1/2/4 (as approval derived them), `partOfSpeech` → `pos`, `note` → one usage pattern, no cautions. Tested on old-shape rows.
-- The golden asks test only Jev's routing, not draft content; they needed no change.
+- The golden asks test only Jev's triage, not draft content; they needed no change.
 - The `DraftCard` reads the new shape; Phase 5 restyles it.
 
 Checked with live Claude drafts (bussin, rizz, ghosting, ぴえん, 蛙化現象, 了解です), which changed the prompt twice:
@@ -99,37 +99,131 @@ Two reviews read phases 1–4 before Phase 5 and found these, now fixed:
 
 Left as they are:
 
-- A sense shows only the labels it adds to the word's; it can't say it lacks one of the word's. Where the first sense is `arch` and a later one is current, the page calls the whole word archaic. This is a choice to confirm.
+- Decided after Phase 5 (Ash): one sense of several no longer speaks for the word. The word's labels are those every sense carries, from the same source; a single-sense word's are its own, and each sense shows what it has beyond them.
 - Two JMDict homographs that name the same English word share one link row, held by the lower id; the other entry shows no loan line.
 - Gloss candidates are capped at four per sense before duplicates are removed, so a sense can show fewer similar words than exist.
 - Kotori's cautions take the free ranks, so they can sit between cautions from other sources. A caution's `about` can name its own entry.
 
-### ☐ Phase 5 — Entry page
+### ☑ Phase 5 — Entry page
 
-- Rebuild `app/entry/[id].tsx` from the prototype; the Ask Kotori draft view renders through the same components.
-- Remove `NuanceScales.tsx`, `lib/nuance.ts`, the old chips, and the prototype (`app/proto`, `src/proto`, `test/proto.test.ts`).
+- `app/entry/[id].tsx` is rebuilt on the model. The hero has the headword, reading, "usually written in kana", the loan origin line on a katakana word, other spellings, and one chip row: the frequency chip, the true-loanword chip on an English word, and the word's labels. Under it come the word's cautions as "Cautions", then the senses: glosses, the part of speech and labels that differ from the word's, subject fields, the dictionary's usage patterns with Kotori's beside them on a tint, examples with non-Kotori sources named, sense cautions, and antonyms. Then the similar words with their derived difference, and a sources line that opens the sources screen, with the ✦ legend when anything is Kotori's.
+- Shared parts: `ChipRow` (`LabelChips.tsx`; chips coloured by severity that explain themselves, one at a time, on tap or hover), `UsagePatterns.tsx`, `Cautions.tsx`, and the pure display logic in `lib/entry.ts`. The Ask Kotori `DraftCard` uses the same parts.
+- Copy is in `strings.ts`, in both languages: a name and a one-sentence explanation for every label code, caution kinds, similar-word differences and source names. The `warning` severity has its own amber tokens.
+- The sources screen credits the new model: the entry's source (an approved Ask Kotori word says so), Kotori's notes, Kotori's, Tatoeba's and Wiktionary's sentences, similar words, audio, and a loan link that isn't the entry's own source's.
+- A saved word's hint is its labels that aren't grammar facts, and its note is its caution, else its first usage pattern.
+- Removed: `lib/nuance.ts`, the nuance card, sliders and warning chips, the old `LoanNote`, Kotori's sense notes on the page, and the prototype (`app/proto`, `src/proto`, `test/proto.test.ts`, `/proto` from unguarded routes).
+- Checked in Expo web on a mock API, in both interface languages: 食う, ご苦労様, マンション, 抱く, 鑑みる (dictionary only), 候 (archaic, examples queued), advice, mansion, yep, and the rizz draft.
 
-### ☐ Phase 6 — Voice selection on the new model
+Changes from the plan and the prototype:
 
-- Voice selection reads labels instead of `sense_nuance`, which Phase 7 drops.
-- Seeded sentences get their voice-selection signals judged on the worker path when their entry is viewed, then are voiced. No default formality is ever assumed.
-- Fold the example voice-selection columns into one nullable JSONB.
-- The audio status counts seeded sentences again once they can be voiced.
+- `NuanceScales.tsx` stays: the Check tab draws a sentence's formality with it.
+- "Rarely heard today" comes from frequency ≤ 2 or an `arch`/`obs` label. `dated` words are still heard, and their label says so.
+- A word with only seeded sentences still counts as dictionary-only and offers "Ask for this word": the examples job writes Kotori's sentences for it. The waiting card shows only for queued examples, not for the nuance job.
+- Cautions and a Kotori loan verdict carry ✦ too, so the legend covers everything Kotori added.
 
-### ☐ Phase 7 — Remove the old model
+Findings for later phases:
 
-- Stop the `NuanceEnricher` job; the worker keeps examples and audio.
-- Remove `NuanceJudge`, `interpret.ts`, `questions.ts`, `TAG_JUDGMENTS`, `saidByNuance`.
-- Drop `sense_nuance`, `similar_words`, `loan_words`, `sense_notes`.
-- Remove the old contract fields.
+- An English word whose loan drifted shows nothing until Phase 8 writes its `wasei_eigo` caution. The old Jev `loan` warning is no longer on the page.
+- Kotori's old sense notes (`sense_notes`) are no longer shown. Words that had one show no Kotori note until Phase 8's cautions.
+- Search results still read `EntrySummary.formality` and `currency` (`ResultRow`). Phase 7 removes them, so the result row needs labels first.
 
-### ☐ Phase 8 — Offline inference passes
+### ☑ Phase 6 — Voice selection on the new model
 
-- `kotori judge <pass>` writes reviewed `data/*.jsonl` with a model and prompt-version header; the import fills empty cells only.
-- Golden sets first, both directions. Then one commit per pass, each only once it passes its eval:
-  1. `ja-form` fill for common untagged formal written words.
-  2. Cautions, `ja` and `en`, at most three per word; sense-scoped ones name the gloss, not the number.
-  3. Loan verdicts for English candidates with no `lsource`.
+- Voice selection reads the sentence's own sense's labels, all of them and from any source (Kotori's fill included), not the word's shared ones and not `sense_nuance`: dialects and regions give the variety, `male`/`fem` the gender, `chn` a child, `sl`/`net-sl`/`m-sl`/`vulg` slang, `arch`/`obs`/`dated` an older voice, and `form` (or a subject field) makes a formal line an announcement. Nothing in voice selection reads `sense_nuance` now.
+- `examples.speaker_gender`, `speaker_age`, `medium`, `variety` and `tone` are folded into one nullable `casting` JSONB (`Casting` in `examples.ts`), and their four enums dropped. `formality` stays a column: it is the formality on the wire and voice selection's hard filter, and null is how a seeded sentence says it is unjudged. Two migrations: the first adds `casting` and carries every value over (a missing gender or age as `unspecified`; a sentence with no signals keeps a null `casting`), the second drops the columns. Tested by running the shipped SQL on old-shape rows.
+- Seeded sentences are judged on the audio job, not a job of their own: before voicing, `AudioEnricher` sends every sentence with no formality to Jev (`judgeCasting` in `speech/judge.ts`), five questions each (formality as a score with the Coach's rubric; gender, age, medium and tone as choices), up to ten sentences per request, so one request for a typical entry. The judgment is saved and the sentences voiced in the same run. A separate job kind would have needed a new enum value, a new status on the wire and a hand-off to audio, for a call that costs a fraction of a cent.
+- Never a default formality: without Jev, or when Jev fails, a seeded sentence keeps a null formality and is not voiced. On a failure the rest of the entry is still voiced, then the job fails so it is retried.
+- The audio status counts a sentence with no formality as still to voice when Jev is configured, so a viewed word waits for its seeded sentences; without Jev they are left out, as before.
+
+Changes from the plan:
+
+- Formality is the score's most probable level, not its expected score, which would turn casual-or-polite into neutral. A gender, age, medium or tone below 0.6 is dropped (`unspecified` or null): a wrong gender or a child's voice is the most audible mismatch, and an unsure "humorous" would send a plain line to a comic voice.
+- Jev doesn't judge a seeded sentence's variety (always null): its sense's dialect labels already give it.
+
+Findings for later phases:
+
+- Words already voiced are queued once more on their next look (at most hourly), to judge and voice their seeded sentences. Jev's cost is negligible; ElevenLabs characters grow by the seeded sentences of every viewed word, within `KOTORI_AUDIO_MONTHLY_CHARS`. Narrowed right after (see "After Phase 6").
+- `kotori enrich audio` picks words with no headword audio, so it doesn't backfill seeded sentences on words already voiced. Viewing does.
+- The examples job still passes `sense_nuance`'s formality to Claude as a hint; Phase 7 removes it with the table.
+- Deploy: the release command drops the old columns before the machines roll, so API and worker machines still on the old code fail to read example sentences until they are replaced.
+
+### ☑ After Phase 6 — Voice only the sentences learners need
+
+Decided with Ash after Phase 6:
+
+- A seeded sentence is voiced only on a sense Kotori wrote no sentence for, where it is the example the learner hears (`sentencesToVoice` in `enrichment/voicing.ts`, used by the audio job and the audio status). Beside Kotori's it is shown but not read aloud. While the entry's examples job is still to run (or, since the Phase 8 review, has never been queued), its seeded sentences wait, since Kotori's may cover their senses; the job runner queues audio again once they are written.
+- A finished audio job is queued again on a look only for a sentence it hasn't tried: one written since it ran, or one no run has judged (at most hourly). A sentence a run tried and couldn't voice, and a missing headword clip, are no longer retried every hour. A failed job is still retried as before.
+- So the backfill on existing words covers only senses with seeded sentences and none of Kotori's.
+
+### ☑ Phase 7 — Remove the old model
+
+- The worker runs examples and audio only. Gone: `NuanceEnricher`, `NuanceJudge` and Jev's per-sense question sets with their `questionsVersion`s (`questions.ts`, `english.ts`, `interpret.ts`, `request.ts`, `state.ts`), `TAG_JUDGMENTS`, Claude's loan warning (`LoanWriter`), `kotori enrich nuance` (`--outdated`, `--reinterpret`), `kotori eval nuance|english`, `kotori golden` and its fixture (`packages/ai/golden`). `saidByNuance` went in Phase 5. `kotori eval asks` stays; the Choice helpers it and triage use (`REVERSED`, `averagedChoice`) moved to `providers/choices.ts`.
+- One migration (`drop_nuance_model`) drops `sense_nuance`, `similar_words`, `loan_words`, `sense_notes` and the `difference` enum, deletes the `nuance` jobs, and remakes `job_kind` without the value. Tested by running the shipped SQL on old-shape rows.
+- Wire: `Sense` loses `nuance`, `note`, `noteJa`, `similar`, `misc` and `dialects` (the app read none of them; labels carry them). `Entry` loses `loan`, `Enrichment` loses `nuance`, and `Nuance`, `JudgedSimilarWord`, `Loanword` and `loanShown` leave the contracts.
+- Search results carry `EntrySummary.labels`, the word's labels as on `Entry`, in place of `formality` and `currency`. A result row shows at most two, loudest first and never a quiet one, coloured by severity like the entry page's (`resultLabels`, `LabelTag`).
+- `/health`'s `features.nuance` is `features.formality`: Jev still reads the Check tab's formality, triages Ask Kotori, and judges seeded sentences. The Settings line and the credits say formality.
+- The examples job sends Claude the dictionary's labels and notes, without `sense_nuance`'s formality, and no longer asks for a usage note per sense (it went to `sense_notes`).
+
+Changes from the plan:
+
+- Kept on purpose: `NuanceScales.tsx` and `t.nuance.scale`/`poles`/`formality` (the Check tab's meter), and the Coach's formality rubric (voice selection's judge uses it).
+- The candidate searches went too, as nothing reads them now: `loanCandidates`, `loanCandidatesIn`, `KATAKANA_WORD`, `sharedGlossCandidates` (similar words use `sharedGlossesBySense`).
+
+Findings for Phase 8:
+
+- Lost with the tables, by decision (never evaluated): Jev's loan verdicts and Claude's loan warnings on English words, and Claude's sense notes. An English word shows no "same as" chip or wasei-eigo caution, and no word shows a Kotori note, until Phase 8's loan and caution passes. No data moved into labels, cautions or loan links.
+- The loan pass needs candidates for English words without `lsource`: `loanCandidates` (common katakana words by gloss or `lsource`) is in `d0cb63a`, with its tests.
+- The removed sense-note prompt (in `d0cb63a`'s `examples/prompts.ts`) is a starting point for the caution pass's wording.
+- `kotori eval` has one kind, `asks`; the Phase 8 golden sets add theirs beside it, and `orderChecks` reads option-order bias.
+
+Deploy: the release command runs the migration before the machines roll. Until they are replaced, old API machines fail on search and entry pages (they read `sense_nuance`), and an old worker fails to claim jobs (it asks for `nuance`). Open web tabs fail to decode entries, search results and `/health` (fields removed or renamed) until they reload.
+
+### ◐ Phase 8 — Offline inference passes
+
+Built and evaluated; no pass has been run over the dictionary, so no artifact is committed.
+
+- `kotori judge <pass>` (`ja-form`, `cautions-ja`, `cautions-en`, `loans`) picks candidates from the database (common words by default, `--uncommon` for all; approved Ask Kotori words never), asks the model, and rewrites the artifact after every batch. `--limit`, `--dry-run`, `--concurrency`; `--restart` to replace a file another model or prompt version wrote, which it otherwise refuses to extend. Jev judges `form` and loans; Claude writes cautions (`CautionWriter`).
+- Artifacts: `data/labels/ja-form.jsonl`, `data/cautions/{ja,en}.jsonl`, `data/loans/verdicts.jsonl`, each with a header (pass, model, prompt version) and a CC BY-SA `NOTICE.md` beside it. Every judged word has a line, so a re-run asks only new words. Senses are named by their first gloss, never their position.
+- `kotori seed` applies each pass's artifact after its imports (`passes/apply.ts`). It fills empty cells only and is idempotent: `form` only on senses with no label but quiet ones, Kotori's cautions replaced and placed in the ranks other sources leave free, loan verdicts set with `meaning_source` `kotori` only where the meaning is null or already Kotori's. A word whose headword changed, a sense that is gone and an approved word are skipped. Each file decides what its pass gave: what it no longer covers is removed, and all of it when the file is gone.
+- Candidates: `ja-form` asks senses with no formality label among a word's first six; cautions see the page (glosses, labels, the dictionary's usage patterns, the loan and its verdict); loans restore `loanCandidates` from `d0cb63a` (lsource pairs first, then gloss matches) and the old loan questions, for English words with no verdict.
+- `kotori eval ja-form|loans|cautions|drafts` runs each golden set with the production builders and prints PASS or FAIL against its bar (`eval/passes.ts`). `drafts` scores the Lexicographer's cautions on Ask Kotori queries.
+- Golden sets (`packages/ai/src/eval/`, JMdict and Wiktionary excerpts under a NOTICE): 34 `form` senses, 31 caution words (both directions) plus 5 draft-only queries, 31 loan words. Each item names its evidence, and `judgement` marks those resting on judgement alone, for Ash to review.
+
+Scores (live, 2026-11-07):
+
+| Pass | Bar | Score |
+|---|---|---|
+| `ja-form` (jev-1.14.0) | precision ≥ 90%, recall ≥ 70% | 100% / 94%, then 100% / 89% (本日 at 0.68 and なお "furthermore" fall short) |
+| `loans` (jev-1.14.0) | each verdict precision ≥ 90%, recall ≥ 60% | `wasei_eigo` 100% / 92%, `true_loanword` 100% / 69%, twice; misses are unsure, never wrong (ナイーブ, テスト, ゲーム, カード, チャンス) |
+| `cautions` (claude-opus-5-5, prompt v3) | silent ≥ 90% where none is needed, caught ≥ 80% | v1 67% / 93%, v2 81% / 100%; v3 94% / 100%, then 81% / 100% on a rerun. Not yet passing reliably |
+| `drafts` (Lexicographer) | as cautions | 0/8 silent before the shared rules, 4–5/8 after; caught 3/3 |
+
+Decisions:
+
+- A `tone` kind, in both directions: how heavy or light a word lands (ぴえん is playful, never real grief), not politeness or a vulgar word's strength. Drafts filed it under `set_phrase`. Migration `caution_tone`; copy "How it lands" / 「言葉の重さ」. Its definition had to rule out roughness (食う is `rude_upward`) and slang's "sounds try-hard".
+- The bars weigh a wrong fill above a missing one: what a pass leaves out, the page shows as the dictionary has it.
+- An English wasei-eigo the curated file already notes (mansion, naive, cunning, claim, smart, tension, talent) needs no caution: the note already says it, as with ご苦労様.
+- The caution rules are shared with the Lexicographer (`cautionGuide.ts`), including a list of what is never a caution, so live Ask Kotori drafts now write fewer.
+
+Review fixes (draft PR #106):
+
+- Who named a loan pair and who judged its meaning are kept apart: `loan_links.meaning_source`, set exactly when `meaning` is (a check holds it). Before, a reseed's `linkLoans` relabelled Kotori's verdict as JMDict's, so it lost its ✦, the sources screen credited JMDict, and a corrected file could no longer change it. `linkLoans` now keeps a verdict and whose it is, and drops a pair JMDict stops naming whoever judged it. The wire `LoanLink` gains `meaningSource`: the "same as" chip's ✦ follows it, and the sources screen credits JMDict for naming the pair and Kotori for the verdict, both on an English word. Migration `loan_meaning_source` credits every meaning set so far to Kotori, the only writer of one.
+- Reverting or trimming an artifact now removes what it gave. On each seed, per pass, Kotori's rows on non-approved words that the file doesn't cover are removed (`form` labels on Japanese words, cautions in each language, loan verdicts: a pair only Kotori named goes, one JMDict names loses its verdict), and all of them when the file is absent. Nothing else writes those: approved words' labels and cautions are their approved files'. One effect: an English word the curated file took over from Ask Kotori loses the draft's leftover cautions on the next seed.
+- The loan import skips a line unless both its words are still the words judged and neither is approved, as the other passes do. Before, it set verdicts on approved words, and on a word whose entry had changed, by its text.
+- `readArtifact` fails on a file whose header names another pass or that has no header (which would otherwise read as absent and remove the pass's data), and warns of lines that don't decode, with their count and line numbers.
+- Voice selection: a sentence whose formality answer Jev leaves out or malforms stays unjudged (null formality, not voiced), and the entry's other sentences are judged and voiced. Before, it was a defect that stopped the whole audio job.
+- A seeded sentence Jev leaves without a formality is recorded as judged and declined: its `casting` is saved (all unspecified) beside the null formality (`declineCasting`). Before, it looked like a sentence no run has judged, so every look more than an hour after the audio job settled queued the job again to ask Jev about it, and the entry's audio stayed `unavailable`. Now it is never asked about again or voiced, and the audio status doesn't wait for it. A null `casting` still means untried: a sentence seeded since the job ran, or from before seeded sentences were voiced, is asked about once. No migration: no stored row has a `casting` without a formality.
+- A seeded sentence beside Kotori's carries no clip on the wire (`sentencesHeard` in `enrichment/voicing.ts`), even one voiced while it was its sense's only example. Before, `toExample` served whatever clip a sentence had: with Claude down on a word's first look no examples job was queued, the audio job voiced the seeded sentence, and when Kotori's sentences came later the seeded clip was still read aloud beside them.
+- Decided: seeded sentences also wait while Kotori's sentences have not been tried, not only while the examples job is queued or running (`examplesToCome`): an entry with no examples job and none of Kotori's sentences doesn't voice its seeded ones, so no characters go on a clip Kotori's sentences would hide. The headword is still voiced, and the audio status doesn't wait for them. Once a look queues the examples job and it settles, the job runner queues audio again, which voices the seeded sentences on senses Kotori wrote none for. The cost: where Claude is never available, seeded sentences are never voiced.
+
+Findings and what remains:
+
+- Golden set changes after the first cautions run: 水 now needs a caution (お湯), and table, 食べる and お前 were dropped as debatable. リフト is in neither set: no clear answer.
+- Cautions' remaining misses are plausible teachings on words the set says need none: "hot water" on *water*, "Happy wedding" on *happy*, 学校 not meaning university. Ash should decide whether those belong in the set as `none` before the prompt is tuned further.
+- The default `ja-form` candidates miss 鑑みる and 当該: JMdict doesn't mark them common. `--uncommon` covers them, at about ten times the requests.
+- To do, Ash's call: run each passing pass, review and commit its artifact, then reseed. Run loans before `cautions-en`, so wasei-eigo entries see their verdict.
+
+Deploy: two migrations, both additive. `caution_tone` adds an enum value; `loan_meaning_source` adds a nullable column, fills it where a meaning is set, and adds a check. Neither breaks old machines while they roll. Once a `tone` caution exists (a new Ask Kotori draft can now write one), web tabs open from before the deploy fail to decode that entry or draft until they reload.
 
 ## Out of scope
 
@@ -142,5 +236,10 @@ Left as they are:
 - 2026-11-06: Phase 2 done. Added Phase 6 after seeded sentences came in without formality.
 - 2026-11-06: Phase 3 done. Similar-word rules tightened against the full data (see Phase 3).
 - 2026-11-06: Phase 4 done. Drafts migrated, not regenerated; prompt tightened against live drafts (see Phase 4).
-- 2026-11-06: Phases 1–4 reviewed; fixes committed before Phase 5 (see "Review of phases 1–4").
-- 2026-11-11: Aligned with `GLOSSARY.md` (#112): `entries.source`, `senses.origins`, `cautions` (`wasei_eigo`), `entry_frequency`, `loan_links.meaning` (`true_loanword | wasei_eigo`), label severity `warning`. The migrations were re-cut to run after the glossary migration.
+- 2026-11-06: Phases 1–4 reviewed; fixes committed before Phase 5 (see "Review of phases 1–4"). Phase 5 done.
+- 2026-11-06: Phase 6 done. Seeded sentences judged by Jev on the audio job, not a new job kind; `formality` stays a column (see Phase 6).
+- 2026-11-07: Seeded sentences voiced only where Kotori wrote none; finished audio jobs requeued only for untried sentences (see "After Phase 6").
+- 2026-11-07: Phase 7 done. The old tables are dropped with nothing carried over; search results show the word's labels (see Phase 7).
+- 2026-11-07: Phase 8 built: `kotori judge` and the artifact import, golden sets and evals for every pass, and a `tone` caution kind. `ja-form` and loans pass; cautions pass only on some runs. No artifact committed (see Phase 8).
+- 2026-11-07: Phase 8 review fixes: a loan's meaning source kept apart from its pair's (migration `loan_meaning_source`), a trimmed or reverted artifact removes what it gave, approved words skipped by the loan import, artifacts checked on read, and a missing Jev answer no longer stops the audio job (see Phase 8).
+- 2026-11-11: Aligned with `GLOSSARY.md` (#112): `entries.source` (`user`), `senses.origins`, `cautions` (`wasei_eigo`, `caution_tone`, passes `cautions-{ja,en}` writing `data/cautions/`, the "Cautions" heading), `entry_frequency`, `loan_links.meaning` (`true_loanword | wasei_eigo`), label severity `warning`. The migrations were re-cut to run after the glossary migration; the writer's prompt version went to 4.
