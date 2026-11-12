@@ -1,6 +1,8 @@
 import type { SenseRecord } from "@kotori/contracts"
+import type { DraftCaution, Source } from "@kotori/db"
 import { type EnglishInflection, normalizeGloss } from "@kotori/language"
 import { Option, Schema } from "effect"
+import type { ImportSense } from "../seedFacts.ts"
 
 /** An inflected form of a word and what it is: "ate", past. */
 export interface InflectedForm {
@@ -25,13 +27,17 @@ export interface Word {
   readonly headword: string
   /** IPA, when the source gives it. */
   readonly ipa: string | null
-  /** 1–5 modern spoken/everyday familiarity rating from the curated consolidation pass. */
-  readonly familiarity?: number | undefined
+  /** 1–5 modern spoken/everyday frequency rating from the curated consolidation pass. */
+  readonly frequency?: number | undefined
   /** Other ways the word is spelled ("colour"). */
   readonly spellings: ReadonlyArray<string>
   readonly inflections: ReadonlyArray<InflectedForm>
-  readonly senses: ReadonlyArray<SenseRecord>
+  readonly senses: ReadonlyArray<ImportSense>
   readonly references?: ReadonlyArray<References>
+  /** Where its senses came from, when not its tier's default source: Kotori, for approved Ask Kotori words. */
+  readonly source?: Source | undefined
+  /** Kotori's cautions on an approved Ask Kotori word, written once the word has its id. */
+  readonly cautions?: ReadonlyArray<DraftCaution> | undefined
   /**
    * The subtitles may count a name spelled the same way ("kim", "erica"), so the count
    * can't say the word is common.
@@ -61,7 +67,7 @@ export const emptySense = (): SenseRecord => ({
   stagr: [],
   xrefs: [],
   antonyms: [],
-  sources: [],
+  origins: [],
   wasei: false
 })
 
@@ -157,7 +163,7 @@ export type ConsolidatedSense = typeof ConsolidatedSense.Type
 export const ConsolidatedWord = Schema.Struct({
   headword: Schema.String,
   ipa: Schema.NullOr(Schema.String),
-  familiarity: Schema.optional(Schema.Int),
+  frequency: Schema.optional(Schema.Int),
   spellings: Schema.optional(Schema.Array(Schema.String)),
   inflections: Schema.optional(Schema.Array(ConsolidatedInflection)),
   senses: Schema.Array(ConsolidatedSense)
@@ -169,7 +175,7 @@ const decodeConsolidatedLine = Schema.decodeUnknownOption(Schema.fromJsonString(
 export const fromConsolidatedWord = (consolidated: ConsolidatedWord): Word => ({
   headword: consolidated.headword,
   ipa: consolidated.ipa,
-  familiarity: consolidated.familiarity,
+  frequency: consolidated.frequency,
   spellings: consolidated.spellings ?? [],
   inflections: consolidated.inflections ?? [],
   senses: consolidated.senses.map((sense) => ({
@@ -188,7 +194,7 @@ export const fromConsolidatedWord = (consolidated: ConsolidatedWord): Word => ({
 export const toConsolidatedWord = (word: Word): ConsolidatedWord => ({
   headword: word.headword,
   ipa: word.ipa,
-  ...(word.familiarity === undefined ? {} : { familiarity: word.familiarity }),
+  ...(word.frequency === undefined ? {} : { frequency: word.frequency }),
   ...(word.spellings.length > 0 ? { spellings: [...word.spellings] } : {}),
   ...(word.inflections.length > 0
     ? { inflections: word.inflections.map((f) => ({ text: f.text, tags: [...f.tags] })) }

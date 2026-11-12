@@ -1,13 +1,9 @@
-import { FamiliarityRater } from "@kotori/ai"
+import { FrequencyRater } from "@kotori/ai"
 import { Console, Effect, FileSystem, Semaphore } from "effect"
 import { Command, Flag } from "effect/cli"
 import { chunks } from "../db/chunks.ts"
 import { Database } from "../db/Database.ts"
-import {
-  FAMILIARITY_FILE,
-  parseFamiliarity,
-  serializeFamiliarity
-} from "../features/dictionary/import/english/familiarity.ts"
+import { FREQUENCY_FILE, parseFrequency, serializeFrequency } from "../features/dictionary/import/english/frequency.ts"
 import { parseConsolidatedLine } from "../features/dictionary/import/english/words.ts"
 import { headwordIds } from "../features/dictionary/queries.ts"
 import { resolveFromRoot } from "../runtime/Paths.ts"
@@ -15,8 +11,8 @@ import { resolveFromRoot } from "../runtime/Paths.ts"
 /** The curated entries, whose own ratings the import prefers, so they aren't rated again. */
 const CURATED_FILE = "data/english/enwiktionary-ja.jsonl"
 
-export const familiarity = Command.make(
-  "familiarity",
+export const frequency = Command.make(
+  "frequency",
   {
     limit: Flag.Int("limit").pipe(Flag.withDescription("How many unrated phrases to rate"), Flag.withDefault(500)),
     batch: Flag.Int("batch").pipe(Flag.withDescription("Phrases per Claude request"), Flag.withDefault(50)),
@@ -29,11 +25,11 @@ export const familiarity = Command.make(
   Effect.fn(function* ({ limit, batch, concurrency, dryRun }) {
     const db = yield* Database
     const fs = yield* FileSystem.FileSystem
-    const rater = yield* FamiliarityRater
+    const rater = yield* FrequencyRater
 
-    const file = resolveFromRoot(FAMILIARITY_FILE)
+    const file = resolveFromRoot(FREQUENCY_FILE)
     const ratings = (yield* fs.exists(file))
-      ? parseFamiliarity(yield* fs.readFileString(file))
+      ? parseFrequency(yield* fs.readFileString(file))
       : new Map<string, number>()
 
     const rated = new Set(ratings.keys())
@@ -41,7 +37,7 @@ export const familiarity = Command.make(
     if (yield* fs.exists(curated)) {
       for (const line of (yield* fs.readFileString(curated)).split("\n")) {
         const word = parseConsolidatedLine(line)
-        if (word !== null && word.familiarity !== undefined) rated.add(word.headword.toLowerCase())
+        if (word !== null && word.frequency !== undefined) rated.add(word.headword.toLowerCase())
       }
     }
 
@@ -67,7 +63,7 @@ export const familiarity = Command.make(
         Effect.gen(function* () {
           for (const [phrase, rating] of result) ratings.set(phrase.toLowerCase(), rating)
           done += result.size
-          yield* fs.writeFileString(file, serializeFamiliarity(ratings))
+          yield* fs.writeFileString(file, serializeFrequency(ratings))
           yield* Console.log(`Rated ${done}/${pending.length}`)
         })
       )
@@ -93,6 +89,6 @@ export const familiarity = Command.make(
   })
 ).pipe(
   Command.withDescription(
-    "Rate how familiar multi-word English entries are to native speakers (1–5) with Claude, into data/english/familiarity.json"
+    "Rate how commonly multi-word English entries are used today (1–5) with Claude, into data/english/frequency.json"
   )
 )

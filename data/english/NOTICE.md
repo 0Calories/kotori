@@ -8,7 +8,7 @@ attested phrase/redirect indices derived from **English Wiktionary**
 (<https://ja.wiktionary.org>) and **JMdict** (<https://www.edrdg.org/jmdict/j_jmdict.html>, © EDRDG).
 
 Unlike the code in this repository, which is under the MIT licence in `/LICENSE`,
-`enwiktionary-ja.jsonl`, `enwiktionary-phrases.json` and `familiarity.json` are adaptations of works
+`enwiktionary-ja.jsonl`, `enwiktionary-phrases.json` and `frequency.json` are adaptations of works
 licensed under the Creative Commons Attribution-ShareAlike 4.0 International licence, and are shared under that licence:
 <https://creativecommons.org/licenses/by-sa/4.0/>.
 
@@ -18,5 +18,5 @@ Changes made in this adaptation:
 - Attested multi-word phrases and canonical idiom redirects are normalized for dictionary lookup and
   reverse-JMdict canonicalization.
 - Part-of-speech, register, field, and regional labels are mapped to JMdict-compatible tag codes.
-- `familiarity.json` lists the English dictionary's multi-word headwords, each with a 1–5 rating of
-  how familiar it is in everyday speech, judged by Claude.
+- `frequency.json` lists the English dictionary's multi-word headwords, each with a 1–5 rating of
+  how commonly it is used in everyday speech, judged by Claude.

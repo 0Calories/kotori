@@ -8,6 +8,7 @@ export {
   getEntries,
   insertEntries,
   loanCandidates,
+  saveKotoriCautions,
   sharedGlossCandidates,
   tagNames
 } from "./queries.ts"

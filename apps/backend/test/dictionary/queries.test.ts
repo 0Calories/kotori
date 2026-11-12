@@ -210,6 +210,7 @@ layer(TestLayer)("dictionary queries", (it) => {
         {
           id: EntryId.make(100000050),
           language: "en",
+          source: "enwiktionary",
           headword: "it is what it is",
           reading: "",
           common: false,
@@ -239,6 +240,7 @@ layer(TestLayer)("dictionary queries", (it) => {
         {
           id: EntryId.make(100000090),
           language: "en",
+          source: "enwiktionary",
           headword: "throw on",
           reading: "",
           common: true,
@@ -249,6 +251,7 @@ layer(TestLayer)("dictionary queries", (it) => {
         {
           id: EntryId.make(100000091),
           language: "en",
+          source: "enwiktionary",
           headword: "think of",
           reading: "",
           common: true,
@@ -288,7 +291,7 @@ layer(TestLayer)("dictionary queries", (it) => {
     })
   )
 
-  it.effect("finds the katakana words that may be an English word's loan, by gloss or by JMDict source", () =>
+  it.effect("finds the katakana words that may be an English word's loan, by gloss or by JMDict origin", () =>
     Effect.gen(function* () {
       const db = yield* Database
       const loan = (
@@ -300,6 +303,7 @@ layer(TestLayer)("dictionary queries", (it) => {
       ): EntryRecord => ({
         id: EntryId.make(id),
         language: "ja",
+        source: "jmdict",
         headword: word,
         reading: word,
         common,
@@ -310,25 +314,30 @@ layer(TestLayer)("dictionary queries", (it) => {
       const loans: Array<EntryRecord> = [
         loan(9100001, "スタイル", 60, [sense(["(one's) figure", "physique"]), sense(["style"])]),
         loan(9100002, "タイプ", 40, [sense(["type", "kind", "style"])]),
-        loan(9100003, "マンション", 60, [sense(["condominium", "apartment building"], { sources: ["mansion"] })]),
+        loan(9100003, "マンション", 60, [
+          sense(["condominium", "apartment building"], { origins: [{ language: "eng", word: "mansion" }] })
+        ]),
         // Gloss matches give false candidates too: トラック is the loan of "truck", not "lorry".
         loan(9100004, "トラック", 60, [sense(["truck", "lorry"])]),
-        loan(9100005, "タレント", 60, [sense(["talent", "skill"], { sources: ["talent"] })]),
+        loan(9100005, "タレント", 60, [sense(["talent", "skill"], { origins: [{ language: "eng", word: "talent" }] })]),
         loan(9100006, "ウォーク", 0, [sense(["walk"])], false),
         {
           id: EntryId.make(9100007),
           language: "ja",
+          source: "jmdict",
           headword: "様式",
           reading: "ようしき",
           common: true,
           priority: 90,
           forms: [kanji("様式"), kana("ようしき")],
           senses: [sense(["style", "form"])]
-        }
+        },
+        // Non-English loanwords are kept in `origins`, but never matched as English loan candidates.
+        loan(9100008, "ズボン", 60, [sense(["trousers"], { origins: [{ language: "fre", word: "jupon" }] })])
       ]
       yield* insertEntries(db, loans)
 
-      const words = ["style", "mansion", "lorry", "talent", "to walk"]
+      const words = ["style", "mansion", "lorry", "talent", "to walk", "jupon"]
       const found = yield* loanCandidates(db, words, 3)
       const byWord = (candidates: ReadonlyArray<LoanCandidate>) =>
         Object.fromEntries(
@@ -342,10 +351,12 @@ layer(TestLayer)("dictionary queries", (it) => {
         // Only JMDict's lsource ties マンション to "mansion".
         mansion: ["9100003:source"],
         lorry: ["9100004:gloss"],
-        // A source beats a gloss as the reason.
+        // An English origin beats a gloss as the reason.
         talent: ["9100005:source"],
         // Uncommon words aren't everyday loans.
-        walk: []
+        walk: [],
+        // French origin (`fre`), not English.
+        jupon: []
       })
       assert.deepStrictEqual(byWord(yield* loanCandidates(db, words, 1)).style, ["9100001:gloss"])
       // The same search over parsed entries, which cuts the golden fixture, agrees with the SQL.
@@ -381,6 +392,7 @@ layer(TestLayer)("dictionary re-imports", (it) => {
       const word = (senses: Array<Array<string>>): EntryRecord => ({
         id: style,
         language: "en",
+        source: "enwiktionary",
         headword: "style",
         reading: "",
         common: true,

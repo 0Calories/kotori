@@ -1,7 +1,16 @@
 import { NodeFileSystem, NodePath } from "@effect/platform-node"
-import { assert, layer } from "@effect/vitest"
-import type { DraftEntry } from "@kotori/contracts"
-import { FIRST_APPROVED_JA_ID, proposals } from "@kotori/db"
+import { assert, describe, it, layer } from "@effect/vitest"
+import {
+  cautions,
+  type DraftEntry,
+  entryFrequency,
+  EntryId,
+  FIRST_APPROVED_JA_ID,
+  labels,
+  proposals,
+  usagePatterns
+} from "@kotori/db"
+import { asc, eq } from "drizzle-orm"
 import { Effect, FileSystem, Layer } from "effect"
 import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -13,7 +22,6 @@ import { approveProposal, discardProposal, draftToRecord, parseApprovedJa } from
 import { parseApproved } from "../../src/features/dictionary/import/english/approved.ts"
 import { findForms, getEntries, insertEntries } from "../../src/features/dictionary/queries.ts"
 import { jobStatusFor } from "../../src/features/enrichment/jobs.ts"
-import { senseNotesFor } from "../../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 import { english, U1 } from "../fixtures.ts"
 
@@ -25,10 +33,14 @@ const draft: DraftEntry = {
   headword: "bussin",
   reading: "/ˈbʌsɪn/",
   spellings: ["bussin'"],
-  currency: "trendy",
+  frequency: 4,
   senses: [
-    { glosses: ["すごくおいしい"], partOfSpeech: "adj", labels: ["sl"], note: "若者のスラングです。" },
-    { glosses: ["最高"], partOfSpeech: "adj", labels: ["sl"], note: null }
+    { glosses: ["すごくおいしい"], pos: ["adj"], labels: ["sl"], usagePatterns: ["若者のスラングです。"] },
+    { glosses: ["最高"], pos: ["adj"], labels: ["sl"], usagePatterns: [] }
+  ],
+  cautions: [
+    { kind: "collocation", text: "食べ物について It's bussin. の形でよく使います。", sense: 0, about: "eat" },
+    { kind: "variety", text: "主にアメリカの若者言葉です。", sense: null, about: null }
   ]
 }
 
@@ -36,8 +48,9 @@ const jaDraft: DraftEntry = {
   headword: "蛙化現象",
   reading: "かえるかげんしょう",
   spellings: ["カエル化現象"],
-  currency: "trendy",
-  senses: [{ glosses: ["the ick"], partOfSpeech: "n", labels: ["sl"], note: "Young people's slang." }]
+  frequency: 3,
+  senses: [{ glosses: ["the ick"], pos: ["n"], labels: ["sl"], usagePatterns: ["Young people's slang."] }],
+  cautions: [{ kind: "set_phrase", text: "Mostly said of a crush, not a partner.", sense: 0, about: null }]
 }
 
 const propose = (
@@ -84,21 +97,61 @@ layer(TestLayer)("proposal review", (it) => {
       const approved = yield* approveProposal(db, id, files)
       assert.strictEqual(approved.headword, "bussin")
 
-      // The entry is searchable by headword and spelling, with the draft's labels and notes.
+      // The entry is searchable by headword and spelling, with the draft's labels, usage patterns and
+      // cautions as Kotori's, the caution linked to the word it names.
       const [match] = yield* findForms(db, ["bussin'"], "en")
       assert.strictEqual(match?.entryId, approved.entryId)
       const [entry] = yield* getEntries(db, [approved.entryId])
-      assert.deepStrictEqual(entry?.senses[0]?.misc, ["sl"])
-      const notes = yield* senseNotesFor(db, [approved.entryId])
-      assert.strictEqual(notes[0]?.noteJa, "若者のスラングです。")
+      assert.strictEqual(entry?.source, "kotori")
+      assert.deepStrictEqual(
+        yield* db
+          .select({ sense: labels.sense, code: labels.code, source: labels.source })
+          .from(labels)
+          .where(eq(labels.entryId, approved.entryId))
+          .orderBy(asc(labels.sense)),
+        [
+          { sense: 0, code: "sl", source: "kotori" },
+          { sense: 1, code: "sl", source: "kotori" }
+        ]
+      )
+      assert.deepStrictEqual(
+        yield* db
+          .select({ sense: usagePatterns.sense, text: usagePatterns.text, source: usagePatterns.source })
+          .from(usagePatterns)
+          .where(eq(usagePatterns.entryId, approved.entryId)),
+        [{ sense: 0, text: "若者のスラングです。", source: "kotori" }]
+      )
+      assert.deepStrictEqual(
+        yield* db
+          .select({
+            rank: cautions.rank,
+            kind: cautions.kind,
+            sense: cautions.sense,
+            about: cautions.aboutEntryId
+          })
+          .from(cautions)
+          .where(eq(cautions.entryId, approved.entryId))
+          .orderBy(asc(cautions.rank)),
+        [
+          { rank: 1, kind: "collocation", sense: 0, about: english[0]!.id },
+          { rank: 2, kind: "variety", sense: null, about: null }
+        ]
+      )
+      // The draft's frequency score is stored from the moment it is approved.
+      assert.deepStrictEqual(
+        yield* db.select().from(entryFrequency).where(eq(entryFrequency.entryId, approved.entryId)),
+        [{ entryId: approved.entryId, everyday: false, spokenCount: null, score: 4 }]
+      )
       const jobs = yield* jobStatusFor(db, approved.entryId)
       assert.deepStrictEqual([...jobs.keys()].toSorted(), ["audio", "examples", "nuance"])
 
-      // The approved file replays the entry on the next import, familiarity included.
+      // The approved file replays the entry on the next import, frequency included.
       const parsed = parseApproved((yield* fs.readFileString(files.en)).split("\n"))
       assert.strictEqual(parsed.words[0]?.headword, "bussin")
-      assert.strictEqual(parsed.words[0]?.familiarity, 4)
+      assert.strictEqual(parsed.words[0]?.frequency, 4)
       assert.strictEqual(parsed.words[0]?.senses[0]?.misc.includes("sl"), true)
+      assert.deepStrictEqual(parsed.words[0]?.senses[0]?.info, ["若者のスラングです。"])
+      assert.deepStrictEqual(parsed.words[0]?.cautions, draft.cautions)
 
       // Approving twice is refused.
       const again = yield* Effect.flip(approveProposal(db, id, files))
@@ -151,6 +204,15 @@ layer(TestLayer)("proposal review", (it) => {
       const parsed = parseApprovedJa((yield* fs.readFileString(files.ja)).split("\n"))
       assert.strictEqual(parsed.records[0]?.id, approved.entryId)
       assert.strictEqual(parsed.records[0]?.senses[0]?.glosses[0]?.text, "the ick")
+      assert.deepStrictEqual(parsed.records[0]?.frequency, { everyday: false, spokenCount: null, score: 3 })
+      assert.deepStrictEqual(
+        yield* db
+          .select({ score: entryFrequency.score })
+          .from(entryFrequency)
+          .where(eq(entryFrequency.entryId, approved.entryId)),
+        [{ score: 3 }]
+      )
+      assert.deepStrictEqual(parsed.cautions, [{ entryId: approved.entryId, cautions: jaDraft.cautions }])
     })
   )
 
@@ -166,10 +228,32 @@ layer(TestLayer)("proposal review", (it) => {
     })
   )
 
-  it.effect("draftToRecord marks dated drafts the way the dictionary does", () =>
+  it.effect("draftToRecord stores labels and usage patterns where the import reads them", () =>
     Effect.sync(() => {
-      const record = draftToRecord({ ...draft, currency: "dated" }, "en", 100_900_000 as never)
-      assert.deepStrictEqual(record.senses[0]?.misc.toSorted(), ["dated", "sl"])
+      const record = draftToRecord(draft, "en", 100_900_000 as never)
+      assert.deepStrictEqual(record.senses[0]?.misc, ["sl"])
+      assert.deepStrictEqual(record.senses[0]?.info, ["若者のスラングです。"])
+      assert.deepStrictEqual(record.senses[0]?.pos, ["adj"])
     })
   )
+})
+
+describe("approved files", () => {
+  it("loads a Japanese line written before entries named their source, as an Ask Kotori word", () => {
+    const { source: _, ...old } = draftToRecord(jaDraft, "ja", EntryId.make(FIRST_APPROVED_JA_ID))
+    const parsed = parseApprovedJa([JSON.stringify({ entry: old })])
+    assert.deepStrictEqual(parsed.skipped, [])
+    assert.strictEqual(parsed.records[0]?.id, FIRST_APPROVED_JA_ID)
+    assert.strictEqual(parsed.records[0]?.source, "kotori")
+  })
+
+  it("names the lines it can't read, by line number, instead of losing them silently", () => {
+    const line = JSON.stringify({ entry: draftToRecord(jaDraft, "ja", EntryId.make(FIRST_APPROVED_JA_ID)) })
+    const ja = parseApprovedJa([line, "", "{not json", JSON.stringify({ entry: { id: "x" } }), line])
+    assert.deepStrictEqual(ja.skipped, [3, 4])
+    assert.strictEqual(ja.records.length, 2)
+
+    const en = parseApproved(["", "{not json"])
+    assert.deepStrictEqual(en.skipped, [2])
+  })
 })

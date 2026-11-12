@@ -66,22 +66,43 @@ describe("JMDict parser", () => {
     expect(okashi?.senses[0]?.glosses[0]?.text).toBe("confections & sweets")
   })
 
-  it("reads the English words a loan comes from, and whether it is wasei-eigo", () => {
+  it("reads the languages and words a loan comes from, and whether it is wasei-eigo", () => {
     const loans = `<JMdict>
 <entry><ent_seq>1130040</ent_seq><r_ele><reb>マンション</reb></r_ele>
 <sense><pos>&n;</pos><lsource xml:lang="eng">mansion</lsource><gloss>condominium</gloss></sense>
 <sense><lsource ls_type="part" ls_wasei="y">sub</lsource><lsource xml:lang="fre"/><gloss>sub-leader</gloss></sense>
 <sense><lsource ls_wasei="y">salaried man</lsource><gloss>salaryman</gloss></sense>
+<sense><lsource xml:lang="fre">jupon</lsource><gloss>trousers</gloss></sense>
 </entry>
 </JMdict>`
     const [mansion] = Array.from(parseEntries(loans))
-    expect(mansion?.senses.map((sense) => [sense.sources, sense.wasei])).toEqual([
-      [["mansion"], false],
-      [[], true],
-      [["salaried man"], true]
+    expect(mansion?.senses.map((sense) => [sense.origins, sense.wasei])).toEqual([
+      [[{ language: "eng", word: "mansion" }], false],
+      [[{ language: "fre", word: null }], true],
+      [[{ language: "eng", word: "salaried man" }], true],
+      [[{ language: "fre", word: "jupon" }], false]
     ])
     const [taberu] = Array.from(parseEntries(xml))
-    expect(taberu?.senses[0]).toMatchObject({ sources: [], wasei: false })
+    expect(taberu?.senses[0]).toMatchObject({ origins: [], wasei: false })
+  })
+
+  it("reads Tatoeba's sentence pairs, ichi1 as everyday frequency, and JMDict as the source", () => {
+    const [kuu, kurou] = [
+      ...parseEntries(`<JMdict>
+<entry><ent_seq>1</ent_seq><k_ele><keb>食う</keb><ke_pri>ichi1</ke_pri></k_ele><r_ele><reb>くう</reb></r_ele>
+<sense><gloss>to eat</gloss>
+<example><ex_srce exsrc_type="tat">157430</ex_srce><ex_text>食う</ex_text>
+<ex_sent xml:lang="jpn">飯を食おう。</ex_sent><ex_sent xml:lang="eng">Let&apos;s eat.</ex_sent></example>
+</sense></entry>
+<entry><ent_seq>2</ent_seq><k_ele><keb>ご苦労様</keb></k_ele><r_ele><reb>ごくろうさま</reb></r_ele>
+<sense><s_inf>usu. to one's subordinate</s_inf><gloss>thank you for your hard work</gloss></sense></entry>
+</JMdict>`)
+    ]
+    expect(kuu?.source).toBe("jmdict")
+    expect(kuu?.frequency).toEqual({ everyday: true, spokenCount: null, score: null })
+    expect(kuu?.senses[0]?.examples).toEqual([{ ja: "飯を食おう。", en: "Let's eat.", source: "tatoeba" }])
+    expect(kurou?.frequency?.everyday).toBe(false)
+    expect(kurou?.senses[0]?.examples).toEqual([])
   })
 
   it("scores newspaper frequency bands", () => {

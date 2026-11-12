@@ -75,13 +75,14 @@ const sense = (glosses: Array<string>, misc: Array<string> = []) => ({
   stagr: [],
   xrefs: [],
   antonyms: [],
-  sources: [],
+  origins: [],
   wasei: false
 })
 
 const entry = (id: number, headword: string, reading: string, senses: EntryRecord["senses"]): EntryRecord => ({
   id: EntryId.make(id),
   language: "ja",
+  source: "jmdict",
   headword,
   reading,
   common: true,
@@ -97,6 +98,7 @@ const entry = (id: number, headword: string, reading: string, senses: EntryRecor
 const english = (id: number, headword: string, glosses: Array<string>, xrefs: Array<string> = []): EntryRecord => ({
   id: EntryId.make(id),
   language: "en",
+  source: "enwiktionary",
   headword,
   reading: headword === "eat" ? "/iːt/" : "",
   common: true,

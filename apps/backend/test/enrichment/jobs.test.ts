@@ -24,6 +24,7 @@ const stubEntries = (ids: ReadonlyArray<number>) =>
       ids.map((id) => ({
         id: EntryId.make(id),
         language: "ja" as const,
+        source: "jmdict" as const,
         headword: `w${id}`,
         reading: `r${id}`,
         common: false,

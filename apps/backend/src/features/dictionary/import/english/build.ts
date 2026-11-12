@@ -1,6 +1,7 @@
-import { EntryId, type EntryRecord, type FormRecord, type SenseRecord } from "@kotori/contracts"
-import { FIRST_ENGLISH_ID } from "@kotori/db"
+import { EntryId, type FormRecord, type SenseRecord } from "@kotori/contracts"
+import { FIRST_ENGLISH_ID, type Source } from "@kotori/db"
 import { type EnglishInflection, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
+import type { ImportEntry } from "../seedFacts.ts"
 import type { FormOf, InflectedForm, References, Word } from "./words.ts"
 
 /** How many of the most used words count as common, as JMDict's markers make about a tenth of its words common. */
@@ -10,38 +11,47 @@ const COMMON_WORDS = 10_000
 const CURATED_FLOOR = 1_000
 
 /**
- * Baseline usage count for a phrase at each familiarity rating, since the unigram counts can't
+ * Baseline usage count for a phrase at each frequency rating, since the unigram counts can't
  * see phrases: 5 ranks with everyday words, 3 with words in ordinary use, 1 with words that are
  * only just understood. Curated entries carry their rating; the rest get theirs from
- * `data/english/familiarity.json` (`kotori familiarity`).
+ * `data/english/frequency.json` (`kotori frequency`).
  */
-const FAMILIARITY_FLOOR: Readonly<Record<number, number>> = { 1: 300, 2: 600, 3: CURATED_FLOOR, 4: 3_000, 5: 10_000 }
+const FREQUENCY_FLOOR: Readonly<Record<number, number>> = { 1: 300, 2: 600, 3: CURATED_FLOOR, 4: 3_000, 5: 10_000 }
 
-export type Source = "curated" | "wiktionary" | "jmdict"
+export type Tier = "curated" | "wiktionary" | "jmdict"
+
+/** The seed source each tier's senses come from, as entries, labels and usage patterns name it. */
+const SOURCE: Readonly<Record<Tier, Source>> = {
+  curated: "enwiktionary",
+  wiktionary: "jawiktionary",
+  jmdict: "jmdict"
+}
 
 /** A word as the dictionary will hold it, with where it came from. */
 interface Built {
   readonly headword: string
-  readonly source: Source
+  readonly tier: Tier
   ipa: string | null
   readonly spellings: Set<string>
   readonly inflections: Map<string, Set<EnglishInflection>>
   readonly senses: Word["senses"]
   readonly references: ReadonlyArray<References>
   readonly mayBeName: boolean
-  readonly familiarity?: number | undefined
+  readonly frequency?: number | undefined
+  readonly source: Source
 }
 
-const built = (word: Word, source: Source): Built => ({
+const built = (word: Word, tier: Tier): Built => ({
   headword: word.headword,
-  source,
+  tier,
   ipa: word.ipa,
   spellings: new Set(word.spellings.filter((spelling) => spelling !== word.headword)),
   inflections: new Map(word.inflections.map((form) => [form.text, new Set(form.tags)])),
   senses: word.senses,
   references: word.references ?? [],
   mayBeName: word.mayBeName ?? false,
-  familiarity: word.familiarity
+  frequency: word.frequency,
+  source: word.source ?? SOURCE[tier]
 })
 
 const addInflection = (word: Built, form: InflectedForm) => {
@@ -58,7 +68,7 @@ export interface Sources {
   readonly wiktionary: { readonly words: ReadonlyArray<Word>; readonly formsOf: ReadonlyArray<FormOf> }
   /** Built knowing the other sources, so it only has words they lack, plus variant forms of existing idioms. */
   readonly jmdict: { readonly words: ReadonlyArray<Word>; readonly formsOf?: ReadonlyArray<FormOf> | undefined }
-  readonly frequency: ReadonlyMap<string, number>
+  readonly subtitles?: ReadonlyMap<string, number> | undefined
 }
 
 /**
@@ -67,10 +77,10 @@ export interface Sources {
  */
 export const mergeSources = (sources: Sources): Array<Built> => {
   const words = new Map<string, Built>()
-  const add = (word: Word, source: Source) => {
+  const add = (word: Word, tier: Tier) => {
     const existing = words.get(word.headword)
     if (existing === undefined) {
-      words.set(word.headword, built(word, source))
+      words.set(word.headword, built(word, tier))
       return
     }
     existing.ipa ??= word.ipa
@@ -140,7 +150,7 @@ const placeReferences = (words: ReadonlyArray<Built>) => {
     return new Set(word?.senses.flatMap((sense) => [...meanings(sense)]) ?? [])
   }
 
-  return (word: Built): ReadonlyArray<SenseRecord> => {
+  return (word: Built): Built["senses"] => {
     if (word.references.length === 0) return word.senses
     const xrefs = word.senses.map((sense) => [...sense.xrefs])
     const antonyms = word.senses.map((sense) => [...sense.antonyms])
@@ -193,10 +203,10 @@ const namedWords = (gloss: string) => {
  * ("sad": 満足した, obsolete). A sense's weight is its heaviest word's, not their sum: summed,
  * senses listing more synonyms won ("cool" led with 冷淡な, "kid" with からかう).
  */
-export const commonestFirst = (
-  senses: ReadonlyArray<SenseRecord>,
+export const commonestFirst = <S extends SenseRecord>(
+  senses: ReadonlyArray<S>,
   attested: ReadonlyMap<string, number> = new Map()
-): Array<SenseRecord> => {
+): Array<S> => {
   const littleUsed = (sense: SenseRecord) => sense.misc.some((tag) => LITTLE_USED.has(tag))
   const weight = (sense: SenseRecord) =>
     Math.max(0, ...sense.glosses.flatMap((gloss) => namedWords(gloss.text).map((word) => attested.get(word) ?? 0)))
@@ -220,35 +230,36 @@ const attestedTranslations = (
  * How often a word is used: its own count and its inflections', since "ate" is "eat" being
  * used. The counts are of lowercased text, so where a capitalised word has a lowercase twin
  * the count is the twin's: "a", not the letter "A"; "may", not the month. Only the pronoun
- * "I" outranks its twin, the letter "i". A rated word (curated, or in the familiarity file)
+ * "I" outranks its twin, the letter "i". A rated word (curated, or in the frequency file)
  * counts at least its rating's floor, unless the rating says it is little used and the
  * subtitles counted it anyway.
  */
 const usage = (
   word: Built,
-  frequency: ReadonlyMap<string, number>,
+  subtitles: ReadonlyMap<string, number>,
   lowercase: ReadonlyMap<string, Built>,
   translations: ReadonlyMap<string, ReadonlyMap<string, number>>,
   ratings: ReadonlyMap<string, number>
 ) => {
   const twin = lowercase.get(word.headword.toLowerCase())
-  if (twin !== undefined && twin !== word && !(pronoun(word) && !pronoun(twin))) return { count: 0, rawCount: 0 }
+  if (twin !== undefined && twin !== word && !(pronoun(word) && !pronoun(twin)))
+    return { count: 0, rawCount: 0, score: undefined }
   const forms = new Set([word.headword, ...word.inflections.keys()].map((form) => form.toLowerCase()))
   let rawCount = 0
-  for (const form of forms) rawCount += frequency.get(form) ?? 0
-  const familiarity = word.familiarity ?? ratings.get(word.headword.toLowerCase())
-  if (familiarity !== undefined || word.source === "curated") {
-    const floor = FAMILIARITY_FLOOR[familiarity ?? 3] ?? CURATED_FLOOR
-    const count = rawCount === 0 || (familiarity ?? 3) >= 3 ? Math.max(rawCount, floor) : rawCount
-    return { count, rawCount }
+  for (const form of forms) rawCount += subtitles.get(form) ?? 0
+  const score = word.frequency ?? ratings.get(word.headword.toLowerCase())
+  if (score !== undefined || word.tier === "curated") {
+    const floor = FREQUENCY_FLOOR[score ?? 3] ?? CURATED_FLOOR
+    const count = rawCount === 0 || (score ?? 3) >= 3 ? Math.max(rawCount, floor) : rawCount
+    return { count, rawCount, score }
   }
   if (rawCount === 0 && word.headword.includes(" ")) {
     const attested = attestedTranslations(word.headword, translations)
     const bestWeight = attested !== undefined ? Math.max(0, ...attested.values()) : 0
     const count = bestWeight >= 45 ? 2_500 : bestWeight >= 30 ? 1_000 : bestWeight > 0 ? 300 : 0
-    return { count, rawCount }
+    return { count, rawCount, score }
   }
-  return { count: rawCount, rawCount }
+  return { count: rawCount, rawCount, score }
 }
 
 /** Usage folded into a priority on the scale of JMDict's (about 0–150), so ranking treats both alike. */
@@ -272,27 +283,27 @@ const form = (
 /**
  * Entry records for the merged words, most used first. Words already in the database keep
  * their ids, so saved words and enrichment survive a re-import; new words are numbered on.
- * `ratings` are familiarity ratings by lowercased headword for words whose source has none.
+ * `ratings` are 1–5 frequency ratings by lowercased headword for words whose source has none.
  */
 export const toEntries = (
   words: ReadonlyArray<Built>,
-  frequency: ReadonlyMap<string, number>,
+  subtitles: ReadonlyMap<string, number>,
   existing: ReadonlyMap<string, number>,
   translations: ReadonlyMap<string, ReadonlyMap<string, number>> = new Map(),
   ratings: ReadonlyMap<string, number> = new Map()
-): Array<EntryRecord & { readonly source: Source }> => {
+): Array<ImportEntry & { readonly tier: Tier }> => {
   const lowercase = new Map(
     words.filter((word) => word.headword === word.headword.toLowerCase()).map((word) => [word.headword, word])
   )
   const ranked = words
-    .map((word) => ({ word, ...usage(word, frequency, lowercase, translations, ratings) }))
+    .map((word) => ({ word, ...usage(word, subtitles, lowercase, translations, ratings) }))
     .sort((a, b) => b.count - a.count || (a.word.headword < b.word.headword ? -1 : 1))
   let next = FIRST_ENGLISH_ID
   for (const id of existing.values()) next = Math.max(next, id)
   next++
   const sensesOf = placeReferences(words)
   let commonSoFar = 0
-  return ranked.map(({ word, count, rawCount }) => {
+  return ranked.map(({ word, count, rawCount, score }) => {
     const common = !word.mayBeName && (rawCount > 0 || count >= 2_500) && count > 0 && commonSoFar < COMMON_WORDS
     if (common) commonSoFar++
     const spellings = [...word.spellings].filter((spelling) => !word.inflections.has(spelling))
@@ -300,11 +311,15 @@ export const toEntries = (
     return {
       id: EntryId.make(existing.get(word.headword) ?? next++),
       language: "en" as const,
+      tier: word.tier,
       source: word.source,
       headword: word.headword,
       reading: word.ipa ?? "",
       common,
       priority: priorityOf(count),
+      // Everyday is the dictionary's own common mark (the most used words); the spoken count is the
+      // subtitles' own, before any rating floor, so a phrase they can't see has none.
+      frequency: { everyday: common, spokenCount: rawCount > 0 ? rawCount : null, score: score ?? null },
       forms: [
         form(word.headword, "spelling", common, []),
         ...spellings.map((spelling) => form(spelling, "spelling", false, [])),
@@ -313,7 +328,7 @@ export const toEntries = (
       // Curated entries already have senses consolidated and ordered for learners;
       // open-source entries use JMdict back-translations to promote attested everyday senses.
       senses:
-        word.source === "curated"
+        word.tier === "curated"
           ? [...placedSenses]
           : commonestFirst(
               placedSenses,

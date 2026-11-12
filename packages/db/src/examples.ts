@@ -1,5 +1,5 @@
 import { foreignKey, index, integer, pgEnum, text } from "drizzle-orm/pg-core"
-import { createdAt, formality, table } from "./columns.ts"
+import { createdAt, formality, source, table } from "./columns.ts"
 import { type EntryId } from "./entries.ts"
 import { senses } from "./senses.ts"
 
@@ -22,7 +22,11 @@ export const examples = table(
     /** The Japanese sentence with `{base|reading}` furigana. */
     furigana: text().notNull(),
     en: text().notNull(),
-    formality: formality().notNull(),
+    /**
+     * How formal the sentence sounds, which casts its voice. Null on sentences seeded from Tatoeba
+     * or Wiktionary, whose sources don't say: a guessed register would cast the wrong voice.
+     */
+    formality: formality(),
     note: text(),
     /** The usage note for English learners, in Japanese; null on sentences written before it. */
     noteJa: text(),
@@ -33,7 +37,10 @@ export const examples = table(
     /** Regional variety label such as "kansai" or "british"; null for the language's default. */
     variety: text(),
     tone: sentenceTone(),
-    model: text().notNull(),
+    /** Where the sentence came from: Kotori wrote it, or it was seeded from Tatoeba or Wiktionary. */
+    source: source().notNull().default("kotori"),
+    /** The model that wrote it; null on seeded sentences. */
+    model: text(),
     createdAt: createdAt()
   },
   (t) => [

@@ -1,4 +1,3 @@
-import type { EntryRecord } from "@kotori/contracts"
 import { normalizeGloss } from "@kotori/language"
 import { Effect, FileSystem, Path, Schema, Stream } from "effect"
 import { HttpClient } from "effect/http"
@@ -7,13 +6,14 @@ import { createInterface } from "node:readline"
 import { createGunzip } from "node:zlib"
 import { Database } from "../../../../db/Database.ts"
 import { resolveFromRoot } from "../../../../runtime/Paths.ts"
-import { deleteEntries, headwordIds, insertEntries, saveTags } from "../../queries.ts"
+import { deleteEntries, headwordIds, insertEntries, linkLoans, saveKotoriCautions, saveTags } from "../../queries.ts"
 import { entrySplitter } from "../jmdict/parse.ts"
-import { APPROVED_EN_FILE, parseApproved } from "./approved.ts"
-import { mergeSources, type Source, toEntries } from "./build.ts"
-import { parseFamiliarity } from "./familiarity.ts"
-import { FREQUENCY_URL, parseFrequency } from "./frequency.ts"
+import type { ImportEntry } from "../seedFacts.ts"
+import { APPROVED_EN_FILE, parseApproved, skippedLines } from "./approved.ts"
+import { mergeSources, type Tier, toEntries } from "./build.ts"
+import { parseFrequency } from "./frequency.ts"
 import { jmdictReader, type KnownEnglish } from "./jmdict.ts"
+import { parseSubtitles, SUBTITLES_URL } from "./subtitles.ts"
 import { ENGLISH_TAGS } from "./tags.ts"
 import { curatedParser, parsePhraseIndex, WIKTIONARY_URL, wiktionaryParser } from "./wiktionary.ts"
 import { addRedirect, type FormOf, type Word } from "./words.ts"
@@ -29,14 +29,14 @@ export interface Files {
   readonly curated?: string | undefined
   /** Attested multi-word phrases and variant redirects (`enwiktionary-phrases.json`), optional in tests. */
   readonly phrases?: string | undefined
-  /** Familiarity ratings for phrases the other sources don't rate (`familiarity.json`), optional in tests. */
-  readonly familiarity?: string | undefined
+  /** Frequency ratings for phrases the other sources don't rate (`frequency.json`), optional in tests. */
+  readonly frequency?: string | undefined
   /** Entries and aliases approved out of Ask Kotori proposals (`data/approved/en.jsonl`). */
   readonly approved?: string | undefined
   /** Wiktextract's extraction of Japanese Wiktionary, gzipped JSON lines (or plain). */
   readonly wiktionary: string
-  /** FrequencyWords' English list. */
-  readonly frequency: string
+  /** FrequencyWords' OpenSubtitles English list (`en_50k.txt`). */
+  readonly subtitles: string
 }
 
 /** Downloads the English dictionary's sources into `directory` (~65 MB, mostly Wiktionary). */
@@ -51,18 +51,18 @@ export const download = Effect.fn("EnglishDictionary.download")(
     const files: Files = {
       curated: path.join(root, "enwiktionary-ja.jsonl"),
       phrases: path.join(root, "enwiktionary-phrases.json"),
-      familiarity: path.join(root, "familiarity.json"),
+      frequency: path.join(root, "frequency.json"),
       approved: resolveFromRoot(APPROVED_EN_FILE),
       wiktionary: path.join(root, "ja-wiktionary.jsonl.gz"),
-      frequency: path.join(root, "en_50k.txt")
+      subtitles: path.join(root, "en_50k.txt")
     }
     if (!(yield* fs.exists(files.wiktionary))) {
       yield* Effect.logInfo(`Downloading ${WIKTIONARY_URL}`)
       yield* (yield* client.get(WIKTIONARY_URL)).stream.pipe(Stream.run(fs.sink(files.wiktionary)))
     }
-    if (!(yield* fs.exists(files.frequency))) {
-      yield* Effect.logInfo(`Downloading ${FREQUENCY_URL}`)
-      yield* fs.writeFileString(files.frequency, yield* Effect.flatMap(client.get(FREQUENCY_URL), (r) => r.text))
+    if (!(yield* fs.exists(files.subtitles))) {
+      yield* Effect.logInfo(`Downloading ${SUBTITLES_URL}`)
+      yield* fs.writeFileString(files.subtitles, yield* Effect.flatMap(client.get(SUBTITLES_URL), (r) => r.text))
     }
     return files
   },
@@ -98,7 +98,7 @@ const readLines = (file: string) =>
  * Each entry of a JMdict file, gzipped or not, as the text streams in: the whole document
  * would be ~120 MB in memory, more than the worker's machine spares for a seed.
  */
-const eachJmdictEntry = (file: string, read: (entry: EntryRecord) => void) =>
+const eachJmdictEntry = (file: string, read: (entry: ImportEntry) => void) =>
   Effect.tryPromise({
     try: async () => {
       const input = createReadStream(resolveFromRoot(file))
@@ -114,7 +114,7 @@ const eachJmdictEntry = (file: string, read: (entry: EntryRecord) => void) =>
 const knownEnglish = (
   sources: ReadonlyArray<{ readonly words: ReadonlyArray<Word>; readonly formsOf: ReadonlyArray<FormOf> }>,
   phrases: ReadonlySet<string>,
-  frequency: ReadonlyMap<string, number>,
+  subtitles: ReadonlyMap<string, number>,
   redirects?: ReadonlyMap<string, string>
 ): KnownEnglish => {
   const words = new Set<string>()
@@ -137,12 +137,12 @@ const knownEnglish = (
     }
     for (const form of source.formsOf) words.add(form.text.toLowerCase())
   }
-  return { words, verbs, phrases: allPhrases, redirects: allRedirects, frequency }
+  return { words, verbs, phrases: allPhrases, redirects: allRedirects, subtitles }
 }
 
 export interface ImportOptions {
   readonly files: Files
-  /** JMdict_e.gz (or uncompressed XML), read backwards for words the other sources lack. */
+  /** JMdict_e_examp.gz (or JMdict_e.gz, or uncompressed XML), read backwards for words the other sources lack. */
   readonly jmdict: string
   /** Keep only this many words, the most used first, for quick local setups. */
   readonly limit?: number | undefined
@@ -168,7 +168,9 @@ const build = Effect.fnUntraced(function* (options: ImportOptions, existing: Rea
   const approved =
     approvedPath !== undefined && existsSync(resolveFromRoot(approvedPath))
       ? parseApproved(yield* readLines(approvedPath))
-      : { words: [], formsOf: [] }
+      : { words: [], formsOf: [], skipped: [] }
+  if (approved.skipped.length > 0)
+    yield* Effect.logWarning(skippedLines(approvedPath ?? APPROVED_EN_FILE, approved.skipped))
   const curatedHeadwords = new Set(curated.words.map((word) => word.headword.toLowerCase()))
   curated.words.push(...approved.words.filter((word) => !curatedHeadwords.has(word.headword.toLowerCase())))
   curated.formsOf.push(...approved.formsOf)
@@ -179,40 +181,42 @@ const build = Effect.fnUntraced(function* (options: ImportOptions, existing: Rea
       ? parsePhraseIndex((yield* readLines(phrasesPath)).join("\n"))
       : { phrases: new Set<string>(), redirects: new Map<string, string>() }
 
-  const familiarityPath = options.files.familiarity
+  const frequencyPath = options.files.frequency
   const ratings =
-    familiarityPath !== undefined && existsSync(resolveFromRoot(familiarityPath))
-      ? parseFamiliarity((yield* readLines(familiarityPath)).join("\n"))
+    frequencyPath !== undefined && existsSync(resolveFromRoot(frequencyPath))
+      ? parseFrequency((yield* readLines(frequencyPath)).join("\n"))
       : new Map<string, number>()
 
   const parser = wiktionaryParser()
   yield* eachLine(options.files.wiktionary, parser.add)
   const wiktionary = parser.finish()
-  const frequency = parseFrequency(yield* readLines(options.files.frequency))
+  const subtitles = parseSubtitles(yield* readLines(options.files.subtitles))
   yield* Effect.logInfo(`Read ${curated.words.length} curated words and ${wiktionary.words.length} from Wiktionary`)
 
   const phrases = new Set([...wiktionary.phrases, ...phraseIndex.phrases])
-  const reader = jmdictReader(knownEnglish([curated, wiktionary], phrases, frequency, phraseIndex.redirects))
+  const reader = jmdictReader(knownEnglish([curated, wiktionary], phrases, subtitles, phraseIndex.redirects))
   yield* eachJmdictEntry(options.jmdict, reader.add)
   const jmdict = { words: reader.finish(), formsOf: reader.formsOf() }
 
   let entries = toEntries(
-    mergeSources({ curated, wiktionary, jmdict, frequency }),
-    frequency,
+    mergeSources({ curated, wiktionary, jmdict, subtitles }),
+    subtitles,
     existing,
     reader.backTranslations(),
     ratings
   )
   if (options.commonOnly) entries = entries.filter((entry) => entry.common)
   if (options.limit !== undefined) entries = entries.slice(0, options.limit)
-  return entries
+  // Approved words' cautions, by headword; a curated word of the same headword took its place.
+  const cautions = new Map(approved.words.map((word) => [word.headword, word.cautions ?? []] as const))
+  return { entries, cautions }
 })
 
 /**
  * The English dictionary's entries as a fresh import would number them, built from its sources
  * without a database: for tools that cut fixtures from it, such as the golden set's.
  */
-export const buildEntries = (options: ImportOptions) => build(options, new Map())
+export const buildEntries = (options: ImportOptions) => Effect.map(build(options, new Map()), (built) => built.entries)
 
 /**
  * Builds the English dictionary from its sources and loads it alongside JMDict. Re-importing
@@ -221,12 +225,13 @@ export const buildEntries = (options: ImportOptions) => build(options, new Map()
 export const importFiles = Effect.fn("EnglishDictionary.importFiles")(function* (options: ImportOptions) {
   const db = yield* Database
   const existing = yield* headwordIds(db, "en")
-  const entries: ReadonlyArray<EntryRecord & { readonly source: Source }> = yield* build(options, existing)
+  const built = yield* build(options, existing)
+  const entries: ReadonlyArray<ImportEntry & { readonly tier: Tier }> = built.entries
 
   yield* saveTags(db, ENGLISH_TAGS)
   const batchSize = options.batchSize ?? 500
   for (let start = 0; start < entries.length; start += batchSize) {
-    yield* insertEntries(db, entries.slice(start, start + batchSize))
+    yield* insertEntries(db, entries.slice(start, start + batchSize), { seeded: true })
     if (start % 20_000 < batchSize && start > 0) yield* Effect.logInfo(`Imported ${start} English words`)
   }
 
@@ -236,13 +241,18 @@ export const importFiles = Effect.fn("EnglishDictionary.importFiles")(function* 
   const imported = new Set(entries.map((entry) => entry.headword))
   const stale = complete ? [...existing].filter(([headword]) => !imported.has(headword)).map(([, id]) => id) : []
   yield* deleteEntries(db, stale)
+  for (const entry of entries) {
+    const drafted = entry.source === "kotori" ? built.cautions.get(entry.headword) : undefined
+    if (drafted !== undefined) yield* saveKotoriCautions(db, entry.id, "en", drafted)
+  }
+  yield* linkLoans(db)
 
-  const bySource = (source: Source) => entries.filter((entry) => entry.source === source).length
+  const byTier = (tier: Tier) => entries.filter((entry) => entry.tier === tier).length
   return {
     removed: stale.length,
     entries: entries.length,
-    curated: bySource("curated"),
-    wiktionary: bySource("wiktionary"),
-    jmdict: bySource("jmdict")
+    curated: byTier("curated"),
+    wiktionary: byTier("wiktionary"),
+    jmdict: byTier("jmdict")
   }
 })

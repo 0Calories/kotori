@@ -1,19 +1,33 @@
-/**
- * How often English words are used, from FrequencyWords' count of OpenSubtitles (2018):
- * the 50,000 most frequent words in subtitles, one per line as `word count`. Licensed
- * CC BY-SA 4.0. Subtitles are speech, which is what Kotori teaches.
- */
-export const FREQUENCY_URL =
-  "https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/en/en_50k.txt"
+import { Option, Schema } from "effect"
 
-/** Occurrences by lowercased word. */
-export const parseFrequency = (lines: Iterable<string>): ReadonlyMap<string, number> => {
-  const counts = new Map<string, number>()
-  for (const line of lines) {
-    const [word, count] = line.trim().split(/\s+/)
-    if (word === undefined || count === undefined) continue
-    const key = word.toLowerCase()
-    if (!counts.has(key)) counts.set(key, Number(count) || 0)
+/**
+ * `data/english/frequency.json`: how commonly each multi-word English entry is used by native
+ * speakers today, 1–5, by lowercased headword. The subtitle counts (`en_50k.txt`) are of single
+ * words, so phrases read backwards from JMDict or Japanese Wiktionary would otherwise rank as
+ * unused; the curated entries carry their own rating. Written by `kotori frequency`, which asks
+ * Claude about the phrases the file lacks, and read by the import (`build.ts`), where a rating
+ * sets a floor on the phrase's usage count.
+ */
+export const FREQUENCY_FILE = "data/english/frequency.json"
+
+export const FREQUENCY_MIN = 1
+export const FREQUENCY_MAX = 5
+
+const Ratings = Schema.Record(Schema.String, Schema.Int)
+
+const decodeRatings = Schema.decodeUnknownOption(Schema.fromJsonString(Ratings))
+
+/** The ratings in the file's JSON, by lowercased headword; ratings off the scale are left out. */
+export const parseFrequency = (json: string): Map<string, number> => {
+  const ratings = new Map<string, number>()
+  const decoded = decodeRatings(json)
+  if (Option.isNone(decoded)) return ratings
+  for (const [headword, rating] of Object.entries(decoded.value)) {
+    if (rating >= FREQUENCY_MIN && rating <= FREQUENCY_MAX) ratings.set(headword.toLowerCase(), rating)
   }
-  return counts
+  return ratings
 }
+
+/** The file's JSON: one headword a line, in order, so re-rating diffs cleanly. */
+export const serializeFrequency = (ratings: ReadonlyMap<string, number>): string =>
+  `${JSON.stringify(Object.fromEntries([...ratings].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))), null, 2)}\n`

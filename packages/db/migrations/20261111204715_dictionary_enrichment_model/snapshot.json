@@ -1,0 +1,1406 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "238e3e91-8d49-4c92-a098-6b4b31d2e1a0",
+  "prevIds": ["34794aec-6319-40a2-bd4a-9e543289a3de"],
+  "footprints": [
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "source"],
+      "writes": ["s|enum|public.source", "n|enum|public.source", "e|enum|public.source", "n|type|public.source"],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "caution_kind"],
+      "writes": [
+        "s|enum|public.caution_kind",
+        "n|enum|public.caution_kind",
+        "e|enum|public.caution_kind",
+        "n|type|public.caution_kind"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "loan_meaning"],
+      "writes": [
+        "s|enum|public.loan_meaning",
+        "n|enum|public.loan_meaning",
+        "e|enum|public.loan_meaning",
+        "n|type|public.loan_meaning"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "labels"],
+      "writes": [
+        "s|tbl|public.labels",
+        "n|tbl|public.labels",
+        "e|tbl|public.labels",
+        "n|rel|public.labels",
+        "n|type|public.labels",
+        "n|rel|public.labels_pkey"
+      ],
+      "reads": ["n|sch|public", "n|enum|public.source"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "usage_patterns"],
+      "writes": [
+        "s|tbl|public.usage_patterns",
+        "n|tbl|public.usage_patterns",
+        "e|tbl|public.usage_patterns",
+        "n|rel|public.usage_patterns",
+        "n|type|public.usage_patterns",
+        "n|rel|public.usage_patterns_pkey"
+      ],
+      "reads": ["n|sch|public", "n|enum|public.source"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "cautions"],
+      "writes": [
+        "s|tbl|public.cautions",
+        "n|tbl|public.cautions",
+        "e|tbl|public.cautions",
+        "n|rel|public.cautions",
+        "n|type|public.cautions",
+        "n|rel|public.cautions_pkey",
+        "n|rel|public.cautions_rank"
+      ],
+      "reads": ["n|sch|public", "n|enum|public.caution_kind", "n|enum|public.source"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "entry_frequency"],
+      "writes": [
+        "s|tbl|public.entry_frequency",
+        "n|tbl|public.entry_frequency",
+        "e|tbl|public.entry_frequency",
+        "n|rel|public.entry_frequency",
+        "n|type|public.entry_frequency",
+        "n|rel|public.entry_frequency_pkey"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": ["table", "public", "loan_links"],
+      "writes": [
+        "s|tbl|public.loan_links",
+        "n|tbl|public.loan_links",
+        "e|tbl|public.loan_links",
+        "n|rel|public.loan_links",
+        "n|type|public.loan_links",
+        "n|rel|public.loan_links_pkey",
+        "n|rel|public.loan_links_pair"
+      ],
+      "reads": ["n|sch|public", "n|enum|public.loan_meaning", "n|enum|public.source"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "entries", "source"],
+      "writes": ["s|col|public.entries.source", "n|col|public.entries.source", "e|col|public.entries.source"],
+      "reads": ["n|tbl|public.entries", "n|sch|public", "n|enum|public.source"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "senses", "origins"],
+      "writes": ["s|col|public.senses.origins", "n|col|public.senses.origins", "e|col|public.senses.origins"],
+      "reads": ["n|tbl|public.senses", "n|sch|public"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "examples", "source"],
+      "writes": ["s|col|public.examples.source", "n|col|public.examples.source", "e|col|public.examples.source"],
+      "reads": ["n|tbl|public.examples", "n|sch|public", "n|enum|public.source"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "senses", "sources"],
+      "writes": ["s|col|public.senses.sources", "n|col|public.senses.sources", "e|col|public.senses.sources"],
+      "reads": ["n|tbl|public.senses", "n|sch|public"]
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "examples", "formality"],
+      "writes": ["s|colprop|public.examples.formality.notNull"],
+      "reads": ["n|tbl|public.examples", "n|sch|public", "n|col|public.examples.formality"],
+      "sqlHash": "7a7581c0b7c48316"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "examples", "model"],
+      "writes": ["s|colprop|public.examples.model.notNull"],
+      "reads": ["n|tbl|public.examples", "n|sch|public", "n|col|public.examples.model"],
+      "sqlHash": "561d70dc948d2384"
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "usage_patterns", "usage_patterns_sense"],
+      "writes": [
+        "s|idx|public.usage_patterns_sense",
+        "n|idx|public.usage_patterns_sense",
+        "e|idx|public.usage_patterns_sense",
+        "n|rel|public.usage_patterns_sense"
+      ],
+      "reads": [
+        "n|tbl|public.usage_patterns",
+        "n|sch|public",
+        "n|col|public.usage_patterns.entry_id",
+        "n|col|public.usage_patterns.sense",
+        "n|col|public.usage_patterns.position"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "usage_patterns", "usage_patterns_about"],
+      "writes": [
+        "s|idx|public.usage_patterns_about",
+        "n|idx|public.usage_patterns_about",
+        "e|idx|public.usage_patterns_about",
+        "n|rel|public.usage_patterns_about"
+      ],
+      "reads": ["n|tbl|public.usage_patterns", "n|sch|public", "n|col|public.usage_patterns.about_entry_id"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "cautions", "cautions_about"],
+      "writes": [
+        "s|idx|public.cautions_about",
+        "n|idx|public.cautions_about",
+        "e|idx|public.cautions_about",
+        "n|rel|public.cautions_about"
+      ],
+      "reads": ["n|tbl|public.cautions", "n|sch|public", "n|col|public.cautions.about_entry_id"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "loan_links", "loan_links_katakana_entry"],
+      "writes": [
+        "s|idx|public.loan_links_katakana_entry",
+        "n|idx|public.loan_links_katakana_entry",
+        "e|idx|public.loan_links_katakana_entry",
+        "n|rel|public.loan_links_katakana_entry"
+      ],
+      "reads": ["n|tbl|public.loan_links", "n|sch|public", "n|col|public.loan_links.katakana_entry_id"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "loan_links", "loan_links_english_entry"],
+      "writes": [
+        "s|idx|public.loan_links_english_entry",
+        "n|idx|public.loan_links_english_entry",
+        "e|idx|public.loan_links_english_entry",
+        "n|rel|public.loan_links_english_entry"
+      ],
+      "reads": ["n|tbl|public.loan_links", "n|sch|public", "n|col|public.loan_links.english_entry_id"]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "labels"],
+      "writes": [
+        "s|fk|public.labels.labels_entry_id_sense_senses_entry_id_position_fkey",
+        "n|fk|public.labels.labels_entry_id_sense_senses_entry_id_position_fkey",
+        "e|fk|public.labels.labels_entry_id_sense_senses_entry_id_position_fkey",
+        "n|con|public.labels.labels_entry_id_sense_senses_entry_id_position_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.labels",
+        "n|sch|public",
+        "n|tbl|public.senses",
+        "n|sch|public",
+        "n|col|public.labels.entry_id",
+        "n|col|public.labels.sense",
+        "n|col|public.senses.entry_id",
+        "n|col|public.senses.position",
+        "e|uniqueness|public.senses.entry_id.position"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "usage_patterns"],
+      "writes": [
+        "s|fk|public.usage_patterns.usage_patterns_about_entry_id_entries_id_fkey",
+        "n|fk|public.usage_patterns.usage_patterns_about_entry_id_entries_id_fkey",
+        "e|fk|public.usage_patterns.usage_patterns_about_entry_id_entries_id_fkey",
+        "n|con|public.usage_patterns.usage_patterns_about_entry_id_entries_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.usage_patterns",
+        "n|sch|public",
+        "n|tbl|public.entries",
+        "n|sch|public",
+        "n|col|public.usage_patterns.about_entry_id",
+        "n|col|public.entries.id",
+        "e|uniqueness|public.entries.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "usage_patterns"],
+      "writes": [
+        "s|fk|public.usage_patterns.usage_patterns_entry_id_sense_senses_entry_id_position_fkey",
+        "n|fk|public.usage_patterns.usage_patterns_entry_id_sense_senses_entry_id_position_fkey",
+        "e|fk|public.usage_patterns.usage_patterns_entry_id_sense_senses_entry_id_position_fkey",
+        "n|con|public.usage_patterns.usage_patterns_entry_id_sense_senses_entry_id_position_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.usage_patterns",
+        "n|sch|public",
+        "n|tbl|public.senses",
+        "n|sch|public",
+        "n|col|public.usage_patterns.entry_id",
+        "n|col|public.usage_patterns.sense",
+        "n|col|public.senses.entry_id",
+        "n|col|public.senses.position",
+        "e|uniqueness|public.senses.entry_id.position"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "cautions"],
+      "writes": [
+        "s|fk|public.cautions.cautions_entry_id_entries_id_fkey",
+        "n|fk|public.cautions.cautions_entry_id_entries_id_fkey",
+        "e|fk|public.cautions.cautions_entry_id_entries_id_fkey",
+        "n|con|public.cautions.cautions_entry_id_entries_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.cautions",
+        "n|sch|public",
+        "n|tbl|public.entries",
+        "n|sch|public",
+        "n|col|public.cautions.entry_id",
+        "n|col|public.entries.id",
+        "e|uniqueness|public.entries.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "cautions"],
+      "writes": [
+        "s|fk|public.cautions.cautions_about_entry_id_entries_id_fkey",
+        "n|fk|public.cautions.cautions_about_entry_id_entries_id_fkey",
+        "e|fk|public.cautions.cautions_about_entry_id_entries_id_fkey",
+        "n|con|public.cautions.cautions_about_entry_id_entries_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.cautions",
+        "n|sch|public",
+        "n|tbl|public.entries",
+        "n|sch|public",
+        "n|col|public.cautions.about_entry_id",
+        "n|col|public.entries.id",
+        "e|uniqueness|public.entries.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "cautions"],
+      "writes": [
+        "s|fk|public.cautions.cautions_entry_id_sense_senses_entry_id_position_fkey",
+        "n|fk|public.cautions.cautions_entry_id_sense_senses_entry_id_position_fkey",
+        "e|fk|public.cautions.cautions_entry_id_sense_senses_entry_id_position_fkey",
+        "n|con|public.cautions.cautions_entry_id_sense_senses_entry_id_position_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.cautions",
+        "n|sch|public",
+        "n|tbl|public.senses",
+        "n|sch|public",
+        "n|col|public.cautions.entry_id",
+        "n|col|public.cautions.sense",
+        "n|col|public.senses.entry_id",
+        "n|col|public.senses.position",
+        "e|uniqueness|public.senses.entry_id.position"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "entry_frequency"],
+      "writes": [
+        "s|fk|public.entry_frequency.entry_frequency_entry_id_entries_id_fkey",
+        "n|fk|public.entry_frequency.entry_frequency_entry_id_entries_id_fkey",
+        "e|fk|public.entry_frequency.entry_frequency_entry_id_entries_id_fkey",
+        "n|con|public.entry_frequency.entry_frequency_entry_id_entries_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.entry_frequency",
+        "n|sch|public",
+        "n|tbl|public.entries",
+        "n|sch|public",
+        "n|col|public.entry_frequency.entry_id",
+        "n|col|public.entries.id",
+        "e|uniqueness|public.entries.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "loan_links"],
+      "writes": [
+        "s|fk|public.loan_links.loan_links_katakana_entry_id_entries_id_fkey",
+        "n|fk|public.loan_links.loan_links_katakana_entry_id_entries_id_fkey",
+        "e|fk|public.loan_links.loan_links_katakana_entry_id_entries_id_fkey",
+        "n|con|public.loan_links.loan_links_katakana_entry_id_entries_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.loan_links",
+        "n|sch|public",
+        "n|tbl|public.entries",
+        "n|sch|public",
+        "n|col|public.loan_links.katakana_entry_id",
+        "n|col|public.entries.id",
+        "e|uniqueness|public.entries.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": ["table", "public", "loan_links"],
+      "writes": [
+        "s|fk|public.loan_links.loan_links_english_entry_id_entries_id_fkey",
+        "n|fk|public.loan_links.loan_links_english_entry_id_entries_id_fkey",
+        "e|fk|public.loan_links.loan_links_english_entry_id_entries_id_fkey",
+        "n|con|public.loan_links.loan_links_english_entry_id_entries_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.loan_links",
+        "n|sch|public",
+        "n|tbl|public.entries",
+        "n|sch|public",
+        "n|col|public.loan_links.english_entry_id",
+        "n|col|public.entries.id",
+        "e|uniqueness|public.entries.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "labels",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "usage_patterns",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "cautions",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "entry_frequency",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "loan_links",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "source",
+        "values": ["jmdict", "jawiktionary", "enwiktionary", "tatoeba", "kotori", "user"],
+        "entityType": "enums"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "caution_kind",
+        "values": [
+          "rude_upward",
+          "keigo_direction",
+          "set_phrase",
+          "particle_pattern",
+          "gendered_speech",
+          "wasei_eigo",
+          "textbook_english",
+          "directness",
+          "variety",
+          "confusable",
+          "collocation"
+        ],
+        "entityType": "enums"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "loan_meaning",
+        "values": ["true_loanword", "wasei_eigo"],
+        "entityType": "enums"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "entries",
+        "name": "source",
+        "type": "source",
+        "typeSchema": "public",
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "senses",
+        "name": "origins",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labels",
+        "name": "entry_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labels",
+        "name": "sense",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labels",
+        "name": "code",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labels",
+        "name": "source",
+        "type": "source",
+        "typeSchema": "public",
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "usage_patterns",
+        "name": "id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "usage_patterns_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "2147483647",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "usage_patterns",
+        "name": "entry_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "usage_patterns",
+        "name": "sense",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "usage_patterns",
+        "name": "position",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "usage_patterns",
+        "name": "text",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "usage_patterns",
+        "name": "source",
+        "type": "source",
+        "typeSchema": "public",
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "usage_patterns",
+        "name": "about_entry_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cautions",
+        "name": "id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "cautions_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "2147483647",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cautions",
+        "name": "entry_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cautions",
+        "name": "sense",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cautions",
+        "name": "rank",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cautions",
+        "name": "kind",
+        "type": "caution_kind",
+        "typeSchema": "public",
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cautions",
+        "name": "text",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cautions",
+        "name": "about_entry_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cautions",
+        "name": "source",
+        "type": "source",
+        "typeSchema": "public",
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "entry_frequency",
+        "name": "entry_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "entry_frequency",
+        "name": "everyday",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "entry_frequency",
+        "name": "spoken_count",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "entry_frequency",
+        "name": "score",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_links",
+        "name": "id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "loan_links_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "2147483647",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_links",
+        "name": "katakana",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_links",
+        "name": "katakana_entry_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_links",
+        "name": "english",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_links",
+        "name": "english_entry_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_links",
+        "name": "meaning",
+        "type": "loan_meaning",
+        "typeSchema": "public",
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_links",
+        "name": "source",
+        "type": "source",
+        "typeSchema": "public",
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "examples",
+        "name": "source",
+        "type": "source",
+        "typeSchema": "public",
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'kotori'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "usage_patterns",
+        "name": "usage_patterns_sense",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "entry_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "sense",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "position",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "usage_patterns",
+        "name": "usage_patterns_about",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "about_entry_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": "\"about_entry_id\" IS NOT NULL",
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cautions",
+        "name": "cautions_about",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "about_entry_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": "\"about_entry_id\" IS NOT NULL",
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_links",
+        "name": "loan_links_katakana_entry",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "katakana_entry_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_links",
+        "name": "loan_links_english_entry",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "english_entry_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labels",
+        "name": "labels_entry_id_sense_senses_entry_id_position_fkey",
+        "nameExplicit": false,
+        "columns": ["entry_id", "sense"],
+        "schemaTo": "public",
+        "tableTo": "senses",
+        "columnsTo": ["entry_id", "position"],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "usage_patterns",
+        "name": "usage_patterns_about_entry_id_entries_id_fkey",
+        "nameExplicit": false,
+        "columns": ["about_entry_id"],
+        "schemaTo": "public",
+        "tableTo": "entries",
+        "columnsTo": ["id"],
+        "onUpdate": "NO ACTION",
+        "onDelete": "SET NULL",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "usage_patterns",
+        "name": "usage_patterns_entry_id_sense_senses_entry_id_position_fkey",
+        "nameExplicit": false,
+        "columns": ["entry_id", "sense"],
+        "schemaTo": "public",
+        "tableTo": "senses",
+        "columnsTo": ["entry_id", "position"],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cautions",
+        "name": "cautions_entry_id_entries_id_fkey",
+        "nameExplicit": false,
+        "columns": ["entry_id"],
+        "schemaTo": "public",
+        "tableTo": "entries",
+        "columnsTo": ["id"],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cautions",
+        "name": "cautions_about_entry_id_entries_id_fkey",
+        "nameExplicit": false,
+        "columns": ["about_entry_id"],
+        "schemaTo": "public",
+        "tableTo": "entries",
+        "columnsTo": ["id"],
+        "onUpdate": "NO ACTION",
+        "onDelete": "SET NULL",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cautions",
+        "name": "cautions_entry_id_sense_senses_entry_id_position_fkey",
+        "nameExplicit": false,
+        "columns": ["entry_id", "sense"],
+        "schemaTo": "public",
+        "tableTo": "senses",
+        "columnsTo": ["entry_id", "position"],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "entry_frequency",
+        "name": "entry_frequency_entry_id_entries_id_fkey",
+        "nameExplicit": false,
+        "columns": ["entry_id"],
+        "schemaTo": "public",
+        "tableTo": "entries",
+        "columnsTo": ["id"],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_links",
+        "name": "loan_links_katakana_entry_id_entries_id_fkey",
+        "nameExplicit": false,
+        "columns": ["katakana_entry_id"],
+        "schemaTo": "public",
+        "tableTo": "entries",
+        "columnsTo": ["id"],
+        "onUpdate": "NO ACTION",
+        "onDelete": "SET NULL",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_links",
+        "name": "loan_links_english_entry_id_entries_id_fkey",
+        "nameExplicit": false,
+        "columns": ["english_entry_id"],
+        "schemaTo": "public",
+        "tableTo": "entries",
+        "columnsTo": ["id"],
+        "onUpdate": "NO ACTION",
+        "onDelete": "SET NULL",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labels",
+        "name": "labels_pkey",
+        "columns": ["entry_id", "sense", "code"],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "usage_patterns",
+        "name": "usage_patterns_pkey",
+        "columns": ["id"],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cautions",
+        "name": "cautions_pkey",
+        "columns": ["id"],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "entry_frequency",
+        "name": "entry_frequency_pkey",
+        "columns": ["entry_id"],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_links",
+        "name": "loan_links_pkey",
+        "columns": ["id"],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cautions",
+        "name": "cautions_rank",
+        "nameExplicit": true,
+        "columns": ["entry_id", "rank"],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "loan_links",
+        "name": "loan_links_pair",
+        "nameExplicit": true,
+        "columns": ["katakana", "english"],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cautions",
+        "name": "cautions_rank_range",
+        "value": "\"rank\" BETWEEN 1 AND 3",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"senses\",\"sources\"]"
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"examples\",\"formality\"]",
+      "set": {
+        "notNull": false
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"examples\",\"model\"]",
+      "set": {
+        "notNull": false
+      }
+    }
+  ]
+}

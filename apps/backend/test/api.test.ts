@@ -101,7 +101,7 @@ const sense = (glosses: Array<string>, pos: Array<string>) => ({
   stagr: [],
   xrefs: [],
   antonyms: [],
-  sources: [],
+  origins: [],
   wasei: false
 })
 
@@ -114,6 +114,7 @@ const entry = (
 ): EntryRecord => ({
   id: EntryId.make(id),
   language: "ja",
+  source: "jmdict",
   headword,
   reading,
   common: true,

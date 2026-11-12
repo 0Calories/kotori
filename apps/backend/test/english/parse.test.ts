@@ -1,8 +1,8 @@
 import { EntryId, type EntryRecord } from "@kotori/contracts"
 import { describe, expect, it } from "vitest"
 import { commonestFirst, mergeSources, toEntries } from "../../src/features/dictionary/import/english/build.ts"
-import { parseFrequency } from "../../src/features/dictionary/import/english/frequency.ts"
 import { jmdictReader, wordsFromJmdict } from "../../src/features/dictionary/import/english/jmdict.ts"
+import { parseSubtitles } from "../../src/features/dictionary/import/english/subtitles.ts"
 import { splitDefinition } from "../../src/features/dictionary/import/english/text.ts"
 import {
   cleanIpa,
@@ -203,6 +203,28 @@ describe("parseWiktionary", () => {
     ])
   })
 
+  it("keeps a sense's example sentences that come with a Japanese translation", () => {
+    const [color] = parseWiktionary([
+      line({
+        word: "color",
+        pos: "noun",
+        senses: [
+          {
+            glosses: ["色。"],
+            examples: [
+              { text: "Humans and birds can perceive color.", translation: "人間や鳥は色を認識する" },
+              { text: "Untranslated example." },
+              { ref: "A citation with no sentence." }
+            ]
+          }
+        ]
+      })
+    ]).words
+    expect(color?.senses[0]?.examples).toEqual([
+      { ja: "人間や鳥は色を認識する", en: "Humans and birds can perceive color.", source: "jawiktionary" }
+    ])
+  })
+
   it("skips lines that aren't entries", () => {
     expect(word("broken")).toBeUndefined()
     expect(word("mistyped")).toBeUndefined()
@@ -290,6 +312,7 @@ const jmdictEntry = (
 ): EntryRecord => ({
   id: EntryId.make(id),
   language: "ja",
+  source: "jmdict",
   headword,
   reading,
   common,
@@ -307,7 +330,7 @@ const jmdictEntry = (
       stagr: [],
       xrefs: [],
       antonyms: [],
-      sources: [],
+      origins: [],
       wasei: false
     }
   ]
@@ -335,7 +358,7 @@ describe("wordsFromJmdict", () => {
     words: new Set(["hang", "eat", "team"]),
     verbs: new Set(["hang", "eat"]),
     phrases: new Set(["eat out"]),
-    frequency: new Map([
+    subtitles: new Map([
       ["selfie", 900],
       ["teams", 500],
       ["kata", 300],
@@ -396,7 +419,7 @@ describe("wordsFromJmdict", () => {
         "the die is cast"
       ]),
       redirects: new Map([["skate on thin ice", "on thin ice"]]),
-      frequency: new Map()
+      subtitles: new Map()
     })
     for (const item of [
       jmdictEntry(
@@ -464,7 +487,7 @@ describe("wordsFromJmdict", () => {
       words: new Set(["make oneself at home"]),
       verbs: new Set(["serve", "hold", "make"]),
       phrases: new Set(["serve someone right", "hold one's horses"]),
-      frequency: new Map()
+      subtitles: new Map()
     })
     reader.add(jmdictEntry(30, "ざまあみろ", "ざまあみろ", ["serves you right!"], true, ["int", "exp"]))
     reader.add(jmdictEntry(31, "落ち着け", "おちつけ", ["hold your horses"], false, ["exp"]))
@@ -493,7 +516,7 @@ describe("wordsFromJmdict", () => {
       verbs: new Set(),
       // "on the" and "of a": fragments the phrase index lists too.
       phrases: new Set(["stone's throw", "on the", "of a"]),
-      frequency: new Map()
+      subtitles: new Map()
     })
     reader.add(
       jmdictEntry(
@@ -523,7 +546,7 @@ describe("wordsFromJmdict", () => {
 })
 
 describe("toEntries", () => {
-  const frequency = parseFrequency([
+  const subtitles = parseSubtitles([
     "eat 5000",
     "ate 3000",
     "team 4000",
@@ -537,7 +560,7 @@ describe("toEntries", () => {
       JSON.stringify({
         headword: "be",
         ipa: "/biː/",
-        familiarity: 5,
+        frequency: 5,
         senses: [{ pos: ["v"], glosses: ["～である", "いる、ある"] }]
       })
     ]),
@@ -557,24 +580,24 @@ describe("toEntries", () => {
         }
       ]
     },
-    frequency
+    subtitles
   })
 
   it("takes each word from the first source that has it, with the forms the others point at", () => {
-    const sources = new Map(merged.map((word) => [word.headword, word.source]))
-    expect(sources.get("be")).toBe("curated")
-    expect(sources.get("eat")).toBe("wiktionary")
-    expect(sources.get("team")).toBe("jmdict")
+    const tiers = new Map(merged.map((word) => [word.headword, word.tier]))
+    expect(tiers.get("be")).toBe("curated")
+    expect(tiers.get("eat")).toBe("wiktionary")
+    expect(tiers.get("team")).toBe("jmdict")
     expect(merged.find((word) => word.headword === "be")?.inflections.get("was")).toEqual(new Set(["past"]))
     expect(merged.find((word) => word.headword === "tire")?.inflections.has("tired")).toBe(true)
   })
 
-  it("prefers curated entries over wiktionary, inherits lower-tier variant spellings, and scales priority by familiarity and back-translations", () => {
+  it("prefers curated entries over wiktionary, inherits lower-tier variant spellings, and scales priority by frequency and back-translations", () => {
     const curated = parseCurated([
       JSON.stringify({
         headword: "kid",
         ipa: "/kɪd/",
-        familiarity: 5,
+        frequency: 5,
         inflections: [{ text: "kids", tags: ["plural", "third-person"] }],
         senses: [
           { pos: ["n"], misc: ["col"], glosses: ["子供", "若者"] },
@@ -585,26 +608,26 @@ describe("toEntries", () => {
       JSON.stringify({
         headword: "on thin ice",
         ipa: "/ɒn ˈθɪn ˈaɪs/",
-        familiarity: 5,
+        frequency: 5,
         spellings: ["skate on thin ice"],
         senses: [{ pos: ["exp"], misc: ["id"], glosses: ["薄氷を踏む", "危ない橋を渡る", "危険な状態にある"] }]
       }),
       JSON.stringify({
         headword: "keep it real",
         ipa: "/ˈkiːp ɪt ˈɹiːl/",
-        familiarity: 4,
+        frequency: 4,
         senses: [{ pos: ["v"], misc: ["col"], glosses: ["ありのままでいる", "本音で話す"] }]
       }),
       JSON.stringify({
         headword: "no cap",
         ipa: "/noʊ kæp/",
-        familiarity: 3,
+        frequency: 3,
         senses: [{ pos: ["int"], misc: ["sl"], glosses: ["マジで", "ガチで"] }]
       }),
       JSON.stringify({
         headword: "hither",
         ipa: "/ˈhɪðəɹ/",
-        familiarity: 1,
+        frequency: 1,
         senses: [{ pos: ["adv"], misc: ["arch"], glosses: ["こちらへ"] }]
       })
     ])
@@ -631,11 +654,11 @@ describe("toEntries", () => {
           { text: "sit on the fence", base: "on the fence", tags: [] }
         ]
       },
-      frequency
+      subtitles
     })
     const entries = toEntries(
       withCurated,
-      frequency,
+      subtitles,
       new Map(),
       new Map([
         ["kid", new Map([["子ヤギ", 99]])],
@@ -644,7 +667,7 @@ describe("toEntries", () => {
       ])
     )
     const kid = entries.find((e) => e.headword === "kid")
-    expect(kid?.source).toBe("curated")
+    expect(kid?.tier).toBe("curated")
     // Curated sense order stands even if backTranslations weights another sense higher.
     expect(kid?.senses.map((s) => s.glosses[0]?.text)).toEqual(["子供", "冗談を言う", "子ヤギ"])
 
@@ -691,9 +714,9 @@ describe("toEntries", () => {
         line({ word: "awkward", pos: "adj", senses: [{ glosses: ["不器用な。"] }], antonyms: [{ word: "handy" }] })
       ]),
       jmdict: { words: [] },
-      frequency
+      subtitles
     })
-    const entries = toEntries(placed, frequency, new Map())
+    const entries = toEntries(placed, subtitles, new Map())
     const eat = entries.find((entry) => entry.headword === "eat")
     expect(eat?.senses.map((sense) => sense.xrefs)).toEqual([[], ["dine"], ["bother"]])
     // An antonym can only be placed when there is one sense to place it on.
@@ -701,8 +724,43 @@ describe("toEntries", () => {
     expect(entries.find((entry) => entry.headword === "awkward")?.senses[0]?.antonyms).toEqual(["handy"])
   })
 
+  it("names each word's source by where its senses came from, and carries its frequency signals", () => {
+    const entries = toEntries(merged, subtitles, new Map())
+    const of = (headword: string) => entries.find((entry) => entry.headword === headword)
+    // The subtitle count is the word's and its inflections' (be + was), before any frequency floor.
+    expect(of("be")).toMatchObject({
+      source: "enwiktionary",
+      frequency: { everyday: true, spokenCount: 170000, score: 5 }
+    })
+    expect(of("eat")).toMatchObject({
+      source: "jawiktionary",
+      frequency: { everyday: true, spokenCount: 8000, score: null }
+    })
+    expect(of("team")).toMatchObject({ source: "jmdict", frequency: { spokenCount: 4000 } })
+    const approved = toEntries(
+      mergeSources({
+        curated: {
+          words: [
+            {
+              ...parseCurated([
+                JSON.stringify({ headword: "rizz", ipa: null, senses: [{ pos: ["n"], glosses: ["魅力"] }] })
+              ]).words[0]!,
+              source: "kotori"
+            }
+          ]
+        },
+        wiktionary: { words: [], formsOf: [] },
+        jmdict: { words: [] },
+        subtitles: new Map()
+      }),
+      new Map(),
+      new Map()
+    )
+    expect(approved[0]).toMatchObject({ source: "kotori", frequency: { everyday: false, spokenCount: null } })
+  })
+
   it("ranks words by how often they and their inflections are used, and keeps ids stable", () => {
-    const entries = toEntries(merged, frequency, new Map([["team", 100000007]]))
+    const entries = toEntries(merged, subtitles, new Map([["team", 100000007]]))
     expect(entries.slice(0, 3).map((entry) => [entry.headword, entry.id, entry.priority])).toEqual([
       ["be", 100000008, Math.round(20 * Math.log10(170000))],
       ["eat", 100000009, Math.round(20 * Math.log10(8000))],
@@ -721,7 +779,7 @@ describe("toEntries", () => {
   })
 
   it("lists rare, dated and obsolete senses last", () => {
-    const sad = toEntries(merged, frequency, new Map()).find((entry) => entry.headword === "sad")
+    const sad = toEntries(merged, subtitles, new Map()).find((entry) => entry.headword === "sad")
     expect(sad?.senses.map((sense) => [sense.glosses[0]?.text, sense.misc])).toEqual([
       ["悲しい", []],
       ["満足した", ["obs"]]
@@ -729,7 +787,7 @@ describe("toEntries", () => {
   })
 
   it("marks a word common only when its count can be trusted", () => {
-    const counts = parseFrequency(["kim 5000", "website 800"])
+    const counts = parseSubtitles(["kim 5000", "website 800"])
     const jmdictOnly = (headword: string, mayBeName: boolean) => ({
       headword,
       ipa: null,
@@ -742,7 +800,7 @@ describe("toEntries", () => {
       mergeSources({
         wiktionary: { words: [], formsOf: [] },
         jmdict: { words: [jmdictOnly("kim", true), jmdictOnly("website", false)] },
-        frequency: counts
+        subtitles: counts
       }),
       counts,
       new Map()
@@ -753,7 +811,7 @@ describe("toEntries", () => {
     ])
   })
 
-  it("gives phrases the familiarity file rates a usage floor, as curated ratings get", () => {
+  it("gives phrases the frequency file rates a usage floor, as curated ratings get", () => {
     const phrase = (headword: string): Word => ({
       headword,
       ipa: null,
@@ -766,7 +824,7 @@ describe("toEntries", () => {
       mergeSources({
         wiktionary: { words: [], formsOf: [] },
         jmdict: { words: [phrase("it is what it is"), phrase("stone's throw"), phrase("unrated phrase")] },
-        frequency: new Map()
+        subtitles: new Map()
       }),
       new Map(),
       new Map(),
@@ -856,7 +914,7 @@ describe("jmdictReader backTranslations", () => {
       words: new Set(["smart", "kid"]),
       verbs: new Set(),
       phrases: new Set(),
-      frequency: new Map()
+      subtitles: new Map()
     })
     reader.add(entry(1, "賢い", ["wise", "clever", "smart"]))
     reader.add(entry(2, "粋", ["chic", "stylish", "refined", "elegant", "smart"]))
@@ -874,7 +932,7 @@ describe("jmdictReader backTranslations", () => {
       words: new Set(["on thin ice"]),
       verbs: new Set(),
       phrases: new Set(["on thin ice", "cut corners"]),
-      frequency: new Map()
+      subtitles: new Map()
     })
     reader.add(entry(6, "薄氷を踏む", ["to tread on thin ice"], false, 0, ["exp", "v5m"], ["id"]))
     reader.add(entry(7, "手を抜く", ["to cut corners"], false, 0, ["exp", "v5k"], ["id"]))
