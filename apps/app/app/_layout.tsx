@@ -26,12 +26,14 @@ import { iconFonts } from "../src/components/Icon.tsx"
 import { Screen } from "../src/components/Screen.tsx"
 import { MascotMessage } from "../src/components/States.tsx"
 import { isUnguardedRoute } from "../src/lib/legal.ts"
+import { sentryRedaction } from "../src/lib/sentryRedaction.ts"
 import { SessionProvider, useSession } from "../src/session/SessionProvider.tsx"
 import { ThemeProvider, useTheme } from "../src/theme/ThemeProvider.tsx"
 
 // Errors and traces go to Sentry (project `sparkwright/kotori-app`). The DSN only allows sending
 // events, and every shipped bundle contains it anyway. Development builds stay quiet unless
-// EXPO_PUBLIC_SENTRY_IN_DEV=on.
+// EXPO_PUBLIC_SENTRY_IN_DEV=on. On the web, `index.ts` has already taken Google's answer off the
+// address bar (`src/auth/googleCapture.web.ts`), so Sentry never records a navigation from a URL that carried it.
 Sentry.init({
   dsn: "https://545a5bb03825fe26735e49c85aa3fbff@o4511310091124736.ingest.us.sentry.io/4512368599564288",
   enabled: !__DEV__ || process.env.EXPO_PUBLIC_SENTRY_IN_DEV === "on",
@@ -43,7 +45,12 @@ Sentry.init({
   replaysOnErrorSampleRate: 1,
   replaysSessionSampleRate: 0,
   integrations: [Sentry.mobileReplayIntegration()],
-  enableNativeFramesTracking: !isRunningInExpoGo()
+  enableNativeFramesTracking: !isRunningInExpoGo(),
+  // Blanks Google sign-in's return parameters in any URL Sentry records.
+  beforeBreadcrumb: sentryRedaction.beforeBreadcrumb,
+  beforeSend: sentryRedaction.beforeSend,
+  beforeSendTransaction: sentryRedaction.beforeSendTransaction,
+  beforeSendSpan: sentryRedaction.beforeSendSpan
 })
 
 SplashScreen.preventAutoHideAsync().catch(() => {})
