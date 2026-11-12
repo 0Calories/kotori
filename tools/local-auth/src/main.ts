@@ -5,6 +5,7 @@ import { emailOTP } from "better-auth/plugins/email-otp"
 import { jwt } from "better-auth/plugins/jwt"
 import { createServer } from "node:http"
 import pg from "pg"
+import { isLocalHost, remoteDatabaseHost } from "./localHost.ts"
 import { sessionVerifier } from "./sessionVerifier.ts"
 
 /**
@@ -16,7 +17,8 @@ import { sessionVerifier } from "./sessionVerifier.ts"
  * verifier handoff (see `sessionVerifier`). Kotori's `Auth` layer talks to it exactly
  * as it does to Managed Auth, at `NEON_AUTH_BASE_URL`.
  *
- * Development only: it refuses to start with NODE_ENV=production, and it is not a
+ * Development only: it refuses to start with NODE_ENV=production or against a database on
+ * another machine (it creates the `neon_auth` schema and its tables there), and it is not a
  * dependency of the API or the worker, so it never reaches the deployed image.
  */
 
@@ -53,14 +55,21 @@ const configured = process.env["NEON_AUTH_BASE_URL"]
 if (configured === undefined)
   fail("NEON_AUTH_BASE_URL is not set. Copy .env.example to .env (or run `pnpm dev:setup`).")
 const base = new URL(configured.replace(/\/$/, ""))
-if (base.protocol !== "http:" || !["localhost", "127.0.0.1"].includes(base.hostname)) {
+if (base.protocol !== "http:" || !isLocalHost(base.hostname)) {
   // A Neon branch (`neon checkout`) is in use instead; nothing to stand in for.
   console.log(`[local-auth] NEON_AUTH_BASE_URL points at ${base.host}, so the local auth server isn't needed.`)
   process.exit(0)
 }
 
+const databaseUrl = process.env["DATABASE_URL"] ?? "postgres://kotori:kotori@localhost:5432/kotori"
+const remoteDatabase = remoteDatabaseHost(databaseUrl)
+if (remoteDatabase !== undefined) {
+  fail(`DATABASE_URL points at ${remoteDatabase}, not this machine, and the local auth server only runs against a local database.
+  Point DATABASE_URL at the local one (the line in .env.example), or NEON_AUTH_BASE_URL at the Neon branch that database belongs to.`)
+}
+
 const pool = new pg.Pool({
-  connectionString: process.env["DATABASE_URL"] ?? "postgres://kotori:kotori@localhost:5432/kotori",
+  connectionString: databaseUrl,
   options: "-c search_path=neon_auth"
 })
 
@@ -136,7 +145,7 @@ await runMigrations()
 
 const handler = toNodeHandler(betterAuth(options))
 const server = createServer((request, response) => void handler(request, response))
-server.listen(Number(base.port || 80), base.hostname, () => {
+server.listen(Number(base.port || 80), base.hostname.replace(/^\[(.*)\]$/, "$1"), () => {
   console.log(`[local-auth] Managed Auth stand-in at ${base.href}`)
 })
 
