@@ -1,17 +1,23 @@
 import { View } from "react-native"
 import Animated, { FadeIn } from "react-native-reanimated"
 import { useTheme } from "../theme/ThemeProvider.tsx"
+import { Button } from "./Button.tsx"
 import { Card } from "./Card.tsx"
 import { Icon } from "./Icon.tsx"
 import { Text } from "./Text.tsx"
 
-/** A one-line message under a form: what went wrong, or that something worked. */
+/**
+ * A one-line message under a form, or above content that is still showing: what went wrong, or
+ * that something worked. `action` adds a small button at the end, such as a way to try again.
+ */
 export const Notice = ({
   message,
-  tone = "accent"
+  tone = "accent",
+  action
 }: {
   readonly message: string | null
   readonly tone?: "accent" | "primary"
+  readonly action?: { readonly label: string; readonly onPress: () => void }
 }) => {
   const { color } = useTheme()
   if (message === null) return null
@@ -27,6 +33,9 @@ export const Notice = ({
           <Text variant="small" style={{ flex: 1 }}>
             {message}
           </Text>
+          {action ? (
+            <Button label={action.label} size="sm" variant="ghost" icon="refresh" onPress={action.onPress} />
+          ) : null}
         </View>
       </Card>
     </Animated.View>

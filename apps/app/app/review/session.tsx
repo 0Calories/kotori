@@ -15,6 +15,7 @@ import { Chip, type Tone, useTone } from "../../src/components/Chip.tsx"
 import { Furigana } from "../../src/components/Furigana.tsx"
 import { Headword } from "../../src/components/Headword.tsx"
 import { Mascot } from "../../src/components/Mascot.tsx"
+import { Notice } from "../../src/components/Notice.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
@@ -24,6 +25,7 @@ import {
   reduceReviewSession,
   reviewKeyAction,
   reviewView,
+  unansweredItems,
   waitRefetchDelay
 } from "../../src/lib/reviewSession.ts"
 import { registerTone } from "../../src/lib/tones.ts"
@@ -245,8 +247,11 @@ export default function ReviewSession() {
   // reducer only drops the second locally, so this keeps it from reaching the server too.
   const sending = useRef(new Set<string>())
   const [now, setNow] = useState(Date.now())
+  // When the server recorded each answer this session. A failed refetch keeps the old due notes,
+  // so the ones answered since are left out until a fetch succeeds.
+  const [savedAt, setSavedAt] = useState<ReadonlyMap<string, number>>(new Map())
 
-  const dueItems = dueNotes.data?.items ?? []
+  const dueItems = unansweredItems(dueNotes.data?.items ?? [], savedAt, dueNotes.dataUpdatedAt)
   const { current, revealed, leech, remaining } = reviewView(state, dueItems)
   // Record the opening note before paint. The reducer pins each note after that, so a
   // refetch that gathers a new head can't replace whichever one is already showing.
@@ -310,8 +315,10 @@ export default function ReviewSession() {
         return
       }
       sending.current.delete(id)
-      // Recorded. A failed refetch just leaves the next one to the wait or retry.
-      await dueNotes.refetch().catch(() => {})
+      setSavedAt((saved) => new Map(saved).set(id, Date.now()))
+      // Recorded. refetch() resolves even when the fetch fails: the due notes keep their last data
+      // and the query is marked as errored, so the pinned note stays and a notice offers a retry.
+      await dueNotes.refetch()
       dispatch({ type: "answerSaved", noteId: id, leech: result.leech })
     },
     [current, revealed, answer, dueNotes, dueItems]
@@ -337,7 +344,9 @@ export default function ReviewSession() {
   }))
 
   const body = (() => {
-    if (dueNotes.isError) return <ErrorState error={dueNotes.error} onRetry={() => dueNotes.refetch()} />
+    // Only a failed first load has nothing to show. After a failed refetch the pinned note and its
+    // buttons keep working on the due notes as last fetched, with the notice above.
+    if (dueNotes.isLoadingError) return <ErrorState error={dueNotes.error} onRetry={() => dueNotes.refetch()} />
     if (!dueNotes.data) return <MascotMessage mood="thinking" />
     if (current === undefined) {
       if (nextDue !== null && reviewed > 0) {
@@ -426,6 +435,13 @@ export default function ReviewSession() {
           ) : null}
           <Mascot size={36} mood={revealed ? "happy" : "neutral"} />
         </View>
+
+        {dueNotes.isRefetchError ? (
+          <Notice
+            message={t.common.notRefreshed}
+            action={{ label: t.common.retry, onPress: () => void dueNotes.refetch() }}
+          />
+        ) : null}
 
         {body}
 
