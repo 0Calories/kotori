@@ -3,6 +3,7 @@ import { getMigrations } from "better-auth/db/migration"
 import { toNodeHandler } from "better-auth/node"
 import { emailOTP } from "better-auth/plugins/email-otp"
 import { jwt } from "better-auth/plugins/jwt"
+import { statSync } from "node:fs"
 import { createServer } from "node:http"
 import pg from "pg"
 import { isLocalHost, remoteDatabaseHost } from "./localHost.ts"
@@ -23,9 +24,14 @@ import { sessionVerifier } from "./sessionVerifier.ts"
  */
 
 // The repository's `.env.local` (the Neon CLI's) and then `.env`; variables already set win, then the first file.
+// Named pipes (1Password Environments) don't support concurrent readers and Nx already loaded them into `process.env`.
+const nxLoadedDotEnv =
+  process.env["NX_TASK_TARGET_PROJECT"] !== undefined && process.env["NX_LOAD_DOT_ENV_FILES"] !== "false"
 for (const file of [".env.local", ".env"]) {
   try {
-    process.loadEnvFile(new URL(`../../../${file}`, import.meta.url))
+    const url = new URL(`../../../${file}`, import.meta.url)
+    if (nxLoadedDotEnv && statSync(url).isFIFO()) continue
+    process.loadEnvFile(url)
   } catch {
     // Absent: nothing to load.
   }
