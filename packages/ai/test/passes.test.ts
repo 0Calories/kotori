@@ -20,6 +20,7 @@ import {
   precision,
   recall,
   tally,
+  wordCautionRules,
   type WordToJudge
 } from "../src/index.ts"
 
@@ -120,8 +121,7 @@ describe("checkCautions", () => {
         caution({ text: "  " }),
         caution({ about: "結構" })
       ],
-      kekkou,
-      "ja"
+      wordCautionRules(kekkou, "ja")
     )
     expect(cautions).toEqual([
       { kind: "set_phrase", text: "結構です usually declines.", sense: 1, about: "大丈夫" },
@@ -133,8 +133,7 @@ describe("checkCautions", () => {
   it("keeps at most three", () => {
     const { cautions, dropped } = checkCautions(
       [1, 2, 3, 4].map(() => caution({})),
-      kekkou,
-      "ja"
+      wordCautionRules(kekkou, "ja")
     )
     expect(cautions).toHaveLength(3)
     expect(dropped.map((drop) => drop.reason)).toEqual(["cap"])

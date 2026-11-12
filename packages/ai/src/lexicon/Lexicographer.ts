@@ -1,5 +1,6 @@
 import type { Language } from "@kotori/contracts"
 import { Context, Effect, Layer, Schema } from "effect"
+import { CautionOutput } from "../judge/cautionRules.ts"
 import { Claude, type ClaudeError } from "../providers/Claude.ts"
 import { CAUTION_GUIDE, LABELS_SAY, NOT_CAUTIONS } from "./cautionGuide.ts"
 
@@ -27,14 +28,6 @@ const DraftSenseOutput = Schema.Struct({
   usagePatterns: Schema.Array(Schema.String)
 })
 
-const DraftCautionOutput = Schema.Struct({
-  kind: Schema.String,
-  text: Schema.String,
-  /** The sense it is about, numbered from 1 as listed; null for the whole word. */
-  sense: Schema.NullOr(Schema.Int),
-  about: Schema.NullOr(Schema.String)
-})
-
 export const DraftOutput = Schema.Struct({
   /** What the query is: a real expression to draft, one of the candidates, or not real. */
   verdict: Schema.Literals(["entry", "link", "reject"]),
@@ -53,7 +46,7 @@ export const DraftOutput = Schema.Struct({
       spellings: Schema.Array(Schema.String),
       frequency: Schema.Int,
       senses: Schema.Array(DraftSenseOutput),
-      cautions: Schema.Array(DraftCautionOutput)
+      cautions: Schema.Array(CautionOutput)
     })
   )
 })

@@ -87,6 +87,32 @@ describe("checkDraft", () => {
     // "set_phrase" on sense 2: that sense had no gloss and is gone, so the caution goes too.
   })
 
+  it("holds cautions to the dictionary's rules: no sense named by number, no about that repeats the headword", () => {
+    const caution = (text: string, sense: number | null = null, about: string | null = null) => ({
+      kind: "collocation",
+      text,
+      sense,
+      about
+    })
+    const draft = checkDraft(
+      output({
+        cautions: [
+          caution("In sense 3, it is said of food."),
+          caution("3番目の意味では食べ物について言います。", 3),
+          caution("語義1は食べ物について。"),
+          caution("食べ物について言います。", 3, " bussin "),
+          caution("「おいしい」の意味では食べ物に。", 1, "fire")
+        ]
+      }),
+      "en"
+    )!
+    assert.deepStrictEqual(draft.cautions, [
+      // Sense 3 as Claude listed it is the second kept sense, after the glossless sense 2 went.
+      { kind: "collocation", text: "食べ物について言います。", sense: 1, about: null },
+      { kind: "collocation", text: "「おいしい」の意味では食べ物に。", sense: 0, about: "fire" }
+    ])
+  })
+
   it("keeps frequency on its 1–5 scale, and has no draft when no sense has a gloss or no headword", () => {
     assert.strictEqual(checkDraft(output({ frequency: 9 }), "en")?.frequency, 5)
     assert.strictEqual(checkDraft(output({ frequency: 0 }), "en")?.frequency, 1)
