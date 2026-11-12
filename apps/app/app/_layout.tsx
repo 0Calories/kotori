@@ -20,6 +20,7 @@ import { useEffect } from "react"
 import { Platform } from "react-native"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
 import { SafeAreaProvider } from "react-native-safe-area-context"
+import { retryOffline } from "../src/api/errors.ts"
 import { Button } from "../src/components/Button.tsx"
 import { iconFonts } from "../src/components/Icon.tsx"
 import { Screen } from "../src/components/Screen.tsx"
@@ -54,7 +55,7 @@ setAudioModeAsync({ playsInSilentMode: true }).catch(() => {})
 const swap = (uri: number) => ({ uri, display: FontDisplay.SWAP })
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 } }
+  defaultOptions: { queries: { retry: retryOffline, refetchOnWindowFocus: false, staleTime: 30_000 } }
 })
 
 // expo-status-bar icon color. A binding, so oxlint does not treat the attribute as a view style.
@@ -73,10 +74,15 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
 
   if (!ready) return null
 
-  if (status === "offline" && !unguarded) {
+  if ((status === "offline" || status === "unavailable") && !unguarded) {
     return (
       <Screen bottomInset={40}>
-        <MascotMessage mood="sleepy" title={t.appName} body={t.common.offline} size={140}>
+        <MascotMessage
+          mood={status === "offline" ? "sleepy" : "oops"}
+          title={t.appName}
+          body={status === "offline" ? t.common.offline : t.common.errors.trouble}
+          size={140}
+        >
           <Button label={t.common.retry} icon="refresh" onPress={retry} />
         </MascotMessage>
       </Screen>
