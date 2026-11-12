@@ -30,16 +30,12 @@ export const AudioButton = ({
   url,
   speak,
   size = 44,
-  label,
-  buttonVariant = "primary",
-  buttonSize = "md"
+  label
 }: {
   readonly url?: string | null
   readonly speak?: { readonly text: string; readonly language: Language }
   readonly size?: number
   readonly label?: string
-  readonly buttonVariant?: "primary" | "secondary"
-  readonly buttonSize?: "sm" | "md"
 }) => {
   const t = useT()
   const [playing, setPlaying] = useState(false)
@@ -66,16 +62,7 @@ export const AudioButton = ({
   }
 
   if (label) {
-    return (
-      <Button
-        variant={buttonVariant}
-        size={buttonSize}
-        label={label}
-        icon="play_arrow"
-        loading={synth.isPending}
-        onPress={onPress}
-      />
-    )
+    return <Button label={label} icon="play_arrow" loading={synth.isPending} onPress={onPress} />
   }
 
   return (

@@ -1,6 +1,6 @@
 import type { EntrySummary, Language } from "@kotori/contracts"
 import { normalizeAsk } from "@kotori/language"
-import { useLocalSearchParams, useRouter } from "expo-router"
+import { useRouter } from "expo-router"
 import { useEffect, useRef, useState } from "react"
 import { type TextInput, useWindowDimensions, View } from "react-native"
 import Animated, { FadeIn, FadeInDown, LinearTransition } from "react-native-reanimated"
@@ -21,7 +21,6 @@ import { ErrorState } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { strings } from "../../src/i18n/strings.ts"
 import { useSearchMascotPhase } from "../../src/lib/searchMascot.ts"
-import { ChipVariantProvider, parseChipVariant } from "../../src/proto/chipVariant.tsx"
 import { usePreference } from "../../src/session/preferences.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
@@ -80,8 +79,6 @@ export default function LookUpScreen() {
   const theme = useTheme()
   const { t, profile } = useSession()
   const router = useRouter()
-  const { variant: rawVariant } = useLocalSearchParams<{ variant?: string | string[] }>()
-  const variant = parseChipVariant(rawVariant)
   const insets = useSafeAreaInsets()
   const { width } = useWindowDimensions()
   const desktop = width > theme.maxWidth
@@ -124,179 +121,177 @@ export default function LookUpScreen() {
   }
 
   return (
-    <ChipVariantProvider variant={variant}>
-      <Screen>
+    <Screen>
+      <View
+        style={{
+          paddingBottom: 22,
+          backgroundColor: theme.color.primaryTint,
+          overflow: "hidden",
+          ...(desktop
+            ? {
+                marginTop: theme.space.md,
+                borderRadius: theme.radius.xl
+              }
+            : {
+                marginHorizontal: -theme.space.lg,
+                marginTop: -(insets.top + theme.space.sm),
+                paddingTop: insets.top + theme.space.md,
+                borderBottomLeftRadius: 40,
+                borderBottomRightRadius: 40
+              })
+        }}
+      >
+        <Snow />
         <View
           style={{
-            paddingBottom: 22,
-            backgroundColor: theme.color.primaryTint,
-            overflow: "hidden",
-            ...(desktop
-              ? {
-                  marginTop: theme.space.md,
-                  borderRadius: theme.radius.xl
-                }
-              : {
-                  marginHorizontal: -theme.space.lg,
-                  marginTop: -(insets.top + theme.space.sm),
-                  paddingTop: insets.top + theme.space.md,
-                  borderBottomLeftRadius: 40,
-                  borderBottomRightRadius: 40
-                })
+            height: 46,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingLeft: 22,
+            paddingRight: 16
           }}
         >
-          <Snow />
-          <View
-            style={{
-              height: 46,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              paddingLeft: 22,
-              paddingRight: 16
-            }}
+          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 7 }} accessibilityRole="header">
+            <Text variant="title" size={25} style={{ letterSpacing: -1.1, lineHeight: 30 }}>
+              kotori
+            </Text>
+            <Text mincho size={14} color="textMuted" style={{ lineHeight: 18 }}>
+              言鳥
+            </Text>
+          </View>
+          <PressableScale
+            haptic
+            onPress={() => router.push("/settings")}
+            accessibilityRole="button"
+            accessibilityLabel={`${t.dictionary.language}: ${LANGUAGE_NAMES[native].long} → ${LANGUAGE_NAMES[target].long}`}
+            style={[pill, { gap: 5, paddingHorizontal: 14 }]}
           >
-            <View style={{ flexDirection: "row", alignItems: "baseline", gap: 7 }} accessibilityRole="header">
-              <Text variant="title" size={25} style={{ letterSpacing: -1.1, lineHeight: 30 }}>
-                kotori
-              </Text>
-              <Text mincho size={14} color="textMuted" style={{ lineHeight: 18 }}>
-                言鳥
-              </Text>
-            </View>
-            <PressableScale
-              haptic
-              onPress={() => router.push("/settings")}
-              accessibilityRole="button"
-              accessibilityLabel={`${t.dictionary.language}: ${LANGUAGE_NAMES[native].long} → ${LANGUAGE_NAMES[target].long}`}
-              style={[pill, { gap: 5, paddingHorizontal: 14 }]}
-            >
-              <Text variant="caption" size={13} weight="semibold">
-                {LANGUAGE_NAMES[native].short}
-              </Text>
-              <Icon name="arrow_right_alt" size={17} color={theme.color.text} />
-              <Text variant="caption" size={13} weight="semibold">
-                {LANGUAGE_NAMES[target].long}
-              </Text>
-            </PressableScale>
-          </View>
-
-          <View style={{ paddingHorizontal: 22, paddingTop: 16, gap: 10 }}>
-            <Text jp={target === "ja"} variant="caption" size={14} color="textMuted">
-              {greeting(target, profile?.displayName ?? null)}
+            <Text variant="caption" size={13} weight="semibold">
+              {LANGUAGE_NAMES[native].short}
             </Text>
-            <Text variant="display" accessibilityRole="header" style={{ maxWidth: 260 }}>
-              {t.dictionary.title}
+            <Icon name="arrow_right_alt" size={17} color={theme.color.text} />
+            <Text variant="caption" size={13} weight="semibold">
+              {LANGUAGE_NAMES[target].long}
             </Text>
-          </View>
-
-          <View style={{ marginTop: 24, marginHorizontal: theme.space.lg }}>
-            <SearchField ref={input} value={query} onChangeText={setQuery} placeholder={t.dictionary.placeholder} />
-            <View pointerEvents="none" style={{ position: "absolute", right: 62, top: -58 }}>
-              <Mascot size={70} mood={mascot} />
-            </View>
-          </View>
-
-          {searching || history.length === 0 ? null : (
-            <>
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  paddingHorizontal: 22,
-                  paddingTop: 16
-                }}
-              >
-                <Text variant="caption" color="textMuted">
-                  {t.dictionary.recent}
-                </Text>
-                <PressableScale onPress={() => setRecent([])} accessibilityRole="button" hitSlop={12}>
-                  <Text variant="caption" size={13} color="textMuted">
-                    {t.dictionary.clearRecent}
-                  </Text>
-                </PressableScale>
-              </View>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16, paddingTop: 10 }}>
-                {history.map((term) => (
-                  <Animated.View
-                    key={term}
-                    entering={FadeIn.duration(180)}
-                    layout={LinearTransition.duration(180)}
-                    style={[pill, { paddingLeft: 12, paddingRight: 4, maxWidth: "100%" }]}
-                  >
-                    <PressableScale
-                      onPress={() => setQuery(term)}
-                      accessibilityRole="button"
-                      accessibilityLabel={term}
-                      style={{ flexDirection: "row", alignItems: "center", gap: 7, flexShrink: 1, height: "100%" }}
-                    >
-                      <View style={{ opacity: 0.85 }}>
-                        <Icon name="search" size={18} color={theme.color.text} />
-                      </View>
-                      <Text variant="caption" size={14} numberOfLines={1} style={{ flexShrink: 1, maxWidth: 180 }}>
-                        {term}
-                      </Text>
-                    </PressableScale>
-                    <PressableScale
-                      onPress={() => forget(term)}
-                      accessibilityRole="button"
-                      accessibilityLabel={t.dictionary.removeRecent(term)}
-                      hitSlop={6}
-                      style={{ width: 30, height: 30, alignItems: "center", justifyContent: "center" }}
-                    >
-                      <Icon name="close" size={16} color={theme.color.textMuted} />
-                    </PressableScale>
-                  </Animated.View>
-                ))}
-              </View>
-            </>
-          )}
+          </PressableScale>
         </View>
 
-        {searching ? (
-          <View style={{ gap: theme.space.md }}>
-            {results?.mode === "romaji" && results.reading ? (
-              <Text variant="caption" color="textMuted" style={{ paddingHorizontal: 6 }}>
-                {t.dictionary.romajiNotice(results.reading)}
-              </Text>
-            ) : null}
-            {search.isError ? <ErrorState error={search.error} onRetry={() => search.refetch()} /> : null}
-            {current !== null && current.match !== "exact" ? (
-              // Keyed by the question, so each query gets its own Kotori; an ask in flight lives on in the cache.
-              <AskKotori
-                key={`${target}:${normalizeAsk(debounced, target)}`}
-                query={debounced}
-                language={target}
-                match={current.match}
-                onOpen={open}
-                onAnswered={() => remember(debounced)}
-              />
-            ) : null}
-            {current !== null && current.match === "weak" && current.entries.length > 0 ? (
-              // Only lookalikes: said plainly, so a learner doesn't take "bus" for "bussin".
-              <Text variant="caption" color="textMuted" style={{ paddingHorizontal: 6 }}>
-                {t.dictionary.similarResults}
-              </Text>
-            ) : null}
-            {results && results.entries.length > 0 ? (
-              <Card padded={false} style={{ paddingHorizontal: theme.space.lg, paddingVertical: 2 }}>
-                {results.entries.map((entry, index) => (
-                  <Animated.View
-                    key={entry.id}
-                    entering={FadeIn.delay(Math.min(index, 8) * 25).duration(200)}
-                    layout={LinearTransition.duration(180)}
-                  >
-                    <ResultRow entry={entry} first={index === 0} onPress={() => open(entry)} />
-                  </Animated.View>
-                ))}
-              </Card>
-            ) : null}
+        <View style={{ paddingHorizontal: 22, paddingTop: 16, gap: 10 }}>
+          <Text jp={target === "ja"} variant="caption" size={14} color="textMuted">
+            {greeting(target, profile?.displayName ?? null)}
+          </Text>
+          <Text variant="display" accessibilityRole="header" style={{ maxWidth: 260 }}>
+            {t.dictionary.title}
+          </Text>
+        </View>
+
+        <View style={{ marginTop: 24, marginHorizontal: theme.space.lg }}>
+          <SearchField ref={input} value={query} onChangeText={setQuery} placeholder={t.dictionary.placeholder} />
+          <View pointerEvents="none" style={{ position: "absolute", right: 62, top: -58 }}>
+            <Mascot size={70} mood={mascot} />
           </View>
-        ) : (
-          <ReviewTeaser />
+        </View>
+
+        {searching || history.length === 0 ? null : (
+          <>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingHorizontal: 22,
+                paddingTop: 16
+              }}
+            >
+              <Text variant="caption" color="textMuted">
+                {t.dictionary.recent}
+              </Text>
+              <PressableScale onPress={() => setRecent([])} accessibilityRole="button" hitSlop={12}>
+                <Text variant="caption" size={13} color="textMuted">
+                  {t.dictionary.clearRecent}
+                </Text>
+              </PressableScale>
+            </View>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16, paddingTop: 10 }}>
+              {history.map((term) => (
+                <Animated.View
+                  key={term}
+                  entering={FadeIn.duration(180)}
+                  layout={LinearTransition.duration(180)}
+                  style={[pill, { paddingLeft: 12, paddingRight: 4, maxWidth: "100%" }]}
+                >
+                  <PressableScale
+                    onPress={() => setQuery(term)}
+                    accessibilityRole="button"
+                    accessibilityLabel={term}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 7, flexShrink: 1, height: "100%" }}
+                  >
+                    <View style={{ opacity: 0.85 }}>
+                      <Icon name="search" size={18} color={theme.color.text} />
+                    </View>
+                    <Text variant="caption" size={14} numberOfLines={1} style={{ flexShrink: 1, maxWidth: 180 }}>
+                      {term}
+                    </Text>
+                  </PressableScale>
+                  <PressableScale
+                    onPress={() => forget(term)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t.dictionary.removeRecent(term)}
+                    hitSlop={6}
+                    style={{ width: 30, height: 30, alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Icon name="close" size={16} color={theme.color.textMuted} />
+                  </PressableScale>
+                </Animated.View>
+              ))}
+            </View>
+          </>
         )}
-      </Screen>
-    </ChipVariantProvider>
+      </View>
+
+      {searching ? (
+        <View style={{ gap: theme.space.md }}>
+          {results?.mode === "romaji" && results.reading ? (
+            <Text variant="caption" color="textMuted" style={{ paddingHorizontal: 6 }}>
+              {t.dictionary.romajiNotice(results.reading)}
+            </Text>
+          ) : null}
+          {search.isError ? <ErrorState error={search.error} onRetry={() => search.refetch()} /> : null}
+          {current !== null && current.match !== "exact" ? (
+            // Keyed by the question, so each query gets its own Kotori; an ask in flight lives on in the cache.
+            <AskKotori
+              key={`${target}:${normalizeAsk(debounced, target)}`}
+              query={debounced}
+              language={target}
+              match={current.match}
+              onOpen={open}
+              onAnswered={() => remember(debounced)}
+            />
+          ) : null}
+          {current !== null && current.match === "weak" && current.entries.length > 0 ? (
+            // Only lookalikes: said plainly, so a learner doesn't take "bus" for "bussin".
+            <Text variant="caption" color="textMuted" style={{ paddingHorizontal: 6 }}>
+              {t.dictionary.similarResults}
+            </Text>
+          ) : null}
+          {results && results.entries.length > 0 ? (
+            <Card padded={false} style={{ paddingHorizontal: theme.space.lg, paddingVertical: 2 }}>
+              {results.entries.map((entry, index) => (
+                <Animated.View
+                  key={entry.id}
+                  entering={FadeIn.delay(Math.min(index, 8) * 25).duration(200)}
+                  layout={LinearTransition.duration(180)}
+                >
+                  <ResultRow entry={entry} first={index === 0} onPress={() => open(entry)} />
+                </Animated.View>
+              ))}
+            </Card>
+          ) : null}
+        </View>
+      ) : (
+        <ReviewTeaser />
+      )}
+    </Screen>
   )
 }

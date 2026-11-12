@@ -4,7 +4,7 @@ import { defaultTheme, type ThemeName, themes } from "./tokens.ts"
 
 const ThemeContext = createContext(themes[defaultTheme])
 
-// PROTOTYPE: in-memory palette override so `/proto/chips` re-themes `TooltipProvider` too without touching storage.
+// PROTOTYPE: in-memory palette override so `/proto/entry` re-themes `TooltipProvider` too without touching storage.
 let devThemeOverride: ThemeName | null = null
 const devThemeListeners = new Set<() => void>()
 

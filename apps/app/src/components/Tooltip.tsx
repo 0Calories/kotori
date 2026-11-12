@@ -61,7 +61,8 @@ const Bubble = ({ tip, layer }: { readonly tip: Tip; readonly layer: Box }) => {
   const { color, shadow } = useTheme()
   const t = useT()
   const insets = useSafeAreaInsets()
-  const kotoriNote = tip.note?.startsWith("✦") ? tip.note.replace(/^✦\s*/, "") : null
+  // A note marked ✦ says Kotori's AI added the fact: the "Kotori's Notes · AI" lockup says it for it.
+  const kotoriNote = tip.note?.startsWith("✦") ?? false
   // The size belongs to the tooltip it was measured for: the next one hides until it is measured too.
   const [size, setSize] = useState<(Size & { readonly id: string }) | null>(null)
   const measured = size !== null && size.id === tip.id
@@ -111,20 +112,16 @@ const Bubble = ({ tip, layer }: { readonly tip: Tip; readonly layer: Box }) => {
           <Text variant="small" color="onPrimaryDark" style={{ lineHeight: 18 }}>
             {tip.text}
           </Text>
-          {kotoriNote !== null ? (
+          {kotoriNote ? (
             <View
               style={{
-                marginTop: 7,
-                paddingTop: 7,
+                marginTop: 8,
+                paddingTop: 8,
                 borderTopWidth: 1,
-                borderTopColor: "rgba(255, 255, 255, 0.12)",
-                gap: 2
+                borderTopColor: "rgba(255, 255, 255, 0.12)"
               }}
             >
               <KotoriNotesBadge title={t.entry.sourceKotori} tone="dark" compact />
-              <Text variant="caption" color="onPrimaryDark" style={{ opacity: 0.72, fontSize: 11.5, lineHeight: 15.5 }}>
-                {kotoriNote}
-              </Text>
             </View>
           ) : tip.note ? (
             <Text variant="caption" color="onPrimaryDark" style={{ marginTop: 5, opacity: 0.72 }}>

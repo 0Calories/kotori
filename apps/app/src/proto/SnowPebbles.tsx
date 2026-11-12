@@ -1,6 +1,9 @@
+// PROTOTYPE: the entry page's chips (Round 2's design, kept for the Perch page): soft-stone grammar
+// keycaps, a separator, then Snow Pebbles, each led by an emblem (a frequency meter, Kotori's face
+// with an `AI` cap for what Kotori's AI added, a severity mark) and explained in a tooltip.
 import type { LabelSeverity } from "@kotori/contracts"
-import { Platform, type StyleProp, View, type ViewStyle } from "react-native"
-import { Icon, type IconName } from "../components/Icon.tsx"
+import { Platform, View, type ViewStyle } from "react-native"
+import { Icon } from "../components/Icon.tsx"
 import { KotoriMark } from "../components/KotoriMark.tsx"
 import { Text } from "../components/Text.tsx"
 import { TooltipTrigger } from "../components/Tooltip.tsx"
@@ -383,7 +386,7 @@ export const GrammarTags = ({
 }
 
 // ============================================================================
-// 4. Sense / Draft ChipRow (`SnowPebbleRow`) & Standalone `VariantChip`
+// 4. A row of chips: grammar keycaps, a separator, then Snow Pebbles
 // ============================================================================
 
 export const SnowPebbleRow = ({
@@ -420,102 +423,3 @@ export const SnowPebbleRow = ({
     </View>
   )
 }
-
-export const VariantChip = ({
-  label,
-  tone = "neutral",
-  icon,
-  style
-}: {
-  readonly label: string
-  readonly tone?: "neutral" | "primary" | "accent"
-  readonly icon?: IconName
-  readonly style?: StyleProp<ViewStyle>
-}) => {
-  const { color } = useTheme()
-  const trailingArrow = icon === "arrow_forward"
-  const isKotoriDraft = icon === "auto_awesome"
-  const interactive = Boolean(icon) && !isKotoriDraft
-
-  const palette = {
-    neutral: {
-      fg: interactive ? color.text : color.textMuted,
-      bg: interactive ? "#FFFFFF" : color.surfaceMuted,
-      ring: interactive ? color.outline : fade(color.ink, 0.05),
-      emblemBg: color.surfaceMuted
-    },
-    primary: {
-      fg: color.primaryDeep,
-      bg: interactive ? "#FFFFFF" : color.primaryTint,
-      ring: interactive ? fade(color.primaryDark, 0.18) : fade(color.primaryDark, 0.1),
-      emblemBg: color.primaryTint
-    },
-    accent: {
-      fg: color.accent,
-      bg: isKotoriDraft ? "#FFFFFF" : color.accentSoft,
-      ring: fade(color.accent, 0.18),
-      emblemBg: color.accentSoft
-    }
-  }[tone]
-
-  return (
-    <View
-      style={[
-        {
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 5,
-          minHeight: 27,
-          paddingVertical: 3.5,
-          paddingLeft: icon && !trailingArrow ? 6 : 10,
-          paddingRight: trailingArrow ? 6 : 10.5,
-          backgroundColor: palette.bg,
-          borderWidth: 1,
-          borderColor: palette.ring,
-          borderRadius: 999,
-          alignSelf: "flex-start"
-        },
-        interactive || isKotoriDraft ? pebbleLift(color.shadow) : null,
-        style
-      ]}
-    >
-      {isKotoriDraft ? (
-        <KotoriMark size={17} mood="happy" sparkle />
-      ) : icon && !trailingArrow ? (
-        <View
-          style={{
-            width: 18,
-            height: 18,
-            borderRadius: 9,
-            backgroundColor: palette.emblemBg,
-            alignItems: "center",
-            justifyContent: "center"
-          }}
-        >
-          <Icon name={icon} size={12.5} color={palette.fg} />
-        </View>
-      ) : null}
-      <Text variant="caption" weight="semibold" style={{ color: palette.fg, lineHeight: 16.5, flexShrink: 1 }}>
-        {label}
-      </Text>
-      {trailingArrow ? (
-        <View
-          style={{
-            width: 18,
-            height: 18,
-            borderRadius: 9,
-            backgroundColor: palette.emblemBg,
-            alignItems: "center",
-            justifyContent: "center"
-          }}
-        >
-          <Icon name="arrow_forward" size={12.5} color={palette.fg} />
-        </View>
-      ) : null}
-    </View>
-  )
-}
-
-export const VariantLabelTag = ({ item, onTint = false }: { readonly item: ChipItem; readonly onTint?: boolean }) => (
-  <SnowPebbleFace item={item} onTint={onTint} compact />
-)

@@ -99,19 +99,3 @@ export const senseGrammarTags = (
   }))
   return [...diffPos, ...fields]
 }
-
-/** Expands plain string labels (`ChipRow`'s `plain` prop) into `GrammarTagItem`s when structured tags aren't passed. */
-export const plainToGrammarTags = (plain: ReadonlyArray<string>): ReadonlyArray<GrammarTagItem> =>
-  plain.map((label) => ({ key: `plain:${label}`, label, kind: "grammar" }))
-
-/**
- * Single broad part-of-speech label (`verb`, `noun`, `pronoun` in English; `動詞`, `名詞`, `代名詞`
- * in Japanese) for search rows, omitting conjugation sub-classes (`godan`, `ichidan`).
- */
-export const basePosLabel = (t: Strings, uiLanguage: Language, code: string | null): string | null => {
-  if (!code) return null
-  if (code.startsWith("v5") || code.startsWith("v1") || code === "vk" || code.startsWith("vs")) {
-    return uiLanguage === "en" ? "verb" : "動詞"
-  }
-  return posLabel(t, code) ?? code
-}

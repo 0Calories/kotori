@@ -105,7 +105,7 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
         {/* Unguarded: public legal pages and dev prototypes open without signing in. */}
         <Stack.Screen name="privacy" />
         <Stack.Screen name="terms" />
-        <Stack.Screen name="proto/chips" />
+        <Stack.Screen name="proto/entry" />
         <Stack.Protected guard={status === "ready"}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="entry/[id]" />

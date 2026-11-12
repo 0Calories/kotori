@@ -1,14 +1,11 @@
-import { EntryId, type Entry, type EntrySummary, type Label, type Tag } from "@kotori/contracts"
-import type { FrequencyTier } from "./frequency.ts"
-
-export type ProtoSearchResult = EntrySummary & { readonly frequencyTier: FrequencyTier }
+import { EntryId, type Entry, type Label, type Tag } from "@kotori/contracts"
 
 /**
- * PROTOTYPE DATA: Authentic dictionary entries covering every chip severity (`quiet`, `info`,
- * `warning`, `avoid`), Kotori's Notes (`AI`) provenance, katakana loan chips & wasei-eigo origins,
- * atomic grammar tags (`verb`, `godan`, `transitive`, `usually written in kana`), domain fields
- * (`food`, `business`, `law`), cross-reference chips (`Compare`, `Opposites`), plain snow headers,
- * and search rows.
+ * PROTOTYPE DATA for `/proto/entry`: authentic dictionary entries covering every chip severity
+ * (`quiet`, `info`, `warning`, `avoid`), Kotori's Notes (`AI`) provenance, katakana loan chips &
+ * wasei-eigo origins, atomic grammar tags (`verb`, `godan`, `transitive`, `usually written in
+ * kana`), domain fields (`food`, `business`, `law`), word and sense cautions, words to compare,
+ * opposites and similar words, and a dictionary-only entry.
  */
 export type SampleWordKey = "kuu" | "gokurousama" | "manshon" | "advice" | "kangamiru"
 
@@ -78,7 +75,32 @@ export const SAMPLE_ENTRIES: Record<SampleWordKey, { readonly label: string; rea
               translationAudioUrl: null
             }
           ],
-          similarWords: []
+          similarWords: [
+            {
+              entryId: EntryId.make(1358280),
+              headword: "食べる",
+              reading: "たべる",
+              meaning: "to eat; to live on",
+              difference: "plain",
+              via: "xref"
+            },
+            {
+              entryId: EntryId.make(1594790),
+              headword: "召し上がる",
+              reading: "めしあがる",
+              meaning: "to eat; to drink",
+              difference: "respectful",
+              via: "gloss"
+            },
+            {
+              entryId: EntryId.make(1587040),
+              headword: "いただく",
+              reading: "いただく",
+              meaning: "to eat; to receive",
+              difference: "humble",
+              via: "gloss"
+            }
+          ]
         },
         {
           index: 1,
@@ -175,7 +197,16 @@ export const SAMPLE_ENTRIES: Record<SampleWordKey, { readonly label: string; rea
               translationAudioUrl: null
             }
           ],
-          similarWords: []
+          similarWords: [
+            {
+              entryId: EntryId.make(2134110),
+              headword: "お疲れ様",
+              reading: "おつかれさま",
+              meaning: "thanks for your hard work",
+              difference: "similar",
+              via: "xref"
+            }
+          ]
         }
       ],
       audioUrl: null,
@@ -385,90 +416,3 @@ export const SAMPLE_ENTRIES: Record<SampleWordKey, { readonly label: string; rea
     }
   }
 }
-
-export const SAMPLE_SEARCH_RESULTS: ReadonlyArray<ProtoSearchResult> = [
-  {
-    id: EntryId.make(1358280),
-    language: "ja",
-    headword: "食べる",
-    reading: "たべる",
-    romaji: "taberu",
-    common: true,
-    frequencyTier: "very_common",
-    meanings: ["to eat", "to have a meal"],
-    partOfSpeech: "v1",
-    labels: [],
-    inflection: [],
-    audioUrl: null
-  },
-  {
-    id: EntryId.make(1269130),
-    language: "ja",
-    headword: "食う",
-    reading: "くう",
-    romaji: "kuu",
-    common: true,
-    frequencyTier: "common",
-    meanings: ["to eat", "to make a living"],
-    partOfSpeech: "v5u",
-    labels: [lbl("col", "warning", "kotori"), lbl("male", "warning", "jmdict")],
-    inflection: ["past"],
-    audioUrl: null
-  },
-  {
-    id: EntryId.make(1594790),
-    language: "ja",
-    headword: "召し上がる",
-    reading: "めしあがる",
-    romaji: "meshiagaru",
-    common: true,
-    frequencyTier: "common",
-    meanings: ["to eat", "to drink"],
-    partOfSpeech: "v5r",
-    labels: [lbl("hon", "info", "jmdict")],
-    inflection: [],
-    audioUrl: null
-  },
-  {
-    id: EntryId.make(1482040),
-    language: "ja",
-    headword: "晩餐",
-    reading: "ばんさん",
-    romaji: "bansan",
-    common: false,
-    frequencyTier: "uncommon",
-    meanings: ["dinner", "evening banquet"],
-    partOfSpeech: "n",
-    labels: [lbl("form", "info", "jmdict")],
-    inflection: [],
-    audioUrl: null
-  },
-  {
-    id: EntryId.make(1007200),
-    language: "ja",
-    headword: "てめえ",
-    reading: "てめえ",
-    romaji: "temee",
-    common: false,
-    frequencyTier: "rare",
-    meanings: ["you (hostile)"],
-    partOfSpeech: "pn",
-    labels: [lbl("vulg", "avoid", "jmdict"), lbl("male", "warning", "jmdict")],
-    inflection: [],
-    audioUrl: null
-  },
-  {
-    id: EntryId.make(1577950),
-    language: "ja",
-    headword: "饗す",
-    reading: "きょうす",
-    romaji: "kyousu",
-    common: false,
-    frequencyTier: "archaic",
-    meanings: ["to host a banquet", "to feast"],
-    partOfSpeech: "v5s",
-    labels: [lbl("arch", "avoid", "jmdict"), lbl("form", "info", "jmdict")],
-    inflection: [],
-    audioUrl: null
-  }
-]

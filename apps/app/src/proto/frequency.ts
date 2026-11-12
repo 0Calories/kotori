@@ -1,15 +1,13 @@
-import type { Entry, EntrySummary, Label, LabelCode, Language } from "@kotori/contracts"
+import type { Entry, Label, LabelCode, Language } from "@kotori/contracts"
 import type { Strings } from "../i18n/strings.ts"
 import { type ChipItem, labelItems, loanChip } from "../lib/entry.ts"
 
 /**
  * PROTOTYPE: Five-tier frequency model (`very_common` 4/4, `common` 3/4, `uncommon` 2/4,
- * `rare` 1/4, `archaic` 0/4) for entry headboards and search rows. Kept in `src/proto/` until
- * `EntrySummary` and backend frequency scoring are planned for the full feature.
+ * `rare` 1/4, `archaic` 0/4) for the entry page's hero. Kept in `src/proto/` until backend
+ * frequency scoring is planned for the full feature.
  */
 export type FrequencyTier = "very_common" | "common" | "uncommon" | "rare" | "archaic"
-
-export const FREQUENCY_TIERS: ReadonlyArray<FrequencyTier> = ["very_common", "common", "uncommon", "rare", "archaic"]
 
 export const FREQUENCY_LEVEL: Record<FrequencyTier, 0 | 1 | 2 | 3 | 4> = {
   archaic: 0,
@@ -121,15 +119,4 @@ export const protoHeroItems = (
   const loan = loanChip(t, entry)
   const remainingLabels = freq ? withoutRedundantFrequencyLabels(entry.labels) : entry.labels
   return [...[freq, loan].filter((chip): chip is ChipItem => chip !== null), ...labelItems(t, remainingLabels)]
-}
-
-/** Fallback 5-tier frequency derivation for live `EntrySummary` rows until backend exposes `frequency` on search. */
-export const deriveSummaryFrequencyTier = (
-  entry: Pick<EntrySummary, "common" | "labels"> & { readonly frequencyTier?: FrequencyTier }
-): FrequencyTier => {
-  if (entry.frequencyTier) return entry.frequencyTier
-  if (entry.labels.some((label) => OLD_LABELS.includes(label.code))) return "archaic"
-  if (entry.labels.some((label) => label.code === "vulg" || label.code === "rare")) return "rare"
-  if (entry.common) return "common"
-  return "uncommon"
 }

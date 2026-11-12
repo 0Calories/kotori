@@ -394,7 +394,7 @@ const en = {
       uncountable: "No plural and no 'a'. To count it, say 'some' or 'a piece of'."
     } satisfies Record<LabelCode, string>,
     /** Added to the explanation of a label from Kotori rather than the dictionary. */
-    kotori: "AI-generated — added beyond the dictionary."
+    kotori: "The dictionary doesn't say this; Kotori's AI added it."
   },
   /** What kind of caution a caution is, as its overline. */
   caution: {
@@ -991,7 +991,7 @@ const ja: Strings = {
       wasei: "英語に見えますが日本で作られた言葉で、英語話者には通じません。",
       uncountable: "数えられない名詞です。複数形にせず、a も付けません。数えるときは some や a piece of を使います。"
     },
-    kotori: "AI生成 — 辞書にはない補足です。"
+    kotori: "辞書にはない情報で、コトリの AI が加えました。"
   },
   caution: {
     rude_upward: "目上には失礼",
