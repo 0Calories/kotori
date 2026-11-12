@@ -9,7 +9,7 @@ import {
 } from "@kotori/contracts"
 import { furiganaToText, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
 import { Context, Effect, Layer, Schema } from "effect"
-import { Claude, type ClaudeError } from "../providers/Claude.ts"
+import { Claude, ClaudeDeadline, type ClaudeError } from "../providers/Claude.ts"
 import { englishExamplesSystem, examplesSystem } from "./prompts.ts"
 
 export const ExamplesOutput = Schema.Struct({
@@ -198,7 +198,9 @@ export class ExampleWriter extends Context.Service<
           schema: EnglishExamplesOutput,
           system: englishExamplesSystem,
           prompt: describeRequest(request),
-          effort: "low"
+          effort: "low",
+          // The worker writes these; nobody is waiting.
+          timeout: ClaudeDeadline.bulk
         })
         const { groups, dropped } = filed(request, output.senses)
         return {
@@ -225,7 +227,8 @@ export class ExampleWriter extends Context.Service<
           schema: ExamplesOutput,
           system: examplesSystem,
           prompt: describeRequest(request),
-          effort: "low"
+          effort: "low",
+          timeout: ClaudeDeadline.bulk
         })
         const { groups, dropped } = filed(request, output.senses)
         return {

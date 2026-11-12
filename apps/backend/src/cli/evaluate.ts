@@ -6,6 +6,7 @@ import {
   GOLDEN_ASKS,
   interpretTriage,
   Jev,
+  JevDeadline,
   type JevError,
   Lexicographer,
   LOANS_VERSION,
@@ -227,7 +228,8 @@ export const evaluate = Command.make(
       const answers: Effect.Effect<Answers | undefined, JevError> =
         recording === null
           ? Effect.sync(() => Sentry.setConversationId(key)).pipe(
-              Effect.andThen(jev.ask(state, { ...questions })),
+              // An offline run: give Jev the bulk budget even for questions learners wait on.
+              Effect.andThen(jev.ask(state, { ...questions }, { timeout: JevDeadline.bulk })),
               Effect.map((result) => {
                 inputTokens += result.usage.input_tokens
                 return result.answers

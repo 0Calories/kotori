@@ -10,7 +10,7 @@ import {
 import type { ChoiceQuestion, ChoiceResponse, Question, ScoreQuestion, ScoreResponse } from "@typesafe-ai/sdk"
 import { Effect } from "effect"
 import { SENTENCE_FORMALITY, FORMALITY_QUESTION } from "../coaching/formality.ts"
-import type { Jev, JevError } from "../providers/Jev.ts"
+import { type Jev, JevDeadline, type JevError } from "../providers/Jev.ts"
 
 /**
  * Jev's judgment of the casting signals of sentences nobody wrote for Kotori: those seeded from
@@ -118,7 +118,9 @@ const judgeBatch = (jev: Jev["Service"], language: Language, batch: ReadonlyArra
   jev
     .ask(
       { sentence_language: language === "ja" ? "Japanese" : "English" },
-      Object.assign({}, ...batch.map((sentence, index) => sentenceQuestions(index, sentence)))
+      Object.assign({}, ...batch.map((sentence, index) => sentenceQuestions(index, sentence))),
+      // The worker's audio job asks this; nobody is waiting.
+      { timeout: JevDeadline.bulk }
     )
     .pipe(
       Effect.map(({ answers }) => {
