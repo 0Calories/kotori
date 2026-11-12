@@ -608,6 +608,12 @@ export const headwordIds = Effect.fn("dictionary.headwordIds")(function* (db: Da
   return new Map(rows.map((row) => [row.headword, row.id]))
 }, Effect.orDie)
 
+/** An entry's id and language, or undefined when there is none: enough to report its enrichment. */
+export const entryLanguage = Effect.fn("dictionary.entryLanguage")(function* (db: DatabaseShape, id: EntryId) {
+  const [row] = yield* db.select({ id: entries.id, language: entries.language }).from(entries).where(eq(entries.id, id))
+  return row
+}, Effect.orDie)
+
 export const getEntries = Effect.fn("dictionary.getEntries")(function* (
   db: DatabaseShape,
   ids: ReadonlyArray<EntryId>

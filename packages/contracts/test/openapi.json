@@ -1934,6 +1934,101 @@
         }
       }
     },
+    "/dictionary/entries/{id}/enrichment": {
+      "get": {
+        "tags": [
+          "dictionary"
+        ],
+        "operationId": "dictionary.enrichment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "pattern": "^[+-]?\\d*\\.?\\d+(?:[Ee][+-]?\\d+)?$"
+            },
+            "required": true
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "examples": {
+                      "type": "string",
+                      "enum": [
+                        "ready",
+                        "queued",
+                        "unavailable"
+                      ]
+                    },
+                    "audio": {
+                      "type": "string",
+                      "enum": [
+                        "ready",
+                        "queued",
+                        "unavailable"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "examples",
+                    "audio"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedEncoded"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "PendingApproval",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingApprovalEncoded"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundEncoded"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "AuthUnavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthUnavailableEncoded"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/dictionary/entries/{id}/enrich": {
       "post": {
         "tags": [
@@ -2012,6 +2107,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/NotFoundEncoded"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RateLimited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateLimitedEncoded"
                 }
               }
             }
