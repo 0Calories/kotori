@@ -1,8 +1,8 @@
 import { Claude, ExampleWriter, Pronouncer } from "@kotori/ai"
 import type { EntryId } from "@kotori/db"
-import * as Sentry from "@sentry/effect/server"
 import { Clock, Context, Effect, Layer } from "effect"
 import { Database } from "../../db/Database.ts"
+import * as Sentry from "../../runtime/Sentry.ts"
 import { getEntries, tagNames } from "../dictionary/index.ts"
 import { AudioEnricher } from "./AudioEnricher.ts"
 import type { JobKind } from "./jobs.ts"
@@ -88,7 +88,7 @@ export class Enrichers extends Context.Service<
       }
 
       const run = (kind: JobKind, entryId: EntryId): Effect.Effect<string, unknown> =>
-        Effect.sync(() => Sentry.setConversationId(`entry:${entryId}`)).pipe(Effect.andThen(enrich(kind, entryId)))
+        enrich(kind, entryId).pipe(Sentry.withScope((scope) => scope.setConversationId(`entry:${entryId}`)))
 
       return Enrichers.of({ available, run })
     })

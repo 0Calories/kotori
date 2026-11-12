@@ -1,6 +1,5 @@
 import { Claude, Jev, Pronouncer } from "@kotori/ai"
 import { CurrentUser, InvalidRequest, KotoriApi, NotFound } from "@kotori/contracts"
-import * as Sentry from "@sentry/effect/server"
 import { Effect, Layer, Option } from "effect"
 import { HttpApiBuilder } from "effect/http-api"
 import { Database } from "../db/Database.ts"
@@ -74,12 +73,7 @@ const DictionaryHandlers = HttpApiBuilder.group(
         ),
       entry: ({ params }) => dictionary.entry(params.id).pipe(Effect.flatMap(orNotFound("No such entry"))),
       enrich: ({ params }) => dictionary.requestEnrichment(params.id).pipe(Effect.flatMap(orNotFound("No such entry"))),
-      ask: ({ payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          yield* Effect.sync(() => Sentry.setUser({ id: user.id }))
-          return yield* asksService.ask(user.profile, payload.q)
-        }),
+      ask: ({ payload }) => Effect.flatMap(CurrentUser, (user) => asksService.ask(user.profile, payload.q)),
       asks: () => Effect.flatMap(CurrentUser, (user) => asksService.asks(user.profile))
     })
   })
@@ -91,18 +85,8 @@ const CoachHandlers = HttpApiBuilder.group(
   Effect.fn(function* (handlers) {
     const coaching = yield* Coaching
     return handlers.handleAll({
-      naturalness: ({ payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          yield* Effect.sync(() => Sentry.setUser({ id: user.id }))
-          return yield* coaching.naturalness(user.profile, payload)
-        }),
-      howToSay: ({ payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          yield* Effect.sync(() => Sentry.setUser({ id: user.id }))
-          return yield* coaching.howToSay(user.profile, payload)
-        })
+      naturalness: ({ payload }) => Effect.flatMap(CurrentUser, (user) => coaching.naturalness(user.profile, payload)),
+      howToSay: ({ payload }) => Effect.flatMap(CurrentUser, (user) => coaching.howToSay(user.profile, payload))
     })
   })
 )
@@ -113,12 +97,7 @@ const AudioHandlers = HttpApiBuilder.group(
   Effect.fn(function* (handlers) {
     const coaching = yield* Coaching
     return handlers.handleAll({
-      speak: ({ payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          yield* Effect.sync(() => Sentry.setUser({ id: user.id }))
-          return yield* coaching.speak(user.profile, payload)
-        })
+      speak: ({ payload }) => Effect.flatMap(CurrentUser, (user) => coaching.speak(user.profile, payload))
     })
   })
 )
