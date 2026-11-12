@@ -1,4 +1,4 @@
-import type { Language, Nuance } from "@kotori/contracts"
+import type { Language } from "@kotori/contracts"
 import { describe, expect, it } from "vitest"
 import { briefFor, CASTS, castVoices, ENGLISH_CAST, headwordVoices, JAPANESE_CAST, rank, tied } from "../src/index.ts"
 import type { CastingBrief, CastingInput, Casts, SenseSignals, SentenceSignals } from "../src/index.ts"
@@ -16,35 +16,14 @@ const DICTIONARY_ONLY: Casts = {
 }
 
 const sense = (overrides: Partial<SenseSignals> = {}): SenseSignals => ({
-  misc: [],
-  dialects: [],
+  labels: [],
   fields: [],
   ...overrides
 })
 
-const input = (
-  sentence: Partial<SentenceSignals>,
-  senseOverrides: Partial<SenseSignals> = {},
-  nuance: Nuance | null = null
-): CastingInput => ({
+const input = (sentence: Partial<SentenceSignals>, senseOverrides: Partial<SenseSignals> = {}): CastingInput => ({
   sentence: { formality: "neutral", ...sentence },
-  sense: sense(senseOverrides),
-  nuance
-})
-
-const judgment = <T>(value: T, confidence = 0.9) => ({ value, confidence, source: "jev" as const })
-const scale = <T>(value: T, confidence = 0.9) => ({ value, position: 0.5, confidence, source: "jev" as const })
-
-const nuanceWith = (overrides: Partial<Nuance> = {}): Nuance => ({
-  formality: scale("neutral"),
-  medium: scale("both"),
-  keigo: judgment("none"),
-  gender: judgment("neutral"),
-  age: judgment("any"),
-  currency: judgment("current"),
-  connotation: judgment("neutral"),
-  cautions: { rudeToSuperiors: 0, stiffWithFriends: 0, slang: 0 },
-  ...overrides
+  sense: sense(senseOverrides)
 })
 
 const topVoice = (brief: CastingBrief, language: Language = "ja") => rank(brief, language, FULL_CASTS)[0]?.voice.id
@@ -54,57 +33,64 @@ describe("briefFor", () => {
     expect(briefFor(input({ variety: "kansai" })).variety).toBe("kansai")
   })
 
-  it("falls back to JMDict dialect tags when the sentence has no label", () => {
-    expect(briefFor(input({}, { dialects: ["ksb"] })).variety).toBe("kansai")
-    expect(briefFor(input({}, { dialects: ["osb"] })).variety).toBe("kansai")
-    expect(briefFor(input({}, { dialects: ["thb"] })).variety).toBe("tohoku")
+  it("falls back to the sense's dialect and region labels when the sentence has no label", () => {
+    expect(briefFor(input({}, { labels: ["ksb"] })).variety).toBe("kansai")
+    expect(briefFor(input({}, { labels: ["osb"] })).variety).toBe("kansai")
+    expect(briefFor(input({}, { labels: ["thb"] })).variety).toBe("tohoku")
+    expect(briefFor(input({}, { labels: ["col", "en-GB"] })).variety).toBe("british")
   })
 
-  it("prefers the sentence variety over the sense tag", () => {
-    expect(briefFor(input({ variety: "kansai" }, { dialects: ["thb"] })).variety).toBe("kansai")
+  it("prefers the sentence variety over the sense's label", () => {
+    expect(briefFor(input({ variety: "kansai" }, { labels: ["thb"] })).variety).toBe("kansai")
   })
 
   it("leaves unknown variety labels as the default", () => {
     expect(briefFor(input({ variety: "nagoya" })).variety).toBeNull()
   })
 
-  it("pins gender from the fem/male misc tags", () => {
-    expect(briefFor(input({}, { misc: ["fem"] })).gender).toBe("feminine")
-    expect(briefFor(input({}, { misc: ["male"] })).gender).toBe("masculine")
+  it("pins gender from the male and fem labels", () => {
+    expect(briefFor(input({}, { labels: ["fem"] })).gender).toBe("feminine")
+    expect(briefFor(input({}, { labels: ["male"] })).gender).toBe("masculine")
+    expect(briefFor(input({})).gender).toBeNull()
   })
 
-  it("prefers the sentence speaker over misc and nuance", () => {
-    expect(briefFor(input({ speakerGender: "masculine" }, { misc: ["fem"] })).gender).toBe("masculine")
+  it("prefers the sentence's speaker over the sense's labels", () => {
+    expect(briefFor(input({ speakerGender: "masculine" }, { labels: ["fem"] })).gender).toBe("masculine")
+    expect(briefFor(input({ speakerAge: "older" }, { labels: ["chn"] })).age).toBe("older")
   })
 
-  it("uses nuance gender only above the confidence floor", () => {
-    expect(briefFor(input({}, {}, nuanceWith({ gender: judgment("feminine", 0.9) }))).gender).toBe("feminine")
-    expect(briefFor(input({}, {}, nuanceWith({ gender: judgment("feminine", 0.4) }))).gender).toBeNull()
+  it("falls back to the labels when the sentence's speaker is unspecified", () => {
+    expect(briefFor(input({ speakerGender: "unspecified" }, { labels: ["fem"] })).gender).toBe("feminine")
+    expect(briefFor(input({ speakerAge: "unspecified" }, { labels: ["chn"] })).age).toBe("child")
   })
 
   it("maps chn to a child speaker", () => {
-    expect(briefFor(input({}, { misc: ["chn"] })).age).toBe("child")
+    expect(briefFor(input({}, { labels: ["chn"] })).age).toBe("child")
+    expect(briefFor(input({})).age).toBeNull()
   })
 
-  it("treats a formal sentence of a written or field-tagged word as an announcement", () => {
+  it("treats a formal sentence of a formal written or field-tagged word as an announcement", () => {
     expect(briefFor(input({ formality: "formal" }, { fields: ["law"] })).medium).toBe("announcement")
-    expect(briefFor(input({ formality: "formal" }, {}, nuanceWith({ medium: scale("written") }))).medium).toBe(
-      "announcement"
-    )
+    expect(briefFor(input({ formality: "formal" }, { labels: ["form"] })).medium).toBe("announcement")
     expect(briefFor(input({ formality: "polite" }, { fields: ["law"] })).medium).toBeNull()
+    expect(briefFor(input({ formality: "formal" })).medium).toBeNull()
   })
 
-  it("flags slang from formality, misc or nuance cautions", () => {
+  it("flags slang from formality or a slang or vulgar label", () => {
     expect(briefFor(input({ formality: "vulgar" })).slang).toBe(true)
-    expect(briefFor(input({}, { misc: ["sl"] })).slang).toBe(true)
-    const slangy = nuanceWith({ cautions: { rudeToSuperiors: 0, stiffWithFriends: 0, slang: 0.8 } })
-    expect(briefFor(input({}, {}, slangy)).slang).toBe(true)
+    for (const code of ["sl", "net-sl", "m-sl", "vulg"]) {
+      expect(briefFor(input({}, { labels: [code] })).slang).toBe(true)
+    }
+    // Colloquial is a register, which the sentence's formality carries; it isn't slang.
+    expect(briefFor(input({}, { labels: ["col"] })).slang).toBe(false)
     expect(briefFor(input({})).slang).toBe(false)
   })
 
-  it("flags archaic from misc or nuance currency", () => {
-    expect(briefFor(input({}, { misc: ["arch"] })).archaic).toBe(true)
-    expect(briefFor(input({}, {}, nuanceWith({ currency: judgment("dated", 0.8) }))).archaic).toBe(true)
+  it("flags archaic from an archaic, obsolete or dated label", () => {
+    for (const code of ["arch", "obs", "dated"]) {
+      expect(briefFor(input({}, { labels: [code] })).archaic).toBe(true)
+    }
+    expect(briefFor(input({}, { labels: ["hist"] })).archaic).toBe(false)
     expect(briefFor(input({})).archaic).toBe(false)
   })
 })
@@ -156,7 +142,7 @@ describe("rank", () => {
   })
 
   it("picks the elder narrator for an archaic proverb", () => {
-    const brief = briefFor(input({ formality: "neutral", medium: "narration" }, { misc: ["arch"] }))
+    const brief = briefFor(input({ formality: "neutral", medium: "narration" }, { labels: ["arch"] }))
     expect(topVoice(brief)).toBe("ja-elder-m")
   })
 
@@ -175,7 +161,7 @@ describe("rank", () => {
   })
 
   it("gives no adult voice an adjacency bonus for a child speaker", () => {
-    const scores = (speakerAge: "child" | null) =>
+    const scores = (speakerAge: "child" | "unspecified") =>
       new Map(
         rank(briefFor(input({ formality: "casual", speakerAge })), "ja", FULL_CASTS).map(({ voice, score }) => [
           voice.id,
@@ -183,13 +169,13 @@ describe("rank", () => {
         ])
       )
     const child = scores("child")
-    const unspecified = scores(null)
+    const unspecified = scores("unspecified")
     // Youth sits next to child by age, but a child line read by a youth still mismatches.
     expect(child.get("ja-casual-m2")).toBe(unspecified.get("ja-casual-m2")! - 1)
   })
 
-  it("matches feminine misc words to feminine voices", () => {
-    const ranked = rank(briefFor(input({ formality: "casual" }, { misc: ["fem"] })), "ja", FULL_CASTS)
+  it("matches feminine-labelled words to feminine voices", () => {
+    const ranked = rank(briefFor(input({ formality: "casual" }, { labels: ["fem"] })), "ja", FULL_CASTS)
     expect(ranked[0]!.voice.tags.gender).toBe("feminine")
   })
 

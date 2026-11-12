@@ -25,14 +25,6 @@ export const relations = defineRelations(schema, (r) => ({
   senses: {
     entry: r.one.entries({ from: r.senses.entryId, to: r.entries.id, optional: false }),
     glosses: r.many.glosses({ from: [r.senses.entryId, r.senses.position], to: [r.glosses.entryId, r.glosses.sense] }),
-    nuance: r.one.senseNuance({
-      from: [r.senses.entryId, r.senses.position],
-      to: [r.senseNuance.entryId, r.senseNuance.sense]
-    }),
-    similar: r.many.similarWords({
-      from: [r.senses.entryId, r.senses.position],
-      to: [r.similarWords.entryId, r.similarWords.sense]
-    }),
     examples: r.many.examples({
       from: [r.senses.entryId, r.senses.position],
       to: [r.examples.entryId, r.examples.sense]
@@ -51,9 +43,6 @@ export const relations = defineRelations(schema, (r) => ({
   },
   cautions: {
     about: r.one.entries({ from: r.cautions.aboutEntryId, to: r.entries.id })
-  },
-  similarWords: {
-    similar: r.one.entries({ from: r.similarWords.similarId, to: r.entries.id, optional: false })
   },
   examples: {
     audio: r.many.exampleAudio({ from: r.examples.id, to: r.exampleAudio.exampleId })

@@ -1,15 +1,14 @@
 import { NodeHttpClient, NodeServices } from "@effect/platform-node"
-import { AiProviders, ExampleWriter, LoanWriter, NuanceJudge, Pronouncer } from "@kotori/ai"
+import { AiProviders, ExampleWriter, Pronouncer } from "@kotori/ai"
 import { Layer } from "effect"
 import { DatabaseLive } from "../db/Database.ts"
 import { AudioStore } from "../features/audio/AudioStore.ts"
 import { Speech } from "../features/audio/Speech.ts"
 import { AudioEnricher } from "../features/enrichment/AudioEnricher.ts"
 import { Enrichers } from "../features/enrichment/Enrichers.ts"
-import { NuanceEnricher } from "../features/enrichment/NuanceEnricher.ts"
 
 /** What the AI providers are used for. */
-const CapabilitiesLive = Layer.mergeAll(NuanceJudge.layer, ExampleWriter.layer, LoanWriter.layer, Pronouncer.layer)
+const CapabilitiesLive = Layer.mergeAll(ExampleWriter.layer, Pronouncer.layer)
 
 /**
  * The enrichment worker's services: the enrichers over the AI capabilities, the clip library and
@@ -17,10 +16,10 @@ const CapabilitiesLive = Layer.mergeAll(NuanceJudge.layer, ExampleWriter.layer, 
  * `kotori status` share it.
  */
 export const WorkerLive = Enrichers.layer.pipe(
-  Layer.provideMerge(Layer.mergeAll(NuanceEnricher.layer, AudioEnricher.layer)),
+  Layer.provideMerge(AudioEnricher.layer),
   Layer.provideMerge(Speech.layer),
   Layer.provideMerge(Layer.mergeAll(AudioStore.layer, CapabilitiesLive)),
-  // Jev for nuance, Claude for examples and loan warnings, ElevenLabs for audio.
+  // Claude for examples; ElevenLabs for audio, with Jev judging seeded sentences before they are voiced.
   Layer.provideMerge(AiProviders),
   Layer.provideMerge(DatabaseLive),
   Layer.provideMerge(Layer.mergeAll(NodeHttpClient.layerUndici, NodeServices.layer))

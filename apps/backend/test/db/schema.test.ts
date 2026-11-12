@@ -165,7 +165,8 @@ layer(DatabaseMemory)("enrichment schema", (it) => {
         katakanaEntryId: EntryId.make(2),
         english: "coo",
         meaning: "true_loanword",
-        source: "jmdict"
+        source: "jmdict",
+        meaningSource: "kotori"
       })
 
       const entry = yield* db.query.entries.findFirst({

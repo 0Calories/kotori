@@ -126,7 +126,8 @@ layer(TestLayer)("seed facts", (it) => {
         english: "mansion",
         englishEntryId: null,
         meaning: null,
-        source: "jmdict"
+        source: "jmdict",
+        meaningSource: null
       })
     })
   )

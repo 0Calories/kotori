@@ -5,15 +5,22 @@ import type { Label, LabelCode, SimilarDifference } from "@kotori/contracts"
  * states, and how a similar word differs. Pure, so the rules are tested on their own.
  */
 
-/** The word's labels are its first sense's; a later sense states only the labels it adds. */
+/**
+ * The word's labels are the ones every sense carries, from the same source: a single sense's are
+ * the word's, but one sense of several never speaks for the rest (候 is archaic as "to serve",
+ * not in every use). Each sense states the labels it has beyond the word's.
+ */
 export const senseLabels = (
   labels: ReadonlyArray<ReadonlyArray<Label>>
 ): { readonly word: ReadonlyArray<Label>; readonly senses: ReadonlyArray<ReadonlyArray<Label>> } => {
-  const word = labels[0] ?? []
-  const codes = new Set(word.map((label) => label.code))
+  const key = (label: Label) => `${label.code}\u0000${label.source}`
+  const [first = [], ...rest] = labels
+  const shared = new Set(
+    first.map(key).filter((own) => rest.every((other) => other.some((label) => key(label) === own)))
+  )
   return {
-    word,
-    senses: labels.map((own, index) => (index === 0 ? [] : own.filter((label) => !codes.has(label.code))))
+    word: first.filter((label) => shared.has(key(label))),
+    senses: labels.map((own) => own.filter((label) => !shared.has(key(label))))
   }
 }
 

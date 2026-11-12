@@ -1,20 +1,21 @@
 import {
+  Casting,
   entries,
   EntryId,
   forms,
   glosses,
   SenseOrigin,
   senses,
-  sentenceMedium,
-  sentenceTone,
-  speakerAge,
-  speakerGender
+  SentenceMedium,
+  SentenceTone,
+  SpeakerAge,
+  SpeakerGender
 } from "@kotori/db"
 import { createSelectSchema } from "drizzle-orm/effect-schema"
 import * as Schema from "effect/Schema"
 import * as Struct from "effect/Struct"
 
-export { SenseOrigin }
+export { Casting, SenseOrigin, SentenceMedium, SentenceTone, SpeakerAge, SpeakerGender }
 
 // Dictionary data as stored, close to JMDict's own structure, which English entries share: an
 // entry with its forms and senses, a sense with its glosses, in order. The importers build it,
@@ -80,17 +81,3 @@ export const EntryRecord = Schema.Struct({
   senses: Schema.Array(SenseRecord)
 })
 export type EntryRecord = typeof EntryRecord.Type
-
-// Internal example-sentence voice signals shared between `@kotori/db` and `@kotori/ai` (never on wire).
-
-export const SpeakerGender = createSelectSchema(speakerGender)
-export type SpeakerGender = typeof SpeakerGender.Type
-
-export const SpeakerAge = createSelectSchema(speakerAge)
-export type SpeakerAge = typeof SpeakerAge.Type
-
-export const SentenceMedium = createSelectSchema(sentenceMedium)
-export type SentenceMedium = typeof SentenceMedium.Type
-
-export const SentenceTone = createSelectSchema(sentenceTone)
-export type SentenceTone = typeof SentenceTone.Type

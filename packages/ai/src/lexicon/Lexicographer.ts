@@ -1,6 +1,7 @@
 import type { Language } from "@kotori/contracts"
 import { Context, Effect, Layer, Schema } from "effect"
 import { Claude, type ClaudeError } from "../providers/Claude.ts"
+import { CAUTION_GUIDE, LABELS_SAY, NOT_CAUTIONS } from "./cautionGuide.ts"
 
 /** An existing entry shown to Claude so it links rather than drafts a duplicate. */
 export interface DraftCandidate {
@@ -66,11 +67,6 @@ export type DraftOutput = typeof DraftOutput.Type
 const LABELS =
   "col (casual, conversational), sl (slang), net-sl (internet slang), vulg (vulgar), X (offensive), derog (derogatory), joc (humorous), euph (euphemistic), chn (children's), form (formal, written), hon (respectful), hum (humble), pol (polite), male (mostly said by men), fem (mostly said by women), dated, arch (archaic), rare, id (idiom), proverb, abbr (abbreviation), on-mim (onomatopoeia)"
 
-const CAUTIONS = {
-  ja: "rude_upward (sounds rude to a superior), keigo_direction (respectful vs humble, said of whom), set_phrase (a fixed phrase with a fixed use), particle_pattern (the particle it takes), gendered_speech, confusable (a word it is easily mixed up with), collocation (what it goes with)",
-  en: "wasei_eigo (a katakana loan that means something else in English), textbook_english (correct but stiff or dated as taught), directness (how blunt or soft it lands), variety (differs between US, UK and other English), confusable, collocation"
-} as const
-
 const system = (language: Language) => {
   const [target, native, readingNote, posNote] =
     language === "en"
@@ -104,7 +100,8 @@ When drafting an entry:
   - "pos": part-of-speech codes from: ${posNote}; [] when unclear.
   - "labels": codes from: ${LABELS}; [] when it is neutral, current and anyone says it. Label only what a native dictionary would mark.
   - "usagePatterns": 0–2 short notes in ${native} on how natives use it — the construction it appears in, who says it to whom, in what setting. [] when the glosses and labels say it all. Don't restate a label. Usage only: no etymology, origins, dates or history, which a learner can't check and a wrong one misleads.
-- "cautions": 0–3 for the whole entry, only where a ${native} speaker would be surprised or misled — most entries need none. Each has a "kind" from: ${CAUTIONS[language]}; a "text" of one or two sentences in ${native}; "sense", the number of the sense it is about (1 for the first), or null for the whole word; and "about", another ${target} word it compares with, as written, or null. Never write a caution a label already says: the page shows each label with its meaning, so col, sl and net-sl already tell the learner the word is casual or slang and out of place with elders, superiors or in formal settings, vulg that it offends, dated that it sounds old. A slang word needs no "it's slang, avoid it in formal settings" caution; write one only for a surprise beyond that. Name a sense by what it means, never by its number, in the text. No etymology, origins or dates here either.
+- "cautions": 0–3 for the whole entry, only where a ${native} speaker would be surprised or misled — most entries need none. Each has a "kind" from: ${CAUTION_GUIDE[language]}; a "text" of one or two sentences in ${native}; "sense", the number of the sense it is about (1 for the first), or null for the whole word; and "about", another ${target} word it compares with, as written, or null. Never write a caution a label already says: the page shows each label with its meaning, so ${LABELS_SAY}. A slang word needs no "it's slang, avoid it in formal settings" caution; write one only for a surprise beyond that. Name a sense by what it means, never by its number, in the text. No etymology, origins or dates here either. These are never cautions:
+${NOT_CAUTIONS}
 
 Accuracy over coverage: draft only what you know natives really say, with meanings you are sure of. If you half-recognise the query but can't pin its meaning down, reject and say so. The draft is marked unverified and reviewed by a person before it becomes a real entry.`
 }

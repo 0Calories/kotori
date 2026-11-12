@@ -1,4 +1,12 @@
-import { Formality, type Language, SentenceMedium, SentenceTone, SpeakerAge, SpeakerGender } from "@kotori/contracts"
+import {
+  type Casting,
+  Formality,
+  type Language,
+  SentenceMedium,
+  SentenceTone,
+  SpeakerAge,
+  SpeakerGender
+} from "@kotori/contracts"
 import { furiganaToText, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
 import { Context, Effect, Layer, Schema } from "effect"
 import { Claude, type ClaudeError } from "../providers/Claude.ts"
@@ -8,8 +16,6 @@ export const ExamplesOutput = Schema.Struct({
   senses: Schema.Array(
     Schema.Struct({
       sense: Schema.Int,
-      /** The sense's usage note for Japanese learners, in English; null when the glosses say it all. */
-      note: Schema.NullOr(Schema.String),
       examples: Schema.Array(
         Schema.Struct({
           /** The gloss of its sense the sentence uses, copied from the list, so a misfiled one can be dropped. */
@@ -35,8 +41,6 @@ export const EnglishExamplesOutput = Schema.Struct({
   senses: Schema.Array(
     Schema.Struct({
       sense: Schema.Int,
-      /** The sense's usage note for English learners, in Japanese; null when the glosses say it all. */
-      noteJa: Schema.NullOr(Schema.String),
       examples: Schema.Array(
         Schema.Struct({
           gloss: Schema.String,
@@ -77,25 +81,14 @@ export interface ExampleRequest {
   readonly perSense: number
 }
 
-/** The usage note for one sense, in the learner's language: `note` on a Japanese word, `noteJa` on an English one. */
-export interface WrittenSenseNote {
-  readonly sense: number
-  readonly note: string | null
-  readonly noteJa: string | null
-}
-
 export interface WrittenExample {
   readonly sense: number
   readonly ja: string
   readonly furigana: string
   readonly en: string
   readonly formality: Formality
-  readonly speakerGender: SpeakerGender
-  readonly speakerAge: SpeakerAge
-  readonly medium: SentenceMedium
-  /** Lowercased regional variety label, or null for the standard language. */
-  readonly variety: string | null
-  readonly tone: SentenceTone
+  /** Who says it and how, for voice casting; its variety is a lowercased label, or null for the standard language. */
+  readonly casting: Casting
   readonly note: string | null
   /** For English learners, in Japanese. */
   readonly noteJa: string | null
@@ -133,9 +126,21 @@ const normalizeVariety = (label: string | null): string | null => {
   return normalized === "" || normalized === "standard" || normalized === "null" ? null : normalized
 }
 
+/** The speaker signals Claude judged for a sentence, as stored. */
+const castingOf = (example: {
+  readonly speaker: { readonly gender: SpeakerGender; readonly age: SpeakerAge }
+  readonly medium: SentenceMedium
+  readonly variety: string | null
+  readonly tone: SentenceTone
+}): Casting => ({
+  speakerGender: example.speaker.gender,
+  speakerAge: example.speaker.age,
+  medium: example.medium,
+  variety: normalizeVariety(example.variety),
+  tone: example.tone
+})
+
 export interface WrittenExamples {
-  /** One usage note per sense; the examples only annotate what is specific to a sentence. */
-  readonly notes: ReadonlyArray<WrittenSenseNote>
   readonly examples: ReadonlyArray<WrittenExample>
   /** Sentences left out because the gloss they name isn't their sense's: misfiled, or a meaning not listed. */
   readonly dropped: number
@@ -198,7 +203,6 @@ export class ExampleWriter extends Context.Service<
         const { groups, dropped } = filed(request, output.senses)
         return {
           dropped,
-          notes: groups.map((group) => ({ sense: group.sense, note: null, noteJa: group.noteJa ?? null })),
           examples: groups.flatMap((group) =>
             group.examples.map((example): WrittenExample => ({
               sense: group.sense,
@@ -207,11 +211,7 @@ export class ExampleWriter extends Context.Service<
               furigana: example.ja,
               en: example.en,
               formality: example.formality,
-              speakerGender: example.speaker.gender,
-              speakerAge: example.speaker.age,
-              medium: example.medium,
-              variety: normalizeVariety(example.variety),
-              tone: example.tone,
+              casting: castingOf(example),
               note: null,
               noteJa: example.noteJa
             }))
@@ -230,7 +230,6 @@ export class ExampleWriter extends Context.Service<
         const { groups, dropped } = filed(request, output.senses)
         return {
           dropped,
-          notes: groups.map((group) => ({ sense: group.sense, note: group.note ?? null, noteJa: null })),
           examples: groups.flatMap((group) =>
             group.examples.map((example) => ({
               sense: group.sense,
@@ -239,11 +238,7 @@ export class ExampleWriter extends Context.Service<
               furigana: furiganaToText(example.furigana) === example.ja ? example.furigana : example.ja,
               en: example.en,
               formality: example.formality,
-              speakerGender: example.speaker.gender,
-              speakerAge: example.speaker.age,
-              medium: example.medium,
-              variety: normalizeVariety(example.variety),
-              tone: example.tone,
+              casting: castingOf(example),
               note: example.note,
               // Japanese words are read by Japanese learners, in English.
               noteJa: null

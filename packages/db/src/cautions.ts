@@ -7,8 +7,10 @@ import { senses } from "./senses.ts"
 
 /**
  * What would surprise a learner. The kinds differ by direction: Japanese learners meet
- * politeness pitfalls, English learners meet katakana wasei-eigo; `confusable` and
- * `collocation` meet both. Grammar facts (countability) are labels.
+ * politeness pitfalls, English learners meet katakana wasei-eigo; `confusable`, `collocation`
+ * and `tone` meet both. `tone` is how heavy or light a word lands (ぴえん is playful, never real
+ * grief; "hate" is stronger than 嫌い), which no other kind says. Grammar facts (countability)
+ * are labels.
  */
 export const cautionKind = pgEnum("caution_kind", [
   // Learning Japanese
@@ -24,7 +26,8 @@ export const cautionKind = pgEnum("caution_kind", [
   "variety",
   // Both
   "confusable",
-  "collocation"
+  "collocation",
+  "tone"
 ])
 
 export const CautionKind = Schema.Literals(cautionKind.enumValues)
@@ -44,9 +47,10 @@ export const CAUTION_KINDS: Readonly<Record<"ja" | "en", ReadonlyArray<CautionKi
     "particle_pattern",
     "gendered_speech",
     "confusable",
-    "collocation"
+    "collocation",
+    "tone"
   ],
-  en: ["wasei_eigo", "textbook_english", "directness", "variety", "confusable", "collocation"]
+  en: ["wasei_eigo", "textbook_english", "directness", "variety", "confusable", "collocation", "tone"]
 }
 
 /** A word carries at most this many cautions; `rank` runs from 1 to it. */

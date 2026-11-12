@@ -54,31 +54,24 @@ const entry = {
   forms: [],
   audioUrl: null,
   audio: [],
-  loan: null,
-  enrichment: { nuance: "unavailable", examples: "unavailable", audio: "unavailable" },
+  enrichment: { examples: "unavailable", audio: "unavailable" },
   senses: Array.from({ length: 3 }, (_, index) => ({
     index,
     glosses: [index === 0 ? "to eat" : `meaning ${index + 1}`],
     partsOfSpeech: [],
-    misc: [],
     fields: [],
-    dialects: [],
-    info: Array.from(
-      { length: 8 },
-      (_, i) =>
-        `Usage ${i + 1}: A long explanation of how this meaning is used in everyday conversation, with enough text to make the first meaning scroll offscreen.`
-    ),
+    info: [],
     appliesTo: [],
     related: [],
     antonyms: [],
     origins: [],
-    nuance: null,
-    note: null,
-    noteJa: null,
-    similar: [],
     examples: [],
     labels: [],
-    usagePatterns: [],
+    usagePatterns: Array.from({ length: 8 }, (_, i) => ({
+      text: `Usage ${i + 1}: A long explanation of how this meaning is used in everyday conversation, with enough text to make the first meaning scroll offscreen.`,
+      source: "jmdict",
+      about: null
+    })),
     similarWords: []
   }))
 }
@@ -148,7 +141,7 @@ try {
           return json({
             ok: true,
             version: "test",
-            features: { coach: false, nuance: false, audio: false, email: false },
+            features: { coach: false, formality: false, audio: false, email: false },
             dictionary: { entries: 1 }
           })
         throw new Error(`Unexpected API request: ${request.method()} ${pathname}`)

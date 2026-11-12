@@ -1,4 +1,5 @@
 import {
+  CAUTION_KINDS,
   CautionKind,
   entries,
   entryFrequency,
@@ -9,12 +10,10 @@ import {
   LabelCode,
   LabelSeverity,
   LoanLinkMeaning,
-  Nuance,
+  MAX_CAUTIONS,
   proposalRoute,
   proposalStatus,
-  senseNotes,
   SenseOrigin,
-  similarWords,
   Source,
   tags
 } from "@kotori/db"
@@ -22,16 +21,24 @@ import { createSelectSchema } from "drizzle-orm/effect-schema"
 import * as Schema from "effect/Schema"
 import * as Struct from "effect/Struct"
 import { Language } from "./Language.ts"
-import { Currency, Loanword } from "./Nuance.ts"
 
-export { CautionKind, EntryId, LabelCode, LabelSeverity, LoanLinkMeaning, SenseOrigin, Source }
+export {
+  CAUTION_KINDS,
+  CautionKind,
+  EntryId,
+  Formality,
+  LabelCode,
+  LabelSeverity,
+  LoanLinkMeaning,
+  MAX_CAUTIONS,
+  SenseOrigin,
+  Source
+}
 
 const EntryRow = createSelectSchema(entries, { id: EntryId })
 // `text` is a bytewise-collated custom column, which derives as unknown.
 const FormRow = createSelectSchema(forms, { text: Schema.String })
-const SimilarRow = createSelectSchema(similarWords)
 const ExampleRow = createSelectSchema(examples)
-const SenseNoteRow = createSelectSchema(senseNotes)
 
 /** A JMDict tag such as `v5r` with its human-readable description. */
 export const Tag = createSelectSchema(tags)
@@ -49,16 +56,6 @@ export const CrossReference = Schema.Struct({
   entryId: Schema.NullOr(EntryId)
 })
 export type CrossReference = typeof CrossReference.Type
-
-/** A similar word as Jev judged it, stored with its difference; replaced by `SimilarWord` and removed with the old model. */
-export const JudgedSimilarWord = Schema.Struct({
-  entryId: EntryId,
-  ...Struct.pick(EntryRow.fields, ["headword", "reading"]),
-  meaning: Schema.String,
-  ...Struct.pick(SimilarRow.fields, ["difference", "confidence"]),
-  formality: Schema.NullOr(Formality)
-})
-export type JudgedSimilarWord = typeof JudgedSimilarWord.Type
 
 /** Another entry a fact points at: the word to compare with, or not to confuse it with. */
 export const WordRef = Schema.Struct({
@@ -114,7 +111,10 @@ export const LoanLink = Schema.Struct({
   englishEntryId: Schema.NullOr(EntryId),
   /** Whether the loan is a true loanword or wasei-eigo; null until a source says. */
   meaning: Schema.NullOr(LoanLinkMeaning),
-  source: Source
+  /** Who named the pair: JMDict, or Kotori for a pair JMDict doesn't name. */
+  source: Source,
+  /** Who judged `meaning` (Kotori, for every verdict so far); null with it. */
+  meaningSource: Schema.NullOr(Source)
 })
 export type LoanLink = typeof LoanLink.Type
 
@@ -166,9 +166,7 @@ export const Sense = Schema.Struct({
   /** What the word means, in the other language: English for a Japanese word, Japanese for an English one. */
   glosses: Schema.Array(Schema.String),
   partsOfSpeech: Schema.Array(Tag),
-  misc: Schema.Array(Tag),
   fields: Schema.Array(Tag),
-  dialects: Schema.Array(Tag),
   info: Schema.Array(Schema.String),
   /** Forms this sense is restricted to; empty means every form. */
   appliesTo: Schema.Array(Schema.String),
@@ -176,14 +174,10 @@ export const Sense = Schema.Struct({
   antonyms: Schema.Array(CrossReference),
   /** Languages and original words a loanword sense came from (`lsource`). */
   origins: Schema.Array(SenseOrigin),
-  nuance: Schema.NullOr(Nuance),
-  /** Kotori's usage note for Japanese learners, in English (on Japanese words), and for English learners, in Japanese (on English words). */
-  ...Struct.pick(SenseNoteRow.fields, ["note", "noteJa"]),
-  similar: Schema.Array(JudgedSimilarWord),
   examples: Schema.Array(Example),
   /**
-   * The labels this sense has that the word's (`Entry.labels`, the first sense's) don't: empty on
-   * the first sense, so a page states each label once.
+   * The labels this sense has beyond the word's (`Entry.labels`, those every sense shares), so a
+   * page states each label once.
    */
   labels: Schema.Array(Label),
   usagePatterns: Schema.Array(UsagePattern),
@@ -195,8 +189,8 @@ export type Sense = typeof Sense.Type
 export const EnrichmentStatus = Schema.Literals(["ready", "queued", "unavailable"])
 export type EnrichmentStatus = typeof EnrichmentStatus.Type
 
+/** Whether the worker's jobs for an entry are done, on their way, or not coming (no provider, or failed). */
 export const Enrichment = Schema.Struct({
-  nuance: EnrichmentStatus,
   examples: EnrichmentStatus,
   audio: EnrichmentStatus
 })
@@ -221,7 +215,10 @@ export const Entry = Schema.Struct({
   romaji: Schema.String,
   /** Usually written in kana (JMDict's `uk`): a spelling fact, not a register label. */
   usuallyKana: Schema.Boolean,
-  /** The word's labels: its first sense's. */
+  /**
+   * The word's labels: those every sense carries. A single-sense word's are its sense's; one sense
+   * of several never speaks for the others.
+   */
   labels: Schema.Array(Label),
   /** Null when no source gives frequency signals for the word. */
   frequency: Schema.NullOr(EntryFrequency),
@@ -235,8 +232,6 @@ export const Entry = Schema.Struct({
   audioUrl: Schema.NullOr(Schema.String),
   /** Every headword clip, one per dictionary voice. */
   audio: Schema.Array(EntryAudio),
-  /** An English word's katakana loan, once judged; null for Japanese words and English words without one. */
-  loan: Schema.NullOr(Loanword),
   enrichment: Enrichment
 })
 export type Entry = typeof Entry.Type
@@ -246,9 +241,8 @@ export const EntrySummary = Schema.Struct({
   romaji: Schema.String,
   meanings: Schema.Array(Schema.String),
   partOfSpeech: Schema.NullOr(Schema.String),
-  formality: Schema.NullOr(Formality),
-  /** How current the word's first sense feels, once judged, so a dated idiom says so in the results. */
-  currency: Schema.NullOr(Currency),
+  /** The word's labels, as on `Entry`: those every sense carries. The app picks the one or two worth a chip. */
+  labels: Schema.Array(Label),
   /** Inflections undone to find this entry, e.g. ["polite", "past"] for 食べました or ["past"] for "ate". */
   inflection: Schema.Array(Schema.String),
   /** The first headword clip, so results can be heard without opening the entry; null until voiced. */
@@ -268,7 +262,7 @@ export type DraftSense = typeof DraftSense.Type
 
 /**
  * Kotori's draft of an entry, in the entry's own model and read the same way: the word's labels
- * (its first sense's), senses, and cautions. Unverified until the admin approves it, when it
+ * (those every sense carries), senses, and cautions. Unverified until the admin approves it, when it
  * becomes an entry with these same facts.
  */
 export const DraftEntry = Schema.Struct({

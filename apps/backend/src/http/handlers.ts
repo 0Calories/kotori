@@ -36,7 +36,7 @@ const SystemHandlers = HttpApiBuilder.group(
             version: VERSION,
             features: {
               coach: yield* claude.available,
-              nuance: jev.configured,
+              formality: jev.configured,
               audio: pronouncer.configured,
               email: mailer.configured
             },

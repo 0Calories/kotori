@@ -7,13 +7,11 @@ import { isUnguardedRoute, legalDocument, legalLanguageFromParam } from "../src/
 const appDir = join(dirname(fileURLToPath(import.meta.url)), "..")
 
 describe("public legal pages (/privacy and /terms)", () => {
-  it("keeps /privacy, /terms and /proto unguarded and reachable without signing in", () => {
+  it("keeps /privacy and /terms unguarded and reachable without signing in", () => {
     assert.isTrue(isUnguardedRoute("/privacy"))
     assert.isTrue(isUnguardedRoute("/privacy/"))
     assert.isTrue(isUnguardedRoute("/terms"))
     assert.isTrue(isUnguardedRoute("/terms/"))
-    assert.isTrue(isUnguardedRoute("/proto"))
-    assert.isTrue(isUnguardedRoute("/proto/42"))
 
     assert.isFalse(isUnguardedRoute("/"))
     assert.isFalse(isUnguardedRoute("/welcome"))

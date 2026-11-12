@@ -102,7 +102,7 @@ const LABELS: ReadonlyArray<readonly [Readonly<Record<string, string>>, keyof La
 const isLabel = (label: string) => LABELS.some(([table]) => table[label] !== undefined)
 
 /**
- * Files usage notes, regions, fields and transitivity, wherever they appear: tags, raw
+ * Files usage labels, regions, fields and transitivity, wherever they appear: tags, raw
  * tags, topics, or labels in a gloss. Returns false, filing nothing, if any label is unknown.
  */
 const classify = (labels: ReadonlyArray<string>, into: Labels) => {

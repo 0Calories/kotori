@@ -1,4 +1,5 @@
-import { index, integer, pgEnum, text, unique } from "drizzle-orm/pg-core"
+import { sql } from "drizzle-orm"
+import { check, index, integer, pgEnum, text, unique } from "drizzle-orm/pg-core"
 import * as Schema from "effect/Schema"
 import { source, table } from "./columns.ts"
 import { entries, type EntryId } from "./entries.ts"
@@ -12,7 +13,9 @@ export type LoanLinkMeaning = typeof LoanLinkMeaning.Type
 /**
  * A katakana word and the English word it was borrowed from: one fact, stored once and read from
  * both entries. JMDict's `lsource` names most pairs; Kotori judges the rest, and whether the
- * meaning drifted. The words are kept as text so a link survives either entry being absent.
+ * meaning drifted. Who named the pair and who judged its meaning are kept apart, so a reseed that
+ * names the pair again keeps the verdict and whose it is. The words are kept as text so a link
+ * survives either entry being absent.
  */
 export const loanLinks = table(
   "loan_links",
@@ -28,10 +31,14 @@ export const loanLinks = table(
       .references(() => entries.id, { onDelete: "set null" }),
     /** Null until a source says; JMDict names the pair but not whether the meaning drifted. */
     meaning: loanMeaning(),
-    source: source().notNull()
+    /** Who named the pair: JMDict, or Kotori's loan pass for a pair JMDict doesn't name. */
+    source: source().notNull(),
+    /** Who judged `meaning`; set exactly when it is. */
+    meaningSource: source()
   },
   (t) => [
     unique("loan_links_pair").on(t.katakana, t.english),
+    check("loan_links_meaning_source", sql`(${t.meaning} IS NULL) = (${t.meaningSource} IS NULL)`),
     index("loan_links_katakana_entry").on(t.katakanaEntryId),
     index("loan_links_english_entry").on(t.englishEntryId)
   ]

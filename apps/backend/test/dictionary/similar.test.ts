@@ -10,10 +10,27 @@ const label = (code: LabelCode, source: Label["source"] = "jmdict"): Label => ({
 })
 
 describe("senseLabels", () => {
-  it("states the first sense's labels as the word's, and only what a later sense adds", () => {
-    const { word, senses } = senseLabels([[label("male")], [label("male"), label("col")], []])
-    expect(word.map((own) => own.code)).toEqual(["male"])
-    expect(senses.map((own) => own.map((one) => one.code))).toEqual([[], ["col"], []])
+  it("states as the word's only the labels every sense carries, and each sense what it has beyond them", () => {
+    const codes = (labels: ReadonlyArray<{ readonly code: string }>) => labels.map((own) => own.code)
+    const shared = senseLabels([[label("male")], [label("male"), label("col")]])
+    expect(codes(shared.word)).toEqual(["male"])
+    expect(shared.senses.map(codes)).toEqual([[], ["col"]])
+
+    // One archaic sense of two doesn't make the word archaic.
+    const split = senseLabels([[label("arch"), label("pol")], [label("pol")], []])
+    expect(codes(split.word)).toEqual([])
+    expect(split.senses.map(codes)).toEqual([["arch", "pol"], ["pol"], []])
+
+    // A single sense speaks for the word.
+    const single = senseLabels([[label("sl"), label("col")]])
+    expect(codes(single.word)).toEqual(["sl", "col"])
+    expect(single.senses).toEqual([[]])
+  })
+
+  it("keeps a label on its senses when they have it from different sources", () => {
+    const mixed = senseLabels([[label("form")], [label("form", "kotori")]])
+    expect(mixed.word).toEqual([])
+    expect(mixed.senses.map((own) => own.map((one) => one.source))).toEqual([["jmdict"], ["kotori"]])
   })
 
   it("says nothing for a word with no senses", () => {

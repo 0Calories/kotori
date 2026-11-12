@@ -1,6 +1,6 @@
 /**
  * Tag codes for English words. Where JMDict has a code that means the same thing (col,
- * sl, arch, vt…), English senses use it, so search penalties, nuance overrides and voice
+ * sl, arch, vt…), English senses use it, so search penalties, labels and voice
  * casting treat both dictionaries alike. The rest are English-only and declared here with
  * their labels; JMDict's own codes get theirs from JMDict.
  */
