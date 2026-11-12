@@ -10,40 +10,40 @@ nodeLinker: hoisted
 # declared here and referenced as `catalog:`. strict mode rejects out-of-catalog specs.
 catalogMode: strict
 catalog:
-  effect: "4.0.3"
-  "@effect/platform-node": "4.0.3"
-  "@effect/sql-pg": "4.0.3"
-  "@effect/sql-pglite": "4.0.3"
+  effect: "4.1.2"
+  "@effect/platform-node": "4.1.2"
+  "@effect/sql-pg": "4.1.2"
+  "@effect/sql-pglite": "4.1.2"
   # Drizzle 1.0 release candidate: the first line with the Effect 4 driver. Pinned exactly; bump both together.
   drizzle-orm: "1.0.0-rc.5"
   drizzle-kit: "1.0.0-rc.5"
-  "@effect/vitest": "4.0.3"
-  vitest: "^5.0.4"
-  vite: "^8.3.4"
+  "@effect/vitest": "4.1.2"
+  vitest: "^5.1.0"
+  vite: "^8.3.7"
   "@types/node": "^24.19.2"
-  jose: "^6.2.12"
-  better-auth: "~1.7.12"
+  jose: "^6.2.16"
+  better-auth: "~1.7.18"
   pg: "^8.16.3"
   "@types/pg": "^8.15.4"
   "@anthropic-ai/sdk": "^0.133.0"
-  "@typesafe-ai/sdk": "^0.6.0"
+  "@typesafe-ai/sdk": "^0.7.0"
   wanakana: "^5.3.1"
   tsx: "^4.23.15"
-  nx: "24.0.0"
-  "@nx/js": "24.0.0"
+  nx: "24.0.5"
+  "@nx/js": "24.0.5"
   # Module boundaries as an Oxlint JS plugin; tracks `nx`. The rule rides Oxlint's JS plugin API, outside
   # Oxlint's semver promise, so treat any `oxlint` bump as a change to check against it.
-  "@nx/oxlint": "24.0.0"
-  oxlint: "1.89.0"
+  "@nx/oxlint": "24.0.5"
+  oxlint: "1.93.0"
   # Oxlint's type-aware backend; its version tracks the TypeScript 7 release it embeds (7.0.2 + patch 004).
-  oxlint-tsgolint: "7.0.2004"
-  oxfmt: "0.74.0"
-  "@neon/config": ^1.9.3
-  knip: ^6.42.1
+  oxlint-tsgolint: "7.0.2006"
+  oxfmt: "0.78.0"
+  "@neon/config": ^1.13.0
+  knip: ^6.44.2
   typescript: npm:@typescript/typescript6@~6.0.2
-  vercel: ^65.5.0
-  "@sentry/react-native": ~8.33.0
-  "@sentry/effect": ^11.10.0
+  vercel: ^65.12.1
+  "@sentry/react-native": ~8.34.0
+  "@sentry/effect": ^11.11.0
 
 allowBuilds:
   "@resvg/resvg-js": true
