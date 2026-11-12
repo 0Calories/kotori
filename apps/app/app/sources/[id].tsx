@@ -4,6 +4,7 @@ import Animated, { FadeIn } from "react-native-reanimated"
 import { useEntry } from "../../src/api/queries.ts"
 import { Card } from "../../src/components/Card.tsx"
 import { Headword } from "../../src/components/Headword.tsx"
+import { Notice } from "../../src/components/Notice.tsx"
 import { Header, Screen } from "../../src/components/Screen.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
@@ -22,7 +23,8 @@ export default function SourcesScreen() {
   const back = () => (router.canGoBack() ? router.back() : router.replace("/"))
   const header = <Header onBack={back} title={t.entry.sources} />
 
-  if (id === null || entry.isError) {
+  // A failed refetch keeps the entry already loaded: only a first load that failed has nothing to show.
+  if (id === null || entry.isLoadingError) {
     return (
       <Screen bottomInset={40} header={header}>
         <ErrorState error={entry.error} onRetry={id === null ? undefined : () => entry.refetch()} />
@@ -41,6 +43,12 @@ export default function SourcesScreen() {
   const rows = entryAttributions(t, data)
   return (
     <Screen bottomInset={40} header={header}>
+      {entry.isRefetchError ? (
+        <Notice
+          message={t.common.notRefreshed}
+          action={{ label: t.common.retry, onPress: () => void entry.refetch() }}
+        />
+      ) : null}
       <Animated.View entering={FadeIn.duration(250)} style={{ gap: theme.space.lg }}>
         <View style={{ gap: 6, paddingHorizontal: 6 }}>
           <Headword language={data.language} size={data.language === "ja" ? 36 : 30} selectable>

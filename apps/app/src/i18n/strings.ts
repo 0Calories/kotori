@@ -23,6 +23,9 @@ const en = {
   greeting: { morning: "Good morning", afternoon: "Good afternoon", evening: "Good evening" },
   common: {
     retry: "Try again",
+    /** Above a screen that is still showing what was loaded before. */
+    notRefreshed:
+      "Kotori flew off to check for anything new and came back empty-handed. This might be a little behind.",
     cancel: "Cancel",
     done: "Done",
     save: "Save",
@@ -618,6 +621,7 @@ const ja: Strings = {
   greeting: { morning: "おはよう", afternoon: "こんにちは", evening: "こんばんは" },
   common: {
     retry: "もう一度",
+    notRefreshed: "コトリが新しい情報を見に行ったけど、手ぶらで戻ってきました。表示が少し古いかもしれません。",
     cancel: "キャンセル",
     done: "完了",
     save: "保存",

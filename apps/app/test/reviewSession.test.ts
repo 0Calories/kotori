@@ -8,7 +8,8 @@ import {
   waitRefetchDelay,
   WAIT_RETRY_MS,
   type ReviewSessionEvent,
-  type ReviewSessionState
+  type ReviewSessionState,
+  unansweredItems
 } from "../src/lib/reviewSession.ts"
 
 const item = (id: string): ReviewItem => ({
@@ -134,5 +135,27 @@ describe("review session reducer", () => {
     const saved = run([{ type: "answerSaved", noteId: "a", leech: false }], state)
     assert.deepStrictEqual(saved.inFlight, [])
     assert.strictEqual(reviewView(saved, refetched).total, 3)
+  })
+})
+
+describe("due notes after a failed refetch", () => {
+  it("leave out notes answered since the list was fetched, so they don't come round again", () => {
+    const savedAt = new Map([["a", 2000]])
+    assert.deepStrictEqual(
+      unansweredItems(due, savedAt, 1000).map((item) => item.note.id),
+      ["b", "c"]
+    )
+    const state = run([...open(), answerA, { type: "answerSaved", noteId: "a", leech: false }])
+    const stale = unansweredItems(due, savedAt, 1000)
+    assert.strictEqual(reviewView(state, stale).current?.note.id, "b")
+    assert.strictEqual(reviewView(state, stale).remaining, 2)
+  })
+
+  it("trust a list fetched after the answer was recorded, where an answered note may be due again", () => {
+    const savedAt = new Map([["a", 1000]])
+    assert.deepStrictEqual(
+      unansweredItems(due, savedAt, 2000).map((item) => item.note.id),
+      ["a", "b", "c"]
+    )
   })
 })
