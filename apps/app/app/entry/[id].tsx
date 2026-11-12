@@ -522,7 +522,8 @@ export default function EntryScreen() {
         ) : null}
       </Section>
 
-      {plain ? (
+      {/* After a refusal the notice already says when Kotori writes more, so there is nothing to offer. */}
+      {plain && enrichment.phase !== "limited" ? (
         <View
           style={{
             backgroundColor: theme.color.surfaceMuted,
