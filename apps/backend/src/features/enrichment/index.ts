@@ -8,6 +8,7 @@ export {
   failJob,
   jobCounts,
   jobStatusFor,
+  queueNewJob,
   refillJob,
   releaseJob,
   requeueJob,

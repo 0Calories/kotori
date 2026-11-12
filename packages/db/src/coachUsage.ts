@@ -2,10 +2,13 @@ import { index, integer, pgEnum, uuid } from "drizzle-orm/pg-core"
 import { createdAt, table } from "./columns.ts"
 import { type UserId, users } from "./users.ts"
 
-/** `ask` is a Claude draft; `triage` is Jev routing an ask, limited apart as it costs a fraction. */
-export const coachKind = pgEnum("coach_kind", ["naturalness", "how-to-say", "speak", "ask", "triage"])
+/**
+ * `ask` is a Claude draft; `triage` is Jev routing an ask, limited apart as it costs a fraction;
+ * `examples` is a learner's request that queued Kotori's example sentences for an entry.
+ */
+export const coachKind = pgEnum("coach_kind", ["naturalness", "how-to-say", "speak", "ask", "triage", "examples"])
 
-/** One row per coach or Ask Kotori request, for the per-learner hourly rate limits. */
+/** One row per coach, Ask Kotori or example-sentence request, for the per-learner rate limits. */
 export const coachUsage = table(
   "coach_usage",
   {

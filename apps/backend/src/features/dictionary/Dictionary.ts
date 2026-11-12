@@ -11,6 +11,7 @@ import {
   type SearchMatch,
   type SearchResult,
   type Label,
+  RateLimited,
   type Sense,
   type SimilarWord,
   type Tag
@@ -32,8 +33,11 @@ import {
   toFullwidth,
   uninflect
 } from "@kotori/language"
-import { Clock, Context, Effect, Layer, Option } from "effect"
+import type { UserId } from "@kotori/db"
+import { Clock, Config, Context, Effect, Layer, Option } from "effect"
 import { Database } from "../../db/Database.ts"
+import { scopedToUser } from "../../db/scopedToUser.ts"
+import { reserveUsage } from "../coaching/queries.ts"
 import { entryClips, exampleClips } from "../audio/index.ts"
 import type { ExampleRow, JobKind } from "../enrichment/index.ts"
 import {
@@ -42,6 +46,7 @@ import {
   examplesToCome,
   jobStatusFor,
   judgedCasting,
+  queueNewJob,
   refillJob,
   sentencesHeard,
   sentencesToVoice
@@ -79,8 +84,11 @@ const ON_DEMAND = 1_000
 
 /** How long a finished job that left gaps waits before it is tried again. */
 const REFILL_AFTER = 60 * 60 * 1000
-/** How long after a job ran out of attempts a viewed entry gives it another try. */
+/** How long after a job ran out of attempts a request for the entry gives it another try. */
 const RETRY_AFTER = 10 * 60 * 1000
+
+const HOUR = 60 * 60 * 1000
+const DAY = 24 * HOUR
 
 interface Hit {
   readonly entryId: EntryId
@@ -280,11 +288,15 @@ export class Dictionary extends Context.Service<
   {
     /** Searches the dictionary of `language`: Japanese words for Japanese learners, English ones for English learners. */
     search(query: string, language: Language, limit: number): Effect.Effect<SearchResult>
+    /** An entry as the app shows it, with its enrichment status. Reads only; never queues work. */
     entry(id: EntryId): Effect.Effect<Option.Option<Entry>>
     /** Whether an entry's example sentences and audio are ready yet. Reads only; never queues work. */
     enrichment(id: EntryId): Effect.Effect<Option.Option<Enrichment>>
-    /** Queues whatever enrichment an entry is missing, returning its status. */
-    requestEnrichment(id: EntryId): Effect.Effect<Option.Option<Enrichment>>
+    /**
+     * Queues whatever enrichment an entry is missing, returning its status. Queuing its example
+     * sentences takes one of the requester's allowance; fails, queuing nothing, once it's used up.
+     */
+    requestEnrichment(id: EntryId, requester: UserId): Effect.Effect<Option.Option<Enrichment>, RateLimited>
     /** Search-result summaries for known entries, for Ask Kotori's links. */
     summarize(ids: ReadonlyArray<EntryId>): Effect.Effect<ReadonlyArray<EntrySummary>>
     /** Entry ids for words in `language`, for linking coach vocabulary to the dictionary. */
@@ -300,6 +312,8 @@ export class Dictionary extends Context.Service<
       const db = yield* Database
       const claude = yield* Claude
       const pronouncer = yield* Pronouncer
+      const examplesHourly = yield* Config.Int("KOTORI_ENRICH_HOURLY_LIMIT").pipe(Config.withDefault(60))
+      const examplesDaily = yield* Config.Int("KOTORI_ENRICH_DAILY_LIMIT").pipe(Config.withDefault(300))
 
       // ---------------------------------------------------------------------
       // Search: Japanese words
@@ -733,21 +747,44 @@ export class Dictionary extends Context.Service<
       // ---------------------------------------------------------------------
 
       // A job that settled (`done` or `failed`) is not on its way, so whatever it left missing is
-      // `unavailable` and the app stops polling. Looking again may queue it anew (see `enrichmentFor`).
+      // `unavailable` and the app stops polling. Asking again may queue it anew (see `requestFor`).
       const status = (ready: boolean, available: boolean, job: string | undefined): EnrichmentStatus =>
         ready ? "ready" : !available || job === "failed" || job === "done" ? "unavailable" : "queued"
 
-      const enrichmentFor = Effect.fnUntraced(function* (
-        entry: Pick<EntryRecord, "id" | "language">,
-        enqueue: boolean
-      ) {
+      /**
+       * Takes one of the learner's example-sentence requests, or fails when they've used them up.
+       * Called inside the transaction that queues the work, so a refused request queues nothing.
+       */
+      const reserveExamples = Effect.fnUntraced(function* (userId: UserId, now: Date) {
+        const hour = { since: new Date(now.getTime() - HOUR), limit: examplesHourly }
+        const day = { since: new Date(now.getTime() - DAY), limit: examplesDaily }
+        const full = yield* reserveUsage(scopedToUser(db, userId), {
+          kind: "examples",
+          kinds: ["examples"],
+          windows: [hour, day],
+          now
+        })
+        if (Option.isNone(full)) return
+        return yield* full.value === day
+          ? new RateLimited({
+              message: "That's a lot of new words for one day. More examples tomorrow!",
+              retryAfterSeconds: 3600
+            })
+          : new RateLimited({
+              message: "That's a lot of new words this hour. Take a breather!",
+              retryAfterSeconds: 600
+            })
+      })
+
+      /** What an entry has and what is on its way, read without writing anything. */
+      const lookAt = Effect.fnUntraced(function* (entry: Pick<EntryRecord, "id" | "language">) {
         const examples = yield* examplesFor(db, [entry.id])
         // Sentences seeded from Tatoeba or Wiktionary don't stand in for Kotori's, which are
-        // written for learners: Claude still writes them for a viewed word.
+        // written for learners: Claude still writes them for a requested word.
         const hasExamples = examples.some((example) => example.source === "kotori")
-        const before = yield* jobStatusFor(db, entry.id)
+        const jobs = yield* jobStatusFor(db, entry.id)
         // The sentences that get audio: Kotori's, and seeded ones only where Kotori wrote none.
-        const toVoice = sentencesToVoice(examples, { writing: examplesToCome(before.get("examples"), examples) })
+        const toVoice = sentencesToVoice(examples, { writing: examplesToCome(jobs.get("examples"), examples) })
         const clips = yield* exampleClips(
           db,
           examples.map((example) => example.id)
@@ -763,54 +800,86 @@ export class Dictionary extends Context.Service<
         )
         const hasAudio = (yield* entryClips(db, [entry.id])).size > 0 && unvoiced.length === 0
         const coachAvailable = yield* claude.available
+        return { hasExamples, hasAudio, unvoiced, coachAvailable, jobs }
+      })
+
+      const statusOf = (
+        look: Effect.Success<ReturnType<typeof lookAt>>,
+        jobs: ReadonlyMap<JobKind, string>
+      ): Enrichment => ({
+        examples: status(look.hasExamples, look.coachAvailable, jobs.get("examples")),
+        audio: status(look.hasAudio, pronouncer.configured, jobs.get("audio"))
+      })
+
+      /** An entry's enrichment status. Reads only; never queues work. */
+      const enrichmentOf = (entry: Pick<EntryRecord, "id" | "language">) =>
+        Effect.map(lookAt(entry), (look) => statusOf(look, look.jobs))
+
+      /**
+       * Queues whatever enrichment an entry is missing, for `requester`, and returns its status.
+       * Queuing Kotori's example sentences anew (a new job, or a settled one tried again) takes
+       * one of the requester's allowance; a job already on its way takes none, and nor does
+       * audio, which has its own budget.
+       */
+      const requestFor = Effect.fnUntraced(function* (entry: Pick<EntryRecord, "id" | "language">, requester: UserId) {
+        const look = yield* lookAt(entry)
+        const { hasExamples, hasAudio, unvoiced, coachAvailable, jobs: before } = look
         const now = new Date(yield* Clock.currentTimeMillis)
-
-        if (enqueue) {
-          const retryWindow = new Date(now.getTime() - RETRY_AFTER)
-          const refillWindow = new Date(now.getTime() - REFILL_AFTER)
-          // Only called for data the entry lacks. A job that settled without supplying it stays
-          // settled while the entry is polled, so its status reports `unavailable` and the app stops
-          // polling; a later look gives it a new try: after ten minutes for a job that ran out of
-          // attempts, after an hour for one that finished with a gap (nothing judged, no sentence
-          // kept, a clip the worker can't fill). Enqueueing a settled job would only touch it.
-          const queueOrRetry = (kind: JobKind) => {
-            switch (before.get(kind)) {
-              case "failed":
-                return refillJob(db, kind, entry.id, retryWindow, ON_DEMAND, now)
-              case "done":
-                return refillJob(db, kind, entry.id, refillWindow, ON_DEMAND, now)
-              default:
-                return enqueueJob(db, kind, entry.id, ON_DEMAND, now)
-            }
-          }
-
-          if (!hasExamples && coachAvailable) yield* queueOrRetry("examples")
-          // The worker re-runs audio when Kotori's sentences are written, so they get voiced too. A
-          // finished job runs again only for a sentence it hasn't tried: one written since it ran,
-          // or one no run has judged (seeded since, or from before seeded sentences were voiced),
-          // the latter at most once an hour. A sentence a run tried and couldn't voice (no voice
-          // fits it, or Jev judged it and gave no formality) isn't retried on every look.
-          if (!hasAudio && pronouncer.configured) {
-            if (before.get("audio") !== "done") {
-              yield* queueOrRetry("audio")
-            } else {
-              const untried = Math.max(
-                ...unvoiced.map((example) =>
-                  example.formality === null ? now.getTime() - REFILL_AFTER : example.createdAt.getTime()
-                )
+        const retryWindow = new Date(now.getTime() - RETRY_AFTER)
+        const refillWindow = new Date(now.getTime() - REFILL_AFTER)
+        // Only called for data the entry lacks. A job that settled without supplying it stays
+        // settled while the entry is polled, so its status reports `unavailable` and the app stops
+        // polling; a later request gives it a new try: after ten minutes for a job that ran out of
+        // attempts, after an hour for one that finished with a gap (nothing judged, no sentence
+        // kept, a clip the worker can't fill). Enqueueing a settled job would only touch it.
+        // Succeeds with whether it queued work that wasn't on its way.
+        const queueOrRetry = (kind: JobKind): Effect.Effect<boolean> => {
+          switch (before.get(kind)) {
+            case "failed":
+              return refillJob(db, kind, entry.id, retryWindow, ON_DEMAND, now)
+            case "done":
+              return refillJob(db, kind, entry.id, refillWindow, ON_DEMAND, now)
+            case undefined:
+              // Another request may have queued it since: then it's theirs, raised to on demand.
+              return Effect.flatMap(queueNewJob(db, kind, entry.id, ON_DEMAND, now), (queued) =>
+                queued ? Effect.succeed(true) : Effect.as(enqueueJob(db, kind, entry.id, ON_DEMAND, now), false)
               )
-              // Enqueueing a finished job would touch it, putting its next try off with every look.
-              if (unvoiced.length > 0) yield* refillJob(db, "audio", entry.id, new Date(untried), ON_DEMAND, now)
-            }
+            default:
+              // Already on its way (perhaps from a backfill): asking only raises its priority.
+              return Effect.as(enqueueJob(db, kind, entry.id, ON_DEMAND, now), false)
           }
         }
 
-        // Nothing was queued without `enqueue`, so the jobs read above still stand.
-        const job = enqueue ? yield* jobStatusFor(db, entry.id) : before
-        return {
-          examples: status(hasExamples, coachAvailable, job.get("examples")),
-          audio: status(hasAudio, pronouncer.configured, job.get("audio"))
+        // Whoever causes Claude to write an entry's sentences is charged for them, once; when
+        // their allowance is used up, the transaction rolls back and nothing is queued.
+        if (!hasExamples && coachAvailable)
+          yield* db
+            .transaction(() =>
+              Effect.gen(function* () {
+                if (yield* queueOrRetry("examples")) yield* reserveExamples(requester, now)
+              })
+            )
+            .pipe(Effect.catchTag("SqlError", Effect.die))
+        // The worker re-runs audio when Kotori's sentences are written, so they get voiced too. A
+        // finished job runs again only for a sentence it hasn't tried: one written since it ran,
+        // or one no run has judged (seeded since, or from before seeded sentences were voiced),
+        // the latter at most once an hour. A sentence a run tried and couldn't voice (no voice
+        // fits it, or Jev judged it and gave no formality) isn't retried on every request.
+        if (!hasAudio && pronouncer.configured) {
+          if (before.get("audio") !== "done") {
+            yield* queueOrRetry("audio")
+          } else {
+            const untried = Math.max(
+              ...unvoiced.map((example) =>
+                example.formality === null ? now.getTime() - REFILL_AFTER : example.createdAt.getTime()
+              )
+            )
+            // Enqueueing a finished job would touch it, putting its next try off with every request.
+            if (unvoiced.length > 0) yield* refillJob(db, "audio", entry.id, new Date(untried), ON_DEMAND, now)
+          }
         }
+
+        return statusOf(look, yield* jobStatusFor(db, entry.id))
       })
 
       const assemble = Effect.fnUntraced(function* (entry: EntryRecord) {
@@ -953,7 +1022,7 @@ export class Dictionary extends Context.Service<
             voice: clip.voice,
             voiceName: voiceName(clip.voice)
           })),
-          enrichment: yield* enrichmentFor(entry, true)
+          enrichment: yield* enrichmentOf(entry)
         } satisfies Entry
       })
 
@@ -964,12 +1033,12 @@ export class Dictionary extends Context.Service<
 
       const enrichment = Effect.fn("Dictionary.enrichment")(function* (id: EntryId) {
         const found = yield* entryLanguage(db, id)
-        return found === undefined ? Option.none() : Option.some(yield* enrichmentFor(found, false))
+        return found === undefined ? Option.none() : Option.some(yield* enrichmentOf(found))
       })
 
-      const requestEnrichment = Effect.fn("Dictionary.requestEnrichment")(function* (id: EntryId) {
-        const [record] = yield* getEntries(db, [id])
-        return record === undefined ? Option.none() : Option.some(yield* enrichmentFor(record, true))
+      const requestEnrichment = Effect.fn("Dictionary.requestEnrichment")(function* (id: EntryId, requester: UserId) {
+        const found = yield* entryLanguage(db, id)
+        return found === undefined ? Option.none() : Option.some(yield* requestFor(found, requester))
       })
 
       const lookupWords = Effect.fn("Dictionary.lookupWords")(function* (

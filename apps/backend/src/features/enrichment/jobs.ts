@@ -40,6 +40,21 @@ export const enqueueJob = (db: DatabaseShape, kind: JobKind, entryId: EntryId, p
     })
     .pipe(Effect.asVoid, Effect.orDie)
 
+/**
+ * Queues work for an entry that has no job of this kind yet, returning whether it did. When
+ * another request queued it first, nothing changes and the answer is false.
+ */
+export const queueNewJob = (db: DatabaseShape, kind: JobKind, entryId: EntryId, priority: number, now: Date) =>
+  db
+    .insert(jobs)
+    .values({ kind, entryId, priority, status: "queued", runAfter: now, createdAt: now, updatedAt: now })
+    .onConflictDoNothing({ target: [jobs.kind, jobs.entryId] })
+    .returning({ id: jobs.id })
+    .pipe(
+      Effect.map((rows) => rows.length > 0),
+      Effect.orDie
+    )
+
 /** Queues a job to run again even if it already finished (audio, say, once examples exist). */
 export const requeueJob = (db: DatabaseShape, kind: JobKind, entryId: EntryId, priority: number, now: Date) =>
   db
@@ -59,7 +74,8 @@ export const requeueJob = (db: DatabaseShape, kind: JobKind, entryId: EntryId, p
 
 /**
  * Queues a settled job (`done` or `failed`) again only if it settled before `settledBefore`,
- * so a gap or failure is retried at most once per interval rather than on every poll.
+ * so a gap or failure is retried at most once per interval rather than on every request.
+ * Returns whether it queued it.
  */
 export const refillJob = (
   db: DatabaseShape,
@@ -80,7 +96,11 @@ export const refillJob = (
         lt(jobs.updatedAt, settledBefore)
       )
     )
-    .pipe(Effect.asVoid, Effect.orDie)
+    .returning({ id: jobs.id })
+    .pipe(
+      Effect.map((rows) => rows.length > 0),
+      Effect.orDie
+    )
 
 /** Atomically takes the most urgent runnable job of the given kinds. */
 export const claimJob = Effect.fn("jobs.claim")(function* (
