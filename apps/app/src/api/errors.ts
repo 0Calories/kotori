@@ -93,6 +93,10 @@ export const failureContext = (
 export const retryOffline = (failureCount: number, error: unknown) =>
   failureCount < 2 && error instanceof ApiError && error.tag === "Offline"
 
+/** For a `RateLimited`: whole minutes left to wait, at least one (one when the server didn't say). */
+export const retryMinutes = (error: ApiError, now = Date.now()): number =>
+  error.retry === null ? 1 : Math.max(1, Math.ceil((error.retry.at - now) / 60_000))
+
 /** What to tell the learner about a failed call, in their language; never the server's own words. */
 export const apiErrorMessage = (t: Strings, error: unknown): string => {
   if (!(error instanceof ApiError)) return t.common.somethingWrong
@@ -112,9 +116,7 @@ export const apiErrorMessage = (t: Strings, error: unknown): string => {
     case "AiUnavailable":
       return t.common.errors.thinkingUnavailable
     case "RateLimited":
-      return t.common.errors.rateLimited(
-        error.retry === null ? 1 : Math.max(1, Math.ceil((error.retry.at - Date.now()) / 60_000))
-      )
+      return t.common.errors.rateLimited(retryMinutes(error))
     case "Unexpected":
       return t.common.errors.trouble
   }

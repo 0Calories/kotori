@@ -1,5 +1,6 @@
 import type {
   AddNoteRequest,
+  Enrichment,
   EntryId,
   HowToSayRequest,
   Language,
@@ -13,8 +14,18 @@ import type {
   StudyStats
 } from "@kotori/contracts"
 import { keepPreviousData, useMutation, useMutationState, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useEffect, useRef } from "react"
 import type { AskAttempt } from "../lib/ask.ts"
 import { dueWithoutNote, statsWithoutNote, withoutNote } from "../lib/deck.ts"
+import {
+  enrichmentPhase,
+  POLL_MS,
+  pollInterval,
+  progressKey,
+  shouldAsk,
+  shouldRefresh,
+  writingExamples
+} from "../lib/enrichment.ts"
 import { call } from "./client.ts"
 
 export const keys = {
@@ -24,6 +35,11 @@ export const keys = {
   /** Asks of one query, by the key the server keeps its answer under (`normalizeAsk`). */
   ask: (language: Language, key: string) => ["ask", language, key] as const,
   entry: (id: number) => ["entry", id] as const,
+  /**
+   * How an entry's enrichment is coming along. Its own root, not under `entry`: refetching the
+   * entry doesn't refetch progress, and polling progress doesn't refetch the entry.
+   */
+  enrichment: (id: number) => ["enrichment", id] as const,
   notes: ["notes"] as const,
   due: ["due"] as const,
   stats: ["stats"] as const
@@ -79,16 +95,12 @@ export const useLatestAsk = (language: Language, key: string): AskAttempt | unde
     })
   }).at(-1)
 
+/** An entry as last fetched. It doesn't poll: `useEntryEnrichment` waits for its examples and audio. */
 export const useEntry = (id: number) =>
   useQuery({
     queryKey: keys.entry(id),
     queryFn: () => call((api) => api.dictionary.entry({ params: { id: id as EntryId } })),
-    enabled: Number.isInteger(id) && id > 0,
-    // While Kotori's worker is still enriching the entry, check back every few seconds.
-    refetchInterval: (query) => {
-      const enrichment = query.state.data?.enrichment
-      return enrichment && Object.values(enrichment).includes("queued") ? 3000 : false
-    }
+    enabled: Number.isInteger(id) && id > 0
   })
 
 export const useNotes = () => useQuery({ queryKey: keys.notes, queryFn: () => call((api) => api.study.notes()) })
@@ -159,13 +171,74 @@ export const useNaturalness = () =>
 export const useHowToSay = () =>
   useMutation({ mutationFn: (request: HowToSayRequest) => call((api) => api.coach.howToSay({ payload: request })) })
 
-/** Asks the worker to add example sentences and audio to an entry that has none yet. */
-export const useEnrich = (id: number) => {
+/**
+ * Asks Kotori to add example sentences and audio to an entry. Its answer is the latest progress,
+ * so polling starts from it rather than with a read of its own.
+ */
+const useEnrich = (id: number) => {
   const client = useQueryClient()
   return useMutation({
     mutationFn: () => call((api) => api.dictionary.enrich({ params: { id: id as EntryId } })),
-    onSuccess: () => client.invalidateQueries({ queryKey: keys.entry(id) })
+    onSuccess: (enrichment: Enrichment) => client.setQueryData(keys.enrichment(id), enrichment)
   })
+}
+
+/**
+ * Waits for an open entry's examples and audio. When the entry shows something on its way, this
+ * opening asks for it once (asking may be charged to the learner). Once the ask goes through, the
+ * small progress read is polled rather than the entry, and the entry is fetched once more each
+ * time progress moves past what it shows. A refused or failed ask stops there: nothing is polled.
+ *
+ * `onScreen` is the enrichment the entry on screen carries. `settled` is whether the entry is not
+ * being fetched, so a stale copy cached from an earlier visit doesn't decide whether to ask.
+ */
+export const useEntryEnrichment = (id: number, onScreen: Enrichment | undefined, settled: boolean) => {
+  const client = useQueryClient()
+  const enrich = useEnrich(id)
+  const { mutate } = enrich
+  // Refs outlive re-renders and StrictMode's second run of an effect, so the ask goes once.
+  const askedFor = useRef<number | null>(null)
+  const refreshedFor = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!shouldAsk({ id, onScreen, settled, askedFor: askedFor.current })) return
+    askedFor.current = id
+    mutate()
+  }, [id, onScreen, settled, mutate])
+
+  const progress = useQuery({
+    queryKey: keys.enrichment(id),
+    queryFn: () => call((api) => api.dictionary.enrichment({ params: { id: id as EntryId } })),
+    enabled: enrich.isSuccess,
+    // The ask's answer is the first reading, so the first poll is due one interval after it.
+    staleTime: POLL_MS,
+    // A failed poll keeps the last reading, and the next interval is its retry.
+    retry: false,
+    refetchInterval: (query) => pollInterval(query.state.data ?? onScreen)
+  })
+  // A reading cached from an earlier visit says nothing about this one.
+  const latest = enrich.isSuccess ? progress.data : undefined
+
+  useEffect(() => {
+    if (onScreen === undefined || !shouldRefresh(onScreen, latest, refreshedFor.current)) return
+    refreshedFor.current = latest === undefined ? null : progressKey(latest)
+    void client.invalidateQueries({ queryKey: keys.entry(id), exact: true })
+  }, [client, id, onScreen, latest])
+
+  const phase = onScreen === undefined ? "settled" : enrichmentPhase(onScreen, latest, enrich)
+  return {
+    phase,
+    /** Whether the page says Kotori is writing example sentences. */
+    writing: onScreen !== undefined && writingExamples(phase, onScreen, latest),
+    /** Asks again: the entry's ask button, and the retry after a failed ask. */
+    ask: () => mutate(),
+    asking: enrich.isPending,
+    asked: enrich.isSuccess,
+    error: enrich.error,
+    /** A poll failed: the last reading stands, and the next interval tries again. */
+    pollFailed: enrich.isSuccess && progress.isError,
+    retryPoll: () => void progress.refetch()
+  }
 }
 
 export const useSpeak = () =>

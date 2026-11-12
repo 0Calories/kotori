@@ -202,6 +202,17 @@ const en = {
     antonyms: "Opposites",
     save: "Save to review",
     writing: "Kotori is writing example sentences…",
+    /** The learner asked for many words' examples lately: Kotori writes this one's later. */
+    examplesLater: (minutes: number) =>
+      `Kotori has been writing lots of examples and is taking a breather. Come back to this word in ${
+        minutes <= 1
+          ? "a minute"
+          : minutes < 60
+            ? `${minutes} minutes`
+            : minutes <= 60
+              ? "an hour"
+              : `${Math.ceil(minutes / 60)} hours`
+      } for more.`,
     appliesTo: (forms: string) => `Only for ${forms}`,
     share: "Share",
     usuallyKana: "usually written in kana",
@@ -803,6 +814,10 @@ const ja: Strings = {
     antonyms: "対義語",
     save: "復習に追加",
     writing: "例文を作成しています…",
+    examplesLater: (minutes: number) =>
+      `コトリは例文をたくさん書いて、ひと休み中です。${
+        minutes < 60 ? `${Math.max(1, minutes)}分` : `${Math.ceil(minutes / 60)}時間`
+      }ほどしたら、またこの言葉を開いてみてください。`,
     appliesTo: (forms: string) => `${forms}のみ`,
     share: "共有",
     usuallyKana: "ふつう仮名書き",
