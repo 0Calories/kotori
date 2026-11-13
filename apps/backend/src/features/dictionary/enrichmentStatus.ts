@@ -41,10 +41,11 @@ export const makeEnrichmentStatus = Effect.gen(function* () {
   const examplesHourly = yield* Config.Int("KOTORI_ENRICH_HOURLY_LIMIT").pipe(Config.withDefault(60))
   const examplesDaily = yield* Config.Int("KOTORI_ENRICH_DAILY_LIMIT").pipe(Config.withDefault(300))
 
-  // A job that settled (`done` or `failed`) is not on its way, so whatever it left missing is
-  // `unavailable` and the app stops polling. Asking again may queue it anew (see `requestFor`).
+  // Only a job the worker has yet to settle (`queued` or `running`) is on its way. With no job
+  // (reading an entry queues none), or one that settled (`done` or `failed`), whatever is missing
+  // is `unavailable`: the app stops polling and offers to ask for it (see `requestFor`).
   const status = (ready: boolean, available: boolean, job: string | undefined): EnrichmentStatus =>
-    ready ? "ready" : !available || job === "failed" || job === "done" ? "unavailable" : "queued"
+    ready ? "ready" : available && (job === "queued" || job === "running") ? "queued" : "unavailable"
 
   /**
    * Takes one of the learner's example-sentence requests, or fails when they've used them up.
