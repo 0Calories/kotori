@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, Schema } from "effect"
-import { Claude, type ClaudeError } from "../providers/Claude.ts"
+import { Claude, ClaudeDeadline, type ClaudeError } from "../providers/Claude.ts"
 
 export const FrequencyOutput = Schema.Struct({
   ratings: Schema.Array(
@@ -50,7 +50,9 @@ export class FrequencyRater extends Context.Service<
           schema: FrequencyOutput,
           system: frequencySystem,
           prompt: frequencyPrompt(phrases),
-          effort: "low"
+          effort: "low",
+          // An offline pass over the dictionary.
+          timeout: ClaudeDeadline.bulk
         })
         const asked = new Map(phrases.map((phrase) => [phrase.toLowerCase(), phrase]))
         for (const { phrase, frequency } of output.ratings) {

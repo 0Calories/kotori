@@ -1,7 +1,7 @@
 import { CAUTION_KINDS, type CautionKind, type Language, MAX_CAUTIONS } from "@kotori/contracts"
 import { Context, Effect, Layer, Schema } from "effect"
 import { CAUTION_GUIDE, LABELS_SAY, NOT_CAUTIONS } from "../lexicon/cautionGuide.ts"
-import { Claude, type ClaudeError } from "../providers/Claude.ts"
+import { Claude, ClaudeDeadline, type ClaudeError } from "../providers/Claude.ts"
 import { meaningOf, type WordToJudge } from "./word.ts"
 
 /**
@@ -188,7 +188,9 @@ export class CautionWriter extends Context.Service<
           schema: CautionsOutput,
           system: cautionSystem(language),
           prompt: cautionPrompt(words, language),
-          effort: "medium"
+          effort: "medium",
+          // An offline pass over the dictionary.
+          timeout: ClaudeDeadline.bulk
         })
         const byNumber = new Map(output.words.map((word) => [word.word, word.cautions]))
         return words.map((word, index): EntryCautions => {

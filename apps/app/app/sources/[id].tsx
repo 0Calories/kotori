@@ -8,6 +8,7 @@ import { Notice } from "../../src/components/Notice.tsx"
 import { Header, Screen } from "../../src/components/Screen.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
+import { useReadingPhase } from "../../src/lib/readingPhase.ts"
 import { entryAttributions, entryIdFromParam } from "../../src/lib/sources.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
@@ -22,6 +23,7 @@ export default function SourcesScreen() {
   const entry = useEntry(id ?? 0)
   const back = () => (router.canGoBack() ? router.back() : router.replace("/"))
   const header = <Header onBack={back} title={t.entry.sources} />
+  const kotoriReading = useReadingPhase(id !== null && !entry.isLoadingError && !entry.data) === "reading"
 
   // A failed refetch keeps the entry already loaded: only a first load that failed has nothing to show.
   if (id === null || entry.isLoadingError) {
@@ -31,10 +33,10 @@ export default function SourcesScreen() {
       </Screen>
     )
   }
-  if (!entry.data) {
+  if (!entry.data || kotoriReading) {
     return (
       <Screen bottomInset={40} header={header}>
-        <MascotMessage mood="thinking" />
+        {kotoriReading ? <MascotMessage mood="reading" /> : null}
       </Screen>
     )
   }

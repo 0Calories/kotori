@@ -13,6 +13,12 @@ import {
 
 /** A job still `running` this long after its claim belongs to a worker that crashed or was killed. */
 const STALE_AFTER = 10 * 60_000
+/**
+ * How long one job may run before it fails like any other error and is retried later. Well under
+ * `STALE_AFTER`, so the sweep never puts back a job this worker is still running; and the worker
+ * runs one job at a time, so without it one hung provider call would stall the whole queue.
+ */
+const JOB_DEADLINE = 8 * 60_000
 /** How often to look for such jobs: at startup and then while working. */
 const SWEEP_EVERY = 60_000
 /** First wait before retrying a failed job; it doubles with each attempt. */
@@ -33,11 +39,14 @@ export const makeJobRunner = Effect.fn("makeJobRunner")(function* () {
 
   // Only the enrichment itself is interruptible, so every claimed job is settled: on shutdown
   // (SIGTERM during a deploy) an interrupted job goes back in the queue instead of staying `running`.
+  // The deadline sits inside `restore`, so a shutdown still interrupts the job at once; a job that
+  // overruns it fails with a `TimeoutError` (the interrupted enrichment isn't in the cause), so it
+  // is counted as a failed attempt and retried with backoff, not released.
   const runJob = (job: Job, audio: boolean) =>
     Effect.uninterruptibleMask((restore) =>
       Effect.gen(function* () {
         const { id, kind, entryId, priority, attempts } = job
-        const exit = yield* Effect.exit(restore(enrichers.run(kind, entryId)))
+        const exit = yield* Effect.exit(restore(enrichers.run(kind, entryId).pipe(Effect.timeout(JOB_DEADLINE))))
         const finishedAt = yield* Clock.currentTimeMillis
         const finished = new Date(finishedAt)
         if (Exit.isSuccess(exit)) {

@@ -20,7 +20,7 @@ import { Snow } from "../../src/components/Snow.tsx"
 import { ErrorState } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { strings } from "../../src/i18n/strings.ts"
-import { useSearchMascotPhase } from "../../src/lib/searchMascot.ts"
+import { SEARCH_THINKING_DELAY_MS, useReadingPhase } from "../../src/lib/readingPhase.ts"
 import { usePreference } from "../../src/session/preferences.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
@@ -93,9 +93,10 @@ export default function LookUpScreen() {
   useAsks()
   const searching = query.trim().length > 0
   // True from the first keystroke until this text's results arrive, debounce included.
-  // The pose stays neutral until that wait is long enough to be worth a change.
+  // Kotori holds still over the field while searching, and takes the thinking pose only
+  // once that wait has run very long.
   const loading = searching && (debounced !== query.trim() || search.isFetching)
-  const mascot = useSearchMascotPhase(loading)
+  const mascot = useReadingPhase(loading, SEARCH_THINKING_DELAY_MS) === "reading" ? "thinking" : "neutral"
 
   const history = recent.slice(0, MAX_RECENT)
   const remember = (term: string) => setRecent([term, ...recent.filter((r) => r !== term)].slice(0, MAX_RECENT))
@@ -189,7 +190,7 @@ export default function LookUpScreen() {
         <View style={{ marginTop: 24, marginHorizontal: theme.space.lg }}>
           <SearchField ref={input} value={query} onChangeText={setQuery} placeholder={t.dictionary.placeholder} />
           <View pointerEvents="none" style={{ position: "absolute", right: 62, top: -58 }}>
-            <Mascot size={70} mood={mascot} />
+            <Mascot size={70} mood={mascot} still={searching} />
           </View>
         </View>
 
