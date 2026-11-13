@@ -23,6 +23,13 @@ export const ASK_MIN_THINKING_MS = 900
 /** When each line of the thinking status takes over, in ms since the ask was sent. */
 export const ASK_STAGE_STARTS = [0, 3000, 7500, 14_000] as const
 
+/**
+ * The status line from which Kotori stops reading and thinks it over ("Thinking about how people
+ * really use it…"). Until a progress signal comes from the server, the timed lines stand in for
+ * how far along it is, so the pose follows them.
+ */
+export const ASK_PONDER_STAGE = 2
+
 /** Which status line shows `elapsed` ms into an ask. */
 export const askStage = (elapsed: number) => {
   let stage = 0
@@ -212,17 +219,22 @@ const answerMood = (answer: AskAnswer, live: boolean): { readonly mood: Mood; re
 
 /**
  * Kotori's pose for each moment: unsure over a search that came back empty, curious over
- * lookalikes, thinking while asked, overjoyed at a fresh draft (side on, so its confetti flies)
+ * lookalikes, reading while asked and then thinking it over from `ASK_PONDER_STAGE` on, overjoyed at a fresh draft (side on, so its confetti flies)
  * and glad on seeing one again, flustered at a refusal or failure, and asleep once the
  * learner's allowance is spent.
  */
-export const askMood = (view: AskView, match: SearchMatch): { readonly mood: Mood; readonly facing: Facing } => {
+export const askMood = (
+  view: AskView,
+  match: SearchMatch,
+  /** The status line showing, while asked. */
+  stage = 0
+): { readonly mood: Mood; readonly facing: Facing } => {
   switch (view.phase) {
     case "quiet":
     case "offer":
       return front(match === "weak" ? "neutral" : "oops")
     case "thinking":
-      return front("thinking")
+      return front(stage >= ASK_PONDER_STAGE ? "thinking" : "reading")
     case "answered":
       return answerMood(view.answer, view.live)
     case "failed":
