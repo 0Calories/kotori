@@ -3,7 +3,7 @@ import { Link, useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { Platform, Share, View } from "react-native"
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated"
-import { useAddNote, useEnrich, useEntry, useNotes, useRemoveNote } from "../../src/api/queries.ts"
+import { useAddNote, useEntry, useEntryEnrichment, useNotes, useRemoveNote } from "../../src/api/queries.ts"
 import { AudioButton } from "../../src/components/AudioButton.tsx"
 import { Button, IconButton } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
@@ -35,6 +35,7 @@ import {
   similarWords,
   wordCautions
 } from "../../src/lib/entry.ts"
+import { enrichmentNotice } from "../../src/lib/enrichment.ts"
 import { findForm } from "../../src/lib/forms.ts"
 import { wordNote } from "../../src/lib/notes.ts"
 import { useReadingPhase } from "../../src/lib/readingPhase.ts"
@@ -242,7 +243,7 @@ export default function EntryScreen() {
   const notes = useNotes()
   const addNote = useAddNote()
   const removeNote = useRemoveNote()
-  const enrich = useEnrich(id ?? 0)
+  const enrichment = useEntryEnrichment(id ?? 0, entry.data?.enrichment, !entry.isFetching)
   const [showAll, setShowAll] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [removingSense, setRemovingSense] = useState<number | null>(null)
@@ -250,8 +251,8 @@ export default function EntryScreen() {
   const back = () => (router.canGoBack() ? router.back() : router.replace("/"))
   const kotoriReading = useReadingPhase(id !== null && !entry.isLoadingError && !entry.data) === "reading"
 
-  // A failed refetch (one of the polls while the entry is being enriched, say) keeps the entry
-  // already loaded, with a notice until a later one succeeds. Only a failed first load has nothing to show.
+  // A failed refetch keeps the entry already loaded, with a notice until a later one succeeds, as
+  // does a failed check on its examples and audio. Only a failed first load has nothing to show.
   if (id === null || entry.isLoadingError) {
     return (
       <Screen bottomInset={40} header={<Header onBack={back} />}>
@@ -326,7 +327,8 @@ export default function EntryScreen() {
   )
   const inflections = data.forms.filter((form) => form.kind === "inflection")
   const senses = showAll ? data.senses : data.senses.slice(0, 3)
-  const waiting = data.enrichment.examples === "queued"
+  const waiting = enrichment.writing
+  const askNotice = enrichmentNotice(t, enrichment.phase, enrichment.error)
   const similar = similarWords(data.senses)
   const firstPos = data.senses[0]?.partsOfSpeech[0]
   const partOfSpeech = firstPos ? (posLabel(t, firstPos.code) ?? firstPos.name) : null
@@ -392,12 +394,20 @@ export default function EntryScreen() {
           setRemoveError(null)
         }}
       />
-      {entry.isRefetchError ? (
+      {entry.isRefetchError || enrichment.pollFailed ? (
         <Notice
           message={t.common.notRefreshed}
-          action={{ label: t.common.retry, onPress: () => void entry.refetch() }}
+          action={{
+            label: t.common.retry,
+            onPress: () => (entry.isRefetchError ? void entry.refetch() : enrichment.retryPoll())
+          }}
         />
       ) : null}
+      {/* Asking for examples was refused (Kotori writes them later) or failed (asking again is the retry). */}
+      <Notice
+        message={askNotice}
+        action={enrichment.phase === "failed" ? { label: t.common.retry, onPress: enrichment.ask } : undefined}
+      />
       <Animated.View
         entering={FadeInDown.duration(350)}
         style={
@@ -514,7 +524,8 @@ export default function EntryScreen() {
         ) : null}
       </Section>
 
-      {plain ? (
+      {/* After a refusal the notice already says when Kotori writes more, so there is nothing to offer. */}
+      {plain && enrichment.phase !== "limited" ? (
         <View
           style={{
             backgroundColor: theme.color.surfaceMuted,
@@ -548,11 +559,11 @@ export default function EntryScreen() {
           <View style={{ alignItems: "flex-start" }}>
             <Button
               variant="secondary"
-              icon={enrich.isSuccess ? "check" : "add"}
+              icon={enrichment.asked ? "check" : "add"}
               label={t.entry.ask}
-              loading={enrich.isPending}
-              disabled={enrich.isSuccess}
-              onPress={() => enrich.mutate()}
+              loading={enrichment.asking}
+              disabled={enrichment.asked}
+              onPress={enrichment.ask}
             />
           </View>
         </View>
