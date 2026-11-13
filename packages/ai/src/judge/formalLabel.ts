@@ -1,6 +1,6 @@
 import type { EntryType, NoulQuestion, NoulResponse } from "@typesafe-ai/sdk"
 import { Effect } from "effect"
-import type { Jev, JevError } from "../providers/Jev.ts"
+import { type Jev, JevDeadline, type JevError } from "../providers/Jev.ts"
 import { meaningOf, type WordToJudge } from "./word.ts"
 
 /**
@@ -112,7 +112,7 @@ export const judgeFormalLabels = (
   return Effect.forEach(batches, (batch) => {
     const request = formalLabelRequest(batch)
     return jev
-      .ask(request.state, request.questions)
+      .ask(request.state, request.questions, { timeout: JevDeadline.bulk })
       .pipe(
         Effect.map(({ answers }) =>
           formalLabelProbabilities(answers, batch.length).flatMap((p, index) =>

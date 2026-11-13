@@ -1,7 +1,7 @@
 import type { FormalityReading } from "@kotori/contracts"
 import type { ScoreQuestion } from "@typesafe-ai/sdk"
 import { Effect } from "effect"
-import type { Jev, JevError } from "../providers/Jev.ts"
+import { type Jev, JevDeadline, type JevError } from "../providers/Jev.ts"
 
 /** How formal a sentence sounds, one level per `Formality` in order, from vulgar to formal. */
 export const SENTENCE_FORMALITY = [
@@ -18,7 +18,8 @@ const formality: ScoreQuestion = { type: "score", instructions: FORMALITY_QUESTI
 
 /** Jev's independent read of how formal a sentence sounds, as a 0..1 meter position. */
 export const readFormality = (jev: Jev["Service"], sentence: string): Effect.Effect<FormalityReading, JevError> =>
-  jev.ask({ sentence }, { formality }).pipe(
+  // Read alongside a coach answer the learner is waiting on.
+  jev.ask({ sentence }, { formality }, { timeout: JevDeadline.interactive }).pipe(
     Effect.map(({ answers }) => ({
       position: Math.min(Math.max(answers.formality.score / 4, 0), 1),
       confidence: answers.formality.confidence

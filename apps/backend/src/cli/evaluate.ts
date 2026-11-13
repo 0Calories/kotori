@@ -6,6 +6,7 @@ import {
   GOLDEN_ASKS,
   interpretTriage,
   Jev,
+  JevDeadline,
   type JevError,
   Lexicographer,
   LOANS_VERSION,
@@ -226,7 +227,8 @@ export const evaluate = Command.make(
     ): Effect.Effect<Answers | undefined> => {
       const answers: Effect.Effect<Answers | undefined, JevError> =
         recording === null
-          ? jev.ask(state, { ...questions }).pipe(
+          ? // An offline run: give Jev the bulk budget even for questions learners wait on.
+            jev.ask(state, { ...questions }, { timeout: JevDeadline.bulk }).pipe(
               Sentry.withScope((scope) => scope.setConversationId(key)),
               Effect.map((result) => {
                 inputTokens += result.usage.input_tokens

@@ -1,4 +1,4 @@
-import { Claude, interpretTriage, Jev, Lexicographer, TRIAGE_VERSION, triageRequest } from "@kotori/ai"
+import { Claude, interpretTriage, Jev, JevDeadline, Lexicographer, TRIAGE_VERSION, triageRequest } from "@kotori/ai"
 import {
   AiUnavailable,
   AskRefused,
@@ -103,7 +103,7 @@ export class Asks extends Context.Service<
       const triage = Effect.fnUntraced(function* (query: string, language: Language) {
         if (!jev.configured) return null
         const request = triageRequest(query, language)
-        const answers = yield* jev.ask(request.state, request.questions).pipe(
+        const answers = yield* jev.ask(request.state, request.questions, { timeout: JevDeadline.interactive }).pipe(
           Effect.map((result) => result.answers as Readonly<Record<string, unknown>>),
           Effect.catchTag("JevError", (error) =>
             Effect.logWarning(`Ask triage failed; asking Claude instead: ${error.message}`).pipe(Effect.as(null))
