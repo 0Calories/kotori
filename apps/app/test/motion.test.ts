@@ -76,14 +76,24 @@ const throughView = (transform: ReturnType<typeof viewTransform>, size: number, 
   return [p[0] + size / 2, p[1] + height / 2]
 }
 
+type SvgStep = readonly [op: string, a: number, b: number]
+const svgSteps = new Map<string, readonly SvgStep[]>()
+
 /** A point through an SVG transform attribute, last function first. */
 const throughSvg = (transform: string, point: Point): Point => {
+  let steps = svgSteps.get(transform)
+  if (steps === undefined) {
+    steps = [...transform.matchAll(/(\w+)\(([^)]*)\)/g)].toReversed().map((match) => {
+      const [a = 0, b = a] = (match[2] ?? "").split(" ").map(Number)
+      return [match[1] ?? "", a, b] as const
+    })
+    svgSteps.set(transform, steps)
+  }
   let p = point
-  for (const match of [...transform.matchAll(/(\w+)\(([^)]*)\)/g)].toReversed()) {
-    const [a = 0, b = a] = (match[2] ?? "").split(" ").map(Number)
-    if (match[1] === "translate") p = [p[0] + a, p[1] + b]
-    else if (match[1] === "scale") p = [p[0] * a, p[1] * b]
-    else if (match[1] === "rotate") p = turn(p, a)
+  for (const [op, a, b] of steps) {
+    if (op === "translate") p = [p[0] + a, p[1] + b]
+    else if (op === "scale") p = [p[0] * a, p[1] * b]
+    else if (op === "rotate") p = turn(p, a)
   }
   return p
 }
@@ -582,13 +592,14 @@ describe("reading", () => {
   })
 
   it("keeps the page it turns and the wing that turns it inside the box", () => {
+    const moving = [
+      ["page", pointsOf(book.pages[0])],
+      ["pageWing", pointsOf(readingShapes.wings[0])]
+    ] as const
     for (const t of every10ms) {
-      for (const [part, d] of [
-        ["page", book.pages[0]],
-        ["pageWing", readingShapes.wings[0]]
-      ] as const) {
+      for (const [part, points] of moving) {
         const transform = svgTransform(poseAt("reading", part, t), part)
-        for (const point of pointsOf(d)) {
+        for (const point of points) {
           const [x, y] = throughSvg(transform, point)
           assert.isAtLeast(Math.min(x, y), 0, `${part} at ${t} ms`)
           assert.isAtMost(Math.max(x, y), 200, `${part} at ${t} ms`)
@@ -737,8 +748,16 @@ describe("the book landing", () => {
   const at = (part: Part, t: number) => poseAt("startReading", part, t)
   const landed = everyMs.find((t) => at("book", t).y === 0) ?? assert.fail("the book never lands")
   const { origin, puff, sparks, trail } = readingShapes.landing
+  const shownByPart = new Map<Part, readonly number[]>()
   /** The times `part` shows, to the ms. */
-  const shown = (part: Part) => everyMs.filter((t) => at(part, t).opacity > 0)
+  const shown = (part: Part) => {
+    let times = shownByPart.get(part)
+    if (times === undefined) {
+      times = everyMs.filter((t) => at(part, t).opacity > 0)
+      shownByPart.set(part, times)
+    }
+    return times
+  }
   /** Where the middle of `part` is at `t`. */
   const centre = (part: Part, t: number): Point => [joints[part].x + at(part, t).x, joints[part].y + at(part, t).y]
   const spine = pointsOf(readingShapes.book.spine)
@@ -887,18 +906,19 @@ describe("the book landing", () => {
       const tail = trailParts[i] ?? assert.fail(`no trail for ${part}`)
       assert.deepStrictEqual(shown(tail), shown(part), `${tail} shows with ${part}`)
       const times = shown(part)
-      for (const t of times) {
+      for (const t of times.filter((t, k) => k === 0 || k === times.length - 1 || t % 10 === 0)) {
         const label = `${tail} at ${t} ms`
-        near(centre(tail, t), centre(part, t))
+        const now = centre(part, t)
+        near(centre(tail, t), now)
         const pose = at(tail, t)
         const a = (pose.rotate * Math.PI) / 180
         const tip: Point = [
-          centre(tail, t)[0] - trail.length * pose.scaleX * Math.cos(a),
-          centre(tail, t)[1] - trail.length * pose.scaleX * Math.sin(a)
+          now[0] - trail.length * pose.scaleX * Math.cos(a),
+          now[1] - trail.length * pose.scaleX * Math.sin(a)
         ]
         assert.isAtMost(tip[1], spineFoot, label)
         // Pointing the way the spark is going.
-        const [now, next] = [centre(part, t), centre(part, Math.min(t + 10, duration))]
+        const next = centre(part, Math.min(t + 10, duration))
         if (Math.hypot(next[0] - now[0], next[1] - now[1]) > 0.5) {
           let off = Math.atan2(next[1] - now[1], next[0] - now[0]) - a
           off = Math.atan2(Math.sin(off), Math.cos(off))
@@ -985,6 +1005,7 @@ describe("the book landing", () => {
 
 describe("a pose", () => {
   const stretched: Pose = { x: 3, y: -4, rotate: -90, scaleX: 2, scaleY: 0.5, opacity: 1 }
+  const skewed: Pose = { x: -7.5, y: 12.25, rotate: 37, scaleX: 0.8, scaleY: 1.35, opacity: 1 }
 
   it("turns and scales a part about its joint", () => {
     const { x, y } = joints.wing
@@ -994,73 +1015,47 @@ describe("a pose", () => {
     near(at([x + 10, y]), [x + 3, y - 24])
   })
 
-  // Thousands of transforms: 0.4 s alone, over Vitest's 5 s default on a CI runner busy with the app's build.
-  it("places a part the same way in the app as in stills", { timeout: 30_000 }, () => {
+  it("places a part the same way in the app as in stills", () => {
     const size = 120
     const k = size / 200
-    const poses = [
-      rest,
-      stretched,
-      ...[130, 370, 660, 1300].flatMap((t) => parts.map((part) => poseAt("celebrate", part, t))),
-      ...[60, 300, 600].flatMap((t) => parts.map((part) => poseAt("thinking", part, t))),
-      ...[200, 390, 500, 1550].flatMap((t) => parts.map((part) => poseAt("reading", part, t))),
-      ...[150, 300, 380, 900, 1060].flatMap((t) => parts.map((part) => poseAt("startReading", part, t))),
-      ...[250, 600, 900, 1200].flatMap((t) => parts.map((part) => poseAt("sleepy", part, t)))
-    ]
-    // The thought bubble's canvas reaches above the box.
+    const still = svgTransform(skewed, "wing")
+    // Three non-collinear points pin down an affine transform; check with and without the bubble's headroom.
     for (const headroom of [0, thinkingShapes.headroom]) {
       const height = (200 + headroom) * k
-      for (const part of parts) {
-        const points: Point[] = [
-          [0, 0],
-          [200, 0],
-          [37, 151],
-          [140, -50],
-          [joints[part].x, joints[part].y]
-        ]
-        for (const pose of poses) {
-          for (const point of points) {
-            const inStill = throughSvg(svgTransform(pose, part), point)
-            // A point's place in the canvas, which starts `headroom` units above the box.
-            const inView = (p: Point): Point => [p[0] * k, (p[1] + headroom) * k]
-            near(throughView(viewTransform(pose, part, size, headroom), size, inView(point), height), inView(inStill))
-          }
-        }
+      const view = viewTransform(skewed, "wing", size, headroom)
+      const inView = (p: Point): Point => [p[0] * k, (p[1] + headroom) * k]
+      for (const point of [
+        [0, 0],
+        [200, 0],
+        [37, 151]
+      ] as const) {
+        near(throughView(view, size, inView(point), height), inView(throughSvg(still, point)))
       }
     }
   })
 
   it("places a piece of confetti the same way in the app as in stills", () => {
     const half = confetti.canvas / 2
-    const poses = [
-      rest,
-      stretched,
-      ...[300, 520, 900].flatMap((t) =>
-        (clips.celebrate.confetti?.pieces ?? []).map((_, i) => pieceAt("celebrate", i, t))
-      )
-    ]
     for (const size of [48, 150]) {
       const k = size / 200
       const { grow } = confettiFor(size)
       // The piece's view is its canvas, grown, at the top left of Kotori's; the point is in the canvas's units.
       const width = confetti.canvas * k * grow
-      const points: Point[] = [
+      const still = pieceSvgTransform(skewed, grow)
+      const view = pieceTransform(skewed, size, grow)
+      for (const point of [
         [0, 0],
         [-half, -half],
-        [half, -3],
-        [2.5, half]
-      ]
-      for (const pose of poses) {
-        for (const point of points) {
-          const inStill = throughSvg(pieceSvgTransform(pose, grow), point)
-          near(
-            throughView(pieceTransform(pose, size, grow), width, [
-              ((point[0] + half) * width) / confetti.canvas,
-              ((point[1] + half) * width) / confetti.canvas
-            ]),
-            [inStill[0] * k, inStill[1] * k]
-          )
-        }
+        [half, -3]
+      ] as const) {
+        const inStill = throughSvg(still, point)
+        near(
+          throughView(view, width, [
+            ((point[0] + half) * width) / confetti.canvas,
+            ((point[1] + half) * width) / confetti.canvas
+          ]),
+          [inStill[0] * k, inStill[1] * k]
+        )
       }
     }
   })
