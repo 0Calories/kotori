@@ -79,7 +79,7 @@ One message from the learner and Ask Kotori's answer to it.
 _Avoid_: Exchange, round, message
 
 **Drafted entry**:
-An entry Ask Kotori wrote that the admin hasn't reviewed yet; once approved it is an ordinary entry, and once discarded it is never shown to anyone new.
+An entry Kotori drafted in Ask Kotori for an expression the dictionary lacks, shared by every learner who asks for it and shown as unverified until an admin approves it into the dictionary or discards it.
 _Avoid_: Proposal, draft, suggestion, AI entry
 
 ### Audio
