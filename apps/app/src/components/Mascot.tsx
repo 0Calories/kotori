@@ -1,4 +1,4 @@
-import { type ComponentProps, type ReactNode, useEffect, useMemo, useState } from "react"
+import { type ComponentProps, createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react"
 import { StyleSheet, View } from "react-native"
 import Animated, {
   cancelAnimation,
@@ -148,6 +148,16 @@ const repeat = (channel: Channel, name: ClipName | null, delay: number) => {
 /** What Kotori is playing: the mood's entrance, then its loop over the entrance's last frame, and its idle clip over both. */
 type Motion = { readonly entrance: Channel; readonly loop: Channel; readonly idle: Channel }
 
+/** Set by `Mascot` when the screen asks Kotori to keep `still`. */
+const StillContext = createContext(false)
+
+/** Whether Kotori holds its pose: the user prefers reduced motion, or the screen asked it to keep still. */
+const useStill = () => {
+  const reduceMotion = useReducedMotion()
+  const still = useContext(StillContext)
+  return reduceMotion || still
+}
+
 /**
  * Plays `mood`'s entrance and loop, and its idle clip now and then; with
  * reduced motion, holds the mood's pose and plays no idle. A view starts on the
@@ -155,7 +165,7 @@ type Motion = { readonly entrance: Channel; readonly loop: Channel; readonly idl
  * appears with the mood doesn't jump.
  */
 const useMotion = (mood: Mood): Motion => {
-  const reduceMotion = useReducedMotion()
+  const reduceMotion = useStill()
   const enter = entrances[mood] ?? null
   const entrance = useChannel(enter, reduceMotion && enter !== null ? clips[enter].duration : 0)
   const loop = useChannel(null, 0)
@@ -381,7 +391,7 @@ const Side = ({
   readonly mood: Mood
   readonly facing?: "left" | "right"
 }) => {
-  const reduceMotion = useReducedMotion()
+  const reduceMotion = useStill()
   const enter = entrances[mood] ?? null
   const motion = useMotion(mood)
   const bird = usePartStyle("bird", size, motion)
@@ -503,7 +513,7 @@ const ThoughtBubble = ({ size, motion }: { readonly size: number; readonly motio
  * bubble above its head.
  */
 const Front = ({ size, mood }: { readonly size: number; readonly mood: Mood }) => {
-  const reduceMotion = useReducedMotion()
+  const reduceMotion = useStill()
   const motion = useMotion(mood)
   const eyes = usePartStyle("eyes", size, motion)
   const shutEyes = usePartStyle("eyes", size, motion, true)
@@ -755,25 +765,36 @@ const Reading = ({ size }: { readonly size: number }) => {
  * part of an ask. It thinks when working something out, as an ask runs on,
  * and over a verdict that needs a second look.
  *
+ * `still` holds every mood's pose as reduced motion does, for a place where
+ * movement would distract, such as the search field while a search runs.
+ *
  * Every moving part is a layer placed with plain view transforms, so a clip
  * plays the same way on iOS, Android and the web.
  */
 export const Mascot = ({
   size = 120,
   mood = "neutral",
-  facing = "left"
+  facing = "left",
+  still = false
 }: {
   readonly size?: number
   readonly mood?: Mood
   readonly facing?: Facing
+  readonly still?: boolean
 }) => (
-  <View style={{ width: size, height: size }} accessibilityRole="image" accessibilityLabel="Kotori the long-tailed tit">
-    {mood === "reading" ? (
-      <Reading size={size} />
-    ) : facing === "front" || frontMoods.has(mood) ? (
-      <Front size={size} mood={mood} />
-    ) : (
-      <Side size={size} mood={mood} facing={facing} />
-    )}
-  </View>
+  <StillContext value={still}>
+    <View
+      style={{ width: size, height: size }}
+      accessibilityRole="image"
+      accessibilityLabel="Kotori the long-tailed tit"
+    >
+      {mood === "reading" ? (
+        <Reading size={size} />
+      ) : facing === "front" || frontMoods.has(mood) ? (
+        <Front size={size} mood={mood} />
+      ) : (
+        <Side size={size} mood={mood} facing={facing} />
+      )}
+    </View>
+  </StillContext>
 )
