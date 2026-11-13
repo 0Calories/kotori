@@ -26,3 +26,4 @@ render("mascot-happy.png", mascotSvg({ mood: "happy", background: sky, padding: 
 render("mascot-celebrate.png", mascotSvg({ mood: "celebrate", background: sky, padding: 20 }), 400)
 render("mascot-front.png", mascotFrontSvg({ background: sky, padding: 20 }), 400)
 render("mascot-thinking.png", mascotSvg({ mood: "thinking", background: sky, padding: 20 }), 400)
+render("mascot-reading.png", mascotSvg({ mood: "reading", background: sky, padding: 20 }), 400)

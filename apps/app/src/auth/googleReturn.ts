@@ -34,6 +34,76 @@ export const ID_TOKEN_RETURN_PARAMS = ["id_token", "state", "error", "error_desc
 export const LINK_PARAM = "google"
 export const LINK_VALUE = "linked"
 
+/** Every parameter a return from Google or Managed Auth can put in the page's query or fragment. */
+export const RETURN_URL_PARAMS: ReadonlyArray<string> = [...new Set([...RETURN_PARAMS, ...ID_TOKEN_RETURN_PARAMS])]
+
+/** What a web page load came back with, taken out of its URL before anything else sees it. */
+export interface CapturedReturn {
+  /** The return parameters from the query (plus `google=linked` when present); empty on a normal load. */
+  readonly query: URLSearchParams
+  /** The fragment's parameters when it carries an `id_token` return, else `null`. */
+  readonly hash: URLSearchParams | null
+  /** The URL with those removed, or `null` when there was nothing to remove. */
+  readonly cleanUrl: string | null
+}
+
+/** Splits a page URL into the return parameters it carries and the URL without them. */
+export const captureReturnUrl = (href: string): CapturedReturn => {
+  const url = new URL(href)
+  const query = new URLSearchParams()
+  for (const key of RETURN_URL_PARAMS) {
+    for (const value of url.searchParams.getAll(key)) query.append(key, value)
+    url.searchParams.delete(key)
+  }
+  if (url.searchParams.get(LINK_PARAM) === LINK_VALUE) {
+    query.set(LINK_PARAM, LINK_VALUE)
+    url.searchParams.delete(LINK_PARAM)
+  }
+  const fragment = new URLSearchParams(url.hash.replace(/^#/, ""))
+  const hash = ID_TOKEN_RETURN_PARAMS.some((name) => fragment.has(name)) ? fragment : null
+  if (hash !== null) url.hash = ""
+  const changed = query.toString() !== "" || hash !== null
+  return { query, hash, cleanUrl: changed ? url.toString() : null }
+}
+
+const REDACTED = "[Filtered]"
+
+// A return parameter after `?`, `#`, `&` or `;`, also percent-encoded inside another URL's query.
+const RETURN_PARAM_PATTERN = new RegExp(
+  `([?#&;]|%3F|%23|%26)(${RETURN_URL_PARAMS.join("|")})(=|%3D)(?:(?!%26|%23)[^&#\\s"'<>])*`,
+  "gi"
+)
+
+/** Replaces the value of every return parameter in a URL (or any text holding one) with `[Filtered]`. */
+export const redactReturnParams = (text: string): string =>
+  text.replace(
+    RETURN_PARAM_PATTERN,
+    (_match, before: string, name: string, equals: string) => `${before}${name}${equals}${REDACTED}`
+  )
+
+/**
+ * Whether a key names one of the return's credentials (the verifier or the `id_token`), for redacting
+ * parameter maps such as route params. Narrower than the URL redaction: `error` and `state` are
+ * common field names elsewhere.
+ */
+export const isReturnSecretKey = (key: string): boolean => key === VERIFIER_PARAM || key === "id_token"
+
+/** The `sessionStorage` key holding the pending link across the web's redirect to Google. */
+export const LINK_STORAGE_KEY = "kotori.googleLink"
+
+/** Parses the pending link kept in `sessionStorage`, or `null` when missing or malformed. */
+export const parsePendingLink = (raw: string | null): PendingGoogleLink | null => {
+  if (raw === null) return null
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (typeof parsed !== "object" || parsed === null) return null
+    const { state, nonce } = parsed as Record<string, unknown>
+    return typeof state === "string" && typeof nonce === "string" ? { state, nonce } : null
+  } catch {
+    return null
+  }
+}
+
 /** Cryptographically random 128-bit hex token for OAuth `state` and OIDC `nonce`. */
 export const randomOAuthToken = (): string => {
   const bytes = new Uint8Array(16)

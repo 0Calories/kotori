@@ -1,14 +1,18 @@
 import {
+  catchlightDx,
   confetti,
   type Facing,
   frontMoods,
   frontShapes,
   headroom,
+  puffPath,
   type Mood,
   palette,
+  readingShapes,
   shapes,
   sparklePath,
-  thinkingShapes
+  thinkingShapes,
+  trailPath
 } from "./geometry.ts"
 import {
   type ClipName,
@@ -19,6 +23,7 @@ import {
   type Part,
   pieceAt,
   pieceSvgTransform,
+  puffParts,
   type Pose,
   poseAt,
   rest,
@@ -26,16 +31,18 @@ import {
   type SparklePart,
   sparkleParts,
   sparklesFor,
+  sparkParts,
   svgTransform,
+  trailParts,
   type ZPart,
   zParts
 } from "./motion.ts"
 
-/** `content` placed by `pose`, or by `at` when given. */
+/** `content` placed by `pose`, or by `at` when given; nothing while it's faded out. */
 const placed =
   (pose: (part: Part) => Pose) =>
   (name: Part, content: string, at = pose(name)) =>
-    `<g transform="${svgTransform(at, name)}" opacity="${at.opacity}">${content}</g>`
+    at.opacity === 0 ? "" : `<g transform="${svgTransform(at, name)}" opacity="${at.opacity}">${content}</g>`
 
 const circle = (c: { readonly cx: number; readonly cy: number; readonly r: number }, fill: string) =>
   `<circle cx="${c.cx}" cy="${c.cy}" r="${c.r}" fill="${fill}"/>`
@@ -47,7 +54,8 @@ const zSvg = (name: ZPart) => {
 
 type Face = {
   readonly eyes: readonly { readonly cx: number; readonly cy: number; readonly rx: number; readonly ry: number }[]
-  readonly catchlight: { readonly dx: number; readonly dy: number; readonly r: number }
+  /** `inward` mirrors `dx` on the eye right of the middle, so both catch the light on the beak's side. */
+  readonly catchlight: { readonly dx: number; readonly dy: number; readonly r: number; readonly inward?: boolean }
 }
 
 const eyesSvg = (mood: Mood, face: Face) => {
@@ -72,9 +80,70 @@ const eyesSvg = (mood: Mood, face: Face) => {
   return face.eyes
     .map(
       (e) =>
-        `<ellipse cx="${e.cx}" cy="${e.cy}" rx="${e.rx * scale}" ry="${e.ry * scale}" fill="${palette.ink}"/><circle cx="${e.cx + catchlight.dx}" cy="${e.cy + catchlight.dy}" r="${catchlight.r}" fill="${palette.white}"/>`
+        `<ellipse cx="${e.cx}" cy="${e.cy}" rx="${e.rx * scale}" ry="${e.ry * scale}" fill="${palette.ink}"/><circle cx="${e.cx + catchlightDx(catchlight, e.cx)}" cy="${e.cy + catchlight.dy}" r="${catchlight.r}" fill="${palette.white}"/>`
     )
     .join("")
+}
+
+/** A page, its far edge and its print. */
+const pageSvg = (side: 0 | 1) => {
+  const { book } = readingShapes
+  return `<path d="${book.pages[side]}" fill="${palette.paper}"/><path d="${book.edges[side]}" fill="none" stroke="${palette.shade}" stroke-width="2.2" stroke-linecap="round"/><path d="${book.print[side]}" fill="none" stroke="${palette.ink}" stroke-opacity="0.45" stroke-width="2.4" stroke-linecap="round"/>`
+}
+
+/**
+ * Kotori reading, facing the viewer in its 200×200 box, with every part that
+ * moves as it takes up the book and reads placed by `pose`. In the drawing,
+ * the front view's wings and eyes are there too, under the ones it reads
+ * with, and the book is in place; `startReading` fades them in and out. The
+ * dust and sparks the book throws up as it lands grow beside a Kotori
+ * `size` pixels square as celebrate's sparkles do.
+ */
+const readingDrawing = (pose: (part: Part) => Pose, size: number) => {
+  const part = placed(pose)
+  const { origin, puff, sparks } = readingShapes.landing
+  const grown = (name: Part) => combine(pose(name), sparklesFor(size))
+  const eyesPose = pose("eyes")
+  const { glasses, book, wings } = readingShapes
+  const stroke = `fill="none" stroke="${palette.frame}" stroke-width="${glasses.stroke}"`
+  const foot = (d: string) =>
+    `<path d="${d}" stroke="${palette.ink}" stroke-width="${frontShapes.feet.width}" stroke-linecap="round"/>`
+
+  return `${part("foldedWing1", `<path d="${frontShapes.wings[1]}" fill="${palette.ink}"/>`)}
+  ${part("foldedWing0", `<path d="${frontShapes.wings[0]}" fill="${palette.ink}"/>`)}
+  ${frontShapes.tuft.map((t) => circle(t, palette.cream)).join("")}
+  <path d="${frontShapes.body}" fill="${palette.cream}"/>
+  <path d="${frontShapes.shade}" fill="${palette.shade}"/>
+  <path d="${frontShapes.belly}" fill="${palette.white}" fill-opacity="0.4"/>
+  ${foot(frontShapes.feet.left)}
+  ${foot(frontShapes.feet.right)}
+  <path d="${frontShapes.beak}" fill="${palette.ink}"/>
+  ${part("cheeks", readingShapes.cheeks.map((c) => `<ellipse cx="${c.cx}" cy="${c.cy}" rx="${c.rx}" ry="${c.ry}" fill="${palette.blush}"/>`).join(""))}
+  ${part("eyes", eyesSvg("reading", readingShapes))}
+  <g transform="${svgTransform(eyesPose, "eyes")}" opacity="${1 - eyesPose.opacity}">${eyesSvg("sleepy", readingShapes)}</g>
+  ${part("lookingEyes", eyesSvg("neutral", frontShapes))}
+  ${part(
+    "glasses",
+    `${glasses.lenses.map((l) => `<circle cx="${l.cx}" cy="${l.cy}" r="${l.r}" ${stroke}/>`).join("")}
+  <path d="${glasses.bridge}" ${stroke} stroke-linecap="round"/>`
+  )}
+  ${part(
+    "book",
+    `<path d="${book.coverTop}" fill="${palette.leatherDark}"/>
+  ${book.stacks.map((d) => `<path d="${d}" fill="${palette.paperEdge}"/>`).join("")}
+  <path d="${book.stackLines}" fill="none" stroke="${palette.paperLine}" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="${book.coverEdge}" fill="${palette.leather}"/>
+  ${pageSvg(0)}
+  ${pageSvg(1)}
+  <path d="${book.gutter}" fill="none" stroke="${palette.shade}" stroke-width="2.6"/>`
+  )}
+  ${part("page", pageSvg(0))}
+  ${part("pageWing", `<path d="${wings[0]}" fill="${palette.ink}"/>`)}
+  ${part("bookWing", `<path d="${wings[1]}" fill="${palette.ink}"/>`)}
+  ${puffParts.map((name) => part(name, `<path d="${puffPath({ cx: origin.x, cy: origin.y, r: puff })}" fill="${palette.white}" stroke="${palette.paperLine}" stroke-width="1.6" stroke-linejoin="round"/>`, grown(name))).join("")}
+  ${part("book", `<path d="${book.spine}" fill="${palette.leather}"/><path d="${book.spineHollow}" fill="${palette.leatherDark}"/>`)}
+  ${sparkParts.map((name, i) => part(trailParts[i] ?? name, `<path d="${trailPath(origin)}" fill="${palette[sparks[name].color]}" fill-opacity="0.6"/>`, grown(trailParts[i] ?? name))).join("")}
+  ${sparkParts.map((name) => part(name, `<path d="${sparklePath({ cx: origin.x, cy: origin.y, r: sparks[name].r })}" fill="${palette[sparks[name].color]}"/>`, grown(name))).join("")}`
 }
 
 /**
@@ -175,7 +244,11 @@ const frontDrawing = (mood: Mood, pose: (part: Part) => Pose) => {
 
 /** Kotori in `mood` and `facing`, as a Kotori `size` pixels square draws it. */
 const drawing = (mood: Mood, pose: (part: Part) => Pose, size = 200, facing: Facing = "left") =>
-  facing === "front" || frontMoods.has(mood) ? frontDrawing(mood, pose) : sideDrawing(mood, pose, size, facing)
+  mood === "reading"
+    ? readingDrawing(pose, size)
+    : facing === "front" || frontMoods.has(mood)
+      ? frontDrawing(mood, pose)
+      : sideDrawing(mood, pose, size, facing)
 
 /** The mascot as an SVG document, for generating icons and splash images. In moods that reach above the box, the image grows taller to fit. */
 export const mascotSvg = (options: { mood?: Mood; facing?: Facing; background?: string; padding?: number } = {}) => {

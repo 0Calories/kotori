@@ -1,0 +1,7 @@
+# Nx's raw FSEvents watcher ignores .gitignore (to observe task outputs and .env files)
+# and only excludes .nxignore paths. Keep agent worktrees and .env pipes (e.g. 1Password
+# Environments FIFOs, which block or emit watch events when opened) out of Nx's walker/watcher.
+.claude/worktrees
+.env
+.env.*
+!.env.example
