@@ -3,6 +3,7 @@ import {
   READING_DELAY_MS,
   READING_MIN_MS,
   READING_SETTLE_MS,
+  SEARCH_THINKING_DELAY_MS,
   type ReadingPhase,
   createReadingTiming
 } from "../src/lib/readingPhase.ts"
@@ -200,5 +201,29 @@ describe("Kotori's reading phase while a wait is in flight", () => {
     shown.advance(READING_MIN_MS + READING_SETTLE_MS)
     assert.deepStrictEqual(shown.seen, ["reading"])
     assert.strictEqual(shown.timing.phase, "reading")
+  })
+
+  it("waits out a longer delay when given one, as the search field does", () => {
+    let clock = 0
+    const seen: ReadingPhase[] = []
+    const timing = createReadingTiming(
+      (phase) => {
+        seen.push(phase)
+      },
+      () => clock,
+      SEARCH_THINKING_DELAY_MS
+    )
+    const advance = (ms: number) => {
+      clock += ms
+      vi.advanceTimersByTime(ms)
+    }
+    timing.setLoading(true)
+    advance(SEARCH_THINKING_DELAY_MS - 1)
+    assert.strictEqual(timing.phase, "neutral")
+    advance(1)
+    assert.strictEqual(timing.phase, "reading")
+    timing.setLoading(false)
+    advance(READING_MIN_MS + READING_SETTLE_MS)
+    assert.deepStrictEqual(seen, ["reading", "neutral"])
   })
 })

@@ -21,6 +21,13 @@ export const READING_MIN_MS = 300
 export const READING_SETTLE_MS = 100
 
 /**
+ * How long a dictionary search must run before Kotori, held still over the
+ * search field, takes its thinking pose. Only a very slow search gets there,
+ * so typing and ordinary results leave the resting pose alone.
+ */
+export const SEARCH_THINKING_DELAY_MS = 2500
+
+/**
  * `reading` is the pose Kotori takes once a wait has gone on long enough to be
  * worth showing; `neutral` is anything else. The search field shows its
  * resting bird when neutral; a loading screen shows nothing.
@@ -83,15 +90,15 @@ const shown = (now: number): ReadingState => ({
  * means the pending timer reached `until`; the caller cancels a timer it no
  * longer wants rather than delivering it late.
  */
-const reduceReading = (state: ReadingState, event: ReadingEvent): ReadingState => {
+const reduceReading = (state: ReadingState, event: ReadingEvent, delay: number): ReadingState => {
   if (event.type === "timer") return onTimer(state, event.now)
   if (event.loading === state.loading) return state
-  return event.loading ? onStart(state, event.now) : onStop(state, event.now)
+  return event.loading ? onStart(state, event.now, delay) : onStop(state, event.now)
 }
 
-const onStart = (state: ReadingState, now: number): ReadingState => {
+const onStart = (state: ReadingState, now: number, delay: number): ReadingState => {
   if (state.phase === "reading") return { ...state, loading: true, pending: null, until: null }
-  const showAt = state.showAt ?? now + READING_DELAY_MS
+  const showAt = state.showAt ?? now + delay
   if (now >= showAt) return shown(now)
   return { loading: true, phase: "neutral", shownAt: null, showAt, pending: "show", until: showAt }
 }
@@ -123,12 +130,13 @@ export type ReadingTiming = {
 
 /**
  * Runs {@link reduceReading} on `setTimeout`. `onPhase` fires only when
- * the pose changes. `dispose` drops a pending change, so an unmounted screen
+ * the pose changes. A wait shows reading once it has run `delay` ms. `dispose` drops a pending change, so an unmounted screen
  * doesn't update.
  */
 export const createReadingTiming = (
   onPhase: (phase: ReadingPhase) => void,
-  now: () => number = Date.now
+  now: () => number = Date.now,
+  delay: number = READING_DELAY_MS
 ): ReadingTiming => {
   let state = initialReadingState
   let timer: ReturnType<typeof setTimeout> | null = null
@@ -143,20 +151,22 @@ export const createReadingTiming = (
   }
 
   const apply = (event: ReadingEvent) => {
-    const next = reduceReading(state, event)
+    const next = reduceReading(state, event, delay)
     if (next === state) return
     const phaseChanged = next.phase !== state.phase
     state = next
     clear()
     if (state.pending !== null && state.until !== null) {
       const due = state.until
-      const delay = Math.max(0, due - now())
       const token = generation
-      timer = setTimeout(() => {
-        if (token !== generation) return
-        timer = null
-        apply({ type: "timer", now: due })
-      }, delay)
+      timer = setTimeout(
+        () => {
+          if (token !== generation) return
+          timer = null
+          apply({ type: "timer", now: due })
+        },
+        Math.max(0, due - now())
+      )
     }
     if (phaseChanged) onPhase(state.phase)
   }
@@ -181,20 +191,21 @@ export const createReadingTiming = (
  * then reading, then neutral again once it has ended — including when the
  * request was cancelled, superseded, or failed. A screen that loads its
  * content keeps its loading state up while this is reading, so the pose never
- * blinks off the moment it appears.
+ * blinks off the moment it appears. `delay` is how long the wait must run
+ * first.
  */
-export const useReadingPhase = (loading: boolean): ReadingPhase => {
+export const useReadingPhase = (loading: boolean, delay: number = READING_DELAY_MS): ReadingPhase => {
   const [phase, setPhase] = useState<ReadingPhase>("neutral")
   const timing = useRef<ReadingTiming | null>(null)
 
   useEffect(() => {
-    const created = createReadingTiming(setPhase)
+    const created = createReadingTiming(setPhase, Date.now, delay)
     timing.current = created
     return () => {
       created.dispose()
       if (timing.current === created) timing.current = null
     }
-  }, [])
+  }, [delay])
 
   useEffect(() => {
     timing.current?.setLoading(loading)
