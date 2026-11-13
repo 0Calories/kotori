@@ -1,17 +1,6 @@
-import type { DraftOutput } from "@kotori/ai"
+import { checkCautions, type DraftOutput } from "@kotori/ai"
 import type { DraftEntry as DraftView, Language, Tag, WordRef } from "@kotori/contracts"
-import {
-  CAUTION_KINDS,
-  type CautionKind,
-  type DraftCaution,
-  type DraftEntry,
-  entries,
-  type EntryId,
-  isLabelCode,
-  type LabelCode,
-  labelSeverity,
-  MAX_CAUTIONS
-} from "@kotori/db"
+import { type DraftEntry, entries, type EntryId, isLabelCode, type LabelCode, labelSeverity } from "@kotori/db"
 import { inArray } from "drizzle-orm"
 import { Effect } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
@@ -22,8 +11,9 @@ import { senseLabels } from "../dictionary/similar.ts"
  * Ask Kotori drafts in the dictionary's model: Claude's output checked before it is stored, and a
  * stored draft read as an entry is. Checking keeps out what would mislead once shown: label codes
  * the vocabulary doesn't have or the word's language can't carry (keigo on an English word, a
- * British label on a Japanese one), cautions of a kind that can't happen in this direction (wasei-eigo
- * on a Japanese word), about a sense that doesn't exist, or more than three.
+ * British label on a Japanese one), and cautions the dictionary's own pass would drop
+ * (`checkCautions` in `@kotori/ai`): of a kind that can't happen in this direction (wasei-eigo on a
+ * Japanese word), about a sense that doesn't exist, naming a sense by its number, or more than three.
  */
 
 /** Labels only Japanese words carry: keigo, dialects, wasei-eigo, four-kanji idioms. */
@@ -68,22 +58,19 @@ export const checkDraft = (entry: DraftOutputEntry, language: Language): DraftEn
       .filter((code) => fits(code, language)),
     usagePatterns: clean(sense.usagePatterns)
   }))
-  // A sense with no gloss is dropped; cautions name senses by their number as Claude listed them.
+  // A sense with no gloss is dropped.
   const kept = senses.flatMap((sense, index) => (sense.glosses.length > 0 ? [index] : []))
   const headword = entry.headword.trim()
   if (kept.length === 0 || headword.length === 0) return null
-  const allowed = new Set<string>(CAUTION_KINDS[language])
-  const cautions = entry.cautions.flatMap((caution): Array<DraftCaution> => {
-    const text = caution.text.trim()
-    if (text.length === 0 || !allowed.has(caution.kind)) return []
-    let sense: number | null = null
-    if (caution.sense !== null) {
-      sense = kept.indexOf(caution.sense - 1)
+  // Claude numbered senses as it listed them, glossless ones included: place each on the kept ones.
+  const { cautions } = checkCautions(entry.cautions, {
+    language,
+    headword,
+    placeSense: (sense) => {
+      const position = kept.indexOf(sense - 1)
       // About a sense that isn't there: what it is about can't be placed, so it isn't kept.
-      if (sense === -1) return []
+      return position === -1 ? null : position
     }
-    const about = caution.about?.trim() ?? ""
-    return [{ kind: caution.kind as CautionKind, text, sense, about: about.length > 0 ? about : null }]
   })
   return {
     headword,
@@ -91,7 +78,7 @@ export const checkDraft = (entry: DraftOutputEntry, language: Language): DraftEn
     spellings: clean(entry.spellings).filter((spelling) => spelling !== headword),
     frequency: Math.min(5, Math.max(1, Math.round(entry.frequency))),
     senses: kept.map((index) => senses[index]!),
-    cautions: cautions.slice(0, MAX_CAUTIONS)
+    cautions
   }
 }
 

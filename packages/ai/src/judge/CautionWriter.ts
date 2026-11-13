@@ -1,13 +1,22 @@
-import { CAUTION_KINDS, type CautionKind, type Language, MAX_CAUTIONS } from "@kotori/contracts"
+import type { Language } from "@kotori/contracts"
 import { Context, Effect, Layer, Schema } from "effect"
 import { CAUTION_GUIDE, LABELS_SAY, NOT_CAUTIONS } from "../lexicon/cautionGuide.ts"
 import { Claude, type ClaudeError } from "../providers/Claude.ts"
+import {
+  CautionOutput,
+  type CautionRules,
+  checkCautions,
+  type DroppedCaution,
+  listedSenses,
+  type WrittenCaution
+} from "./cautionRules.ts"
 import { meaningOf, type WordToJudge } from "./word.ts"
 
 /**
  * The caution pass: Claude reads dictionary words as the entry page shows them (glosses, labels,
  * the dictionary's notes, a loan's verdict) and writes a caution only where a learner would still
- * be surprised. Most words get none. Ask Kotori drafts follow the same rules (`cautionGuide.ts`).
+ * be surprised. Most words get none. Ask Kotori drafts are told the same (`cautionGuide.ts`) and
+ * checked by the same rules (`cautionRules.ts`).
  */
 
 /** Bumped when the prompt changes; written in the artifact's header. */
@@ -15,14 +24,6 @@ export const CAUTIONS_VERSION = 4
 
 /** Words per Claude request: enough to share the long system prompt, few enough to read each well. */
 export const CAUTION_BATCH = 10
-
-const CautionOutput = Schema.Struct({
-  kind: Schema.String,
-  text: Schema.String,
-  /** The sense it is about, numbered from 1 as listed; null for the whole word. */
-  sense: Schema.NullOr(Schema.Int),
-  about: Schema.NullOr(Schema.String)
-})
 
 export const CautionsOutput = Schema.Struct({
   words: Schema.Array(
@@ -35,67 +36,12 @@ export const CautionsOutput = Schema.Struct({
 })
 export type CautionsOutput = typeof CautionsOutput.Type
 
-/** A caution as checked: a valid kind, a sense that exists (by position), non-empty text. */
-export interface WrittenCaution {
-  readonly kind: CautionKind
-  readonly text: string
-  /** The sense's position in the word's senses; null for the whole word. */
-  readonly sense: number | null
-  readonly about: string | null
-}
-
-/** Why a caution Claude wrote was dropped, for the eval to report. */
-export interface DroppedCaution {
-  readonly reason: "kind" | "sense" | "empty" | "numbered" | "cap"
-  readonly caution: typeof CautionOutput.Type
-}
-
-const NUMBERED =
-  /\bsense\s*\d|\bmeaning\s*#?\d|#\d\b|（\d）|\(\d\)|[0-9０-９]+\s*番目?の(?:意味|語義)|語義\s*[0-9０-９]|意味\s*[0-9０-９]/i
-
-/** A sense named by its number in the text ("sense 2", "(2)", "2番目の意味"), which breaks if senses move. */
-export const namesSenseByNumber = (text: string) => NUMBERED.test(text)
-
-/** Claude's cautions for one word, checked; see `WrittenCaution`. */
-export const checkCautions = (
-  written: ReadonlyArray<typeof CautionOutput.Type>,
-  word: WordToJudge,
-  language: Language
-): {
-  readonly cautions: ReadonlyArray<WrittenCaution>
-  readonly dropped: ReadonlyArray<DroppedCaution>
-} => {
-  const allowed = new Set<string>(CAUTION_KINDS[language])
-  const cautions: Array<WrittenCaution> = []
-  const dropped: Array<DroppedCaution> = []
-  for (const caution of written) {
-    const text = caution.text.trim()
-    const reason =
-      text.length === 0
-        ? "empty"
-        : !allowed.has(caution.kind)
-          ? "kind"
-          : caution.sense !== null && (caution.sense < 1 || caution.sense > word.senses.length)
-            ? "sense"
-            : namesSenseByNumber(text)
-              ? "numbered"
-              : cautions.length >= MAX_CAUTIONS
-                ? "cap"
-                : null
-    if (reason !== null) {
-      dropped.push({ reason, caution })
-      continue
-    }
-    const about = caution.about?.trim() ?? ""
-    cautions.push({
-      kind: caution.kind as CautionKind,
-      text,
-      sense: caution.sense === null ? null : caution.sense - 1,
-      about: about.length > 0 && about !== word.headword ? about : null
-    })
-  }
-  return { cautions, dropped }
-}
+/** The rules a dictionary word's cautions are checked by: its senses as listed, all kept. */
+export const wordCautionRules = (word: WordToJudge, language: Language): CautionRules => ({
+  language,
+  headword: word.headword,
+  placeSense: listedSenses(word.senses.length)
+})
 
 export const cautionSystem = (language: Language) => {
   const [target, native] = language === "ja" ? ["Japanese", "English"] : ["English", "Japanese"]
@@ -194,7 +140,7 @@ export class CautionWriter extends Context.Service<
         return words.map((word, index): EntryCautions => {
           const written = byNumber.get(index + 1)
           if (written === undefined) return { missing: true, cautions: [], dropped: [] }
-          return { missing: false, ...checkCautions(written, word, language) }
+          return { missing: false, ...checkCautions(written, wordCautionRules(word, language)) }
         })
       })
       return CautionWriter.of({ model: claude.model, write })
