@@ -10,7 +10,7 @@ import {
   useRef,
   useState
 } from "react"
-import { Platform, Pressable, type StyleProp, StyleSheet, View, type ViewStyle } from "react-native"
+import { Dimensions, Platform, StyleSheet, View } from "react-native"
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { type Box, placeTooltip, type Size, TOOLTIP_MARGIN } from "../lib/tooltip.ts"
@@ -37,8 +37,6 @@ interface Tip {
   readonly note?: string
   /** The trigger, in window coordinates. */
   readonly anchor: Box
-  /** Opened by a tap on a phone: a tap anywhere else closes it. */
-  readonly modal: boolean
   /** The trigger's DOM node on the web, so a press on it isn't taken for a press outside. */
   readonly node: unknown
 }
@@ -51,18 +49,35 @@ interface Tooltips {
   readonly hide: (id: string, delay?: number) => void
   /** Whether a tooltip is open or just closed, so the next opens at once. */
   readonly warm: () => boolean
+  /** Closes whichever tooltip is open. */
+  readonly close: () => void
+  /** On native, marks a touch as landing on this trigger, so it isn't taken for a touch elsewhere. */
+  readonly claim: (id: string) => void
 }
 
-const TooltipContext = createContext<Tooltips>({ open: null, show: () => {}, hide: () => {}, warm: () => false })
+const TooltipContext = createContext<Tooltips>({
+  open: null,
+  show: () => {},
+  hide: () => {},
+  warm: () => false,
+  close: () => {},
+  claim: () => {}
+})
+
+/** While a tooltip is open, what closes it: for a scroll view, whose content moves out from under it. */
+export const useCloseOpenTooltip = () => {
+  const { open, close } = useContext(TooltipContext)
+  return open === null ? null : close
+}
 
 const Bubble = ({ tip, layer }: { readonly tip: Tip; readonly layer: Box }) => {
-  const { color, shadow } = useTheme()
+  const { color, shadow, space, radius } = useTheme()
   const insets = useSafeAreaInsets()
   // The size belongs to the tooltip it was measured for: the next one hides until it is measured too.
   const [size, setSize] = useState<(Size & { readonly id: string }) | null>(null)
   const measured = size !== null && size.id === tip.id
   const anchor = { ...tip.anchor, x: tip.anchor.x - layer.x, y: tip.anchor.y - layer.y }
-  const place = measured ? placeTooltip(anchor, size, layer, insets.top) : null
+  const place = measured ? placeTooltip(anchor, size, layer, insets) : null
   return (
     <Animated.View
       entering={FadeIn.duration(140).easing(easeOut)}
@@ -103,7 +118,14 @@ const Bubble = ({ tip, layer }: { readonly tip: Tip; readonly layer: Box }) => {
             }}
           />
         ) : null}
-        <View style={{ backgroundColor: color.ink, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 9 }}>
+        <View
+          style={{
+            backgroundColor: color.ink,
+            borderRadius: radius.sm,
+            paddingHorizontal: space.md,
+            paddingVertical: 9
+          }}
+        >
           <Text variant="small" color="onPrimaryDark" style={{ lineHeight: 18 }}>
             {tip.text}
           </Text>
@@ -120,8 +142,9 @@ const Bubble = ({ tip, layer }: { readonly tip: Tip; readonly layer: Box }) => {
 
 /**
  * Holds the one open tooltip and draws it over the whole app, so a card's edge or a scroll view
- * can't clip it. A tooltip closes when the page scrolls, the route changes, Escape is pressed, or
- * something else is pressed.
+ * can't clip it. A tooltip closes when the page scrolls, the route changes, the screen resizes or
+ * rotates, Escape is pressed, or something else is pressed or touched. A touch elsewhere still does
+ * what it would have: it scrolls or presses as if no tooltip were open.
  */
 export const TooltipProvider = ({ children }: { readonly children: ReactNode }) => {
   const [tip, setTip] = useState<Tip | null>(null)
@@ -130,6 +153,8 @@ export const TooltipProvider = ({ children }: { readonly children: ReactNode }) 
   const closing = useRef<ReturnType<typeof setTimeout> | null>(null)
   const closedAt = useRef(0)
   const openRef = useRef<Tip | null>(null)
+  /** The trigger the current touch landed on, set by it before the touch bubbles up to here. */
+  const touched = useRef<string | null>(null)
 
   const close = useCallback(() => {
     if (closing.current !== null) clearTimeout(closing.current)
@@ -159,7 +184,11 @@ export const TooltipProvider = ({ children }: { readonly children: ReactNode }) 
         if (delay === 0) close()
         else closing.current = setTimeout(close, delay)
       },
-      warm: () => openRef.current !== null || Date.now() - closedAt.current < WARM_MS
+      warm: () => openRef.current !== null || Date.now() - closedAt.current < WARM_MS,
+      close,
+      claim: (id) => {
+        touched.current = id
+      }
     }),
     [close]
   )
@@ -174,6 +203,19 @@ export const TooltipProvider = ({ children }: { readonly children: ReactNode }) 
     },
     []
   )
+
+  useEffect(() => {
+    if (WEB) return
+    const rotated = Dimensions.addEventListener("change", close)
+    return () => rotated.remove()
+  }, [close])
+
+  // A touch bubbles up from where it landed, so a trigger has claimed it by the time it gets here.
+  const touchStart = () => {
+    const own = touched.current
+    touched.current = null
+    if (openRef.current !== null && openRef.current.id !== own) close()
+  }
 
   useEffect(() => {
     if (!WEB || tip === null) return
@@ -200,17 +242,11 @@ export const TooltipProvider = ({ children }: { readonly children: ReactNode }) 
 
   return (
     <TooltipContext.Provider value={tooltips}>
-      {children}
-      <View ref={layerRef} pointerEvents="box-none" style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
-        {tip?.modal ? (
-          <Pressable
-            onPress={close}
-            accessible={false}
-            importantForAccessibility="no"
-            style={StyleSheet.absoluteFill}
-          />
-        ) : null}
-        {tip !== null && layer !== null ? <Bubble tip={tip} layer={layer} /> : null}
+      <View style={{ flex: 1 }} onTouchStart={WEB ? undefined : touchStart}>
+        {children}
+        <View ref={layerRef} pointerEvents="box-none" style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
+          {tip !== null && layer !== null ? <Bubble tip={tip} layer={layer} /> : null}
+        </View>
       </View>
     </TooltipContext.Provider>
   )
@@ -218,14 +254,14 @@ export const TooltipProvider = ({ children }: { readonly children: ReactNode }) 
 
 /**
  * Something that explains itself in a tooltip: on hover or keyboard focus with a mouse and
- * keyboard, on a tap with a finger (a second tap, or a tap anywhere else, closes it). Screen
- * readers get the text as the control's description, without opening anything.
+ * keyboard, on a tap with a finger (a second tap, or a tap anywhere else, closes it). A click
+ * pins it open until a second click, or a click anywhere else. Screen readers get the text as the
+ * control's description, without opening anything.
  */
 export const TooltipTrigger = ({
   text,
   note,
   label,
-  style,
   children
 }: {
   readonly text: string
@@ -233,70 +269,109 @@ export const TooltipTrigger = ({
   readonly note?: string
   /** The control's accessible name. */
   readonly label: string
-  readonly style?: StyleProp<ViewStyle>
-  readonly children: ReactNode | ((open: boolean) => ReactNode)
+  readonly children: (open: boolean) => ReactNode
 }) => {
   const id = useId()
-  const { open, show, hide, warm } = useContext(TooltipContext)
+  const descriptionId = `${id}-description`
+  const description = note ? `${text} ${note}` : text
+  const { open, show, hide, warm, claim } = useContext(TooltipContext)
   const ref = useRef<View>(null)
   const hovered = useRef(false)
+  /** Clicked open under a mouse: leaving no longer closes it. */
+  const pinned = useRef(false)
   const waiting = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** Bumped by every reveal and every cancel, so a measurement that comes back too late is dropped. */
+  const request = useRef(0)
   const isOpen = open === id
+
+  // However it closed (a press elsewhere, Escape, a scroll, another tooltip), it is no longer pinned.
+  useEffect(() => {
+    if (!isOpen) pinned.current = false
+  }, [isOpen])
 
   const wait = (ms: number | null, then?: () => void) => {
     if (waiting.current !== null) clearTimeout(waiting.current)
     waiting.current = ms === null || then === undefined ? null : setTimeout(then, ms)
   }
-  const reveal = (modal: boolean) => {
+  const reveal = () => {
     wait(null)
+    const asked = ++request.current
     ref.current?.measureInWindow((x, y, width, height) => {
-      show({ id, text, note, anchor: { x, y, width, height }, modal, node: ref.current })
+      if (asked !== request.current) return
+      show({ id, text, note, anchor: { x, y, width, height }, node: ref.current })
     })
+  }
+  const cancel = () => {
+    wait(null)
+    request.current++
   }
 
   useEffect(
     () => () => {
       if (waiting.current !== null) clearTimeout(waiting.current)
+      request.current++
       hide(id)
     },
     [hide, id]
   )
 
   return (
-    <View ref={ref} collapsable={false} style={{ alignSelf: "flex-start" }}>
+    <View
+      ref={ref}
+      collapsable={false}
+      onTouchStart={WEB ? undefined : () => claim(id)}
+      style={{ alignSelf: "flex-start" }}
+    >
       <PressableScale
         haptic
         scaleTo={0.95}
         onHoverIn={() => {
           hovered.current = true
-          if (warm()) reveal(false)
-          else wait(HOVER_DELAY_MS, () => reveal(false))
+          if (warm()) reveal()
+          else wait(HOVER_DELAY_MS, reveal)
         }}
         onHoverOut={() => {
           hovered.current = false
-          wait(null)
+          if (pinned.current) return
+          cancel()
           hide(id, HOVER_GRACE_MS)
         }}
         onPress={() => {
-          // Under a mouse it is already open, or about to be: a click must not close it again.
-          if (hovered.current) reveal(false)
-          else if (isOpen) hide(id)
-          else reveal(!WEB)
+          if (hovered.current) {
+            // Under a mouse it is already open, or about to be: a click pins it, a second unpins it.
+            if (pinned.current && isOpen) {
+              pinned.current = false
+              hide(id)
+            } else {
+              pinned.current = true
+              reveal()
+            }
+          } else if (isOpen) hide(id)
+          else reveal()
         }}
         onFocus={(event) => {
           // Keyboard focus only: a press focuses the control too, and opens it itself.
           const target = event.target as unknown as { matches?: (selector: string) => boolean }
-          if (WEB && target.matches?.(":focus-visible")) reveal(false)
+          if (WEB && target.matches?.(":focus-visible")) reveal()
         }}
-        onBlur={() => hide(id)}
+        onBlur={() => {
+          cancel()
+          hide(id)
+        }}
         accessibilityRole="button"
         accessibilityLabel={label}
-        accessibilityHint={note ? `${text} ${note}` : text}
-        {...(WEB ? { "aria-describedby": isOpen ? id : undefined } : { accessibilityState: { expanded: isOpen } })}
-        style={style}
+        // react-native-web drops `accessibilityHint`, so the web points at a hidden copy of the text.
+        {...(WEB
+          ? { "aria-describedby": descriptionId }
+          : { accessibilityHint: description, accessibilityState: { expanded: isOpen } })}
       >
-        {typeof children === "function" ? children(isOpen) : children}
+        {children(isOpen)}
       </PressableScale>
+      {WEB ? (
+        <Text nativeID={descriptionId} style={{ display: "none" }}>
+          {description}
+        </Text>
+      ) : null}
     </View>
   )
 }
