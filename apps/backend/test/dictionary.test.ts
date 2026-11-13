@@ -1315,7 +1315,7 @@ layer(allowanceLayer)("Dictionary requests for examples", (it) => {
         yield* TestClock.setTime(at)
         const shown = Option.getOrThrow(yield* dictionary.entry(id))
         // Nothing is on its way, so the app doesn't poll for it; it asks with `enrich`.
-        assert.deepStrictEqual(shown.enrichment, { examples: "unavailable", audio: "unavailable" })
+        assert.deepStrictEqual(shown.enrichment, { examples: "unrequested", audio: "unrequested" })
         assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.enrichment(id)), shown.enrichment)
       }
       assert.deepStrictEqual(yield* allJobs, before)
@@ -1387,8 +1387,8 @@ layer(allowanceLayer)("Dictionary requests for examples", (it) => {
 
       // Reading still works (nothing is on its way), and a learner with allowance left can still ask.
       assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.enrichment(d!)), {
-        examples: "unavailable",
-        audio: "unavailable"
+        examples: "unrequested",
+        audio: "unrequested"
       })
       assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.requestEnrichment(d!, U1)), {
         examples: "queued",

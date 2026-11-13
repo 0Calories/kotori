@@ -1,4 +1,5 @@
 import type { Source } from "@kotori/db"
+import type { JobStatus } from "./jobs.ts"
 
 /**
  * Which example sentences get audio. Kotori's sentences, written for learners, are always voiced.
@@ -29,7 +30,7 @@ export const sentencesHeard = <E extends { readonly sense: number; readonly sour
  * has never been asked for and the entry has none of Kotori's (Claude was down when the word was
  * first looked at). A job that settled has tried, whatever it wrote.
  */
-export const examplesToCome = (status: string | undefined, examples: ReadonlyArray<{ readonly source: Source }>) =>
+export const examplesToCome = (status: JobStatus | undefined, examples: ReadonlyArray<{ readonly source: Source }>) =>
   status === "queued" ||
   status === "running" ||
   (status === undefined && !examples.some((example) => example.source === "kotori"))

@@ -1,12 +1,12 @@
 import { Claude, Pronouncer } from "@kotori/ai"
 import { type Enrichment, type EnrichmentStatus, type EntryRecord, RateLimited } from "@kotori/contracts"
 import type { UserId } from "@kotori/db"
-import { Clock, Config, Effect, Option } from "effect"
+import { Clock, Config, Effect, Match, Option } from "effect"
 import { Database } from "../../db/Database.ts"
 import { scopedToUser } from "../../db/scopedToUser.ts"
 import { entryClips, exampleClips } from "../audio/index.ts"
 import { reserveUsage } from "../coaching/queries.ts"
-import type { ExampleRow, JobKind } from "../enrichment/index.ts"
+import type { ExampleRow, JobKind, JobStatus } from "../enrichment/index.ts"
 import {
   enqueueJob,
   examplesFor,
@@ -33,6 +33,26 @@ const RETRY_AFTER = 10 * 60 * 1000
 const HOUR = 60 * 60 * 1000
 const DAY = 24 * HOUR
 
+/**
+ * One kind of enrichment's status for an entry, from whether the entry has it, whether its
+ * provider is there to supply it, and its job (none until someone asks). Every job status is
+ * named, so a new one doesn't compile until it is given a meaning here.
+ */
+export const enrichmentStatus = (ready: boolean, available: boolean, job: JobStatus | undefined): EnrichmentStatus => {
+  if (ready) return "ready"
+  // Asking can't help while no provider would do the work.
+  if (!available) return "unavailable"
+  return Match.value(job).pipe(
+    // Reading an entry queues nothing: the app offers to ask for it and doesn't poll.
+    Match.when(undefined, () => "unrequested" as const),
+    // On its way: the app polls until it settles.
+    Match.when(Match.is("queued", "running"), () => "queued" as const),
+    // Settled without supplying it: not coming, though asking later may give it another try.
+    Match.when(Match.is("done", "failed"), () => "unavailable" as const),
+    Match.exhaustive
+  )
+}
+
 /** An entry's enrichment status, and requests for what it lacks, on the application database. */
 export const makeEnrichmentStatus = Effect.gen(function* () {
   const db = yield* Database
@@ -40,12 +60,6 @@ export const makeEnrichmentStatus = Effect.gen(function* () {
   const pronouncer = yield* Pronouncer
   const examplesHourly = yield* Config.Int("KOTORI_ENRICH_HOURLY_LIMIT").pipe(Config.withDefault(60))
   const examplesDaily = yield* Config.Int("KOTORI_ENRICH_DAILY_LIMIT").pipe(Config.withDefault(300))
-
-  // Only a job the worker has yet to settle (`queued` or `running`) is on its way. With no job
-  // (reading an entry queues none), or one that settled (`done` or `failed`), whatever is missing
-  // is `unavailable`: the app stops polling and offers to ask for it (see `requestFor`).
-  const status = (ready: boolean, available: boolean, job: string | undefined): EnrichmentStatus =>
-    ready ? "ready" : available && (job === "queued" || job === "running") ? "queued" : "unavailable"
 
   /**
    * Takes one of the learner's example-sentence requests, or fails when they've used them up.
@@ -99,10 +113,10 @@ export const makeEnrichmentStatus = Effect.gen(function* () {
 
   const statusOf = (
     look: Effect.Success<ReturnType<typeof lookAt>>,
-    jobs: ReadonlyMap<JobKind, string>
+    jobs: ReadonlyMap<JobKind, JobStatus>
   ): Enrichment => ({
-    examples: status(look.hasExamples, look.coachAvailable, jobs.get("examples")),
-    audio: status(look.hasAudio, pronouncer.configured, jobs.get("audio"))
+    examples: enrichmentStatus(look.hasExamples, look.coachAvailable, jobs.get("examples")),
+    audio: enrichmentStatus(look.hasAudio, pronouncer.configured, jobs.get("audio"))
   })
 
   /** An entry's enrichment status. Reads only; never queues work. */
@@ -138,7 +152,8 @@ export const makeEnrichmentStatus = Effect.gen(function* () {
           return Effect.flatMap(queueNewJob(db, kind, entry.id, ON_DEMAND, now), (queued) =>
             queued ? Effect.succeed(true) : Effect.as(enqueueJob(db, kind, entry.id, ON_DEMAND, now), false)
           )
-        default:
+        case "queued":
+        case "running":
           // Already on its way (perhaps from a backfill): asking only raises its priority.
           return Effect.as(enqueueJob(db, kind, entry.id, ON_DEMAND, now), false)
       }

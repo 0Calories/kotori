@@ -30,6 +30,7 @@ import {
   heroItems,
   labelItems,
   loanLine,
+  onItsWay,
   saveDetails,
   senseCautions,
   similarWords,
@@ -326,7 +327,7 @@ export default function EntryScreen() {
   )
   const inflections = data.forms.filter((form) => form.kind === "inflection")
   const senses = showAll ? data.senses : data.senses.slice(0, 3)
-  const waiting = data.enrichment.examples === "queued"
+  const waiting = onItsWay(data.enrichment.examples)
   const similar = similarWords(data.senses)
   const firstPos = data.senses[0]?.partsOfSpeech[0]
   const partOfSpeech = firstPos ? (posLabel(t, firstPos.code) ?? firstPos.name) : null

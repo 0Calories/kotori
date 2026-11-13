@@ -186,10 +186,15 @@ export const Sense = Schema.Struct({
 })
 export type Sense = typeof Sense.Type
 
-export const EnrichmentStatus = Schema.Literals(["ready", "queued", "unavailable"])
+/**
+ * Where one kind of enrichment stands for an entry: `ready` (the entry has it), `unrequested`
+ * (nobody has asked, so nothing is on its way; `enrich` asks), `queued` (on its way, worth
+ * polling for) or `unavailable` (not coming: no provider, or its job settled without it).
+ */
+export const EnrichmentStatus = Schema.Literals(["ready", "unrequested", "queued", "unavailable"])
 export type EnrichmentStatus = typeof EnrichmentStatus.Type
 
-/** Whether the worker's jobs for an entry are done, on their way, or not coming (no provider, or failed). */
+/** The status of each kind of enrichment for an entry. */
 export const Enrichment = Schema.Struct({
   examples: EnrichmentStatus,
   audio: EnrichmentStatus

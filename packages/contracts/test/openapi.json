@@ -1847,6 +1847,7 @@
                           "type": "string",
                           "enum": [
                             "ready",
+                            "unrequested",
                             "queued",
                             "unavailable"
                           ]
@@ -1855,6 +1856,7 @@
                           "type": "string",
                           "enum": [
                             "ready",
+                            "unrequested",
                             "queued",
                             "unavailable"
                           ]
@@ -1964,6 +1966,7 @@
                       "type": "string",
                       "enum": [
                         "ready",
+                        "unrequested",
                         "queued",
                         "unavailable"
                       ]
@@ -1972,6 +1975,7 @@
                       "type": "string",
                       "enum": [
                         "ready",
+                        "unrequested",
                         "queued",
                         "unavailable"
                       ]
@@ -2059,6 +2063,7 @@
                       "type": "string",
                       "enum": [
                         "ready",
+                        "unrequested",
                         "queued",
                         "unavailable"
                       ]
@@ -2067,6 +2072,7 @@
                       "type": "string",
                       "enum": [
                         "ready",
+                        "unrequested",
                         "queued",
                         "unavailable"
                       ]
