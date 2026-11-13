@@ -1,44 +1,45 @@
 import { useEffect, useRef, useState } from "react"
 
 /**
- * How long a lookup must already be running before Kotori takes the thinking
- * pose. Anything shorter stays on the resting pose, so a fast result never
- * flashes thinking.
+ * How long a wait (a dictionary lookup, or a screen loading its content)
+ * must already be running before Kotori takes the reading pose. Anything shorter stays on the resting pose, so a fast result never
+ * flashes reading.
  */
-export const SEARCH_THINKING_DELAY_MS = 400
+export const READING_DELAY_MS = 400
 
 /**
- * Once the thinking pose is on screen, keep it at least this long. A result
+ * Once the reading pose is on screen, keep it at least this long. A result
  * that lands just after the pose appears would otherwise blink it off.
  */
-export const SEARCH_THINKING_MIN_MS = 300
+export const READING_MIN_MS = 300
 
 /**
  * A pause shorter than this is still the same wait: the next keystroke, or a
  * request that replaced the one in flight. Long enough to cover that idle
- * frame, short enough that a finished search doesn't sit on thinking.
+ * frame, short enough that a finished wait doesn't sit on reading.
  */
-export const SEARCH_THINKING_SETTLE_MS = 100
+export const READING_SETTLE_MS = 100
 
 /**
- * `neutral` is the search field's resting pose. `thinking` is the
- * pose Kotori takes when a lookup has gone on long enough to be worth showing.
+ * `reading` is the pose Kotori takes once a wait has gone on long enough to be
+ * worth showing; `neutral` is anything else. The search field shows its
+ * resting bird when neutral; a loading screen shows nothing.
  *
- * The thinking pose plays a looping thought bubble. `Mascot` already holds
- * that pose still when the user prefers reduced motion; this module only
- * chooses when to ask for it.
+ * The reading pose plays a loop of Kotori turning pages and reading along
+ * the lines. `Mascot` already holds that pose still when the user prefers
+ * reduced motion; this module only chooses when to ask for it.
  */
-export type SearchMascotPhase = "neutral" | "thinking"
+export type ReadingPhase = "neutral" | "reading"
 
 type Pending = "show" | "hide" | "abandon"
 
-type SearchMascotState = {
+type ReadingState = {
   readonly loading: boolean
-  readonly phase: SearchMascotPhase
-  /** When the thinking pose was shown, if it is showing. */
+  readonly phase: ReadingPhase
+  /** When the reading pose was shown, if it is showing. */
   readonly shownAt: number | null
   /**
-   * When a continuous wait should show thinking. Kept across a short gap so
+   * When a continuous wait should show reading. Kept across a short gap so
    * the delay doesn't start over between keystrokes or superseded requests.
    */
   readonly showAt: number | null
@@ -46,7 +47,7 @@ type SearchMascotState = {
   readonly until: number | null
 }
 
-const initialSearchMascotState: SearchMascotState = {
+const initialReadingState: ReadingState = {
   loading: false,
   phase: "neutral",
   shownAt: null,
@@ -55,11 +56,11 @@ const initialSearchMascotState: SearchMascotState = {
   until: null
 }
 
-type SearchMascotEvent =
+type ReadingEvent =
   | { readonly type: "loading"; readonly loading: boolean; readonly now: number }
   | { readonly type: "timer"; readonly now: number }
 
-const idle = (): SearchMascotState => ({
+const idle = (): ReadingState => ({
   loading: false,
   phase: "neutral",
   shownAt: null,
@@ -68,9 +69,9 @@ const idle = (): SearchMascotState => ({
   until: null
 })
 
-const shown = (now: number): SearchMascotState => ({
+const shown = (now: number): ReadingState => ({
   loading: true,
-  phase: "thinking",
+  phase: "reading",
   shownAt: now,
   showAt: null,
   pending: null,
@@ -82,54 +83,54 @@ const shown = (now: number): SearchMascotState => ({
  * means the pending timer reached `until`; the caller cancels a timer it no
  * longer wants rather than delivering it late.
  */
-const reduceSearchMascot = (state: SearchMascotState, event: SearchMascotEvent): SearchMascotState => {
+const reduceReading = (state: ReadingState, event: ReadingEvent): ReadingState => {
   if (event.type === "timer") return onTimer(state, event.now)
   if (event.loading === state.loading) return state
   return event.loading ? onStart(state, event.now) : onStop(state, event.now)
 }
 
-const onStart = (state: SearchMascotState, now: number): SearchMascotState => {
-  if (state.phase === "thinking") return { ...state, loading: true, pending: null, until: null }
-  const showAt = state.showAt ?? now + SEARCH_THINKING_DELAY_MS
+const onStart = (state: ReadingState, now: number): ReadingState => {
+  if (state.phase === "reading") return { ...state, loading: true, pending: null, until: null }
+  const showAt = state.showAt ?? now + READING_DELAY_MS
   if (now >= showAt) return shown(now)
   return { loading: true, phase: "neutral", shownAt: null, showAt, pending: "show", until: showAt }
 }
 
-const onStop = (state: SearchMascotState, now: number): SearchMascotState => {
-  if (state.phase === "thinking" && state.shownAt !== null) {
-    const remaining = SEARCH_THINKING_MIN_MS - (now - state.shownAt)
-    const wait = Math.max(remaining, SEARCH_THINKING_SETTLE_MS)
+const onStop = (state: ReadingState, now: number): ReadingState => {
+  if (state.phase === "reading" && state.shownAt !== null) {
+    const remaining = READING_MIN_MS - (now - state.shownAt)
+    const wait = Math.max(remaining, READING_SETTLE_MS)
     return { ...state, loading: false, pending: "hide", until: now + wait }
   }
   // Not on screen yet. Remember the deadline across a short gap, and drop it
-  // if the wait really ended, so a fast load never shows thinking.
+  // if the wait really ended, so a fast load never shows reading.
   if (state.showAt === null) return idle()
-  return { ...state, loading: false, pending: "abandon", until: now + SEARCH_THINKING_SETTLE_MS }
+  return { ...state, loading: false, pending: "abandon", until: now + READING_SETTLE_MS }
 }
 
-const onTimer = (state: SearchMascotState, now: number): SearchMascotState => {
+const onTimer = (state: ReadingState, now: number): ReadingState => {
   if (state.pending === "show" && state.loading) return shown(now)
   if ((state.pending === "hide" || state.pending === "abandon") && !state.loading) return idle()
   return state
 }
 
-export type SearchMascotTiming = {
-  readonly phase: SearchMascotPhase
-  /** `loading` is true while this lookup is still unresolved, debounce included. */
+export type ReadingTiming = {
+  readonly phase: ReadingPhase
+  /** `loading` is true while the wait is still unresolved (for a search, debounce included). */
   setLoading: (loading: boolean) => void
   dispose: () => void
 }
 
 /**
- * Runs {@link reduceSearchMascot} on `setTimeout`. `onPhase` fires only when
+ * Runs {@link reduceReading} on `setTimeout`. `onPhase` fires only when
  * the pose changes. `dispose` drops a pending change, so an unmounted screen
  * doesn't update.
  */
-export const createSearchMascotTiming = (
-  onPhase: (phase: SearchMascotPhase) => void,
+export const createReadingTiming = (
+  onPhase: (phase: ReadingPhase) => void,
   now: () => number = Date.now
-): SearchMascotTiming => {
-  let state = initialSearchMascotState
+): ReadingTiming => {
+  let state = initialReadingState
   let timer: ReturnType<typeof setTimeout> | null = null
   let generation = 0
   let disposed = false
@@ -141,8 +142,8 @@ export const createSearchMascotTiming = (
     timer = null
   }
 
-  const apply = (event: SearchMascotEvent) => {
-    const next = reduceSearchMascot(state, event)
+  const apply = (event: ReadingEvent) => {
+    const next = reduceReading(state, event)
     if (next === state) return
     const phaseChanged = next.phase !== state.phase
     state = next
@@ -176,16 +177,18 @@ export const createSearchMascotTiming = (
 }
 
 /**
- * The search field's mascot phase for a lookup that is `loading`. Neutral
- * until the wait is long, then thinking, then neutral again once it has ended
- * — including when the request was cancelled, superseded, or failed.
+ * Kotori's phase for a wait that is `loading`: neutral until the wait is long,
+ * then reading, then neutral again once it has ended — including when the
+ * request was cancelled, superseded, or failed. A screen that loads its
+ * content keeps its loading state up while this is reading, so the pose never
+ * blinks off the moment it appears.
  */
-export const useSearchMascotPhase = (loading: boolean): SearchMascotPhase => {
-  const [phase, setPhase] = useState<SearchMascotPhase>("neutral")
-  const timing = useRef<SearchMascotTiming | null>(null)
+export const useReadingPhase = (loading: boolean): ReadingPhase => {
+  const [phase, setPhase] = useState<ReadingPhase>("neutral")
+  const timing = useRef<ReadingTiming | null>(null)
 
   useEffect(() => {
-    const created = createSearchMascotTiming(setPhase)
+    const created = createReadingTiming(setPhase)
     timing.current = created
     return () => {
       created.dispose()

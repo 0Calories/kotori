@@ -20,7 +20,7 @@ import { Snow } from "../../src/components/Snow.tsx"
 import { ErrorState } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { strings } from "../../src/i18n/strings.ts"
-import { useSearchMascotPhase } from "../../src/lib/searchMascot.ts"
+import { useReadingPhase } from "../../src/lib/readingPhase.ts"
 import { usePreference } from "../../src/session/preferences.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
@@ -95,7 +95,7 @@ export default function LookUpScreen() {
   // True from the first keystroke until this text's results arrive, debounce included.
   // The pose stays neutral until that wait is long enough to be worth a change.
   const loading = searching && (debounced !== query.trim() || search.isFetching)
-  const mascot = useSearchMascotPhase(loading)
+  const mascot = useReadingPhase(loading)
 
   const history = recent.slice(0, MAX_RECENT)
   const remember = (term: string) => setRecent([term, ...recent.filter((r) => r !== term)].slice(0, MAX_RECENT))
