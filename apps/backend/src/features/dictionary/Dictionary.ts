@@ -53,6 +53,7 @@ import {
   findGlossesExact,
   findJapaneseGlosses,
   getEntries,
+  entryLanguage,
   entryRanks,
   searchForms,
   searchFormsFuzzy,
@@ -280,6 +281,8 @@ export class Dictionary extends Context.Service<
     /** Searches the dictionary of `language`: Japanese words for Japanese learners, English ones for English learners. */
     search(query: string, language: Language, limit: number): Effect.Effect<SearchResult>
     entry(id: EntryId): Effect.Effect<Option.Option<Entry>>
+    /** Whether an entry's example sentences and audio are ready yet. Reads only; never queues work. */
+    enrichment(id: EntryId): Effect.Effect<Option.Option<Enrichment>>
     /** Queues whatever enrichment an entry is missing, returning its status. */
     requestEnrichment(id: EntryId): Effect.Effect<Option.Option<Enrichment>>
     /** Search-result summaries for known entries, for Ask Kotori's links. */
@@ -734,7 +737,10 @@ export class Dictionary extends Context.Service<
       const status = (ready: boolean, available: boolean, job: string | undefined): EnrichmentStatus =>
         ready ? "ready" : !available || job === "failed" || job === "done" ? "unavailable" : "queued"
 
-      const enrichmentFor = Effect.fnUntraced(function* (entry: EntryRecord, enqueue: boolean) {
+      const enrichmentFor = Effect.fnUntraced(function* (
+        entry: Pick<EntryRecord, "id" | "language">,
+        enqueue: boolean
+      ) {
         const examples = yield* examplesFor(db, [entry.id])
         // Sentences seeded from Tatoeba or Wiktionary don't stand in for Kotori's, which are
         // written for learners: Claude still writes them for a viewed word.
@@ -799,7 +805,8 @@ export class Dictionary extends Context.Service<
           }
         }
 
-        const job = yield* jobStatusFor(db, entry.id)
+        // Nothing was queued without `enqueue`, so the jobs read above still stand.
+        const job = enqueue ? yield* jobStatusFor(db, entry.id) : before
         return {
           examples: status(hasExamples, coachAvailable, job.get("examples")),
           audio: status(hasAudio, pronouncer.configured, job.get("audio"))
@@ -955,6 +962,11 @@ export class Dictionary extends Context.Service<
         return record === undefined ? Option.none() : Option.some(yield* assemble(record))
       })
 
+      const enrichment = Effect.fn("Dictionary.enrichment")(function* (id: EntryId) {
+        const found = yield* entryLanguage(db, id)
+        return found === undefined ? Option.none() : Option.some(yield* enrichmentFor(found, false))
+      })
+
       const requestEnrichment = Effect.fn("Dictionary.requestEnrichment")(function* (id: EntryId) {
         const [record] = yield* getEntries(db, [id])
         return record === undefined ? Option.none() : Option.some(yield* enrichmentFor(record, true))
@@ -989,7 +1001,7 @@ export class Dictionary extends Context.Service<
         return yield* summaries(ids.map((entryId) => ({ entryId, score: 0, inflection: [], strong: true })))
       })
 
-      return Dictionary.of({ search, entry, requestEnrichment, summarize, lookupWords })
+      return Dictionary.of({ search, entry, enrichment, requestEnrichment, summarize, lookupWords })
     })
   )
 }
