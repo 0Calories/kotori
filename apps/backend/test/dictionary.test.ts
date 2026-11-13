@@ -1314,9 +1314,9 @@ layer(allowanceLayer)("Dictionary requests for examples", (it) => {
       for (const at of [0, 3000, 2 * 60 * 60 * 1000]) {
         yield* TestClock.setTime(at)
         const shown = Option.getOrThrow(yield* dictionary.entry(id))
-        // Nothing is on its way yet; the app asks for it with `enrich`.
-        assert.deepStrictEqual(shown.enrichment, { examples: "queued", audio: "queued" })
-        yield* dictionary.enrichment(id)
+        // Nothing is on its way, so the app doesn't poll for it; it asks with `enrich`.
+        assert.deepStrictEqual(shown.enrichment, { examples: "unavailable", audio: "unavailable" })
+        assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.enrichment(id)), shown.enrichment)
       }
       assert.deepStrictEqual(yield* allJobs, before)
       assert.strictEqual((yield* jobStatusFor(db, id)).size, 0)
@@ -1385,12 +1385,15 @@ layer(allowanceLayer)("Dictionary requests for examples", (it) => {
       assert.strictEqual((yield* jobStatusFor(db, d!)).size, 0)
       assert.strictEqual(yield* charged(Other), 3)
 
-      // Reading still works, and a learner with allowance left can still ask.
+      // Reading still works (nothing is on its way), and a learner with allowance left can still ask.
       assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.enrichment(d!)), {
+        examples: "unavailable",
+        audio: "unavailable"
+      })
+      assert.deepStrictEqual(Option.getOrThrow(yield* dictionary.requestEnrichment(d!, U1)), {
         examples: "queued",
         audio: "queued"
       })
-      yield* dictionary.requestEnrichment(d!, U1)
       assert.deepStrictEqual([...(yield* jobStatusFor(db, d!)).keys()].toSorted(), ["audio", "examples"])
     })
   )
