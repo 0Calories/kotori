@@ -1,68 +1,18 @@
-import { sql } from "drizzle-orm"
-import { boolean, doublePrecision, index, integer, jsonb, pgEnum, uniqueIndex, uuid } from "drizzle-orm/pg-core"
+import { boolean, doublePrecision, index, integer, uniqueIndex, uuid } from "drizzle-orm/pg-core"
 import * as Schema from "effect/Schema"
-import { createdAt, Language, retentionStage, table, timestamptz } from "./columns.ts"
-import { entries, EntryId } from "./entries.ts"
+import { createdAt, retentionStage, table, timestamptz } from "./columns.ts"
+import { entries, type EntryId } from "./entries.ts"
 import { type UserId, users } from "./users.ts"
-
-/** How formal a phrase from the coach sounds; the coach never offers a vulgar one. */
-export const Register = Schema.Literals(["casual", "neutral", "polite", "formal"])
-export type Register = typeof Register.Type
-
-export const SavedExample = Schema.Struct({
-  ja: Schema.String,
-  furigana: Schema.String,
-  en: Schema.String,
-  audioUrl: Schema.NullOr(Schema.String),
-  /** The English sentence, spoken; absent on notes saved before English was voiced. */
-  translationAudioUrl: Schema.optional(Schema.NullOr(Schema.String))
-})
-export type SavedExample = typeof SavedExample.Type
-
-export const WordNote = Schema.Struct({
-  kind: Schema.Literal("word"),
-  entryId: EntryId,
-  senseIndex: Schema.Int,
-  /** The headword's language; absent on notes saved before the English dictionary, all of them Japanese words. */
-  language: Schema.optional(Language),
-  headword: Schema.String,
-  reading: Schema.String,
-  /** The glosses of the saved sense, in the other language from the headword. */
-  meaning: Schema.String,
-  /** A short usage hint shown in reviews: the sense's labels, worded, e.g. "Casual · Masculine". */
-  hint: Schema.NullOr(Schema.String),
-  /** How the sense is used, shown with the answer; absent on notes saved before it existed. */
-  note: Schema.optional(Schema.NullOr(Schema.String)),
-  example: Schema.NullOr(SavedExample),
-  audioUrl: Schema.NullOr(Schema.String)
-})
-export type WordNote = typeof WordNote.Type
-
-export const PhraseNote = Schema.Struct({
-  kind: Schema.Literal("phrase"),
-  /** The phrase in the target language. */
-  text: Schema.String,
-  furigana: Schema.NullOr(Schema.String),
-  /** What it means or when to use it, in the learner's native language. */
-  meaning: Schema.String,
-  note: Schema.NullOr(Schema.String),
-  register: Schema.NullOr(Register),
-  source: Schema.Literals(["how-to-say", "naturalness", "manual"])
-})
-export type PhraseNote = typeof PhraseNote.Type
-
-export const NoteContent = Schema.Union([WordNote, PhraseNote])
-export type NoteContent = typeof NoteContent.Type
-
-export const noteKind = pgEnum("note_kind", ["word", "phrase"])
 
 /** A saved note's id. */
 export const NoteId = Schema.String.pipe(Schema.brand("NoteId"))
 export type NoteId = typeof NoteId.Type
 
 /**
- * Something a learner saved to study: a dictionary sense, or a phrase from the Coach or typed by
- * hand, with its place in the review schedule.
+ * A dictionary entry a learner saved to study, with its place in the review schedule. The note
+ * holds nothing of the entry's own: what a review shows is read from the entry each time, so
+ * enrichment and an admin's approval reach every learner who saved it. A learner saves an entry
+ * once, whatever its review state, and chooses which of its senses the note shows, in what order.
  */
 export const notes = table(
   "notes",
@@ -72,14 +22,15 @@ export const notes = table(
       .$type<UserId>()
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    kind: noteKind().notNull(),
-    /** What is shown in reviews, frozen at save time so later enrichment changes don't rewrite a learner's note. */
-    content: jsonb().$type<NoteContent>().notNull(),
-    /** For word notes, the dictionary sense they came from. */
     entryId: integer()
       .$type<EntryId>()
-      .references(() => entries.id, { onDelete: "set null" }),
-    sense: integer(),
+      .notNull()
+      .references(() => entries.id, { onDelete: "cascade" }),
+    /**
+     * The senses the note shows (by index), in the learner's order; the rest are hidden. Null
+     * shows every sense in the dictionary's order, including senses the entry gains later.
+     */
+    senses: integer().array(),
     retentionStage: retentionStage().notNull().default("new"),
     due: timestamptz().notNull(),
     /** Days between reviews once the note graduates. */
@@ -100,8 +51,7 @@ export const notes = table(
   (t) => [
     index("notes_user").on(t.userId, t.createdAt),
     index("notes_due").on(t.userId, t.retentionStage, t.due),
-    uniqueIndex("notes_word")
-      .on(t.userId, t.entryId, t.sense)
-      .where(sql`${t.entryId} IS NOT NULL`)
+    uniqueIndex("notes_entry").on(t.userId, t.entryId),
+    index("notes_entry_id").on(t.entryId)
   ]
 )

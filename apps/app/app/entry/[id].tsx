@@ -3,7 +3,7 @@ import { Link, useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { Platform, Share, View } from "react-native"
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated"
-import { useAddNote, useEnrich, useEntry, useNotes, useRemoveNote } from "../../src/api/queries.ts"
+import { useAddNote, useArrangeNote, useEnrich, useEntry, useNotes, useRemoveNote } from "../../src/api/queries.ts"
 import { AudioButton } from "../../src/components/AudioButton.tsx"
 import { Button, IconButton } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
@@ -31,13 +31,12 @@ import {
   labelItems,
   loanLine,
   onItsWay,
-  saveDetails,
   senseCautions,
   similarWords,
   wordCautions
 } from "../../src/lib/entry.ts"
 import { findForm } from "../../src/lib/forms.ts"
-import { wordNote } from "../../src/lib/notes.ts"
+import { noteOn, showsSense, withoutSense } from "../../src/lib/notes.ts"
 import { useReadingPhase } from "../../src/lib/readingPhase.ts"
 import { entryIdFromParam, entrySourcesHref } from "../../src/lib/sources.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
@@ -125,7 +124,7 @@ const SenseCard = ({
               icon="bookmark"
               filled={saved}
               size={40}
-              label={saved ? t.saved.remove : t.entry.save}
+              label={saved ? t.entry.hideSense : t.entry.save}
               onPress={removing ? undefined : saved ? onRemove : saving ? undefined : onSave}
             />
           </View>
@@ -243,10 +242,11 @@ export default function EntryScreen() {
   const notes = useNotes()
   const addNote = useAddNote()
   const removeNote = useRemoveNote()
+  const arrangeNote = useArrangeNote()
   const enrich = useEnrich(id ?? 0)
   const [showAll, setShowAll] = useState(false)
   const [scrolled, setScrolled] = useState(false)
-  const [removingSense, setRemovingSense] = useState<number | null>(null)
+  const [removing, setRemoving] = useState(false)
   const [removeError, setRemoveError] = useState<string | null>(null)
   const back = () => (router.canGoBack() ? router.back() : router.replace("/"))
   const kotoriReading = useReadingPhase(id !== null && !entry.isLoadingError && !entry.data) === "reading"
@@ -270,49 +270,36 @@ export default function EntryScreen() {
 
   const data = entry.data
   const language = data.language
-  const savedSenses = new Set(
-    (notes.data ?? []).flatMap((note) =>
-      note.content.kind === "word" && note.content.entryId === data.id ? [note.content.senseIndex] : []
-    )
-  )
-  const savedNote = (senseIndex: number) =>
-    (notes.data ?? []).find(
-      (note) =>
-        note.content.kind === "word" && note.content.entryId === data.id && note.content.senseIndex === senseIndex
-    )
-  const beginRemove = (senseIndex: number) => {
+  // The learner's note on this word, if they saved it: the senses it shows are the ones saved.
+  const note = noteOn(notes.data, data.id)
+  const busy = addNote.isPending || removeNote.isPending || arrangeNote.isPending
+  const beginRemove = () => {
     setRemoveError(null)
-    setRemovingSense(senseIndex)
+    setRemoving(true)
   }
   const confirmRemove = async () => {
-    if (removingSense === null || removeNote.isPending) return
-    const note = savedNote(removingSense)
-    if (note === undefined) {
-      setRemovingSense(null)
+    if (note === undefined || removeNote.isPending) {
+      setRemoving(false)
       return
     }
     setRemoveError(null)
     try {
       await removeNote.mutateAsync(note.id)
-      setRemovingSense(null)
+      setRemoving(false)
     } catch (error) {
       setRemoveError(removalErrorText(t, error))
     }
   }
-  const save = (sense: Sense) =>
-    addNote.mutate({
-      content: wordNote({
-        entryId: data.id,
-        language,
-        sense: sense.index,
-        headword: data.headword,
-        reading: data.reading,
-        glosses: sense.glosses,
-        ...saveDetails(t, data, sense),
-        example: sense.examples[0],
-        audioUrl: data.audioUrl
-      })
-    })
+  // Saving one meaning saves the word showing just that meaning, or shows it on the note too.
+  const save = (sense?: Sense) =>
+    addNote.mutate(sense === undefined ? { entryId: data.id } : { entryId: data.id, sense: sense.index })
+  // Taking off the note's only meaning removes the note, which asks first.
+  const unsave = (sense: Sense) => {
+    if (note === undefined) return
+    const layout = withoutSense(note, sense.index)
+    if (layout === "remove") beginRemove()
+    else arrangeNote.mutate({ id: note.id, senses: layout })
+  }
   const reading = data.reading.length > 0 && data.reading !== data.headword ? data.reading : null
   const share = () =>
     Share.share({
@@ -361,14 +348,10 @@ export default function EntryScreen() {
             <>
               <IconButton
                 icon="bookmark"
-                filled={savedSenses.has(0)}
-                label={savedSenses.has(0) ? t.saved.remove : t.entry.save}
+                filled={note !== undefined}
+                label={note !== undefined ? t.saved.remove : t.entry.save}
                 onPress={
-                  removeNote.isPending || addNote.isPending || !data.senses[0]
-                    ? undefined
-                    : savedSenses.has(0)
-                      ? () => beginRemove(0)
-                      : () => save(data.senses[0]!)
+                  busy || data.review === "discarded" ? undefined : note !== undefined ? beginRemove : () => save()
                 }
               />
               {canShare ? (
@@ -384,15 +367,21 @@ export default function EntryScreen() {
       }
     >
       <RemoveNoteDialog
-        note={removingSense === null ? undefined : savedNote(removingSense)}
+        note={removing ? note : undefined}
         busy={removeNote.isPending}
         error={removeError}
         onConfirm={() => void confirmRemove()}
         onCancel={() => {
-          setRemovingSense(null)
+          setRemoving(false)
           setRemoveError(null)
         }}
       />
+      {data.review === "approved" ? null : (
+        <Notice
+          tone={data.review === "unreviewed" ? "primary" : "accent"}
+          message={data.review === "unreviewed" ? t.entry.unverified : t.entry.notAdded}
+        />
+      )}
       {entry.isRefetchError ? (
         <Notice
           message={t.common.notRefreshed}
@@ -498,11 +487,11 @@ export default function EntryScreen() {
               number={index + 1}
               forms={forms}
               partOfSpeech={partOfSpeech}
-              saved={savedSenses.has(sense.index)}
-              saving={addNote.isPending}
-              removing={removeNote.isPending}
+              saved={showsSense(note, sense.index)}
+              saving={busy || data.review === "discarded"}
+              removing={busy}
               onSave={() => save(sense)}
-              onRemove={() => beginRemove(sense.index)}
+              onRemove={() => unsave(sense)}
             />
           </Animated.View>
         ))}

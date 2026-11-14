@@ -1,5 +1,5 @@
 import type { EntryRecord, SenseRecord } from "@kotori/contracts"
-import { isLabelCode, type LabelCode, type Source } from "@kotori/db"
+import { type EntryReview, isLabelCode, type LabelCode, type Source } from "@kotori/db"
 
 /**
  * What the seed sources say about using a word, beyond its forms and senses: read by the
@@ -33,6 +33,8 @@ export interface ImportSense extends SenseRecord {
 export interface ImportEntry extends Omit<EntryRecord, "senses"> {
   readonly senses: ReadonlyArray<ImportSense>
   readonly frequency?: SeedFrequency | null | undefined
+  /** `unreviewed` for an entry Kotori drafted; every imported entry is approved. */
+  readonly review?: EntryReview | undefined
 }
 
 /** The sources whose facts a seed import rebuilds; Kotori's and learners' are layered on top. */

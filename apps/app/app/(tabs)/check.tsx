@@ -288,8 +288,6 @@ const Result = ({
             text={best.text}
             furigana={best.furigana}
             register={best.register}
-            meaning={best.translation}
-            source="naturalness"
             highlight
             lines={[{ text: best.translation }, { text: best.note }]}
           />
@@ -313,8 +311,6 @@ const Result = ({
                 text={rewrite.text}
                 furigana={rewrite.furigana}
                 register={rewrite.register}
-                meaning={rewrite.translation}
-                source="naturalness"
                 lines={[{ text: rewrite.translation }, { text: rewrite.note }]}
               />
             ))}

@@ -3,8 +3,10 @@ import {
   type AnswerResult,
   type DueCounts,
   type DueNotes,
+  InvalidRequest,
   type Note,
   NoteId,
+  NotFound,
   type Profile,
   type Rating,
   type RatingLabels,
@@ -24,9 +26,12 @@ import { Clock, Context, Effect, Layer, Option } from "effect"
 import { randomInt, randomUUID } from "node:crypto"
 import { Database } from "../../db/Database.ts"
 import { type Learner, scopedToUser } from "../../db/scopedToUser.ts"
+import { getEntries, notedEntries } from "../dictionary/index.ts"
+import { arrange, layoutProblem } from "./arrange.ts"
 import { gatherDueNotes } from "./gather.ts"
 import {
   allNotes,
+  arrangeNote,
   countReviewed,
   deleteNote,
   insertNote,
@@ -34,6 +39,7 @@ import {
   newNotes,
   nextLearningDue,
   nextPosition,
+  noteByEntry,
   noteById,
   type NoteDeletion,
   type NoteRow,
@@ -41,7 +47,6 @@ import {
   retention,
   reviewDue,
   reviewDueTimes,
-  savedWords,
   saveReview,
   stageCounts,
   studyDays
@@ -63,24 +68,18 @@ const toState = (note: NoteRow): NoteState => ({
   lastReview: note.lastReview?.getTime() ?? null
 })
 
-const toNote = (note: NoteRow): Note => ({
-  id: note.id,
-  content: note.content,
-  createdAt: note.createdAt,
-  retentionStage: note.retentionStage,
-  due: note.due,
-  interval: note.interval,
-  ease: note.ease,
-  reps: note.reps,
-  lapses: note.lapses,
-  leech: note.leech
-})
-
 export class Study extends Context.Service<
   Study,
   {
     notes(user: Profile): Effect.Effect<ReadonlyArray<Note>>
-    addNote(user: Profile, request: AddNoteRequest): Effect.Effect<Note>
+    /** Saves an entry, or one of its senses, to the learner's notes; see `AddNoteRequest`. */
+    addNote(user: Profile, request: AddNoteRequest): Effect.Effect<Note, NotFound | InvalidRequest>
+    /** Chooses which senses a note shows, in order; null shows every sense again. */
+    arrangeNote(
+      user: Profile,
+      id: NoteId,
+      senses: ReadonlyArray<number> | null
+    ): Effect.Effect<Note, NotFound | InvalidRequest>
     removeNote(user: Profile, id: NoteId): Effect.Effect<NoteDeletion>
     dueNotes(user: Profile, limit: number): Effect.Effect<DueNotes>
     answer(
@@ -102,38 +101,99 @@ export class Study extends Context.Service<
         utcOffsetMinutes: utcOffsetMinutes(user.timezone, now)
       })
 
+      /**
+       * Notes as the app reads them: each with its entry as the dictionary has it now and the
+       * senses it shows. A list of them costs the same few queries as one.
+       */
+      const toNotes = Effect.fnUntraced(function* (rows: ReadonlyArray<NoteRow>) {
+        const noted = yield* notedEntries(
+          db,
+          rows.map((row) => row.entryId)
+        )
+        return rows.flatMap((row): Array<Note> => {
+          const found = noted.get(row.entryId)
+          // The foreign key cascades, so a note always has its entry; one deleted mid-read is left out.
+          if (found === undefined) return []
+          return [
+            {
+              id: row.id,
+              createdAt: row.createdAt,
+              entry: found.entry,
+              ...arrange(found.senses, row.senses),
+              retentionStage: row.retentionStage,
+              due: row.due,
+              interval: row.interval,
+              ease: row.ease,
+              reps: row.reps,
+              lapses: row.lapses,
+              leech: row.leech
+            }
+          ]
+        })
+      })
+      const toNote = (row: NoteRow) =>
+        toNotes([row]).pipe(
+          Effect.flatMap((notes) =>
+            notes[0] === undefined ? Effect.die(new Error(`Note ${row.id} has no entry`)) : Effect.succeed(notes[0])
+          )
+        )
+
       const notes = Effect.fn("Study.notes")(function* (user: Profile) {
-        return (yield* allNotes(learnerOf(user))).map(toNote)
+        return yield* toNotes(yield* allNotes(learnerOf(user)))
       })
 
       const addNote = Effect.fn("Study.addNote")(function* (user: Profile, request: AddNoteRequest) {
         const learner = learnerOf(user)
-        const content = request.content
-        const word = content.kind === "word" ? content : undefined
-        if (word !== undefined) {
-          // Saving the same sense twice returns the existing note.
-          const saved = yield* savedWords(learner, [word.entryId])
-          const existing = saved.find((row) => row.sense === word.senseIndex)
-          if (existing !== undefined) {
-            const found = yield* noteById(learner, existing.id)
-            if (Option.isSome(found)) return toNote(found.value)
-          }
+        const [entry] = yield* getEntries(db, [request.entryId])
+        if (entry === undefined) return yield* new NotFound({ message: "No such entry" })
+        if (request.sense !== undefined && layoutProblem([request.sense], entry.senses.length) !== null) {
+          return yield* new InvalidRequest({ message: "That entry has no such sense" })
         }
 
+        const existing = yield* noteByEntry(learner, entry.id)
+        if (Option.isSome(existing)) {
+          // Saving a sense the note hides shows it too, after the others; saving again changes nothing.
+          const layout = existing.value.senses
+          if (request.sense === undefined || layout === null || layout.includes(request.sense)) {
+            return yield* toNote(existing.value)
+          }
+          const arranged = yield* arrangeNote(learner, existing.value.id, [...layout, request.sense])
+          return yield* toNote(Option.getOrElse(arranged, () => existing.value))
+        }
+
+        // A discarded draft stays in the notes of whoever saved it, but no one saves it anew.
+        if (entry.review === "discarded")
+          return yield* new InvalidRequest({ message: "That entry isn't in the dictionary" })
         const now = new Date(yield* Clock.currentTimeMillis)
         const saved = yield* insertNote(learner, {
           id: NoteId.make(randomUUID()),
-          kind: content.kind,
-          content,
-          entryId: word?.entryId ?? null,
-          sense: word?.senseIndex ?? null,
+          entryId: entry.id,
+          senses: request.sense === undefined ? null : [request.sense],
           retentionStage: "new",
           due: now,
           seed: randomInt(2 ** 31),
           position: yield* nextPosition(learner),
           createdAt: now
         })
-        return toNote(saved)
+        return yield* toNote(saved)
+      })
+
+      const arrange_ = Effect.fn("Study.arrangeNote")(function* (
+        user: Profile,
+        id: NoteId,
+        senses: ReadonlyArray<number> | null
+      ) {
+        const learner = learnerOf(user)
+        const found = yield* noteById(learner, id)
+        if (Option.isNone(found)) return yield* new NotFound({ message: "No such note" })
+        if (senses !== null) {
+          const [entry] = yield* getEntries(db, [found.value.entryId])
+          const problem = layoutProblem(senses, entry?.senses.length ?? 0)
+          if (problem !== null) return yield* new InvalidRequest({ message: problem })
+        }
+        const arranged = yield* arrangeNote(learner, id, senses)
+        if (Option.isNone(arranged)) return yield* new NotFound({ message: "No such note" })
+        return yield* toNote(arranged.value)
       })
 
       const removeNote = (user: Profile, id: NoteId) => deleteNote(learnerOf(user), id)
@@ -165,10 +225,14 @@ export class Study extends Context.Service<
         const { learning, reviews, fresh } = yield* due(user, now)
         const ordered = gatherDueNotes(learning, reviews, fresh, new Date(now))
 
-        const items = ordered.slice(0, limit).map((note) => ({
-          note: toNote(note),
-          labels: labelsFor(note, { now, ...clockFor(user, now), seed: note.seed })
-        }))
+        const page = ordered.slice(0, limit)
+        const shown = new Map((yield* toNotes(page)).map((note) => [note.id, note]))
+        const items = page.flatMap((note) => {
+          const view = shown.get(note.id)
+          return view === undefined
+            ? []
+            : [{ note: view, labels: labelsFor(note, { now, ...clockFor(user, now), seed: note.seed }) }]
+        })
         const counts: DueCounts = { new: fresh.length, learning: learning.length, review: reviews.length }
         const nextDue = items.length === 0 ? Option.getOrNull(yield* nextLearningDue(learnerOf(user))) : null
         const all = ordered.map(({ id, retentionStage }) => ({ id, retentionStage }))
@@ -212,7 +276,7 @@ export class Study extends Context.Service<
           reviewedAt: new Date(now),
           studyDay: dayNumber(now, ctx)
         })
-        return Option.some({ note: toNote({ ...note, ...schedule }), leech: outcome.log.leech })
+        return Option.some({ note: yield* toNote({ ...note, ...schedule }), leech: outcome.log.leech })
       })
 
       const stats = Effect.fn("Study.stats")(function* (user: Profile) {
@@ -256,7 +320,7 @@ export class Study extends Context.Service<
         }
       })
 
-      return Study.of({ notes, addNote, removeNote, dueNotes, answer, stats })
+      return Study.of({ notes, addNote, arrangeNote: arrange_, removeNote, dueNotes, answer, stats })
     })
   )
 }

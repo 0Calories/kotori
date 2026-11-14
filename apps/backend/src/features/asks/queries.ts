@@ -1,23 +1,30 @@
+import type { ProposalStatus } from "@kotori/contracts"
 import {
   type AskTriage,
   type DraftEntry,
   type EntryId,
+  type EntryReview,
   type Language,
+  notes,
   proposalAsks,
   proposals,
   type UserId
 } from "@kotori/db"
-import { and, desc, eq } from "drizzle-orm"
-import { Effect, Option } from "effect"
+import { and, desc, eq, inArray } from "drizzle-orm"
+import { Effect, Match, Option } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 
 export type ProposalRow = typeof proposals.$inferSelect
 
-/** What an answer settled: the fields Claude's or Jev's verdict writes, on creation and on a redo. */
+/**
+ * What an answer settled: the fields Claude's or Jev's verdict writes, on creation and on a redo.
+ * A new draft comes as `draft`, for `writeDraft` to make an entry of; an answer naming an entry
+ * that is already there (linked, or a draft drafted before) comes as `entryId`.
+ */
 export interface Verdict {
   readonly status: ProposalRow["status"]
   readonly draft: DraftEntry | null
-  readonly linkedEntryId: EntryId | null
+  readonly entryId: EntryId | null
   readonly reason: string | null
   readonly model: string
   readonly route: ProposalRow["route"]
@@ -25,15 +32,40 @@ export interface Verdict {
   readonly contested: boolean
 }
 
-export interface NewProposal extends Verdict {
+/** A verdict as stored: whatever it drafted is an entry by now. */
+export type SettledVerdict = Omit<Verdict, "draft">
+
+export interface NewProposal extends SettledVerdict {
   readonly language: Language
   readonly query: string
   readonly requestedBy: UserId
   readonly now: Date
 }
 
+/**
+ * Where a proposal stands, as the app and the admin read it: a drafted one by its entry's review
+ * state, the others by their own status. A draft whose entry is gone reads as approved with
+ * nothing to link to, as an approval whose entry went did before.
+ */
+export const standing = (status: ProposalRow["status"], review: EntryReview | null): ProposalStatus => {
+  switch (status) {
+    case "linked":
+      return "linked"
+    case "rejected":
+      return "rejected"
+    case "drafted":
+      return Match.value(review).pipe(
+        Match.when("unreviewed", () => "pending" as const),
+        Match.when("approved", () => "approved" as const),
+        Match.when("discarded", () => "discarded" as const),
+        Match.when(null, () => "approved" as const),
+        Match.exhaustive
+      )
+  }
+}
+
 /** Replaces a proposal's answer (a redo), clearing any review. */
-export const updateVerdict = (db: DatabaseShape, id: number, verdict: Verdict) =>
+export const updateVerdict = (db: DatabaseShape, id: number, verdict: SettledVerdict) =>
   db
     .update(proposals)
     .set({ ...verdict, reviewedAt: null })
@@ -66,8 +98,7 @@ export const insertProposal = Effect.fn("asks.insertProposal")(function* (db: Da
       language: proposal.language,
       query: proposal.query,
       status: proposal.status,
-      draft: proposal.draft,
-      linkedEntryId: proposal.linkedEntryId,
+      entryId: proposal.entryId,
       reason: proposal.reason,
       model: proposal.model,
       route: proposal.route,
@@ -103,3 +134,26 @@ export const asksFor = (db: DatabaseShape, userId: UserId) =>
       Effect.map((rows) => rows.map((row) => row.proposal)),
       Effect.orDie
     )
+
+/** Points every proposal naming one entry at another: a draft approved as another word's spelling. */
+export const repointProposals = (db: DatabaseShape, from: EntryId, to: EntryId, now: Date) =>
+  db
+    .update(proposals)
+    .set({ entryId: to, reviewedAt: now })
+    .where(eq(proposals.entryId, from))
+    .pipe(Effect.asVoid, Effect.orDie)
+
+/**
+ * Moves learners' notes from one entry to another: a draft approved as another word's spelling.
+ * A learner who saved both keeps the note they had on the word; the moved ones show every sense,
+ * as the draft's choice of senses means nothing on the word.
+ */
+export const moveNotes = Effect.fn("asks.moveNotes")(function* (db: DatabaseShape, from: EntryId, to: EntryId) {
+  yield* db.transaction((tx) =>
+    Effect.gen(function* () {
+      const kept = tx.select({ userId: notes.userId }).from(notes).where(eq(notes.entryId, to))
+      yield* tx.delete(notes).where(and(eq(notes.entryId, from), inArray(notes.userId, kept)))
+      yield* tx.update(notes).set({ entryId: to, senses: null }).where(eq(notes.entryId, from))
+    })
+  )
+}, Effect.orDie)

@@ -1,3 +1,4 @@
+import { EntryId, FIRST_ENGLISH_ID } from "@kotori/db"
 import { normalizeGloss } from "@kotori/language"
 import { Effect, FileSystem, Path, Schema, Stream } from "effect"
 import { HttpClient } from "effect/http"
@@ -6,7 +7,15 @@ import { createInterface } from "node:readline"
 import { createGunzip } from "node:zlib"
 import { Database } from "../../../../db/Database.ts"
 import { resolveFromRoot } from "../../../../runtime/Paths.ts"
-import { deleteEntries, headwordIds, insertEntries, linkLoans, saveKotoriCautions, saveTags } from "../../queries.ts"
+import {
+  deleteEntries,
+  headwordIds,
+  insertEntries,
+  linkLoans,
+  saveKotoriCautions,
+  saveTags,
+  topEntryId
+} from "../../queries.ts"
 import { entrySplitter } from "../jmdict/parse.ts"
 import type { ImportEntry } from "../seedFacts.ts"
 import { APPROVED_EN_FILE, parseApproved, skippedLines } from "./approved.ts"
@@ -155,7 +164,11 @@ export interface ImportOptions {
  * The English dictionary's entries, built from its sources. Its own scope, so everything
  * parsed along the way can be let go before the entries are written.
  */
-const build = Effect.fnUntraced(function* (options: ImportOptions, existing: ReadonlyMap<string, number>) {
+const build = Effect.fnUntraced(function* (
+  options: ImportOptions,
+  existing: ReadonlyMap<string, number>,
+  taken: number
+) {
   const curatedReader = curatedParser()
   const curatedPath = options.files.curated
   if (curatedPath !== undefined && existsSync(resolveFromRoot(curatedPath))) {
@@ -203,7 +216,8 @@ const build = Effect.fnUntraced(function* (options: ImportOptions, existing: Rea
     subtitles,
     existing,
     reader.backTranslations(),
-    ratings
+    ratings,
+    taken
   )
   if (options.commonOnly) entries = entries.filter((entry) => entry.common)
   if (options.limit !== undefined) entries = entries.slice(0, options.limit)
@@ -219,7 +233,9 @@ const build = Effect.fnUntraced(function* (options: ImportOptions, existing: Rea
 export const importFiles = Effect.fn("EnglishDictionary.importFiles")(function* (options: ImportOptions) {
   const db = yield* Database
   const existing = yield* headwordIds(db, "en")
-  const built = yield* build(options, existing)
+  // Kotori's drafts aren't the sources' words, but their ids are taken all the same.
+  const taken = yield* topEntryId(db, "en", EntryId.make(FIRST_ENGLISH_ID))
+  const built = yield* build(options, existing, taken)
   const entries: ReadonlyArray<ImportEntry & { readonly tier: Tier }> = built.entries
 
   yield* saveTags(db, ENGLISH_TAGS)

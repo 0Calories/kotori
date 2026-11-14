@@ -1,29 +1,12 @@
 import type { DueNotes, Note, NoteId, ReviewItem, StudyStats } from "@kotori/contracts"
 import { assert, describe, it } from "vitest"
 import { dueWithoutNote, statsWithoutNote, withoutNote } from "../src/lib/deck.ts"
+import { savedWord } from "./notes.fixtures.ts"
 
 const noteId = (id: string) => id as NoteId
 
-const phrase = (id: string, retentionStage: Note["retentionStage"], interval = 0): Note => ({
-  id: noteId(id),
-  createdAt: new Date(0),
-  content: {
-    kind: "phrase",
-    text: id,
-    furigana: null,
-    meaning: id,
-    note: null,
-    register: null,
-    source: "manual"
-  },
-  retentionStage,
-  due: new Date(0),
-  interval,
-  ease: 2.5,
-  reps: 1,
-  lapses: 0,
-  leech: false
-})
+const phrase = (id: string, retentionStage: Note["retentionStage"], interval = 0): Note =>
+  savedWord(id, { headword: id }, { retentionStage, interval })
 
 const item = (id: string, retentionStage: Note["retentionStage"], interval = 0): ReviewItem => ({
   note: phrase(id, retentionStage, interval),

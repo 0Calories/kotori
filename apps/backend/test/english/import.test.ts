@@ -1,5 +1,5 @@
 import { afterAll, assert, layer } from "@effect/vitest"
-import { cautions, labels, usagePatterns } from "@kotori/db"
+import { cautions, EntryId, FIRST_ENGLISH_ID, labels, usagePatterns } from "@kotori/db"
 import { eq } from "drizzle-orm"
 import { Effect } from "effect"
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
@@ -7,8 +7,16 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Database } from "../../src/db/Database.ts"
 import * as EnglishDictionary from "../../src/features/dictionary/import/english/EnglishDictionary.ts"
-import { findForms, getEntries, headwordIds, tagNames } from "../../src/features/dictionary/queries.ts"
+import {
+  findForms,
+  getEntries,
+  headwordIds,
+  insertEntries,
+  tagNames,
+  topEntryId
+} from "../../src/features/dictionary/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
+import { sense, spelling } from "../fixtures.ts"
 
 // The importer streams its sources from disk, so the fixtures are real files.
 const directory = mkdtempSync(join(tmpdir(), "english-"))
@@ -161,6 +169,37 @@ layer(TestLayer)("EnglishDictionary.importFiles", (it) => {
       const after = yield* headwordIds(db, "en")
       assert.isFalse(after.has("walk"))
       for (const [headword, id] of after) assert.strictEqual(id, before.get(headword))
+    })
+  )
+
+  it.effect("leaves Kotori's drafts be, and numbers new words past them", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      // The last test removed "walk"; a draft takes the next id before the sources bring it back.
+      const draft = EntryId.make((yield* topEntryId(db, "en", EntryId.make(FIRST_ENGLISH_ID))) + 1)
+      yield* insertEntries(db, [
+        {
+          id: draft,
+          language: "en",
+          source: "kotori",
+          headword: "skibidi",
+          reading: "",
+          common: false,
+          priority: 0,
+          review: "unreviewed",
+          forms: [spelling("skibidi")],
+          senses: [sense(["すごい"])]
+        }
+      ])
+
+      const result = yield* EnglishDictionary.importFiles({ files: files(true), jmdict: jmdictFile })
+      // A draft isn't the sources' to remove…
+      assert.strictEqual(result.removed, 0)
+      const [kept] = yield* getEntries(db, [draft])
+      assert.deepInclude(kept, { headword: "skibidi", source: "kotori", review: "unreviewed" })
+      // …nor its id theirs to give a new word.
+      const walk = (yield* headwordIds(db, "en")).get("walk")
+      assert.isAbove(walk!, draft)
     })
   )
 })

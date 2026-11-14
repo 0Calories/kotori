@@ -3,10 +3,13 @@ import { assert, describe, it, layer } from "@effect/vitest"
 import {
   cautions,
   type DraftEntry,
+  entries,
   entryFrequency,
   EntryId,
   FIRST_APPROVED_JA_ID,
   labels,
+  NoteId,
+  notes,
   proposals,
   usagePatterns
 } from "@kotori/db"
@@ -18,7 +21,8 @@ import { join } from "node:path"
 import { afterAll } from "vitest"
 import { Database } from "../../src/db/Database.ts"
 import { ensureUser } from "../../src/features/accounts/queries.ts"
-import { approveProposal, discardProposal, draftToRecord, parseApprovedJa } from "../../src/features/asks/review.ts"
+import { draftToRecord, writeDraft } from "../../src/features/asks/draft.ts"
+import { approveProposal, discardProposal, parseApprovedJa } from "../../src/features/asks/review.ts"
 import { parseApproved } from "../../src/features/dictionary/import/english/approved.ts"
 import { findForms, getEntries, insertEntries } from "../../src/features/dictionary/queries.ts"
 import { jobStatusFor } from "../../src/features/enrichment/jobs.ts"
@@ -53,28 +57,53 @@ const jaDraft: DraftEntry = {
   cautions: [{ kind: "set_phrase", text: "Mostly said of a crush, not a partner.", sense: 0, about: null }]
 }
 
-const propose = (
+/** A drafted proposal as Ask Kotori leaves one: its draft an unreviewed entry. */
+const propose = Effect.fnUntraced(function* (
   db: Parameters<typeof approveProposal>[0],
   language: "en" | "ja",
   query: string,
-  entry: DraftEntry | null
-) =>
-  db
+  entry: DraftEntry
+) {
+  const entryId = yield* writeDraft(db, entry, language)
+  const [row] = yield* db
     .insert(proposals)
     .values({
       language,
       query,
-      status: "pending",
-      draft: entry,
-      linkedEntryId: null,
+      status: "drafted",
+      entryId,
       reason: null,
       model: "test",
       requestedBy: U1,
       createdAt: new Date(0)
     })
     .returning()
+    .pipe(Effect.orDie)
+  return { id: row!.id, entryId }
+})
+
+/** U1's note on an entry, as a learner who saved the draft has. */
+const saveNote = (db: Parameters<typeof approveProposal>[0], entryId: EntryId, senses: Array<number> | null) =>
+  db
+    .insert(notes)
+    .values({
+      id: NoteId.make(crypto.randomUUID()),
+      userId: U1,
+      entryId,
+      senses,
+      due: new Date(0),
+      seed: 1,
+      position: 0
+    })
+    .pipe(Effect.orDie)
+
+const reviewOf = (db: Parameters<typeof approveProposal>[0], entryId: EntryId) =>
+  db
+    .select({ review: entries.review })
+    .from(entries)
+    .where(eq(entries.id, entryId))
     .pipe(
-      Effect.map((rows) => rows[0]!.id),
+      Effect.map((rows) => rows[0]?.review),
       Effect.orDie
     )
 
@@ -93,9 +122,27 @@ layer(TestLayer)("proposal review", (it) => {
       const fs = yield* FileSystem.FileSystem
       yield* seeded
 
-      const id = yield* propose(db, "en", "bussin", draft)
+      const { id, entryId } = yield* propose(db, "en", "bussin", draft)
+      // Until approved, the draft is an unreviewed entry a link never lands on, and a learner can save it.
+      assert.strictEqual(yield* reviewOf(db, entryId), "unreviewed")
+      assert.deepStrictEqual(yield* findForms(db, ["bussin'"], "en"), [])
+      assert.strictEqual((yield* findForms(db, ["bussin'"], "en", "listed"))[0]?.entryId, entryId)
+      yield* saveNote(db, entryId, [1])
+      // Nothing is enriched before approval.
+      assert.strictEqual((yield* jobStatusFor(db, entryId)).size, 0)
+
       const approved = yield* approveProposal(db, id, files)
       assert.strictEqual(approved.headword, "bussin")
+      // Approval changes only where the entry stands: the same entry, and the note on it, stay.
+      assert.strictEqual(approved.entryId, entryId)
+      assert.strictEqual(yield* reviewOf(db, entryId), "approved")
+      assert.deepStrictEqual(
+        yield* db
+          .select({ entryId: notes.entryId, senses: notes.senses })
+          .from(notes)
+          .where(eq(notes.entryId, entryId)),
+        [{ entryId, senses: [1] }]
+      )
 
       // The entry is searchable by headword and spelling, with the draft's labels, usage patterns and
       // cautions as Kotori's, the caution linked to the word it names.
@@ -165,16 +212,30 @@ layer(TestLayer)("proposal review", (it) => {
       const fs = yield* FileSystem.FileSystem
       yield* seeded
 
-      const id = yield* propose(db, "en", "it be like it be", {
+      const { id, entryId } = yield* propose(db, "en", "it be like it be", {
         ...draft,
         headword: "it be like it be",
         spellings: []
       })
+      yield* saveNote(db, entryId, [1])
       const approved = yield* approveProposal(db, id, files, { aliasOf: "eat" })
       assert.strictEqual(approved.alias, "it be like it be")
       const matches = yield* findForms(db, ["it be like it be"], "en")
       assert.strictEqual(matches[0]?.entryId, approved.entryId)
       assert.strictEqual(approved.headword, "eat")
+      // The draft's entry goes; its note and its proposal now name the word it spells, every sense shown.
+      assert.strictEqual(yield* reviewOf(db, entryId), undefined)
+      assert.deepStrictEqual(
+        yield* db
+          .select({ entryId: notes.entryId, senses: notes.senses })
+          .from(notes)
+          .where(eq(notes.entryId, approved.entryId)),
+        [{ entryId: approved.entryId, senses: null }]
+      )
+      assert.deepStrictEqual(
+        yield* db.select({ entryId: proposals.entryId }).from(proposals).where(eq(proposals.id, id)),
+        [{ entryId: approved.entryId }]
+      )
 
       const parsed = parseApproved((yield* fs.readFileString(files.en)).split("\n"))
       assert.deepStrictEqual(parsed.formsOf.at(-1), { text: "it be like it be", base: "eat", tags: [] })
@@ -187,7 +248,7 @@ layer(TestLayer)("proposal review", (it) => {
       const fs = yield* FileSystem.FileSystem
       yield* seeded
 
-      const id = yield* propose(db, "ja", "蛙化現象", jaDraft)
+      const { id } = yield* propose(db, "ja", "蛙化現象", jaDraft)
       const approved = yield* approveProposal(db, id, files)
       assert.isAtLeast(approved.entryId, FIRST_APPROVED_JA_ID + 1)
       const [entry] = yield* getEntries(db, [approved.entryId])
@@ -216,13 +277,22 @@ layer(TestLayer)("proposal review", (it) => {
     })
   )
 
-  it.effect("discarding keeps the row as a negative cache", () =>
+  it.effect("discarding keeps the entry, hidden, as a negative cache and for the notes that saved it", () =>
     Effect.gen(function* () {
       const db = yield* Database
       yield* seeded
-      const id = yield* propose(db, "en", "slopword", draft)
+      const { id, entryId } = yield* propose(db, "en", "slopword", { ...draft, headword: "slopword", spellings: [] })
+      yield* saveNote(db, entryId, null)
       const discarded = yield* discardProposal(db, id, "not established usage")
       assert.strictEqual(discarded.query, "slopword")
+      assert.strictEqual(yield* reviewOf(db, entryId), "discarded")
+      assert.deepStrictEqual(yield* findForms(db, ["slopword"], "en", "listed"), [])
+      assert.strictEqual((yield* db.select().from(notes).where(eq(notes.entryId, entryId))).length, 1)
+      const approving = yield* Effect.flip(approveProposal(db, id, files))
+      assert.deepStrictEqual(
+        [approving._tag, "status" in approving ? approving.status : null],
+        ["NotPending", "discarded"]
+      )
       const again = yield* Effect.flip(discardProposal(db, id, null))
       assert.strictEqual(again._tag, "NotPending")
     })

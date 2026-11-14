@@ -29,6 +29,7 @@ export const ResultRow = ({
   const { t } = useSession()
   const pos = posLabel(t, entry.partOfSpeech)
   const labels = labelItems(t, resultLabels(entry.labels))
+  const draft = entry.review === "unreviewed"
   // A stored clip when there is one; otherwise voiced on demand, from the kana for a Japanese word.
   const speak = {
     text: entry.language === "ja" && entry.reading.length > 0 ? entry.reading : entry.headword,
@@ -65,8 +66,10 @@ export const ResultRow = ({
           <Text color="textMuted" numberOfLines={2}>
             {entry.meanings.join(entry.language === "ja" ? "; " : "、")}
           </Text>
-          {entry.inflection.length > 0 || entry.common || pos || labels.length > 0 ? (
+          {draft || entry.inflection.length > 0 || entry.common || pos || labels.length > 0 ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+              {/* Kotori drafted it and no one has checked it yet: search lists it after every approved word. */}
+              {draft ? <Chip tone="accent" icon="auto_awesome" label={t.dictionary.askDraft} /> : null}
               {entry.inflection.length > 0 ? (
                 <Chip
                   tone="primary"

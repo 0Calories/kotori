@@ -1,6 +1,15 @@
-import type { Enrichment, Entry, EntryId, EntrySummary, Language, RateLimited, SearchResult } from "@kotori/contracts"
-import type { UserId } from "@kotori/db"
-import { Context, Effect, Layer, Option } from "effect"
+import type {
+  Enrichment,
+  EnrichmentStatus,
+  Entry,
+  EntryId,
+  EntrySummary,
+  Language,
+  RateLimited,
+  SearchResult
+} from "@kotori/contracts"
+import type { EntryReview, UserId } from "@kotori/db"
+import { Context, Effect, Layer, Match, Option } from "effect"
 import { Database } from "../../db/Database.ts"
 import { assembleEntry } from "./entries.ts"
 import { makeEnrichmentStatus } from "./enrichmentStatus.ts"
@@ -8,6 +17,23 @@ import { entryLanguage, getEntries } from "./queries.ts"
 import { makeSearch } from "./search.ts"
 
 export { audioUrl } from "./shared.ts"
+
+/**
+ * An unapproved entry's enrichment: what it has, or what is already on its way, stands; nothing
+ * more comes until the admin approves it, so there is nothing to ask for.
+ */
+const awaitingStatus = (status: EnrichmentStatus): EnrichmentStatus =>
+  Match.value(status).pipe(
+    Match.when("ready", () => "ready" as const),
+    Match.when("queued", () => "queued" as const),
+    Match.when(Match.is("unrequested", "unavailable"), () => "unavailable" as const),
+    Match.exhaustive
+  )
+
+const awaitingApproval = (enrichment: Enrichment): Enrichment => ({
+  examples: awaitingStatus(enrichment.examples),
+  audio: awaitingStatus(enrichment.audio)
+})
 
 export class Dictionary extends Context.Service<
   Dictionary,
@@ -39,21 +65,25 @@ export class Dictionary extends Context.Service<
       const { enrichmentOf, requestFor } = yield* makeEnrichmentStatus
       const { search, summarize, lookupWords } = makeSearch(db)
 
+      /** An entry's enrichment status; one the admin hasn't approved gets none until it is. */
+      const statusOf = (entry: { readonly id: EntryId; readonly language: Language; readonly review: EntryReview }) =>
+        entry.review === "approved" ? enrichmentOf(entry) : Effect.map(enrichmentOf(entry), awaitingApproval)
+
       const entry = Effect.fn("Dictionary.entry")(function* (id: EntryId) {
         const [record] = yield* getEntries(db, [id])
-        return record === undefined
-          ? Option.none()
-          : Option.some(yield* assembleEntry(db, record, enrichmentOf(record)))
+        return record === undefined ? Option.none() : Option.some(yield* assembleEntry(db, record, statusOf(record)))
       })
 
       const enrichment = Effect.fn("Dictionary.enrichment")(function* (id: EntryId) {
         const found = yield* entryLanguage(db, id)
-        return found === undefined ? Option.none() : Option.some(yield* enrichmentOf(found))
+        return found === undefined ? Option.none() : Option.some(yield* statusOf(found))
       })
 
       const requestEnrichment = Effect.fn("Dictionary.requestEnrichment")(function* (id: EntryId, requester: UserId) {
         const found = yield* entryLanguage(db, id)
-        return found === undefined ? Option.none() : Option.some(yield* requestFor(found, requester))
+        if (found === undefined) return Option.none()
+        // Approval queues a draft's enrichment; asking before then queues nothing.
+        return Option.some(yield* found.review === "approved" ? requestFor(found, requester) : statusOf(found))
       })
 
       return Dictionary.of({ search, entry, enrichment, requestEnrichment, summarize, lookupWords })

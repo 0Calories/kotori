@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { type AnyPgColumn, boolean, index, integer, text } from "drizzle-orm/pg-core"
+import { type AnyPgColumn, boolean, index, integer, pgEnum, text } from "drizzle-orm/pg-core"
 import * as Schema from "effect/Schema"
 import { language, source, table } from "./columns.ts"
 
@@ -22,6 +22,17 @@ export const FIRST_APPROVED_JA_ID = 200_000_000
 export const isJapaneseEntryId = (entryId: AnyPgColumn) =>
   sql`(${entryId} < ${sql.raw(String(FIRST_ENGLISH_ID))} OR ${entryId} >= ${sql.raw(String(FIRST_APPROVED_JA_ID))})`
 
+/**
+ * Whether the admin has accepted an entry into the dictionary. Every imported entry is `approved`;
+ * an entry Kotori drafted in Ask Kotori starts `unreviewed` (shown marked unverified, ranked below
+ * approved words) until the admin approves it or `discarded` it. A discarded entry stays, hidden
+ * from search, as a negative cache and for learners who saved it (see ADR 0002).
+ */
+export const entryReview = pgEnum("entry_review", ["unreviewed", "approved", "discarded"])
+
+export const EntryReview = Schema.Literals(entryReview.enumValues)
+export type EntryReview = typeof EntryReview.Type
+
 export const entries = table(
   "entries",
   {
@@ -41,7 +52,14 @@ export const entries = table(
     /** Carries one of JMDict's "common" markers (news1, ichi1, spec1, gai1), or is a frequent English word. */
     common: boolean().notNull().default(false),
     /** How often the word is used, folded into one number, so search and enrichment can favour words people use. */
-    priority: integer().notNull().default(0)
+    priority: integer().notNull().default(0),
+    review: entryReview().notNull().default("approved")
   },
-  (t) => [index("entries_priority").on(t.language, t.priority.desc(), t.id)]
+  (t) => [
+    index("entries_priority").on(t.language, t.priority.desc(), t.id),
+    // Kotori's drafts, few, so reads that leave them out need not join every entry.
+    index("entries_drafts")
+      .on(t.id)
+      .where(sql`${t.review} <> 'approved'`)
+  ]
 )

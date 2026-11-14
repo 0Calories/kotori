@@ -7,8 +7,7 @@ import type {
   LabelCode,
   LabelSeverity,
   Sense,
-  Source,
-  UsagePattern
+  Source
 } from "@kotori/contracts"
 import type { IconName } from "../components/Icon.tsx"
 import type { Strings } from "../i18n/strings.ts"
@@ -224,23 +223,4 @@ export const CAUTION_ICON: Record<CautionKind, IconName> = {
   confusable: "call_split",
   collocation: "link",
   tone: "monitoring"
-}
-
-/**
- * What a saved word carries into its reviews: the usage labels worth a hint (the labels that
- * aren't grammar facts, word's then the sense's), and the one note most worth remembering: a
- * caution on that sense or the word, else its first usage pattern.
- */
-export const saveDetails = (
-  t: Strings,
-  entry: Pick<Entry, "labels" | "cautions">,
-  sense: Pick<Sense, "index" | "labels" | "usagePatterns">
-): { readonly hint: string | null; readonly note: string | null } => {
-  const hint = [...entry.labels, ...sense.labels]
-    .filter((label) => label.severity !== "quiet")
-    .map((label) => t.labels.name[label.code])
-    .join(" · ")
-  const caution = senseCautions(entry.cautions, sense.index)[0] ?? wordCautions(entry.cautions)[0]
-  const usagePattern: UsagePattern | undefined = sense.usagePatterns[0]
-  return { hint: hint.length > 0 ? hint : null, note: caution?.text ?? usagePattern?.text ?? null }
 }

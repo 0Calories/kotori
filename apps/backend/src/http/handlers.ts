@@ -1,5 +1,5 @@
 import { Claude, Jev, Pronouncer } from "@kotori/ai"
-import { CurrentUser, InvalidRequest, KotoriApi, NotFound } from "@kotori/contracts"
+import { CurrentUser, KotoriApi, NotFound } from "@kotori/contracts"
 import { Effect, Layer, Option } from "effect"
 import { HttpApiBuilder } from "effect/http-api"
 import { Database } from "../db/Database.ts"
@@ -113,14 +113,9 @@ const StudyHandlers = HttpApiBuilder.group(
     const study = yield* Study
     return handlers.handleAll({
       notes: () => Effect.flatMap(CurrentUser, (user) => study.notes(user.profile)),
-      addNote: ({ payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          if (payload.content.kind === "phrase" && payload.content.text.trim().length === 0) {
-            return yield* new InvalidRequest({ message: "A phrase needs some text" })
-          }
-          return yield* study.addNote(user.profile, payload)
-        }),
+      addNote: ({ payload }) => Effect.flatMap(CurrentUser, (user) => study.addNote(user.profile, payload)),
+      updateNote: ({ params, payload }) =>
+        Effect.flatMap(CurrentUser, (user) => study.arrangeNote(user.profile, params.id, payload.senses)),
       removeNote: ({ params }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser

@@ -6,6 +6,7 @@ import {
   englishDocument,
   entries,
   type EntryId,
+  type EntryReview,
   entryAudio,
   entryFrequency,
   examples,
@@ -17,7 +18,6 @@ import {
   jobKind,
   labels,
   loanLinks,
-  type NoteId,
   notes,
   nullIfEmpty,
   senses,
@@ -42,11 +42,11 @@ import {
   gte,
   inArray,
   isNotNull,
-  lt,
   max,
   min,
   ne,
   notExists,
+  notInArray,
   sql
 } from "drizzle-orm"
 import { Effect } from "effect"
@@ -54,6 +54,29 @@ import { chunks } from "../../db/chunks.ts"
 import type { DatabaseShape } from "../../db/Database.ts"
 import { matchSenses } from "./import/matchSenses.ts"
 import { type ImportEntry, labelsOf, usagePatternsOf, SEED_SOURCES, speaks } from "./import/seedFacts.ts"
+import { unique } from "./shared.ts"
+
+/**
+ * Which entries a dictionary read sees: `approved` ones (the dictionary proper), or every `listed`
+ * one, Kotori's unreviewed drafts too; a discarded draft is in neither.
+ */
+export type EntryScope = "approved" | "listed"
+
+/**
+ * Entry ids outside `scope`. Drafts are few, so this reads them through their partial index
+ * (`entries_drafts`) rather than joining every entry.
+ */
+export const outsideScope = (db: DatabaseShape, scope: EntryScope) => {
+  switch (scope) {
+    case "approved":
+      return db.select({ id: entries.id }).from(entries).where(ne(entries.review, "approved"))
+    case "listed":
+      return db
+        .select({ id: entries.id })
+        .from(entries)
+        .where(and(ne(entries.review, "approved"), eq(entries.review, "discarded")))
+  }
+}
 
 /** Enrichment an entry can be missing, used to find work for the worker. */
 export type EnrichmentKind = (typeof jobKind.enumValues)[number]
@@ -127,9 +150,9 @@ const takeSenseRows = Effect.fnUntraced(function* (tx: Tx, ids: ReadonlyArray<En
       .from(examples)
       .where(inArray(examples.entryId, [...ids])),
     saved: yield* tx
-      .select({ id: notes.id, entryId: notes.entryId, sense: notes.sense })
+      .select({ id: notes.id, entryId: notes.entryId, senses: notes.senses })
       .from(notes)
-      .where(and(inArray(notes.entryId, [...ids]), isNotNull(notes.sense))),
+      .where(and(inArray(notes.entryId, [...ids]), isNotNull(notes.senses))),
     // What the import rebuilds from the record is gone by now (`deleteSeedFacts`); what is left
     // is Kotori's and learners', which follows its sense.
     labels: yield* tx
@@ -195,37 +218,16 @@ const moveSenseRows = Effect.fnUntraced(function* (
   }
   for (const chunk of chunks(unheard, 5000)) yield* tx.delete(examples).where(inArray(examples.id, [...chunk]))
 
-  // Saved words follow too, in the column and in the note content the entry page reads.
-  // (learner, entry, sense) is unique, so they pass through negative positions: a swap made
-  // in one step would collide halfway. A word whose sense is gone keeps its schedule and
-  // loses only its place on the entry page.
-  const saved = new Map<number, Array<NoteId>>()
-  const orphaned: Array<NoteId> = []
+  // A note that chose its senses follows them. One whose chosen senses are all gone keeps its
+  // schedule and shows every sense again.
   for (const note of held.saved) {
-    const sense = to(note.entryId, note.sense)
-    if (sense === null) orphaned.push(note.id)
-    else saved.set(sense, [...(saved.get(sense) ?? []), note.id])
-  }
-  for (const [sense, ids] of saved) {
+    if (note.senses === null) continue
+    const kept = unique(note.senses.flatMap((sense) => to(note.entryId, sense) ?? []))
+    if (kept.length === note.senses.length && kept.every((sense, index) => sense === note.senses![index])) continue
     yield* tx
       .update(notes)
-      .set({
-        sense: -sense - 1,
-        content: sql`jsonb_set(${notes.content}, '{senseIndex}', to_jsonb(${sense}::integer))`
-      })
-      .where(inArray(notes.id, ids))
-  }
-  if (saved.size > 0) {
-    yield* tx
-      .update(notes)
-      .set({ sense: sql`-${notes.sense} - 1` })
-      .where(and(inArray(notes.entryId, [...moves.keys()]), lt(notes.sense, 0)))
-  }
-  if (orphaned.length > 0) {
-    yield* tx
-      .update(notes)
-      .set({ sense: null, content: sql`jsonb_set(${notes.content}, '{senseIndex}', '-1'::jsonb)` })
-      .where(inArray(notes.id, orphaned))
+      .set({ senses: kept.length === 0 ? null : kept })
+      .where(eq(notes.id, note.id))
   }
 })
 
@@ -405,7 +407,9 @@ export const insertEntries = Effect.fn("dictionary.insertEntries")(function* (
             headword: entry.headword,
             reading: entry.reading,
             common: entry.common,
-            priority: entry.priority
+            priority: entry.priority,
+            // Set on a draft's first insert; a re-insert never changes where an entry stands.
+            review: entry.review ?? "approved"
           }))
         )
         .onConflictDoUpdate({
@@ -549,7 +553,7 @@ export const linkLoans = Effect.fn("dictionary.linkLoans")(function* (db: Databa
         WITH matched AS (
           SELECT DISTINCT ON (l.id) l.id, e.id AS entry_id
           FROM ${loanLinks} AS l
-          LEFT JOIN ${entries} AS e ON e.language = 'en' AND lower(e.headword) = lower(l.english)
+          LEFT JOIN ${entries} AS e ON e.language = 'en' AND e.review = 'approved' AND lower(e.headword) = lower(l.english)
           ORDER BY l.id, (e.headword = l.english) DESC NULLS LAST, e.priority DESC NULLS LAST, e.id
         )
         UPDATE ${loanLinks} AS l SET english_entry_id = matched.entry_id
@@ -593,26 +597,65 @@ export const tagNames = (db: DatabaseShape) =>
       Effect.orDie
     )
 
-export const entryCount = (db: DatabaseShape) => db.$count(entries).pipe(Effect.orDie)
+/** The dictionary's size: approved entries, Kotori's drafts aside. */
+export const entryCount = (db: DatabaseShape) => db.$count(entries, eq(entries.review, "approved")).pipe(Effect.orDie)
 
-/** Entries whose headwords are in `language`. */
+/** Approved entries whose headwords are in `language`. */
 export const countOf = (db: DatabaseShape, language: Language) =>
-  db.$count(entries, eq(entries.language, language)).pipe(Effect.orDie)
+  db.$count(entries, and(eq(entries.language, language), eq(entries.review, "approved"))).pipe(Effect.orDie)
 
-/** Every headword in one dictionary with its entry id, so a re-import keeps ids stable. */
+/**
+ * Every approved headword in one dictionary with its entry id, so a re-import keeps ids stable.
+ * Kotori's drafts aren't the sources' to keep or remove: a re-import leaves them be.
+ */
 export const headwordIds = Effect.fn("dictionary.headwordIds")(function* (db: DatabaseShape, language: Language) {
   const rows = yield* db
     .select({ id: entries.id, headword: entries.headword })
     .from(entries)
-    .where(eq(entries.language, language))
+    .where(and(eq(entries.language, language), eq(entries.review, "approved")))
   return new Map(rows.map((row) => [row.headword, row.id]))
 }, Effect.orDie)
 
-/** An entry's id and language, or undefined when there is none: enough to report its enrichment. */
+/** The highest entry id in one dictionary's block from `from` up, drafts included, or `from` when there is none. */
+export const topEntryId = Effect.fn("dictionary.topEntryId")(function* (
+  db: DatabaseShape,
+  language: Language,
+  from: EntryId
+) {
+  const [row] = yield* db
+    .select({ top: max(entries.id) })
+    .from(entries)
+    .where(and(eq(entries.language, language), gte(entries.id, from)))
+  return Math.max(row?.top ?? 0, from)
+}, Effect.orDie)
+
+/**
+ * An entry's id, language and review state, or undefined when there is none: enough to report
+ * its enrichment.
+ */
 export const entryLanguage = Effect.fn("dictionary.entryLanguage")(function* (db: DatabaseShape, id: EntryId) {
-  const [row] = yield* db.select({ id: entries.id, language: entries.language }).from(entries).where(eq(entries.id, id))
+  const [row] = yield* db
+    .select({ id: entries.id, language: entries.language, review: entries.review })
+    .from(entries)
+    .where(eq(entries.id, id))
   return row
 }, Effect.orDie)
+
+/** Sets the review state of entries Kotori drafted. */
+export const setReview = Effect.fn("dictionary.setReview")(function* (
+  db: DatabaseShape,
+  ids: ReadonlyArray<EntryId>,
+  review: EntryReview
+) {
+  if (ids.length === 0) return
+  yield* db
+    .update(entries)
+    .set({ review })
+    .where(inArray(entries.id, [...ids]))
+}, Effect.orDie)
+
+/** An entry as stored: its record, and where it stands with the admin. */
+export type StoredEntry = EntryRecord & { readonly review: EntryReview }
 
 export const getEntries = Effect.fn("dictionary.getEntries")(function* (
   db: DatabaseShape,
@@ -630,7 +673,7 @@ export const getEntries = Effect.fn("dictionary.getEntries")(function* (
       .orderBy(glosses.entryId, glosses.sense, glosses.position)
   ])
   const byId = new Map(entryRows.map((entry) => [entry.id, entry]))
-  return ids.flatMap((id): Array<EntryRecord> => {
+  return ids.flatMap((id): Array<StoredEntry> => {
     const entry = byId.get(id)
     if (entry === undefined) return []
     return [
@@ -695,20 +738,25 @@ const tsquery = (query: string) =>
 /** Matches when any of `queries` does, each requiring all of its words (`plainto_tsquery`). */
 const toTsquery = (queries: ReadonlyArray<string>) => sql`(${sql.join(queries.map(tsquery), sql` || `)})`
 
-/** Entries in one dictionary with a form equal to one of `texts`; English ignores case. */
+/**
+ * Entries in one dictionary with a form equal to one of `texts`; English ignores case. Only
+ * approved entries unless `scope` lets in Kotori's drafts, so a link never lands on one.
+ */
 export const findForms = Effect.fn("dictionary.findForms")(function* (
   db: DatabaseShape,
   texts: ReadonlyArray<string>,
-  language: Language = "ja"
+  language: Language = "ja",
+  scope: EntryScope = "approved"
 ) {
   if (texts.length === 0) return []
   const match = { entryId: forms.entryId, text: forms.text, kind: forms.kind, tags: listOf(forms.tags) }
+  const inScope = notInArray(forms.entryId, outsideScope(db, scope))
   if (language === "ja") {
     return yield* db
       .select(match)
       .from(forms)
       .innerJoin(entries, eq(entries.id, forms.entryId))
-      .where(and(eq(entries.language, language), inArray(forms.text, texts)))
+      .where(and(eq(entries.language, language), inArray(forms.text, texts), inScope))
   }
   // An English form's kind says it is English, so there is nothing to join: the planner has no
   // statistics for `lower(text)` from a partial index, and its guess at the matches made it hash
@@ -722,7 +770,8 @@ export const findForms = Effect.fn("dictionary.findForms")(function* (
         inArray(
           folded,
           texts.map((text) => text.toLowerCase())
-        )
+        ),
+        inScope
       )
     )
 }, Effect.orDie)
@@ -930,17 +979,23 @@ export const searchJapaneseGlosses = Effect.fn("dictionary.searchJapaneseGlosses
     .limit(limit)
 }, Effect.orDie)
 
-/** Commonness and frequency of entries, for ranking without loading them. */
+export interface EntryRank {
+  readonly common: boolean
+  readonly priority: number
+  readonly review: EntryReview
+}
+
+/** Commonness, frequency and review state of entries, for ranking without loading them. */
 export const entryRanks = Effect.fn("dictionary.entryRanks")(function* (
   db: DatabaseShape,
   ids: ReadonlyArray<EntryId>
 ) {
-  if (ids.length === 0) return new Map<EntryId, { common: boolean; priority: number }>()
+  if (ids.length === 0) return new Map<EntryId, EntryRank>()
   const rows = yield* db
-    .select({ id: entries.id, common: entries.common, priority: entries.priority })
+    .select({ id: entries.id, common: entries.common, priority: entries.priority, review: entries.review })
     .from(entries)
     .where(inArray(entries.id, ids))
-  return new Map(rows.map((row) => [row.id, { common: row.common, priority: row.priority }]))
+  return new Map(rows.map((row) => [row.id, { common: row.common, priority: row.priority, review: row.review }]))
 }, Effect.orDie)
 
 const missing = (db: DatabaseShape, kind: EnrichmentKind) => {
@@ -968,6 +1023,8 @@ export const entriesByPriority = Effect.fn("dictionary.entriesByPriority")(funct
     .from(entries)
     .where(
       and(
+        // Kotori's drafts are enriched once approved, not before.
+        eq(entries.review, "approved"),
         query.language ? eq(entries.language, query.language) : undefined,
         query.commonOnly ? eq(entries.common, true) : undefined,
         query.missing ? missing(db, query.missing) : undefined

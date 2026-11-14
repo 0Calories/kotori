@@ -16,7 +16,7 @@ import type { DatabaseShape } from "../../db/Database.ts"
 import { entryClips, exampleClips } from "../audio/index.ts"
 import type { ExampleRow } from "../enrichment/index.ts"
 import { examplesFor, sentencesHeard } from "../enrichment/index.ts"
-import { findForms, getEntries, tagNames } from "./queries.ts"
+import { findForms, getEntries, type StoredEntry, tagNames } from "./queries.ts"
 import { audioUrl, firstGlosses, unique } from "./shared.ts"
 import { type Candidate, differenceOf, pickCandidates, senseLabels } from "./similar.ts"
 import {
@@ -32,7 +32,7 @@ import {
 // labels, usage patterns, cautions and similar words the enrichment model derives, and its
 // example sentences and audio.
 
-const toExample = (example: ExampleRow, clips: ReadonlyMap<string, string>): Example => {
+export const toExample = (example: ExampleRow, clips: ReadonlyMap<string, string>): Example => {
   const ja = clips.get(`${example.id}:ja`)
   const en = clips.get(`${example.id}:en`)
   return {
@@ -74,7 +74,7 @@ const xrefSense = (xref: string) => {
 /** The entry `entry` as the app shows it, its enrichment status from `enrichment`, read last. */
 export const assembleEntry = Effect.fnUntraced(function* (
   db: DatabaseShape,
-  entry: EntryRecord,
+  entry: StoredEntry,
   enrichment: Effect.Effect<Enrichment>
 ) {
   const tags = yield* tagNames(db)
@@ -196,6 +196,7 @@ export const assembleEntry = Effect.fnUntraced(function* (
     reading: entry.reading,
     romaji: entry.language === "ja" ? romanize(entry.reading) : "",
     common: entry.common,
+    review: entry.review,
     usuallyKana: entry.senses[0]?.misc.includes("uk") ?? false,
     labels: stated.word,
     frequency: yield* frequencyFor(db, entry.id),
