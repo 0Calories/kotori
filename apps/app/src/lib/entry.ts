@@ -24,20 +24,23 @@ import type { Strings } from "../i18n/strings.ts"
 export interface ChipItem {
   readonly key: string
   readonly label: string
-  /** The sentence behind the chip, shown under its row. */
+  /** The sentence behind the chip, shown in its tooltip. */
   readonly help: string
   readonly severity: LabelSeverity
   readonly icon?: IconName
-  /** Added by Kotori's AI rather than taken from a dictionary: the chip carries the ✦ mark. */
+  /**
+   * Added by Kotori's AI rather than taken from a dictionary: the chip carries the ✦ mark, and a
+   * note under its explanation says so.
+   */
   readonly kotori?: boolean
 }
 
-/** Labels as chips, in the interface language; Kotori's say so in their explanation. */
+/** Labels as chips, in the interface language. */
 export const labelItems = (t: Strings, labels: ReadonlyArray<Label>): ReadonlyArray<ChipItem> =>
   labels.map((label) => ({
     key: label.code,
     label: t.labels.name[label.code],
-    help: label.source === "kotori" ? `${t.labels.help[label.code]} ✦ ${t.labels.kotori}` : t.labels.help[label.code],
+    help: t.labels.help[label.code],
     severity: label.severity,
     kotori: label.source === "kotori"
   }))
