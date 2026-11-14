@@ -13,7 +13,10 @@ import {
 import { Dimensions, Platform, StyleSheet, View } from "react-native"
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { KOTORI_MARK } from "../lib/entry.ts"
 import { type Box, placeTooltip, type Size, TOOLTIP_MARGIN } from "../lib/tooltip.ts"
+import type { Strings } from "../i18n/strings.ts"
+import { useT } from "../session/SessionProvider.tsx"
 import { easeOut } from "../theme/easing.ts"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { PressableScale } from "./PressableScale.tsx"
@@ -33,8 +36,8 @@ const ARROW = 12
 interface Tip {
   readonly id: string
   readonly text: string
-  /** A fainter line under the text. */
-  readonly note?: string
+  /** Kotori's AI added what it explains, so a fainter line under the text says so. */
+  readonly kotori: boolean
   /** The trigger, in window coordinates. */
   readonly anchor: Box
   /** The trigger's DOM node on the web, so a press on it isn't taken for a press outside. */
@@ -70,14 +73,17 @@ export const useCloseOpenTooltip = () => {
   return open === null ? null : close
 }
 
+/** The footnote under the explanation of something Kotori's AI added. */
+const kotoriNote = (t: Strings) => `${KOTORI_MARK} ${t.labels.kotori}`
+
 const Bubble = ({ tip, layer }: { readonly tip: Tip; readonly layer: Box }) => {
   const { color, shadow, space, radius } = useTheme()
   const insets = useSafeAreaInsets()
-  // The size belongs to the tooltip it was measured for: the next one hides until it is measured too.
-  const [size, setSize] = useState<(Size & { readonly id: string }) | null>(null)
-  const measured = size !== null && size.id === tip.id
+  const t = useT()
+  // Mounted afresh for each tooltip (keyed by its id), so it stays hidden until it is measured.
+  const [size, setSize] = useState<Size | null>(null)
   const anchor = { ...tip.anchor, x: tip.anchor.x - layer.x, y: tip.anchor.y - layer.y }
-  const place = measured ? placeTooltip(anchor, size, layer, insets) : null
+  const place = size !== null ? placeTooltip(anchor, size, layer, insets) : null
   return (
     <Animated.View
       entering={FadeIn.duration(140).easing(easeOut)}
@@ -95,12 +101,12 @@ const Bubble = ({ tip, layer }: { readonly tip: Tip; readonly layer: Box }) => {
         nativeID={tip.id}
         role="tooltip"
         onLayout={({ nativeEvent: { layout } }) => {
-          if (size?.id === tip.id && size.width === layout.width && size.height === layout.height) return
-          setSize({ id: tip.id, width: layout.width, height: layout.height })
+          if (size?.width === layout.width && size.height === layout.height) return
+          setSize({ width: layout.width, height: layout.height })
         }}
         style={{
           maxWidth: Math.min(MAX_WIDTH, layer.width - TOOLTIP_MARGIN * 2),
-          opacity: measured ? 1 : 0,
+          opacity: size !== null ? 1 : 0,
           ...shadow(2)
         }}
       >
@@ -129,9 +135,9 @@ const Bubble = ({ tip, layer }: { readonly tip: Tip; readonly layer: Box }) => {
           <Text variant="small" color="onPrimaryDark" style={{ lineHeight: 18 }}>
             {tip.text}
           </Text>
-          {tip.note ? (
+          {tip.kotori ? (
             <Text variant="caption" color="onPrimaryDark" style={{ marginTop: 5, opacity: 0.72 }}>
-              {tip.note}
+              {kotoriNote(t)}
             </Text>
           ) : null}
         </View>
@@ -245,7 +251,7 @@ export const TooltipProvider = ({ children }: { readonly children: ReactNode }) 
       <View style={{ flex: 1 }} onTouchStart={WEB ? undefined : touchStart}>
         {children}
         <View ref={layerRef} pointerEvents="box-none" style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
-          {tip !== null && layer !== null ? <Bubble tip={tip} layer={layer} /> : null}
+          {tip !== null && layer !== null ? <Bubble key={tip.id} tip={tip} layer={layer} /> : null}
         </View>
       </View>
     </TooltipContext.Provider>
@@ -260,20 +266,21 @@ export const TooltipProvider = ({ children }: { readonly children: ReactNode }) 
  */
 export const TooltipTrigger = ({
   text,
-  note,
+  kotori = false,
   label,
   children
 }: {
   readonly text: string
-  /** A fainter line under the text. */
-  readonly note?: string
+  /** Kotori's AI added what it explains: a fainter line under the text says the dictionary doesn't. */
+  readonly kotori?: boolean
   /** The control's accessible name. */
   readonly label: string
   readonly children: (open: boolean) => ReactNode
 }) => {
   const id = useId()
   const descriptionId = `${id}-description`
-  const description = note ? `${text} ${note}` : text
+  const t = useT()
+  const description = kotori ? `${text} ${kotoriNote(t)}` : text
   const { open, show, hide, warm, claim } = useContext(TooltipContext)
   const ref = useRef<View>(null)
   const hovered = useRef(false)
@@ -298,7 +305,7 @@ export const TooltipTrigger = ({
     const asked = ++request.current
     ref.current?.measureInWindow((x, y, width, height) => {
       if (asked !== request.current) return
-      show({ id, text, note, anchor: { x, y, width, height }, node: ref.current })
+      show({ id, text, kotori, anchor: { x, y, width, height }, node: ref.current })
     })
   }
   const cancel = () => {

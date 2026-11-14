@@ -17,6 +17,9 @@ import type { Strings } from "../i18n/strings.ts"
 // and loan chips, cautions by scope, the Kotori mark, and the sources line. The Ask Kotori draft
 // is read the same way.
 
+/** What Kotori's AI added rather than a dictionary carries this mark after its name. */
+export const KOTORI_MARK = "✦"
+
 /**
  * A chip that explains itself on tap: a label, or a fact about the word that isn't one (it is
  * common, its katakana loan means the same). Its severity sets how loudly it speaks.

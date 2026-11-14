@@ -1,13 +1,9 @@
 import type { LabelSeverity } from "@kotori/contracts"
 import { View } from "react-native"
-import type { ChipItem } from "../lib/entry.ts"
-import { useSession } from "../session/SessionProvider.tsx"
+import { type ChipItem, KOTORI_MARK } from "../lib/entry.ts"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Chip, type ChipColors, ChipFace, chipRing, useChipPalette } from "./Chip.tsx"
 import { TooltipTrigger } from "./Tooltip.tsx"
-
-/** What Kotori's AI added rather than a dictionary carries this after its name. */
-const KOTORI_MARK = "✦"
 
 /**
  * A chip's colours by how loudly it should speak: `quiet` an ink wash, `info` the theme's colour,
@@ -44,11 +40,10 @@ export const LabelTag = ({ item }: { readonly item: ChipItem }) => (
  * and a fainter note under the explanation says the dictionary doesn't.
  */
 const SeverityChip = ({ item, onTint }: { readonly item: ChipItem; readonly onTint: boolean }) => {
-  const { t } = useSession()
   const colors = useSeverityColors(item.severity, onTint)
   const label = markedLabel(item)
   return (
-    <TooltipTrigger text={item.help} note={item.kotori ? `${KOTORI_MARK} ${t.labels.kotori}` : undefined} label={label}>
+    <TooltipTrigger text={item.help} kotori={item.kotori} label={label}>
       {(open) => <ChipFace label={label} colors={colors} icon={item.icon} dot lit={open} />}
     </TooltipTrigger>
   )
