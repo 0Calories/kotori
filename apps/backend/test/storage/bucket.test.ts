@@ -6,7 +6,7 @@ import { createHash } from "node:crypto"
 import { Database } from "../../src/db/Database.ts"
 import { AudioStore, clipObject } from "../../src/features/audio/AudioStore.ts"
 import { moveClipsToBucket } from "../../src/features/audio/move.ts"
-import { Bucket, BucketError, objectUrl, signRequest } from "../../src/integrations/storage/Bucket.ts"
+import { Bucket, BucketError, describeCause, objectUrl, signRequest } from "../../src/integrations/storage/Bucket.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
 describe("Signature Version 4", () => {
@@ -45,6 +45,22 @@ describe("Signature Version 4", () => {
       objectUrl(new URL("http://localhost:9000/s3/"), "audio", "a b/c'.mp3").toString(),
       "http://localhost:9000/s3/audio/a%20b/c%27.mp3"
     )
+  })
+})
+
+describe("a failed request's cause", () => {
+  it("names each cause's code and message, outermost first", () => {
+    // How undici reports a connection the server dropped.
+    const socket = Object.assign(new Error("other side closed"), { code: "UND_ERR_SOCKET" })
+    assert.strictEqual(
+      describeCause(new TypeError("fetch failed", { cause: socket })),
+      "fetch failed ← UND_ERR_SOCKET: other side closed"
+    )
+  })
+
+  it("is empty when there is no cause", () => {
+    assert.strictEqual(describeCause(undefined), "")
+    assert.strictEqual(describeCause("not an error"), "")
   })
 })
 

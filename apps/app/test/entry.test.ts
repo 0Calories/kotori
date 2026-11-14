@@ -22,6 +22,7 @@ import {
   heroItems,
   labelItems,
   loanChip,
+  onItsWay,
   loanLine,
   resultLabels,
   saveDetails,
@@ -260,6 +261,10 @@ describe("Kotori's mark", () => {
       true
     )
     assert.equal(hasKotoriMarks(entry({ cautions: [caution(1, null)] })), true)
+  })
+
+  it("waits and polls only for enrichment that is on its way", () => {
+    assert.deepStrictEqual((["ready", "unrequested", "queued", "unavailable"] as const).filter(onItsWay), ["queued"])
   })
 
   it("treats seeded sentences as the dictionary's, so the word still offers to ask Kotori", () => {

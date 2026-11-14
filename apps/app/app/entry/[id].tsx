@@ -30,6 +30,7 @@ import {
   heroItems,
   labelItems,
   loanLine,
+  onItsWay,
   saveDetails,
   senseCautions,
   similarWords,
@@ -37,6 +38,7 @@ import {
 } from "../../src/lib/entry.ts"
 import { findForm } from "../../src/lib/forms.ts"
 import { wordNote } from "../../src/lib/notes.ts"
+import { useReadingPhase } from "../../src/lib/readingPhase.ts"
 import { entryIdFromParam, entrySourcesHref } from "../../src/lib/sources.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
@@ -247,6 +249,7 @@ export default function EntryScreen() {
   const [removingSense, setRemovingSense] = useState<number | null>(null)
   const [removeError, setRemoveError] = useState<string | null>(null)
   const back = () => (router.canGoBack() ? router.back() : router.replace("/"))
+  const kotoriReading = useReadingPhase(id !== null && !entry.isLoadingError && !entry.data) === "reading"
 
   // A failed refetch (one of the polls while the entry is being enriched, say) keeps the entry
   // already loaded, with a notice until a later one succeeds. Only a failed first load has nothing to show.
@@ -257,10 +260,10 @@ export default function EntryScreen() {
       </Screen>
     )
   }
-  if (!entry.data) {
+  if (!entry.data || kotoriReading) {
     return (
       <Screen bottomInset={40} header={<Header onBack={back} />}>
-        <MascotMessage mood="thinking" />
+        {kotoriReading ? <MascotMessage mood="reading" /> : null}
       </Screen>
     )
   }
@@ -324,7 +327,7 @@ export default function EntryScreen() {
   )
   const inflections = data.forms.filter((form) => form.kind === "inflection")
   const senses = showAll ? data.senses : data.senses.slice(0, 3)
-  const waiting = data.enrichment.examples === "queued"
+  const waiting = onItsWay(data.enrichment.examples)
   const similar = similarWords(data.senses)
   const firstPos = data.senses[0]?.partsOfSpeech[0]
   const partOfSpeech = firstPos ? (posLabel(t, firstPos.code) ?? firstPos.name) : null
@@ -478,7 +481,7 @@ export default function EntryScreen() {
       {waiting ? (
         <Animated.View entering={FadeIn}>
           <Card tone="primary" style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <Mascot size={52} mood="thinking" />
+            <Mascot size={52} mood="reading" />
             <Text variant="small" style={{ flex: 1 }}>
               {t.entry.writing}
             </Text>

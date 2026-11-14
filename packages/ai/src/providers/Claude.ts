@@ -1,8 +1,16 @@
-import Anthropic from "@anthropic-ai/sdk"
+import Anthropic, { type ClientOptions } from "@anthropic-ai/sdk"
 import { Config, Context, Duration, Effect, Layer, Schema } from "effect"
 
 export class ClaudeError extends Schema.TaggedError<ClaudeError>()("ClaudeError", {
-  reason: Schema.Literals(["unconfigured", "refused", "truncated", "invalid_output", "rate_limited", "unavailable"]),
+  reason: Schema.Literals([
+    "unconfigured",
+    "refused",
+    "truncated",
+    "invalid_output",
+    "rate_limited",
+    "unavailable",
+    "timed_out"
+  ]),
   message: Schema.String,
   cause: Schema.optional(Schema.Defect())
 }) {}
@@ -16,7 +24,25 @@ export interface GenerateOptions<S extends Schema.Top> {
   readonly prompt: string
   readonly effort?: Effort | undefined
   readonly maxTokens?: number | undefined
+  /**
+   * How long the whole call may take, the SDK's retries included, before it fails as `timed_out`.
+   * Defaults to `ClaudeDeadline.interactive`; offline passes nobody is waiting on pass `bulk`.
+   */
+  readonly timeout?: Duration.Duration | undefined
 }
+
+/** Whole-call deadlines for `generate`: a learner waits on an `interactive` call, nobody on a `bulk` one. */
+export const ClaudeDeadline = {
+  interactive: Duration.seconds(90),
+  bulk: Duration.minutes(5)
+} as const
+
+/**
+ * How long one attempt may wait for the response to start (the SDK's default is 10 minutes). The
+ * SDK arms it around `fetch` only, so a stream that has begun is bounded by the call's deadline
+ * instead; a timed-out attempt is retried, within that deadline.
+ */
+const ATTEMPT_TIMEOUT = Duration.seconds(60)
 
 /** Validation keywords structured outputs doesn't accept; Schema still enforces them when decoding. */
 const UNSUPPORTED = new Set([
@@ -84,65 +110,78 @@ export class Claude extends Context.Service<
     ): Effect.Effect<S["Type"], ClaudeError, S["DecodingServices"]>
   }
 >()("@kotori/ai/Claude") {
-  static readonly layer = Layer.effect(
-    Claude,
-    Effect.gen(function* () {
-      const model = yield* Config.String("KOTORI_CLAUDE_MODEL").pipe(Config.withDefault("claude-opus-5-5"))
-      // The SDK resolves credentials itself: ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN or an `ant` profile.
-      const client = new Anthropic({ maxRetries: 3 })
+  /** The service over an SDK client built with `options` over Kotori's defaults; tests pass a fake `fetch`. */
+  static readonly make = Effect.fnUntraced(function* (options: ClientOptions = {}) {
+    const model = yield* Config.String("KOTORI_CLAUDE_MODEL").pipe(Config.withDefault("claude-opus-5-5"))
+    // The SDK resolves credentials itself: ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN or an `ant` profile.
+    const client = new Anthropic({ maxRetries: 3, timeout: Duration.toMillis(ATTEMPT_TIMEOUT), ...options })
 
-      const available = yield* Effect.cachedWithTTL(
-        Effect.tryPromise((signal) =>
-          client.models.retrieve(model, null, { signal, timeout: Duration.toMillis(PROBE_TIMEOUT), maxRetries: 0 })
-        ).pipe(
-          Effect.as(true),
-          Effect.catch(() => Effect.succeed(false))
-        ),
-        Duration.minutes(5)
-      )
+    const available = yield* Effect.cachedWithTTL(
+      Effect.tryPromise((signal) =>
+        client.models.retrieve(model, null, { signal, timeout: Duration.toMillis(PROBE_TIMEOUT), maxRetries: 0 })
+      ).pipe(
+        Effect.as(true),
+        Effect.catch(() => Effect.succeed(false))
+      ),
+      Duration.minutes(5)
+    )
 
-      const generate = <S extends Schema.Top>(options: GenerateOptions<S>) =>
-        Effect.gen(function* () {
-          const message = yield* Effect.tryPromise({
-            try: (signal) =>
-              client.beta.messages
-                .stream(
-                  {
-                    model,
-                    max_tokens: options.maxTokens ?? 16_000,
-                    system: options.system,
-                    messages: [{ role: "user", content: options.prompt }],
-                    output_config: {
-                      effort: options.effort ?? "medium",
-                      format: { type: "json_schema", schema: outputSchema(options.schema) }
-                    },
-                    // If a safety classifier declines, retry on Anthropic's recommended fallback model.
-                    betas: ["server-side-fallback-2026-07-01"],
-                    fallbacks: "default"
+    const generate = <S extends Schema.Top>(options: GenerateOptions<S>) =>
+      Effect.gen(function* () {
+        const deadline = options.timeout ?? ClaudeDeadline.interactive
+        const message = yield* Effect.tryPromise({
+          try: (signal) =>
+            client.beta.messages
+              .stream(
+                {
+                  model,
+                  max_tokens: options.maxTokens ?? 16_000,
+                  system: options.system,
+                  messages: [{ role: "user", content: options.prompt }],
+                  output_config: {
+                    effort: options.effort ?? "medium",
+                    format: { type: "json_schema", schema: outputSchema(options.schema) }
                   },
-                  { signal }
-                )
-                .finalMessage(),
-            catch: classify
+                  // If a safety classifier declines, retry on Anthropic's recommended fallback model.
+                  betas: ["server-side-fallback-2026-07-01"],
+                  fallbacks: "default"
+                },
+                { signal }
+              )
+              .finalMessage(),
+          catch: classify
+        }).pipe(
+          // The deadline interrupts the request, which aborts it through `signal`, retries and all.
+          Effect.timeoutOrElse({
+            duration: deadline,
+            orElse: () =>
+              Effect.fail(
+                new ClaudeError({
+                  reason: "timed_out",
+                  message: `Claude didn't answer within ${Duration.format(deadline)}`
+                })
+              )
           })
+        )
 
-          if (message.stop_reason === "refusal") {
-            return yield* new ClaudeError({ reason: "refused", message: "Claude declined to answer this request" })
-          }
-          if (message.stop_reason === "max_tokens") {
-            return yield* new ClaudeError({ reason: "truncated", message: "Claude's answer was cut off" })
-          }
+        if (message.stop_reason === "refusal") {
+          return yield* new ClaudeError({ reason: "refused", message: "Claude declined to answer this request" })
+        }
+        if (message.stop_reason === "max_tokens") {
+          return yield* new ClaudeError({ reason: "truncated", message: "Claude's answer was cut off" })
+        }
 
-          const text = message.content.flatMap((block) => (block.type === "text" ? [block.text] : [])).join("")
-          return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(options.schema))(text).pipe(
-            Effect.mapError(
-              (cause) =>
-                new ClaudeError({ reason: "invalid_output", message: "Claude's answer didn't match the schema", cause })
-            )
+        const text = message.content.flatMap((block) => (block.type === "text" ? [block.text] : [])).join("")
+        return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(options.schema))(text).pipe(
+          Effect.mapError(
+            (cause) =>
+              new ClaudeError({ reason: "invalid_output", message: "Claude's answer didn't match the schema", cause })
           )
-        }).pipe(Effect.withSpan("Claude.generate", { attributes: { model } }))
+        )
+      }).pipe(Effect.withSpan("Claude.generate", { attributes: { model } }))
 
-      return Claude.of({ model, available, generate })
-    })
-  )
+    return Claude.of({ model, available, generate })
+  })
+
+  static readonly layer = Layer.effect(Claude, Claude.make())
 }

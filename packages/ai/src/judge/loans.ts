@@ -2,7 +2,7 @@ import type { LoanLinkMeaning } from "@kotori/contracts"
 import type { ChoiceQuestion, EntryType, NoulQuestion, NoulResponse, Question } from "@typesafe-ai/sdk"
 import { Effect } from "effect"
 import { averagedChoice, REVERSED, reversedChoice } from "../providers/choices.ts"
-import type { Jev, JevError } from "../providers/Jev.ts"
+import { type Jev, JevDeadline, type JevError } from "../providers/Jev.ts"
 
 /**
  * The loan pass: Jev's verdict on whether an English word's katakana loan means what the English
@@ -184,7 +184,7 @@ export const judgeLoans = (
     ({ english, candidates }) => {
       const request = loanRequest(english, candidates)
       return jev
-        .ask(request.state, request.questions)
+        .ask(request.state, request.questions, { timeout: JevDeadline.bulk })
         .pipe(Effect.map(({ answers }) => ({ ...interpretLoan(answers, candidates), answers })))
     },
     { concurrency }

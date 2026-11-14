@@ -1,7 +1,9 @@
 import { assert, layer } from "@effect/vitest"
 import { Claude, ClaudeError, ElevenLabs, ExampleWriter, Jev, Pronouncer } from "@kotori/ai"
 import { EntryId, type EntryRecord } from "@kotori/contracts"
-import { Effect, Layer } from "effect"
+import { jobs } from "@kotori/db"
+import { eq } from "drizzle-orm"
+import { Clock, Deferred, Effect, Fiber, Layer } from "effect"
 import { TestClock } from "effect/testing"
 import { Database } from "../src/db/Database.ts"
 import { AudioStore } from "../src/features/audio/AudioStore.ts"
@@ -46,6 +48,11 @@ const FakeJev = Layer.succeed(
 )
 
 let claudeDown = false
+/**
+ * When set, Claude never answers, as a hung request would if it had no deadline of its own, and
+ * this is completed once a request has started.
+ */
+let claudeHangs: Deferred.Deferred<void> | null = null
 /** Whether the Claude probe succeeds: false as with no key, a bad one, or a probe that timed out. */
 let claudeUp = true
 const prompts: Array<string> = []
@@ -57,6 +64,7 @@ const FakeClaude = Layer.succeed(
     available: Effect.sync(() => claudeUp),
     generate: (options) => {
       if (claudeDown) return Effect.fail(new ClaudeError({ reason: "unavailable", message: "Claude is down" }))
+      if (claudeHangs !== null) return Deferred.succeed(claudeHangs, undefined).pipe(Effect.andThen(Effect.never))
       prompts.push(options.prompt)
       return Effect.succeed({
         senses: [
@@ -236,5 +244,68 @@ layer(TestLayer)("the worker", (it) => {
         ]
       )
     })
+  )
+
+  /** The examples job for a fresh entry, its runner, and a way to read the job back. */
+  const hangingJob = (id: number, headword: string) =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const entryId = EntryId.make(id)
+      yield* insertEntries(db, [entry(entryId, headword, headword, [sense(["test"])])])
+      yield* drain(yield* makeJobRunner())
+      const step = yield* makeJobRunner()
+      const started = yield* Deferred.make<void>()
+      claudeHangs = started
+      yield* enqueueJob(db, "examples", entryId, 100, new Date(0))
+      const job = db
+        .select({ status: jobs.status, attempts: jobs.attempts, error: jobs.error, runAfter: jobs.runAfter })
+        .from(jobs)
+        .where(eq(jobs.entryId, entryId))
+        .pipe(
+          Effect.orDie,
+          Effect.map((rows) => rows[0]!)
+        )
+      return { step, started, job }
+    })
+
+  it.effect("fails a job that overruns its deadline and retries it with backoff, rather than leave it running", () =>
+    Effect.gen(function* () {
+      const { step, started, job } = yield* hangingJob(1000002, "遅い")
+      const claimedAt = yield* Clock.currentTimeMillis
+      const running = yield* Effect.forkChild(step)
+      yield* Deferred.await(started)
+      assert.strictEqual((yield* job).status, "running")
+
+      // Nothing happens before the deadline, and the stale-job sweep (10 minutes) never sees it.
+      yield* TestClock.adjust("7 minutes")
+      assert.isUndefined(running.pollUnsafe())
+      yield* TestClock.adjust("1 minute")
+      assert.isTrue(yield* Fiber.join(running))
+
+      const failed = yield* job
+      assert.strictEqual(failed.status, "queued")
+      assert.strictEqual(failed.attempts, 1)
+      assert.include(failed.error ?? "", "TimeoutError")
+      // Retried after the first backoff (30 s doubled once), counted from when it failed.
+      assert.strictEqual(failed.runAfter.getTime(), claimedAt + 8 * 60_000 + 60_000)
+    }).pipe(Effect.ensuring(Effect.sync(() => (claudeHangs = null))))
+  )
+
+  it.effect("puts an interrupted job back in the queue without counting it as a failure", () =>
+    Effect.gen(function* () {
+      const { step, started, job } = yield* hangingJob(1000003, "止め")
+      const running = yield* Effect.forkChild(step)
+      yield* Deferred.await(started)
+
+      // A shutdown (SIGTERM during a deploy) while the job runs.
+      yield* TestClock.adjust("1 minute")
+      yield* Fiber.interrupt(running)
+
+      const released = yield* job
+      assert.strictEqual(released.status, "queued")
+      assert.strictEqual(released.attempts, 0)
+      assert.isNull(released.error)
+      assert.strictEqual(released.runAfter.getTime(), 0)
+    }).pipe(Effect.ensuring(Effect.sync(() => (claudeHangs = null))))
   )
 })

@@ -229,6 +229,14 @@ layer(TestLayer)("Kotori API", (it) => {
       const missing = yield* api.dictionary.entry({ params: { id: 999 as never } }).pipe(Effect.flip)
       assert.strictEqual(missing._tag, "NotFound")
 
+      // The progress the app polls, on its own.
+      assert.deepStrictEqual(yield* api.dictionary.enrichment({ params: { id: english.entries[0]!.id } }), {
+        examples: "unavailable",
+        audio: "unavailable"
+      })
+      const missingProgress = yield* api.dictionary.enrichment({ params: { id: 999 as never } }).pipe(Effect.flip)
+      assert.strictEqual(missingProgress._tag, "NotFound")
+
       // English learners search the English dictionary the same way round.
       yield* insertEntries(db, [
         {

@@ -72,9 +72,14 @@ export class Bucket extends Context.Service<
                 : HttpClientRequest.bodyUint8Array(request, body.bytes, headers["content-type"])
             )
           }).pipe(
-            Effect.catchTag("HttpClientError", (error) =>
-              Effect.fail(new BucketError({ message: `${method} ${name}/${key}: ${error.message}` }))
-            )
+            Effect.catchTag("HttpClientError", (error) => {
+              const cause = describeCause(error.cause)
+              return Effect.fail(
+                new BucketError({
+                  message: `${method} ${name}/${key}: ${error.message}${cause === "" ? "" : ` (${cause})`}`
+                })
+              )
+            })
           )
 
         const failed = (operation: string, key: string, response: HttpClientResponse.HttpClientResponse) =>
@@ -125,6 +130,25 @@ export class Bucket extends Context.Service<
         return Bucket.of({ name, put, get, head })
       })
     )
+}
+
+/**
+ * What's under a request that failed without a response, which `HttpClientError`'s message
+ * leaves out: each cause's code and message, outermost first, so a dropped connection
+ * (`UND_ERR_SOCKET`) reads differently from a timeout or a refused one.
+ */
+export const describeCause = (cause: unknown): string => {
+  const parts: Array<string> = []
+  const seen = new Set<unknown>()
+  let current = cause
+  while (typeof current === "object" && current !== null && !seen.has(current) && parts.length < 5) {
+    seen.add(current)
+    const { code, message } = current as { readonly code?: unknown; readonly message?: unknown }
+    const part = [code, message].filter((value) => typeof value === "string" && value !== "").join(": ")
+    if (part !== "") parts.push(part)
+    current = (current as { readonly cause?: unknown }).cause
+  }
+  return parts.join(" ← ")
 }
 
 /** RFC 3986 percent-encoding, which Signature Version 4 requires of each path segment. */
