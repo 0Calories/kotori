@@ -14,6 +14,7 @@ export {
   requeueJob,
   requeueStaleJobs,
   type Job,
-  type JobKind
+  type JobKind,
+  type JobStatus
 } from "./jobs.ts"
 export { examplesToCome, sentencesHeard, sentencesToVoice } from "./voicing.ts"

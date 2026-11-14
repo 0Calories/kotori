@@ -31,7 +31,7 @@ const signedInUser = {
 
 /** A stand-in for Managed Auth's HTTP endpoints, answering by path. */
 const upstream = (req: IncomingMessage, res: ServerResponse) => {
-  const path = req.url?.slice(BASE_PATH.length).split("?")[0]
+  const path = req.url?.slice(BASE_PATH.length).split("?")[0] ?? ""
   switch (path) {
     case "/verify-email":
       res.writeHead(302, {
