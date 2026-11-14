@@ -1,4 +1,4 @@
-import type { EntryId, Note, NoteSense } from "@kotori/contracts"
+import type { EntryId, Note, NoteSense, SenseLayout } from "@kotori/contracts"
 import type { Strings } from "../i18n/strings.ts"
 
 // A note is a dictionary entry the learner saved, showing the senses they chose in their order
@@ -37,14 +37,17 @@ export const senseHint = (t: Strings, note: Note, sense: NoteSense): string | nu
 export const showsSense = (note: Note | undefined, index: number): boolean =>
   note?.senses.some((sense) => sense.index === index && sense.shown) ?? false
 
+/** What taking a sense off a note asks for: the note `arrange`d without it, or the note's removal. */
+export type SenseRemoval = { readonly kind: "arrange"; readonly senses: SenseLayout } | { readonly kind: "remove" }
+
 /**
- * The layout without one sense, or `remove` when it is the only one shown and so the note itself
- * would go. Hiding a sense the note doesn't show changes nothing.
+ * The layout without one sense, or the note's removal when that is the only one shown, since a
+ * note shows at least one. Hiding a sense the note doesn't show changes nothing.
  */
-export const withoutSense = (note: Note, index: number): ReadonlyArray<number> | "remove" => {
+export const withoutSense = (note: Note, index: number): SenseRemoval => {
   const shown = shownSenses(note).map((sense) => sense.index)
   const kept = shown.filter((own) => own !== index)
-  return kept.length === 0 ? "remove" : kept
+  return kept.length === 0 ? { kind: "remove" } : { kind: "arrange", senses: kept }
 }
 
 /** The senses in an editor, in the note's order: shown ones first, then hidden. */
@@ -92,7 +95,7 @@ export const moveChoice = (
  * The layout the choices ask for: the shown senses in order, or null when that is every sense in
  * the dictionary's order, which also follows senses the entry gains later.
  */
-export const layoutOf = (choices: ReadonlyArray<SenseChoice>): ReadonlyArray<number> | null => {
+export const layoutOf = (choices: ReadonlyArray<SenseChoice>): SenseLayout => {
   const shown = choices.filter((choice) => choice.shown).map((choice) => choice.index)
   const everyInOrder = shown.length === choices.length && shown.every((index, position) => index === position)
   return everyInOrder ? null : shown

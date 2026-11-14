@@ -7,6 +7,7 @@ import {
   entries,
   type EntryId,
   type EntryReview,
+  reviewsWhere,
   entryAudio,
   entryFrequency,
   examples,
@@ -52,31 +53,10 @@ import {
 import { Effect } from "effect"
 import { chunks } from "../../db/chunks.ts"
 import type { DatabaseShape } from "../../db/Database.ts"
+import { type EntryScope, outsideScope, reviewedAs } from "./entryReview.ts"
 import { matchSenses } from "./import/matchSenses.ts"
 import { type ImportEntry, labelsOf, usagePatternsOf, SEED_SOURCES, speaks } from "./import/seedFacts.ts"
 import { unique } from "./shared.ts"
-
-/**
- * Which entries a dictionary read sees: `approved` ones (the dictionary proper), or every `listed`
- * one, Kotori's unreviewed drafts too; a discarded draft is in neither.
- */
-export type EntryScope = "approved" | "listed"
-
-/**
- * Entry ids outside `scope`. Drafts are few, so this reads them through their partial index
- * (`entries_drafts`) rather than joining every entry.
- */
-export const outsideScope = (db: DatabaseShape, scope: EntryScope) => {
-  switch (scope) {
-    case "approved":
-      return db.select({ id: entries.id }).from(entries).where(ne(entries.review, "approved"))
-    case "listed":
-      return db
-        .select({ id: entries.id })
-        .from(entries)
-        .where(and(ne(entries.review, "approved"), eq(entries.review, "discarded")))
-  }
-}
 
 /** Enrichment an entry can be missing, used to find work for the worker. */
 export type EnrichmentKind = (typeof jobKind.enumValues)[number]
@@ -524,6 +504,11 @@ export const insertEntries = Effect.fn("dictionary.insertEntries")(function* (
  * becomes JMDict's, keeping its verdict. Pairs only Kotori names are the loan file's to keep.
  */
 export const linkLoans = Effect.fn("dictionary.linkLoans")(function* (db: DatabaseShape) {
+  // English words a loan may link to: the dictionary's own, never a draft.
+  const inDictionary = sql`(${sql.join(
+    reviewsWhere("inDictionary").map((review) => sql`${review}::entry_review`),
+    sql`, `
+  )})`
   yield* db.transaction((tx) =>
     Effect.gen(function* () {
       // The pairs JMDict names now, by the katakana headword: a pair whose word changed headword
@@ -553,7 +538,7 @@ export const linkLoans = Effect.fn("dictionary.linkLoans")(function* (db: Databa
         WITH matched AS (
           SELECT DISTINCT ON (l.id) l.id, e.id AS entry_id
           FROM ${loanLinks} AS l
-          LEFT JOIN ${entries} AS e ON e.language = 'en' AND e.review = 'approved' AND lower(e.headword) = lower(l.english)
+          LEFT JOIN ${entries} AS e ON e.language = 'en' AND e.review IN ${inDictionary} AND lower(e.headword) = lower(l.english)
           ORDER BY l.id, (e.headword = l.english) DESC NULLS LAST, e.priority DESC NULLS LAST, e.id
         )
         UPDATE ${loanLinks} AS l SET english_entry_id = matched.entry_id
@@ -598,11 +583,11 @@ export const tagNames = (db: DatabaseShape) =>
     )
 
 /** The dictionary's size: approved entries, Kotori's drafts aside. */
-export const entryCount = (db: DatabaseShape) => db.$count(entries, eq(entries.review, "approved")).pipe(Effect.orDie)
+export const entryCount = (db: DatabaseShape) => db.$count(entries, reviewedAs("inDictionary")).pipe(Effect.orDie)
 
 /** Approved entries whose headwords are in `language`. */
 export const countOf = (db: DatabaseShape, language: Language) =>
-  db.$count(entries, and(eq(entries.language, language), eq(entries.review, "approved"))).pipe(Effect.orDie)
+  db.$count(entries, and(eq(entries.language, language), reviewedAs("inDictionary"))).pipe(Effect.orDie)
 
 /**
  * Every approved headword in one dictionary with its entry id, so a re-import keeps ids stable.
@@ -612,7 +597,7 @@ export const headwordIds = Effect.fn("dictionary.headwordIds")(function* (db: Da
   const rows = yield* db
     .select({ id: entries.id, headword: entries.headword })
     .from(entries)
-    .where(and(eq(entries.language, language), eq(entries.review, "approved")))
+    .where(and(eq(entries.language, language), reviewedAs("inDictionary")))
   return new Map(rows.map((row) => [row.headword, row.id]))
 }, Effect.orDie)
 
@@ -639,19 +624,6 @@ export const entryLanguage = Effect.fn("dictionary.entryLanguage")(function* (db
     .from(entries)
     .where(eq(entries.id, id))
   return row
-}, Effect.orDie)
-
-/** Sets the review state of entries Kotori drafted. */
-export const setReview = Effect.fn("dictionary.setReview")(function* (
-  db: DatabaseShape,
-  ids: ReadonlyArray<EntryId>,
-  review: EntryReview
-) {
-  if (ids.length === 0) return
-  yield* db
-    .update(entries)
-    .set({ review })
-    .where(inArray(entries.id, [...ids]))
 }, Effect.orDie)
 
 /** An entry as stored: its record, and where it stands with the admin. */
@@ -746,7 +718,7 @@ export const findForms = Effect.fn("dictionary.findForms")(function* (
   db: DatabaseShape,
   texts: ReadonlyArray<string>,
   language: Language = "ja",
-  scope: EntryScope = "approved"
+  scope: EntryScope = "inDictionary"
 ) {
   if (texts.length === 0) return []
   const match = { entryId: forms.entryId, text: forms.text, kind: forms.kind, tags: listOf(forms.tags) }
@@ -1024,7 +996,7 @@ export const entriesByPriority = Effect.fn("dictionary.entriesByPriority")(funct
     .where(
       and(
         // Kotori's drafts are enriched once approved, not before.
-        eq(entries.review, "approved"),
+        reviewedAs("inDictionary"),
         query.language ? eq(entries.language, query.language) : undefined,
         query.commonOnly ? eq(entries.common, true) : undefined,
         query.missing ? missing(db, query.missing) : undefined

@@ -33,6 +33,35 @@ export const entryReview = pgEnum("entry_review", ["unreviewed", "approved", "di
 export const EntryReview = Schema.Literals(entryReview.enumValues)
 export type EntryReview = typeof EntryReview.Type
 
+/**
+ * What each review state lets an entry do. Every read that treats the states differently asks this
+ * table, so a new state is given its meaning here or fails to compile.
+ */
+export const REVIEW_RULES = {
+  unreviewed: { inDictionary: false, searchable: true, saveable: true },
+  approved: { inDictionary: true, searchable: true, saveable: true },
+  discarded: { inDictionary: false, searchable: false, saveable: false }
+} as const satisfies Record<
+  EntryReview,
+  {
+    /**
+     * Part of the dictionary proper: counted, linked to, kept or removed by re-imports, and
+     * enriched with examples and audio.
+     */
+    readonly inDictionary: boolean
+    /** Found by search and by Ask Kotori's check for a word it already has; a draft shown marked unverified. */
+    readonly searchable: boolean
+    /** A learner can save it to a new note. A note saved before keeps it, whatever its state. */
+    readonly saveable: boolean
+  }
+>
+
+export type ReviewRule = keyof (typeof REVIEW_RULES)[EntryReview]
+
+/** The review states whose entries `rule` holds for. */
+export const reviewsWhere = (rule: ReviewRule): Array<EntryReview> =>
+  entryReview.enumValues.filter((review) => REVIEW_RULES[review][rule])
+
 export const entries = table(
   "entries",
   {

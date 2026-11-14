@@ -13,6 +13,8 @@ import {
   LoanLinkMeaning,
   MAX_CAUTIONS,
   proposalRoute,
+  proposalStatus,
+  REVIEW_RULES,
   SenseOrigin,
   Source,
   tags
@@ -32,6 +34,7 @@ export {
   LabelSeverity,
   LoanLinkMeaning,
   MAX_CAUTIONS,
+  REVIEW_RULES,
   SenseOrigin,
   Source
 }
@@ -289,11 +292,28 @@ export const DraftEntry = Schema.Struct({
 export type DraftEntry = typeof DraftEntry.Type
 
 /**
- * Where Kotori's answer stands, as the app shows it: a drafted entry awaiting the admin
- * (`pending`), approved into the dictionary (`approved`) or turned down (`discarded`), an entry the
- * dictionary already had (`linked`), or a `rejected` query.
+ * Where a drafted answer stands, by its drafted entry's review state: awaiting the admin
+ * (`pending`), approved into the dictionary or discarded, or `removed` when the entry is `gone`
+ * (deleted since, by hand or by a re-import).
  */
-export const ProposalStatus = Schema.Literals(["pending", "linked", "rejected", "approved", "discarded"])
+export const DRAFT_STANDING = {
+  unreviewed: "pending",
+  approved: "approved",
+  discarded: "discarded",
+  gone: "removed"
+} as const satisfies Record<EntryReview | "gone", string>
+
+/** A proposal's stored answer other than a draft, which stands where its entry does (`DRAFT_STANDING`). */
+type Answered = Exclude<(typeof proposalStatus.enumValues)[number], "drafted">
+
+/**
+ * Where Kotori's answer stands, as the app shows it: an entry the dictionary already had
+ * (`linked`), a `rejected` query, or a drafted entry, standing as `DRAFT_STANDING` says.
+ */
+export const ProposalStatus = Schema.Literals([
+  ...proposalStatus.enumValues.filter((status): status is Answered => status !== "drafted"),
+  ...Object.values(DRAFT_STANDING)
+])
 export type ProposalStatus = typeof ProposalStatus.Type
 
 export const ProposalRoute = createSelectSchema(proposalRoute)
@@ -306,7 +326,7 @@ export type ProposalId = typeof ProposalId.Type
  * Kotori's answer to a query the dictionary couldn't: a drafted entry awaiting the admin
  * (`pending`, shown marked unverified), a `linked` entry the dictionary already had, or a
  * `rejected` query with the reason. An `approved` draft is the entry `linked` points at; a
- * `discarded` one was turned down by the admin.
+ * `discarded` one was turned down by the admin; a `removed` one's entry is gone.
  */
 export const Proposal = Schema.Struct({
   id: ProposalId,

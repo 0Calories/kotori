@@ -174,7 +174,7 @@ export const nextEntryId = Effect.fn("asks.nextEntryId")(function* (db: Database
  * cautions and its frequency score as the word's frequency signal, and returns its id. Nothing is
  * enriched until the admin approves it.
  */
-export const writeDraft = Effect.fn("asks.writeDraft")(function* (
+export const writeDraftedEntry = Effect.fn("asks.writeDraftedEntry")(function* (
   db: DatabaseShape,
   draft: DraftEntry,
   language: Language
@@ -189,7 +189,7 @@ export const writeDraft = Effect.fn("asks.writeDraft")(function* (
 })
 
 /** A drafted entry as Ask Kotori's answer shows it: the entry's own facts, all Kotori's. */
-export const draftView = (entry: Entry): DraftView => ({
+export const draftedEntryView = (entry: Entry): DraftView => ({
   id: entry.id,
   headword: entry.headword,
   reading: entry.reading,

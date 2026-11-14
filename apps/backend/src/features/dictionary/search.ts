@@ -4,6 +4,7 @@ import {
   type EntrySummary,
   type Label,
   type Language,
+  REVIEW_RULES,
   type SearchMatch,
   type SearchResult
 } from "@kotori/contracts"
@@ -204,7 +205,7 @@ export const makeSearch = (db: DatabaseShape) => {
     const full = toFullwidth(query)
     const variants = unique([query, full, katakanaToHiragana(query), katakanaToHiragana(full)])
     const candidates = variants.flatMap(deinflect)
-    const matches = yield* findForms(db, unique(candidates.map((candidate) => candidate.term)), "ja", "listed")
+    const matches = yield* findForms(db, unique(candidates.map((candidate) => candidate.term)), "ja", "searchable")
     const entries = new Map((yield* getEntries(db, unique(matches.map((m) => m.entryId)))).map((e) => [e.id, e]))
 
     const exact = matches.flatMap((match): Array<Hit> => {
@@ -318,11 +319,11 @@ export const makeSearch = (db: DatabaseShape) => {
       }
       return byText
     }
-    const whole = formsOf(yield* findForms(db, unique(named.map((name) => name.term)), to, "listed"))
+    const whole = formsOf(yield* findForms(db, unique(named.map((name) => name.term)), to, "searchable"))
     const unmatched = to === "ja" ? named.filter((name) => !whole.has(name.term)) : []
     const glosses = unique(unmatched.map((name) => name.term)).filter((term) => term.length <= INSIDE_GLOSS_MAX)
     const inside = formsOf(
-      glosses.length === 0 ? [] : yield* findForms(db, unique(glosses.flatMap(stretches)), to, "listed")
+      glosses.length === 0 ? [] : yield* findForms(db, unique(glosses.flatMap(stretches)), to, "searchable")
     )
 
     const links = named.flatMap((name) => {
@@ -363,7 +364,7 @@ export const makeSearch = (db: DatabaseShape) => {
       db,
       unique([lower, ...uninflect(lower).map((guess) => guess.base)]),
       "en",
-      "listed"
+      "searchable"
     ))
       // The acronym spelled like the word ("ICK" for "ick") is another word, unless typed so.
       .filter((match) => match.text === query || !isAcronym(match.text))
@@ -421,14 +422,14 @@ export const makeSearch = (db: DatabaseShape) => {
     const guesses = uninflect(query)
     const variants = unique([query, ...englishPhraseVariants(query)])
     const [matches, guessed] = yield* Effect.all([
-      findForms(db, variants, "en", "listed"),
+      findForms(db, variants, "en", "searchable"),
       guesses.length === 0
         ? Effect.succeed([])
         : findForms(
             db,
             guesses.map((guess) => guess.base),
             "en",
-            "listed"
+            "searchable"
           )
     ])
     const prefixIds = yield* findFormPrefix(db, query, 40, "en")
@@ -601,17 +602,9 @@ export const makeSearch = (db: DatabaseShape) => {
     const drafts: Array<Hit> = []
     for (const hit of hits) {
       const review = ranks.get(hit.entryId)?.review
-      switch (review) {
-        case "approved":
-          approved.push(hit)
-          break
-        case "unreviewed":
-          drafts.push(hit)
-          break
-        case "discarded":
-        case undefined:
-          break
-      }
+      // An entry deleted since the hit was found is left out with the unsearchable ones.
+      if (review === undefined || !REVIEW_RULES[review].searchable) continue
+      ;(REVIEW_RULES[review].inDictionary ? approved : drafts).push(hit)
     }
     return [...approved, ...drafts]
   })

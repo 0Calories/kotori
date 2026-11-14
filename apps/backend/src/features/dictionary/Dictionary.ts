@@ -8,7 +8,7 @@ import type {
   RateLimited,
   SearchResult
 } from "@kotori/contracts"
-import type { EntryReview, UserId } from "@kotori/db"
+import { type EntryReview, REVIEW_RULES, type UserId } from "@kotori/db"
 import { Context, Effect, Layer, Match, Option } from "effect"
 import { Database } from "../../db/Database.ts"
 import { assembleEntry } from "./entries.ts"
@@ -65,9 +65,11 @@ export class Dictionary extends Context.Service<
       const { enrichmentOf, requestFor } = yield* makeEnrichmentStatus
       const { search, summarize, lookupWords } = makeSearch(db)
 
-      /** An entry's enrichment status; one the admin hasn't approved gets none until it is. */
+      /** An entry's enrichment status; one outside the dictionary proper gets none until it is in. */
       const statusOf = (entry: { readonly id: EntryId; readonly language: Language; readonly review: EntryReview }) =>
-        entry.review === "approved" ? enrichmentOf(entry) : Effect.map(enrichmentOf(entry), awaitingApproval)
+        REVIEW_RULES[entry.review].inDictionary
+          ? enrichmentOf(entry)
+          : Effect.map(enrichmentOf(entry), awaitingApproval)
 
       const entry = Effect.fn("Dictionary.entry")(function* (id: EntryId) {
         const [record] = yield* getEntries(db, [id])
@@ -83,7 +85,9 @@ export class Dictionary extends Context.Service<
         const found = yield* entryLanguage(db, id)
         if (found === undefined) return Option.none()
         // Approval queues a draft's enrichment; asking before then queues nothing.
-        return Option.some(yield* found.review === "approved" ? requestFor(found, requester) : statusOf(found))
+        return Option.some(
+          yield* REVIEW_RULES[found.review].inDictionary ? requestFor(found, requester) : statusOf(found)
+        )
       })
 
       return Dictionary.of({ search, entry, enrichment, requestEnrichment, summarize, lookupWords })

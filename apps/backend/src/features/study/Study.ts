@@ -10,6 +10,8 @@ import {
   type Profile,
   type Rating,
   type RatingLabels,
+  REVIEW_RULES,
+  type SenseLayout,
   type StudyStats
 } from "@kotori/contracts"
 import {
@@ -27,7 +29,7 @@ import { randomInt, randomUUID } from "node:crypto"
 import { Database } from "../../db/Database.ts"
 import { type Learner, scopedToUser } from "../../db/scopedToUser.ts"
 import { getEntries, notedEntries } from "../dictionary/index.ts"
-import { arrange, layoutProblem } from "./arrange.ts"
+import { arrange, fitsEntry } from "./arrange.ts"
 import { gatherDueNotes } from "./gather.ts"
 import {
   allNotes,
@@ -75,11 +77,7 @@ export class Study extends Context.Service<
     /** Saves an entry, or one of its senses, to the learner's notes; see `AddNoteRequest`. */
     addNote(user: Profile, request: AddNoteRequest): Effect.Effect<Note, NotFound | InvalidRequest>
     /** Chooses which senses a note shows, in order; null shows every sense again. */
-    arrangeNote(
-      user: Profile,
-      id: NoteId,
-      senses: ReadonlyArray<number> | null
-    ): Effect.Effect<Note, NotFound | InvalidRequest>
+    arrangeNote(user: Profile, id: NoteId, senses: SenseLayout): Effect.Effect<Note, NotFound | InvalidRequest>
     removeNote(user: Profile, id: NoteId): Effect.Effect<NoteDeletion>
     dueNotes(user: Profile, limit: number): Effect.Effect<DueNotes>
     answer(
@@ -146,7 +144,7 @@ export class Study extends Context.Service<
         const learner = learnerOf(user)
         const [entry] = yield* getEntries(db, [request.entryId])
         if (entry === undefined) return yield* new NotFound({ message: "No such entry" })
-        if (request.sense !== undefined && layoutProblem([request.sense], entry.senses.length) !== null) {
+        if (request.sense !== undefined && !fitsEntry([request.sense], entry.senses.length)) {
           return yield* new InvalidRequest({ message: "That entry has no such sense" })
         }
 
@@ -162,7 +160,7 @@ export class Study extends Context.Service<
         }
 
         // A discarded draft stays in the notes of whoever saved it, but no one saves it anew.
-        if (entry.review === "discarded")
+        if (!REVIEW_RULES[entry.review].saveable)
           return yield* new InvalidRequest({ message: "That entry isn't in the dictionary" })
         const now = new Date(yield* Clock.currentTimeMillis)
         const saved = yield* insertNote(learner, {
@@ -178,18 +176,15 @@ export class Study extends Context.Service<
         return yield* toNote(saved)
       })
 
-      const arrange_ = Effect.fn("Study.arrangeNote")(function* (
-        user: Profile,
-        id: NoteId,
-        senses: ReadonlyArray<number> | null
-      ) {
+      const arrangeOwnNote = Effect.fn("Study.arrangeNote")(function* (user: Profile, id: NoteId, senses: SenseLayout) {
         const learner = learnerOf(user)
         const found = yield* noteById(learner, id)
         if (Option.isNone(found)) return yield* new NotFound({ message: "No such note" })
         if (senses !== null) {
           const [entry] = yield* getEntries(db, [found.value.entryId])
-          const problem = layoutProblem(senses, entry?.senses.length ?? 0)
-          if (problem !== null) return yield* new InvalidRequest({ message: problem })
+          if (!fitsEntry(senses, entry?.senses.length ?? 0)) {
+            return yield* new InvalidRequest({ message: "That entry has no such sense" })
+          }
         }
         const arranged = yield* arrangeNote(learner, id, senses)
         if (Option.isNone(arranged)) return yield* new NotFound({ message: "No such note" })
@@ -320,7 +315,7 @@ export class Study extends Context.Service<
         }
       })
 
-      return Study.of({ notes, addNote, arrangeNote: arrange_, removeNote, dueNotes, answer, stats })
+      return Study.of({ notes, addNote, arrangeNote: arrangeOwnNote, removeNote, dueNotes, answer, stats })
     })
   )
 }

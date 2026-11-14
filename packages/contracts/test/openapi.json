@@ -2192,11 +2192,12 @@
                     "status": {
                       "type": "string",
                       "enum": [
-                        "pending",
                         "linked",
                         "rejected",
+                        "pending",
                         "approved",
-                        "discarded"
+                        "discarded",
+                        "removed"
                       ]
                     },
                     "draft": {
@@ -2974,11 +2975,12 @@
                       "status": {
                         "type": "string",
                         "enum": [
-                          "pending",
                           "linked",
                           "rejected",
+                          "pending",
                           "approved",
-                          "discarded"
+                          "discarded",
+                          "removed"
                         ]
                       },
                       "draft": {
@@ -4395,7 +4397,12 @@
                             "index": {
                               "type": "integer",
                               "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
+                              "maximum": 9007199254740991,
+                              "allOf": [
+                                {
+                                  "minimum": 0
+                                }
+                              ]
                             },
                             "glosses": {
                               "type": "array",
@@ -4948,7 +4955,12 @@
                           "index": {
                             "type": "integer",
                             "minimum": -9007199254740991,
-                            "maximum": 9007199254740991
+                            "maximum": 9007199254740991,
+                            "allOf": [
+                              {
+                                "minimum": 0
+                              }
+                            ]
                           },
                           "glosses": {
                             "type": "array",
@@ -5349,7 +5361,12 @@
                       {
                         "type": "integer",
                         "minimum": -9007199254740991,
-                        "maximum": 9007199254740991
+                        "maximum": 9007199254740991,
+                        "allOf": [
+                          {
+                            "minimum": 0
+                          }
+                        ]
                       },
                       {
                         "type": "null"
@@ -5564,7 +5581,12 @@
                           "index": {
                             "type": "integer",
                             "minimum": -9007199254740991,
-                            "maximum": 9007199254740991
+                            "maximum": 9007199254740991,
+                            "allOf": [
+                              {
+                                "minimum": 0
+                              }
+                            ]
                           },
                           "glosses": {
                             "type": "array",
@@ -5962,9 +5984,15 @@
                         "items": {
                           "type": "integer",
                           "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
+                          "maximum": 9007199254740991,
+                          "allOf": [
+                            {
+                              "minimum": 0
+                            }
+                          ]
                         },
-                        "minItems": 1
+                        "minItems": 1,
+                        "uniqueItems": true
                       },
                       {
                         "type": "null"
@@ -6257,7 +6285,12 @@
                                     "index": {
                                       "type": "integer",
                                       "minimum": -9007199254740991,
-                                      "maximum": 9007199254740991
+                                      "maximum": 9007199254740991,
+                                      "allOf": [
+                                        {
+                                          "minimum": 0
+                                        }
+                                      ]
                                     },
                                     "glosses": {
                                       "type": "array",
@@ -6925,7 +6958,12 @@
                               "index": {
                                 "type": "integer",
                                 "minimum": -9007199254740991,
-                                "maximum": 9007199254740991
+                                "maximum": 9007199254740991,
+                                "allOf": [
+                                  {
+                                    "minimum": 0
+                                  }
+                                ]
                               },
                               "glosses": {
                                 "type": "array",

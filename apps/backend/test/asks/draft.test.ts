@@ -9,7 +9,7 @@ import { join } from "node:path"
 import { Database } from "../../src/db/Database.ts"
 import { migrationsFolder } from "../../src/db/Migrate.ts"
 import { ensureUser } from "../../src/features/accounts/queries.ts"
-import { checkDraft, draftView, writeDraft } from "../../src/features/asks/draft.ts"
+import { checkDraft, draftedEntryView, writeDraftedEntry } from "../../src/features/asks/draft.ts"
 import { assembleEntry } from "../../src/features/dictionary/entries.ts"
 import { getEntries, insertEntries } from "../../src/features/dictionary/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
@@ -152,11 +152,11 @@ layer(DatabaseMemory)("drafts", (it) => {
             senses: [sense(["upper part"])]
           }
         ])
-        const id = yield* writeDraft(db, stored, "ja")
+        const id = yield* writeDraftedEntry(db, stored, "ja")
         const [record] = yield* getEntries(db, [id])
         assert.strictEqual(record?.review, "unreviewed")
         assert.strictEqual(record?.source, "kotori")
-        const view = draftView(
+        const view = draftedEntryView(
           yield* assembleEntry(db, record!, Effect.succeed({ examples: "unavailable", audio: "unavailable" }))
         )
         assert.strictEqual(view.id, id)

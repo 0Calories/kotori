@@ -1,6 +1,7 @@
 import type { Claude, Lexicographer } from "@kotori/ai"
+import { ProposalStatus } from "@kotori/contracts"
 import { entries, proposalAsks, proposals } from "@kotori/db"
-import { count, desc, eq } from "drizzle-orm"
+import { and, count, desc, eq } from "drizzle-orm"
 import { Console, Effect, type Layer, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { Database } from "../db/Database.ts"
@@ -11,7 +12,7 @@ import {
   discardProposal,
   redoProposal
 } from "../features/asks/review.ts"
-import { standing } from "../features/asks/queries.ts"
+import { standing, standingIs } from "../features/asks/queries.ts"
 import type { Dictionary } from "../features/dictionary/Dictionary.ts"
 import { getEntries } from "../features/dictionary/index.ts"
 import { resolveFromRoot } from "../runtime/Paths.ts"
@@ -26,7 +27,7 @@ const notPending = (id: number, status: string) => Console.error(`Proposal ${id}
 const list = Command.make(
   "list",
   {
-    status: Flag.Literals("status", ["pending", "linked", "rejected", "approved", "discarded", "all"]).pipe(
+    status: Flag.Literals("status", [...ProposalStatus.literals, "all"]).pipe(
       Flag.withDescription(
         "Which proposals to list: pending by default, rejected with --contested; rejected ones are worth a look for false negatives"
       ),
@@ -51,15 +52,18 @@ const list = Command.make(
       .from(proposals)
       .leftJoin(entries, eq(entries.id, proposals.entryId))
       .leftJoin(proposalAsks, eq(proposalAsks.proposalId, proposals.id))
-      .where(contested ? eq(proposals.contested, true) : undefined)
+      .where(
+        and(
+          // A draft stands where its entry does, so the filter reads both.
+          status === "all" ? undefined : standingIs(status),
+          contested ? eq(proposals.contested, true) : undefined
+        )
+      )
       .groupBy(proposals.id, entries.id)
       .orderBy(desc(proposals.createdAt))
+      .limit(200)
       .pipe(Effect.orDie)
-    // A draft stands where its entry does, so the filter reads both.
-    const shown = rows
-      .map((row) => ({ ...row, standing: standing(row.proposal.status, row.review) }))
-      .filter((row) => status === "all" || row.standing === status)
-      .slice(0, 200)
+    const shown = rows.map((row) => ({ ...row, standing: standing(row.proposal.status, row.review ?? "gone") }))
     if (shown.length === 0) {
       return yield* Console.log(status === "pending" && !contested ? "Nothing waiting." : "Nothing there.")
     }
@@ -91,7 +95,7 @@ const show = Command.make(
     if (proposal === undefined) return yield* notFound(id)
     const [entry] = proposal.entryId === null ? [] : yield* getEntries(db, [proposal.entryId])
     yield* Console.log(
-      JSON.stringify({ ...proposal, standing: standing(proposal.status, entry?.review ?? null), entry }, null, 2)
+      JSON.stringify({ ...proposal, standing: standing(proposal.status, entry?.review ?? "gone"), entry }, null, 2)
     )
   })
 ).pipe(Command.withDescription("Show one proposal in full, with the entry it names"))

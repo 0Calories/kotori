@@ -3,12 +3,14 @@ import type {
   EnrichmentStatus,
   Entry,
   EntryCaution,
+  EntryReview,
   Label,
   LabelCode,
   LabelSeverity,
   Sense,
   Source
 } from "@kotori/contracts"
+import type { Tone } from "../components/Chip.tsx"
 import type { IconName } from "../components/Icon.tsx"
 import type { Strings } from "../i18n/strings.ts"
 
@@ -223,4 +225,30 @@ export const CAUTION_ICON: Record<CautionKind, IconName> = {
   confusable: "call_split",
   collocation: "link",
   tone: "monitoring"
+}
+
+/**
+ * How an entry is marked for where it stands with the admin, wherever it is shown: as a chip in a
+ * list, and as a notice on its page. An approved word carries no mark.
+ */
+export interface ReviewMark {
+  readonly chip: { readonly tone: Tone; readonly icon?: IconName; readonly label: string }
+  readonly notice: { readonly tone: "primary" | "accent"; readonly message: string }
+}
+
+export const reviewMark = (t: Strings, review: EntryReview): ReviewMark | null => {
+  switch (review) {
+    case "approved":
+      return null
+    case "unreviewed":
+      return {
+        chip: { tone: "accent", icon: "auto_awesome", label: t.dictionary.askDraft },
+        notice: { tone: "primary", message: t.entry.unverified }
+      }
+    case "discarded":
+      return {
+        chip: { tone: "neutral", label: t.entry.notAdded },
+        notice: { tone: "accent", message: t.entry.notAdded }
+      }
+  }
 }

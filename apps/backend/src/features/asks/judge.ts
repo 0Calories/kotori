@@ -2,12 +2,12 @@ import { type ClaudeError, CONTESTED_AT, type DraftCandidate, Lexicographer, typ
 import { AiUnavailable, type Language, RateLimited } from "@kotori/contracts"
 import type { AskTriage, DraftEntry, EntryId } from "@kotori/db"
 import { katakanaToHiragana } from "@kotori/language"
-import { Effect, Option } from "effect"
+import { Effect, Match, Option } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 import { Dictionary } from "../dictionary/Dictionary.ts"
 import { entryRanks, findForms } from "../dictionary/queries.ts"
 import { checkDraft } from "./draft.ts"
-import type { Verdict } from "./queries.ts"
+import type { DraftedEntryState, Verdict } from "./queries.ts"
 
 /** Jev's routing of a query: as stored with the proposal, and as read (`interpretTriage`). */
 export interface Triaged {
@@ -30,14 +30,14 @@ const fromClaude = (error: ClaudeError): AiUnavailable | RateLimited =>
  */
 const duplicateOf = Effect.fnUntraced(function* (db: DatabaseShape, draft: DraftEntry, language: Language) {
   const texts = [draft.headword, ...draft.spellings]
-  const forms = (yield* findForms(db, texts, language, "listed")).filter((form) => form.kind !== "inflection")
+  const forms = (yield* findForms(db, texts, language, "searchable")).filter((form) => form.kind !== "inflection")
   let ids = new Set(forms.map((form) => form.entryId))
   if (language === "en") {
     const exact = new Set(forms.filter((form) => texts.includes(form.text)).map((form) => form.entryId))
     if (exact.size > 0) ids = exact
   } else if (draft.reading.length > 0) {
     const readings = [...new Set([draft.reading, katakanaToHiragana(draft.reading)])]
-    const read = new Set((yield* findForms(db, readings, language, "listed")).map((form) => form.entryId))
+    const read = new Set((yield* findForms(db, readings, language, "searchable")).map((form) => form.entryId))
     ids = new Set([...ids].filter((id) => read.has(id)))
   }
   const [only, ...more] = ids
@@ -66,12 +66,19 @@ export const judge = Effect.fn("asks.judge")(function* (
   }))
   const output = yield* lexicographer.draft({ query, language, candidates }).pipe(Effect.mapError(fromClaude))
   const base = { model: output.model, route: "lookup" as const, triage: triaged?.record ?? null, contested: false }
-  // An entry the dictionary has is linked; one Kotori drafted before is that draft again.
+  // An entry the dictionary has is linked; one Kotori drafted before is that draft again, standing
+  // where it does (a discarded one stays discarded).
   const answerWith = Effect.fnUntraced(function* (entryId: EntryId) {
-    const review = (yield* entryRanks(db, [entryId])).get(entryId)?.review
+    const entry: DraftedEntryState = (yield* entryRanks(db, [entryId])).get(entryId)?.review ?? "gone"
     return {
       ...base,
-      status: review === "unreviewed" ? "drafted" : "linked",
+      status: Match.value(entry).pipe(
+        Match.when("approved", () => "linked" as const),
+        Match.whenOr("unreviewed", "discarded", () => "drafted" as const),
+        // Deleted since it was found: a draft of it would stand as removed, and a link links nothing.
+        Match.when("gone", () => "linked" as const),
+        Match.exhaustive
+      ),
       draft: null,
       entryId,
       reason: null

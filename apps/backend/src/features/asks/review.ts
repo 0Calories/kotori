@@ -9,7 +9,7 @@ import {
   findForms,
   getEntries,
   insertEntries,
-  setReview,
+  reviewEntries,
   type StoredEntry
 } from "../dictionary/index.ts"
 import { APPROVED_EN_FILE, serializeApprovedLine } from "../dictionary/import/english/approved.ts"
@@ -17,7 +17,7 @@ import { toConsolidatedWord } from "../dictionary/import/english/words.ts"
 import type { ImportEntry } from "../dictionary/import/seedFacts.ts"
 import { cautionsFor, frequencyFor } from "../dictionary/usage.ts"
 import { enqueueJob } from "../enrichment/index.ts"
-import { draftFrequency, draftToRecord, kanaOnly, writeDraft } from "./draft.ts"
+import { draftFrequency, draftToRecord, kanaOnly, writeDraftedEntry } from "./draft.ts"
 import { judge } from "./judge.ts"
 import { moveNotes, repointProposals, standing, updateVerdict } from "./queries.ts"
 
@@ -108,10 +108,10 @@ const proposalById = Effect.fn("review.proposalById")(function* (db: DatabaseSha
 })
 
 /** A proposal whose drafted entry still waits for the admin, with that entry: all the admin can act on. */
-const pendingDraft = Effect.fn("review.pendingDraft")(function* (db: DatabaseShape, id: number) {
+const pendingDraftedEntry = Effect.fn("review.pendingDraftedEntry")(function* (db: DatabaseShape, id: number) {
   const proposal = yield* proposalById(db, id)
   const [entry] = proposal.entryId === null ? [] : yield* getEntries(db, [proposal.entryId])
-  const status = standing(proposal.status, entry?.review ?? null)
+  const status = standing(proposal.status, entry?.review ?? "gone")
   if (status !== "pending" || entry === undefined) return yield* new NotPending({ id, status })
   return { proposal, entry }
 })
@@ -149,8 +149,8 @@ export const approveProposal = Effect.fn("review.approveProposal")(function* (
   files: ApprovedFiles,
   approval: Approval = {}
 ) {
-  const { entry: draft } = yield* pendingDraft(db, id)
-  const language = draft.language
+  const { entry: drafted } = yield* pendingDraftedEntry(db, id)
+  const language = drafted.language
   const file = language === "en" ? files.en : files.ja
   const now = new Date()
 
@@ -158,7 +158,7 @@ export const approveProposal = Effect.fn("review.approveProposal")(function* (
     const matches = yield* findForms(db, [approval.aliasOf], language)
     const base = matches.find((match) => match.kind !== "inflection")
     if (base === undefined) return yield* new NoSuchAlias({ text: approval.aliasOf })
-    const alias = approval.headword ?? draft.headword
+    const alias = approval.headword ?? drafted.headword
     const [record] = yield* getEntries(db, [base.entryId])
     if (record === undefined) return yield* new NoSuchAlias({ text: approval.aliasOf })
     // The alias joins the entry's forms now, and the approved file replays it on every import.
@@ -172,16 +172,16 @@ export const approveProposal = Effect.fn("review.approveProposal")(function* (
         ? serializeApprovedLine({ alias: { text: alias, base: approval.aliasOf } })
         : `${encodeJaLine({ alias: { text: alias, base: approval.aliasOf } })}\n`
     )
-    yield* moveNotes(db, draft.id, base.entryId)
-    yield* repointProposals(db, draft.id, base.entryId, now)
-    yield* deleteEntries(db, [draft.id])
+    yield* moveNotes(db, drafted.id, base.entryId)
+    yield* repointProposals(db, drafted.id, base.entryId, now)
+    yield* deleteEntries(db, [drafted.id])
     return { entryId: base.entryId, headword: record.headword, alias }
   }
 
-  const entry = approval.headword === undefined ? draft : renamed(draft, approval.headword)
+  const entry = approval.headword === undefined ? drafted : renamed(drafted, approval.headword)
   // Not seeded: the draft's frequency score, stored when it was drafted, stays its signal.
-  if (entry !== draft) yield* insertEntries(db, [entry])
-  yield* setReview(db, [entry.id], "approved")
+  if (entry !== drafted) yield* insertEntries(db, [entry])
+  yield* reviewEntries(db, [entry.id], "approve")
   for (const kind of ["examples", "audio"] as const) yield* enqueueJob(db, kind, entry.id, 500, now)
   const frequency = (yield* frequencyFor(db, entry.id))?.score ?? undefined
   const cautions = draftedCautions(yield* cautionsFor(db, entry.id))
@@ -237,8 +237,8 @@ export const discardProposal = Effect.fn("review.discardProposal")(function* (
   id: number,
   reason: string | null
 ) {
-  const { proposal, entry } = yield* pendingDraft(db, id)
-  yield* setReview(db, [entry.id], "discarded")
+  const { proposal, entry } = yield* pendingDraftedEntry(db, id)
+  yield* reviewEntries(db, [entry.id], "discard")
   yield* db.update(proposals).set({ reason, reviewedAt: new Date() }).where(eq(proposals.id, id)).pipe(Effect.orDie)
   return { query: proposal.query }
 })
@@ -257,7 +257,7 @@ export const redoProposal = Effect.fn("review.redoProposal")(function* (db: Data
   const triaged =
     proposal.triage === null ? null : { record: proposal.triage, reading: interpretTriage(proposal.triage.answers) }
   const { draft, ...verdict } = yield* judge(db, proposal.query, proposal.language, triaged)
-  const entryId = draft === null ? verdict.entryId : yield* writeDraft(db, draft, proposal.language)
+  const entryId = draft === null ? verdict.entryId : yield* writeDraftedEntry(db, draft, proposal.language)
   const updated = yield* updateVerdict(db, id, { ...verdict, entryId })
   const [named] = updated.entryId === null ? [] : yield* getEntries(db, [updated.entryId])
   return { proposal: updated, headword: named?.headword ?? null }

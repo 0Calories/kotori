@@ -1,3 +1,4 @@
+import type { SenseLayout } from "@kotori/contracts"
 import { type EntryId, type NoteId, notes, reviewLogs } from "@kotori/db"
 import { asc, count, countDistinct, desc, eq, gte, inArray, lt, lte, min, sql } from "drizzle-orm"
 import { Effect, Option } from "effect"
@@ -76,7 +77,7 @@ export const noteByEntry = (learner: Learner, entryId: EntryId) =>
     )
 
 /** Sets which senses an owned note shows, in order (null for every sense); none when it isn't theirs. */
-export const arrangeNote = (learner: Learner, noteId: NoteId, senses: ReadonlyArray<number> | null) =>
+export const arrangeNote = (learner: Learner, noteId: NoteId, senses: SenseLayout) =>
   learner.db
     .update(notes)
     .set({ senses: senses === null ? null : [...senses] })

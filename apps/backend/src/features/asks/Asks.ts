@@ -9,14 +9,15 @@ import {
   RateLimited
 } from "@kotori/contracts"
 import { normalizeAsk } from "@kotori/language"
-import { Clock, Config, Context, Effect, Layer, Option } from "effect"
+import { Clock, Config, Context, Effect, Layer, Match, Option } from "effect"
 import { Database } from "../../db/Database.ts"
 import { scopedToUser } from "../../db/scopedToUser.ts"
 import { reserveUsage } from "../coaching/queries.ts"
 import { Dictionary } from "../dictionary/Dictionary.ts"
 import { deleteEntries } from "../dictionary/index.ts"
 import { entryRanks } from "../dictionary/queries.ts"
-import { draftView, writeDraft } from "./draft.ts"
+import { unique } from "../dictionary/shared.ts"
+import { draftedEntryView, writeDraftedEntry } from "./draft.ts"
 import { turnAway } from "./garbage.ts"
 import { judge, type Triaged } from "./judge.ts"
 import {
@@ -66,7 +67,7 @@ export class Asks extends Context.Service<
 
       /** Proposals as the app reads them, each standing where its entry does. */
       const toProposals = Effect.fnUntraced(function* (rows: ReadonlyArray<ProposalRow>) {
-        const ids = [...new Set(rows.flatMap((row) => (row.entryId === null ? [] : [row.entryId])))]
+        const ids = unique(rows.flatMap((row) => (row.entryId === null ? [] : [row.entryId])))
         const reviews = yield* entryRanks(db, ids)
         const summaries = new Map(
           (ids.length === 0 ? [] : yield* dictionary.summarize(ids)).map((entry) => [entry.id, entry])
@@ -76,20 +77,26 @@ export class Asks extends Context.Service<
           Effect.fnUntraced(function* (row) {
             const status = standing(
               row.status,
-              row.entryId === null ? null : (reviews.get(row.entryId)?.review ?? null)
+              row.entryId === null ? "gone" : (reviews.get(row.entryId)?.review ?? "gone")
+            )
+            // What the answer shows of its entry: the draft itself, the entry as a link, or nothing.
+            const shows = Match.value(status).pipe(
+              Match.when("pending", () => "draft" as const),
+              Match.whenOr("linked", "approved", () => "link" as const),
+              Match.whenOr("rejected", "discarded", "removed", () => "nothing" as const),
+              Match.exhaustive
             )
             const draft =
-              status === "pending" && row.entryId !== null
-                ? Option.getOrNull(Option.map(yield* dictionary.entry(row.entryId), draftView))
+              shows === "draft" && row.entryId !== null
+                ? Option.getOrNull(Option.map(yield* dictionary.entry(row.entryId), draftedEntryView))
                 : null
-            const named = status === "linked" || status === "approved"
             return {
               id: ProposalId.make(row.id),
               query: row.query,
               language: row.language,
               status,
               draft,
-              linked: named && row.entryId !== null ? (summaries.get(row.entryId) ?? null) : null,
+              linked: shows === "link" && row.entryId !== null ? (summaries.get(row.entryId) ?? null) : null,
               reason: row.reason,
               route: row.route
             } satisfies Proposal
@@ -167,7 +174,7 @@ export class Asks extends Context.Service<
 
         const settle = Effect.fnUntraced(function* ({ draft, ...verdict }: Verdict) {
           // A new draft is an entry before the proposal names it.
-          const drafted = draft === null ? null : yield* writeDraft(db, draft, language)
+          const drafted = draft === null ? null : yield* writeDraftedEntry(db, draft, language)
           const entryId = drafted ?? verdict.entryId
           const row = yield* insertProposal(db, { language, query, ...verdict, entryId, requestedBy: user.id, now })
           // Another learner asked the same at the same moment and their answer stands: ours goes.

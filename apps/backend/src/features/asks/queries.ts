@@ -1,16 +1,18 @@
-import type { ProposalStatus } from "@kotori/contracts"
+import { DRAFT_STANDING, type ProposalStatus } from "@kotori/contracts"
 import {
   type AskTriage,
   type DraftEntry,
+  entries,
   type EntryId,
   type EntryReview,
+  entryReview,
   type Language,
   notes,
   proposalAsks,
   proposals,
   type UserId
 } from "@kotori/db"
-import { and, desc, eq, inArray } from "drizzle-orm"
+import { and, desc, eq, inArray, isNull, or, type SQL } from "drizzle-orm"
 import { Effect, Match, Option } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 
@@ -18,7 +20,7 @@ export type ProposalRow = typeof proposals.$inferSelect
 
 /**
  * What an answer settled: the fields Claude's or Jev's verdict writes, on creation and on a redo.
- * A new draft comes as `draft`, for `writeDraft` to make an entry of; an answer naming an entry
+ * A new draft comes as `draft`, for `writeDraftedEntry` to make an entry of; an answer naming an entry
  * that is already there (linked, or a draft drafted before) comes as `entryId`.
  */
 export interface Verdict {
@@ -42,27 +44,46 @@ export interface NewProposal extends SettledVerdict {
   readonly now: Date
 }
 
+/** A drafted answer's entry: its review state, or `gone` when it was deleted since. */
+export type DraftedEntryState = EntryReview | "gone"
+
 /**
  * Where a proposal stands, as the app and the admin read it: a drafted one by its entry's review
- * state, the others by their own status. A draft whose entry is gone reads as approved with
- * nothing to link to, as an approval whose entry went did before.
+ * state (`DRAFT_STANDING`), the others by their own status.
  */
-export const standing = (status: ProposalRow["status"], review: EntryReview | null): ProposalStatus => {
+export const standing = (status: ProposalRow["status"], entry: DraftedEntryState): ProposalStatus => {
   switch (status) {
     case "linked":
       return "linked"
     case "rejected":
       return "rejected"
     case "drafted":
-      return Match.value(review).pipe(
-        Match.when("unreviewed", () => "pending" as const),
-        Match.when("approved", () => "approved" as const),
-        Match.when("discarded", () => "discarded" as const),
-        Match.when(null, () => "approved" as const),
-        Match.exhaustive
-      )
+      return DRAFT_STANDING[entry]
   }
 }
+
+const DRAFTED_ENTRY_STATES: ReadonlyArray<DraftedEntryState> = [...entryReview.enumValues, "gone"]
+
+/**
+ * A filter on proposals left-joined to their entries for those standing as `shown`: `standing`
+ * turned around, so a list can be filtered and limited in the database.
+ */
+export const standingIs = (shown: ProposalStatus): SQL | undefined =>
+  Match.value(shown).pipe(
+    Match.when("linked", () => eq(proposals.status, "linked")),
+    Match.when("rejected", () => eq(proposals.status, "rejected")),
+    // Every other standing is a drafted answer's, read from its entry as `DRAFT_STANDING` says.
+    Match.orElse((drafted) =>
+      and(
+        eq(proposals.status, "drafted"),
+        or(
+          ...DRAFTED_ENTRY_STATES.filter((entry) => DRAFT_STANDING[entry] === drafted).map((entry) =>
+            entry === "gone" ? isNull(entries.id) : eq(entries.review, entry)
+          )
+        )
+      )
+    )
+  )
 
 /** Replaces a proposal's answer (a redo), clearing any review. */
 export const updateVerdict = (db: DatabaseShape, id: number, verdict: SettledVerdict) =>

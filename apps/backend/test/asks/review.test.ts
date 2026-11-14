@@ -21,7 +21,7 @@ import { join } from "node:path"
 import { afterAll } from "vitest"
 import { Database } from "../../src/db/Database.ts"
 import { ensureUser } from "../../src/features/accounts/queries.ts"
-import { draftToRecord, writeDraft } from "../../src/features/asks/draft.ts"
+import { draftToRecord, writeDraftedEntry } from "../../src/features/asks/draft.ts"
 import { approveProposal, discardProposal, parseApprovedJa } from "../../src/features/asks/review.ts"
 import { parseApproved } from "../../src/features/dictionary/import/english/approved.ts"
 import { findForms, getEntries, insertEntries } from "../../src/features/dictionary/queries.ts"
@@ -64,7 +64,7 @@ const propose = Effect.fnUntraced(function* (
   query: string,
   entry: DraftEntry
 ) {
-  const entryId = yield* writeDraft(db, entry, language)
+  const entryId = yield* writeDraftedEntry(db, entry, language)
   const [row] = yield* db
     .insert(proposals)
     .values({
@@ -126,7 +126,7 @@ layer(TestLayer)("proposal review", (it) => {
       // Until approved, the draft is an unreviewed entry a link never lands on, and a learner can save it.
       assert.strictEqual(yield* reviewOf(db, entryId), "unreviewed")
       assert.deepStrictEqual(yield* findForms(db, ["bussin'"], "en"), [])
-      assert.strictEqual((yield* findForms(db, ["bussin'"], "en", "listed"))[0]?.entryId, entryId)
+      assert.strictEqual((yield* findForms(db, ["bussin'"], "en", "searchable"))[0]?.entryId, entryId)
       yield* saveNote(db, entryId, [1])
       // Nothing is enriched before approval.
       assert.strictEqual((yield* jobStatusFor(db, entryId)).size, 0)
@@ -286,7 +286,7 @@ layer(TestLayer)("proposal review", (it) => {
       const discarded = yield* discardProposal(db, id, "not established usage")
       assert.strictEqual(discarded.query, "slopword")
       assert.strictEqual(yield* reviewOf(db, entryId), "discarded")
-      assert.deepStrictEqual(yield* findForms(db, ["slopword"], "en", "listed"), [])
+      assert.deepStrictEqual(yield* findForms(db, ["slopword"], "en", "searchable"), [])
       assert.strictEqual((yield* db.select().from(notes).where(eq(notes.entryId, entryId))).length, 1)
       const approving = yield* Effect.flip(approveProposal(db, id, files))
       assert.deepStrictEqual(

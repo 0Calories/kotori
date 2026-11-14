@@ -1,4 +1,4 @@
-import type { Note } from "@kotori/contracts"
+import type { Note, SenseLayout } from "@kotori/contracts"
 import { useRouter } from "expo-router"
 import { useMemo, useState } from "react"
 import { View } from "react-native"
@@ -17,6 +17,7 @@ import { SearchField } from "../src/components/SearchField.tsx"
 import { ErrorState, MascotMessage } from "../src/components/States.tsx"
 import { Text } from "../src/components/Text.tsx"
 import { searchNotes } from "../src/lib/noteSearch.ts"
+import { reviewMark } from "../src/lib/entry.ts"
 import { choicesOf, glossLine, layoutOf, moveChoice, noteMeaning, shownSenses, toggleChoice } from "../src/lib/notes.ts"
 import { useReadingPhase } from "../src/lib/readingPhase.ts"
 import { useSession } from "../src/session/SessionProvider.tsx"
@@ -34,7 +35,7 @@ const SenseEditor = ({ note, onClose }: { readonly note: Note; readonly onClose:
   const glosses = new Map(note.senses.map((sense) => [sense.index, sense.glosses]))
   const shownCount = choices.filter((choice) => choice.shown).length
 
-  const save = async (layout: ReadonlyArray<number> | null) => {
+  const save = async (layout: SenseLayout) => {
     setError(null)
     // Unchanged: nothing to send.
     const before = note.arranged ? shownSenses(note).map((sense) => sense.index) : null
@@ -129,6 +130,7 @@ const NoteRow = ({ note }: { readonly note: Note }) => {
   const learning = note.retentionStage !== "new"
   const leech = note.leech
   const hidden = note.senses.length - shownSenses(note).length
+  const mark = reviewMark(t, entry.review)
 
   const confirm = async () => {
     setError(null)
@@ -181,11 +183,7 @@ const NoteRow = ({ note }: { readonly note: Note }) => {
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
                 <Chip tone={learning ? "primary" : "neutral"} label={learning ? t.review.learning : t.review.new} />
                 {leech ? <Chip tone="accent" icon="error" label="leech" /> : null}
-                {entry.review === "unreviewed" ? (
-                  <Chip tone="accent" icon="auto_awesome" label={t.dictionary.askDraft} />
-                ) : entry.review === "discarded" ? (
-                  <Chip tone="neutral" label={t.entry.notAdded} />
-                ) : null}
+                {mark === null ? null : <Chip {...mark.chip} />}
                 {hidden > 0 ? <Chip tone="neutral" label={t.saved.hidden(hidden)} /> : null}
               </View>
             </PressableScale>

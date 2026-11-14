@@ -38,8 +38,8 @@ describe("a note's senses on the entry page", () => {
   })
 
   it("takes a meaning off the note, or the note itself when it's the last one shown", () => {
-    assert.deepStrictEqual(withoutSense(taberu(), 1), [0, 2])
-    assert.strictEqual(withoutSense(taberu([false, true, false]), 1), "remove")
+    assert.deepStrictEqual(withoutSense(taberu(), 1), { kind: "arrange", senses: [0, 2] })
+    assert.deepStrictEqual(withoutSense(taberu([false, true, false]), 1), { kind: "remove" })
   })
 
   it("reads as the glosses of the senses it shows", () => {

@@ -5,7 +5,7 @@ import { entryClips, exampleClips } from "../audio/index.ts"
 import { examplesFor, sentencesHeard } from "../enrichment/index.ts"
 import { toExample } from "./entries.ts"
 import { getEntries } from "./queries.ts"
-import { audioUrl } from "./shared.ts"
+import { audioUrl, unique } from "./shared.ts"
 import { senseLabels } from "./similar.ts"
 import { labelsBySense, takeawaysBySense } from "./usage.ts"
 
@@ -26,7 +26,7 @@ export const notedEntries = Effect.fn("dictionary.notedEntries")(function* (
   ids: ReadonlyArray<EntryId>
 ) {
   const found = new Map<EntryId, Noted>()
-  const wanted = [...new Set(ids)]
+  const wanted = unique(ids)
   if (wanted.length === 0) return found
   const records = yield* getEntries(db, wanted)
   const labels = yield* labelsBySense(db, wanted)

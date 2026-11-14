@@ -1,4 +1,5 @@
-import type { NoteSense } from "@kotori/contracts"
+import type { NoteSense, SenseIndex, SenseLayout } from "@kotori/contracts"
+import { Array as Arr } from "effect"
 
 /**
  * A note's senses as it shows them: those the learner chose (`layout`), in their order, then the
@@ -7,9 +8,9 @@ import type { NoteSense } from "@kotori/contracts"
  */
 export const arrange = (
   senses: ReadonlyArray<Omit<NoteSense, "shown">>,
-  layout: ReadonlyArray<number> | null
+  layout: SenseLayout
 ): { readonly senses: ReadonlyArray<NoteSense>; readonly arranged: boolean } => {
-  const chosen = [...new Set(layout ?? [])].filter((index) => senses[index] !== undefined)
+  const chosen = Arr.dedupe(layout ?? []).filter((index) => senses[index] !== undefined)
   if (chosen.length === 0) return { senses: senses.map((sense) => ({ ...sense, shown: true })), arranged: false }
   return {
     senses: [
@@ -20,11 +21,9 @@ export const arrange = (
   }
 }
 
-/** Why a choice of senses can't be kept, or null when it can: each a sense the entry has, once. */
-export const layoutProblem = (layout: ReadonlyArray<number>, senseCount: number): string | null => {
-  if (layout.length === 0) return "A note shows at least one sense"
-  if (new Set(layout).size !== layout.length) return "Each sense can be shown once"
-  if (layout.some((index) => !Number.isInteger(index) || index < 0 || index >= senseCount))
-    return "That entry has no such sense"
-  return null
-}
+/**
+ * Whether every chosen sense is one the entry has. `SenseLayout` itself holds the rest of what a
+ * layout must be: at least one sense, each once.
+ */
+export const fitsEntry = (chosen: ReadonlyArray<SenseIndex>, senseCount: number) =>
+  chosen.every((index) => index < senseCount)

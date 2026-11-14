@@ -8,7 +8,8 @@ import { HttpApiMiddleware, HttpApiTest } from "effect/http-api"
 import { Database } from "../src/db/Database.ts"
 import { scopedToUser } from "../src/db/scopedToUser.ts"
 import { updateUser, userById } from "../src/features/accounts/queries.ts"
-import { insertEntries, setReview } from "../src/features/dictionary/queries.ts"
+import { reviewEntries } from "../src/features/dictionary/entryReview.ts"
+import { insertEntries } from "../src/features/dictionary/queries.ts"
 import { noteById, noteCount, studyDays } from "../src/features/study/queries.ts"
 import { AuthorizationLive } from "../src/http/Authorization.ts"
 import { AllHandlers } from "../src/http/handlers.ts"
@@ -457,14 +458,16 @@ layer(TestLayer)("Kotori API", (it) => {
       assert.deepStrictEqual(shownOf(reset), [0, 1, 2])
       assert.strictEqual(reset.arranged, false)
 
-      // A sense the entry doesn't have, or one twice, is refused; so is an entry that isn't there.
+      // A sense the entry doesn't have is refused by the entry, and one twice, or none, by the
+      // layout's own schema before it is sent; so is an entry that isn't there.
       const refused = (senses: Array<number>) =>
         api.study.updateNote({ params: { id: note.id }, payload: { senses } }).pipe(
           Effect.flip,
           Effect.map((error) => error._tag)
         )
       assert.strictEqual(yield* refused([3]), "InvalidRequest")
-      assert.strictEqual(yield* refused([0, 0]), "InvalidRequest")
+      assert.strictEqual(yield* refused([0, 0]), "SchemaError")
+      assert.strictEqual(yield* refused([]), "SchemaError")
       assert.strictEqual(
         (yield* api.study.addNote({ payload: { entryId: TABERU, sense: 5 } }).pipe(Effect.flip))._tag,
         "InvalidRequest"
@@ -506,8 +509,8 @@ layer(TestLayer)("Kotori API", (it) => {
       const kept = yield* api.study.addNote({ payload: { entryId: discarded.id } })
 
       // Approval and discarding change only the entry; the notes read it as it now stands.
-      yield* setReview(db, [draft.id], "approved")
-      yield* setReview(db, [discarded.id], "discarded")
+      yield* reviewEntries(db, [draft.id], "approve")
+      yield* reviewEntries(db, [discarded.id], "discard")
       const notes = yield* api.study.notes()
       assert.sameDeepMembers(
         notes.map((own) => [own.id, own.entry.review]),

@@ -1,4 +1,4 @@
-import type { Entry, Language, Sense, SimilarWord } from "@kotori/contracts"
+import { type Entry, type Language, REVIEW_RULES, type Sense, type SimilarWord } from "@kotori/contracts"
 import { Link, useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { Platform, Share, View } from "react-native"
@@ -31,6 +31,7 @@ import {
   labelItems,
   loanLine,
   onItsWay,
+  reviewMark,
   senseCautions,
   similarWords,
   wordCautions
@@ -296,10 +297,17 @@ export default function EntryScreen() {
   // Taking off the note's only meaning removes the note, which asks first.
   const unsave = (sense: Sense) => {
     if (note === undefined) return
-    const layout = withoutSense(note, sense.index)
-    if (layout === "remove") beginRemove()
-    else arrangeNote.mutate({ id: note.id, senses: layout })
+    const change = withoutSense(note, sense.index)
+    switch (change.kind) {
+      case "remove":
+        return beginRemove()
+      case "arrange":
+        return arrangeNote.mutate({ id: note.id, senses: change.senses })
+    }
   }
+  // A discarded draft can't be saved anew, but a note that saved it can still be changed or removed.
+  const saveable = REVIEW_RULES[data.review].saveable
+  const mark = reviewMark(t, data.review)
   const reading = data.reading.length > 0 && data.reading !== data.headword ? data.reading : null
   const share = () =>
     Share.share({
@@ -350,9 +358,7 @@ export default function EntryScreen() {
                 icon="bookmark"
                 filled={note !== undefined}
                 label={note !== undefined ? t.saved.remove : t.entry.save}
-                onPress={
-                  busy || data.review === "discarded" ? undefined : note !== undefined ? beginRemove : () => save()
-                }
+                onPress={busy ? undefined : note !== undefined ? beginRemove : saveable ? () => save() : undefined}
               />
               {canShare ? (
                 <IconButton
@@ -376,12 +382,7 @@ export default function EntryScreen() {
           setRemoveError(null)
         }}
       />
-      {data.review === "approved" ? null : (
-        <Notice
-          tone={data.review === "unreviewed" ? "primary" : "accent"}
-          message={data.review === "unreviewed" ? t.entry.unverified : t.entry.notAdded}
-        />
-      )}
+      {mark === null ? null : <Notice {...mark.notice} />}
       {entry.isRefetchError ? (
         <Notice
           message={t.common.notRefreshed}
@@ -488,7 +489,7 @@ export default function EntryScreen() {
               forms={forms}
               partOfSpeech={partOfSpeech}
               saved={showsSense(note, sense.index)}
-              saving={busy || data.review === "discarded"}
+              saving={busy || (note === undefined && !saveable)}
               removing={busy}
               onSave={() => save(sense)}
               onRemove={() => unsave(sense)}

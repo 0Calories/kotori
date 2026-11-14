@@ -26,9 +26,23 @@ export const NoteEntry = Schema.Struct(
 )
 export type NoteEntry = typeof NoteEntry.Type
 
+/** A sense of an entry, by its place among the entry's senses, from 0. */
+export const SenseIndex = Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))
+export type SenseIndex = typeof SenseIndex.Type
+
+/**
+ * The senses a note shows, in the learner's order, the rest hidden: at least one, each once. Null
+ * shows every sense in the dictionary's order, senses the entry gains later too. Whether each is a
+ * sense the entry has is checked against the entry.
+ */
+export const SenseLayout = Schema.NullOr(
+  Schema.Array(SenseIndex).pipe(Schema.check(Schema.isMinLength(1), Schema.isUnique()))
+)
+export type SenseLayout = typeof SenseLayout.Type
+
 /** One sense of a note's entry, as a review shows it, and whether the note shows it. */
 export const NoteSense = Schema.Struct({
-  index: Schema.Int,
+  index: SenseIndex,
   /** What it means, in the other language from the headword. */
   glosses: Schema.Array(Schema.String),
   /** The labels it has beyond the word's (`NoteEntry.labels`). */
@@ -96,17 +110,12 @@ export type DueNotes = typeof DueNotes.Type
  */
 export const AddNoteRequest = Schema.Struct({
   entryId: EntryId,
-  sense: Schema.optional(Schema.Int)
+  sense: Schema.optional(SenseIndex)
 })
 export type AddNoteRequest = typeof AddNoteRequest.Type
 
-/**
- * Chooses the senses a note shows, by index, in order (the rest are hidden); null shows every
- * sense in the dictionary's order again.
- */
-export const UpdateNoteRequest = Schema.Struct({
-  senses: Schema.NullOr(Schema.Array(Schema.Int).pipe(Schema.check(Schema.isMinLength(1))))
-})
+/** Chooses the senses a note shows (`SenseLayout`); null shows every sense in the dictionary's order again. */
+export const UpdateNoteRequest = Schema.Struct({ senses: SenseLayout })
 export type UpdateNoteRequest = typeof UpdateNoteRequest.Type
 
 export const AnswerRequest = Schema.Struct({
