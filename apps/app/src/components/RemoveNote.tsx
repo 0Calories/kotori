@@ -3,6 +3,7 @@ import { Modal, ScrollView, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { ApiError } from "../api/client.ts"
 import type { Strings } from "../i18n/strings.ts"
+import { noteMeaning } from "../lib/notes.ts"
 import { useSession } from "../session/SessionProvider.tsx"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { fade, theme } from "../theme/tokens.ts"
@@ -73,7 +74,6 @@ export const RemoveNoteDialog = ({
   const dismiss = () => {
     if (!busy) onCancel()
   }
-  const content = note?.content
   return (
     <Modal visible={note !== undefined} transparent onRequestClose={dismiss}>
       <ScrollView
@@ -91,14 +91,14 @@ export const RemoveNoteDialog = ({
           accessibilityViewIsModal
           style={{ width: "100%", maxWidth: 420, alignSelf: "center", gap: theme.space.md }}
         >
-          {content?.kind === "word" ? (
-            <Headword language={content.language ?? "ja"} size={24}>
-              {content.headword}
-            </Headword>
-          ) : content?.kind === "phrase" ? (
-            <Text variant="heading">{content.text}</Text>
+          {note ? (
+            <>
+              <Headword language={note.entry.language} size={24}>
+                {note.entry.headword}
+              </Headword>
+              <Text color="textMuted">{noteMeaning(note)}</Text>
+            </>
           ) : null}
-          {content ? <Text color="textMuted">{content.meaning}</Text> : null}
           <RemoveNoteConfirm busy={busy} error={error} onConfirm={onConfirm} onCancel={dismiss} />
         </Card>
       </ScrollView>

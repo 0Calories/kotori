@@ -4,6 +4,7 @@ import {
   entries,
   entryFrequency,
   EntryId,
+  EntryReview,
   examples,
   Formality,
   forms,
@@ -13,6 +14,7 @@ import {
   MAX_CAUTIONS,
   proposalRoute,
   proposalStatus,
+  REVIEW_RULES,
   SenseOrigin,
   Source,
   tags
@@ -26,11 +28,13 @@ export {
   CAUTION_KINDS,
   CautionKind,
   EntryId,
+  EntryReview,
   Formality,
   LabelCode,
   LabelSeverity,
   LoanLinkMeaning,
   MAX_CAUTIONS,
+  REVIEW_RULES,
   SenseOrigin,
   Source
 }
@@ -216,6 +220,8 @@ export type EntryAudio = typeof EntryAudio.Type
  */
 export const Entry = Schema.Struct({
   ...Struct.pick(EntryRow.fields, ["id", "language", "source", "headword", "reading", "common"]),
+  /** `unreviewed` for a word Kotori drafted that the admin hasn't checked; `discarded` once turned down. */
+  review: EntryReview,
   /** The kana reading in rōmaji; empty for English words. */
   romaji: Schema.String,
   /** Usually written in kana (JMDict's `uk`): a spelling fact, not a register label. */
@@ -243,6 +249,8 @@ export type Entry = typeof Entry.Type
 
 export const EntrySummary = Schema.Struct({
   ...Struct.pick(EntryRow.fields, ["id", "language", "headword", "reading", "common"]),
+  /** Search shows an `unreviewed` draft marked unverified, after every approved word. */
+  review: EntryReview,
   romaji: Schema.String,
   meanings: Schema.Array(Schema.String),
   partOfSpeech: Schema.NullOr(Schema.String),
@@ -266,12 +274,14 @@ export const DraftSense = Schema.Struct({
 export type DraftSense = typeof DraftSense.Type
 
 /**
- * Kotori's draft of an entry, in the entry's own model and read the same way: the word's labels
- * (those every sense carries), senses, and cautions. Unverified until the admin approves it, when it
- * becomes an entry with these same facts.
+ * Kotori's draft of an entry, read from the unreviewed entry it is: the word's labels (those every
+ * sense carries), senses, and cautions. Unverified until the admin approves it, which changes only
+ * its review state; a learner can save it to their notes before then.
  */
 export const DraftEntry = Schema.Struct({
   ...Struct.pick(EntryRow.fields, ["headword", "reading"]),
+  /** The drafted entry: its page, and what a note saves. */
+  id: EntryId,
   spellings: Schema.Array(Schema.String),
   /** How commonly natives use it today, 1–5; a draft has no other frequency signals. */
   frequency: Schema.Int,
@@ -281,7 +291,29 @@ export const DraftEntry = Schema.Struct({
 })
 export type DraftEntry = typeof DraftEntry.Type
 
-export const ProposalStatus = createSelectSchema(proposalStatus)
+/**
+ * Where a drafted answer stands, by its drafted entry's review state: awaiting the admin
+ * (`pending`), approved into the dictionary or discarded, or `removed` when the entry is `gone`
+ * (deleted since, by hand or by a re-import).
+ */
+export const DRAFT_STANDING = {
+  unreviewed: "pending",
+  approved: "approved",
+  discarded: "discarded",
+  gone: "removed"
+} as const satisfies Record<EntryReview | "gone", string>
+
+/** A proposal's stored answer other than a draft, which stands where its entry does (`DRAFT_STANDING`). */
+type Answered = Exclude<(typeof proposalStatus.enumValues)[number], "drafted">
+
+/**
+ * Where Kotori's answer stands, as the app shows it: an entry the dictionary already had
+ * (`linked`), a `rejected` query, or a drafted entry, standing as `DRAFT_STANDING` says.
+ */
+export const ProposalStatus = Schema.Literals([
+  ...proposalStatus.enumValues.filter((status): status is Answered => status !== "drafted"),
+  ...Object.values(DRAFT_STANDING)
+])
 export type ProposalStatus = typeof ProposalStatus.Type
 
 export const ProposalRoute = createSelectSchema(proposalRoute)
@@ -292,9 +324,9 @@ export type ProposalId = typeof ProposalId.Type
 
 /**
  * Kotori's answer to a query the dictionary couldn't: a drafted entry awaiting the admin
- * (`pending`, shown to its askers marked unverified), a `linked` entry the dictionary already
- * had, or a `rejected` query with the reason. `approved` drafts have become the entry `linked`
- * points at; `discarded` ones were turned down by the admin.
+ * (`pending`, shown marked unverified), a `linked` entry the dictionary already had, or a
+ * `rejected` query with the reason. An `approved` draft is the entry `linked` points at; a
+ * `discarded` one was turned down by the admin; a `removed` one's entry is gone.
  */
 export const Proposal = Schema.Struct({
   id: ProposalId,

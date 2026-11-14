@@ -71,8 +71,8 @@ export type AskAnswer =
   | { readonly kind: "discarded"; readonly reason: string | null }
 
 /**
- * How to show a proposal, or null when there is nothing left to show: a link or approval whose
- * entry has since been deleted.
+ * How to show a proposal, or null when there is nothing left to show: a link, approval or draft
+ * whose entry has since been deleted.
  */
 export const askAnswer = (proposal: Proposal): AskAnswer | null => {
   switch (proposal.status) {
@@ -91,6 +91,8 @@ export const askAnswer = (proposal: Proposal): AskAnswer | null => {
       }
     case "discarded":
       return { kind: "discarded", reason: proposal.reason }
+    case "removed":
+      return null
   }
 }
 

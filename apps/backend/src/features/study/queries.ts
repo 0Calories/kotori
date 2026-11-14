@@ -1,3 +1,4 @@
+import type { SenseLayout } from "@kotori/contracts"
 import { type EntryId, type NoteId, notes, reviewLogs } from "@kotori/db"
 import { asc, count, countDistinct, desc, eq, gte, inArray, lt, lte, min, sql } from "drizzle-orm"
 import { Effect, Option } from "effect"
@@ -10,16 +11,19 @@ export type NoteRow = typeof notes.$inferSelect
 /** A note as saved; the learner is the one the query is scoped to. */
 export type NewNote = Omit<typeof notes.$inferInsert, "userId">
 
-/** Saves a note, new and due now unless the caller says otherwise. */
+/**
+ * Saves a note, new and due now unless the caller says otherwise. A learner has one note per
+ * entry: when two saves race, the second finds the first's note, and so does every later one.
+ */
 export const insertNote = Effect.fn("study.insertNote")(function* (
   learner: Learner,
   note: NewNote & { readonly id: NoteId }
 ) {
-  const [saved] = yield* learner.db
+  yield* learner.db
     .insert(notes)
     .values({ ...note, userId: learner.userId })
-    .returning()
-  return saved!
+    .onConflictDoNothing({ target: [notes.userId, notes.entryId] })
+  return Option.getOrThrow(yield* noteByEntry(learner, note.entryId))
 }, Effect.orDie)
 
 /** The learner's notes, newest first. */
@@ -61,18 +65,28 @@ export const deleteNote = Effect.fn("study.deleteNote")(function* (learner: Lear
   )
 }, Effect.orDie)
 
-/** The learner's word notes for the given entries. */
-export const savedWords = Effect.fn("study.savedWords")(function* (learner: Learner, entryIds: ReadonlyArray<EntryId>) {
-  if (entryIds.length === 0) return []
-  const rows = yield* learner.db
-    .select({ entryId: notes.entryId, sense: notes.sense, id: notes.id })
+/** The learner's note on an entry, if they saved it. */
+export const noteByEntry = (learner: Learner, entryId: EntryId) =>
+  learner.db
+    .select()
     .from(notes)
-    .where(learner.owns(notes, inArray(notes.entryId, entryIds)))
-    .pipe(Effect.orDie)
-  return rows.flatMap((row) =>
-    row.entryId === null || row.sense === null ? [] : [{ entryId: row.entryId, sense: row.sense, id: row.id }]
-  )
-})
+    .where(learner.owns(notes, eq(notes.entryId, entryId)))
+    .pipe(
+      Effect.map((rows) => Option.fromNullishOr(rows[0])),
+      Effect.orDie
+    )
+
+/** Sets which senses an owned note shows, in order (null for every sense); none when it isn't theirs. */
+export const arrangeNote = (learner: Learner, noteId: NoteId, senses: SenseLayout) =>
+  learner.db
+    .update(notes)
+    .set({ senses: senses === null ? null : [...senses] })
+    .where(learner.owns(notes, eq(notes.id, noteId)))
+    .returning()
+    .pipe(
+      Effect.map((rows) => Option.fromNullishOr(rows[0])),
+      Effect.orDie
+    )
 
 /** Notes in (re)learning due by `until`, soonest first. */
 export const learningDue = (learner: Learner, until: Date) =>

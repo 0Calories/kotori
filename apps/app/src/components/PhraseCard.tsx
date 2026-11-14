@@ -2,7 +2,6 @@ import type { Language, Register } from "@kotori/contracts"
 import * as Clipboard from "expo-clipboard"
 import { useState } from "react"
 import { View } from "react-native"
-import { useAddNote } from "../api/queries.ts"
 import { useSession } from "../session/SessionProvider.tsx"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { AudioButton } from "./AudioButton.tsx"
@@ -12,14 +11,12 @@ import { Chip } from "./Chip.tsx"
 import { Furigana } from "./Furigana.tsx"
 import { Text } from "./Text.tsx"
 
-/** A target-language phrase from the coach, which learners can hear, copy and save for review. */
+/** A target-language phrase from the coach, which learners can hear and copy. */
 export const PhraseCard = ({
   text,
   furigana,
   register,
   lines,
-  meaning,
-  source,
   highlight,
   label
 }: {
@@ -28,9 +25,6 @@ export const PhraseCard = ({
   readonly register: Register
   /** Supporting notes shown under the phrase, in the learner's language. The first sits with the phrase. */
   readonly lines: ReadonlyArray<{ readonly label?: string; readonly text: string }>
-  /** What the card asks the learner to recall, in their own language. */
-  readonly meaning: string
-  readonly source: "how-to-say" | "naturalness"
   /** The best answer: shown larger. */
   readonly highlight?: boolean
   /** An overline above the phrase, such as "Natural". */
@@ -39,9 +33,7 @@ export const PhraseCard = ({
   const theme = useTheme()
   const { t, profile } = useSession()
   const target: Language = profile?.targetLanguage ?? "ja"
-  const addNote = useAddNote()
   const [copied, setCopied] = useState(false)
-  const saved = addNote.isSuccess
   const [first, ...rest] = lines.filter((line) => line.text.length > 0)
   const size = highlight ? 22 : 18
 
@@ -65,28 +57,6 @@ export const PhraseCard = ({
               setCopied(true)
               setTimeout(() => setCopied(false), 1500)
             }}
-          />
-          <IconButton
-            icon="bookmark"
-            label={saved ? t.common.saved : t.common.save}
-            filled={saved}
-            size={38}
-            onPress={
-              saved || addNote.isPending
-                ? undefined
-                : () =>
-                    addNote.mutate({
-                      content: {
-                        kind: "phrase",
-                        text,
-                        furigana,
-                        meaning,
-                        note: lines.map((l) => l.text).join("\n") || null,
-                        register,
-                        source
-                      }
-                    })
-            }
           />
         </View>
       </View>

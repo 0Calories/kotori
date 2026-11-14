@@ -2,15 +2,16 @@ import { assert, describe, it, layer } from "@effect/vitest"
 import type { DraftOutput } from "@kotori/ai"
 import { EntryId } from "@kotori/contracts"
 import { type DraftEntry, proposals } from "@kotori/db"
-import { eq, sql } from "drizzle-orm"
+import { sql } from "drizzle-orm"
 import { Effect } from "effect"
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { Database } from "../../src/db/Database.ts"
 import { migrationsFolder } from "../../src/db/Migrate.ts"
 import { ensureUser } from "../../src/features/accounts/queries.ts"
-import { checkDraft, viewDraft, viewDrafts } from "../../src/features/asks/draft.ts"
-import { insertEntries } from "../../src/features/dictionary/queries.ts"
+import { checkDraft, draftedEntryView, writeDraftedEntry } from "../../src/features/asks/draft.ts"
+import { assembleEntry } from "../../src/features/dictionary/entries.ts"
+import { getEntries, insertEntries } from "../../src/features/dictionary/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 import { english, entries, kana, kanji, sense, U1 } from "../fixtures.ts"
 
@@ -126,56 +127,53 @@ const stored: DraftEntry = {
 }
 
 layer(DatabaseMemory)("drafts", (it) => {
-  it.effect("reads a stored draft as an entry is read, linking a named word only when one matches", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      yield* insertEntries(db, [
-        ...entries,
-        ...english,
-        {
-          ...entries[0]!,
-          id: EntryId.make(1900001),
-          headword: "上手",
-          reading: "じょうず",
-          forms: [kanji("上手"), kana("じょうず")],
-          senses: [sense(["skillful"])]
-        },
-        {
-          ...entries[0]!,
-          id: EntryId.make(1900002),
-          headword: "上手",
-          reading: "うわて",
-          forms: [kanji("上手"), kana("うわて")],
-          senses: [sense(["upper part"])]
-        }
-      ])
-      const view = yield* viewDraft(db, stored, "ja")
-      assert.deepStrictEqual(view.labels, [{ code: "net-sl", severity: "warning", source: "kotori" }])
-      assert.deepStrictEqual(
-        view.senses.map((own) => own.labels.map((label) => label.code)),
-        [[], ["joc"]]
-      )
-      assert.deepStrictEqual(view.senses[0]?.usagePatterns, [{ text: "Typed, mostly.", source: "kotori", about: null }])
-      assert.deepStrictEqual(
-        view.cautions.map((caution) => caution.about?.headword ?? null),
-        ["食べる", null, null]
-      )
-
-      // A list of drafts in both languages is read at once; each names words in its own language.
-      const naming = (about: string): DraftEntry => ({
-        ...stored,
-        cautions: [{ kind: "confusable", text: "Compare.", sense: null, about }]
+  it.effect(
+    "writes a draft as an unreviewed entry, read as any entry is, linking a named word only when one matches",
+    () =>
+      Effect.gen(function* () {
+        const db = yield* Database
+        yield* insertEntries(db, [
+          ...entries,
+          ...english,
+          {
+            ...entries[0]!,
+            id: EntryId.make(1900001),
+            headword: "上手",
+            reading: "じょうず",
+            forms: [kanji("上手"), kana("じょうず")],
+            senses: [sense(["skillful"])]
+          },
+          {
+            ...entries[0]!,
+            id: EntryId.make(1900002),
+            headword: "上手",
+            reading: "うわて",
+            forms: [kanji("上手"), kana("うわて")],
+            senses: [sense(["upper part"])]
+          }
+        ])
+        const id = yield* writeDraftedEntry(db, stored, "ja")
+        const [record] = yield* getEntries(db, [id])
+        assert.strictEqual(record?.review, "unreviewed")
+        assert.strictEqual(record?.source, "kotori")
+        const view = draftedEntryView(
+          yield* assembleEntry(db, record!, Effect.succeed({ examples: "unavailable", audio: "unavailable" }))
+        )
+        assert.strictEqual(view.id, id)
+        assert.strictEqual(view.frequency, 4)
+        assert.deepStrictEqual(view.labels, [{ code: "net-sl", severity: "warning", source: "kotori" }])
+        assert.deepStrictEqual(
+          view.senses.map((own) => own.labels.map((label) => label.code)),
+          [[], ["joc"]]
+        )
+        assert.deepStrictEqual(view.senses[0]?.usagePatterns, [
+          { text: "Typed, mostly.", source: "kotori", about: null }
+        ])
+        assert.deepStrictEqual(
+          view.cautions.map((caution) => caution.about?.headword ?? null),
+          ["食べる", null, null]
+        )
       })
-      const views = yield* viewDrafts(db, [
-        { draft: naming("食べる"), language: "ja" },
-        { draft: naming("Eat"), language: "en" },
-        { draft: naming("eat"), language: "ja" }
-      ])
-      assert.deepStrictEqual(
-        views.map((own) => own.cautions[0]?.about?.headword ?? null),
-        ["食べる", "eat", null]
-      )
-    })
   )
 
   it.effect("migrates drafts stored before the entry model, carrying every field over", () =>
@@ -183,21 +181,27 @@ layer(DatabaseMemory)("drafts", (it) => {
       const db = yield* Database
       yield* ensureUser(db, { id: U1, displayName: null, createdAt: new Date(0) })
       yield* insertEntries(db, english)
+      // The column the migration rewrote, as it was before drafts became entries.
+      yield* db.execute(sql`ALTER TABLE "proposals" ADD COLUMN "draft" jsonb`)
       const old = (query: string, draft: object) =>
         db
           .insert(proposals)
           .values({
             language: "en",
             query,
-            status: "pending",
-            draft: sql`${JSON.stringify(draft)}::jsonb` as never,
-            linkedEntryId: null,
+            status: "drafted",
+            entryId: null,
             reason: null,
             model: "test",
             requestedBy: U1,
             createdAt: new Date(0)
           })
           .returning({ id: proposals.id })
+          .pipe(
+            Effect.tap(([row]) =>
+              db.execute(sql`UPDATE "proposals" SET "draft" = ${JSON.stringify(draft)}::jsonb WHERE "id" = ${row!.id}`)
+            )
+          )
       const [dated] = yield* old("groovy", {
         headword: "groovy",
         reading: "",
@@ -224,8 +228,8 @@ layer(DatabaseMemory)("drafts", (it) => {
 
       const draftOf = (id: number) =>
         Effect.map(
-          db.select({ draft: proposals.draft }).from(proposals).where(eq(proposals.id, id)),
-          (rows) => rows[0]?.draft
+          db.execute(sql`SELECT "draft" FROM "proposals" WHERE "id" = ${id}`),
+          (result) => (result as { readonly rows: ReadonlyArray<{ readonly draft: unknown }> }).rows[0]?.draft
         )
       assert.deepStrictEqual(yield* draftOf(dated!.id), {
         headword: "groovy",

@@ -20,7 +20,7 @@ import { TestClock } from "effect/testing"
 import { Database } from "../src/db/Database.ts"
 import { Asks } from "../src/features/asks/Asks.ts"
 import { askable } from "../src/features/asks/garbage.ts"
-import { redoProposal } from "../src/features/asks/review.ts"
+import { discardProposal, redoProposal } from "../src/features/asks/review.ts"
 import { Dictionary } from "../src/features/dictionary/Dictionary.ts"
 import { insertEntries } from "../src/features/dictionary/queries.ts"
 import { ensureUser } from "../src/features/accounts/queries.ts"
@@ -131,6 +131,8 @@ const japanese = learnerNo(6, "ja")
 const linker = learnerNo(7)
 const drafter = learnerNo(8)
 const yomi = learnerNo(9, "ja")
+const saver = { ...learnerNo(1), id: UserId.make("00000000-0000-4000-8000-000000000010"), email: "10@kotori.test" }
+const reasker = { ...learnerNo(1), id: UserId.make("00000000-0000-4000-8000-000000000011"), email: "11@kotori.test" }
 
 /** 上手 is two words: じょうず (skilled) and うわて (superior). Neither is read かみて here. */
 const jouzu = {
@@ -160,7 +162,7 @@ const seeded = Effect.gen(function* () {
   queued.length = 0
   routes.length = 0
   const db = yield* Database
-  for (const user of [asker, other, daily, routed, strict, japanese, linker, drafter, yomi]) {
+  for (const user of [asker, other, daily, routed, strict, japanese, linker, drafter, yomi, saver, reasker]) {
     yield* ensureUser(db, { id: user.id, displayName: null, createdAt: new Date(0) })
   }
   yield* insertEntries(db, [...english, jouzu, uwate])
@@ -242,6 +244,46 @@ layer(TestLayer)("Asks", (it) => {
         mine.map((proposal) => proposal.query),
         ["bussin"]
       )
+    })
+  )
+
+  it.effect("drafts into the dictionary: searchable marked unverified, one draft per word, hidden once discarded", () =>
+    Effect.gen(function* () {
+      yield* seeded
+      const asks = yield* Asks
+      const dictionary = yield* Dictionary
+      const db = yield* Database
+      queued.push(draft("skibidi"))
+      const first = yield* asks.ask(saver, "skibidi")
+      assert.strictEqual(first.status, "pending")
+      const id = first.draft!.id
+
+      // The draft is an entry: its page reads as any other's, marked unreviewed, and search finds it.
+      const page = yield* dictionary.entry(id)
+      assert.strictEqual(page._tag === "Some" ? page.value.review : null, "unreviewed")
+      // Nothing is enriched before approval, and asking for it queues nothing.
+      assert.deepStrictEqual(page._tag === "Some" ? page.value.enrichment : null, {
+        examples: "unavailable",
+        audio: "unavailable"
+      })
+      const found = yield* dictionary.search("skibidi", "en", 10)
+      assert.deepStrictEqual(
+        found.entries.map((entry) => [entry.id, entry.review]),
+        [[id, "unreviewed"]]
+      )
+
+      // Another query drafting the same word answers with the draft already there.
+      queued.push(draft("skibidi"))
+      const second = yield* asks.ask(reasker, "skibidi toilet")
+      assert.strictEqual(second.status, "pending")
+      assert.strictEqual(second.draft?.id, id)
+
+      // Discarded, it leaves search, and its askers see it turned down.
+      const [row] = yield* db.select().from(proposals).where(eq(proposals.id, first.id))
+      yield* discardProposal(db, row!.id, "not a word")
+      assert.deepStrictEqual((yield* dictionary.search("skibidi", "en", 10)).entries, [])
+      const seen = (yield* asks.asks(saver)).find((own) => own.id === first.id)
+      assert.deepInclude(seen, { status: "discarded", draft: null, reason: "not a word" })
     })
   )
 
@@ -425,12 +467,15 @@ layer(TestLayer)("Asks", (it) => {
       const rejected = yield* asks.ask(other, "yoinks")
       assert.strictEqual(rejected.route, "name")
       queued.push(draft("yoinks"))
-      const { proposal } = yield* redoProposal(db, rejected.id)
-      assert.strictEqual(proposal.status, "pending")
-      assert.strictEqual(proposal.draft?.headword, "yoinks")
-      // Claude's answer stands, so the app shows it rather than Jev's pointer.
+      const { proposal, headword } = yield* redoProposal(db, rejected.id)
+      assert.strictEqual(proposal.status, "drafted")
+      assert.strictEqual(headword, "yoinks")
+      // Claude's answer stands, so the app shows it rather than Jev's pointer: the draft, as an entry.
       assert.strictEqual(proposal.route, "lookup")
-      assert.deepInclude(yield* Effect.flip(redoProposal(db, rejected.id)), { _tag: "NotRejected", status: "pending" })
+      const shown = (yield* asks.asks(other)).find((own) => own.id === rejected.id)
+      assert.strictEqual(shown?.status, "pending")
+      assert.strictEqual(shown?.draft?.id, proposal.entryId)
+      assert.deepInclude(yield* Effect.flip(redoProposal(db, rejected.id)), { _tag: "NotRejected", status: "drafted" })
       assert.strictEqual((yield* Effect.flip(redoProposal(db, 999_999)))._tag, "NoSuchProposal")
     })
   )

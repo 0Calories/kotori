@@ -1,5 +1,6 @@
 import type { Claude, Lexicographer } from "@kotori/ai"
-import { proposalAsks, proposals } from "@kotori/db"
+import { ProposalStatus } from "@kotori/contracts"
+import { entries, proposalAsks, proposals } from "@kotori/db"
 import { and, count, desc, eq } from "drizzle-orm"
 import { Console, Effect, type Layer, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
@@ -11,7 +12,9 @@ import {
   discardProposal,
   redoProposal
 } from "../features/asks/review.ts"
+import { standing, standingIs } from "../features/asks/queries.ts"
 import type { Dictionary } from "../features/dictionary/Dictionary.ts"
+import { getEntries } from "../features/dictionary/index.ts"
 import { resolveFromRoot } from "../runtime/Paths.ts"
 
 const id = Argument.Int("id").pipe(Argument.withDescription("The proposal's id, from `kotori proposals list`"))
@@ -24,7 +27,7 @@ const notPending = (id: number, status: string) => Console.error(`Proposal ${id}
 const list = Command.make(
   "list",
   {
-    status: Flag.Literals("status", ["pending", "linked", "rejected", "approved", "discarded", "all"]).pipe(
+    status: Flag.Literals("status", [...ProposalStatus.literals, "all"]).pipe(
       Flag.withDescription(
         "Which proposals to list: pending by default, rejected with --contested; rejected ones are worth a look for false negatives"
       ),
@@ -39,38 +42,43 @@ const list = Command.make(
     // Contested proposals are all rejections, so asking for them alone means the rejected ones.
     const status = Option.getOrElse(chosen, () => (contested ? "rejected" : "pending"))
     const db = yield* Database
-    const shown = yield* db
-      .select({ proposal: proposals, asks: count(proposalAsks.userId) })
+    const rows = yield* db
+      .select({
+        proposal: proposals,
+        headword: entries.headword,
+        review: entries.review,
+        asks: count(proposalAsks.userId)
+      })
       .from(proposals)
+      .leftJoin(entries, eq(entries.id, proposals.entryId))
       .leftJoin(proposalAsks, eq(proposalAsks.proposalId, proposals.id))
       .where(
         and(
-          status === "all" ? undefined : eq(proposals.status, status),
+          // A draft stands where its entry does, so the filter reads both.
+          status === "all" ? undefined : standingIs(status),
           contested ? eq(proposals.contested, true) : undefined
         )
       )
-      .groupBy(proposals.id)
+      .groupBy(proposals.id, entries.id)
       .orderBy(desc(proposals.createdAt))
       .limit(200)
       .pipe(Effect.orDie)
+    const shown = rows.map((row) => ({ ...row, standing: standing(row.proposal.status, row.review ?? "gone") }))
     if (shown.length === 0) {
       return yield* Console.log(status === "pending" && !contested ? "Nothing waiting." : "Nothing there.")
     }
-    for (const { proposal, asks } of shown) {
+    for (const { proposal, headword, standing, asks } of shown) {
       yield* Console.log(
         [
           String(proposal.id).padStart(5),
           proposal.language,
-          proposal.status.padEnd(9),
+          standing.padEnd(9),
           (proposal.route ?? "-").padEnd(14),
           // "!" marks a contested rejection: Jev said lookup, Claude said no. Many asks say the same.
           proposal.contested ? "!" : " ",
           `asks:${String(asks).padEnd(4)}`,
           proposal.createdAt.toISOString().slice(0, 10),
-          proposal.query +
-            (proposal.draft !== null && proposal.draft.headword !== proposal.query
-              ? `  → ${proposal.draft.headword}`
-              : "")
+          proposal.query + (headword !== null && headword !== proposal.query ? `  → ${headword}` : "")
         ].join("  ")
       )
     }
@@ -83,10 +91,14 @@ const show = Command.make(
   Effect.fn(function* ({ id }) {
     const db = yield* Database
     const rows = yield* db.select().from(proposals).where(eq(proposals.id, id)).pipe(Effect.orDie)
-    if (rows[0] === undefined) return yield* notFound(id)
-    yield* Console.log(JSON.stringify(rows[0], null, 2))
+    const proposal = rows[0]
+    if (proposal === undefined) return yield* notFound(id)
+    const [entry] = proposal.entryId === null ? [] : yield* getEntries(db, [proposal.entryId])
+    yield* Console.log(
+      JSON.stringify({ ...proposal, standing: standing(proposal.status, entry?.review ?? "gone"), entry }, null, 2)
+    )
   })
-).pipe(Command.withDescription("Show one proposal in full, draft and all"))
+).pipe(Command.withDescription("Show one proposal in full, with the entry it names"))
 
 const approve = Command.make(
   "approve",
@@ -116,7 +128,7 @@ const approve = Command.make(
       Effect.catchTag("NoSuchAlias", (error) => Console.error(`No entry is written "${error.text}".`))
     )
   })
-).pipe(Command.withDescription("Turn a pending draft into a real entry (or an alias of one)"))
+).pipe(Command.withDescription("Approve a pending draft into the dictionary (or as an alias of a word in it)"))
 
 const discard = Command.make(
   "discard",
@@ -132,7 +144,7 @@ const discard = Command.make(
       Effect.catchTag("NotPending", (error) => notPending(id, error.status))
     )
   })
-).pipe(Command.withDescription("Turn a pending draft down, keeping the answer as a negative cache"))
+).pipe(Command.withDescription("Turn a pending draft down, keeping its entry hidden as a negative cache"))
 
 const redo = Command.make(
   "redo",
@@ -140,11 +152,10 @@ const redo = Command.make(
   Effect.fn(function* ({ id }) {
     const db = yield* Database
     yield* redoProposal(db, id).pipe(
-      Effect.flatMap(({ proposal, linked }) =>
+      Effect.flatMap(({ proposal, headword }) =>
         Console.log(
           `Asked again: proposal ${id} is now ${proposal.status}` +
-            (proposal.draft !== null ? ` with a draft for "${proposal.draft.headword}"` : "") +
-            (linked !== null ? `, linked to "${linked}"` : "") +
+            (headword !== null ? ` naming "${headword}"` : "") +
             (proposal.reason !== null ? `: ${proposal.reason}` : "") +
             "."
         )

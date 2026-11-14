@@ -1,28 +1,28 @@
 import { Claude, interpretTriage } from "@kotori/ai"
-import { AiUnavailable, EntryRecord, SenseRecord } from "@kotori/contracts"
-import {
-  DraftCaution,
-  type DraftEntry,
-  type DraftSense,
-  entries,
-  EntryId,
-  FIRST_APPROVED_JA_ID,
-  FIRST_ENGLISH_ID,
-  proposals
-} from "@kotori/db"
-import { and, eq, gte, max } from "drizzle-orm"
+import { AiUnavailable, type EntryCaution, EntryRecord, SenseRecord } from "@kotori/contracts"
+import { DraftCaution, type EntryId, proposals } from "@kotori/db"
+import { eq } from "drizzle-orm"
 import { Effect, FileSystem, Option, Schema } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
+import {
+  deleteEntries,
+  findForms,
+  getEntries,
+  insertEntries,
+  reviewEntries,
+  type StoredEntry
+} from "../dictionary/index.ts"
 import { APPROVED_EN_FILE, serializeApprovedLine } from "../dictionary/import/english/approved.ts"
 import { toConsolidatedWord } from "../dictionary/import/english/words.ts"
-import type { ImportEntry, SeedFrequency } from "../dictionary/import/seedFacts.ts"
-import { findForms, getEntries, insertEntries, saveKotoriCautions } from "../dictionary/queries.ts"
+import type { ImportEntry } from "../dictionary/import/seedFacts.ts"
+import { cautionsFor, frequencyFor } from "../dictionary/usage.ts"
 import { enqueueJob } from "../enrichment/index.ts"
+import { draftFrequency, draftToRecord, kanaOnly, writeDraftedEntry } from "./draft.ts"
 import { judge } from "./judge.ts"
-import { updateVerdict } from "./queries.ts"
+import { moveNotes, repointProposals, standing, updateVerdict } from "./queries.ts"
 
 /**
- * `data/approved/ja.jsonl`: Japanese entries and aliases approved out of Ask Kotori proposals,
+ * `data/approved/ja.jsonl`: Japanese entries and aliases approved out of Ask Kotori drafts,
  * committed so a fresh database gets them too (`kotori seed` applies it after JMDict; a reseed
  * never deletes them, as the JMDict import removes nothing). Entries carry their ids, from
  * 200,000,000 up — above JMDict's sequence numbers and apart from the English dictionary's
@@ -77,88 +77,29 @@ export class NoSuchAlias extends Schema.TaggedError<NoSuchAlias>()("NoSuchAlias"
   text: Schema.String
 }) {}
 
-const kanaOnly = /^[\u3040-\u30ffー]+$/u
-
-/** A drafted word's frequency signals: the 1–5 score Claude judged, nothing counted. */
-const draftFrequency = (score: number): SeedFrequency => ({ everyday: false, spokenCount: null, score })
-
-/**
- * A draft sense as the dictionary stores senses: its labels as usage codes and its usage patterns as
- * notes, which the import reads back as labels and usage patterns with the entry's source, Kotori.
- */
-const toSense = (sense: DraftSense): SenseRecord => ({
-  glosses: sense.glosses.map((text) => ({ text, type: null })),
-  pos: [...sense.pos],
-  misc: [...sense.labels],
-  fields: [],
-  dialects: [],
-  info: [...sense.usagePatterns],
-  stagk: [],
-  stagr: [],
-  xrefs: [],
-  antonyms: [],
-  origins: [],
-  wasei: false
-})
-
-/** The entry a draft becomes, in the language's record shape, with the given id. */
-export const draftToRecord = (draft: DraftEntry, language: "en" | "ja", id: EntryId): EntryRecord => {
-  const spellings = [...new Set(draft.spellings.filter((text) => text !== draft.headword))]
-  return {
-    id,
-    language,
-    source: "kotori",
-    headword: draft.headword,
-    reading: draft.reading,
-    common: false,
-    priority: 0,
-    forms:
-      language === "en"
-        ? [draft.headword, ...spellings].map((text, index) => ({
-            kind: "spelling" as const,
-            text,
-            common: index === 0,
-            tags: [],
-            priorities: [],
-            restrictions: [],
-            noKanji: false
-          }))
-        : [
-            {
-              kind: kanaOnly.test(draft.headword) ? ("kana" as const) : ("kanji" as const),
-              text: draft.headword,
-              common: false,
-              tags: [],
-              priorities: [],
-              restrictions: [],
-              noKanji: false
-            },
-            ...(draft.reading.length > 0 && draft.reading !== draft.headword
-              ? [
-                  {
-                    kind: "kana" as const,
-                    text: draft.reading,
-                    common: false,
-                    tags: [],
-                    priorities: [],
-                    restrictions: [],
-                    noKanji: false
-                  }
-                ]
-              : []),
-            ...spellings.map((text) => ({
-              kind: kanaOnly.test(text) ? ("kana" as const) : ("kanji" as const),
-              text,
-              common: false,
-              tags: [],
-              priorities: [],
-              restrictions: [],
-              noKanji: false
-            }))
-          ],
-    senses: draft.senses.map(toSense)
-  }
+/** The entry `entry` is, with `headword` in place of its own, its other forms kept. */
+const renamed = (entry: StoredEntry, headword: string): StoredEntry => {
+  const spellings = entry.forms
+    .filter((form) => form.kind !== "inflection" && form.text !== entry.headword && form.text !== entry.reading)
+    .map((form) => form.text)
+  const { forms } = draftToRecord(
+    { headword, reading: entry.reading, spellings, frequency: 1, senses: [], cautions: [] },
+    entry.language,
+    entry.id
+  )
+  return { ...entry, headword, forms }
 }
+
+/** Kotori's cautions on an entry as an approved file's line keeps them: the word they name by its headword. */
+const draftedCautions = (cautions: ReadonlyArray<EntryCaution>): Array<DraftCaution> =>
+  cautions
+    .filter((caution) => caution.source === "kotori")
+    .map((caution) => ({
+      kind: caution.kind,
+      text: caution.text,
+      sense: caution.sense,
+      about: caution.about?.headword ?? null
+    }))
 
 const proposalById = Effect.fn("review.proposalById")(function* (db: DatabaseShape, id: number) {
   const rows = yield* db.select().from(proposals).where(eq(proposals.id, id)).pipe(Effect.orDie)
@@ -166,14 +107,13 @@ const proposalById = Effect.fn("review.proposalById")(function* (db: DatabaseSha
   return rows[0]
 })
 
-const nextEntryId = Effect.fn("review.nextEntryId")(function* (db: DatabaseShape, language: "en" | "ja") {
-  const from = EntryId.make(language === "en" ? FIRST_ENGLISH_ID : FIRST_APPROVED_JA_ID)
-  const [row] = yield* db
-    .select({ top: max(entries.id) })
-    .from(entries)
-    .where(and(eq(entries.language, language), gte(entries.id, from)))
-    .pipe(Effect.orDie)
-  return EntryId.make(Math.max(row?.top ?? 0, from) + 1)
+/** A proposal whose drafted entry still waits for the admin, with that entry: all the admin can act on. */
+const pendingDraftedEntry = Effect.fn("review.pendingDraftedEntry")(function* (db: DatabaseShape, id: number) {
+  const proposal = yield* proposalById(db, id)
+  const [entry] = proposal.entryId === null ? [] : yield* getEntries(db, [proposal.entryId])
+  const status = standing(proposal.status, entry?.review ?? "gone")
+  if (status !== "pending" || entry === undefined) return yield* new NotPending({ id, status })
+  return { proposal, entry }
 })
 
 const appendLine = Effect.fnUntraced(function* (file: string, line: string) {
@@ -197,9 +137,11 @@ export interface Approval {
 }
 
 /**
- * Turns a pending draft into a real dictionary entry (or an extra spelling of one), appends it to
- * the language's approved file so reseeds and fresh databases keep it, queues its enrichment, and
- * marks the proposal approved and linked for everyone who asked.
+ * Accepts a pending draft into the dictionary. Its entry is already there, unreviewed: approval
+ * makes it approved, so the learners who saved it keep their notes, appends it to the language's
+ * approved file so reseeds and fresh databases keep it, and queues its enrichment. Approved as
+ * another word's spelling instead, the draft's entry goes: its spelling joins that word, and the
+ * notes and proposals naming the draft move to it.
  */
 export const approveProposal = Effect.fn("review.approveProposal")(function* (
   db: DatabaseShape,
@@ -207,11 +149,8 @@ export const approveProposal = Effect.fn("review.approveProposal")(function* (
   files: ApprovedFiles,
   approval: Approval = {}
 ) {
-  const proposal = yield* proposalById(db, id)
-  if (proposal.status !== "pending" || proposal.draft === null) {
-    return yield* new NotPending({ id, status: proposal.status })
-  }
-  const language = proposal.language
+  const { entry: drafted } = yield* pendingDraftedEntry(db, id)
+  const language = drafted.language
   const file = language === "en" ? files.en : files.ja
   const now = new Date()
 
@@ -219,7 +158,7 @@ export const approveProposal = Effect.fn("review.approveProposal")(function* (
     const matches = yield* findForms(db, [approval.aliasOf], language)
     const base = matches.find((match) => match.kind !== "inflection")
     if (base === undefined) return yield* new NoSuchAlias({ text: approval.aliasOf })
-    const alias = approval.headword ?? proposal.draft.headword
+    const alias = approval.headword ?? drafted.headword
     const [record] = yield* getEntries(db, [base.entryId])
     if (record === undefined) return yield* new NoSuchAlias({ text: approval.aliasOf })
     // The alias joins the entry's forms now, and the approved file replays it on every import.
@@ -233,49 +172,46 @@ export const approveProposal = Effect.fn("review.approveProposal")(function* (
         ? serializeApprovedLine({ alias: { text: alias, base: approval.aliasOf } })
         : `${encodeJaLine({ alias: { text: alias, base: approval.aliasOf } })}\n`
     )
-    yield* db
-      .update(proposals)
-      .set({ status: "approved", linkedEntryId: base.entryId, reviewedAt: now })
-      .where(eq(proposals.id, id))
-      .pipe(Effect.orDie)
+    yield* moveNotes(db, drafted.id, base.entryId)
+    yield* repointProposals(db, drafted.id, base.entryId, now)
+    yield* deleteEntries(db, [drafted.id])
     return { entryId: base.entryId, headword: record.headword, alias }
   }
 
-  const draft = approval.headword === undefined ? proposal.draft : { ...proposal.draft, headword: approval.headword }
-  const entryId = yield* nextEntryId(db, language)
-  const record = draftToRecord(draft, language, entryId)
-  // Seeded, so the draft's frequency score is the word's frequency signal from the start.
-  yield* insertEntries(db, [{ ...record, frequency: draftFrequency(draft.frequency) }], { seeded: true })
-  yield* saveKotoriCautions(db, entryId, language, draft.cautions)
-  for (const kind of ["examples", "audio"] as const) yield* enqueueJob(db, kind, entryId, 500, now)
+  const entry = approval.headword === undefined ? drafted : renamed(drafted, approval.headword)
+  // Not seeded: the draft's frequency score, stored when it was drafted, stays its signal.
+  if (entry !== drafted) yield* insertEntries(db, [entry])
+  yield* reviewEntries(db, [entry.id], "approve")
+  for (const kind of ["examples", "audio"] as const) yield* enqueueJob(db, kind, entry.id, 500, now)
+  const frequency = (yield* frequencyFor(db, entry.id))?.score ?? undefined
+  const cautions = draftedCautions(yield* cautionsFor(db, entry.id))
+  const { review: _, ...record } = entry
   yield* appendLine(
     file,
     language === "en"
       ? serializeApprovedLine({
           entry: {
             ...toConsolidatedWord({
-              headword: draft.headword,
-              ipa: draft.reading.length > 0 ? draft.reading : null,
-              spellings: draft.spellings.filter((text) => text !== draft.headword),
+              headword: record.headword,
+              ipa: record.reading.length > 0 ? record.reading : null,
+              spellings: record.forms
+                .filter((form) => form.kind === "spelling" && form.text !== record.headword)
+                .map((form) => form.text),
               inflections: [],
               senses: record.senses
             }),
-            frequency: draft.frequency
+            ...(frequency === undefined ? {} : { frequency })
           },
-          ...(draft.cautions.length > 0 ? { cautions: draft.cautions } : {})
+          ...(cautions.length > 0 ? { cautions } : {})
         })
       : `${encodeJaLine({
           entry: record,
-          frequency: draft.frequency,
-          ...(draft.cautions.length > 0 ? { cautions: draft.cautions } : {})
+          ...(frequency === undefined ? {} : { frequency }),
+          ...(cautions.length > 0 ? { cautions } : {})
         })}\n`
   )
-  yield* db
-    .update(proposals)
-    .set({ status: "approved", linkedEntryId: entryId, reviewedAt: now })
-    .where(eq(proposals.id, id))
-    .pipe(Effect.orDie)
-  return { entryId, headword: draft.headword, alias: null }
+  yield* db.update(proposals).set({ reviewedAt: now }).where(eq(proposals.entryId, entry.id)).pipe(Effect.orDie)
+  return { entryId: entry.id, headword: entry.headword, alias: null }
 })
 
 /** Adds a spelling (or kana/kanji form) to an existing entry without touching the rest of it. */
@@ -292,26 +228,26 @@ const appendAliasForm = (db: DatabaseShape, record: EntryRecord, text: string, l
   ])
 }
 
-/** Turns a pending draft down; the row stays, so the query isn't generated (or asked about) again. */
+/**
+ * Turns a pending draft down. Its entry stays, discarded: hidden from search, so the query isn't
+ * drafted (or asked about) again, and still there for learners who saved it, marked not added.
+ */
 export const discardProposal = Effect.fn("review.discardProposal")(function* (
   db: DatabaseShape,
   id: number,
   reason: string | null
 ) {
-  const proposal = yield* proposalById(db, id)
-  if (proposal.status !== "pending") return yield* new NotPending({ id, status: proposal.status })
-  yield* db
-    .update(proposals)
-    .set({ status: "discarded", reason, reviewedAt: new Date() })
-    .where(eq(proposals.id, id))
-    .pipe(Effect.orDie)
+  const { proposal, entry } = yield* pendingDraftedEntry(db, id)
+  yield* reviewEntries(db, [entry.id], "discard")
+  yield* db.update(proposals).set({ reason, reviewedAt: new Date() }).where(eq(proposals.id, id)).pipe(Effect.orDie)
   return { query: proposal.query }
 })
 
 /**
  * Asks Claude again about a rejected query, replacing the answer: the admin's remedy for a wrong
  * rejection, Claude's or Jev's. Claude's answer stands whatever Jev routed, so the route becomes
- * a lookup, and the app shows Claude's verdict rather than Jev's pointer.
+ * a lookup, and the app shows Claude's verdict rather than Jev's pointer. A new draft is written
+ * into the dictionary, unreviewed, as one asked for is.
  */
 export const redoProposal = Effect.fn("review.redoProposal")(function* (db: DatabaseShape, id: number) {
   const proposal = yield* proposalById(db, id)
@@ -320,9 +256,11 @@ export const redoProposal = Effect.fn("review.redoProposal")(function* (db: Data
   if (!(yield* claude.available)) return yield* new AiUnavailable({ message: "Claude isn't available right now." })
   const triaged =
     proposal.triage === null ? null : { record: proposal.triage, reading: interpretTriage(proposal.triage.answers) }
-  const updated = yield* updateVerdict(db, id, yield* judge(db, proposal.query, proposal.language, triaged))
-  const [linked] = updated.linkedEntryId === null ? [] : yield* getEntries(db, [updated.linkedEntryId])
-  return { proposal: updated, linked: linked?.headword ?? null }
+  const { draft, ...verdict } = yield* judge(db, proposal.query, proposal.language, triaged)
+  const entryId = draft === null ? verdict.entryId : yield* writeDraftedEntry(db, draft, proposal.language)
+  const updated = yield* updateVerdict(db, id, { ...verdict, entryId })
+  const [named] = updated.entryId === null ? [] : yield* getEntries(db, [updated.entryId])
+  return { proposal: updated, headword: named?.headword ?? null }
 })
 
 /** The approved ja file's entries and aliases; see `APPROVED_JA_FILE`. */
