@@ -19,7 +19,6 @@ import {
   jobKind,
   labels,
   loanLinks,
-  notes,
   nullIfEmpty,
   senses,
   type Source,
@@ -56,7 +55,6 @@ import type { DatabaseShape } from "../../db/Database.ts"
 import { type EntryScope, outsideScope, reviewedAs } from "./entryReview.ts"
 import { matchSenses } from "./import/matchSenses.ts"
 import { type ImportEntry, labelsOf, usagePatternsOf, SEED_SOURCES, speaks } from "./import/seedFacts.ts"
-import { unique } from "./shared.ts"
 
 /** Enrichment an entry can be missing, used to find work for the worker. */
 export type EnrichmentKind = (typeof jobKind.enumValues)[number]
@@ -120,7 +118,7 @@ const sensesMoved = Effect.fnUntraced(function* (tx: Tx, records: ReadonlyArray<
 
 /**
  * Takes out the rows keyed by sense of entries whose senses move, until the senses are in
- * place: labels are held and deleted; example sentences, usage patterns, cautions and saved words are
+ * place: labels are held and deleted; example sentences, usage patterns and cautions are
  * only listed, as they are moved in place (keeping their ids, and the sentences their audio).
  */
 const takeSenseRows = Effect.fnUntraced(function* (tx: Tx, ids: ReadonlyArray<EntryId>) {
@@ -129,10 +127,6 @@ const takeSenseRows = Effect.fnUntraced(function* (tx: Tx, ids: ReadonlyArray<En
       .select({ id: examples.id, entryId: examples.entryId, sense: examples.sense })
       .from(examples)
       .where(inArray(examples.entryId, [...ids])),
-    saved: yield* tx
-      .select({ id: notes.id, entryId: notes.entryId, senses: notes.senses })
-      .from(notes)
-      .where(and(inArray(notes.entryId, [...ids]), isNotNull(notes.senses))),
     // What the import rebuilds from the record is gone by now (`deleteSeedFacts`); what is left
     // is Kotori's and learners', which follows its sense.
     labels: yield* tx
@@ -197,18 +191,6 @@ const moveSenseRows = Effect.fnUntraced(function* (
         .where(inArray(examples.id, [...chunk]))
   }
   for (const chunk of chunks(unheard, 5000)) yield* tx.delete(examples).where(inArray(examples.id, [...chunk]))
-
-  // A note that chose its senses follows them. One whose chosen senses are all gone keeps its
-  // schedule and shows every sense again.
-  for (const note of held.saved) {
-    if (note.senses === null) continue
-    const kept = unique(note.senses.flatMap((sense) => to(note.entryId, sense) ?? []))
-    if (kept.length === note.senses.length && kept.every((sense, index) => sense === note.senses![index])) continue
-    yield* tx
-      .update(notes)
-      .set({ senses: kept.length === 0 ? null : kept })
-      .where(eq(notes.id, note.id))
-  }
 })
 
 /**

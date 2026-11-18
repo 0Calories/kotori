@@ -83,17 +83,13 @@ const propose = Effect.fnUntraced(function* (
 })
 
 /** U1's note on an entry, as a learner who saved the draft has. */
-const saveNote = (db: Parameters<typeof approveProposal>[0], entryId: EntryId, senses: Array<number> | null) =>
+const saveNote = (db: Parameters<typeof approveProposal>[0], entryId: EntryId) =>
   db
     .insert(notes)
     .values({
       id: NoteId.make(crypto.randomUUID()),
       userId: U1,
-      entryId,
-      senses,
-      due: new Date(0),
-      seed: 1,
-      position: 0
+      entryId
     })
     .pipe(Effect.orDie)
 
@@ -127,7 +123,7 @@ layer(TestLayer)("proposal review", (it) => {
       assert.strictEqual(yield* reviewOf(db, entryId), "unreviewed")
       assert.deepStrictEqual(yield* findForms(db, ["bussin'"], "en"), [])
       assert.strictEqual((yield* findForms(db, ["bussin'"], "en", "searchable"))[0]?.entryId, entryId)
-      yield* saveNote(db, entryId, [1])
+      yield* saveNote(db, entryId)
       // Nothing is enriched before approval.
       assert.strictEqual((yield* jobStatusFor(db, entryId)).size, 0)
 
@@ -137,11 +133,8 @@ layer(TestLayer)("proposal review", (it) => {
       assert.strictEqual(approved.entryId, entryId)
       assert.strictEqual(yield* reviewOf(db, entryId), "approved")
       assert.deepStrictEqual(
-        yield* db
-          .select({ entryId: notes.entryId, senses: notes.senses })
-          .from(notes)
-          .where(eq(notes.entryId, entryId)),
-        [{ entryId, senses: [1] }]
+        yield* db.select({ entryId: notes.entryId }).from(notes).where(eq(notes.entryId, entryId)),
+        [{ entryId }]
       )
 
       // The entry is searchable by headword and spelling, with the draft's labels, usage patterns and
@@ -217,20 +210,17 @@ layer(TestLayer)("proposal review", (it) => {
         headword: "it be like it be",
         spellings: []
       })
-      yield* saveNote(db, entryId, [1])
+      yield* saveNote(db, entryId)
       const approved = yield* approveProposal(db, id, files, { aliasOf: "eat" })
       assert.strictEqual(approved.alias, "it be like it be")
       const matches = yield* findForms(db, ["it be like it be"], "en")
       assert.strictEqual(matches[0]?.entryId, approved.entryId)
       assert.strictEqual(approved.headword, "eat")
-      // The draft's entry goes; its note and its proposal now name the word it spells, every sense shown.
+      // The draft's entry goes; its note and its proposal now name the word it spells.
       assert.strictEqual(yield* reviewOf(db, entryId), undefined)
       assert.deepStrictEqual(
-        yield* db
-          .select({ entryId: notes.entryId, senses: notes.senses })
-          .from(notes)
-          .where(eq(notes.entryId, approved.entryId)),
-        [{ entryId: approved.entryId, senses: null }]
+        yield* db.select({ entryId: notes.entryId }).from(notes).where(eq(notes.entryId, approved.entryId)),
+        [{ entryId: approved.entryId }]
       )
       assert.deepStrictEqual(
         yield* db.select({ entryId: proposals.entryId }).from(proposals).where(eq(proposals.id, id)),
@@ -282,7 +272,7 @@ layer(TestLayer)("proposal review", (it) => {
       const db = yield* Database
       yield* seeded
       const { id, entryId } = yield* propose(db, "en", "slopword", { ...draft, headword: "slopword", spellings: [] })
-      yield* saveNote(db, entryId, null)
+      yield* saveNote(db, entryId)
       const discarded = yield* discardProposal(db, id, "not established usage")
       assert.strictEqual(discarded.query, "slopword")
       assert.strictEqual(yield* reviewOf(db, entryId), "discarded")

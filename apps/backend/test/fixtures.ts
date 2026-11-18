@@ -137,13 +137,13 @@ export const english: Array<EntryRecord> = [
   }
 ]
 
-// Study ids are uuids, as Better Auth's user ids and the API's note ids are.
+// User and note ids are uuids, as Better Auth's user ids and the API's note ids are.
 export const U1 = UserId.make("00000000-0000-4000-8000-000000000001")
 export const N1 = NoteId.make("00000000-0000-4000-8000-00000000000a")
 export const N2 = NoteId.make("00000000-0000-4000-8000-00000000000b")
 export const N3 = NoteId.make("00000000-0000-4000-8000-00000000000c")
 
-/** A learner profile to hang study data on; the database's defaults fill in the rest. */
+/** A learner profile to hang saved notes on; the database's defaults fill in the rest. */
 export const learner = {
   id: U1,
   status: "approved",
@@ -152,8 +152,5 @@ export const learner = {
   targetLanguage: "ja",
   onboardedAt: null,
   displayName: null,
-  timezone: "Asia/Tokyo",
-  dailyNewLimit: 20,
-  dailyReviewLimit: 200,
   createdAt: new Date(0)
 } satisfies typeof users.$inferInsert

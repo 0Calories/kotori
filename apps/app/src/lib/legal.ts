@@ -53,10 +53,10 @@ const documents: Record<Language, Record<LegalKind, LegalDocument>> = {
           ]
         },
         {
-          id: "study",
-          title: "Study and Language Data",
+          id: "notebook",
+          title: "Notebook and Language Data",
           paragraphs: [
-            "To run your notebook and spaced-repetition reviews across devices, Kotori stores your chosen language direction (Japanese or English), time zone, daily study limits, saved words and expressions, flashcards, and review history.",
+            "To keep your notebook in sync across devices, Kotori stores your chosen language direction (Japanese or English) and the dictionary entries you save to your notebook.",
             "When you ask a language question, check whether a sentence sounds natural, or practice expressing an idea, the text you submit is sent to Kotori's AI language providers to produce your answer and enforce per-account usage limits."
           ]
         },
@@ -79,7 +79,7 @@ const documents: Record<Language, Record<LegalKind, LegalDocument>> = {
           id: "deletion",
           title: "Data Retention and Account Deletion",
           paragraphs: [
-            "Your account and study records are kept while your account remains open. You can permanently delete your account at any time from Settings → Delete account in the app. Deleting your account immediately erases your identity, linked sign-in methods, sessions, saved notebook, flashcards, and review history from Kotori's database."
+            "Your account and saved notes are kept while your account remains open. You can permanently delete your account at any time from Settings → Delete account in the app. Deleting your account immediately erases your identity, linked sign-in methods, sessions, and saved notebook from Kotori's database."
           ]
         },
         {
@@ -103,14 +103,14 @@ const documents: Record<Language, Record<LegalKind, LegalDocument>> = {
           id: "service",
           title: "The Service and Private Beta",
           paragraphs: [
-            "Kotori is a bilingual dictionary, nuance guide, and spaced-repetition notebook for learners of Japanese and English. While Kotori is in private beta, new sign-ups may wait for manual approval before full access is enabled, and features or hourly/daily AI allowances may change as the service develops."
+            "Kotori is a bilingual dictionary, nuance guide, and notebook for learners of Japanese and English. While Kotori is in private beta, new sign-ups may wait for manual approval before full access is enabled, and features or hourly/daily AI allowances may change as the service develops."
           ]
         },
         {
           id: "accounts",
           title: "Your Account",
           paragraphs: [
-            "You are responsible for keeping your password and linked Google account secure and for activity under your account. You can sign out or permanently erase your account and study history at any time in Settings."
+            "You are responsible for keeping your password and linked Google account secure and for activity under your account. You can sign out or permanently erase your account and saved notes at any time in Settings."
           ]
         },
         {
@@ -164,10 +164,10 @@ const documents: Record<Language, Record<LegalKind, LegalDocument>> = {
           ]
         },
         {
-          id: "study",
-          title: "学習データと入力内容",
+          id: "notebook",
+          title: "ノートと入力内容",
           paragraphs: [
-            "複数の端末でノートや間隔反復（SRS）の復習を同期するため、学習する言語、タイムゾーン、1日の学習上限、保存した単語・表現、復習カード、および復習履歴を保存します。",
+            "複数の端末でノートを同期するため、学習する言語およびノートに保存した辞書項目を保存します。",
             "質問や英文・日本語文の自然さチェック、表現の相談を行った場合、入力されたテキストは回答の作成および利用回数制限の管理のために AI プロバイダへ送信されます。"
           ]
         },
@@ -190,7 +190,7 @@ const documents: Record<Language, Record<LegalKind, LegalDocument>> = {
           id: "deletion",
           title: "データの保持とアカウント削除",
           paragraphs: [
-            "アカウントおよび学習記録は、アカウントが有効な間保持されます。アプリ内の「設定 → アカウントを削除」からいつでもアカウントを完全に削除でき、削除を実行するとアカウント情報、連携したログイン手段、セッション、保存したノート、カード、復習履歴がデータベースから即座に消去されます。"
+            "アカウントおよび保存したノートは、アカウントが有効な間保持されます。アプリ内の「設定 → アカウントを削除」からいつでもアカウントを完全に削除でき、削除を実行するとアカウント情報、連携したログイン手段、セッション、保存したノートがデータベースから即座に消去されます。"
           ]
         },
         {
@@ -215,14 +215,14 @@ const documents: Record<Language, Record<LegalKind, LegalDocument>> = {
           id: "service",
           title: "サービス内容とプライベートベータ",
           paragraphs: [
-            "ことりは、日本語および英語の学習者向けの辞書・ニュアンス解説・間隔反復ノートアプリです。プライベートベータ期間中は、新規登録後に順次承認を行っており、機能や AI 機能の時間・日次の上限は予告なく変更される場合があります。"
+            "ことりは、日本語および英語の学習者向けの辞書・ニュアンス解説・ノートアプリです。プライベートベータ期間中は、新規登録後に順次承認を行っており、機能や AI 機能の時間・日次の上限は予告なく変更される場合があります。"
           ]
         },
         {
           id: "accounts",
           title: "アカウントの管理",
           paragraphs: [
-            "パスワードおよび連携した Google アカウントの安全な管理は利用者ご自身の責任となります。設定画面からいつでもログアウトや、アカウントおよび全学習データの完全な削除を行えます。"
+            "パスワードおよび連携した Google アカウントの安全な管理は利用者ご自身の責任となります。設定画面からいつでもログアウトや、アカウントおよび保存したデータの完全な削除を行えます。"
           ]
         },
         {

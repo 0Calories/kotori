@@ -47,17 +47,16 @@ interface Fields {
 
 const unique = <A>(items: Iterable<A>) => [...new Set(items)]
 
-/** A note is found by its entry and the senses it shows, not the ones the learner hid. */
+/** A note is found by its entry's forms, its meanings, and its usage notes. */
 const fieldsOf = (note: Note): Fields => {
-  const { entry } = note
-  const shown = note.senses.filter((sense) => sense.shown)
+  const { entry, senses } = note
   // An English word's `reading` is IPA ("/rɛd/"), not a spelling to search by.
   const rawForms = entry.language === "en" ? [entry.headword] : [entry.headword, entry.reading]
-  const notes = unique(shown.flatMap((sense) => (sense.note === null ? [] : [sense.note])))
+  const notes = unique(senses.flatMap((sense) => (sense.note === null ? [] : [sense.note])))
   return {
     language: entry.language,
     forms: unique(rawForms.filter((form) => form.length > 0)),
-    glosses: unique(shown.flatMap((sense) => sense.glosses).filter((gloss) => gloss.length > 0)),
+    glosses: unique(senses.flatMap((sense) => sense.glosses).filter((gloss) => gloss.length > 0)),
     note: notes.length === 0 ? null : notes.join(" ")
   }
 }

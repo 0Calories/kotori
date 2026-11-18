@@ -1,0 +1,304 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "a77f3b2d-81d3-48c4-9c80-eae59e70dac0",
+  "prevIds": ["c5f85a79-e6fd-4aa7-8f13-3d1574bfa20f"],
+  "footprints": [
+    {
+      "statementType": "drop_table",
+      "statementTarget": ["table", "public", "review_logs"],
+      "writes": [
+        "s|tbl|public.review_logs",
+        "n|tbl|public.review_logs",
+        "e|tbl|public.review_logs",
+        "n|rel|public.review_logs",
+        "n|type|public.review_logs"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "drop_index",
+      "statementTarget": ["index", "public", "notes", "notes_due"],
+      "writes": [
+        "s|idx|public.notes_due",
+        "n|idx|public.notes_due",
+        "e|idx|public.notes_due",
+        "n|rel|public.notes_due"
+      ],
+      "reads": [
+        "e|tbl|public.notes",
+        "n|sch|public",
+        "e|col|public.notes.user_id",
+        "e|col|public.notes.retention_stage",
+        "e|col|public.notes.due"
+      ],
+      "sharedWrites": []
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "users", "timezone"],
+      "writes": ["s|col|public.users.timezone", "n|col|public.users.timezone", "e|col|public.users.timezone"],
+      "reads": ["n|tbl|public.users", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "users", "daily_new_limit"],
+      "writes": [
+        "s|col|public.users.daily_new_limit",
+        "n|col|public.users.daily_new_limit",
+        "e|col|public.users.daily_new_limit"
+      ],
+      "reads": ["n|tbl|public.users", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "users", "daily_review_limit"],
+      "writes": [
+        "s|col|public.users.daily_review_limit",
+        "n|col|public.users.daily_review_limit",
+        "e|col|public.users.daily_review_limit"
+      ],
+      "reads": ["n|tbl|public.users", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "notes", "retention_stage"],
+      "writes": [
+        "s|col|public.notes.retention_stage",
+        "n|col|public.notes.retention_stage",
+        "e|col|public.notes.retention_stage"
+      ],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "notes", "due"],
+      "writes": ["s|col|public.notes.due", "n|col|public.notes.due", "e|col|public.notes.due"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "notes", "interval"],
+      "writes": ["s|col|public.notes.interval", "n|col|public.notes.interval", "e|col|public.notes.interval"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "notes", "ease"],
+      "writes": ["s|col|public.notes.ease", "n|col|public.notes.ease", "e|col|public.notes.ease"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "notes", "step"],
+      "writes": ["s|col|public.notes.step", "n|col|public.notes.step", "e|col|public.notes.step"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "notes", "reps"],
+      "writes": ["s|col|public.notes.reps", "n|col|public.notes.reps", "e|col|public.notes.reps"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "notes", "lapses"],
+      "writes": ["s|col|public.notes.lapses", "n|col|public.notes.lapses", "e|col|public.notes.lapses"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "notes", "leech"],
+      "writes": ["s|col|public.notes.leech", "n|col|public.notes.leech", "e|col|public.notes.leech"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "notes", "last_review"],
+      "writes": ["s|col|public.notes.last_review", "n|col|public.notes.last_review", "e|col|public.notes.last_review"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "notes", "seed"],
+      "writes": ["s|col|public.notes.seed", "n|col|public.notes.seed", "e|col|public.notes.seed"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "notes", "position"],
+      "writes": ["s|col|public.notes.position", "n|col|public.notes.position", "e|col|public.notes.position"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "notes", "senses"],
+      "writes": ["s|col|public.notes.senses", "n|col|public.notes.senses", "e|col|public.notes.senses"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_enum",
+      "statementTarget": ["enum", "public", "retention_stage"],
+      "writes": [
+        "s|enum|public.retention_stage",
+        "n|enum|public.retention_stage",
+        "e|enum|public.retention_stage",
+        "n|type|public.retention_stage"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "drop_enum",
+      "statementTarget": ["enum", "public", "rating"],
+      "writes": ["s|enum|public.rating", "n|enum|public.rating", "e|enum|public.rating", "n|type|public.rating"],
+      "reads": ["n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "drop",
+      "key": "tables\u0000[\"public\",\"review_logs\"]"
+    },
+    {
+      "op": "drop",
+      "key": "enums\u0000[\"public\",\"retention_stage\"]"
+    },
+    {
+      "op": "drop",
+      "key": "enums\u0000[\"public\",\"rating\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"review_logs\",\"id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"review_logs\",\"user_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"review_logs\",\"rating\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"review_logs\",\"interval_before\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"review_logs\",\"interval\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"review_logs\",\"ease_before\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"review_logs\",\"ease\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"review_logs\",\"delay_ms\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"review_logs\",\"duration_ms\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"review_logs\",\"reviewed_at\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"review_logs\",\"study_day\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"users\",\"timezone\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"users\",\"daily_new_limit\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"users\",\"daily_review_limit\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"notes\",\"retention_stage\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"notes\",\"due\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"notes\",\"interval\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"notes\",\"ease\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"notes\",\"step\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"notes\",\"reps\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"notes\",\"lapses\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"notes\",\"leech\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"notes\",\"last_review\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"notes\",\"seed\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"notes\",\"position\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"review_logs\",\"note_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"review_logs\",\"retention_stage_before\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"notes\",\"senses\"]"
+    },
+    {
+      "op": "drop",
+      "key": "indexes\u0000[\"public\",\"review_logs_user_day\"]"
+    },
+    {
+      "op": "drop",
+      "key": "indexes\u0000[\"public\",\"notes_due\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"review_logs\",\"review_logs_user_id_users_id_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"review_logs\",\"review_logs_note_id_notes_id_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "pks\u0000[\"public\",\"review_logs\",\"review_logs_pkey\"]"
+    }
+  ]
+}

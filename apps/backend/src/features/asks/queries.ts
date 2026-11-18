@@ -166,15 +166,14 @@ export const repointProposals = (db: DatabaseShape, from: EntryId, to: EntryId, 
 
 /**
  * Moves learners' notes from one entry to another: a draft approved as another word's spelling.
- * A learner who saved both keeps the note they had on the word; the moved ones show every sense,
- * as the draft's choice of senses means nothing on the word.
+ * A learner who saved both keeps the note they already had on the word.
  */
 export const moveNotes = Effect.fn("asks.moveNotes")(function* (db: DatabaseShape, from: EntryId, to: EntryId) {
   yield* db.transaction((tx) =>
     Effect.gen(function* () {
       const kept = tx.select({ userId: notes.userId }).from(notes).where(eq(notes.entryId, to))
       yield* tx.delete(notes).where(and(eq(notes.entryId, from), inArray(notes.userId, kept)))
-      yield* tx.update(notes).set({ entryId: to, senses: null }).where(eq(notes.entryId, from))
+      yield* tx.update(notes).set({ entryId: to }).where(eq(notes.entryId, from))
     })
   )
 }, Effect.orDie)

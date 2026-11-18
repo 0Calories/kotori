@@ -9,9 +9,6 @@
   "exclude": ["src/testing"],
   "references": [
     {
-      "path": "../../packages/srs/tsconfig.lib.json"
-    },
-    {
       "path": "../../packages/language/tsconfig.lib.json"
     },
     {

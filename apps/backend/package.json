@@ -20,7 +20,6 @@
     "@kotori/contracts": "workspace:*",
     "@kotori/db": "workspace:*",
     "@kotori/language": "workspace:*",
-    "@kotori/srs": "workspace:*",
     "@sentry/effect": "catalog:",
     "drizzle-orm": "catalog:",
     "effect": "catalog:",

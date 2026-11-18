@@ -12,7 +12,7 @@ import Animated, {
   withDelay,
   withTiming
 } from "react-native-reanimated"
-import { useAddNote, useNotes } from "../api/queries.ts"
+import { useAddNote, useNotes, useRemoveNote } from "../api/queries.ts"
 import { posLabel } from "../i18n/strings.ts"
 import { draftHeadwordSize } from "../lib/ask.ts"
 import { labelItems, senseCautions, wordCautions } from "../lib/entry.ts"
@@ -151,7 +151,9 @@ export const DraftCard = ({
   const { t } = useSession()
   const notes = useNotes()
   const addNote = useAddNote()
-  const saved = noteOn(notes.data, draft.id) !== undefined
+  const removeNote = useRemoveNote()
+  const note = noteOn(notes.data, draft.id)
+  const busy = addNote.isPending || removeNote.isPending
   const size = draftHeadwordSize(draft.headword, language)
   const reading = draft.reading.length > 0 && draft.reading !== draft.headword ? draft.reading : null
   // Each part follows the one before it by a beat, after the card itself has landed.
@@ -191,10 +193,16 @@ export const DraftCard = ({
             <View style={{ marginVertical: -8, marginRight: -8 }}>
               <IconButton
                 icon="bookmark"
-                filled={saved}
+                filled={note !== undefined}
                 size={40}
-                label={saved ? t.common.saved : t.entry.save}
-                onPress={saved || addNote.isPending ? undefined : () => addNote.mutate({ entryId: draft.id })}
+                label={note !== undefined ? t.notebook.remove : t.entry.save}
+                onPress={
+                  busy
+                    ? undefined
+                    : note !== undefined
+                      ? () => removeNote.mutate(note.id)
+                      : () => addNote.mutate({ entryId: draft.id })
+                }
               />
             </View>
           </View>

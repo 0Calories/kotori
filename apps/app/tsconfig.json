@@ -15,9 +15,6 @@
       "path": "../../packages/language"
     },
     {
-      "path": "../../packages/srs"
-    },
-    {
       "path": "../../packages/contracts"
     }
   ]

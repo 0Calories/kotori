@@ -284,7 +284,6 @@ layer(WebhooksAgainstUpstream)("Managed Auth webhooks", (it) => {
         nativeLanguage: "ja",
         targetLanguage: "en",
         onboardedAt: new Date(),
-        timezone: "Asia/Tokyo",
         createdAt: new Date()
       })
 

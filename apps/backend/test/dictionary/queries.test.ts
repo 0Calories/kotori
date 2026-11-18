@@ -1,5 +1,5 @@
 import { assert, describe, it, layer } from "@effect/vitest"
-import { EntryId, type EntryRecord, NoteId, UserId } from "@kotori/contracts"
+import { EntryId, type EntryRecord, NoteId } from "@kotori/contracts"
 import { Effect, Exit } from "effect"
 import { Database } from "../../src/db/Database.ts"
 import { scopedToUser } from "../../src/db/scopedToUser.ts"
@@ -24,7 +24,7 @@ import {
   searchJapaneseGlosses
 } from "../../src/features/dictionary/queries.ts"
 import { examplesFor, saveExamples } from "../../src/features/enrichment/queries.ts"
-import { insertNote, allNotes } from "../../src/features/study/queries.ts"
+import { allNotes, insertNote } from "../../src/features/notebook/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 import { english, entries, kanji, learner, sense, spelling, U1 } from "../fixtures.ts"
 
@@ -318,21 +318,12 @@ layer(TestLayer)("dictionary re-imports", (it) => {
         new Date(0)
       )
       const sentenceIds = new Map((yield* examplesFor(db, [style])).map((row) => [row.ja, row.id]))
-      // One learner's note shows 格好, 花柱 and 型, in that order; another's only 花柱.
-      const U2 = UserId.make("00000000-0000-4000-8000-000000000002")
-      yield* ensureUser(db, { ...learner, id: U2 })
-      const saveWord = (userId: UserId, id: string, senses: Array<number>) =>
-        insertNote(scopedToUser(db, userId), {
-          id: NoteId.make(id),
-          entryId: style,
-          senses,
-          due: new Date(0),
-          seed: 7,
-          position: 0,
-          createdAt: new Date(0)
-        })
-      yield* saveWord(U1, "00000000-0000-4000-8000-0000000000e1", [2, 3, 0])
-      yield* saveWord(U2, "00000000-0000-4000-8000-0000000000e2", [3])
+      yield* ensureUser(db, learner)
+      yield* insertNote(scopedToUser(db, U1), {
+        id: NoteId.make("00000000-0000-4000-8000-0000000000e1"),
+        entryId: style,
+        createdAt: new Date(0)
+      })
 
       // The re-import ranks 格好 first, edits やり方, and drops 花柱.
       yield* insertEntries(db, [word([look, form, ["やり方", "方法"]])])
@@ -354,11 +345,9 @@ layer(TestLayer)("dictionary re-imports", (it) => {
           [2, ["やり方", sentenceIds.get("やり方")]]
         ]
       )
-      // Notes' chosen senses follow, in the learner's order; a note whose only sense went shows them all.
+      // Saved notes survive re-importing the entry.
       const [own] = yield* allNotes(scopedToUser(db, U1))
-      assert.deepStrictEqual(own?.senses, [0, 1])
-      const [other] = yield* allNotes(scopedToUser(db, U2))
-      assert.strictEqual(other?.senses, null)
+      assert.strictEqual(own?.entryId, style)
 
       // Re-importing the same senses moves nothing.
       yield* insertEntries(db, [word([look, form, ["やり方", "方法"]])])

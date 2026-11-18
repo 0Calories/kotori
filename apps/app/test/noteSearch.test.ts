@@ -142,17 +142,4 @@ describe("searchNotes", () => {
   it("finds nothing for what isn't saved", () => {
     expect(searchNotes(notes, "giraffe")).toEqual({ match: "none", notes: [] })
   })
-
-  it("searches only the senses a note shows, not the ones the learner hid", () => {
-    const kasa = savedWord("kasa", {
-      headword: "傘",
-      reading: "かさ",
-      senses: [{ glosses: ["umbrella"] }, { glosses: ["parasol"], note: "For the sun.", shown: false }]
-    })
-    expect(searchNotes([kasa], "umbrella").notes.map((n) => n.id)).toEqual(["kasa"])
-    expect(searchNotes([kasa], "parasol").notes).toEqual([])
-    expect(searchNotes([kasa], "sun").notes).toEqual([])
-    // The word itself is found whatever it shows.
-    expect(searchNotes([kasa], "かさ").notes.map((n) => n.id)).toEqual(["kasa"])
-  })
 })

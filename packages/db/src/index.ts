@@ -29,10 +29,9 @@ export * from "./cautions.ts"
 export * from "./entryFrequency.ts"
 export * from "./loanLinks.ts"
 
-// The learner: who they are, what they study and how it went. Everything cascades from `users`.
+// The learner: who they are, what they saved and what they asked. Everything cascades from `users`.
 export * from "./users.ts"
 export * from "./notes.ts"
-export * from "./reviewLogs.ts"
 export * from "./coachCache.ts"
 export * from "./coachUsage.ts"
 export * from "./proposals.ts"

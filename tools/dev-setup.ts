@@ -101,7 +101,7 @@ if (remoteDatabase === undefined) {
       fail(`Postgres 18 can't start on your existing Docker volume, which an older Postgres created.
   The local database isn't upgraded: it starts over on the new schema. Delete it and run this again:
 
-    docker compose down -v   # deletes the local database, including the dev account, notes and reviews
+    docker compose down -v   # deletes the local database, including the dev account and saved notes
     pnpm dev:setup`)
     }
     fail("`docker compose up` failed. Is Docker running? The Postgres log is in `docker compose logs postgres`.")

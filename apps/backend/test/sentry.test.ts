@@ -96,7 +96,7 @@ let cookie: string | null = null
 const Session = HttpApiMiddleware.layerClient(Authorization, ({ next, request }) =>
   next(cookie === null ? request : HttpClientRequest.setHeader(request, "cookie", cookie))
 )
-const client = HttpApiTest.groups(KotoriApi, ["system", "account", "dictionary", "coach", "study", "audio"])
+const client = HttpApiTest.groups(KotoriApi, ["system", "account", "dictionary", "coach", "notebook", "audio"])
 
 const approvedLearner = (email: string) =>
   Effect.gen(function* () {
