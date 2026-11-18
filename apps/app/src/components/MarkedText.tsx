@@ -2,14 +2,9 @@ import { View } from "react-native"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Text } from "./Text.tsx"
 
-/** Gabarito's ascent plus descent, as a share of the size: the height of its glyph box. */
+// Gabarito's ascent + descent as a fraction of fontSize.
 const GLYPH_BOX = 1.2
 
-/**
- * An English sentence with the looked-up word marked the way `Furigana` marks it in a
- * Japanese one: a marker behind the lower part of the word. Words are laid out one by
- * one so the marker sits under its word on every platform, wherever the line wraps.
- */
 export const MarkedText = ({
   text,
   mark,
@@ -17,7 +12,6 @@ export const MarkedText = ({
   lineHeight = 22
 }: {
   readonly text: string
-  /** The stretch of `text` to mark, as it appears there. */
   readonly mark: string | undefined
   readonly size?: number
   readonly lineHeight?: number

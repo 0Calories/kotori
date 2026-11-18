@@ -57,7 +57,6 @@ const jaDraft: DraftEntry = {
   cautions: [{ kind: "set_phrase", text: "Mostly said of a crush, not a partner.", sense: 0, about: null }]
 }
 
-/** A drafted proposal as Ask Kotori leaves one: its draft an unreviewed entry. */
 const propose = Effect.fnUntraced(function* (
   db: Parameters<typeof approveProposal>[0],
   language: "en" | "ja",
@@ -82,7 +81,6 @@ const propose = Effect.fnUntraced(function* (
   return { id: row!.id, entryId }
 })
 
-/** U1's note on an entry, as a learner who saved the draft has. */
 const saveNote = (db: Parameters<typeof approveProposal>[0], entryId: EntryId) =>
   db
     .insert(notes)
@@ -119,17 +117,14 @@ layer(TestLayer)("proposal review", (it) => {
       yield* seeded
 
       const { id, entryId } = yield* propose(db, "en", "bussin", draft)
-      // Until approved, the draft is an unreviewed entry a link never lands on, and a learner can save it.
       assert.strictEqual(yield* reviewOf(db, entryId), "unreviewed")
       assert.deepStrictEqual(yield* findForms(db, ["bussin'"], "en"), [])
       assert.strictEqual((yield* findForms(db, ["bussin'"], "en", "searchable"))[0]?.entryId, entryId)
       yield* saveNote(db, entryId)
-      // Nothing is enriched before approval.
       assert.strictEqual((yield* jobStatusFor(db, entryId)).size, 0)
 
       const approved = yield* approveProposal(db, id, files)
       assert.strictEqual(approved.headword, "bussin")
-      // Approval changes only where the entry stands: the same entry, and the note on it, stay.
       assert.strictEqual(approved.entryId, entryId)
       assert.strictEqual(yield* reviewOf(db, entryId), "approved")
       assert.deepStrictEqual(
@@ -137,8 +132,6 @@ layer(TestLayer)("proposal review", (it) => {
         [{ entryId }]
       )
 
-      // The entry is searchable by headword and spelling, with the draft's labels, usage patterns and
-      // cautions as Kotori's, the caution linked to the word it names.
       const [match] = yield* findForms(db, ["bussin'"], "en")
       assert.strictEqual(match?.entryId, approved.entryId)
       const [entry] = yield* getEntries(db, [approved.entryId])
@@ -177,7 +170,6 @@ layer(TestLayer)("proposal review", (it) => {
           { rank: 2, kind: "variety", sense: null, about: null }
         ]
       )
-      // The draft's frequency score is stored from the moment it is approved.
       assert.deepStrictEqual(
         yield* db.select().from(entryFrequency).where(eq(entryFrequency.entryId, approved.entryId)),
         [{ entryId: approved.entryId, everyday: false, spokenCount: null, score: 4 }]
@@ -185,7 +177,6 @@ layer(TestLayer)("proposal review", (it) => {
       const jobs = yield* jobStatusFor(db, approved.entryId)
       assert.deepStrictEqual([...jobs.keys()].toSorted(), ["audio", "examples"])
 
-      // The approved file replays the entry on the next import, frequency included.
       const parsed = parseApproved((yield* fs.readFileString(files.en)).split("\n"))
       assert.strictEqual(parsed.words[0]?.headword, "bussin")
       assert.strictEqual(parsed.words[0]?.frequency, 4)
@@ -193,7 +184,6 @@ layer(TestLayer)("proposal review", (it) => {
       assert.deepStrictEqual(parsed.words[0]?.senses[0]?.info, ["若者のスラングです。"])
       assert.deepStrictEqual(parsed.words[0]?.cautions, draft.cautions)
 
-      // Approving twice is refused.
       const again = yield* Effect.flip(approveProposal(db, id, files))
       assert.strictEqual(again._tag, "NotPending")
     })
@@ -241,7 +231,6 @@ layer(TestLayer)("proposal review", (it) => {
       const approved = yield* approveProposal(db, id, files)
       assert.isAtLeast(approved.entryId, FIRST_APPROVED_JA_ID + 1)
       const [entry] = yield* getEntries(db, [approved.entryId])
-      // getEntries lists forms kanji first, as the dictionary does.
       assert.deepStrictEqual(
         entry?.forms.map((form) => [form.kind, form.text]),
         [

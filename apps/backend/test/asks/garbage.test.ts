@@ -3,7 +3,6 @@ import { normalizeAsk } from "@kotori/language"
 import { describe, expect, it } from "vitest"
 import { turnAway } from "../../src/features/asks/garbage.ts"
 
-/** Stage zero as `Asks.ask` runs it: on the normalized query. */
 const asked = (query: string, language: Language) => turnAway(normalizeAsk(query, language), language)
 
 describe("turnAway", () => {
@@ -22,7 +21,6 @@ describe("turnAway", () => {
       "yesss",
       "bruhhh",
       "sksk",
-      // Real words and interjections an older, stricter set of rules turned away.
       "catchphrase",
       "sightscreen",
       "watchstrap",

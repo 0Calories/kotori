@@ -33,10 +33,6 @@ const Feature = ({ label, on }: { readonly label: string; readonly on: boolean |
   )
 }
 
-/**
- * Which server the app talks to and which of its providers are set up. For development only:
- * learners have no use for the address or the providers' names.
- */
 const ServerDiagnostics = () => {
   const theme = useTheme()
   const { t } = useSession()

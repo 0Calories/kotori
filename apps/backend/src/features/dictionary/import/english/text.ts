@@ -1,15 +1,8 @@
 import { normalizeJapaneseGloss } from "@kotori/language"
 
-/**
- * Japanese definitions as Wiktionary writes them: several glosses to a line,
- * separated by 。 or 、 (or by , and ;), with asides in brackets
- * that may contain those same separators.
- */
-
 const OPENING = "(（〈《「『〔【["
 const CLOSING = ")）〉》」』〕】]"
 
-/** Splits `text` at any of `separators` that is outside brackets. */
 const splitOutside = (text: string, separators: string): Array<string> => {
   const pieces: Array<string> = []
   let depth = 0
@@ -27,7 +20,6 @@ const splitOutside = (text: string, separators: string): Array<string> => {
   return pieces.map((piece) => piece.trim()).filter((piece) => piece.length > 0)
 }
 
-/** The inside of a piece that is one bracketed aside from end to end, such as "（＊原義は…）". */
 const asideOnly = (piece: string): string | null => {
   const open = OPENING.indexOf(piece[0] ?? "")
   if (open === -1 || CLOSING.indexOf(piece.at(-1) ?? "") === -1) return null
@@ -36,13 +28,12 @@ const asideOnly = (piece: string): string | null => {
     const char = piece[index]!
     if (OPENING.includes(char)) depth++
     else if (CLOSING.includes(char)) depth--
-    // Closed before the end: "(米) 食べ物 (口語)" is two asides around a gloss, not one aside.
+    // Reject strings like "(米) 食べ物 (口語)" where the opening bracket closes before the end.
     if (depth === 0 && index < piece.length - 1) return null
   }
   return piece.slice(1, -1).trim()
 }
 
-/** A leading "(…)" or "（…）" and the text after it, or null when the text doesn't start with one. */
 export const leadingAside = (text: string): { readonly aside: string; readonly rest: string } | null => {
   const trimmed = text.trimStart()
   if (trimmed[0] !== "(" && trimmed[0] !== "（") return null
@@ -56,13 +47,8 @@ export const leadingAside = (text: string): { readonly aside: string; readonly r
   return null
 }
 
-/** Synonyms listed with 、 are short; longer pieces are a definition that happens to have a comma. */
 const SYNONYM_LENGTH = 10
 
-/**
- * One Japanese definition as glosses: split into sentences, and lists of synonyms into
- * one gloss each, with sentences that are only an aside or a cross-reference set apart as notes.
- */
 export const splitDefinition = (
   definition: string
 ): { readonly glosses: ReadonlyArray<string>; readonly notes: ReadonlyArray<string> } => {

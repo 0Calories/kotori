@@ -12,10 +12,6 @@ import { LabelTag } from "./LabelChips.tsx"
 import { PressableScale } from "./PressableScale.tsx"
 import { Text } from "./Text.tsx"
 
-/**
- * A dictionary entry in a list of search results: headword, reading, meanings and what sets it apart,
- * with a button to hear it said. The button sits beside the link, not inside it, so a tap plays without opening.
- */
 export const ResultRow = ({
   entry,
   first,
@@ -29,9 +25,7 @@ export const ResultRow = ({
   const { t } = useSession()
   const pos = posLabel(t, entry.partOfSpeech)
   const labels = labelItems(t, resultLabels(entry.labels))
-  // Search lists Kotori's unreviewed drafts after every approved word, marked.
   const mark = reviewMark(t, entry.review)
-  // A stored clip when there is one; otherwise voiced on demand, from the kana for a Japanese word.
   const speak = {
     text: entry.language === "ja" && entry.reading.length > 0 ? entry.reading : entry.headword,
     language: entry.language
@@ -87,7 +81,7 @@ export const ResultRow = ({
         </View>
       </PressableScale>
       <AudioButton url={entry.audioUrl} speak={speak} size={38} />
-      {/* Part of the link to the eye, so it opens the entry too, but not a second stop for screen readers. */}
+      {/* Separate from the main link so AudioButton isn't nested inside a Pressable, and hidden from screen readers to avoid a duplicate link. */}
       <Pressable onPress={onPress} accessible={false} focusable={false} hitSlop={8} style={{ paddingVertical: 14 }}>
         <Icon name="chevron_right" size={22} color={theme.color.textMuted} />
       </Pressable>

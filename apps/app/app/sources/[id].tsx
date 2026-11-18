@@ -13,7 +13,6 @@ import { entryAttributions, entryIdFromParam } from "../../src/lib/sources.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
 
-/** Dictionary and model credits for one entry. Opened from Sources on the entry, on web and native. */
 export default function SourcesScreen() {
   const theme = useTheme()
   const { t } = useSession()
@@ -25,7 +24,6 @@ export default function SourcesScreen() {
   const header = <Header onBack={back} title={t.entry.sources} />
   const kotoriReading = useReadingPhase(id !== null && !entry.isLoadingError && !entry.data) === "reading"
 
-  // A failed refetch keeps the entry already loaded: only a first load that failed has nothing to show.
   if (id === null || entry.isLoadingError) {
     return (
       <Screen bottomInset={40} header={header}>

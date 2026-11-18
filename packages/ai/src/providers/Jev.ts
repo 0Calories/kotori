@@ -12,27 +12,20 @@ export class JevError extends Schema.TaggedError<JevError>()("JevError", {
   cause: Schema.optional(Schema.Defect())
 }) {}
 
-/**
- * Whole-call deadlines for `ask`, the SDK's retries included: a learner waits on an `interactive`
- * judgment, nobody on a `bulk` one. The SDK has no total budget of its own and honours
- * `Retry-After` up to a minute.
- */
+/** `TypeSafeClient` has no total-call timeout and honours `Retry-After` up to 60s, so callers bound the whole call here. */
 export const JevDeadline = {
   interactive: Duration.seconds(20),
   bulk: Duration.minutes(2)
 } as const
 
 export interface AskOptions {
-  /** How long the whole call may take before it fails; defaults to `JevDeadline.interactive`. */
   readonly timeout?: Duration.Duration | undefined
 }
 
-/** TypeSafe's Jev: typed judgments (choice, score, yes/no) with calibrated probabilities. */
 export class Jev extends Context.Service<
   Jev,
   {
     readonly configured: boolean
-    /** The pinned model id; answers record the exact version that ran. */
     readonly model: string
     ask<Q extends Questions>(
       state: EntryType,
@@ -41,7 +34,6 @@ export class Jev extends Context.Service<
     ): Effect.Effect<SystemOneResult<Q>, JevError>
   }
 >()("@kotori/ai/Jev") {
-  /** The service over an SDK client built with `config` over Kotori's defaults; tests pass a fake `fetch`. */
   static readonly make = Effect.fnUntraced(function* (config: Omit<TypeSafeClientConfig, "apiKey"> = {}) {
     // Pinned so stored confidences stay comparable; bump deliberately and re-run enrichment.
     const model = yield* Config.String("KOTORI_JEV_MODEL").pipe(Config.withDefault("jev-1.14.0"))
@@ -67,7 +59,6 @@ export class Jev extends Context.Service<
     const ask = <Q extends Questions>(state: EntryType, questions: Q, options?: AskOptions) => {
       const deadline = options?.timeout ?? JevDeadline.interactive
       return Effect.tryPromise({
-        // The signal also cancels the SDK's pending retries.
         try: (signal) => client.systemOne({ state, questions, model }, { signal }),
         catch: (cause) => new JevError({ message: "Jev request failed", cause })
       }).pipe(

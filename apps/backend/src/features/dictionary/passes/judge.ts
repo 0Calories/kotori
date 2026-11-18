@@ -38,24 +38,12 @@ import {
   type LoanCandidateWord
 } from "./candidates.ts"
 
-/**
- * `kotori judge <pass>`: picks a pass's candidates from the database, asks the model, and writes
- * the artifact for review. The file is rewritten after every batch, so an interrupted run keeps
- * what it judged, and a later run asks only about words the file lacks. Nothing reaches the
- * database until the file is committed and `kotori seed` imports it (`apply.ts`).
- */
-
 export interface JudgeOptions {
-  /** How many words to judge this run. */
   readonly limit: number
-  /** List what would be asked, without calling a model or writing the file. */
   readonly dryRun: boolean
   readonly concurrency: number
-  /** Only words the dictionary marks common. */
   readonly commonOnly: boolean
-  /** Discard a file written by another model or prompt version and start over. */
   readonly restart: boolean
-  /** Where the artifact is, if not its place in `data/` (tests). */
   readonly file?: string | undefined
 }
 
@@ -63,7 +51,6 @@ export interface JudgeSummary {
   readonly candidates: number
   readonly judged: number
   readonly failed: number
-  /** Model requests this run made, or would make on a dry run. */
   readonly requests: number
 }
 
@@ -74,12 +61,6 @@ const keyOf: { [P in Pass]: (line: never) => string | number } = {
   loans: (line: LoanLine) => line.englishId
 }
 
-/**
- * The pass's artifact as this run starts from it: where it is, the lines already judged by this
- * model and prompt version (keyed as the file sorts them), and the entries they judged. A file
- * from another model or version fails the run, unless `restart` starts it over: mixing two
- * versions in one file would make its header a lie.
- */
 const startFrom = Effect.fnUntraced(function* <L>(
   pass: Pass,
   schema: Schema.Codec<L, unknown>,
@@ -102,7 +83,6 @@ const startFrom = Effect.fnUntraced(function* <L>(
   return { file, lines, judged: new Set([...lines.keys()].map(Number)) }
 })
 
-/** Runs `batches` with a writer that rewrites the file after each, one writer at a time. */
 const runBatches = Effect.fnUntraced(function* <B, L>(options: {
   readonly pass: Pass
   readonly file: string
@@ -154,7 +134,6 @@ const listSome = (names: ReadonlyArray<string>) =>
     if (names.length > 20) yield* Console.log(`  … and ${names.length - 20} more`)
   })
 
-/** Groups words so each request asks about at most `FORMAL_LABEL_BATCH` senses. */
 const formalLabelBatches = (candidates: ReadonlyArray<FormalLabelCandidate>) => {
   const batches: Array<Array<FormalLabelCandidate>> = []
   let current: Array<FormalLabelCandidate> = []
@@ -172,7 +151,6 @@ const formalLabelBatches = (candidates: ReadonlyArray<FormalLabelCandidate>) => 
   return batches
 }
 
-/** A judged word's line: its senses at or above `FORMAL_LABEL_SURE`; none when a sense went unanswered. */
 export const formalLabelLines = (
   batch: ReadonlyArray<FormalLabelCandidate>,
   judgments: ReadonlyArray<FormalLabelJudgment>
@@ -236,7 +214,6 @@ export const judgeFormalLabelPass = Effect.fn("judge.ja-form")(function* (db: Da
   return { candidates: candidates.length, ...run, requests: batches.length } satisfies JudgeSummary
 })
 
-/** A word's line from the writer's result; none when Claude skipped the word. */
 export const cautionLines = (
   batch: ReadonlyArray<CautionCandidate>,
   results: ReadonlyArray<EntryCautions>
@@ -300,7 +277,6 @@ export const judgeCautionPass = Effect.fn("judge.cautions")(function* (
   return { candidates: candidates.length, ...run, requests: batches.length } satisfies JudgeSummary
 })
 
-/** Loan requests per saved batch: one request a word. */
 const LOAN_SAVE_EVERY = 20
 
 export const judgeLoanPass = Effect.fn("judge.loans")(function* (db: DatabaseShape, options: JudgeOptions) {

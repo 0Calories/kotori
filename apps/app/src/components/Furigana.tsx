@@ -9,11 +9,9 @@ import { Text } from "./Text.tsx"
 interface Unit {
   readonly base: string
   readonly reading: string | null
-  /** Where the unit starts in the plain sentence. */
   readonly start: number
 }
 
-/** A stretch of the sentence to mark: the word being looked up, or a mistake. */
 export interface Mark {
   readonly text: string
   readonly kind: "highlight" | "mistake"
@@ -21,19 +19,9 @@ export interface Mark {
 
 const NO_MARKS: ReadonlyArray<Mark> = []
 
-/** Murecho's ascent plus descent, as a share of the size: the height of its glyph box. */
+// Murecho's ascent + descent as a fraction of fontSize.
 const GLYPH_BOX = 1.448
 
-/**
- * Japanese text with readings above the kanji. Furigana arrives inline as
- * `{漢字|かんじ}`; every other character is laid out individually so lines can
- * wrap anywhere, as Japanese text does. Readings sit just above the kanji and
- * overhang the line's leading instead of adding to it, as a browser sets
- * `<ruby>`, so give furigana a line height of 1.6 or more. Marks are drawn
- * under whole units, so they look the same on every platform: a marker behind
- * the looked-up word, and a squiggle under each mistake that runs unbroken
- * along each line.
- */
 export const Furigana = ({
   text,
   furigana,
@@ -46,7 +34,6 @@ export const Furigana = ({
   readonly text: string
   readonly furigana?: string | null
   readonly size?: number
-  /** The height of a line of base text, not counting the readings above it. */
   readonly lineHeight?: number
   readonly color?: keyof Palette
   readonly center?: boolean

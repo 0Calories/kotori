@@ -40,7 +40,6 @@ layer(DatabaseMemory)("an entry's review lifecycle", (it) => {
 
       assert.deepStrictEqual(yield* reviewEntries(db, [kept], "approve"), [kept])
       assert.deepStrictEqual(yield* reviewEntries(db, [turned], "discard"), [turned])
-      // Neither move starts from a reviewed entry, so a second review changes nothing.
       assert.deepStrictEqual(yield* reviewEntries(db, [kept], "discard"), [])
       assert.deepStrictEqual(yield* reviewEntries(db, [turned], "approve"), [])
       assert.deepStrictEqual(yield* reviewsOf([kept, turned]), [
@@ -48,7 +47,6 @@ layer(DatabaseMemory)("an entry's review lifecycle", (it) => {
         { id: turned, review: "discarded" }
       ])
 
-      // The approved word is in the dictionary; the discarded one isn't even searchable.
       const found = (scope: "inDictionary" | "searchable") =>
         findForms(db, ["ぴえん", "ぱおん"], "ja", scope).pipe(Effect.map((forms) => forms.map((form) => form.entryId)))
       assert.deepStrictEqual(yield* found("inDictionary"), [kept])
@@ -88,7 +86,6 @@ layer(DatabaseMemory)("an entry's review lifecycle", (it) => {
           .leftJoin(entryTable, eq(entryTable.id, proposals.entryId))
           .where(standingIs(shown))
           .pipe(Effect.orDie)
-      // Every standing finds the one proposal that reads as it, and nothing else.
       for (const shown of ["pending", "approved", "discarded", "linked", "rejected"] as const) {
         const rows = yield* listed(shown)
         assert.deepStrictEqual(
@@ -98,7 +95,6 @@ layer(DatabaseMemory)("an entry's review lifecycle", (it) => {
         assert.strictEqual(standing(rows[0]!.status, rows[0]!.review ?? "gone"), shown)
       }
 
-      // A draft whose entry went reads as removed, in the filter as in `standing`.
       yield* deleteEntries(db, [gone])
       assert.deepStrictEqual(
         (yield* listed("removed")).map((row) => row.query),

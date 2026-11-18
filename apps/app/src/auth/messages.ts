@@ -2,7 +2,6 @@ import { apiErrorMessage } from "../api/errors.ts"
 import type { Strings } from "../i18n/strings.ts"
 import { AuthError } from "./client.ts"
 
-/** What to tell the learner when signing up, in, or confirming their email didn't work. */
 export const authMessage = (t: Strings, error: unknown): string => {
   if (error instanceof AuthError) {
     switch (error.code) {
@@ -12,7 +11,6 @@ export const authMessage = (t: Strings, error: unknown): string => {
         return t.auth.errors.slowDown
       case "INVALID_EMAIL_OR_PASSWORD":
         return t.auth.errors.invalidCredentials
-      // Changing the password with the wrong current one.
       case "INVALID_PASSWORD":
         return t.auth.errors.wrongPassword
       case "USER_ALREADY_EXISTS":
@@ -40,12 +38,11 @@ export const authMessage = (t: Strings, error: unknown): string => {
         return t.auth.errors.googleAlreadyLinked
       case "GOOGLE_FAILED":
         return t.auth.errors.googleFailed
-      // Signed up but no session to go on with: Managed Auth wants the email confirmed first.
+      // Managed Auth omits the session cookie on sign-up when email verification is required first.
       case "NO_SESSION":
       case "EMAIL_NOT_VERIFIED":
         return t.auth.errors.verifyFirst
     }
-    // Managed Auth's own message is English and not written for learners.
     return t.common.somethingWrong
   }
   return apiErrorMessage(t, error)

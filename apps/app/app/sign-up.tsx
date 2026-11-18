@@ -15,7 +15,6 @@ import { Text } from "../src/components/Text.tsx"
 import { useGoogleSignIn, useSession } from "../src/session/SessionProvider.tsx"
 import { theme } from "../src/theme/tokens.ts"
 
-/** Better Auth's default minimum; Managed Auth's own answer wins if it differs. */
 const MIN_PASSWORD = 8
 
 export default function SignUp() {
@@ -45,7 +44,6 @@ export default function SignUp() {
     }
   }
 
-  // Google brings the name and a confirmed address; the language is the one thing to ask first.
   const startGoogle = () => {
     if (native === null || busy || googleBusy) return
     setError(null)

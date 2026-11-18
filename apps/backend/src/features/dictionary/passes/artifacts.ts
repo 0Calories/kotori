@@ -2,14 +2,6 @@ import { CautionKind, LoanLinkMeaning } from "@kotori/db"
 import { Effect, FileSystem, Option, Schema } from "effect"
 import { resolveFromRoot } from "../../../runtime/Paths.ts"
 
-/**
- * The offline passes' artifacts: what `kotori judge` wrote, reviewed and committed, and what the
- * import reads (`apply.ts`). JSON lines: a header naming the pass, the model and the prompt's
- * version, then one judged word a line, sorted so a re-run diffs cleanly. A word judged to need
- * nothing has a line too, so a later run doesn't ask again. Senses are named by their first
- * gloss, not their position, so a judgment follows its sense when the dictionary reorders them.
- */
-
 export const ARTIFACTS = {
   "ja-form": "data/labels/ja-form.jsonl",
   "cautions-ja": "data/cautions/ja.jsonl",
@@ -24,14 +16,13 @@ export const ArtifactHeader = Schema.Struct({
   pass: Schema.String,
   model: Schema.String,
   promptVersion: Schema.Int,
-  /** The lines quote dictionary text (glosses), so they share its licence. */
   licence: Schema.String
 })
 export type ArtifactHeader = typeof ArtifactHeader.Type
 
 export const LICENCE = "Quotes JMdict and Wiktionary glosses: CC BY-SA 4.0, see NOTICE.md in this directory"
 
-/** A Japanese word's senses Jev judged formal, by first gloss, with its probability; empty for none. */
+// Senses in artifacts are keyed by first gloss rather than numeric index so judgments survive sense reordering on re-import.
 export const FormalLabelLine = Schema.Struct({
   entryId: Schema.Int,
   headword: Schema.String,
@@ -46,26 +37,19 @@ export const CautionLine = Schema.Struct({
     Schema.Struct({
       kind: CautionKind,
       text: Schema.String,
-      /** The first gloss of the sense it is about; null for the whole word. */
       sense: Schema.NullOr(Schema.String),
-      /** The word it compares with, as written; linked where exactly one entry is written so. */
       about: Schema.NullOr(Schema.String)
     })
   )
 })
 export type CautionLine = typeof CautionLine.Type
 
-/**
- * An English word's katakana loan as Jev judged it: the likeliest candidate and its meaning, or
- * nulls when no candidate was likely enough or the meaning unsure. Only a verdict is imported.
- */
 export const LoanLine = Schema.Struct({
   english: Schema.String,
   englishId: Schema.Int,
   katakana: Schema.NullOr(Schema.String),
   katakanaId: Schema.NullOr(Schema.Int),
   meaning: Schema.NullOr(LoanLinkMeaning),
-  /** The probability of the likeliest meaning, both option orders averaged. */
   p: Schema.NullOr(Schema.Number)
 })
 export type LoanLine = typeof LoanLine.Type
@@ -73,13 +57,11 @@ export type LoanLine = typeof LoanLine.Type
 export interface Artifact<L> {
   readonly header: ArtifactHeader
   readonly lines: ReadonlyArray<L>
-  /** The file's line numbers (the header is 1) of lines that didn't decode, and were left out. */
   readonly skipped: ReadonlyArray<number>
 }
 
 const decodeHeader = Schema.decodeUnknownOption(Schema.fromJsonString(ArtifactHeader))
 
-/** The artifact's header and the lines that decode, noting those that don't; null when it has no header. */
 export const parseArtifact = <A>(text: string, line: Schema.Codec<A, unknown>): Artifact<A> | null => {
   const [first, ...rest] = text.split("\n")
   const header = decodeHeader(first ?? "")
@@ -96,7 +78,6 @@ export const parseArtifact = <A>(text: string, line: Schema.Codec<A, unknown>): 
   return { header: header.value, lines, skipped }
 }
 
-/** The file's text: the header, then the lines sorted by `key`. */
 export const serializeArtifact = <L>(
   header: ArtifactHeader,
   lines: Iterable<L>,
@@ -109,16 +90,12 @@ export const serializeArtifact = <L>(
   return [header, ...sorted].map((line) => JSON.stringify(line)).join("\n") + "\n"
 }
 
-/**
- * Reads `pass`'s artifact from the repository, or null when it isn't there. Fails on a file with
- * no header or one naming another pass, and warns of lines that don't decode, which are left out.
- */
 export const readArtifact = Effect.fnUntraced(function* <A>(path: string, line: Schema.Codec<A, unknown>, pass: Pass) {
   const fs = yield* FileSystem.FileSystem
   const file = resolveFromRoot(path)
   if (!(yield* fs.exists(file))) return null
   const artifact = parseArtifact(yield* fs.readFileString(file), line)
-  // A file that is there but unreadable must not pass for an absent one, which removes the pass's data.
+  // Fail rather than returning null on an unreadable file, since applyArtifacts treats null (missing file) as removing all pass data.
   if (artifact === null) return yield* Effect.fail(`${path} has no header naming its pass.`)
   if (artifact.header.pass !== pass) {
     return yield* Effect.fail(`${path} holds the ${artifact.header.pass} pass, not ${pass}.`)

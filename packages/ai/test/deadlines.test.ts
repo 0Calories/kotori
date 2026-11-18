@@ -4,11 +4,6 @@ import { HttpClient } from "effect/http"
 import { TestClock } from "effect/testing"
 import { Claude, ClaudeDeadline, ElevenLabs, Jev, JevDeadline } from "../src/index.ts"
 
-// Every provider call has a deadline over the whole call, the SDK's retries included. These run
-// the real provider code over a transport that never answers, on the test clock: nothing sleeps
-// and nothing reaches the network.
-
-/** A `fetch` that never answers, and records each request and whether it was aborted. */
 const hangingFetch = () => {
   const requests: Array<{ aborted: () => boolean }> = []
   let started: () => void = () => {}
@@ -54,7 +49,6 @@ describe("Claude.generate", () => {
       yield* transport.firstRequest
 
       yield* TestClock.adjust(ClaudeDeadline.interactive)
-      // Still waiting.
       assert.isUndefined(fiber.pollUnsafe())
       yield* TestClock.adjust(ClaudeDeadline.bulk)
       assert.strictEqual((yield* Fiber.join(fiber)).reason, "timed_out")
@@ -102,7 +96,6 @@ describe("ElevenLabs.synthesize", () => {
       const fiber = yield* Effect.forkChild(Effect.flip(tts.synthesize("テスト", "ja", "voice")))
 
       yield* TestClock.adjust("31 seconds")
-      // The first attempt timed out and was aborted; the retry is under way.
       assert.lengthOf(signals, 2)
       assert.isTrue(signals[0]!.aborted)
 

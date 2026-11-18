@@ -17,15 +17,11 @@ import { examplesFor } from "../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 import { makeJobRunner } from "../src/worker/JobRunner.ts"
 
-// The worker's real enrichers and queries on PGlite; only the paid providers are fakes.
-
-/** The parts of a Jev question the fake reads. */
 interface Asked {
   readonly type: string
   readonly criteria?: unknown
 }
 
-/** Whatever Jev's answer types require: a neutral score, the first option of every choice. */
 const FakeJev = Layer.succeed(
   Jev,
   Jev.of({
@@ -48,12 +44,7 @@ const FakeJev = Layer.succeed(
 )
 
 let claudeDown = false
-/**
- * When set, Claude never answers, as a hung request would if it had no deadline of its own, and
- * this is completed once a request has started.
- */
 let claudeHangs: Deferred.Deferred<void> | null = null
-/** Whether the Claude probe succeeds: false as with no key, a bad one, or a probe that timed out. */
 let claudeUp = true
 const prompts: Array<string> = []
 
@@ -142,7 +133,6 @@ const entry = (id: number, headword: string, reading: string, senses: EntryRecor
 const taberu = EntryId.make(1358280)
 const kuu = EntryId.make(1269130)
 
-/** Runs cycles until the queue has nothing runnable, returning how many jobs ran. */
 const drain = (step: Effect.Effect<boolean>) =>
   Effect.gen(function* () {
     let ran = 0
@@ -162,7 +152,6 @@ layer(TestLayer)("the worker", (it) => {
       assert.deepStrictEqual(yield* (yield* Enrichers).available, ["examples", "audio"])
       const step = yield* makeJobRunner()
 
-      // What the API does when a learner opens an entry.
       yield* enqueueJob(db, "examples", taberu, 100, new Date(0))
       assert.strictEqual(yield* drain(step), 2)
 
@@ -170,9 +159,6 @@ layer(TestLayer)("the worker", (it) => {
       assert.strictEqual(example?.furigana, "パンを{食|た}べる。")
       assert.strictEqual(example?.model, "claude-test")
 
-      // The audio job was queued by the examples job: headword and sentence are both voiced,
-      // the headword once per cast dictionary voice (Kyoko and the announcer), the sentence in
-      // Japanese, which is what its learners are learning.
       assert.deepStrictEqual(spoken, ["たべる", "たべる", "パンを食べる。"])
       assert.isTrue((yield* entryClips(db, [taberu])).has(taberu))
       const clips = yield* exampleClips(db, [example!.id])
@@ -192,7 +178,6 @@ layer(TestLayer)("the worker", (it) => {
       const db = yield* Database
       const step = yield* makeJobRunner()
       yield* enqueueJob(db, "examples", kuu, 100, new Date(0))
-      // The examples job, then the audio job it hands its sentences to.
       assert.strictEqual(yield* drain(step), 2)
       assert.include(prompts.at(-1)!, "0. to eat\n   part of speech: v1\n   notes: male")
     })
@@ -223,9 +208,7 @@ layer(TestLayer)("the worker", (it) => {
       const db = yield* Database
       const nabe = EntryId.make(1000)
       yield* insertEntries(db, [entry(nabe, "鍋", "なべ", [sense(["pot"])])])
-      // Nothing left over from earlier tests for the runner to claim.
       yield* drain(yield* makeJobRunner())
-      // The worker starts while the Claude probe fails, as it can during a deploy.
       claudeUp = false
       const step = yield* makeJobRunner()
 
@@ -233,7 +216,6 @@ layer(TestLayer)("the worker", (it) => {
       assert.isFalse(yield* step)
       assert.strictEqual((yield* jobStatusFor(db, nabe)).get("examples"), "queued")
 
-      // Claude is back: the same runner picks the job up, and voices the new examples too.
       claudeUp = true
       assert.strictEqual(yield* drain(step), 2)
       assert.deepStrictEqual(
@@ -246,7 +228,6 @@ layer(TestLayer)("the worker", (it) => {
     })
   )
 
-  /** The examples job for a fresh entry, its runner, and a way to read the job back. */
   const hangingJob = (id: number, headword: string) =>
     Effect.gen(function* () {
       const db = yield* Database
@@ -276,7 +257,6 @@ layer(TestLayer)("the worker", (it) => {
       yield* Deferred.await(started)
       assert.strictEqual((yield* job).status, "running")
 
-      // Nothing happens before the deadline, and the stale-job sweep (10 minutes) never sees it.
       yield* TestClock.adjust("7 minutes")
       assert.isUndefined(running.pollUnsafe())
       yield* TestClock.adjust("1 minute")
@@ -286,7 +266,6 @@ layer(TestLayer)("the worker", (it) => {
       assert.strictEqual(failed.status, "queued")
       assert.strictEqual(failed.attempts, 1)
       assert.include(failed.error ?? "", "TimeoutError")
-      // Retried after the first backoff (30 s doubled once), counted from when it failed.
       assert.strictEqual(failed.runAfter.getTime(), claimedAt + 8 * 60_000 + 60_000)
     }).pipe(Effect.ensuring(Effect.sync(() => (claudeHangs = null))))
   )
@@ -297,7 +276,6 @@ layer(TestLayer)("the worker", (it) => {
       const running = yield* Effect.forkChild(step)
       yield* Deferred.await(started)
 
-      // A shutdown (SIGTERM during a deploy) while the job runs.
       yield* TestClock.adjust("1 minute")
       yield* Fiber.interrupt(running)
 

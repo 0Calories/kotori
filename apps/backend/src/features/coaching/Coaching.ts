@@ -20,7 +20,6 @@ import { cachedAnswer, type CoachKind, recordUsage, reserveUsage, storeAnswer, u
 
 const HOUR = 60 * 60 * 1000
 
-/** The requests that count towards the coaching limit; spoken audio is limited on its own. */
 const COACHING: ReadonlyArray<CoachKind> = ["naturalness", "how-to-say"]
 const CACHE_TTL = 30 * 24 * HOUR
 
@@ -77,7 +76,6 @@ export class Coaching extends Context.Service<
         }
       })
 
-      /** Serves identical requests from the cache; only fresh answers count toward rate limits. */
       const cached = <A, I>(
         schema: Schema.Codec<A, I>,
         kind: CoachKind,
@@ -135,7 +133,6 @@ export class Coaching extends Context.Service<
             const output: HowToSayOutput = yield* coach
               .howToSay(request, learner(user))
               .pipe(Effect.mapError(fromClaude))
-            // Link the vocabulary to dictionary entries so learners can open and save them.
             const entryIds = yield* dictionary.lookupWords(output.keyWords, user.targetLanguage)
             return {
               ...output,
@@ -151,8 +148,7 @@ export class Coaching extends Context.Service<
         }
         const now = yield* Clock.currentTimeMillis
         const learner = scopedToUser(db, user.id)
-        // Audio has its own allowance: Japanese speakers hear most English on demand. Only clips
-        // that were made count, so a failed request doesn't use it up.
+        // Record speak usage after synthesis succeeds so TTS failures do not consume the learner's audio quota.
         if ((yield* usageSince(learner, new Date(now - HOUR), ["speak"])) >= hourlyLimit * 3) {
           return yield* new RateLimited({ message: "Too many audio requests this hour.", retryAfterSeconds: 600 })
         }

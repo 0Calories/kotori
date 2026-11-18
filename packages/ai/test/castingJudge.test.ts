@@ -5,7 +5,6 @@ import { CASTING_BATCH, Jev, JevError, judgeCasting } from "../src/index.ts"
 
 type Probabilities = Readonly<Record<string, number>>
 
-/** What the fake answers, per question name without its sentence prefix (`formality`, `gender`…). */
 type Script = Readonly<Record<string, Probabilities>>
 
 const sure: Script = {
@@ -19,7 +18,6 @@ const sure: Script = {
 const top = (probabilities: Probabilities) =>
   Object.entries(probabilities).reduce((best, next) => (next[1] > best[1] ? next : best))
 
-/** A Jev that answers every question from `script`, by its sentence (`文N。` is N) and kind, and records each request. */
 const fakeJev = (script: (sentence: number) => Script = () => sure) => {
   const asked: Array<{ state: unknown; questions: Questions }> = []
   const jev = Jev.of({
@@ -61,7 +59,6 @@ describe("judgeCasting", () => {
     expect(Object.keys(questions)).toHaveLength(3 * 5)
     expect(questions["s0_formality"]?.type).toBe("score")
     for (const kind of ["gender", "age", "medium", "tone"]) expect(questions[`s2_${kind}`]?.type).toBe("choice")
-    // The sentence and its translation travel with each question, not in the shared state.
     expect(questions["s2_gender"]?.instructions).toMatchObject({ sentence: "文2。", translation: "Sentence 2." })
     expect(JSON.stringify(asked[0]!.state)).not.toContain("文")
   })
@@ -87,7 +84,6 @@ describe("judgeCasting", () => {
   })
 
   it("takes the most probable register, not the expected score between two", async () => {
-    // Casual or polite, never neutral: averaging the two would cast a register nobody judged.
     const { jev } = fakeJev(() => ({ ...sure, formality: { "1": 0.45, "2": 0.1, "3": 0.45 - 0.01 } }))
     const [judged] = await Effect.runPromise(judgeCasting(jev, "ja", sentences(1)))
     expect(judged?.formality).toBe("casual")
@@ -119,7 +115,6 @@ describe("judgeCasting", () => {
       },
       {
         formality: "neutral",
-        // A wrong gender or a child's voice is the most audible miscast: only a sure call steers casting.
         casting: { speakerGender: "unspecified", speakerAge: "unspecified", medium: null, variety: null, tone: null }
       }
     ])
@@ -127,7 +122,6 @@ describe("judgeCasting", () => {
 
   it("leaves a sentence unjudged when its formality answer is missing or malformed, and judges the rest", async () => {
     const { jev: full } = fakeJev()
-    // Sentence 1's formality is left out and sentence 2's has no usable level; sentence 0 is answered.
     const jev = Jev.of({
       ...full,
       ask: (state, questions) =>

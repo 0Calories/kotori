@@ -3,35 +3,18 @@ import { Effect } from "effect"
 import { type Jev, JevDeadline, type JevError } from "../providers/Jev.ts"
 import { meaningOf, type WordToJudge } from "./word.ts"
 
-/**
- * The `ja-form` pass: Jev's judgment of whether a Japanese word, in one sense, is formal or
- * literary wording (鑑みる, 及び, 当該) that JMDict leaves untagged. A yes becomes Kotori's `form`
- * label on that sense. Only senses the dictionary says nothing about the register of are asked
- * (the caller picks them): silence on a keigo or slang word is never the question.
- */
-
-/** Bumped when the question is reworded or what it sees changes; written in the artifact's header. */
 export const FORMAL_LABEL_VERSION = 1
 
-/**
- * How sure Jev must be to label a sense `form`. A wrong label tells a learner a plain word is
- * stiff, which is worse than the dictionary's silence, so it sits at the docs' starting point for
- * a yes rather than a coin flip (`kotori eval ja-form` reports the other cut-offs).
- */
 export const FORMAL_LABEL_SURE = 0.7
 
-/** Senses per Jev request: one question each, well inside a request's token limit. */
 export const FORMAL_LABEL_BATCH = 25
 
-/** One sense of one word to ask about. */
 export interface FormalLabelSense {
   readonly word: WordToJudge
-  /** The sense's position in `word.senses`. */
   readonly sense: number
 }
 
-// Examples are kept out of the golden set, so the eval measures what the criteria don't spell out.
-// Business, law and other formal subjects are not formal wording: 確認 and 会議 are everyday words.
+// Keep prompt examples disjoint from GOLDEN_FORMAL_LABELS.
 const formal: NoulQuestion = {
   type: "noul",
   instructions:
@@ -59,13 +42,11 @@ const POS: Readonly<Record<string, string>> = {
   "adv-to": "adverb taking と"
 }
 
-/** A sense's part of speech in words: the first code a learner would recognise, verbs as "verb". */
 const partOfSpeech = (pos: ReadonlyArray<string>) => {
   const named = pos.map((code) => (/^v[0-9a-z]/.test(code) ? "verb" : POS[code])).find((name) => name !== undefined)
   return named ?? null
 }
 
-/** The question about one sense, carrying the word and its meaning beside the wording. */
 export const formalLabelQuestion = ({ word, sense }: FormalLabelSense): NoulQuestion => {
   const own = word.senses[sense]!
   const instructions: Record<string, EntryType> = {
@@ -80,13 +61,11 @@ export const formalLabelQuestion = ({ word, sense }: FormalLabelSense): NoulQues
   return { ...formal, instructions }
 }
 
-/** A request for up to `FORMAL_LABEL_BATCH` senses, keyed `s{index}` in order. */
 export const formalLabelRequest = (senses: ReadonlyArray<FormalLabelSense>) => ({
   state: { language: "Japanese" } satisfies EntryType,
   questions: Object.fromEntries(senses.map((sense, index) => [`s${index}`, formalLabelQuestion(sense)]))
 })
 
-/** Each sense's probability of being formal wording, in order; null where Jev gave no answer. */
 export const formalLabelProbabilities = (
   answers: Readonly<Record<string, unknown>>,
   count: number
@@ -94,14 +73,10 @@ export const formalLabelProbabilities = (
   Array.from({ length: count }, (_, index) => (answers[`s${index}`] as NoulResponse | undefined)?.noul ?? null)
 
 export interface FormalLabelJudgment extends FormalLabelSense {
-  /** Jev's probability that the sense is formal wording. */
   readonly p: number
 }
 
-/**
- * Jev's judgment of every sense, in requests of `FORMAL_LABEL_BATCH`. A sense Jev left unanswered is left
- * out, so a later run asks again.
- */
+/** Caller must pass only senses with no existing register label; the prompt contrasts formal wording only against everyday speech. */
 export const judgeFormalLabels = (
   jev: Jev["Service"],
   senses: ReadonlyArray<FormalLabelSense>

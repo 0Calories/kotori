@@ -1,14 +1,3 @@
-/**
- * Cleans up local git state left behind by squash-merged PRs and agent worktrees:
- *   1. Prunes stale remote-tracking refs (`git fetch --prune origin`) and stale worktree metadata.
- *   2. Removes secondary worktrees that have a clean working tree and whose branch tip SHA matches
- *      a MERGED PR's `headRefOid` on GitHub (fresh 0-commit worktrees at `origin/main` are kept).
- *   3. Deletes local branches (not checked out in any remaining worktree) whose tip SHA matches a
- *      MERGED PR's `headRefOid` or that are already ancestors of `origin/main`.
- *
- * Dirty worktrees, reused branch names with new unpushed commits, and open PR branches are never touched.
- * Pass `--dry-run` to preview what would be removed.
- */
 import { spawnSync } from "node:child_process"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -139,8 +128,7 @@ for (const branch of localBranches) {
   if (matchesMergedPr(branch) || isAncestorOfMain(branchRef)) {
     console.log(`Deleting merged local branch ${branch}`)
     try {
-      // Safe to use `-D`: either `rev-parse` matched a merged PR's `headRefOid`, or `merge-base --is-ancestor`
-      // verified the branch is already in `origin/main` (`-d` checks `HEAD`/upstream rather than `origin/main`).
+      // `git branch -d` checks `HEAD`/upstream rather than `origin/main`, so `-D` is required after squash merges.
       run("git", ["branch", "-D", branch])
     } catch (error) {
       console.warn(`Failed to delete branch ${branch}: ${String(error)}`)

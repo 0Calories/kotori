@@ -7,22 +7,16 @@ import { createRequire } from "node:module"
 import { dirname, join } from "node:path"
 import { Database } from "./Database.ts"
 
-/** `@kotori/db`'s `migrations/`, wherever the package is installed: beside its sources here, beside its build in the image. */
 export const migrationsFolder = join(
   dirname(createRequire(import.meta.url).resolve("@kotori/db/package.json")),
   "migrations"
 )
 
-/**
- * The database still has the hand-written schema from before the Drizzle rebuild, which
- * the Effect SQL migrator recorded in `effect_sql_migrations`. Drizzle's first migration
- * would fail on its existing tables, so `migrateDatabase` stops before trying.
- */
 export class LegacySchemaError extends Schema.TaggedError<LegacySchemaError>()("LegacySchemaError", {
   message: Schema.String
 }) {}
 
-/** Postgres' catalog of tables, read-only; outside `./schema`, so drizzle-kit never sees it. */
+// Declared outside @kotori/db so drizzle-kit never generates migrations for information_schema.
 const catalogTables = pgSchema("information_schema").table("tables", {
   schema: text("table_schema").notNull(),
   name: text("table_name").notNull()
@@ -31,15 +25,6 @@ const catalogTables = pgSchema("information_schema").table("tables", {
 const legacyHistory = and(eq(catalogTables.schema, "public"), eq(catalogTables.name, "effect_sql_migrations"))
 const drizzleHistory = and(eq(catalogTables.schema, "drizzle"), eq(catalogTables.name, "__drizzle_migrations"))
 
-/**
- * Applies the migrations drizzle-kit generated into `migrationsFolder` that the database
- * has not seen yet, recorded in `drizzle.__drizzle_migrations`. Forward-only: a change is
- * a new migration, never an edit to an applied one. Driver-neutral, so the same Effect
- * migrates Postgres in production and PGlite in tests.
- *
- * Fails with `LegacySchemaError`, changing nothing, on a database that has the old
- * `effect_sql_migrations` history and no Drizzle one.
- */
 export const migrateDatabase = Effect.fn("Database.migrate")(function* () {
   const db = yield* Database
   const histories = yield* db

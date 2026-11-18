@@ -32,7 +32,6 @@ const useDebounced = (value: string, delay: number) => {
   return debounced
 }
 
-/** Kotori says hello in the language you're learning. */
 const greeting = (target: Language, name: string | null) => {
   const hour = new Date().getHours()
   const words = strings[target].greeting
@@ -40,7 +39,6 @@ const greeting = (target: Language, name: string | null) => {
   return name === null ? hello : `${hello}${target === "ja" ? "、" : ", "}${name}`
 }
 
-/** How many recent searches to keep and show as chips under the search field. */
 const MAX_RECENT = 6
 
 const LANGUAGE_NAMES: Record<Language, { readonly short: string; readonly long: string }> = {
@@ -62,12 +60,9 @@ export default function LookUpScreen() {
   const native = profile?.nativeLanguage ?? "en"
   const target = profile?.targetLanguage ?? "ja"
   const search = useSearch(debounced, target)
-  // Fetched up front, so a search Kotori has already answered shows the answer with its results.
+  // Prefetch so cached answers render alongside search results without a second round-trip.
   useAsks()
   const searching = query.trim().length > 0
-  // True from the first keystroke until this text's results arrive, debounce included.
-  // Kotori holds still over the field while searching, and takes the thinking pose only
-  // once that wait has run very long.
   const loading = searching && (debounced !== query.trim() || search.isFetching)
   const mascot = useReadingPhase(loading, SEARCH_THINKING_DELAY_MS) === "reading" ? "thinking" : "neutral"
 
@@ -81,8 +76,6 @@ export default function LookUpScreen() {
   }
 
   const results = search.data
-  // Results for the text being searched: while the next search loads, the last one's results
-  // stay on screen, but what Kotori says about them doesn't.
   const current = results !== undefined && !search.isPlaceholderData ? results : null
   const pill = {
     backgroundColor: "rgba(255, 255, 255, 0.66)",
@@ -233,7 +226,6 @@ export default function LookUpScreen() {
           ) : null}
           {search.isError ? <ErrorState error={search.error} onRetry={() => search.refetch()} /> : null}
           {current !== null && current.match !== "exact" ? (
-            // Keyed by the question, so each query gets its own Kotori; an ask in flight lives on in the cache.
             <AskKotori
               key={`${target}:${normalizeAsk(debounced, target)}`}
               query={debounced}
@@ -244,7 +236,6 @@ export default function LookUpScreen() {
             />
           ) : null}
           {current !== null && current.match === "weak" && current.entries.length > 0 ? (
-            // Only lookalikes: said plainly, so a learner doesn't take "bus" for "bussin".
             <Text variant="caption" color="textMuted" style={{ paddingHorizontal: 6 }}>
               {t.dictionary.similarResults}
             </Text>

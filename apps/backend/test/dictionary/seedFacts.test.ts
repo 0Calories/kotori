@@ -10,10 +10,6 @@ import { examplesFor, saveExamples } from "../../src/features/enrichment/queries
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 import { sense, spelling } from "../fixtures.ts"
 
-// The seed import's facts beside the entries: labels and usage patterns from the senses, Tatoeba's
-// sentences, frequency signals and loan links. A re-import rebuilds the dictionary's own and leaves
-// Kotori's in place, following their sense.
-
 const kuu = EntryId.make(1335590)
 const gokurou = EntryId.make(1270560)
 const mansion = EntryId.make(1079450)
@@ -92,7 +88,6 @@ layer(TestLayer)("seed facts", (it) => {
         [{ text: "usu. to one's subordinate", source: "jmdict" }]
       )
 
-      // ichi1 speaks for 食う; nothing speaks for the other two, so they have no row.
       const frequency = yield* db.select().from(entryFrequency)
       assert.deepStrictEqual(frequency, [{ entryId: kuu, everyday: true, spokenCount: null, score: null }])
 
@@ -140,7 +135,6 @@ layer(TestLayer)("seed facts", (it) => {
       })
       yield* linkLoans(db)
 
-      // `countable` is the prior, not a label.
       assert.deepStrictEqual(yield* labelsOf(yep), [{ sense: 0, code: "col", source: "enwiktionary" }])
       const [frequency] = yield* db.select().from(entryFrequency).where(eq(entryFrequency.entryId, yep))
       assert.deepStrictEqual(frequency, { entryId: yep, everyday: true, spokenCount: 1200, score: 4 })
@@ -158,7 +152,6 @@ layer(TestLayer)("seed facts", (it) => {
         yield* JMDict.importFile({ file: "JMdict_e_examp.gz" })
         const [seeded] = yield* examplesFor(db, [kuu])
 
-        // Kotori writes its own sentences: the seeded one stays, after them.
         yield* saveExamples(
           db,
           kuu,
@@ -174,13 +167,11 @@ layer(TestLayer)("seed facts", (it) => {
           ],
           new Date(0)
         )
-        // Kotori fills `col` on sense 0, where JMDict is silent, and `form` on ご苦労様.
         yield* db.insert(labels).values([
           { entryId: kuu, sense: 0, code: "col", source: "kotori" },
           { entryId: gokurou, sense: 0, code: "form", source: "kotori" }
         ])
 
-        // The next release marks sense 0 colloquial itself.
         current = release(eat.replace("<misc>&male;</misc>", "<misc>&male;</misc><misc>&col;</misc>") + live)
         yield* JMDict.importFile({ file: "JMdict_e_examp.gz" })
 
@@ -223,7 +214,6 @@ layer(TestLayer)("seed facts", (it) => {
           { entryId: kuu, sense: null, rank: 2, kind: "confusable", text: "Not 喰う.", source: "kotori" }
         ])
 
-        // A new first sense pushes "to eat" to 1, and "to live" is gone.
         current = release(bite + eat)
         yield* JMDict.importFile({ file: "JMdict_e_examp.gz" })
 
@@ -260,8 +250,6 @@ layer(TestLayer)("seed facts", (it) => {
       yield* JMDict.importFile({ file: "JMdict_e_examp.gz" })
       assert.strictEqual(yield* db.$count(loanLinks), 0)
 
-      // Re-inserting a stored entry (as an approved alias does) carries no examples or evidence,
-      // and leaves the seeded ones as they were.
       const seeded = yield* examplesFor(db, [kuu])
       assert.isAbove(seeded.length, 0)
       yield* insertEntries(db, yield* getEntries(db, [kuu]))
@@ -276,7 +264,6 @@ layer(TestLayer)("seed facts", (it) => {
   it.effect("moves a loan link with its katakana word when JMDict respells it", () =>
     Effect.gen(function* () {
       const db = yield* Database
-      // Each import links loans as it finishes.
       current = release(eat + live)
       yield* JMDict.importFile({ file: "JMdict_e_examp.gz" })
       current = release(eat + live, '<lsource xml:lang="eng">mansion</lsource>', "マンシヨン")

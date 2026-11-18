@@ -18,7 +18,6 @@ const LANGUAGE_OPTIONS: ReadonlyArray<{ readonly value: Language; readonly label
   { value: "ja", label: "日本語" }
 ]
 
-/** Public `/privacy` and `/terms` page, reachable signed in or signed out on web and native. */
 export const LegalDocumentScreen = ({ kind }: { readonly kind: LegalKind }) => {
   const theme = useTheme()
   const router = useRouter()

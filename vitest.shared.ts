@@ -4,26 +4,12 @@ import { defineConfig } from "vitest/config"
 
 const conditions = ["@kotori/source", ...defaultServerConditions]
 
-/**
- * Shared Vitest config: resolve `@kotori/*` packages from source instead of their
- * built `dist/`. Workspace packages are externalized by the test server, so the
- * source condition must be set for external resolution too, or a stale `dist/`
- * would be loaded silently.
- *
- * `cacheDir` is per project (cwd = the project running vitest): a single shared
- * cache directory races when Nx runs suites in parallel.
- *
- * `isolate: false` reuses each worker across test files so module state — most
- * notably `DatabaseMemory`'s migrated PGlite data-directory dump — is initialized
- * once per worker instead of once per test file.
- *
- * `hookTimeout` covers `layer(...)` setup, where the first suite in each worker
- * on `DatabaseMemory` starts PGlite and applies every migration: 5-10 s on a CI
- * runner with Nx's suites in parallel, against Vitest's 10 s default.
- */
 export default defineConfig({
+  // Per-project cache directory so parallel Nx test targets don't race on a shared cache.
   cacheDir: join(process.cwd(), "node_modules", ".vitest-cache"),
+  // `isolate: false` reuses `DatabaseMemory`'s migrated PGlite snapshot per worker; `hookTimeout` covers first-run CI migrations.
   test: { hookTimeout: 60_000, isolate: false },
   resolve: { conditions },
+  // Workspace packages are externalized by Vite's SSR runner, so `externalConditions` prevents loading stale `dist/` builds.
   ssr: { resolve: { conditions, externalConditions: conditions } }
 })

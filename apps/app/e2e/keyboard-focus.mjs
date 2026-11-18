@@ -1,13 +1,3 @@
-/**
- * Sign-up focus on the web build. Run against a dev server:
- *
- *   EXPO_PUBLIC_DEV_SIGN_IN=off pnpm --filter @kotori/app exec expo start --web --port 8081
- *   node apps/app/e2e/keyboard-focus.mjs
- *
- * Playwright must resolve from this directory (it is not a repo dependency).
- * Chromium is system Chrome. Touch-drag is Chromium-only; wheel, typing, tap-outside,
- * and Enter run in Chromium, Firefox, and WebKit at phone, tablet, and desktop widths.
- */
 import { chromium, firefox, webkit } from "playwright"
 
 const base = process.env.KOTORI_WEB_URL ?? "http://localhost:8081"
@@ -61,7 +51,6 @@ const typeEmail = async (page) => {
   if (value !== "ash@example.com") fail(`email value is ${JSON.stringify(value)}`)
 }
 
-/** Make the form taller than the scroller so a scroll event can fire at any viewport. */
 const forceOverflow = async (scroller) => {
   await scroller.evaluate((node) => {
     const inner = node.firstElementChild
@@ -69,7 +58,6 @@ const forceOverflow = async (scroller) => {
   })
 }
 
-/** A mouse wheel scrolls the screen and must leave the field focused. */
 const scrollWithoutPointer = async (page) => {
   const email = emailInput(page)
   await email.click()
@@ -90,7 +78,6 @@ const scrollWithoutPointer = async (page) => {
   if (!focused) fail("mouse wheel blurred the email field")
 }
 
-/** A real touch drag (Chromium). The screen scrolls and the field blurs. */
 const dragScroll = async (page) => {
   const email = emailInput(page)
   await email.click()
@@ -122,13 +109,11 @@ const tapOutside = async (page) => {
   const email = emailInput(page)
   await email.click()
   await email.fill("still@example.com")
-  // The beta line is ordinary text, not a button, so the browser moves focus off the field.
   await page.getByText("Kotori is in private beta", { exact: false }).click()
   const focused = await email.evaluate((node) => document.activeElement === node)
   if (focused) fail("tapping outside the field left it focused")
 }
 
-/** Enter on a single-line field submits and blurs, independent of keyboardDismissMode. */
 const submitMovesOn = async (page) => {
   const email = emailInput(page)
   await email.click()

@@ -36,9 +36,6 @@ import { loanLinkFor } from "../../src/features/dictionary/usage.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 import { kana, kanji, sense, spelling } from "../fixtures.ts"
 
-// The offline passes against PGlite: which words they pick, what `kotori judge` writes, and how
-// the import fills only empty cells, idempotently, from small artifact files.
-
 const directory = mkdtempSync(join(tmpdir(), "passes-"))
 afterAll(() => rmSync(directory, { recursive: true, force: true }))
 
@@ -92,7 +89,6 @@ const words: Array<EntryRecord> = [
   en(mansionEn, "mansion", ["豪邸"])
 ]
 
-/** A Jev that says yes to formal wording only for 鑑みる, and that loans keep their meaning. */
 const FakeJev = Layer.succeed(
   Jev,
   Jev.of({
@@ -116,7 +112,6 @@ const FakeJev = Layer.succeed(
   })
 )
 
-/** A caution writer that warns about 食う's eating sense only. */
 const FakeWriter = Layer.succeed(
   CautionWriter,
   CautionWriter.of({
@@ -171,7 +166,6 @@ layer(TestLayer)("offline passes", (it) => {
       const db = yield* Database
       yield* insertEntries(db, words)
       const picked = yield* formalLabelCandidates(db, { commonOnly: true, judged: new Set(), limit: 10 })
-      // 食う's eating sense is labelled `male`; 召し上がる's only sense `hon`; ぴえん is approved.
       assert.deepStrictEqual(
         picked.map((candidate) => [candidate.word.headword, candidate.senses]),
         [
@@ -260,7 +254,6 @@ layer(TestLayer)("offline passes", (it) => {
       const db = yield* Database
       const lines = [
         { entryId: kangamiru, headword: "鑑みる", form: [{ gloss: "to take into account", p: 0.9 }] },
-        // A sense the dictionary labels already, a gloss no sense has, a word that changed, an approved word.
         {
           entryId: kuu,
           headword: "食う",
@@ -278,7 +271,6 @@ layer(TestLayer)("offline passes", (it) => {
       assert.deepStrictEqual(yield* formalLabelsOf(kuu), [])
       assert.deepStrictEqual(yield* formalLabelsOf(approved), [])
 
-      // The file decides: a word judged plain again loses Kotori's label.
       yield* applyFormalLabels(db, [{ entryId: kangamiru, headword: "鑑みる", form: [] }])
       assert.deepStrictEqual(yield* formalLabelsOf(kangamiru), [])
     })
@@ -368,12 +360,10 @@ layer(TestLayer)("offline passes", (it) => {
           katakanaId: mansion,
           englishId: mansionEn,
           meaning: "wasei_eigo",
-          // JMdict names the pair; Kotori judged its meaning.
           source: "jmdict",
           meaningSource: "kotori"
         }
       ])
-      // A meaning another source judged is never overwritten.
       yield* db.update(loanLinks).set({ meaningSource: "user" }).where(eq(loanLinks.katakana, "アドバイス"))
       yield* applyLoanVerdicts(db, [lines[0]!, { ...lines[1]!, meaning: "wasei_eigo" }])
       const [kept] = yield* db
@@ -381,7 +371,6 @@ layer(TestLayer)("offline passes", (it) => {
         .from(loanLinks)
         .where(eq(loanLinks.katakana, "アドバイス"))
       assert.strictEqual(kept?.meaning, "true_loanword")
-      // A word with a verdict is no longer a candidate.
       const open = yield* loanCandidateWords(db, { commonOnly: true, judged: new Set(), limit: 10 }, 3)
       assert.deepStrictEqual(open, [])
     })
@@ -410,18 +399,15 @@ layer(TestLayer)("offline passes", (it) => {
         meaning: "wasei_eigo" as const,
         p: 0.97
       }
-      // Apply, reseed (JMdict's links are rebuilt first), then apply a corrected file.
       yield* applyLoanVerdicts(db, [line])
       yield* linkLoans(db)
       yield* applyLoanVerdicts(db, [{ ...line, meaning: "true_loanword" }])
       const corrected = yield* loanLinkFor(db, tensionEn)
       assert.strictEqual(corrected?.meaning, "true_loanword")
-      // JMdict still names the pair, and the verdict is still Kotori's.
       yield* linkLoans(db)
       assert.deepStrictEqual([corrected?.source, corrected?.meaningSource], ["jmdict", "kotori"])
       assert.deepStrictEqual(yield* loanLinkFor(db, tensionEn), corrected)
 
-      // A pair JMdict stops naming goes, whoever judged its meaning.
       yield* applyLoanVerdicts(db, [line])
       yield* insertEntries(db, [named([])])
       yield* linkLoans(db)
@@ -492,7 +478,6 @@ layer(TestLayer)("offline passes", (it) => {
         en(gameEn, "game", ["遊び"])
       ])
       yield* linkLoans(db)
-      // An approved word's label and caution are its approved file's, not a pass's.
       yield* db.insert(labels).values({ entryId: approved, sense: 0, code: "form", source: "kotori" })
       yield* saveKotoriCautions(db, approved, "ja", [
         { kind: "tone", text: "Playful, never real grief.", sense: null, about: null }
@@ -565,7 +550,6 @@ layer(TestLayer)("offline passes", (it) => {
         serializeArtifact(header("loans"), [loan.handle], (line) => line.englishId)
       )
 
-      // Trimmed: the words the files no longer name lose what the passes gave them.
       yield* applyArtifacts(db, files)
       assert.deepStrictEqual(yield* formalLabelsOf(kuu), [])
       assert.deepStrictEqual(yield* formalLabelsOf(kangamiru), [{ sense: 0, source: "kotori" }])
@@ -574,7 +558,6 @@ layer(TestLayer)("offline passes", (it) => {
       assert.deepStrictEqual(yield* pair("ゲーム"), [])
       assert.deepStrictEqual(yield* pair("ハンドル"), [{ meaning: "wasei_eigo", source: "jmdict" }])
 
-      // Deleted: nothing the passes gave is left; the pair JMdict names stays, without a verdict.
       for (const file of Object.values(files)) rmSync(file, { force: true })
       yield* applyArtifacts(db, files)
       assert.deepStrictEqual(yield* formalLabelsOf(kangamiru), [])
@@ -627,7 +610,6 @@ layer(TestLayer)("offline passes", (it) => {
       )
       const refused = yield* readArtifact(file, LoanLine, "loans").pipe(Effect.flip)
       assert.include(String(refused), "ja-form")
-      // A file with no header isn't taken for an absent one.
       writeFileSync(file, "{not a header\n")
       assert.include(String(yield* readArtifact(file, FormalLabelLine, "ja-form").pipe(Effect.flip)), "no header")
     })

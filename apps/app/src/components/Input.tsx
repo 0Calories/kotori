@@ -5,7 +5,6 @@ import { Text } from "./Text.tsx"
 
 export interface InputProps extends TextInputProps {
   readonly label?: string
-  /** Use the Japanese face for what's typed. */
   readonly jp?: boolean
   readonly large?: boolean
 }

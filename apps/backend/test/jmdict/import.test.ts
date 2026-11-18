@@ -38,14 +38,12 @@ const twoSenses =
   "<sense><pos>&v1;</pos><gloss>to eat</gloss></sense>" +
   '<sense><gloss>to live on (e.g. a salary)</gloss><gloss g_type="fig">to subsist on</gloss></sense>'
 
-// The seeder reads whatever JMDict file it is given; here the "file" is whichever release is current.
 let current = release(twoSenses)
 const Files = FileSystem.layerNoop({ readFile: () => Effect.sync(() => new TextEncoder().encode(current)) })
 
 const TestLayer = Layer.mergeAll(Files).pipe(Layer.provideMerge(DatabaseMemory))
 
 const taberu = EntryId.make(1358280)
-/** Kotori's labels on the word's senses: enrichment the import keeps, following its sense. */
 const kotoriLabel = (sense: number) => ({ entryId: taberu, sense, code: "form" as const, source: "kotori" as const })
 const labelledSenses = Effect.gen(function* () {
   const db = yield* Database
@@ -53,8 +51,6 @@ const labelledSenses = Effect.gen(function* () {
   return rows.flatMap((row) => (row.source === "kotori" ? [row.sense] : [])).sort((a, b) => a - b)
 })
 
-// Dictionary and enrichment are rebuildable, so moving to a new JMDict release is a reseed:
-// the seeder upserts, and enrichment for senses that still exist must survive it.
 layer(TestLayer)("JMDict.importFile", (it) => {
   it.effect("seeding twice leaves the same dictionary, enrichment and queue", () =>
     Effect.gen(function* () {

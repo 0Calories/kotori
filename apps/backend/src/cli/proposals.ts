@@ -39,7 +39,6 @@ const list = Command.make(
     )
   },
   Effect.fn(function* ({ status: chosen, contested }) {
-    // Contested proposals are all rejections, so asking for them alone means the rejected ones.
     const status = Option.getOrElse(chosen, () => (contested ? "rejected" : "pending"))
     const db = yield* Database
     const rows = yield* db
@@ -53,11 +52,7 @@ const list = Command.make(
       .leftJoin(entries, eq(entries.id, proposals.entryId))
       .leftJoin(proposalAsks, eq(proposalAsks.proposalId, proposals.id))
       .where(
-        and(
-          // A draft stands where its entry does, so the filter reads both.
-          status === "all" ? undefined : standingIs(status),
-          contested ? eq(proposals.contested, true) : undefined
-        )
+        and(status === "all" ? undefined : standingIs(status), contested ? eq(proposals.contested, true) : undefined)
       )
       .groupBy(proposals.id, entries.id)
       .orderBy(desc(proposals.createdAt))
@@ -74,7 +69,6 @@ const list = Command.make(
           proposal.language,
           standing.padEnd(9),
           (proposal.route ?? "-").padEnd(14),
-          // "!" marks a contested rejection: Jev said lookup, Claude said no. Many asks say the same.
           proposal.contested ? "!" : " ",
           `asks:${String(asks).padEnd(4)}`,
           proposal.createdAt.toISOString().slice(0, 10),
@@ -172,10 +166,6 @@ const redo = Command.make(
   Command.withDescription("Ask Claude again about a rejected proposal, replacing its answer (for a wrong rejection)")
 )
 
-/**
- * `kotori proposals`. The review commands need only the database; `redo` alone also needs the
- * dictionary and Claude, which the caller gives it so the others never build them.
- */
 export const proposalsCommand = <E, R>(redoServices: Layer.Layer<Dictionary | Lexicographer | Claude, E, R>) =>
   Command.make("proposals").pipe(
     Command.withDescription("Review Ask Kotori's drafted entries: the manual gate before the dictionary"),

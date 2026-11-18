@@ -3,56 +3,27 @@ import { and, asc, count, desc, eq, inArray, lt, lte, sql } from "drizzle-orm"
 import { Effect, Option } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 
-// The enrichment queue: the API asks for work on an entry someone is looking at, the worker
-// claims the most urgent job and settles it. One job per kind and entry.
-
 export type JobKind = (typeof jobs.$inferSelect)["kind"]
 export type JobStatus = (typeof jobs.$inferSelect)["status"]
 
-/**
- * A job's lifecycle: every move it makes, the statuses it is made from and the one it leads to.
- * A job in any other status is left as it is. The queries below apply these; none names a status
- * of its own, so a new status or move is added here or nowhere.
- *
- * ```text
- * (no job) ──insert──▶ queued ──claim──▶ running ──complete──▶ done
- *                        ▲                 │ ├────giveUp─────▶ failed
- *                        │                 │ │                  │ │
- *                        ├─retryLater, release, recover─┘       │ │
- *                        └──────────ask, rerun, retry───────────┴─┘ (ask: failed only)
- * ```
- */
 const MOVES = {
-  /** Someone asks for the work: a job that ran out of attempts gets new ones. */
   ask: { from: ["failed"], to: "queued" },
-  /** What the job works from changed (new sentences to voice): a settled job runs again. */
   rerun: { from: ["done", "failed"], to: "queued" },
-  /** A settled job that left something missing is tried again. */
   retry: { from: ["done", "failed"], to: "queued" },
-  /** The worker takes it. */
   claim: { from: ["queued"], to: "running" },
-  /** The worker finished it. */
   complete: { from: ["running"], to: "done" },
-  /** It failed with attempts left. */
   retryLater: { from: ["running"], to: "queued" },
-  /** It failed on its last attempt. */
   giveUp: { from: ["running"], to: "failed" },
-  /** Its worker was stopped mid-job (a deploy). */
   release: { from: ["running"], to: "queued" },
-  /** Its worker crashed or was killed and never settled it. */
   recover: { from: ["running"], to: "queued" }
 } as const satisfies Record<string, { readonly from: ReadonlyArray<JobStatus>; readonly to: JobStatus }>
 
 type Move = keyof typeof MOVES
 
-/** Whether the job is in a status `move` is made from. */
 const can = (move: Move) => inArray(jobs.status, MOVES[move].from)
-/** The status `move` leads to, as SQL. */
 const to = (move: Move) => sql`${MOVES[move].to}::job_status`
-/** The job's status after `move`: where it leads when the job can make it, unchanged otherwise. */
 const after = (move: Move) => sql`CASE WHEN ${can(move)} THEN ${to(move)} ELSE ${jobs.status} END`
 
-/** Attempts before a job is marked failed for good. */
 const MAX_ATTEMPTS = 3
 
 const jobColumns = {
@@ -67,7 +38,6 @@ const jobColumns = {
 
 export type Job = Pick<typeof jobs.$inferSelect, keyof typeof jobColumns>
 
-/** Queues work for an entry. Asking again raises its priority and revives a failed job. */
 export const enqueueJob = (db: DatabaseShape, kind: JobKind, entryId: EntryId, priority: number, now: Date) =>
   db
     .insert(jobs)
@@ -79,15 +49,12 @@ export const enqueueJob = (db: DatabaseShape, kind: JobKind, entryId: EntryId, p
         status: after("ask"),
         attempts: sql`CASE WHEN ${can("ask")} THEN 0 ELSE ${jobs.attempts} END`,
         runAfter: sql`CASE WHEN ${can("ask")} THEN excluded.run_after ELSE ${jobs.runAfter} END`,
+        // Preserve updatedAt while running because requeueStaleJobs uses it as the claim timestamp.
         updatedAt: sql`CASE WHEN ${jobs.status} = 'running' THEN ${jobs.updatedAt} ELSE excluded.updated_at END`
       }
     })
     .pipe(Effect.asVoid, Effect.orDie)
 
-/**
- * Queues work for an entry that has no job of this kind yet, returning whether it did. When
- * another request queued it first, nothing changes and the answer is false.
- */
 export const queueNewJob = (db: DatabaseShape, kind: JobKind, entryId: EntryId, priority: number, now: Date) =>
   db
     .insert(jobs)
@@ -99,7 +66,6 @@ export const queueNewJob = (db: DatabaseShape, kind: JobKind, entryId: EntryId, 
       Effect.orDie
     )
 
-/** Queues a job to run again even if it already finished (audio, say, once examples exist). */
 export const requeueJob = (db: DatabaseShape, kind: JobKind, entryId: EntryId, priority: number, now: Date) =>
   db
     .insert(jobs)
@@ -116,11 +82,6 @@ export const requeueJob = (db: DatabaseShape, kind: JobKind, entryId: EntryId, p
     })
     .pipe(Effect.asVoid, Effect.orDie)
 
-/**
- * Queues a settled job (`done` or `failed`) again only if it settled before `settledBefore`,
- * so a gap or failure is retried at most once per interval rather than on every request.
- * Returns whether it queued it.
- */
 export const refillJob = (
   db: DatabaseShape,
   kind: JobKind,
@@ -139,7 +100,6 @@ export const refillJob = (
       Effect.orDie
     )
 
-/** Atomically takes the most urgent runnable job of the given kinds. */
 export const claimJob = Effect.fn("jobs.claim")(function* (
   db: DatabaseShape,
   kinds: ReadonlyArray<JobKind>,
@@ -169,7 +129,6 @@ export const completeJob = (db: DatabaseShape, id: number, now: Date) =>
     .where(and(eq(jobs.id, id), can("complete")))
     .pipe(Effect.asVoid, Effect.orDie)
 
-/** Records a failure; the job is retried after `retryAt` until it runs out of attempts. */
 export const failJob = (db: DatabaseShape, id: number, error: string, retryAt: Date, now: Date) =>
   db
     .update(jobs)
@@ -182,7 +141,6 @@ export const failJob = (db: DatabaseShape, id: number, error: string, retryAt: D
     .where(and(eq(jobs.id, id), can("giveUp")))
     .pipe(Effect.asVoid, Effect.orDie)
 
-/** Puts a claimed job back in the queue without counting the attempt: its worker stopped, it didn't fail. */
 export const releaseJob = (db: DatabaseShape, id: number, now: Date) =>
   db
     .update(jobs)
@@ -190,7 +148,6 @@ export const releaseJob = (db: DatabaseShape, id: number, now: Date) =>
     .where(and(eq(jobs.id, id), can("release")))
     .pipe(Effect.asVoid, Effect.orDie)
 
-/** Each kind of job's status for an entry. */
 export const jobStatusFor = Effect.fn("jobs.statusFor")(function* (db: DatabaseShape, entryId: EntryId) {
   const rows = yield* db
     .select({ kind: jobs.kind, status: jobs.status })
@@ -200,7 +157,6 @@ export const jobStatusFor = Effect.fn("jobs.statusFor")(function* (db: DatabaseS
   return new Map<JobKind, JobStatus>(rows.map((row) => [row.kind, row.status]))
 })
 
-/** Puts jobs left `running` by a worker that crashed or was killed back in the queue. */
 export const requeueStaleJobs = (db: DatabaseShape, olderThan: Date, now: Date) =>
   db
     .update(jobs)
@@ -208,7 +164,6 @@ export const requeueStaleJobs = (db: DatabaseShape, olderThan: Date, now: Date) 
     .where(and(can("recover"), lt(jobs.updatedAt, olderThan)))
     .pipe(Effect.asVoid, Effect.orDie)
 
-/** How many jobs there are of each kind in each status. */
 export const jobCounts = (db: DatabaseShape) =>
   db
     .select({ kind: jobs.kind, status: jobs.status, n: count() })

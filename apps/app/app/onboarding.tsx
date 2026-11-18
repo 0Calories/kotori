@@ -22,7 +22,6 @@ export default function Onboarding() {
     setBusy(true)
     setError(null)
     try {
-      // Approved learners who signed up before picking a language land here once.
       await updateProfile({ nativeLanguage: native })
     } catch (e) {
       setError(e)

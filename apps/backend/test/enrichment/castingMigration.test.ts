@@ -11,7 +11,6 @@ import { examplesFor } from "../../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 import { entries } from "../fixtures.ts"
 
-/** A migration's statements as it ships. */
 const statementsOf = (name: string) => {
   const folder = readdirSync(migrationsFolder).find((own) => own.endsWith(name))!
   return readFileSync(join(migrationsFolder, folder, "migration.sql"), "utf8")
@@ -20,7 +19,6 @@ const statementsOf = (name: string) => {
     .filter((statement) => statement.length > 0)
 }
 
-/** The five casting columns and their enums, as they were before `casting`. */
 const OLD_SHAPE = [
   `CREATE TYPE "speaker_gender" AS ENUM ('masculine', 'feminine', 'unspecified')`,
   `CREATE TYPE "speaker_age" AS ENUM ('child', 'youth', 'adult', 'middle-aged', 'older', 'unspecified')`,
@@ -51,13 +49,11 @@ layer(DatabaseMemory)("the example casting migration", (it) => {
           VALUES (${taberu}, 0, ${position}, ${`文${position}`}, ${`文${position}`}, ${`Sentence ${position}`},
             ${formality}::formality, ${source}::source, ${signals[0]}::speaker_gender, ${signals[1]}::speaker_age,
             ${signals[2]}::sentence_medium, ${signals[3]}, ${signals[4]}::sentence_tone)`)
-      // Claude's, judged in full; Claude's, written before casting; seeded; and one with a gap.
       yield* old(0, "kotori", "casual", ["feminine", "youth", "conversation", "kansai", "cheerful"])
       yield* old(1, "kotori", "polite", [null, null, null, null, null])
       yield* old(2, "tatoeba", null, [null, null, null, null, null])
       yield* old(3, "kotori", "formal", [null, "older", "narration", null, "serious"])
 
-      // As it ships, twice: carried-over rows are left alone. Then the columns go.
       yield* run(statementsOf("example_casting"))
       yield* run(statementsOf("example_casting"))
       yield* run(statementsOf("drop_example_casting_columns"))
@@ -83,7 +79,6 @@ layer(DatabaseMemory)("the example casting migration", (it) => {
             "formal",
             { speakerGender: "unspecified", speakerAge: "older", medium: "narration", variety: null, tone: "serious" }
           ],
-          // Seeded, after Kotori's: no formality and no casting until Jev judges it.
           ["文2", null, null]
         ]
       )

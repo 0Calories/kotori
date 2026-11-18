@@ -8,7 +8,6 @@ import { parseConsolidatedLine } from "../features/dictionary/import/english/wor
 import { headwordIds } from "../features/dictionary/queries.ts"
 import { resolveFromRoot } from "../runtime/Paths.ts"
 
-/** The curated entries, whose own ratings the import prefers, so they aren't rated again. */
 const CURATED_FILE = "data/english/enwiktionary-ja.jsonl"
 
 export const frequency = Command.make(
@@ -41,7 +40,7 @@ export const frequency = Command.make(
       }
     }
 
-    // Phrases only: single words have their subtitle counts.
+    // Unigram subtitle counts already cover single words.
     const unrated = [...(yield* headwordIds(db, "en")).keys()]
       .filter((headword) => headword.includes(" ") && !rated.has(headword.toLowerCase()))
       .sort()
@@ -53,8 +52,6 @@ export const frequency = Command.make(
       return
     }
 
-    // The file is rewritten after every batch, so an interrupted run keeps what it rated; one
-    // writer at a time, as batches finish together.
     const saving = yield* Semaphore.make(1)
     let done = 0
     let failed = 0

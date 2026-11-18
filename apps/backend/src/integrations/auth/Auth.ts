@@ -19,7 +19,6 @@ import { authSessions, authUsers } from "../../db/neonAuth.ts"
 import { configuredWebOrigins, webOriginAllowed } from "../../http/cors.ts"
 import { ed25519Key, signWebhook } from "./WebhookSignature.ts"
 
-/** A Managed Better Auth user as Kotori reads it. Approval status and role live on the learner profile. */
 export interface AuthUser {
   readonly id: UserId
   readonly email: string
@@ -28,7 +27,6 @@ export interface AuthUser {
   readonly createdAt: Date
 }
 
-/** A proxied upstream response: status, the headers worth relaying, body and `Set-Cookie`. */
 export interface Forwarded {
   readonly status: number
   readonly headers: Readonly<Record<string, string>>
@@ -36,7 +34,6 @@ export interface Forwarded {
   readonly setCookies: ReadonlyArray<string>
 }
 
-// `createdAt` arrives as an ISO string from the auth server's JSON and as a Date from the SQL driver.
 const RawUser = Schema.Struct({
   id: UserId,
   email: Schema.String,
@@ -49,7 +46,6 @@ const decodeUser = (raw: unknown): AuthUser => Schema.decodeUnknownSync(RawUser)
 const SessionResponse = Schema.NullOr(Schema.Struct({ user: RawUser }))
 const decodeSession = Schema.decodeUnknownSync(SessionResponse)
 
-/** The claims a managed JWT (`GET /token`) carries about its user. */
 const TokenClaims = Schema.Struct({
   sub: UserId,
   email: Schema.String,
@@ -59,21 +55,14 @@ const TokenClaims = Schema.Struct({
 })
 const decodeClaims = Schema.decodeUnknownOption(TokenClaims)
 
-/** Managed Auth could not be reached, timed out, or answered with a server error. */
 export class AuthUpstreamError extends Schema.TaggedError<AuthUpstreamError>()("AuthUpstreamError", {
   message: Schema.String
 }) {}
 
-/** How long a call to Managed Auth may take before it counts as unreachable. */
 const UPSTREAM_TIMEOUT = Duration.seconds(10)
 
-/** Request headers worth forwarding to the auth server; everything else is hop-by-hop or ours. */
 const FORWARDED_HEADERS = ["cookie", "content-type", "accept", "origin", "user-agent", "authorization"]
 
-/**
- * Response headers relayed back besides `Set-Cookie`: redirects (verification and reset
- * links), caching, Better Auth's token headers and its rate-limit hints.
- */
 const RELAYED_HEADERS = [
   "content-type",
   "location",
@@ -86,56 +75,22 @@ const RELAYED_HEADERS = [
 ]
 
 export interface AuthService {
-  /**
-   * Forwards a request under `/api/auth/*` to Managed Better Auth with its cookies and
-   * body, and relays the response including `Set-Cookie`, so the app keeps one origin.
-   */
   forward(
     request: HttpServerRequest.HttpServerRequest,
     path: string
   ): Effect.Effect<HttpServerResponse.HttpServerResponse>
-  /**
-   * The signed-in user behind the request's session cookie, via `/get-session`. Fails,
-   * rather than answering none, when Managed Auth can't say.
-   */
   sessionFromCookies(headers: Headers.Headers): Effect.Effect<Option.Option<AuthUser>, AuthUpstreamError>
-  /**
-   * The user a managed JWT (from `GET /token`) was issued to, if the token verifies against
-   * the JWKS and the user still has a session: deleting the account or revoking its sessions
-   * ends access at once, not when the token expires. Fails, rather than answering none, when
-   * the key set can't be fetched.
-   */
   verifyToken(token: string): Effect.Effect<Option.Option<AuthUser>, AuthUpstreamError>
-  /**
-   * The Ed25519 key Managed Auth signed a webhook with (`X-Neon-Signature-Kid`), from the
-   * same key set as the JWTs, refetched when the id is unknown. None for an unknown id
-   * or a key that isn't Ed25519; fails when the key set can't be fetched.
-   */
   webhookKey(kid: string): Effect.Effect<Option.Option<KeyObject>, AuthUpstreamError>
-  /**
-   * Deletes the identity: the `neon_auth` user row, whose sessions and accounts cascade.
-   * Managed Auth doesn't enable Better Auth's own `/delete-user`, and identity lives in
-   * Kotori's database anyway, so this is a plain SQL delete.
-   */
   deleteUser(userId: UserId): Effect.Effect<void>
-  /**
-   * Creates an account with a password, as the sign-up screen does. Used by the CLI to
-   * make the local development account; learners always go through the app.
-   */
   signUp(input: {
     readonly email: string
     readonly password: string
     readonly name: string
   }): Effect.Effect<AuthUser, AuthUpstreamError>
-  /**
-   * Marks the address confirmed without a code, for the development account. The real
-   * path is the learner entering the code Managed Auth's webhook emailed them.
-   */
   setEmailVerified(userId: UserId): Effect.Effect<void>
-  /** Every user in sign-up order. */
   readonly users: Effect.Effect<ReadonlyArray<AuthUser>>
   userByEmail(email: string): Effect.Effect<Option.Option<AuthUser>>
-  /** Signs the user out everywhere. */
   revokeSessions(userId: UserId): Effect.Effect<void>
 }
 
@@ -145,7 +100,7 @@ const toResponse = (forwarded: Forwarded) => {
     headers: forwarded.headers,
     cookies: Cookies.fromSetCookie(forwarded.setCookies)
   }
-  // An empty body (redirects, 204s) goes out without one, rather than as application/octet-stream.
+  // Avoid HttpServerResponse.uint8Array's default application/octet-stream content-type on empty 204 and redirect responses.
   return forwarded.body.length === 0
     ? HttpServerResponse.empty(options)
     : HttpServerResponse.uint8Array(forwarded.body, options)
@@ -156,12 +111,6 @@ const upstreamFailed = HttpServerResponse.text(
   { status: 502, contentType: "application/json" }
 )
 
-/**
- * Neon's Managed Better Auth, reached at `NEON_AUTH_BASE_URL`. The service runs
- * upstream; identity lands in the `neon_auth` schema of Kotori's own database,
- * which is where reads (and session revocation) go. Everything a learner does
- * (sign up, sign in, verify, reset, delete) flows through `forward`.
- */
 export class Auth extends Context.Service<Auth, AuthService>()("@kotori/backend/Auth") {
   static readonly layer = Layer.effect(
     Auth,
@@ -184,10 +133,7 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/backend/
               const value = init.headers[name]
               if (value !== undefined) headers.set(name, value)
             }
-            // Better Auth requires a trusted Origin (CSRF check). Native apps send none, and Neon Auth
-            // domain rules reject mid-label wildcards (`https://kotori-*-<team>.vercel.app`), so stand
-            // in with the auth server's own origin when none was sent or when `KOTORI_WEB_ORIGINS`
-            // already allows the browser's origin.
+            // Rewrite missing or allowed origins to the auth server's origin because Better Auth enforces Origin CSRF checks and Neon Auth rejects mid-label wildcard preview domains.
             const requestOrigin = headers.get("origin")
             if (requestOrigin === null || allowedWebOrigin(requestOrigin)) headers.set("origin", origin)
             const options: RequestInit = {
@@ -217,8 +163,7 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/backend/
         function* (headers: Headers.Headers) {
           if (headers["cookie"] === undefined) return Option.none<AuthUser>()
           const response = yield* upstream("/get-session", { method: "GET", headers })
-          // A server error or rate limit says nothing about the cookie; anything else that
-          // isn't a session (Better Auth answers `null` with 200) means signed out.
+          // Better Auth returns HTTP 200 with a JSON null body when signed out; 429 and 5xx indicate upstream failure.
           if (response.status >= 500 || response.status === 429) {
             return yield* new AuthUpstreamError({ message: `/get-session answered ${response.status}` })
           }
@@ -240,8 +185,6 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/backend/
 
       const verifyToken = makeVerifyToken(jwks, origin, hasSession)
 
-      // Looked up by id alone, as Neon's verification steps do, through jose's cache: a
-      // stale set is refreshed, and an unknown id refetches it at most every 30 s.
       const webhookKey = Effect.fn("Auth.webhookKey")(function* (kid: string) {
         const jwk = yield* Effect.tryPromise({
           try: async () => {
@@ -285,6 +228,7 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/backend/
       const revokeSessions = (userId: UserId) =>
         db.delete(authSessions).where(eq(authSessions.userId, userId)).pipe(Effect.asVoid, Effect.orDie)
 
+      // Managed Auth disables Better Auth's /delete-user endpoint, so delete the neon_auth.user row directly.
       const deleteUser = (userId: UserId) =>
         db.delete(authUsers).where(eq(authUsers.id, userId)).pipe(Effect.asVoid, Effect.orDie)
 
@@ -293,8 +237,6 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/backend/
         readonly password: string
         readonly name: string
       }) {
-        // No cookies to forward and no browser in play, so stand in with the base URL's
-        // own origin, which is trusted by definition.
         const response = yield* upstream("/sign-up/email", {
           method: "POST",
           headers: Headers.fromInput({ "content-type": "application/json", origin }),
@@ -332,7 +274,6 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/backend/
     })
   )
 
-  /** An in-memory stand-in for tests; sign up through `TestAuth`. */
   static readonly layerMemory = Layer.effect(
     Auth,
     Effect.gen(function* () {
@@ -355,7 +296,6 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/backend/
             ? Effect.succeed(store.webhookKey(kid))
             : Effect.fail(new AuthUpstreamError({ message: "The test auth server is down" })),
         deleteUser: (userId) => Effect.sync(() => store.remove(userId)),
-        // The fake store has no passwords; the name and address are all the CLI needs back.
         signUp: ({ email, name }) =>
           store.signUp(email, name).pipe(
             Effect.map(({ id }) => ({
@@ -375,10 +315,9 @@ export class Auth extends Context.Service<Auth, AuthService>()("@kotori/backend/
   )
 }
 
-/** The key set itself couldn't be had (network, timeout, a non-200 answer), as opposed to a bad token. */
 class KeySetUnavailable extends Error {}
 
-/** Marks key-set fetch failures so `verifyToken` doesn't mistake an outage for a forged token. */
+// Wrap JWKS fetch errors separately from key-lookup misses so verifyToken returns 503 on outages instead of treating tokens as invalid.
 const distinguishOutages =
   (jwks: JWTVerifyGetKey): JWTVerifyGetKey =>
   async (header, token) => {
@@ -422,6 +361,7 @@ const makeVerifyToken = (
           }))
         )
       )
+      // Check authSessions so account deletion or session revocation takes effect before the JWT expires.
       if (Option.isNone(user) || !(yield* hasSession(user.value.id))) return Option.none<AuthUser>()
       return user
     },
@@ -431,30 +371,21 @@ const makeVerifyToken = (
 
 interface TestSignUp {
   readonly id: UserId
-  /** A `cookie` header value the memory layer recognises. */
   readonly cookie: string
 }
 
-/**
- * The fake auth server behind `Auth.layerMemory`: an in-memory user store, cookie
- * sessions, and real EdDSA tokens so the JWT path is exercised end to end.
- */
 export class TestAuth extends Context.Service<
   TestAuth,
   {
     readonly issuer: string
     readonly jwks: JWTVerifyGetKey
     signUp(email: string, name: string): Effect.Effect<TestSignUp>
-    /** A short-lived JWT for the session, like `GET /token`. */
     token(cookie: string): Effect.Effect<string>
-    /** Confirms the address, as `Auth.setEmailVerified` does upstream. */
     setEmailVerified(userId: UserId): void
-    /** Headers that sign `body` as a Managed Auth webhook, sent `ageMs` ago. */
     signWebhook(body: string, options?: { readonly ageMs?: number }): Effect.Effect<Record<string, string>>
     webhookKey(kid: string): Option.Option<KeyObject>
     userForCookie(cookie: string | undefined): Option.Option<AuthUser>
     hasSession(userId: UserId): boolean
-    /** Simulates an outage: session checks and key-set fetches fail until switched back on. */
     setReachable(reachable: boolean): void
     reachable(): boolean
     byEmail(email: string): Option.Option<AuthUser>

@@ -7,7 +7,6 @@ import { Database, rawRows } from "../../src/db/Database.ts"
 import { migrationsFolder } from "../../src/db/Migrate.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
-/** A migration's statements as it ships. */
 const statementsOf = (name: string) => {
   const folder = readdirSync(migrationsFolder).find((own) => own.endsWith(name))!
   return readFileSync(join(migrationsFolder, folder, "migration.sql"), "utf8")
@@ -43,7 +42,6 @@ layer(DatabaseMemory)("the migration splitting a loan's meaning source from its 
         { katakana: "アドバイス", source: "kotori", meaning_source: "kotori" },
         { katakana: "テレビ", source: "jmdict", meaning_source: null }
       ])
-      // A meaning without its source, or a source without a meaning, is refused.
       const refused = yield* db
         .execute(sql`UPDATE "loan_links" SET "meaning_source" = NULL WHERE "katakana" = 'マンション'`)
         .pipe(Effect.flip)

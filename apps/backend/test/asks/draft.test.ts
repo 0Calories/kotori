@@ -36,7 +36,6 @@ describe("checkDraft", () => {
     const draft = checkDraft(output(), "en")!
     assert.strictEqual(draft.headword, "bussin")
     assert.deepStrictEqual(draft.spellings, ["bussin'"])
-    // "trendy" isn't a label, and "uk" is a spelling fact, not a usage label.
     assert.deepStrictEqual(draft.senses[0]?.labels, ["sl"])
     assert.deepStrictEqual(draft.senses[0]?.glosses, ["すごくおいしい"])
   })
@@ -63,7 +62,6 @@ describe("checkDraft", () => {
     const draft = checkDraft(
       output({
         cautions: [
-          // Wasei-eigo is a katakana loan misleading a Japanese speaker in English: never on a Japanese word.
           caution("wasei_eigo"),
           caution("made_up"),
           caution("set_phrase", 2),
@@ -85,7 +83,6 @@ describe("checkDraft", () => {
         ["collocation", null]
       ]
     )
-    // "set_phrase" on sense 2: that sense had no gloss and is gone, so the caution goes too.
   })
 
   it("keeps frequency on its 1–5 scale, and has no draft when no sense has a gloss or no headword", () => {
@@ -120,7 +117,6 @@ const stored: DraftEntry = {
   ],
   cautions: [
     { kind: "confusable", text: "Not as strong as crying.", sense: null, about: "食べる" },
-    // 上手 is two words (じょうず, うわて): which one is meant can't be told, so neither is linked.
     { kind: "confusable", text: "Not 上手.", sense: 0, about: "上手" },
     { kind: "confusable", text: "Not a word.", sense: 0, about: "ないことば" }
   ]
@@ -181,7 +177,6 @@ layer(DatabaseMemory)("drafts", (it) => {
       const db = yield* Database
       yield* ensureUser(db, { id: U1, displayName: null, createdAt: new Date(0) })
       yield* insertEntries(db, english)
-      // The column the migration rewrote, as it was before drafts became entries.
       yield* db.execute(sql`ALTER TABLE "proposals" ADD COLUMN "draft" jsonb`)
       const old = (query: string, draft: object) =>
         db
@@ -220,7 +215,6 @@ layer(DatabaseMemory)("drafts", (it) => {
         senses: [{ glosses: ["魅力"], partOfSpeech: "n", labels: ["sl"], note: null }]
       })
 
-      // The migration as it ships; already-migrated drafts are left alone, so it runs again safely.
       const folder = readdirSync(migrationsFolder).find((name) => name.endsWith("proposal_drafts_on_entry_model"))!
       const statement = readFileSync(join(migrationsFolder, folder, "migration.sql"), "utf8")
       yield* db.execute(sql.raw(statement))
@@ -237,7 +231,6 @@ layer(DatabaseMemory)("drafts", (it) => {
         spellings: ["groovey"],
         frequency: 2,
         senses: [
-          // "dated" was already a label: currency adds it to the senses lacking it, once.
           { glosses: ["かっこいい"], pos: ["adj"], labels: ["sl", "dated"], usagePatterns: ["60年代の言葉。"] },
           { glosses: ["最高"], pos: [], labels: ["dated"], usagePatterns: [] }
         ],

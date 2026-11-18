@@ -8,11 +8,9 @@ import { Text } from "./Text.tsx"
 export interface ButtonProps {
   readonly label: string
   readonly onPress?: () => void
-  /** primary: the palette's 500 with ink text. dark: ink, for the action that finishes a flow. */
   readonly variant?: "primary" | "dark" | "secondary" | "soft" | "ghost"
   readonly size?: "md" | "lg" | "sm"
   readonly icon?: IconName
-  /** Drawn where the icon goes, for marks that aren't glyphs (Google's "G"). */
   readonly leading?: ReactNode
   readonly loading?: boolean
   readonly disabled?: boolean
@@ -42,7 +40,6 @@ export const Button = ({
   }[variant]
   const height = { sm: 36, md: 44, lg: 52 }[size]
   const inactive = disabled || loading
-  // Play is the one filled glyph, drawn larger and closer to the edge, with a bolder label (the Listen pill).
   const play = icon === "play_arrow"
   return (
     <PressableScale
@@ -90,10 +87,6 @@ export const Button = ({
   )
 }
 
-/**
- * An icon-only control. `plain` is a bare glyph, as in headers; `surface` is
- * the white round button used for audio. Hit areas are never under 44pt.
- */
 export const IconButton = ({
   icon,
   onPress,
@@ -108,7 +101,6 @@ export const IconButton = ({
   readonly label: string
   readonly tone?: "plain" | "muted" | "surface" | "primary"
   readonly size?: number
-  /** Toggled on, e.g. saved or playing. */
   readonly active?: boolean
   readonly filled?: boolean
 }) => {

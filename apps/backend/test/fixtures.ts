@@ -1,8 +1,6 @@
 import { EntryId, type EntryRecord, NoteId, UserId } from "@kotori/contracts"
 import type { users } from "@kotori/db"
 
-// Dictionary entries and learner ids shared by the PGlite query suites.
-
 export const sense = (glosses: Array<string>, extra: Partial<EntryRecord["senses"][number]> = {}) => ({
   glosses: glosses.map((text) => ({ text, type: null })),
   pos: ["v1", "vt"],
@@ -30,7 +28,6 @@ export const kanji = (text: string, common = true) => ({
 })
 export const kana = (text: string, common = true) => ({ ...kanji(text, common), kind: "kana" as const })
 
-/** Japanese words, from JMDict. */
 export const entries: Array<EntryRecord> = [
   {
     id: EntryId.make(1358280),
@@ -89,7 +86,6 @@ const inflection = (text: string, tags: Array<string>) => ({
   tags
 })
 
-/** English words, with Japanese glosses. */
 export const english: Array<EntryRecord> = [
   {
     id: EntryId.make(100000001),

@@ -66,7 +66,6 @@ const DictionaryHandlers = HttpApiBuilder.group(
     const dictionary = yield* Dictionary
     const asksService = yield* Asks
     return handlers.handleAll({
-      // Learners search the dictionary of the language they're learning.
       search: ({ query }) =>
         Effect.flatMap(CurrentUser, (user) =>
           dictionary.search(query.q, user.profile.targetLanguage, Math.min(Math.max(query.limit ?? 30, 1), 100))

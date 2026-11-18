@@ -5,7 +5,6 @@ import { Database } from "../../db/Database.ts"
 import { Auth, type AuthUser } from "../../integrations/auth/Auth.ts"
 import { deleteUser, ensureUser, updateUser, type User } from "./queries.ts"
 
-/** What the profile shows from the auth user: contact details the row doesn't duplicate. */
 type Identity = Pick<AuthUser, "email" | "emailVerified">
 
 const toProfile = (who: Identity, row: User): Profile => ({
@@ -21,14 +20,11 @@ const toProfile = (who: Identity, row: User): Profile => ({
   createdAt: row.createdAt
 })
 
-/** Learner profiles: identity comes from Managed Better Auth; approval, role and preferences live here. */
 export class Accounts extends Context.Service<
   Accounts,
   {
-    /** The profile for a signed-in user, created with defaults on first sight. */
     profile(user: AuthUser): Effect.Effect<Profile>
     update(current: Profile, request: UpdateProfileRequest): Effect.Effect<Profile>
-    /** Removes the learner's data, their identity and their sessions, all or nothing. */
     delete(id: UserId): Effect.Effect<void>
   }
 >()("@kotori/backend/Accounts") {
@@ -40,7 +36,6 @@ export class Accounts extends Context.Service<
       const auth = yield* Auth
 
       const profile = Effect.fn("Accounts.profile")(function* (user: AuthUser) {
-        // The table's defaults make a pending Japanese learner.
         const row = yield* ensureUser(db, {
           id: user.id,
           displayName: user.name.trim() || null,
@@ -54,15 +49,13 @@ export class Accounts extends Context.Service<
         const updated = yield* updateUser(db, current.id, {
           nativeLanguage: request.nativeLanguage,
           targetLanguage: request.nativeLanguage === undefined ? undefined : otherLanguage(request.nativeLanguage),
-          // Picking a language is what completes onboarding.
           onboardedAt: request.nativeLanguage === undefined ? undefined : now,
           displayName: request.displayName === undefined ? undefined : request.displayName?.trim() || null
         })
         return Option.match(updated, { onNone: () => current, onSome: (row) => toProfile(current, row) })
       })
 
-      // One transaction: a profile deleted without its identity would be recreated, pending,
-      // on the learner's next request.
+      // Delete profile and auth identity in one transaction so a concurrent request cannot recreate the deleted profile as pending.
       const del = Effect.fn("Accounts.delete")(function* (id: UserId) {
         yield* sql.withTransaction(Effect.andThen(deleteUser(db, id), auth.deleteUser(id))).pipe(Effect.orDie)
       })

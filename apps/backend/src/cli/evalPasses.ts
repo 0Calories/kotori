@@ -33,22 +33,14 @@ import { Console, Effect } from "effect"
 import { chunks } from "../db/chunks.ts"
 import { checkDraft } from "../features/asks/draft.ts"
 
-/**
- * The offline passes' evals (`kotori eval ja-form|loans|cautions|drafts`): each pass run over its
- * golden set with the production request builders, scored against the bar that gates committing
- * its artifact (`passes.ts` in `@kotori/ai` says why each bar sits where it does).
- */
-
 type Answers = Readonly<Record<string, unknown>>
 
 export interface EvalContext {
-  /** Jev's answers for `key` (fresh, or recorded), or undefined when the request failed. */
   readonly ask: (
     key: string,
     state: EntryType,
     questions: Readonly<Record<string, Question>>
   ) => Effect.Effect<Answers | undefined>
-  /** `run`'s result for `key` (fresh, or recorded), or undefined when it failed. */
   readonly remember: <A extends Answers>(key: string, run: Effect.Effect<A, unknown>) => Effect.Effect<A | undefined>
   readonly concurrency: number
 }
@@ -57,7 +49,6 @@ const pct = (x: number) => `${(100 * x).toFixed(0)}%`
 const verdict = (pass: boolean) => (pass ? "PASS" : "FAIL")
 const flag = (judgement: boolean) => (judgement ? " [judgement]" : "")
 
-/** `ja-form`: precision and recall of the `form` label over the golden senses, at several cut-offs. */
 export const evalFormalLabels = (context: EvalContext) =>
   Effect.gen(function* () {
     yield* Console.log(`Judging ${GOLDEN_FORMAL_LABELS.length} golden senses…`)
@@ -96,7 +87,6 @@ export const evalFormalLabels = (context: EvalContext) =>
     )
   })
 
-/** Loans: each verdict's precision and recall, false candidates told apart, and option-order flips. */
 export const evalLoans = (context: EvalContext) =>
   Effect.gen(function* () {
     yield* Console.log(`Judging ${GOLDEN_LOANS.length} golden English words' loans…`)
@@ -152,7 +142,6 @@ export const evalLoans = (context: EvalContext) =>
     )
   })
 
-/** One word's cautions as scored, with the text for a person to read. */
 interface CautionRow {
   readonly language: Language
   readonly headword: string
@@ -164,7 +153,6 @@ interface CautionRow {
   readonly senseGloss: (sense: number | null) => string
 }
 
-/** Per-item verdicts, the silent and caught rates, and the bar. */
 const reportCautions = (rows: ReadonlyArray<CautionRow>, total: number) =>
   Effect.gen(function* () {
     let silent = 0
@@ -207,7 +195,6 @@ const reportCautions = (rows: ReadonlyArray<CautionRow>, total: number) =>
 const glossOf = (golden: GoldenCaution) => (sense: number | null) =>
   sense === null ? "word" : `“${golden.word.senses[sense]?.glosses[0] ?? `sense ${sense + 1}`}”`
 
-/** Cautions: the writer over the golden words, in production's batches, per language. */
 export const evalCautions = (context: EvalContext) =>
   Effect.gen(function* () {
     const writer = yield* CautionWriter
@@ -255,7 +242,6 @@ export const evalCautions = (context: EvalContext) =>
     )
   })
 
-/** Drafts: the Lexicographer's cautions on golden Ask Kotori queries, as approval would store them. */
 export const evalDrafts = (context: EvalContext) =>
   Effect.gen(function* () {
     const lexicographer = yield* Lexicographer

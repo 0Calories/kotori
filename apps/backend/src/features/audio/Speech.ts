@@ -9,19 +9,10 @@ import { audioCharactersSince, findAudio, saveAudio } from "./queries.ts"
 export const AUDIO_BUDGET_WINDOW = 30 * 24 * 60 * 60 * 1000
 export const DEFAULT_AUDIO_MONTHLY_CHARS = 500_000
 
-/**
- * Kotori's library of speech clips. A clip is content-addressed by voice, model, language and
- * text, so the same phrase is never paid for twice; new ones are made only while the month's
- * character budget lasts.
- */
 export class Speech extends Context.Service<
   Speech,
   {
     readonly configured: boolean
-    /**
-     * The audio key for `text` read by `voice` (by default the language's first dictionary
-     * voice), synthesising it only if that voice hasn't spoken it yet.
-     */
     speak(text: string, language: Language, voice?: Voice): Effect.Effect<string, TtsError>
   }
 >()("@kotori/backend/Speech") {
@@ -58,7 +49,7 @@ export class Speech extends Context.Service<
         }
 
         const bytes = yield* pronouncer.synthesize(normalized, language, reader)
-        // The clip's row first: `audio_files` references it.
+        // Insert audio before store.put because audio_files has a foreign key to audio.key.
         yield* saveAudio(db, {
           key,
           text: normalized,

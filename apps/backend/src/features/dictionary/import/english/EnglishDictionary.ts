@@ -32,23 +32,15 @@ export class EnglishDictionaryError extends Schema.TaggedError<EnglishDictionary
   cause: Schema.optional(Schema.Defect())
 }) {}
 
-/** The downloaded and curated sources, as paths relative to the repo root or absolute. */
 export interface Files {
-  /** Curated English Wiktionary entries with Japanese glosses (`enwiktionary-ja.jsonl`), optional in tests. */
   readonly curated?: string | undefined
-  /** Attested multi-word phrases and variant redirects (`enwiktionary-phrases.json`), optional in tests. */
   readonly phrases?: string | undefined
-  /** Frequency ratings for phrases the other sources don't rate (`frequency.json`), optional in tests. */
   readonly frequency?: string | undefined
-  /** Entries and aliases approved out of Ask Kotori proposals (`data/approved/en.jsonl`). */
   readonly approved?: string | undefined
-  /** Wiktextract's extraction of Japanese Wiktionary, gzipped JSON lines (or plain). */
   readonly wiktionary: string
-  /** FrequencyWords' OpenSubtitles English list (`en_50k.txt`). */
   readonly subtitles: string
 }
 
-/** Downloads the English dictionary's sources into `directory` (~65 MB, mostly Wiktionary). */
 export const download = Effect.fn("EnglishDictionary.download")(
   function* (directory: string) {
     const fs = yield* FileSystem.FileSystem
@@ -80,7 +72,6 @@ export const download = Effect.fn("EnglishDictionary.download")(
   )
 )
 
-/** Feeds each line of a text file, gzipped or not, to `read`, streaming it rather than loading it whole. */
 const eachLine = (file: string, read: (line: string) => void) =>
   Effect.tryPromise({
     try: async () => {
@@ -103,10 +94,6 @@ const readLines = (file: string) =>
     )
   })
 
-/**
- * Each entry of a JMdict file, gzipped or not, as the text streams in: the whole document
- * would be ~120 MB in memory, more than the worker's machine spares for a seed.
- */
 const eachJmdictEntry = (file: string, read: (entry: ImportEntry) => void) =>
   Effect.tryPromise({
     try: async () => {
@@ -119,7 +106,6 @@ const eachJmdictEntry = (file: string, read: (entry: ImportEntry) => void) =>
     catch: (cause) => new EnglishDictionaryError({ message: `Could not read ${file}`, cause })
   })
 
-/** What the dictionary already knows before JMDict is read backwards for what is missing. */
 const knownEnglish = (
   sources: ReadonlyArray<{ readonly words: ReadonlyArray<Word>; readonly formsOf: ReadonlyArray<FormOf> }>,
   phrases: ReadonlySet<string>,
@@ -151,19 +137,12 @@ const knownEnglish = (
 
 export interface ImportOptions {
   readonly files: Files
-  /** JMdict_e_examp.gz (or JMdict_e.gz, or uncompressed XML), read backwards for words the other sources lack. */
   readonly jmdict: string
-  /** Keep only this many words, the most used first, for quick local setups. */
   readonly limit?: number | undefined
-  /** Only words common enough to be marked common (~10k). */
   readonly commonOnly?: boolean | undefined
   readonly batchSize?: number | undefined
 }
 
-/**
- * The English dictionary's entries, built from its sources. Its own scope, so everything
- * parsed along the way can be let go before the entries are written.
- */
 const build = Effect.fnUntraced(function* (
   options: ImportOptions,
   existing: ReadonlyMap<string, number>,
@@ -176,7 +155,6 @@ const build = Effect.fnUntraced(function* (
   }
   const curated = curatedReader.finish()
 
-  // Approved Ask Kotori entries read as curated words too, after them: on a clash, curation wins.
   const approvedPath = options.files.approved
   const approved =
     approvedPath !== undefined && existsSync(resolveFromRoot(approvedPath))
@@ -221,19 +199,13 @@ const build = Effect.fnUntraced(function* (
   )
   if (options.commonOnly) entries = entries.filter((entry) => entry.common)
   if (options.limit !== undefined) entries = entries.slice(0, options.limit)
-  // Approved words' cautions, by headword; a curated word of the same headword took its place.
   const cautions = new Map(approved.words.map((word) => [word.headword, word.cautions ?? []] as const))
   return { entries, cautions }
 })
 
-/**
- * Builds the English dictionary from its sources and loads it alongside JMDict. Re-importing
- * updates words in place, keeping their ids, so enrichment and saved words survive.
- */
 export const importFiles = Effect.fn("EnglishDictionary.importFiles")(function* (options: ImportOptions) {
   const db = yield* Database
   const existing = yield* headwordIds(db, "en")
-  // Kotori's drafts aren't the sources' words, but their ids are taken all the same.
   const taken = yield* topEntryId(db, "en", EntryId.make(FIRST_ENGLISH_ID))
   const built = yield* build(options, existing, taken)
   const entries: ReadonlyArray<ImportEntry & { readonly tier: Tier }> = built.entries
@@ -245,8 +217,6 @@ export const importFiles = Effect.fn("EnglishDictionary.importFiles")(function* 
     if (start % 20_000 < batchSize && start > 0) yield* Effect.logInfo(`Imported ${start} English words`)
   }
 
-  // Words the sources no longer have, or that are now another word's inflection ("ate"), go,
-  // with their enrichment; a partial import leaves the rest of the dictionary alone.
   const complete = !options.commonOnly && options.limit === undefined
   const imported = new Set(entries.map((entry) => entry.headword))
   const stale = complete ? [...existing].filter(([headword]) => !imported.has(headword)).map(([, id]) => id) : []

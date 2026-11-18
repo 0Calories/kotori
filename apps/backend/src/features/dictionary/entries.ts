@@ -28,10 +28,6 @@ import {
   usagePatternsBySense
 } from "./usage.ts"
 
-// Building an entry as the app shows it: its forms and senses, cross-references resolved, the
-// labels, usage patterns, cautions and similar words the enrichment model derives, and its
-// example sentences and audio.
-
 export const toExample = (example: ExampleRow, clips: ReadonlyMap<string, string>): Example => {
   const ja = clips.get(`${example.id}:ja`)
   const en = clips.get(`${example.id}:en`)
@@ -49,29 +45,24 @@ export const toExample = (example: ExampleRow, clips: ReadonlyMap<string, string
   }
 }
 
-/** Glosses run together as each language lists them: "to eat; to dine", "食べる、食事をする". */
 const joinGlosses = (entry: EntryRecord, glosses: ReadonlyArray<string>) =>
   glosses.join(entry.language === "ja" ? "; " : "、")
 
-/** The earliest sense of `similar` sharing a gloss with `sense`, or null when none does. */
 const sharedSense = (sense: EntryRecord["senses"][number], similar: EntryRecord): number | null => {
-  // Glosses are in the other language from the headword, normalised as the import stores them.
   const norm = similar.language === "ja" ? normalizeGloss : normalizeJapaneseGloss
   const own = new Set(sense.glosses.map((gloss) => norm(gloss.text)).filter((text) => text.length > 1))
   const index = similar.senses.findIndex((candidate) => candidate.glosses.some((gloss) => own.has(norm(gloss.text))))
   return index === -1 ? null : index
 }
 
-/** At most this many similar words under one sense: the closest, cross-references first. */
 const SIMILAR_PER_SENSE = 4
 
-/** The sense a JMDict cross-reference names ("食べる・たべる・2"), counted from 0; null when it names none. */
+// JMdict xrefs use "text・reading・sense" (1-based), with reading and sense optional.
 const xrefSense = (xref: string) => {
   const last = xref.split("・").at(-1) ?? ""
   return xref.includes("・") && /^\d+$/.test(last) ? Number(last) - 1 : null
 }
 
-/** The entry `entry` as the app shows it, its enrichment status from `enrichment`, read last. */
 export const assembleEntry = Effect.fnUntraced(function* (
   db: DatabaseShape,
   entry: StoredEntry,
@@ -81,7 +72,6 @@ export const assembleEntry = Effect.fnUntraced(function* (
   const tag = (code: string): Tag => ({ code, name: tags.get(code) ?? code })
 
   const examples = yield* examplesFor(db, [entry.id])
-  // A seeded sentence beside Kotori's is shown without the clip it may have from before they came.
   const exampleAudio = yield* exampleClips(
     db,
     sentencesHeard(examples).map((example) => example.id)
@@ -90,11 +80,8 @@ export const assembleEntry = Effect.fnUntraced(function* (
   const voiceName = (voice: string | null) =>
     voice === null ? null : (CASTS[entry.language].find((candidate) => candidate.id === voice)?.name ?? null)
 
-  // Cross-references point within the entry's own dictionary: JMDict's are "text・reading・sense",
-  // an English word's are its synonyms and antonyms, matched whatever their case.
   const xrefTexts = unique(entry.senses.flatMap((s) => [...s.xrefs, ...s.antonyms]).map((x) => x.split("・")[0]!))
   const xrefMatches = yield* findForms(db, xrefTexts, entry.language)
-  // "上手・うわて" names the 上手 read うわて, not じょうず: a reading picks among words spelled alike.
   const readingOf = (xref: string) => {
     const reading = xref.split("・")[1]
     return reading !== undefined && !/^\d+$/.test(reading) ? reading : null
@@ -118,8 +105,6 @@ export const assembleEntry = Effect.fnUntraced(function* (
     }
   }
 
-  // The enrichment model: labels (the word's, then what each sense adds), usage patterns, cautions,
-  // frequency signals, the loan link, and similar words derived from cross-references and shared glosses.
   const ownLabels = (yield* labelsBySense(db, [entry.id])).get(entry.id) ?? new Map<number, Array<Label>>()
   const stated = senseLabels(entry.senses.map((_, index) => ownLabels.get(index) ?? []))
   const usagePatternRows = yield* usagePatternsBySense(db, entry.id)
@@ -147,8 +132,6 @@ export const assembleEntry = Effect.fnUntraced(function* (
       .flatMap((candidate): Array<SimilarWord> => {
         const other = pickedEntries.get(EntryId.make(candidate.entryId))
         if (other === undefined) return []
-        // A cross-reference naming no sense is close where the two share a gloss, else at
-        // the word's first meanings.
         const shared = candidate.otherSense ?? sharedSense(entry.senses[index]!, other)
         const otherSense = shared !== null && other.senses[shared] !== undefined ? shared : null
         return [

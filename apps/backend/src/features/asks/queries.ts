@@ -18,11 +18,6 @@ import type { DatabaseShape } from "../../db/Database.ts"
 
 export type ProposalRow = typeof proposals.$inferSelect
 
-/**
- * What an answer settled: the fields Claude's or Jev's verdict writes, on creation and on a redo.
- * A new draft comes as `draft`, for `writeDraftedEntry` to make an entry of; an answer naming an entry
- * that is already there (linked, or a draft drafted before) comes as `entryId`.
- */
 export interface Verdict {
   readonly status: ProposalRow["status"]
   readonly draft: DraftEntry | null
@@ -34,7 +29,6 @@ export interface Verdict {
   readonly contested: boolean
 }
 
-/** A verdict as stored: whatever it drafted is an entry by now. */
 export type SettledVerdict = Omit<Verdict, "draft">
 
 export interface NewProposal extends SettledVerdict {
@@ -44,13 +38,8 @@ export interface NewProposal extends SettledVerdict {
   readonly now: Date
 }
 
-/** A drafted answer's entry: its review state, or `gone` when it was deleted since. */
 export type DraftedEntryState = EntryReview | "gone"
 
-/**
- * Where a proposal stands, as the app and the admin read it: a drafted one by its entry's review
- * state (`DRAFT_STANDING`), the others by their own status.
- */
 export const standing = (status: ProposalRow["status"], entry: DraftedEntryState): ProposalStatus => {
   switch (status) {
     case "linked":
@@ -64,15 +53,10 @@ export const standing = (status: ProposalRow["status"], entry: DraftedEntryState
 
 const DRAFTED_ENTRY_STATES: ReadonlyArray<DraftedEntryState> = [...entryReview.enumValues, "gone"]
 
-/**
- * A filter on proposals left-joined to their entries for those standing as `shown`: `standing`
- * turned around, so a list can be filtered and limited in the database.
- */
 export const standingIs = (shown: ProposalStatus): SQL | undefined =>
   Match.value(shown).pipe(
     Match.when("linked", () => eq(proposals.status, "linked")),
     Match.when("rejected", () => eq(proposals.status, "rejected")),
-    // Every other standing is a drafted answer's, read from its entry as `DRAFT_STANDING` says.
     Match.orElse((drafted) =>
       and(
         eq(proposals.status, "drafted"),
@@ -85,7 +69,6 @@ export const standingIs = (shown: ProposalStatus): SQL | undefined =>
     )
   )
 
-/** Replaces a proposal's answer (a redo), clearing any review. */
 export const updateVerdict = (db: DatabaseShape, id: number, verdict: SettledVerdict) =>
   db
     .update(proposals)
@@ -97,7 +80,6 @@ export const updateVerdict = (db: DatabaseShape, id: number, verdict: SettledVer
       Effect.orDie
     )
 
-/** The proposal for a normalized query, whoever asked first. */
 export const findProposal = (db: DatabaseShape, language: Language, query: string) =>
   db
     .select()
@@ -108,10 +90,6 @@ export const findProposal = (db: DatabaseShape, language: Language, query: strin
       Effect.orDie
     )
 
-/**
- * Saves a new proposal. Two learners asking the same new query at once race on the unique
- * (language, query); the loser keeps the winner's row, so one question is one answer.
- */
 export const insertProposal = Effect.fn("asks.insertProposal")(function* (db: DatabaseShape, proposal: NewProposal) {
   const inserted = yield* db
     .insert(proposals)
@@ -134,7 +112,6 @@ export const insertProposal = Effect.fn("asks.insertProposal")(function* (db: Da
   return Option.getOrThrow(yield* findProposal(db, proposal.language, proposal.query))
 }, Effect.orDie)
 
-/** Remembers that a learner asked, so `asksFor` can show them the answer again. Asking twice is one row. */
 export const recordAsk = (db: DatabaseShape, proposalId: number, userId: UserId, now: Date) =>
   db
     .insert(proposalAsks)
@@ -142,7 +119,6 @@ export const recordAsk = (db: DatabaseShape, proposalId: number, userId: UserId,
     .onConflictDoNothing()
     .pipe(Effect.asVoid, Effect.orDie)
 
-/** The learner's own asks, newest first. */
 export const asksFor = (db: DatabaseShape, userId: UserId) =>
   db
     .select({ proposal: proposals })
@@ -156,7 +132,6 @@ export const asksFor = (db: DatabaseShape, userId: UserId) =>
       Effect.orDie
     )
 
-/** Points every proposal naming one entry at another: a draft approved as another word's spelling. */
 export const repointProposals = (db: DatabaseShape, from: EntryId, to: EntryId, now: Date) =>
   db
     .update(proposals)

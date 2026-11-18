@@ -5,14 +5,12 @@ import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Icon } from "./Icon.tsx"
 import { PressableScale } from "./PressableScale.tsx"
 
-/** The rounded search field: a magnifier, what's typed, and a button to clear it once there is any. */
 export const SearchField = forwardRef<
   TextInput,
   {
     readonly value: string
     readonly onChangeText: (text: string) => void
     readonly placeholder: string
-    /** The dictionary's field stands tall under its header; others sit in a page's flow. */
     readonly size?: "lg" | "md"
   }
 >(({ value, onChangeText, placeholder, size = "lg" }, ref) => {
@@ -52,7 +50,7 @@ export const SearchField = forwardRef<
         style={[
           {
             flex: 1,
-            // 16px on the web keeps iOS Safari from zooming into the field; the mock's 15.5 elsewhere.
+            // iOS Safari zooms into inputs below 16px.
             fontSize: Platform.OS === "web" ? 16 : 15.5,
             color: theme.color.text,
             fontFamily: theme.font.regular,

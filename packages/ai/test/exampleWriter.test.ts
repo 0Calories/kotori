@@ -36,7 +36,6 @@ const written = (overrides: Partial<(typeof ExamplesOutput.Type)["senses"][numbe
   ...overrides
 })
 
-/** A Claude that returns a fixed structured answer and records what it was asked. */
 const fakeClaude = (output: typeof ExamplesOutput.Type) => {
   const asked: Array<{ system: string; prompt: string }> = []
   const layer = Layer.succeed(
@@ -133,7 +132,6 @@ describe("ExampleWriter.write", () => {
       senses: [
         group(0, [
           written(),
-          // An aside the dictionary keeps, or a part of a gloss, still names it.
           written({ gloss: "No good", ja: "あかんわ", furigana: "あかんわ" }),
           written({ gloss: "must not", ja: "行ったらあかん", furigana: "行ったらあかん" }),
           written({ gloss: "hopeless", ja: "もうあかん", furigana: "もうあかん" })
@@ -191,7 +189,6 @@ describe("ExampleWriter.write for English words", () => {
     expect(examples[0]).toMatchObject({
       en: "There was an awkward silence.",
       ja: "気まずい沈黙が流れた。",
-      // No readings on the Japanese side: the learner reads it natively.
       furigana: "気まずい沈黙が流れた。",
       note: null,
       noteJa: "「awkward silence」は決まった言い方。",

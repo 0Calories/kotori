@@ -19,7 +19,6 @@ import { MailerMemory } from "../src/integrations/email/Mailer.ts"
 import { makeApp } from "../src/runtime/HttpLayers.ts"
 import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 
-// No AI providers are configured in tests: the app must degrade gracefully. Mail is captured.
 const OfflineProviders = Layer.mergeAll(
   MailerMemory,
   Layer.succeed(
@@ -48,8 +47,7 @@ const OfflineProviders = Layer.mergeAll(
   )
 )
 
-// One fake auth server, shared by the app (through Auth.layerMemory) and the tests (to sign up):
-// Effect memoizes a layer by reference within a build, so both see the same store.
+// Effect memoizes layers by reference, so sharing `TestAuthLive` gives `App` and `TestLayer` the same store.
 const TestAuthLive = TestAuth.layer
 const App = makeApp(
   OfflineProviders,
@@ -60,7 +58,6 @@ const App = makeApp(
 const Handlers = AllHandlers.pipe(Layer.provideMerge(AuthorizationLive), Layer.provideMerge(App))
 const TestLayer = Layer.mergeAll(Handlers, TestAuthLive, HttpServer.layerServices, NodeServices.layer)
 
-// The session cookie (web) or managed JWT (app) forwarded with every request.
 let cookie: string | null = null
 let bearer: string | null = null
 const Session = HttpApiMiddleware.layerClient(Authorization, ({ next, request }) =>
@@ -75,17 +72,14 @@ const Session = HttpApiMiddleware.layerClient(Authorization, ({ next, request })
 
 const client = HttpApiTest.groups(KotoriApi, ["system", "account", "dictionary", "coach", "notebook", "audio"])
 
-/** Signs up against the (in-memory) managed auth server and returns the user's id and session cookie. */
 const signUp = (email: string) => Effect.flatMap(TestAuth, (auth) => auth.signUp(email, "Test Learner"))
 
-/** A signed-up, approved learner whose cookie is used for subsequent calls. */
 const signedIn = (email: string) =>
   Effect.gen(function* () {
     const api = yield* client
     const user = yield* signUp(email)
     cookie = user.cookie
     bearer = null
-    // The profile row appears on first contact; approval is Kotori's own state.
     yield* api.account.me()
     yield* updateUser(yield* Database, user.id, { status: "approved" })
     return user
@@ -155,7 +149,6 @@ layer(TestLayer)("Kotori API", (it) => {
       const user = yield* signUp("pending@example.com")
       cookie = user.cookie
 
-      // The profile is created on first sight and reports the approval state.
       const me = yield* api.account.me()
       assert.strictEqual(me.id, user.id)
       assert.strictEqual(me.email, "pending@example.com")
@@ -163,13 +156,11 @@ layer(TestLayer)("Kotori API", (it) => {
       assert.strictEqual(me.onboarded, false)
       assert.strictEqual(me.displayName, "Test Learner")
 
-      // Everything else is closed until an admin approves.
       const gated = yield* api.dictionary.search({ query: { q: "eat" } }).pipe(Effect.flip)
       assert.strictEqual(gated._tag, "PendingApproval")
       const gatedNotebook = yield* api.notebook.notes().pipe(Effect.flip)
       assert.strictEqual(gatedNotebook._tag, "PendingApproval")
 
-      // Archiving changes nothing for the learner.
       yield* updateUser(db, user.id, { status: "archived" })
       assert.strictEqual((yield* api.account.me()).status, "archived")
       assert.strictEqual((yield* api.notebook.notes().pipe(Effect.flip))._tag, "PendingApproval")
@@ -177,7 +168,6 @@ layer(TestLayer)("Kotori API", (it) => {
       yield* updateUser(db, user.id, { status: "approved" })
       assert.deepStrictEqual(yield* api.notebook.notes(), [])
 
-      // The app authenticates with a managed JWT instead of the cookie.
       cookie = null
       bearer = yield* testAuth.token(user.cookie)
       assert.strictEqual((yield* api.account.me()).id, user.id)
@@ -186,7 +176,6 @@ layer(TestLayer)("Kotori API", (it) => {
       bearer = null
       cookie = user.cookie
 
-      // Managed Auth being down is a 503, never a 401 that would sign the learner out.
       const token = yield* testAuth.token(user.cookie)
       testAuth.setReachable(false)
       assert.strictEqual((yield* api.account.me().pipe(Effect.flip))._tag, "AuthUnavailable")
@@ -240,7 +229,6 @@ layer(TestLayer)("Kotori API", (it) => {
       const missing = yield* api.dictionary.entry({ params: { id: 999 as never } }).pipe(Effect.flip)
       assert.strictEqual(missing._tag, "NotFound")
 
-      // The progress the app polls, on its own.
       assert.deepStrictEqual(yield* api.dictionary.enrichment({ params: { id: english.entries[0]!.id } }), {
         examples: "unavailable",
         audio: "unavailable"
@@ -248,7 +236,6 @@ layer(TestLayer)("Kotori API", (it) => {
       const missingProgress = yield* api.dictionary.enrichment({ params: { id: 999 as never } }).pipe(Effect.flip)
       assert.strictEqual(missingProgress._tag, "NotFound")
 
-      // English learners search the English dictionary the same way round.
       yield* insertEntries(db, [
         {
           ...entry(100000001, "eat", "/iːt/", ["～を食べる"], ["v"]),
@@ -303,7 +290,6 @@ layer(TestLayer)("Kotori API", (it) => {
       yield* withWords
       const note = yield* api.notebook.addNote({ payload: { entryId: ARUKU! } })
 
-      // No session: refused before the note is looked up.
       const ownerCookie = owner.cookie
       cookie = null
       bearer = null
@@ -312,11 +298,9 @@ layer(TestLayer)("Kotori API", (it) => {
         "Unauthorized"
       )
 
-      // A different learner gets NotFound, and the note is still there.
       const other = yield* signedIn("remove-other@example.com")
       const denied = yield* api.notebook.removeNote({ params: { id: note.id } }).pipe(Effect.flip)
       assert.strictEqual(denied._tag, "NotFound")
-      // Their own note on the same word is theirs alone.
       const kept = yield* api.notebook.addNote({ payload: { entryId: ARUKU! } })
       assert.notStrictEqual(kept.id, note.id)
 
@@ -327,7 +311,6 @@ layer(TestLayer)("Kotori API", (it) => {
       assert.isTrue(Option.isNone(yield* noteByEntry(own, ARUKU!)))
       assert.strictEqual((yield* allNotes(own)).length, 0)
 
-      // Deleting again, or deleting an id that was never saved, is a success.
       yield* api.notebook.removeNote({ params: { id: note.id } })
       yield* api.notebook.removeNote({ params: { id: "00000000-0000-4000-8000-000000000099" as typeof note.id } })
 
@@ -352,7 +335,6 @@ layer(TestLayer)("Kotori API", (it) => {
 
       const token = yield* Effect.flatMap(TestAuth, (testAuth) => testAuth.token(user.cookie))
 
-      // Deleting the account removes the learner's data and their identity (so the session dies too).
       yield* api.account.delete()
       assert.isTrue(Option.isNone(yield* auth.sessionFromCookies(Headers.fromInput({ cookie: user.cookie }))))
 
@@ -361,7 +343,6 @@ layer(TestLayer)("Kotori API", (it) => {
       const gone = yield* api.account.me().pipe(Effect.flip)
       assert.strictEqual(gone._tag, "Unauthorized")
 
-      // A JWT issued before the deletion is still unexpired, but must not bring the profile back.
       cookie = null
       bearer = token
       assert.strictEqual((yield* api.account.me().pipe(Effect.flip))._tag, "Unauthorized")
@@ -392,7 +373,6 @@ layer(TestLayer)("Kotori API", (it) => {
       assert.strictEqual(note.entry.review, "unreviewed")
       const kept = yield* api.notebook.addNote({ payload: { entryId: discarded.id } })
 
-      // Approval and discarding change only the entry; the notes read it as it now stands.
       yield* reviewEntries(db, [draft.id], "approve")
       yield* reviewEntries(db, [discarded.id], "discard")
       const notes = yield* api.notebook.notes()

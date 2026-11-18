@@ -13,7 +13,6 @@ const TestLayer = AuthWebhooks.layer.pipe(
   Layer.provideMerge(Layer.mergeAll(TestAuthLive, DatabaseMemory))
 )
 
-/** POSTs to the route as Neon would, with the test layer's services behind it, and returns the status. */
 const post = (headers: Record<string, string>, body: string) =>
   Effect.gen(function* () {
     const context = yield* Effect.context<AuthWebhooks>()
@@ -49,7 +48,6 @@ layer(TestLayer)("POST /webhooks/neon-auth", (it) => {
       const [email] = yield* mailbox.messages
       assert.strictEqual(email?.to, "new@example.com")
       assert.include(email?.text, "246810")
-      // An empty name gets the plain greeting.
       assert.include(email?.text, "Hi,")
     })
   )

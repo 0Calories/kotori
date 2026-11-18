@@ -55,10 +55,8 @@ import {
 
 export type { Facing, Mood }
 
-/** The eyes and catchlight of one of Kotori's views. */
 type Face = {
   readonly eyes: readonly { readonly cx: number; readonly cy: number; readonly rx: number; readonly ry: number }[]
-  /** `inward` mirrors `dx` on the eye right of the middle, so both catch the light on the beak's side. */
   readonly catchlight: { readonly dx: number; readonly dy: number; readonly r: number; readonly inward?: boolean }
 }
 
@@ -106,17 +104,14 @@ const Foot = ({ d }: { readonly d: string }) => (
   <Path d={d} stroke={palette.ink} strokeWidth={shapes.feet.width} strokeLinecap="round" />
 )
 
-/** What floats beside Kotori in some moods in three-quarter view. It stays put while Kotori moves. */
 const sideExtras: Partial<Record<Mood, ReactNode>> = {
   oops: <Path d={shapes.sweat} fill={palette.sky} />
 }
 
-/** What shows on or beside Kotori in some moods in the front view. */
 const frontExtras: Partial<Record<Mood, ReactNode>> = {
   oops: <Path d={frontShapes.sweat} fill={palette.sky} />
 }
 
-/** A clip and how far into it Kotori is. */
 type Channel = { readonly clip: SharedValue<ClipName | null>; readonly time: SharedValue<number> }
 
 const useChannel = (clip: ClipName | null, time: number): Channel => {
@@ -125,18 +120,14 @@ const useChannel = (clip: ClipName | null, time: number): Channel => {
   return useMemo(() => ({ clip: clipValue, time: timeValue }), [clipValue, timeValue])
 }
 
-/**
- * Plays a clip from the start, or skips to its last frame. The clock moves
- * first, so no frame shows the new clip at the old clip's time.
- */
 const play = (channel: Channel, name: ClipName | null, animate: boolean) => {
   const duration = name === null ? 0 : clips[name].duration
+  // Reset time before switching clip so the UI thread never samples the new clip at the previous clip's timestamp.
   channel.time.set(animate ? 0 : duration)
   channel.clip.set(name)
   if (animate && name !== null) channel.time.set(withTiming(duration, { duration, easing: Easing.linear }))
 }
 
-/** Plays a clip over and over, `delay` ms from now; `null` stops it. */
 const repeat = (channel: Channel, name: ClipName | null, delay: number) => {
   channel.time.set(0)
   channel.clip.set(name)
@@ -145,25 +136,16 @@ const repeat = (channel: Channel, name: ClipName | null, delay: number) => {
   channel.time.set(withDelay(delay, withRepeat(withTiming(duration, { duration, easing: Easing.linear }), -1)))
 }
 
-/** What Kotori is playing: the mood's entrance, then its loop over the entrance's last frame, and its idle clip over both. */
 type Motion = { readonly entrance: Channel; readonly loop: Channel; readonly idle: Channel }
 
-/** Set by `Mascot` when the screen asks Kotori to keep `still`. */
 const StillContext = createContext(false)
 
-/** Whether Kotori holds its pose: the user prefers reduced motion, or the screen asked it to keep still. */
 const useStill = () => {
   const reduceMotion = useReducedMotion()
   const still = useContext(StillContext)
   return reduceMotion || still
 }
 
-/**
- * Plays `mood`'s entrance and loop, and its idle clip now and then; with
- * reduced motion, holds the mood's pose and plays no idle. A view starts on the
- * entrance's first frame (or its last, when it won't play), so a view that
- * appears with the mood doesn't jump.
- */
 const useMotion = (mood: Mood): Motion => {
   const reduceMotion = useStill()
   const enter = entrances[mood] ?? null
@@ -200,11 +182,6 @@ const useMotion = (mood: Mood): Motion => {
   return useMemo(() => ({ entrance, loop, idle }), [entrance, loop, idle])
 }
 
-/**
- * Moves the layer holding `part` to its pose in every channel at once, in a
- * canvas reaching `headroom` box units above the box. A `shut` layer goes
- * where `part` goes but shows as it fades, as shut eyes do.
- */
 const usePartStyle = (part: Part, size: number, motion: Motion, shut = false, headroom = 0) =>
   useAnimatedStyle(() => {
     const { entrance, loop, idle } = motion
@@ -215,7 +192,6 @@ const usePartStyle = (part: Part, size: number, motion: Motion, shut = false, he
     return { opacity: shut ? 1 - pose.opacity : pose.opacity, transform: viewTransform(pose, part, size, headroom) }
   })
 
-/** A canvas showing the 200×200 box at `size` pixels wide, and `headroom` units above it. */
 const Canvas = ({
   size,
   headroom = 0,
@@ -235,7 +211,6 @@ const Canvas = ({
   </Svg>
 )
 
-/** A moving part on a canvas of its own, stacked over the parts drawn before it. */
 const Layer = ({
   style,
   size,
@@ -254,11 +229,6 @@ const Layer = ({
   </Animated.View>
 )
 
-/**
- * One of celebrate's sparkles, beside Kotori rather than on it, so it stays
- * put as Kotori moves. It glints once as celebrate's entrance ends, grown on a
- * small Kotori (see `sparklesFor`), and is hidden before and after.
- */
 const Sparkle = ({
   part,
   size,
@@ -282,12 +252,6 @@ const Sparkle = ({
   )
 }
 
-/**
- * One of sleepy's Zs, floating up and fading out from Kotori's brow on a loop
- * (or holding its drawn place with reduced motion). When `Side` mirrors the
- * view for `facing === "right"`, `flip` mirrors the Z back about its own
- * centre so the letter still reads forwards.
- */
 const SleepyZ = ({
   part,
   size,
@@ -314,7 +278,6 @@ const SleepyZ = ({
   )
 }
 
-/** Piece `index` of the entrance's confetti, on a canvas of its own just big enough for it. */
 const ConfettiPiece = ({
   piece,
   index,
@@ -352,12 +315,6 @@ const ConfettiPiece = ({
   )
 }
 
-/**
- * The confetti Kotori throws as it plays `name`, behind it, with as many
- * pieces as suit its size. It's unmounted a second after the clip should
- * end: the UI thread starts the clip when it next draws, which can be late
- * on a busy screen, and the pieces hide themselves once they've fallen.
- */
 const Confetti = ({
   name,
   size,
@@ -369,6 +326,7 @@ const Confetti = ({
 }) => {
   const [faded, setFaded] = useState(false)
   useEffect(() => {
+    // Extra 1s buffer because the UI thread may start the worklet animation late on a busy screen.
     const timer = setTimeout(() => setFaded(true), clips[name].duration + 1000)
     return () => clearTimeout(timer)
   }, [name])
@@ -381,7 +339,6 @@ const Confetti = ({
     ))
 }
 
-/** Kotori in three-quarter view. `facing === "right"` mirrors the side view angle. */
 const Side = ({
   size,
   mood,
@@ -464,10 +421,6 @@ const Side = ({
   )
 }
 
-/**
- * The thought bubble, on a canvas that reaches above Kotori's box. It neither
- * takes up layout space nor catches touches, so it can overlap what's above.
- */
 const ThoughtBubble = ({ size, motion }: { readonly size: number; readonly motion: Motion }) => {
   const { headroom, trail, dots } = thinkingShapes
   const bubble = usePartStyle("bubble", size, motion, false, headroom)
@@ -507,11 +460,6 @@ const ThoughtBubble = ({ size, motion }: { readonly size: number; readonly motio
   )
 }
 
-/**
- * Kotori facing the viewer. It holds its pose while blinking in open-eyed
- * moods; `thinking` raises its left wing to its chin under the moving thought
- * bubble above its head.
- */
 const Front = ({ size, mood }: { readonly size: number; readonly mood: Mood }) => {
   const reduceMotion = useStill()
   const motion = useMotion(mood)
@@ -557,7 +505,6 @@ const Front = ({ size, mood }: { readonly size: number; readonly mood: Mood }) =
   )
 }
 
-/** A page of Kotori's dictionary, its far edge and its print. */
 const Page = ({ side }: { readonly side: 0 | 1 }) => {
   const { book } = readingShapes
   return (
@@ -576,12 +523,6 @@ const Page = ({ side }: { readonly side: 0 | 1 }) => {
   )
 }
 
-/**
- * A puff of dust, a spark or a spark's trail that the dictionary throws up
- * as it lands, from the foot of its spine, a spark and its trail in the
- * spark's `color`. It shows only as the book takes its place, grown on a
- * small Kotori as celebrate's sparkles are (see `sparklesFor`).
- */
 const Landing = ({
   part,
   size,
@@ -617,18 +558,8 @@ const Landing = ({
   )
 }
 
-/** A wing as Kotori holds it, in ink. */
 const Wing = ({ d }: { readonly d: string }) => <Path d={d} fill={palette.ink} />
 
-/**
- * Kotori reading, facing the viewer in round glasses over an open dictionary.
- * Taking up the book, it puts its glasses on and the book drops in front of
- * it (see `startReading`), puffing out dust from under its spine as sparks
- * fly out from there; then its eyes run along the lines and now and then
- * blink, and its left wing turns the pages. Every part that moves as it does
- * is a layer of its own, the page it turns and that wing over the book and
- * under the other wing, the dust behind the spine and the sparks over it all.
- */
 const Reading = ({ size }: { readonly size: number }) => {
   const motion = useMotion("reading")
   const foldedWing0 = usePartStyle("foldedWing0", size, motion)
@@ -749,28 +680,6 @@ const Reading = ({ size }: { readonly size: number }) => {
   )
 }
 
-/**
- * Kotori, the shima enaga. Changes expression with `mood` and angle with
- * `facing`, plays the mood's entrance and loop from `motion.ts`, confetti and
- * all, and now and then blinks; with reduced motion it holds each mood's pose,
- * and doesn't blink, throw confetti or glint.
- * Thinking, it faces the viewer and holds still under a thought bubble that
- * rises above its `size` box. Reading, it faces the viewer: it puts on its
- * glasses and a dictionary drops open in front of it, then its eyes run along
- * the lines as its wing turns the pages.
- *
- * Kotori reads whenever it is fetching, looking up or writing something for
- * the learner: a slow dictionary search, a screen loading its content (after
- * `useReadingPhase`'s delay), example sentences being written, and the first
- * part of an ask. It thinks when working something out, as an ask runs on,
- * and over a verdict that needs a second look.
- *
- * `still` holds every mood's pose as reduced motion does, for a place where
- * movement would distract, such as the search field while a search runs.
- *
- * Every moving part is a layer placed with plain view transforms, so a clip
- * plays the same way on iOS, Android and the web.
- */
 export const Mascot = ({
   size = 120,
   mood = "neutral",

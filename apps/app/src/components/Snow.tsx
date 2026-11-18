@@ -12,14 +12,6 @@ import Animated, {
 import Svg, { Circle, Defs, Pattern, Rect } from "react-native-svg"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 
-/**
- * Tile, flake, and motion for one depth layer.
- *
- * Nothing in the repo, tokens, or comments specifies the animation. `fall` and
- * `drift` are pixels per second chosen so the field reads as light snow:
- * larger flakes fall faster, and neighboring layers drift in opposite
- * directions. A real spec should replace these numbers.
- */
 const LAYERS = [
   { width: 53, height: 47, x: 0.23, y: 0.31, r: 1.7, fall: 22, drift: 4 },
   { width: 31, height: 37, x: 0.71, y: 0.63, r: 1.1, fall: 14, drift: -3 },
@@ -31,12 +23,7 @@ type Layer = (typeof LAYERS)[number]
 
 const loopMs = (distance: number, speed: number) => Math.round((Math.abs(distance) / Math.abs(speed)) * 1000)
 
-/**
- * One tiled sheet, translated by exactly its own tile and looped.
- * Shifting a repeating pattern by one period lands on the same picture, so the
- * restart is invisible. The view hangs one tile outside the hero; the hero
- * clips it, and the sheet still covers the hero at both ends of the loop.
- */
+// Translating by one exact pattern tile makes the linear repeat wrap seamlessly.
 const FlakeLayer = ({ layer }: { readonly layer: Layer }) => {
   const { color } = useTheme()
   const reduceMotion = useReducedMotion()
@@ -53,7 +40,6 @@ const FlakeLayer = ({ layer }: { readonly layer: Layer }) => {
       drift.value = 0
       return
     }
-    // Restart from the origin so a rerun is still exactly one tile long.
     fall.value = 0
     drift.value = 0
     fall.value = withRepeat(
@@ -91,8 +77,7 @@ const FlakeLayer = ({ layer }: { readonly layer: Layer }) => {
         motion
       ]}
     >
-      {/* `aria-hidden` rather than `accessible={false}`: react-native-svg passes unknown
-          props straight to the DOM element on the web, where `accessible` isn't an attribute. */}
+      {/* react-native-svg forwards unknown props to the DOM on web, so use aria-hidden instead of accessible={false}. */}
       <Svg width="100%" height="100%" style={{ width: "100%", height: "100%" }} pointerEvents="none" aria-hidden>
         <Defs>
           <Pattern id={id} width={layer.width} height={layer.height} patternUnits="userSpaceOnUse">
@@ -114,15 +99,6 @@ const FlakeLayer = ({ layer }: { readonly layer: Layer }) => {
   )
 }
 
-/**
- * Light snowfall over a tinted hero. Purely decorative, and it ignores touches.
- *
- * An `<svg>` is a replaced element, so absolute edges leave the browser's
- * default 300×150 viewport. Each sheet is a view that does stretch past the
- * hero, with the svg at 100% of that view, so a resize keeps the field full.
- * Reduced motion leaves the texture still. The running translations are
- * cancelled on unmount.
- */
 export const Snow = () => (
   <View pointerEvents="none" style={[StyleSheet.absoluteFill, { overflow: "hidden" }]}>
     {LAYERS.map((layer) => (

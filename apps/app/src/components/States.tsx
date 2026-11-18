@@ -7,7 +7,6 @@ import { Button } from "./Button.tsx"
 import { type Facing, Mascot, type Mood } from "./Mascot.tsx"
 import { Text } from "./Text.tsx"
 
-/** Kotori with a message: loading, empty and error states all use this. */
 export const MascotMessage = ({
   mood = "neutral",
   facing,

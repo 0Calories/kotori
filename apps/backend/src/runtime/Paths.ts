@@ -12,7 +12,6 @@ const findRoot = (start: string): string => {
   }
 }
 
-/** The monorepo root, so every app resolves `data/` and `.env` to the same place. */
 const workspaceRoot = findRoot(process.cwd())
 
 export const resolveFromRoot = (path: string) => (isAbsolute(path) ? path : resolve(workspaceRoot, path))
@@ -20,19 +19,12 @@ export const resolveFromRoot = (path: string) => (isAbsolute(path) ? path : reso
 const nxLoadedDotEnv = (env: NodeJS.ProcessEnv) =>
   env["NX_TASK_TARGET_PROJECT"] !== undefined && env["NX_LOAD_DOT_ENV_FILES"] !== "false"
 
-/**
- * Loads the repo's `.env`, then `.env.local` (which the Neon CLI writes and which
- * overrides `.env`), into `process.env`. Variables already set in the environment win.
- *
- * When `.env` is a named pipe (such as a 1Password Environment mount, which does not
- * support concurrent readers) and Nx has already loaded dotenv into `process.env`,
- * re-opening the pipe is skipped so parallel `pnpm dev` tasks don't race or hang on it.
- */
 export const loadDotEnv = (root: string = workspaceRoot, env: NodeJS.ProcessEnv = process.env) => {
   const merged: Record<string, string> = {}
   for (const name of [".env", ".env.local"]) {
     const file = join(root, name)
     if (!existsSync(file)) continue
+    // Skip named pipes (such as 1Password Environment mounts, which block concurrent readers) when Nx has already loaded dotenv.
     if (nxLoadedDotEnv(env) && statSync(file).isFIFO()) continue
     Object.assign(merged, parseEnv(readFileSync(file, "utf8")))
   }

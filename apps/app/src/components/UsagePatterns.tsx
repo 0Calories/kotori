@@ -8,7 +8,6 @@ import { Icon } from "./Icon.tsx"
 import { PressableScale } from "./PressableScale.tsx"
 import { Text } from "./Text.tsx"
 
-/** A link to the word a note compares with: "Compare お疲れ様". */
 export const CompareLink = ({
   word,
   tone = "neutral"
@@ -29,11 +28,6 @@ export const CompareLink = ({
   )
 }
 
-/**
- * How a sense is used. The dictionary's notes ("usu. to one's subordinate") are plain lines;
- * Kotori's context sits on a tint with the ✦ mark, beside them rather than as an alert, so the
- * learner can tell the editors' note from what Kotori added.
- */
 export const UsagePatterns = ({ usagePatterns }: { readonly usagePatterns: ReadonlyArray<UsagePattern> }) => {
   const theme = useTheme()
   if (usagePatterns.length === 0) return null

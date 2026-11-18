@@ -1,7 +1,3 @@
-/**
- * Normalises an English gloss or query for exact matching:
- * "to eat (a meal)" -> "eat", "The Sun" -> "sun".
- */
 export const normalizeGloss = (text: string) =>
   text
     .toLowerCase()
@@ -12,16 +8,11 @@ export const normalizeGloss = (text: string) =>
     .trim()
     .replace(/^(to|a|an|the) /, "")
 
-/** Bracketed asides in a gloss, innermost first: (…), 〈…〉, 《…》, 〔…〕 and […] after NFKC. */
 const ASIDE = /\([^()]*\)|〈[^〈〉]*〉|《[^《》]*》|〔[^〔〕]*〕|\[[^[\]]*\]/g
 
-/**
- * Normalises a Japanese gloss or query for exact matching, the way `normalizeGloss` does
- * English: "～を食べる。" -> "食べる", "（資源や金銭を）消費する" -> "消費する", "『走る』" -> "走る".
- */
 export const normalizeJapaneseGloss = (text: string) => {
   let norm = text.normalize("NFKC")
-  // Twice, for an aside inside an aside.
+  // Twice to strip two levels of nested brackets.
   norm = norm.replace(ASIDE, "").replace(ASIDE, "")
   return norm
     .replace(/[『』「」【】"]/g, "")

@@ -6,14 +6,12 @@ import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSprin
 export interface PressableScaleProps extends Omit<PressableProps, "style" | "children"> {
   readonly style?: StyleProp<ViewStyle>
   readonly children?: ReactNode
-  /** How far the element shrinks while pressed. */
   readonly scaleTo?: number
   readonly haptic?: boolean
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
 
-/** Pressable with a quick, springy press-down that tracks the finger, plus a light haptic tick. */
 export const PressableScale = ({
   style,
   children,

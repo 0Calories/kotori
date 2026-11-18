@@ -10,11 +10,6 @@ import { Input } from "./Input.tsx"
 import { Notice } from "./Notice.tsx"
 import { Text } from "./Text.tsx"
 
-/**
- * The six-digit code that confirms the learner's address, with a way to ask for a
- * fresh one. Shown while waiting for approval and again in Settings, since approval
- * doesn't depend on it and an account can arrive in the app unconfirmed.
- */
 export const ConfirmEmail = () => {
   const theme = useTheme()
   const { t, profile, verifyEmail, sendVerificationCode } = useSession()

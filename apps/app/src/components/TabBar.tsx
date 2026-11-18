@@ -144,7 +144,6 @@ const Tab = ({
   )
 }
 
-/** A floating pill of tabs over a fade, so content scrolls away beneath it. */
 export const TabBar = ({ state, navigation }: BottomTabBarProps) => {
   const theme = useTheme()
   const t = useT()
@@ -178,9 +177,7 @@ export const TabBar = ({ state, navigation }: BottomTabBarProps) => {
       })}
     </View>
   )
-  // `left` and `right` together with `maxWidth` pin the bar to the leading edge once
-  // the max width wins, so center it in a full-width dock instead. `box-none` keeps
-  // taps on the page beside the bar working.
+  // An absolute View with left: 0, right: 0, and maxWidth pins to the left edge instead of centering, so center shell inside a full-width box-none dock.
   const dock = {
     position: "absolute" as const,
     left: 0,

@@ -40,9 +40,7 @@ layer(DatabaseMemory)("coaching queries", (it) => {
       assert.isTrue(Option.isNone(yield* reserve(1000)))
       assert.isTrue(Option.isNone(yield* reserve(2000)))
       assert.isTrue(Option.isSome(yield* reserve(3000)))
-      // A refused request isn't recorded, so it doesn't push the window further out.
       assert.strictEqual(yield* usageSince(own, new Date(0), ["naturalness"]), 2)
-      // Audio is counted on its own.
       assert.strictEqual(yield* usageSince(own, new Date(0), ["speak"]), 0)
     })
   )

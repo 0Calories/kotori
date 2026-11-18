@@ -50,7 +50,7 @@ describe("Signature Version 4", () => {
 
 describe("a failed request's cause", () => {
   it("names each cause's code and message, outermost first", () => {
-    // How undici reports a connection the server dropped.
+    // Node's `fetch` (undici) nests `UND_ERR_SOCKET` under `TypeError("fetch failed").cause`.
     const socket = Object.assign(new Error("other side closed"), { code: "UND_ERR_SOCKET" })
     assert.strictEqual(
       describeCause(new TypeError("fetch failed", { cause: socket })),
@@ -64,10 +64,6 @@ describe("a failed request's cause", () => {
   })
 })
 
-/**
- * A bucket in memory. `corrupt` makes it store the next uploads with a byte changed, as a broken
- * provider might; `down` makes its reads fail.
- */
 const memoryBucket = (etags: "md5" | "opaque") => {
   const objects = new Map<string, Uint8Array>()
   const corrupt = { next: 0 }
@@ -102,7 +98,6 @@ const memoryBucket = (etags: "md5" | "opaque") => {
 const key = (n: number) => createHash("sha256").update(`clip ${n}`).digest("hex")
 const mp3 = (n: number) => new TextEncoder().encode(`mp3 bytes of clip ${n}`)
 
-/** Clips as they were stored before the bucket: a row in `audio` and the bytes in `audio_files`. */
 const storeInTable = (ns: ReadonlyArray<number>) =>
   Effect.gen(function* () {
     const db = yield* Database
@@ -146,7 +141,6 @@ layer(AudioStore.bucket.pipe(Layer.provideMerge(bucketA.layer), Layer.provideMer
         assert.deepStrictEqual(yield* store.read(key(3)), Option.none())
         assert.deepStrictEqual(yield* store.read("../etc/passwd"), Option.none())
 
-        // With the bucket failing, clips not yet moved still play.
         bucketA.down.get = true
         assert.deepStrictEqual(yield* store.read(key(1)), Option.some(mp3(1)))
         assert.deepStrictEqual(yield* store.read(key(2)), Option.none())
@@ -178,14 +172,11 @@ layer(Layer.mergeAll(bucketB.layer, DatabaseMemory))("moving clips to a bucket",
     Effect.gen(function* () {
       yield* storeInTable([20, 21, 22])
       const db = yield* Database
-      // The first upload is stored with a byte changed; entity tags aren't MD5s here, so it's read back.
       bucketB.corrupt.next = 1
       const result = yield* moveClipsToBucket(db, { batch: 10, concurrency: 1 })
-      // Clips go in key order, so the first key is the one that was corrupted.
       const [first] = [20, 21, 22].map(key).sort()
       assert.deepStrictEqual([result.moved, result.unverified, result.truncated], [2, [first], false])
       assert.strictEqual(yield* rowsInTable, 1)
-      // Run again with an honest bucket: the clip left behind moves, and the table is truncated.
       const again = yield* moveClipsToBucket(db, { batch: 10, concurrency: 1 })
       assert.deepStrictEqual([again.moved, again.unverified, again.truncated], [1, [], true])
     })

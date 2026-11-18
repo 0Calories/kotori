@@ -4,61 +4,29 @@ import { Effect } from "effect"
 import { averagedChoice, REVERSED, reversedChoice } from "../providers/choices.ts"
 import { type Jev, JevDeadline, type JevError } from "../providers/Jev.ts"
 
-/**
- * The loan pass: Jev's verdict on whether an English word's katakana loan means what the English
- * word does (アドバイス for advice) or has drifted (マンション for mansion). A drifted loan is the
- * English entry's false friend; one that kept its meaning gives it a "same as 「アドバイス」" chip.
- * Code finds the candidates (common katakana words with the English word as a gloss, or as their
- * JMDict source); Jev picks among them rather than recalling a loan, which it isn't trained to do.
- *
- * The questions are the old nuance job's, tuned on the golden loans before Phase 7 removed them:
- * see the notes on each for what each wording fixed.
- */
-
-/** Bumped when a question is reworded or what it sees changes; written in the artifact's header. */
 export const LOANS_VERSION = 1
 
-/** Katakana candidates asked about per English word, most frequent first. */
 export const MAX_LOANS = 3
 
-/** Senses of a katakana candidate shown to Jev; later ones rarely matter. */
 const MAX_LOAN_SENSES = 6
 
-/**
- * How likely a candidate must be the English word's loan for its verdict to count: the docs'
- * starting point for a yes. A pair JMDict names (`by: "source"`) is certain.
- */
 export const LOAN_IS = 0.7
 
-/**
- * How likely a meaning must be to be written. A false alarm or a wrong "same" chip costs trust
- * in the very feature meant to build it, so an unsure verdict is left out and the link says
- * nothing about meaning.
- */
 export const LOAN_SURE = 0.7
 
-/** A katakana word that may be an English word's loan, as the dictionary gives it. */
 export interface LoanCandidate {
   readonly katakana: string
-  /** Each sense's leading glosses, with its label and field names in brackets ("tension [physics]"). */
   readonly meanings: ReadonlyArray<string>
-  /** JMDict marks it wasei-eigo: English-looking, coined in Japan. */
   readonly wasei: boolean
-  /** `gloss`: it has the English word as a gloss; `source`: JMDict names the English word as its source. */
   readonly by: "gloss" | "source"
 }
 
-/** A katakana sense as a candidate shows it: three glosses, and the descriptions of its notes. */
 export const loanSenseLine = (glosses: ReadonlyArray<string>, notes: ReadonlyArray<string>) => {
   const leading = glosses.slice(0, 3).join("; ")
   return notes.length > 0 ? `${leading} [${notes.join("; ")}]` : leading
 }
 
-// A gloss match can be a false candidate (トラック has the gloss "lorry", but is the loan of
-// "truck"), so a Noul asks whether the pair is a loan at all. On an English word the katakana word
-// is often one of its translations (テーブル for "table"), so "only another translation" can't be
-// the "no": asked that way, Jev said no to テーブル at 0.04. Both questions name the English word
-// in their own instructions: with it only in the state, Jev put テーブル, ドア and スタイル below 0.2.
+// Phrasing "false" as "only a translation" makes Jev score true loans like テーブル near 0, since true loans also translate the English word.
 const isLoan: NoulQuestion = {
   type: "noul",
   instructions:
@@ -70,16 +38,10 @@ const isLoan: NoulQuestion = {
   }
 }
 
-// Jev took a dictionary translation that repeats the source word (テンション: "tension",
-// シール: "seal") for the everyday meaning, so the evidence comes with how to read it.
 const LOAN_EVIDENCE =
   "`katakana_meanings` are a dictionary's translations of `katakana_word`, with its usage notes in brackets. They often list the English source word itself even where everyday Japanese uses the word differently: judge how Japanese speakers commonly use it today, leaving out rare, historical and specialist meanings."
 
-// The mistake is a meaning the English word doesn't have: スタイル is "style", but first someone's
-// figure. Asked only about the shared meaning, Jev called スタイル, ジュース and ナイーブ matches, so
-// the options weigh every common use. Asked whether every use matched "with the same feeling", Jev
-// found some difference in nearly every loan, so small differences don't count. "Not English"
-// takes about 1% from true loans. Read averaged over both option orders.
+// Without explicitly ignoring small usage differences in "same", Jev marks nearly every true loan as divergent.
 const meaning: ChoiceQuestion = {
   type: "choice",
   instructions:
@@ -96,13 +58,10 @@ const meaning: ChoiceQuestion = {
 const MEANINGS = ["same", "divergent", "not_english"] as const
 type Meaning = (typeof MEANINGS)[number]
 
-/**
- * The questions about an English word's candidates: `loanword_{k}` (is it the word's loan?) and
- * `loan_{k}` (same, divergent or not English), asked again reversed as `loan_{k}~reversed`.
- */
 export const loanRequest = (english: string, candidates: ReadonlyArray<LoanCandidate>) => {
   const questions: Record<string, Question> = {}
   candidates.slice(0, MAX_LOANS).forEach((candidate, k) => {
+    // Jev scored true loans below 0.2 when english_word was only in shared state, so each question repeats it in instructions.
     const scope: Record<string, EntryType> = {
       english_word: english,
       katakana_word: candidate.katakana,
@@ -122,22 +81,13 @@ export const loanRequest = (english: string, candidates: ReadonlyArray<LoanCandi
   return { state: { english_word: english } satisfies EntryType, questions }
 }
 
-/** An English word's loan as judged. */
 export interface LoanReading {
-  /** The likeliest candidate to be its loan; null when none is likely enough (`LOAN_IS`). */
   readonly katakana: string | null
-  /** Its meaning when sure enough (`LOAN_SURE`); null when unsure or borrowed from another language. */
   readonly meaning: LoanLinkMeaning | null
-  /** The probability of `meaning`, or of the likeliest meaning when none is sure. */
   readonly p: number | null
-  /** Each meaning's probability for the chosen candidate, both orders averaged. */
   readonly meanings: Readonly<Record<Meaning, number>> | null
 }
 
-/**
- * The likeliest candidate to be the English word's loan (one JMDict names certainly, the others as
- * likely as Jev judges), and Jev's verdict on its meaning, read from the Choice in both orders.
- */
 export const interpretLoan = (
   answers: Readonly<Record<string, unknown>>,
   candidates: ReadonlyArray<LoanCandidate>,
@@ -167,13 +117,11 @@ export const interpretLoan = (
   return { katakana: likeliest.candidate.katakana, meaning: verdict, p: probabilities[best], meanings: probabilities }
 }
 
-/** An English word and its candidates, to judge. */
 export interface LoanToAsk {
   readonly english: string
   readonly candidates: ReadonlyArray<LoanCandidate>
 }
 
-/** Every word's reading, one Jev request each (three candidates' questions), in order. */
 export const judgeLoans = (
   jev: Jev["Service"],
   words: ReadonlyArray<LoanToAsk>,

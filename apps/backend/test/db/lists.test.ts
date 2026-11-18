@@ -9,8 +9,6 @@ import { getEntries, insertEntries } from "../../src/features/dictionary/queries
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 import { english, entries, kanji, sense } from "../fixtures.ts"
 
-// Lists are stored NULL when empty (`textList`), and every reader still gets an array.
-
 const raw = <A>(statement: SQL) =>
   Effect.gen(function* () {
     const db = yield* Database
@@ -18,7 +16,6 @@ const raw = <A>(statement: SQL) =>
     return (result as { readonly rows: ReadonlyArray<A> }).rows
   })
 
-/** How many rows of senses and forms store each kind of list: NULL, empty, or with items. */
 const listStorage = raw<{ table: string; nulls: number; empties: number; items: number }>(sql`
   SELECT 'senses' AS table, count(*) FILTER (WHERE ${senses.misc} IS NULL)::int AS nulls,
     count(*) FILTER (WHERE ${senses.misc} = '{}')::int AS empties,
@@ -34,7 +31,6 @@ layer(DatabaseMemory)("lists", (it) => {
     Effect.gen(function* () {
       const db = yield* Database
       yield* insertEntries(db, [...entries, ...english])
-      // Two of the fixtures' senses have misc tags, and only English inflections have form tags.
       assert.deepStrictEqual(yield* listStorage, [
         { table: "senses", nulls: 9, empties: 0, items: 2 },
         { table: "forms", nulls: 12, empties: 0, items: 3 }
@@ -61,7 +57,6 @@ layer(DatabaseMemory)("lists", (it) => {
           senses: [sense(["old"], { misc: ["arch"] })]
         }
       ])
-      // As every row was written before lists were stored NULL when empty.
       yield* raw(sql`UPDATE ${senses} SET ${sql.identifier(senses.misc.name)} = coalesce(${senses.misc}, '{}')`)
       yield* raw(sql`UPDATE ${forms} SET ${sql.identifier(forms.tags.name)} = coalesce(${forms.tags}, '{}')`)
       assert.deepStrictEqual(yield* listStorage, [
