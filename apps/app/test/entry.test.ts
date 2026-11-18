@@ -131,7 +131,7 @@ describe("label chips", () => {
     })
     assert.equal(casual?.severity, "warning")
     assert.equal(casual?.kotori, true)
-    assert.equal(casual?.help, `${t.labels.help.col} ✦ ${t.labels.kotori}`)
+    assert.equal(casual?.help, t.labels.help.col)
   })
 
   it("name and explain every label code, caution kind and difference in both languages", () => {

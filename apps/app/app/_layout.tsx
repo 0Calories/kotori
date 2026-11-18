@@ -25,6 +25,7 @@ import { Button } from "../src/components/Button.tsx"
 import { iconFonts } from "../src/components/Icon.tsx"
 import { Screen } from "../src/components/Screen.tsx"
 import { MascotMessage } from "../src/components/States.tsx"
+import { TooltipProvider } from "../src/components/Tooltip.tsx"
 import { isUnguardedRoute } from "../src/lib/legal.ts"
 import { sentryRedaction } from "../src/lib/sentryRedaction.ts"
 import { SessionProvider, useSession } from "../src/session/SessionProvider.tsx"
@@ -151,7 +152,9 @@ function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <SessionProvider>
             <ThemeProvider>
-              <Navigator fontsLoaded={fontsLoaded} />
+              <TooltipProvider>
+                <Navigator fontsLoaded={fontsLoaded} />
+              </TooltipProvider>
             </ThemeProvider>
           </SessionProvider>
         </QueryClientProvider>
