@@ -3,7 +3,6 @@ import { Link, useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { Platform, Share, View } from "react-native"
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated"
-import { ApiError } from "../../src/api/client.ts"
 import { useAddNote, useEnrich, useEntry, useNotes, useRemoveNote } from "../../src/api/queries.ts"
 import { AudioButton } from "../../src/components/AudioButton.tsx"
 import { Button, IconButton } from "../../src/components/Button.tsx"
@@ -37,7 +36,7 @@ import {
   wordCautions
 } from "../../src/lib/entry.ts"
 import { findForm } from "../../src/lib/forms.ts"
-import { noteOn } from "../../src/lib/notes.ts"
+import { noteErrorText, noteOn } from "../../src/lib/notes.ts"
 import { useReadingPhase } from "../../src/lib/readingPhase.ts"
 import { entryIdFromParam, entrySourcesHref } from "../../src/lib/sources.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
@@ -250,7 +249,7 @@ export default function EntryScreen() {
   const language = data.language
   const note = noteOn(notes.data, data.id)
   const busy = addNote.isPending || removeNote.isPending
-  // A discarded draft can't be saved anew, but a note that saved it can still be removed.
+  // A discarded drafted entry can't be saved anew, but a note that saved it can still be removed.
   const saveable = REVIEW_RULES[data.review].saveable
   const toggleNote = async () => {
     setNoteError(null)
@@ -261,13 +260,7 @@ export default function EntryScreen() {
         await addNote.mutateAsync({ entryId: data.id })
       }
     } catch (caught) {
-      setNoteError(
-        caught instanceof ApiError && caught.tag === "Offline"
-          ? t.common.offline
-          : note !== undefined
-            ? t.notebook.removeFailed
-            : t.notebook.saveFailed
-      )
+      setNoteError(noteErrorText(t, caught, note !== undefined ? "remove" : "save"))
     }
   }
   const mark = reviewMark(t, data.review)

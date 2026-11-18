@@ -35,29 +35,29 @@ interface Hit {
 
 /** What a note is searched by. */
 interface Fields {
-  /** The language of the word being learned; its meanings and notes are in the other one. */
+  /** The language of the entry; its glosses and takeaways are in the other one. */
   readonly language: "ja" | "en"
-  /** The word being learned, as written and in kana; the first is the headword. */
+  /** The entry's forms, as written and in kana; the first is the headword. */
   readonly forms: ReadonlyArray<string>
-  /** The meanings the note shows, one gloss each, in the learner's language. */
+  /** The senses' glosses, in the learner's language. */
   readonly glosses: ReadonlyArray<string>
-  /** What the note says is worth remembering, matched only by its words. */
-  readonly note: string | null
+  /** What the senses say is worth remembering, matched only by its words. */
+  readonly takeaway: string | null
 }
 
 const unique = <A>(items: Iterable<A>) => [...new Set(items)]
 
-/** A note is found by its entry's forms, its meanings, and its usage notes. */
+/** A note is found by its entry's forms, its glosses, and its takeaways. */
 const fieldsOf = (note: Note): Fields => {
   const { entry, senses } = note
   // An English word's `reading` is IPA ("/rɛd/"), not a spelling to search by.
   const rawForms = entry.language === "en" ? [entry.headword] : [entry.headword, entry.reading]
-  const notes = unique(senses.flatMap((sense) => (sense.note === null ? [] : [sense.note])))
+  const takeaways = unique(senses.flatMap((sense) => (sense.takeaway === null ? [] : [sense.takeaway])))
   return {
     language: entry.language,
     forms: unique(rawForms.filter((form) => form.length > 0)),
     glosses: unique(senses.flatMap((sense) => sense.glosses).filter((gloss) => gloss.length > 0)),
-    note: notes.length === 0 ? null : notes.join(" ")
+    takeaway: takeaways.length === 0 ? null : takeaways.join(" ")
   }
 }
 
@@ -152,14 +152,14 @@ const englishTexts = (fields: Fields) => ({
     fields.language === "ja"
       ? fields.glosses.map(stripJapanese).filter((gloss) => gloss.length > 0)
       : fields.glosses.filter((gloss) => !hasJapanese(gloss)),
-  note:
-    fields.note === null
+  takeaway:
+    fields.takeaway === null
       ? null
       : fields.language === "ja"
-        ? stripJapanese(fields.note)
-        : hasJapanese(fields.note)
+        ? stripJapanese(fields.takeaway)
+        : hasJapanese(fields.takeaway)
           ? null
-          : fields.note
+          : fields.takeaway
 })
 
 const englishQuery = (query: string) => {
@@ -178,7 +178,7 @@ const englishHits = (
   fields: Fields,
   { query, lower, variants, bases, phraseNorm, termStems, norm }: ReturnType<typeof englishQuery>
 ): Array<Hit> => {
-  const { forms, glosses, note: usageNote } = englishTexts(fields)
+  const { forms, glosses, takeaway } = englishTexts(fields)
 
   const byForm = forms.flatMap((form): Array<Hit> => {
     const formLower = form.toLowerCase()
@@ -207,12 +207,12 @@ const englishHits = (
     return glossNorm.includes(norm) && norm.length > 0 ? [{ note, score: 300 + order, strong: false }] : []
   })
 
-  const byNote =
-    termStems !== null && usageNote !== null && hasEveryWord(usageNote, termStems)
+  const byTakeaway =
+    termStems !== null && takeaway !== null && hasEveryWord(takeaway, termStems)
       ? [{ note, score: 260, strong: false }]
       : []
 
-  return [...byForm, ...byGloss, ...byNote]
+  return [...byForm, ...byGloss, ...byTakeaway]
 }
 
 /** A phrase of the query with one word left out, for "walk on thin ice" → "skate on thin ice". */

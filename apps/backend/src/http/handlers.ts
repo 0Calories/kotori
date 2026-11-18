@@ -1,6 +1,6 @@
 import { Claude, Jev, Pronouncer } from "@kotori/ai"
 import { CurrentUser, KotoriApi, NotFound } from "@kotori/contracts"
-import { Effect, Layer, Option } from "effect"
+import { Effect, Layer, Match, Option } from "effect"
 import { HttpApiBuilder } from "effect/http-api"
 import { Database } from "../db/Database.ts"
 import { Accounts } from "../features/accounts/Accounts.ts"
@@ -119,9 +119,12 @@ const NotebookHandlers = HttpApiBuilder.group(
           const user = yield* CurrentUser
           // Already gone is success, so deleting twice does not fail. Someone else's
           // note is NotFound and is left in place.
-          if ((yield* notebook.removeNote(user.profile, params.id)) === "forbidden") {
-            return yield* new NotFound({ message: "No such note" })
-          }
+          return yield* Match.value(yield* notebook.removeNote(user.profile, params.id)).pipe(
+            Match.when("deleted", () => Effect.void),
+            Match.when("absent", () => Effect.void),
+            Match.when("forbidden", () => Effect.fail(new NotFound({ message: "No such note" }))),
+            Match.exhaustive
+          )
         })
     })
   })

@@ -3,37 +3,37 @@ import { describe, expect, it } from "vitest"
 import { searchNotes } from "../src/lib/noteSearch.ts"
 import { savedWord } from "./notes.fixtures.ts"
 
-/** A saved word with one sense per "; " or "、"-separated meaning. */
+/** A note with one sense per "; " or "、"-separated gloss. */
 const word = (
   id: string,
   headword: string,
   reading: string,
-  meaning: string,
+  glosses: string,
   language?: "ja" | "en",
-  usageNote: string | null = null
+  takeaway: string | null = null
 ): Note =>
   savedWord(id, {
     headword,
     reading,
     ...(language === undefined ? {} : { language }),
-    senses: meaning
+    senses: glosses
       .split(/\s*[;、]\s*/)
-      .map((gloss, index) => ({ glosses: [gloss], note: index === 0 ? usageNote : null }))
+      .map((gloss, index) => ({ glosses: [gloss], takeaway: index === 0 ? takeaway : null }))
   })
 
-/** An expression the dictionary holds, saved like any word: headword, its kana, one meaning. */
+/** An expression the dictionary holds, saved like any entry: headword, its kana, one sense. */
 const expression = (
   id: string,
   headword: string,
   reading: string | null,
-  meaning: string,
-  usageNote: string | null = null
+  gloss: string,
+  takeaway: string | null = null
 ): Note =>
   savedWord(id, {
     headword,
     reading: reading ?? "",
     language: /[\u3040-\u30ff\u4e00-\u9fff]/u.test(headword) ? "ja" : "en",
-    senses: [{ glosses: [meaning], note: usageNote }]
+    senses: [{ glosses: [gloss], takeaway }]
   })
 
 const taberu = word("taberu", "食べる", "たべる", "to eat; to live on (e.g. a salary)")

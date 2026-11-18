@@ -5,15 +5,7 @@ import { Database } from "../../src/db/Database.ts"
 import { scopedToUser } from "../../src/db/scopedToUser.ts"
 import { ensureUser } from "../../src/features/accounts/queries.ts"
 import { insertEntries } from "../../src/features/dictionary/queries.ts"
-import {
-  allNotes,
-  deleteNote,
-  insertNote,
-  type NewNote,
-  noteByEntry,
-  noteById,
-  noteCount
-} from "../../src/features/notebook/queries.ts"
+import { allNotes, deleteNote, insertNote, type NewNote, noteByEntry } from "../../src/features/notebook/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 import { entries, learner, N1, N2, N3, U1 } from "../fixtures.ts"
 
@@ -45,11 +37,10 @@ layer(DatabaseMemory)("notebook queries", (it) => {
         (yield* allNotes(own)).map((n) => n.id),
         [N3, N2, N1]
       )
-      assert.strictEqual(Option.getOrThrow(yield* noteById(own, N2)).entryId, kuu)
 
       assert.strictEqual(yield* deleteNote(own, N2), "deleted")
-      assert.isTrue(Option.isNone(yield* noteById(own, N2)))
-      assert.strictEqual(yield* noteCount(own), 2)
+      assert.isTrue(Option.isNone(yield* noteByEntry(own, kuu!)))
+      assert.strictEqual((yield* allNotes(own)).length, 2)
       yield* deleteNote(own, N1)
       yield* deleteNote(own, N3)
     })
@@ -69,11 +60,11 @@ layer(DatabaseMemory)("notebook queries", (it) => {
       yield* insertNote(other, note(keptId, third!))
 
       assert.strictEqual(yield* deleteNote(other, removedId), "forbidden")
-      assert.isTrue(Option.isSome(yield* noteById(own, removedId)))
+      assert.isTrue(Option.isSome(yield* noteByEntry(own, kuu!)))
 
       assert.strictEqual(yield* deleteNote(own, removedId), "deleted")
-      assert.isTrue(Option.isNone(yield* noteById(own, removedId)))
-      assert.isTrue(Option.isSome(yield* noteById(other, keptId)))
+      assert.isTrue(Option.isNone(yield* noteByEntry(own, kuu!)))
+      assert.isTrue(Option.isSome(yield* noteByEntry(other, third!)))
       assert.strictEqual(yield* deleteNote(own, removedId), "absent")
       assert.strictEqual(yield* deleteNote(own, NoteId.make("00000000-0000-4000-8000-000000000099")), "absent")
       yield* deleteNote(other, keptId)
@@ -92,7 +83,7 @@ layer(DatabaseMemory)("notebook queries", (it) => {
       // Saving the entry again, say from two screens at once, finds the note already there.
       const again = yield* insertNote(own, note(N2, tabemasu!))
       assert.strictEqual(again.id, N1)
-      assert.strictEqual(yield* noteCount(own), 1)
+      assert.strictEqual((yield* allNotes(own)).length, 1)
       assert.strictEqual(Option.getOrThrow(yield* noteByEntry(own, tabemasu!)).id, N1)
       assert.isTrue(Option.isNone(yield* noteByEntry(own, kuu!)))
 

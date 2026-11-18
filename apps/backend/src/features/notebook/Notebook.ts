@@ -71,7 +71,7 @@ export class Notebook extends Context.Service<
         const existing = yield* noteByEntry(learner, entry.id)
         if (Option.isSome(existing)) return yield* toNote(existing.value)
 
-        // A discarded draft stays in the notebook of whoever saved it, but no one saves it anew.
+        // A discarded drafted entry stays in the notebook of whoever saved it, but no one saves it anew.
         if (!REVIEW_RULES[entry.review].saveable) {
           return yield* new InvalidRequest({ message: "That entry isn't in the dictionary" })
         }

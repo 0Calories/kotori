@@ -11,7 +11,7 @@ import { updateUser, userById } from "../src/features/accounts/queries.ts"
 import { AudioStore } from "../src/features/audio/AudioStore.ts"
 import { reviewEntries } from "../src/features/dictionary/entryReview.ts"
 import { insertEntries } from "../src/features/dictionary/queries.ts"
-import { noteById, noteCount } from "../src/features/notebook/queries.ts"
+import { allNotes, noteByEntry } from "../src/features/notebook/queries.ts"
 import { AuthorizationLive } from "../src/http/Authorization.ts"
 import { AllHandlers } from "../src/http/handlers.ts"
 import { Auth, TestAuth } from "../src/integrations/auth/Auth.ts"
@@ -330,8 +330,8 @@ layer(TestLayer)("Kotori API", (it) => {
       assert.strictEqual((yield* api.notebook.notes()).map((row) => row.id).join(), note.id)
       yield* api.notebook.removeNote({ params: { id: note.id } })
       assert.deepStrictEqual(yield* api.notebook.notes(), [])
-      assert.isTrue(Option.isNone(yield* noteById(own, note.id)))
-      assert.strictEqual(yield* noteCount(own), 0)
+      assert.isTrue(Option.isNone(yield* noteByEntry(own, ARUKU!)))
+      assert.strictEqual((yield* allNotes(own)).length, 0)
 
       // Deleting again, or deleting an id that was never saved, is a success.
       yield* api.notebook.removeNote({ params: { id: note.id } })
@@ -342,7 +342,7 @@ layer(TestLayer)("Kotori API", (it) => {
         (yield* api.notebook.notes()).map((row) => row.id),
         [kept.id]
       )
-      assert.isTrue(Option.isSome(yield* noteById(scopedToUser(db, other.id), kept.id)))
+      assert.isTrue(Option.isSome(yield* noteByEntry(scopedToUser(db, other.id), ARUKU!)))
     }).pipe(Effect.provide(Session))
   )
 
@@ -363,7 +363,7 @@ layer(TestLayer)("Kotori API", (it) => {
       assert.isTrue(Option.isNone(yield* auth.sessionFromCookies(Headers.fromInput({ cookie: user.cookie }))))
 
       assert.isTrue(Option.isNone(yield* userById(db, user.id)))
-      assert.strictEqual(yield* noteCount(scopedToUser(yield* Database, user.id)), 0)
+      assert.strictEqual((yield* allNotes(scopedToUser(yield* Database, user.id))).length, 0)
       const gone = yield* api.account.me().pipe(Effect.flip)
       assert.strictEqual(gone._tag, "Unauthorized")
 
@@ -409,7 +409,7 @@ layer(TestLayer)("Kotori API", (it) => {
           [kept.id, "discarded"]
         ]
       )
-      // A discarded draft stays in the notes that saved it, but no one saves it anew.
+      // A discarded drafted entry stays in the notes that saved it, but no one saves it anew.
       yield* signedIn("drafts-later@example.com")
       assert.strictEqual(
         (yield* api.notebook.addNote({ payload: { entryId: discarded.id } }).pipe(Effect.flip))._tag,

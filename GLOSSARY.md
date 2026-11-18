@@ -82,6 +82,16 @@ _Avoid_: Exchange, round, message
 An entry Kotori drafted in Ask Kotori for an expression the dictionary lacks, shared by every learner who asks for it and shown as unverified until an admin approves it into the dictionary or discards it.
 _Avoid_: Proposal, draft, suggestion, AI entry
 
+### Notebook
+
+**Notebook**:
+A learner's saved collection of dictionary entries to revisit across devices.
+_Avoid_: Deck, collection, saved words, bookmarks
+
+**Note**:
+One dictionary entry saved to a learner's notebook.
+_Avoid_: Card, flashcard, bookmark, saved word
+
 ### Audio
 
 **Voice**:

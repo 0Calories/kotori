@@ -1,13 +1,13 @@
 import type { EntryId, Language, Note, NoteId, NoteSense } from "@kotori/contracts"
 
-/** One sense of a saved word: its glosses, and what's worth remembering about it. */
+/** One sense of a saved entry: its glosses, and what's worth remembering about it. */
 export interface SenseSketch {
   readonly glosses: ReadonlyArray<string>
-  readonly note?: string | null
+  readonly takeaway?: string | null
 }
 
 /**
- * A saved word as the API returns it, with only what a test cares about given: the entry's
+ * A note as the API returns it, with only what a test cares about given: the entry's
  * headword, reading and language, and its senses.
  */
 export const savedWord = (
@@ -23,7 +23,7 @@ export const savedWord = (
 ): Note => {
   const senses = (word.senses ?? [{ glosses: [word.headword] }]).map((sense): NoteSense => ({
     glosses: sense.glosses,
-    note: sense.note ?? null
+    takeaway: sense.takeaway ?? null
   }))
   return {
     id: id as NoteId,
@@ -34,8 +34,7 @@ export const savedWord = (
       source: "jmdict",
       review: word.review ?? "approved",
       headword: word.headword,
-      reading: word.reading ?? word.headword,
-      audioUrl: null
+      reading: word.reading ?? word.headword
     },
     senses
   }

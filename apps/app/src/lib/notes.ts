@@ -1,4 +1,6 @@
 import type { EntryId, Note } from "@kotori/contracts"
+import { ApiError } from "../api/errors.ts"
+import type { Strings } from "../i18n/strings.ts"
 
 // A note is a dictionary entry saved to the learner's notebook.
 
@@ -6,12 +8,18 @@ import type { EntryId, Note } from "@kotori/contracts"
 export const noteOn = (notes: ReadonlyArray<Note> | undefined, entryId: EntryId): Note | undefined =>
   notes?.find((note) => note.entry.id === entryId)
 
-/** A sense's glosses run together as its language lists them: "to eat; to dine", "食べる、食事をする". */
-export const glossLine = (language: Note["entry"]["language"], glosses: ReadonlyArray<string>, most = 3) =>
-  glosses.slice(0, most).join(language === "ja" ? "; " : "、")
+/** What to tell the learner when saving or removing a note didn't work. */
+export const noteErrorText = (t: Strings, error: unknown, action: "save" | "remove"): string =>
+  error instanceof ApiError && error.tag === "Offline"
+    ? t.common.offline
+    : action === "remove"
+      ? t.notebook.removeFailed
+      : t.notebook.saveFailed
 
-/** What a note means, in a line: the glosses of its senses, the first sense's first. */
-export const noteMeaning = (note: Note): string =>
-  note.senses
-    .map((sense) => glossLine(note.entry.language, sense.glosses, 2))
+/** What a note's senses say, in a line: up to two glosses per sense, the first sense's first. */
+export const noteMeaning = (note: Note): string => {
+  const glossSeparator = note.entry.language === "ja" ? "; " : "、"
+  return note.senses
+    .map((sense) => sense.glosses.slice(0, 2).join(glossSeparator))
     .join(note.entry.language === "ja" ? " / " : "／")
+}

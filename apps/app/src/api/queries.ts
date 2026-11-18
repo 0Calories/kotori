@@ -92,9 +92,10 @@ export const useAddNote = () => {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (request: AddNoteRequest) => call((api) => api.notebook.addNote({ payload: request })),
-    onSuccess: (note: Note) => {
+    onSuccess: async (note: Note) => {
+      await client.cancelQueries({ queryKey: keys.notes })
       client.setQueryData<ReadonlyArray<Note>>(keys.notes, (notes) =>
-        notes === undefined ? [note] : [note, ...notes.filter((own) => own.id !== note.id)]
+        notes === undefined ? undefined : [note, ...notes.filter((own) => own.id !== note.id)]
       )
       void client.invalidateQueries({ queryKey: keys.notes })
     }

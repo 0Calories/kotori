@@ -109,7 +109,7 @@
           },
           {
             "sourceTag": "type:util",
-            "onlyDependOnLibsWithTags": ["type:contract", "type:util"],
+            "onlyDependOnLibsWithTags": ["type:util"],
             "allowedExternalImports": ["effect", "effect/*", "wanakana", "vitest", "@effect/vitest"]
           },
           {

@@ -3,9 +3,7 @@ import { useRouter } from "expo-router"
 import { useMemo, useState } from "react"
 import { RefreshControl, View } from "react-native"
 import Animated, { FadeOut, LinearTransition } from "react-native-reanimated"
-import { ApiError } from "../../src/api/client.ts"
 import { useNotes, useRemoveNote } from "../../src/api/queries.ts"
-import { AudioButton } from "../../src/components/AudioButton.tsx"
 import { IconButton } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
 import { Chip } from "../../src/components/Chip.tsx"
@@ -19,7 +17,7 @@ import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { reviewMark } from "../../src/lib/entry.ts"
 import { searchNotes } from "../../src/lib/noteSearch.ts"
-import { noteMeaning } from "../../src/lib/notes.ts"
+import { noteErrorText, noteMeaning } from "../../src/lib/notes.ts"
 import { useReadingPhase } from "../../src/lib/readingPhase.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
@@ -30,24 +28,19 @@ const NoteRow = ({ note, onError }: { readonly note: Note; readonly onError: (me
   const remove = useRemoveNote()
   const { entry } = note
   const mark = reviewMark(t, entry.review)
-  const reading = entry.reading.length > 0 && entry.reading !== entry.headword ? entry.reading : null
-  const speak = {
-    text: entry.language === "ja" && entry.reading.length > 0 ? entry.reading : entry.headword,
-    language: entry.language
-  }
 
   const handleRemove = async () => {
     onError(null)
     try {
       await remove.mutateAsync(note.id)
     } catch (caught) {
-      onError(caught instanceof ApiError && caught.tag === "Offline" ? t.common.offline : t.notebook.removeFailed)
+      onError(noteErrorText(t, caught, "remove"))
     }
   }
 
   return (
     <Animated.View exiting={FadeOut.duration(180)} layout={LinearTransition.duration(200)}>
-      <Card style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+      <Card style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
         <PressableScale
           scaleTo={0.985}
           accessibilityRole="link"
@@ -55,16 +48,9 @@ const NoteRow = ({ note, onError }: { readonly note: Note; readonly onError: (me
           onPress={() => router.push({ pathname: "/entry/[id]", params: { id: String(entry.id) } })}
           style={{ flex: 1, gap: 4 }}
         >
-          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-            <Headword language={entry.language} size={entry.language === "en" ? 21 : 24} style={{ lineHeight: 30 }}>
-              {entry.headword}
-            </Headword>
-            {reading !== null ? (
-              <Text jp={entry.language === "ja"} variant="small" color="textMuted">
-                {reading}
-              </Text>
-            ) : null}
-          </View>
+          <Headword language={entry.language} size={entry.language === "en" ? 21 : 24} style={{ lineHeight: 30 }}>
+            {entry.headword}
+          </Headword>
           <Text variant="small" color="textMuted" numberOfLines={2}>
             {noteMeaning(note)}
           </Text>
@@ -74,7 +60,6 @@ const NoteRow = ({ note, onError }: { readonly note: Note; readonly onError: (me
             </View>
           )}
         </PressableScale>
-        <AudioButton url={entry.audioUrl} speak={speak} size={38} />
         <IconButton
           icon="delete"
           label={t.notebook.remove}

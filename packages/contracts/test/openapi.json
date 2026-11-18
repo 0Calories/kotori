@@ -4128,16 +4128,6 @@
                               "approved",
                               "discarded"
                             ]
-                          },
-                          "audioUrl": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
                           }
                         },
                         "required": [
@@ -4146,8 +4136,7 @@
                           "source",
                           "headword",
                           "reading",
-                          "review",
-                          "audioUrl"
+                          "review"
                         ],
                         "additionalProperties": false
                       },
@@ -4162,7 +4151,7 @@
                                 "type": "string"
                               }
                             },
-                            "note": {
+                            "takeaway": {
                               "anyOf": [
                                 {
                                   "type": "string"
@@ -4175,7 +4164,7 @@
                           },
                           "required": [
                             "glosses",
-                            "note"
+                            "takeaway"
                           ],
                           "additionalProperties": false
                         }
@@ -4285,16 +4274,6 @@
                             "approved",
                             "discarded"
                           ]
-                        },
-                        "audioUrl": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
                         }
                       },
                       "required": [
@@ -4303,8 +4282,7 @@
                         "source",
                         "headword",
                         "reading",
-                        "review",
-                        "audioUrl"
+                        "review"
                       ],
                       "additionalProperties": false
                     },
@@ -4319,7 +4297,7 @@
                               "type": "string"
                             }
                           },
-                          "note": {
+                          "takeaway": {
                             "anyOf": [
                               {
                                 "type": "string"
@@ -4332,7 +4310,7 @@
                         },
                         "required": [
                           "glosses",
-                          "note"
+                          "takeaway"
                         ],
                         "additionalProperties": false
                       }

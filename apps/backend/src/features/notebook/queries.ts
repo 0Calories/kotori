@@ -29,16 +29,6 @@ export const insertNote = Effect.fn("notebook.insertNote")(function* (
 export const allNotes = (learner: Learner) =>
   learner.db.select().from(notes).where(learner.owns(notes)).orderBy(desc(notes.createdAt)).pipe(Effect.orDie)
 
-export const noteById = (learner: Learner, noteId: NoteId) =>
-  learner.db
-    .select()
-    .from(notes)
-    .where(learner.owns(notes, eq(notes.id, noteId)))
-    .pipe(
-      Effect.map((rows) => Option.fromNullishOr(rows[0])),
-      Effect.orDie
-    )
-
 /** The learner's note on an entry, if they saved it. */
 export const noteByEntry = (learner: Learner, entryId: EntryId) =>
   learner.db
@@ -70,5 +60,3 @@ export const deleteNote = Effect.fn("notebook.deleteNote")(function* (learner: L
     })
   )
 }, Effect.orDie)
-
-export const noteCount = (learner: Learner) => learner.db.$count(notes, learner.owns(notes)).pipe(Effect.orDie)
