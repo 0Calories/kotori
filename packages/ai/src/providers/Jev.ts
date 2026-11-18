@@ -1,11 +1,14 @@
 import {
-  type EntryType,
   type Questions,
+  type SystemOneRequest,
   type SystemOneResult,
   TypeSafeClient,
   type TypeSafeClientConfig
 } from "@typesafe-ai/sdk"
 import { Config, Context, Duration, Effect, Layer, Option, Redacted, Schema } from "effect"
+
+/** Input state `Jev.ask` evaluates: text, an asset, a JSON object, or an array (never `null`). */
+export type JevState = SystemOneRequest["state"]
 
 export class JevError extends Schema.TaggedError<JevError>()("JevError", {
   message: Schema.String,
@@ -35,7 +38,7 @@ export class Jev extends Context.Service<
     /** The pinned model id; answers record the exact version that ran. */
     readonly model: string
     ask<Q extends Questions>(
-      state: EntryType,
+      state: JevState,
       questions: Q,
       options?: AskOptions
     ): Effect.Effect<SystemOneResult<Q>, JevError>
@@ -64,7 +67,7 @@ export class Jev extends Context.Service<
       ...config
     })
 
-    const ask = <Q extends Questions>(state: EntryType, questions: Q, options?: AskOptions) => {
+    const ask = <Q extends Questions>(state: JevState, questions: Q, options?: AskOptions) => {
       const deadline = options?.timeout ?? JevDeadline.interactive
       return Effect.tryPromise({
         // The signal also cancels the SDK's pending retries.

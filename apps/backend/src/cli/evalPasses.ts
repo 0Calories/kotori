@@ -15,6 +15,7 @@ import {
   GOLDEN_LOANS,
   type GoldenCaution,
   interpretLoan,
+  type JevState,
   Lexicographer,
   LOAN_BAR,
   LOAN_IS,
@@ -28,7 +29,7 @@ import {
   tally
 } from "@kotori/ai"
 import type { Language } from "@kotori/contracts"
-import type { EntryType, Question } from "@typesafe-ai/sdk"
+import type { Question } from "@typesafe-ai/sdk"
 import { Console, Effect } from "effect"
 import { chunks } from "../db/chunks.ts"
 import { checkDraft } from "../features/asks/draft.ts"
@@ -45,7 +46,7 @@ export interface EvalContext {
   /** Jev's answers for `key` (fresh, or recorded), or undefined when the request failed. */
   readonly ask: (
     key: string,
-    state: EntryType,
+    state: JevState,
     questions: Readonly<Record<string, Question>>
   ) => Effect.Effect<Answers | undefined>
   /** `run`'s result for `key` (fresh, or recorded), or undefined when it failed. */
