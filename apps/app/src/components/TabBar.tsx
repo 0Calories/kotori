@@ -172,7 +172,8 @@ const Tab = ({
 /** A floating pill of tabs over a fade, so content scrolls away beneath it. */
 export const TabBar = ({
   state,
-  navigation,
+  emitter,
+  navigateToTab,
   badges
 }: BottomTabBarProps & { readonly badges?: Record<string, number> }) => {
   const theme = useTheme()
@@ -200,8 +201,8 @@ export const TabBar = ({
             badge={badges?.[route.name]}
             onPress={() => {
               if (disabled) return
-              const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true })
-              if (state.index !== index && !event.defaultPrevented) navigation.navigate(route.name)
+              const event = emitter.emit({ type: "tabPress", target: route.key, canPreventDefault: true })
+              if (state.index !== index && !event.defaultPrevented) navigateToTab(route.key)
             }}
           />
         )

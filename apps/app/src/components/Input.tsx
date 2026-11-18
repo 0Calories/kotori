@@ -1,5 +1,5 @@
 import { forwardRef, useState } from "react"
-import { TextInput, type TextInputProps, View } from "react-native"
+import { TextInput, type TextInputInstance, type TextInputProps, View } from "react-native"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Text } from "./Text.tsx"
 
@@ -10,7 +10,7 @@ export interface InputProps extends TextInputProps {
   readonly large?: boolean
 }
 
-export const Input = forwardRef<TextInput, InputProps>(
+export const Input = forwardRef<TextInputInstance, InputProps>(
   ({ label, jp, large, style, maxLength, value, ...props }, ref) => {
     const theme = useTheme()
     const [focused, setFocused] = useState(false)
