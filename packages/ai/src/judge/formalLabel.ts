@@ -1,6 +1,6 @@
-import type { EntryType, NoulQuestion, NoulResponse } from "@typesafe-ai/sdk"
+import type { ContentValue, NoulQuestion, NoulResponse } from "@typesafe-ai/sdk"
 import { Effect } from "effect"
-import { type Jev, JevDeadline, type JevError } from "../providers/Jev.ts"
+import { type Jev, JevDeadline, type JevError, type JevState } from "../providers/Jev.ts"
 import { meaningOf, type WordToJudge } from "./word.ts"
 
 /**
@@ -68,7 +68,7 @@ const partOfSpeech = (pos: ReadonlyArray<string>) => {
 /** The question about one sense, carrying the word and its meaning beside the wording. */
 export const formalLabelQuestion = ({ word, sense }: FormalLabelSense): NoulQuestion => {
   const own = word.senses[sense]!
-  const instructions: Record<string, EntryType> = {
+  const instructions: Record<string, ContentValue> = {
     question: formal.instructions ?? null,
     word: word.headword,
     reading: word.reading,
@@ -82,7 +82,7 @@ export const formalLabelQuestion = ({ word, sense }: FormalLabelSense): NoulQues
 
 /** A request for up to `FORMAL_LABEL_BATCH` senses, keyed `s{index}` in order. */
 export const formalLabelRequest = (senses: ReadonlyArray<FormalLabelSense>) => ({
-  state: { language: "Japanese" } satisfies EntryType,
+  state: { language: "Japanese" } satisfies JevState,
   questions: Object.fromEntries(senses.map((sense, index) => [`s${index}`, formalLabelQuestion(sense)]))
 })
 

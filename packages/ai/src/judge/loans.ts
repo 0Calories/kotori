@@ -1,8 +1,8 @@
 import type { LoanLinkMeaning } from "@kotori/contracts"
-import type { ChoiceQuestion, EntryType, NoulQuestion, NoulResponse, Question } from "@typesafe-ai/sdk"
+import type { ChoiceQuestion, ContentValue, NoulQuestion, NoulResponse, Question } from "@typesafe-ai/sdk"
 import { Effect } from "effect"
 import { averagedChoice, REVERSED, reversedChoice } from "../providers/choices.ts"
-import { type Jev, JevDeadline, type JevError } from "../providers/Jev.ts"
+import { type Jev, JevDeadline, type JevError, type JevState } from "../providers/Jev.ts"
 
 /**
  * The loan pass: Jev's verdict on whether an English word's katakana loan means what the English
@@ -103,7 +103,7 @@ type Meaning = (typeof MEANINGS)[number]
 export const loanRequest = (english: string, candidates: ReadonlyArray<LoanCandidate>) => {
   const questions: Record<string, Question> = {}
   candidates.slice(0, MAX_LOANS).forEach((candidate, k) => {
-    const scope: Record<string, EntryType> = {
+    const scope: Record<string, ContentValue> = {
       english_word: english,
       katakana_word: candidate.katakana,
       katakana_meanings: candidate.meanings.slice(0, MAX_LOAN_SENSES)
@@ -119,7 +119,7 @@ export const loanRequest = (english: string, candidates: ReadonlyArray<LoanCandi
     questions[`loan_${k}`] = asked
     questions[`loan_${k}${REVERSED}`] = reversedChoice(asked)
   })
-  return { state: { english_word: english } satisfies EntryType, questions }
+  return { state: { english_word: english } satisfies JevState, questions }
 }
 
 /** An English word's loan as judged. */

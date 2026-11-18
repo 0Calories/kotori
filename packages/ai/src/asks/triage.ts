@@ -1,6 +1,7 @@
 import { type Language, otherLanguage, ProposalRoute } from "@kotori/contracts"
-import type { ChoiceQuestion, EntryType } from "@typesafe-ai/sdk"
+import type { ChoiceQuestion } from "@typesafe-ai/sdk"
 import { averagedChoice, REVERSED, reversedChoice } from "../providers/choices.ts"
+import type { JevState } from "../providers/Jev.ts"
 
 /**
  * Where an Ask Kotori query goes after the deterministic checks: Jev sorts it by what kind of
@@ -40,7 +41,7 @@ const route: ChoiceQuestion = {
 }
 
 export interface TriageRequest {
-  readonly state: EntryType
+  readonly state: JevState
   readonly questions: Record<string, ChoiceQuestion>
 }
 

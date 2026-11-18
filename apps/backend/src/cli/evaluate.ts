@@ -8,6 +8,7 @@ import {
   Jev,
   JevDeadline,
   type JevError,
+  type JevState,
   Lexicographer,
   LOANS_VERSION,
   orderChecks,
@@ -15,7 +16,7 @@ import {
   triageRequest
 } from "@kotori/ai"
 import { normalizeAsk } from "@kotori/language"
-import type { EntryType, Question } from "@typesafe-ai/sdk"
+import type { Question } from "@typesafe-ai/sdk"
 import { Console, Effect, FileSystem, Option, Schema } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { turnAway } from "../features/asks/garbage.ts"
@@ -222,7 +223,7 @@ export const evaluate = Command.make(
     /** Fresh answers from Jev, or the recorded ones; a failed request is reported and skipped. */
     const answersFor = (
       key: string,
-      state: EntryType,
+      state: JevState,
       questions: Readonly<Record<string, Question>>
     ): Effect.Effect<Answers | undefined> => {
       const answers: Effect.Effect<Answers | undefined, JevError> =
@@ -231,7 +232,7 @@ export const evaluate = Command.make(
             jev.ask(state, { ...questions }, { timeout: JevDeadline.bulk }).pipe(
               Sentry.withScope((scope) => scope.setConversationId(key)),
               Effect.map((result) => {
-                inputTokens += result.usage.input_tokens
+                inputTokens += result.usage.input_tokens ?? 0
                 return result.answers
               })
             )
