@@ -18,7 +18,6 @@ export class Notebook extends Context.Service<
   Notebook,
   {
     notes(user: Profile): Effect.Effect<ReadonlyArray<Note>>
-    /** Saves a dictionary entry to the learner's notebook; see `AddNoteRequest`. */
     addNote(user: Profile, request: AddNoteRequest): Effect.Effect<Note, NotFound | InvalidRequest>
     removeNote(user: Profile, id: NoteId): Effect.Effect<NoteDeletion>
   }
@@ -29,10 +28,6 @@ export class Notebook extends Context.Service<
       const db = yield* Database
       const learnerOf = (user: Profile): Learner => scopedToUser(db, user.id)
 
-      /**
-       * Notes as the app reads them: each with its entry as the dictionary has it now. A list of
-       * them costs the same few queries as one.
-       */
       const toNotes = Effect.fnUntraced(function* (rows: ReadonlyArray<NoteRow>) {
         const noted = yield* notedEntries(
           db,
@@ -40,7 +35,6 @@ export class Notebook extends Context.Service<
         )
         return rows.flatMap((row): Array<Note> => {
           const found = noted.get(row.entryId)
-          // The foreign key cascades, so a note always has its entry; one deleted mid-read is left out.
           if (found === undefined) return []
           return [
             {
@@ -71,7 +65,6 @@ export class Notebook extends Context.Service<
         const existing = yield* noteByEntry(learner, entry.id)
         if (Option.isSome(existing)) return yield* toNote(existing.value)
 
-        // A discarded drafted entry stays in the notebook of whoever saved it, but no one saves it anew.
         if (!REVIEW_RULES[entry.review].saveable) {
           return yield* new InvalidRequest({ message: "That entry isn't in the dictionary" })
         }

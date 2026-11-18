@@ -164,10 +164,6 @@ export const repointProposals = (db: DatabaseShape, from: EntryId, to: EntryId, 
     .where(eq(proposals.entryId, from))
     .pipe(Effect.asVoid, Effect.orDie)
 
-/**
- * Moves learners' notes from one entry to another: a draft approved as another word's spelling.
- * A learner who saved both keeps the note they already had on the word.
- */
 export const moveNotes = Effect.fn("asks.moveNotes")(function* (db: DatabaseShape, from: EntryId, to: EntryId) {
   yield* db.transaction((tx) =>
     Effect.gen(function* () {

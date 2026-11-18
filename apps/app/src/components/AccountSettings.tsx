@@ -248,10 +248,6 @@ export const ChangePassword = () => {
   )
 }
 
-/**
- * Deleting the account, behind a confirmation: the API erases the identity and
- * saved notes in one transaction, and the app lands back on the welcome screen.
- */
 export const DeleteAccount = () => {
   const { t, deleteAccount } = useSession()
   const [confirming, setConfirming] = useState(false)

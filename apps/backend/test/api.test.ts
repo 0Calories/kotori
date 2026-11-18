@@ -127,7 +127,6 @@ const entry = (
   senses: [sense(glosses, pos)]
 })
 
-/** Words to save: 食べる with three senses, and two more with one each. */
 const TABERU = EntryId.make(2_000_001)
 const WORDS: ReadonlyArray<EntryRecord> = [
   {
@@ -139,7 +138,6 @@ const WORDS: ReadonlyArray<EntryRecord> = [
 ]
 const [, ARUKU, OYOGU] = WORDS.map((word) => word.id)
 
-/** The dictionary the notebook tests save from. */
 const withWords = Effect.flatMap(Database, (db) => insertEntries(db, WORDS))
 
 layer(TestLayer)("Kotori API", (it) => {
@@ -200,7 +198,6 @@ layer(TestLayer)("Kotori API", (it) => {
       bearer = null
       cookie = user.cookie
 
-      // Picking a language completes onboarding.
       const updated = yield* api.account.update({
         payload: { nativeLanguage: "ja" }
       })
@@ -278,18 +275,15 @@ layer(TestLayer)("Kotori API", (it) => {
       yield* withWords
       const note = yield* api.notebook.addNote({ payload: { entryId: TABERU } })
 
-      // The note reads the entry as the dictionary has it.
       assert.strictEqual(note.entry.headword, "食べる")
       assert.deepStrictEqual(
         note.senses.map((own) => own.glosses.join()),
         ["to eat", "to live on", "to bite (of insects)"]
       )
 
-      // Saving the same entry again is idempotent.
       const again = yield* api.notebook.addNote({ payload: { entryId: TABERU } })
       assert.strictEqual(again.id, note.id)
 
-      // Saving a nonexistent entry fails with NotFound.
       assert.strictEqual(
         (yield* api.notebook.addNote({ payload: { entryId: EntryId.make(2_999_999) } }).pipe(Effect.flip))._tag,
         "NotFound"
@@ -409,7 +403,6 @@ layer(TestLayer)("Kotori API", (it) => {
           [kept.id, "discarded"]
         ]
       )
-      // A discarded drafted entry stays in the notes that saved it, but no one saves it anew.
       yield* signedIn("drafts-later@example.com")
       assert.strictEqual(
         (yield* api.notebook.addNote({ payload: { entryId: discarded.id } }).pipe(Effect.flip))._tag,

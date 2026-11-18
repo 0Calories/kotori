@@ -5,7 +5,6 @@ import * as Schema from "effect/Schema"
 /** Table constructor for every table in this schema: camelCase fields, snake_case columns. */
 export const { table } = snakeCase
 
-/** A moment in time, with millisecond precision. */
 export const timestamptz = () => timestamp({ withTimezone: true, precision: 3 })
 
 /** `created_at`, set by the database when a row is inserted. */

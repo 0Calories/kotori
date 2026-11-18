@@ -6,7 +6,6 @@ export const accountStatus = pgEnum("account_status", ["pending", "approved", "a
 
 export const userRole = pgEnum("user_role", ["user", "admin"])
 
-/** Managed Auth's user id: the learner profile and saved notes are keyed by it. */
 export const UserId = Schema.String.pipe(Schema.brand("UserId"))
 export type UserId = typeof UserId.Type
 

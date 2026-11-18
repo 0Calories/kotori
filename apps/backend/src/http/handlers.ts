@@ -117,8 +117,6 @@ const NotebookHandlers = HttpApiBuilder.group(
       removeNote: ({ params }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          // Already gone is success, so deleting twice does not fail. Someone else's
-          // note is NotFound and is left in place.
           return yield* Match.value(yield* notebook.removeNote(user.profile, params.id)).pipe(
             Match.when("deleted", () => Effect.void),
             Match.when("absent", () => Effect.void),

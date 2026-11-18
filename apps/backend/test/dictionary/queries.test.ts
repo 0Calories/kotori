@@ -345,7 +345,6 @@ layer(TestLayer)("dictionary re-imports", (it) => {
           [2, ["やり方", sentenceIds.get("やり方")]]
         ]
       )
-      // Saved notes survive re-importing the entry.
       const [own] = yield* allNotes(scopedToUser(db, U1))
       assert.strictEqual(own?.entryId, style)
 

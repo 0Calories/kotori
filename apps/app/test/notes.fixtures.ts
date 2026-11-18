@@ -1,15 +1,10 @@
 import type { EntryId, Language, Note, NoteId, NoteSense } from "@kotori/contracts"
 
-/** One sense of a saved entry: its glosses, and what's worth remembering about it. */
 export interface SenseSketch {
   readonly glosses: ReadonlyArray<string>
   readonly takeaway?: string | null
 }
 
-/**
- * A note as the API returns it, with only what a test cares about given: the entry's
- * headword, reading and language, and its senses.
- */
 export const savedWord = (
   id: string,
   word: {

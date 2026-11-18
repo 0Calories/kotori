@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest"
 import { searchNotes } from "../src/lib/noteSearch.ts"
 import { savedWord } from "./notes.fixtures.ts"
 
-/** A note with one sense per "; " or "、"-separated gloss. */
 const word = (
   id: string,
   headword: string,
@@ -21,7 +20,6 @@ const word = (
       .map((gloss, index) => ({ glosses: [gloss], takeaway: index === 0 ? takeaway : null }))
   })
 
-/** An expression the dictionary holds, saved like any entry: headword, its kana, one sense. */
 const expression = (
   id: string,
   headword: string,

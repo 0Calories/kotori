@@ -249,7 +249,6 @@ export default function EntryScreen() {
   const language = data.language
   const note = noteOn(notes.data, data.id)
   const busy = addNote.isPending || removeNote.isPending
-  // A discarded drafted entry can't be saved anew, but a note that saved it can still be removed.
   const saveable = REVIEW_RULES[data.review].saveable
   const toggleNote = async () => {
     setNoteError(null)

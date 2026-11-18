@@ -216,7 +216,6 @@ layer(TestLayer)("proposal review", (it) => {
       const matches = yield* findForms(db, ["it be like it be"], "en")
       assert.strictEqual(matches[0]?.entryId, approved.entryId)
       assert.strictEqual(approved.headword, "eat")
-      // The draft's entry goes; its note and its proposal now name the word it spells.
       assert.strictEqual(yield* reviewOf(db, entryId), undefined)
       assert.deepStrictEqual(
         yield* db.select({ entryId: notes.entryId }).from(notes).where(eq(notes.entryId, approved.entryId)),

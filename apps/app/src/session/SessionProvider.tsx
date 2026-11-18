@@ -48,7 +48,6 @@ interface Session {
   readonly verifyEmail: (code: string) => Promise<void>
   /** Changes the password and signs the learner's other devices out; this one stays in. */
   readonly changePassword: (currentPassword: string, newPassword: string) => Promise<void>
-  /** Erases the account and saved notes, then lands on the welcome screen. Irreversible. */
   readonly deleteAccount: () => Promise<void>
   /** Re-reads the profile, e.g. while waiting for approval. */
   readonly refresh: () => Promise<void>
@@ -71,7 +70,6 @@ const sessionToken = async () => {
 /** The sign-up screen's language, kept across the web's round trip to Google. */
 const GOOGLE_LANGUAGE = "kotori.googleSignUpLanguage"
 
-/** Applies any pending Google sign-up language (for an un-onboarded account). */
 const syncSignInProfile = async (me: Profile): Promise<Profile> => {
   const stored = await storage.get(GOOGLE_LANGUAGE).catch(() => null)
   const nativeLanguage: Language | undefined = stored === "en" || stored === "ja" ? stored : undefined

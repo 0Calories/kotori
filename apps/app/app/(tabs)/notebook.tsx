@@ -80,8 +80,6 @@ export default function NotebookScreen() {
   const kotoriReading = useReadingPhase(!notes.data && !notes.isError) === "reading"
   const hasNotes = (notes.data?.length ?? 0) > 0
   const searching = hasNotes && query.trim().length > 0
-  // Every saved note is loaded, so the search runs here. With no notes left (the last one removed
-  // mid-search, say), a lingering query is ignored.
   const found = useMemo(() => searchNotes(notes.data ?? [], hasNotes ? query : ""), [notes.data, query, hasNotes])
   const shown = found.notes
 
@@ -123,7 +121,6 @@ export default function NotebookScreen() {
         />
       ) : null}
       {searching && found.match === "weak" && shown.length > 0 ? (
-        // Only lookalikes: said plainly, as the dictionary does.
         <Text variant="caption" color="textMuted" style={{ paddingHorizontal: 6 }}>
           {t.notebook.similar}
         </Text>

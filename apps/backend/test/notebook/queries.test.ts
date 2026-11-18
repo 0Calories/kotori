@@ -80,7 +80,6 @@ layer(DatabaseMemory)("notebook queries", (it) => {
 
       const saved = yield* insertNote(own, note(N1, tabemasu!))
       assert.strictEqual(saved.id, N1)
-      // Saving the entry again, say from two screens at once, finds the note already there.
       const again = yield* insertNote(own, note(N2, tabemasu!))
       assert.strictEqual(again.id, N1)
       assert.strictEqual((yield* allNotes(own)).length, 1)

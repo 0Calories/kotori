@@ -33,21 +33,15 @@ interface Hit {
   readonly strong: boolean
 }
 
-/** What a note is searched by. */
 interface Fields {
-  /** The language of the entry; its glosses and takeaways are in the other one. */
   readonly language: "ja" | "en"
-  /** The entry's forms, as written and in kana; the first is the headword. */
   readonly forms: ReadonlyArray<string>
-  /** The senses' glosses, in the learner's language. */
   readonly glosses: ReadonlyArray<string>
-  /** What the senses say is worth remembering, matched only by its words. */
   readonly takeaway: string | null
 }
 
 const unique = <A>(items: Iterable<A>) => [...new Set(items)]
 
-/** A note is found by its entry's forms, its glosses, and its takeaways. */
 const fieldsOf = (note: Note): Fields => {
   const { entry, senses } = note
   // An English word's `reading` is IPA ("/rɛd/"), not a spelling to search by.
@@ -254,16 +248,10 @@ const fuzzyHits = (fielded: ReadonlyArray<readonly [Note, Fields]>, query: strin
 // ---------------------------------------------------------------------------
 
 export interface NoteSearchResult {
-  /** How well the notes found answer the query, as the dictionary search says it. */
   readonly match: SearchMatch
-  /** The notes found, best first; all of them, in their order, for an empty query. */
   readonly notes: ReadonlyArray<Note>
 }
 
-/**
- * The saved notes that match `raw`, best first, searched the way the dictionary is: Japanese,
- * English or rōmaji, by the word or phrase saved or by what it means.
- */
 export const searchNotes = (notes: ReadonlyArray<Note>, raw: string): NoteSearchResult => {
   const query = raw.normalize("NFKC").trim()
   if (query.length === 0) return { match: "none", notes }
