@@ -4,7 +4,8 @@
   "ignoreExportsUsedInFile": true,
   "workspaces": {
     ".": {
-      "entry": ["neon.ts", "tools/*.ts"]
+      "entry": ["neon.ts", "tools/*.ts"],
+      "ignoreDependencies": ["tsrs"]
     },
     "apps/app": {
       "entry": ["e2e/*.mjs", "src/**/*.web.{ts,tsx}"],
