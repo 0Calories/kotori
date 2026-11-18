@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { type TextInput, View } from "react-native"
+import { type TextInputInstance, View } from "react-native"
 import { AuthError, managedAuth } from "../auth/client.ts"
 import { google } from "../auth/google"
 import type { GoogleLinkReturn } from "../auth/googleReturn.ts"
@@ -159,7 +159,7 @@ export const ChangePassword = () => {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
-  const nextRef = useRef<TextInput>(null)
+  const nextRef = useRef<TextInputInstance>(null)
   const ready = current.length > 0 && next.length >= MIN_PASSWORD
 
   // A learner who signed up with Google has no password to change; wait for the check so the button doesn't flash.

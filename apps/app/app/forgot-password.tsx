@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router"
 import { useRef, useState } from "react"
-import { Platform, type TextInput, View } from "react-native"
+import { Platform, type TextInputInstance, View } from "react-native"
 import Animated, { FadeInDown } from "react-native-reanimated"
 import { managedAuth } from "../src/auth/client.ts"
 import { authMessage } from "../src/auth/messages.ts"
@@ -29,7 +29,7 @@ export default function ForgotPassword() {
   const [password, setPassword] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const passwordRef = useRef<TextInput>(null)
+  const passwordRef = useRef<TextInputInstance>(null)
   const address = email.trim()
 
   const toSignIn = () => router.replace("/sign-in")

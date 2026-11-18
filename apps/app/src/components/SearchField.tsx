@@ -1,5 +1,5 @@
 import { forwardRef } from "react"
-import { Platform, TextInput, View } from "react-native"
+import { Platform, TextInput, type TextInputInstance, View } from "react-native"
 import { useSession } from "../session/SessionProvider.tsx"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Icon } from "./Icon.tsx"
@@ -7,7 +7,7 @@ import { PressableScale } from "./PressableScale.tsx"
 
 /** The rounded search field: a magnifier, what's typed, and a button to clear it once there is any. */
 export const SearchField = forwardRef<
-  TextInput,
+  TextInputInstance,
   {
     readonly value: string
     readonly onChangeText: (text: string) => void

@@ -2,7 +2,7 @@ import type { EntrySummary, Language } from "@kotori/contracts"
 import { normalizeAsk } from "@kotori/language"
 import { useRouter } from "expo-router"
 import { useEffect, useRef, useState } from "react"
-import { type TextInput, useWindowDimensions, View } from "react-native"
+import { type TextInputInstance, useWindowDimensions, View } from "react-native"
 import Animated, { FadeIn, FadeInDown, LinearTransition } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useAsks, useDueNotes, useSearch, useStats } from "../../src/api/queries.ts"
@@ -82,7 +82,7 @@ export default function LookUpScreen() {
   const insets = useSafeAreaInsets()
   const { width } = useWindowDimensions()
   const desktop = width > theme.maxWidth
-  const input = useRef<TextInput>(null)
+  const input = useRef<TextInputInstance>(null)
   const [query, setQuery] = useState("")
   const [recent, setRecent] = usePreference<ReadonlyArray<string>>("recent-searches", [])
   const debounced = useDebounced(query.trim(), 220)

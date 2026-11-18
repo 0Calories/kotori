@@ -1,7 +1,7 @@
 import type { Language } from "@kotori/contracts"
 import { useRouter } from "expo-router"
 import { useRef, useState } from "react"
-import { Platform, type TextInput, View } from "react-native"
+import { Platform, type TextInputInstance, View } from "react-native"
 import Animated, { FadeInDown } from "react-native-reanimated"
 import { authMessage } from "../src/auth/messages.ts"
 import { Button, IconButton } from "../src/components/Button.tsx"
@@ -28,8 +28,8 @@ export default function SignUp() {
   const [password, setPassword] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const emailRef = useRef<TextInput>(null)
-  const passwordRef = useRef<TextInput>(null)
+  const emailRef = useRef<TextInputInstance>(null)
+  const passwordRef = useRef<TextInputInstance>(null)
   const ready = native !== null && email.trim().length > 0 && password.length >= MIN_PASSWORD
 
   const submit = async () => {

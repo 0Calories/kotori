@@ -144,29 +144,13 @@
                     },
                     "dailyNewLimit": {
                       "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991,
-                      "allOf": [
-                        {
-                          "minimum": -2147483648
-                        },
-                        {
-                          "maximum": 2147483647
-                        }
-                      ]
+                      "minimum": -2147483648,
+                      "maximum": 2147483647
                     },
                     "dailyReviewLimit": {
                       "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991,
-                      "allOf": [
-                        {
-                          "minimum": -2147483648
-                        },
-                        {
-                          "maximum": 2147483647
-                        }
-                      ]
+                      "minimum": -2147483648,
+                      "maximum": 2147483647
                     },
                     "createdAt": {
                       "type": "string"
@@ -295,29 +279,13 @@
                     },
                     "dailyNewLimit": {
                       "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991,
-                      "allOf": [
-                        {
-                          "minimum": -2147483648
-                        },
-                        {
-                          "maximum": 2147483647
-                        }
-                      ]
+                      "minimum": -2147483648,
+                      "maximum": 2147483647
                     },
                     "dailyReviewLimit": {
                       "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991,
-                      "allOf": [
-                        {
-                          "minimum": -2147483648
-                        },
-                        {
-                          "maximum": 2147483647
-                        }
-                      ]
+                      "minimum": -2147483648,
+                      "maximum": 2147483647
                     },
                     "createdAt": {
                       "type": "string"
@@ -392,18 +360,14 @@
                   "nativeLanguage": {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "string",
-                            "enum": [
-                              "en",
-                              "ja"
-                            ]
-                          },
-                          {
-                            "type": "null"
-                          }
+                        "type": "string",
+                        "enum": [
+                          "en",
+                          "ja"
                         ]
+                      },
+                      {
+                        "type": "null"
                       },
                       {
                         "type": "null"
@@ -413,21 +377,13 @@
                   "displayName": {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "null"
                       },
                       {
                         "type": "null"
@@ -437,14 +393,10 @@
                   "timezone": {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "string"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
                       },
                       {
                         "type": "null"
@@ -454,28 +406,12 @@
                   "dailyNewLimit": {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991,
-                            "allOf": [
-                              {
-                                "minimum": -2147483648
-                              },
-                              {
-                                "maximum": 2147483647
-                              },
-                              {
-                                "minimum": 0,
-                                "maximum": 9999
-                              }
-                            ]
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9999
+                      },
+                      {
+                        "type": "null"
                       },
                       {
                         "type": "null"
@@ -485,28 +421,12 @@
                   "dailyReviewLimit": {
                     "anyOf": [
                       {
-                        "anyOf": [
-                          {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991,
-                            "allOf": [
-                              {
-                                "minimum": -2147483648
-                              },
-                              {
-                                "maximum": 2147483647
-                              },
-                              {
-                                "minimum": 0,
-                                "maximum": 9999
-                              }
-                            ]
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9999
+                      },
+                      {
+                        "type": "null"
                       },
                       {
                         "type": "null"
@@ -584,15 +504,8 @@
             "name": "limit",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "pattern": "^[+-]?\\d*\\.?\\d+(?:[Ee][+-]?\\d+)?$"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string",
+              "pattern": "^[+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:[Ee][+-]?\\d+)?$"
             },
             "required": false
           }
@@ -865,7 +778,7 @@
             "in": "path",
             "schema": {
               "type": "string",
-              "pattern": "^[+-]?\\d*\\.?\\d+(?:[Ee][+-]?\\d+)?$"
+              "pattern": "^[+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:[Ee][+-]?\\d+)?$"
             },
             "required": true
           }
@@ -1023,16 +936,8 @@
                               "anyOf": [
                                 {
                                   "type": "integer",
-                                  "minimum": -9007199254740991,
-                                  "maximum": 9007199254740991,
-                                  "allOf": [
-                                    {
-                                      "minimum": -2147483648
-                                    },
-                                    {
-                                      "maximum": 2147483647
-                                    }
-                                  ]
+                                  "minimum": -2147483648,
+                                  "maximum": 2147483647
                                 },
                                 {
                                   "type": "null"
@@ -1043,16 +948,8 @@
                               "anyOf": [
                                 {
                                   "type": "integer",
-                                  "minimum": -9007199254740991,
-                                  "maximum": 9007199254740991,
-                                  "allOf": [
-                                    {
-                                      "minimum": -32768
-                                    },
-                                    {
-                                      "maximum": 32767
-                                    }
-                                  ]
+                                  "minimum": -32768,
+                                  "maximum": 32767
                                 },
                                 {
                                   "type": "null"
@@ -1465,16 +1362,8 @@
                               "properties": {
                                 "id": {
                                   "type": "integer",
-                                  "minimum": -9007199254740991,
-                                  "maximum": 9007199254740991,
-                                  "allOf": [
-                                    {
-                                      "minimum": -2147483648
-                                    },
-                                    {
-                                      "maximum": 2147483647
-                                    }
-                                  ]
+                                  "minimum": -2147483648,
+                                  "maximum": 2147483647
                                 },
                                 "ja": {
                                   "type": "string"
@@ -1948,7 +1837,7 @@
             "in": "path",
             "schema": {
               "type": "string",
-              "pattern": "^[+-]?\\d*\\.?\\d+(?:[Ee][+-]?\\d+)?$"
+              "pattern": "^[+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:[Ee][+-]?\\d+)?$"
             },
             "required": true
           }
@@ -2045,7 +1934,7 @@
             "in": "path",
             "schema": {
               "type": "string",
-              "pattern": "^[+-]?\\d*\\.?\\d+(?:[Ee][+-]?\\d+)?$"
+              "pattern": "^[+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:[Ee][+-]?\\d+)?$"
             },
             "required": true
           }
@@ -4236,14 +4125,10 @@
                               "note": {
                                 "anyOf": [
                                   {
-                                    "anyOf": [
-                                      {
-                                        "type": "string"
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
                                   },
                                   {
                                     "type": "null"
@@ -4277,14 +4162,10 @@
                                       "translationAudioUrl": {
                                         "anyOf": [
                                           {
-                                            "anyOf": [
-                                              {
-                                                "type": "string"
-                                              },
-                                              {
-                                                "type": "null"
-                                              }
-                                            ]
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
                                           },
                                           {
                                             "type": "null"
@@ -4419,16 +4300,8 @@
                       },
                       "interval": {
                         "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991,
-                        "allOf": [
-                          {
-                            "minimum": -2147483648
-                          },
-                          {
-                            "maximum": 2147483647
-                          }
-                        ]
+                        "minimum": -2147483648,
+                        "maximum": 2147483647
                       },
                       "ease": {
                         "anyOf": [
@@ -4447,29 +4320,13 @@
                       },
                       "reps": {
                         "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991,
-                        "allOf": [
-                          {
-                            "minimum": -2147483648
-                          },
-                          {
-                            "maximum": 2147483647
-                          }
-                        ]
+                        "minimum": -2147483648,
+                        "maximum": 2147483647
                       },
                       "lapses": {
                         "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991,
-                        "allOf": [
-                          {
-                            "minimum": -2147483648
-                          },
-                          {
-                            "maximum": 2147483647
-                          }
-                        ]
+                        "minimum": -2147483648,
+                        "maximum": 2147483647
                       },
                       "leech": {
                         "type": "boolean"
@@ -4600,14 +4457,10 @@
                             "note": {
                               "anyOf": [
                                 {
-                                  "anyOf": [
-                                    {
-                                      "type": "string"
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
                                 },
                                 {
                                   "type": "null"
@@ -4641,14 +4494,10 @@
                                     "translationAudioUrl": {
                                       "anyOf": [
                                         {
-                                          "anyOf": [
-                                            {
-                                              "type": "string"
-                                            },
-                                            {
-                                              "type": "null"
-                                            }
-                                          ]
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
                                         },
                                         {
                                           "type": "null"
@@ -4783,16 +4632,8 @@
                     },
                     "interval": {
                       "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991,
-                      "allOf": [
-                        {
-                          "minimum": -2147483648
-                        },
-                        {
-                          "maximum": 2147483647
-                        }
-                      ]
+                      "minimum": -2147483648,
+                      "maximum": 2147483647
                     },
                     "ease": {
                       "anyOf": [
@@ -4811,29 +4652,13 @@
                     },
                     "reps": {
                       "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991,
-                      "allOf": [
-                        {
-                          "minimum": -2147483648
-                        },
-                        {
-                          "maximum": 2147483647
-                        }
-                      ]
+                      "minimum": -2147483648,
+                      "maximum": 2147483647
                     },
                     "lapses": {
                       "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991,
-                      "allOf": [
-                        {
-                          "minimum": -2147483648
-                        },
-                        {
-                          "maximum": 2147483647
-                        }
-                      ]
+                      "minimum": -2147483648,
+                      "maximum": 2147483647
                     },
                     "leech": {
                       "type": "boolean"
@@ -4960,14 +4785,10 @@
                           "note": {
                             "anyOf": [
                               {
-                                "anyOf": [
-                                  {
-                                    "type": "string"
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
                               },
                               {
                                 "type": "null"
@@ -5001,14 +4822,10 @@
                                   "translationAudioUrl": {
                                     "anyOf": [
                                       {
-                                        "anyOf": [
-                                          {
-                                            "type": "string"
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
-                                        ]
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
                                       },
                                       {
                                         "type": "null"
@@ -5213,15 +5030,8 @@
             "name": "limit",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "pattern": "^[+-]?\\d*\\.?\\d+(?:[Ee][+-]?\\d+)?$"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string",
+              "pattern": "^[+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:[Ee][+-]?\\d+)?$"
             },
             "required": false
           }
@@ -5303,14 +5113,10 @@
                                       "note": {
                                         "anyOf": [
                                           {
-                                            "anyOf": [
-                                              {
-                                                "type": "string"
-                                              },
-                                              {
-                                                "type": "null"
-                                              }
-                                            ]
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
                                           },
                                           {
                                             "type": "null"
@@ -5344,14 +5150,10 @@
                                               "translationAudioUrl": {
                                                 "anyOf": [
                                                   {
-                                                    "anyOf": [
-                                                      {
-                                                        "type": "string"
-                                                      },
-                                                      {
-                                                        "type": "null"
-                                                      }
-                                                    ]
+                                                    "type": "string"
+                                                  },
+                                                  {
+                                                    "type": "null"
                                                   },
                                                   {
                                                     "type": "null"
@@ -5486,16 +5288,8 @@
                               },
                               "interval": {
                                 "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991,
-                                "allOf": [
-                                  {
-                                    "minimum": -2147483648
-                                  },
-                                  {
-                                    "maximum": 2147483647
-                                  }
-                                ]
+                                "minimum": -2147483648,
+                                "maximum": 2147483647
                               },
                               "ease": {
                                 "anyOf": [
@@ -5514,29 +5308,13 @@
                               },
                               "reps": {
                                 "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991,
-                                "allOf": [
-                                  {
-                                    "minimum": -2147483648
-                                  },
-                                  {
-                                    "maximum": 2147483647
-                                  }
-                                ]
+                                "minimum": -2147483648,
+                                "maximum": 2147483647
                               },
                               "lapses": {
                                 "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991,
-                                "allOf": [
-                                  {
-                                    "minimum": -2147483648
-                                  },
-                                  {
-                                    "maximum": 2147483647
-                                  }
-                                ]
+                                "minimum": -2147483648,
+                                "maximum": 2147483647
                               },
                               "leech": {
                                 "type": "boolean"
@@ -5782,14 +5560,10 @@
                                 "note": {
                                   "anyOf": [
                                     {
-                                      "anyOf": [
-                                        {
-                                          "type": "string"
-                                        },
-                                        {
-                                          "type": "null"
-                                        }
-                                      ]
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
                                     },
                                     {
                                       "type": "null"
@@ -5823,14 +5597,10 @@
                                         "translationAudioUrl": {
                                           "anyOf": [
                                             {
-                                              "anyOf": [
-                                                {
-                                                  "type": "string"
-                                                },
-                                                {
-                                                  "type": "null"
-                                                }
-                                              ]
+                                              "type": "string"
+                                            },
+                                            {
+                                              "type": "null"
                                             },
                                             {
                                               "type": "null"
@@ -5965,16 +5735,8 @@
                         },
                         "interval": {
                           "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991,
-                          "allOf": [
-                            {
-                              "minimum": -2147483648
-                            },
-                            {
-                              "maximum": 2147483647
-                            }
-                          ]
+                          "minimum": -2147483648,
+                          "maximum": 2147483647
                         },
                         "ease": {
                           "anyOf": [
@@ -5993,29 +5755,13 @@
                         },
                         "reps": {
                           "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991,
-                          "allOf": [
-                            {
-                              "minimum": -2147483648
-                            },
-                            {
-                              "maximum": 2147483647
-                            }
-                          ]
+                          "minimum": -2147483648,
+                          "maximum": 2147483647
                         },
                         "lapses": {
                           "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991,
-                          "allOf": [
-                            {
-                              "minimum": -2147483648
-                            },
-                            {
-                              "maximum": 2147483647
-                            }
-                          ]
+                          "minimum": -2147483648,
+                          "maximum": 2147483647
                         },
                         "leech": {
                           "type": "boolean"
@@ -6203,18 +5949,14 @@
                     "retention": {
                       "anyOf": [
                         {
-                          "anyOf": [
-                            {
-                              "type": "number"
-                            },
-                            {
-                              "type": "string",
-                              "enum": [
-                                "Infinity",
-                                "-Infinity",
-                                "NaN"
-                              ]
-                            }
+                          "type": "number"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "Infinity",
+                            "-Infinity",
+                            "NaN"
                           ]
                         },
                         {

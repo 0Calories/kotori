@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router"
 import { useRef, useState } from "react"
-import { Platform, type TextInput, View } from "react-native"
+import { Platform, type TextInputInstance, View } from "react-native"
 import Animated, { FadeInDown } from "react-native-reanimated"
 import { devCredentials } from "../src/auth/dev.ts"
 import { authMessage } from "../src/auth/messages.ts"
@@ -23,7 +23,7 @@ export default function SignIn() {
   const [password, setPassword] = useState(dev?.password ?? "")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const passwordRef = useRef<TextInput>(null)
+  const passwordRef = useRef<TextInputInstance>(null)
   const ready = email.trim().length > 0 && password.length > 0
 
   const submit = async () => {
