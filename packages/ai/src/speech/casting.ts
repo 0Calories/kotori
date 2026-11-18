@@ -1,7 +1,7 @@
 import type { Casting, Formality, Language } from "@kotori/contracts"
 import type { ChoiceQuestion } from "@typesafe-ai/sdk"
 import { Effect } from "effect"
-import type { Jev, JevError } from "../providers/Jev.ts"
+import { type Jev, JevDeadline, type JevError } from "../providers/Jev.ts"
 import {
   CASTS,
   type Casts,
@@ -238,8 +238,13 @@ export const castVoice = (
   const [first, second] = input.candidates
   if (first === undefined) return Effect.die(new Error("castVoice needs at least one candidate"))
   if (second === undefined) return Effect.succeed({ voiceId: first.id, confidence: 1 })
+  // Asked by the worker's audio job, which nobody waits on.
   return jev
-    .ask({ sentence: input.sentence, meaning: input.meaning }, { voice: castingQuestion(input.candidates) })
+    .ask(
+      { sentence: input.sentence, meaning: input.meaning },
+      { voice: castingQuestion(input.candidates) },
+      { timeout: JevDeadline.bulk }
+    )
     .pipe(
       Effect.map(({ answers }) => ({ voiceId: answers.voice.choice, confidence: answers.voice.confidence })),
       Effect.withSpan("castVoice", { attributes: { candidates: input.candidates.length } })

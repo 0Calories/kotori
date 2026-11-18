@@ -70,6 +70,18 @@ _Avoid_: Familiarity, commonness, raw frequency, difficulty
 Kotori's conversational AI feature for finding dictionary entries, answering language questions, suggesting natural ways to say something, and checking whether phrasing sounds natural.
 _Avoid_: Coach, tutor, assistant, AI chat
 
+**Conversation**:
+A learner's private thread with Ask Kotori, in one target language, where each follow-up builds on the answers before it.
+_Avoid_: Chat, thread, session, ask
+
+**Turn**:
+One message from the learner and Ask Kotori's answer to it.
+_Avoid_: Exchange, round, message
+
+**Drafted entry**:
+An entry Kotori drafted in Ask Kotori for an expression the dictionary lacks, shared by every learner who asks for it and shown as unverified until an admin approves it into the dictionary or discards it.
+_Avoid_: Proposal, draft, suggestion, AI entry
+
 ### Audio
 
 **Voice**:

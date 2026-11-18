@@ -1,6 +1,6 @@
 import type { Language } from "@kotori/contracts"
 import { Context, Effect, Layer, Schema } from "effect"
-import { Claude, type ClaudeError } from "../providers/Claude.ts"
+import { Claude, ClaudeDeadline, type ClaudeError } from "../providers/Claude.ts"
 import { CAUTION_GUIDE, LABELS_SAY, NOT_CAUTIONS } from "./cautionGuide.ts"
 
 /** An existing entry shown to Claude so it links rather than drafts a duplicate. */
@@ -135,7 +135,9 @@ export class Lexicographer extends Context.Service<
           schema: DraftOutput,
           system: system(request.language),
           prompt: prompt(request),
-          effort: "medium"
+          effort: "medium",
+          // Ask Kotori's stage two: the learner is waiting on it.
+          timeout: ClaudeDeadline.interactive
         })
         return { ...output, model: claude.model }
       })

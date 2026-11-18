@@ -15,6 +15,7 @@ import type {
 import { keepPreviousData, useMutation, useMutationState, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { AskAttempt } from "../lib/ask.ts"
 import { dueWithoutNote, statsWithoutNote, withoutNote } from "../lib/deck.ts"
+import { onItsWay } from "../lib/entry.ts"
 import { call } from "./client.ts"
 
 export const keys = {
@@ -87,7 +88,7 @@ export const useEntry = (id: number) =>
     // While Kotori's worker is still enriching the entry, check back every few seconds.
     refetchInterval: (query) => {
       const enrichment = query.state.data?.enrichment
-      return enrichment && Object.values(enrichment).includes("queued") ? 3000 : false
+      return enrichment && Object.values(enrichment).some(onItsWay) ? 3000 : false
     }
   })
 

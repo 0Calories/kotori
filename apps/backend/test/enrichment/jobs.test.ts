@@ -36,6 +36,26 @@ const stubEntries = (ids: ReadonlyArray<number>) =>
   )
 
 layer(DatabaseMemory)("the job queue", (it) => {
+  it.effect("settles only a job a worker is running", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      yield* stubEntries([90])
+      const id = EntryId.make(90)
+      yield* enqueueJob(db, "examples", id, 0, at(1000))
+      const claimed = Option.getOrThrow(yield* claimJob(db, ["examples"], at(1000)))
+      yield* releaseJob(db, claimed.id, at(1500))
+
+      // Released back to the queue: its old worker can no longer complete or fail it.
+      yield* completeJob(db, claimed.id, at(2000))
+      yield* failJob(db, claimed.id, "late", at(9000), at(2000))
+      assert.strictEqual((yield* jobStatusFor(db, id)).get("examples"), "queued")
+      const again = Option.getOrThrow(yield* claimJob(db, ["examples"], at(2000)))
+      assert.strictEqual(again.attempts, 1)
+      yield* completeJob(db, again.id, at(2500))
+      assert.strictEqual((yield* jobStatusFor(db, id)).get("examples"), "done")
+    })
+  )
+
   it.effect("claims the most urgent job once and retries failures", () =>
     Effect.gen(function* () {
       const db = yield* Database

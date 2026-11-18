@@ -28,6 +28,7 @@ import {
   unansweredItems,
   waitRefetchDelay
 } from "../../src/lib/reviewSession.ts"
+import { useReadingPhase } from "../../src/lib/readingPhase.ts"
 import { registerTone } from "../../src/lib/tones.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
@@ -240,6 +241,7 @@ export default function ReviewSession() {
   const { t, profile } = useSession()
   const target: Language = profile?.targetLanguage ?? "ja"
   const dueNotes = useDueNotes()
+  const kotoriReading = useReadingPhase(!dueNotes.data && !dueNotes.isLoadingError) === "reading"
   const answer = useAnswer()
   const [state, dispatch] = useReducer(reduceReviewSession, initialReviewSession)
   const shownAt = useRef(Date.now())
@@ -347,7 +349,7 @@ export default function ReviewSession() {
     // Only a failed first load has nothing to show. After a failed refetch the pinned note and its
     // buttons keep working on the due notes as last fetched, with the notice above.
     if (dueNotes.isLoadingError) return <ErrorState error={dueNotes.error} onRetry={() => dueNotes.refetch()} />
-    if (!dueNotes.data) return <MascotMessage mood="thinking" />
+    if (!dueNotes.data || kotoriReading) return kotoriReading ? <MascotMessage mood="reading" /> : null
     if (current === undefined) {
       if (nextDue !== null && reviewed > 0) {
         return <MascotMessage mood="sleepy" title={t.review.nextIn(formatDelay(Math.max(nextDue - now, 0)))} />

@@ -9,7 +9,7 @@ import {
 } from "@kotori/contracts"
 import { furiganaToText } from "@kotori/language"
 import { Context, Effect, Layer, Schema } from "effect"
-import { Claude, type ClaudeError } from "../providers/Claude.ts"
+import { Claude, ClaudeDeadline, type ClaudeError } from "../providers/Claude.ts"
 import { howToSayPrompt, howToSaySystem, type Learner, naturalnessPrompt, naturalnessSystem } from "./prompts.ts"
 
 export const NaturalnessOutput = Schema.Struct({
@@ -60,7 +60,9 @@ export class Coach extends Context.Service<
           schema: NaturalnessOutput,
           system: naturalnessSystem(learner),
           prompt: naturalnessPrompt(request),
-          effort: "medium"
+          effort: "medium",
+          // A learner is waiting on the answer.
+          timeout: ClaudeDeadline.interactive
         })
         return {
           ...output,
@@ -77,7 +79,8 @@ export class Coach extends Context.Service<
           schema: HowToSayOutput,
           system: howToSaySystem(learner),
           prompt: howToSayPrompt(request),
-          effort: "medium"
+          effort: "medium",
+          timeout: ClaudeDeadline.interactive
         })
         return {
           ...output,

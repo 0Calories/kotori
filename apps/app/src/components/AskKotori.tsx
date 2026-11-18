@@ -59,13 +59,19 @@ const useClockPast = (at: number | null) => {
   return now
 }
 
+/** The status line showing now for an ask sent at `since`, or the first when nothing is asked. */
+const stageAt = (since: number | null) => (since === null ? 0 : askStage(Date.now() - since))
+
 /**
- * Which thinking line shows for an ask sent at `since`, moving on to each as its time comes.
- * Its panel is keyed by `since`, so a new ask starts over with a new one.
+ * Which thinking line shows for an ask sent at `since`, moving on to each as its time comes, or
+ * the first when nothing is being asked. A new ask starts over.
  */
-const useAskStage = (since: number) => {
-  const [stage, setStage] = useState(() => askStage(Date.now() - since))
+const useAskStage = (since: number | null) => {
+  const [shown, setShown] = useState(() => ({ since, stage: stageAt(since) }))
+  // A new ask (or none) starts over from its own first line.
+  if (shown.since !== since) setShown({ since, stage: stageAt(since) })
   useEffect(() => {
+    if (since === null) return
     let timer: ReturnType<typeof setTimeout> | undefined
     const after = (from: number) => {
       const next = from + 1
@@ -73,16 +79,16 @@ const useAskStage = (since: number) => {
       if (start === undefined) return
       timer = setTimeout(
         () => {
-          setStage(next)
+          setShown({ since, stage: next })
           after(next)
         },
         Math.max(0, start - (Date.now() - since))
       )
     }
-    after(askStage(Date.now() - since))
+    after(stageAt(since))
     return () => clearTimeout(timer)
   }, [since])
-  return stage
+  return shown.since === since ? shown.stage : stageAt(since)
 }
 
 /** The ms left until `until`, ticking as the second shown by `formatWait` changes. */
@@ -175,10 +181,9 @@ const ThinkingBar = ({ since }: { readonly since: number }) => {
  * What Kotori is up to while it thinks: one line at a time, each rising in as the last rises
  * away, over the filling bar.
  */
-const ThinkingStatus = ({ since }: { readonly since: number }) => {
+const ThinkingStatus = ({ since, reached }: { readonly since: number; readonly reached: number }) => {
   const { t } = useSession()
   const lines = t.dictionary.askThinking
-  const reached = useAskStage(since)
   const stage = Math.min(reached, lines.length - 1)
   return (
     <View
@@ -428,7 +433,9 @@ export const AskKotori = ({
     now,
     toError: (error) => (error instanceof ApiError ? error : null)
   })
-  const { mood, facing } = askMood(view, match)
+  // The status line and Kotori's pose move on together: reading through the first lines, then thinking.
+  const stage = useAskStage(view.phase === "thinking" ? view.since : null)
+  const { mood, facing } = askMood(view, match, stage)
   const live = (view.phase === "answered" || view.phase === "failed") && view.live
   // Each attempt's outcome, once: the haptic lands as the outcome shows, and a word found is kept.
   const outcome = live ? `${view.phase}:${attempt?.submittedAt ?? 0}` : null
@@ -479,7 +486,7 @@ export const AskKotori = ({
           </>
         )
       case "thinking":
-        return <ThinkingStatus since={view.since} />
+        return <ThinkingStatus since={view.since} reached={stage} />
       case "answered":
         return <Message {...answerWords(t, view.answer, view.live)} />
       case "failed":
