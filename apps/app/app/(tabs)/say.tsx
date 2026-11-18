@@ -48,8 +48,6 @@ const Result = ({ result }: { readonly result: HowToSayResult }) => {
               text={phrase.text}
               furigana={phrase.furigana}
               register={phrase.register}
-              meaning={phrase.whenToUse ? `${phrase.nuance} (${phrase.whenToUse})` : phrase.nuance}
-              source="how-to-say"
               highlight={index === 0}
               lines={[
                 { text: phrase.nuance },

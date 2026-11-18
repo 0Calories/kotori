@@ -6,11 +6,12 @@ import { CautionKind } from "./cautions.ts"
 import { type UserId, users } from "./users.ts"
 
 /**
- * Where an Ask Kotori request stands: `pending` drafts await the admin (`kotori proposals`),
- * `linked` ones named an entry the dictionary already had, `rejected` ones Claude judged not to
- * be a real expression, and the admin turns pending into `approved` (a real entry) or `discarded`.
+ * What Ask Kotori answered a request with: an entry Kotori `drafted` (or an existing draft the
+ * request named again), an entry the dictionary already had (`linked`), or a query Claude judged
+ * not to be a real expression or Jev routed away (`rejected`). Where a draft stands with the admin
+ * is the drafted entry's own review state (`entries.review`), never repeated here.
  */
-export const proposalStatus = pgEnum("proposal_status", ["pending", "linked", "rejected", "approved", "discarded"])
+export const proposalStatus = pgEnum("proposal_status", ["drafted", "linked", "rejected"])
 
 /**
  * What kind of input Jev judged the query to be before Claude was asked: a lookup (the only
@@ -20,8 +21,8 @@ export const proposalStatus = pgEnum("proposal_status", ["pending", "linked", "r
 export const proposalRoute = pgEnum("proposal_route", ["lookup", "sentence", "name", "other_language", "garbage"])
 
 /**
- * A drafted sense, in the dictionary's own model: what the import reads from a sense, so an
- * approved draft becomes an entry with nothing translated. Everything in it is Kotori's.
+ * A drafted sense, in the dictionary's own model: what the import reads from a sense, so a draft
+ * becomes an entry with nothing translated. Everything in it is Kotori's.
  */
 export const DraftSense = Schema.Struct({
   /** What it means, in the asker's native language. */
@@ -59,8 +60,8 @@ export type AskTriage = typeof AskTriage.Type
 
 /**
  * A dictionary entry as Claude drafts it for a query the dictionary couldn't answer, in the
- * dictionary's own model (senses with labels and usage patterns, cautions), so approval copies it
- * into the dictionary unchanged. Drafts stored before this shape were migrated into it.
+ * dictionary's own model (senses with labels and usage patterns, cautions), checked and then
+ * written straight into the dictionary as an `unreviewed` entry. Never stored in this shape.
  */
 export const DraftEntry = Schema.Struct({
   headword: Schema.String,
@@ -77,10 +78,10 @@ export const DraftEntry = Schema.Struct({
 export type DraftEntry = typeof DraftEntry.Type
 
 /**
- * Dictionary entries Claude drafted on request ("Ask Kotori"), one per normalized query and
- * language. Never served as real entries: a draft is shown, marked unverified, only to learners
- * who asked for it, until the admin approves or discards it. Discarded and rejected rows stay as
- * a negative cache, so a query Claude or the admin turned down isn't paid for again.
+ * Ask Kotori's answers, one per normalized query and language, so a question is only ever paid
+ * for once. A drafted answer is an `entries` row of its own (ADR 0002), shown marked unverified
+ * until the admin approves or discards it; a rejected row stays as a negative cache, so a query
+ * Claude or Jev turned down isn't paid for again.
  */
 export const proposals = table(
   "proposals",
@@ -91,13 +92,14 @@ export const proposals = table(
     /** The query, normalized (NFKC, trimmed, lowercased for English), the cache key. */
     query: text().notNull(),
     status: proposalStatus().notNull(),
-    /** What Claude drafted; null when it linked or rejected instead. */
-    draft: jsonb().$type<DraftEntry>(),
-    /** The existing entry the query names, for `linked` and alias-approved proposals. */
-    linkedEntryId: integer()
+    /**
+     * The entry the answer names: the one Kotori drafted (or, once approved as another word's
+     * spelling, that word), or the existing entry a `linked` query names. Null when rejected.
+     */
+    entryId: integer()
       .$type<EntryId>()
       .references(() => entries.id, { onDelete: "set null" }),
-    /** Why it was rejected (in the asker's native language) or discarded (the admin's words). */
+    /** Why it was rejected (in the asker's native language) or its draft discarded (the admin's words). */
     reason: text(),
     /** The model that answered. */
     model: text().notNull(),
@@ -114,7 +116,11 @@ export const proposals = table(
     /** When the admin acted on it. */
     reviewedAt: timestamptz()
   },
-  (t) => [unique("proposals_query").on(t.language, t.query), index("proposals_status").on(t.status, t.createdAt)]
+  (t) => [
+    unique("proposals_query").on(t.language, t.query),
+    index("proposals_status").on(t.status, t.createdAt),
+    index("proposals_entry").on(t.entryId)
+  ]
 )
 
 /** Who asked for which proposal, so each learner can revisit their own asks; its size is the ask count. */

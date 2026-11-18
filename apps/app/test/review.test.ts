@@ -1,30 +1,10 @@
-import type { EntryId, NoteId, ReviewItem } from "@kotori/contracts"
+import type { ReviewItem } from "@kotori/contracts"
 import { assert, describe, it } from "vitest"
 import { shownReviewNote } from "../src/lib/review.ts"
+import { savedWord } from "./notes.fixtures.ts"
 
 const item = (id: string, good = "1d"): ReviewItem => ({
-  note: {
-    id: id as NoteId,
-    createdAt: new Date(0),
-    retentionStage: "review",
-    due: new Date(0),
-    interval: 1,
-    ease: 2.5,
-    reps: 1,
-    lapses: 0,
-    leech: false,
-    content: {
-      kind: "word",
-      entryId: 1 as EntryId,
-      senseIndex: 0,
-      headword: id,
-      reading: id,
-      meaning: id,
-      hint: null,
-      example: null,
-      audioUrl: null
-    }
-  },
+  note: savedWord(id, { headword: id }, { retentionStage: "review", interval: 1 }),
   labels: { again: "1m", hard: "1d", good, easy: "4d" }
 })
 

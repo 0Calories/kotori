@@ -282,7 +282,8 @@ const form = (
 
 /**
  * Entry records for the merged words, most used first. Words already in the database keep
- * their ids, so saved words and enrichment survive a re-import; new words are numbered on.
+ * their ids, so saved words and enrichment survive a re-import; new words are numbered on, past
+ * `taken` (the highest id in use, Kotori's unreviewed drafts included, which `existing` leaves out).
  * `ratings` are 1–5 frequency ratings by lowercased headword for words whose source has none.
  */
 export const toEntries = (
@@ -290,7 +291,8 @@ export const toEntries = (
   subtitles: ReadonlyMap<string, number>,
   existing: ReadonlyMap<string, number>,
   translations: ReadonlyMap<string, ReadonlyMap<string, number>> = new Map(),
-  ratings: ReadonlyMap<string, number> = new Map()
+  ratings: ReadonlyMap<string, number> = new Map(),
+  taken = 0
 ): Array<ImportEntry & { readonly tier: Tier }> => {
   const lowercase = new Map(
     words.filter((word) => word.headword === word.headword.toLowerCase()).map((word) => [word.headword, word])
@@ -298,7 +300,7 @@ export const toEntries = (
   const ranked = words
     .map((word) => ({ word, ...usage(word, subtitles, lowercase, translations, ratings) }))
     .sort((a, b) => b.count - a.count || (a.word.headword < b.word.headword ? -1 : 1))
-  let next = FIRST_ENGLISH_ID
+  let next = Math.max(FIRST_ENGLISH_ID, taken)
   for (const id of existing.values()) next = Math.max(next, id)
   next++
   const sensesOf = placeReferences(words)

@@ -10,7 +10,8 @@ import type {
   Proposal,
   Rating,
   SpeakRequest,
-  StudyStats
+  StudyStats,
+  UpdateNoteRequest
 } from "@kotori/contracts"
 import { keepPreviousData, useMutation, useMutationState, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { AskAttempt } from "../lib/ask.ts"
@@ -108,6 +109,22 @@ export const useAddNote = () => {
   return useMutation({
     mutationFn: (request: AddNoteRequest) => call((api) => api.study.addNote({ payload: request })),
     onSuccess: invalidate
+  })
+}
+
+/** Chooses which senses a note shows, and in what order; the notes show the answer at once. */
+export const useArrangeNote = () => {
+  const client = useQueryClient()
+  const invalidate = useInvalidateStudy()
+  return useMutation({
+    mutationFn: (input: { readonly id: NoteId; readonly senses: UpdateNoteRequest["senses"] }) =>
+      call((api) => api.study.updateNote({ params: { id: input.id }, payload: { senses: input.senses } })),
+    onSuccess: (note: Note) => {
+      client.setQueryData<ReadonlyArray<Note>>(keys.notes, (notes) =>
+        notes?.map((own) => (own.id === note.id ? note : own))
+      )
+      invalidate()
+    }
   })
 }
 

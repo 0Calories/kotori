@@ -20,7 +20,16 @@ import {
   Unauthorized
 } from "./Errors.ts"
 import { Language } from "./Language.ts"
-import { AddNoteRequest, AnswerRequest, AnswerResult, DueNotes, Note, NoteId, StudyStats } from "./Study.ts"
+import {
+  AddNoteRequest,
+  AnswerRequest,
+  AnswerResult,
+  DueNotes,
+  Note,
+  NoteId,
+  StudyStats,
+  UpdateNoteRequest
+} from "./Study.ts"
 
 export class CurrentUser extends Context.Service<
   CurrentUser,
@@ -142,7 +151,14 @@ export class StudyApi extends HttpApiGroup.make("study")
     HttpApiEndpoint.post("addNote", "/notes", {
       payload: AddNoteRequest,
       success: Note,
-      error: InvalidRequest
+      error: [InvalidRequest, NotFound]
+    }),
+    // Chooses which of the entry's senses the note shows, and in what order.
+    HttpApiEndpoint.patch("updateNote", "/notes/:id", {
+      params: { id: NoteId },
+      payload: UpdateNoteRequest,
+      success: Note,
+      error: [InvalidRequest, NotFound]
     }),
     HttpApiEndpoint.delete("removeNote", "/notes/:id", {
       params: { id: NoteId },

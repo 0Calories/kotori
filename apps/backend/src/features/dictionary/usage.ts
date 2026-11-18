@@ -194,3 +194,42 @@ export const sharedGlossesBySense = Effect.fn("dictionary.sharedGlossesBySense")
     .where(sql`${close.rank} <= ${perSense}`)
     .orderBy(asc(close.sense), asc(close.rank))
 }, Effect.orDie)
+
+/**
+ * What is most worth remembering about each sense of each entry, for the notes that save them: the
+ * sense's first caution, else the word's, else the sense's first usage pattern; one batch for any
+ * number of entries.
+ */
+export const takeawaysBySense = Effect.fn("dictionary.takeawaysBySense")(function* (
+  db: DatabaseShape,
+  entryIds: ReadonlyArray<EntryId>
+) {
+  const found = new Map<EntryId, (sense: number) => string | null>()
+  if (entryIds.length === 0) return found
+  const [cautionRows, patternRows] = yield* Effect.all([
+    db
+      .select({ entryId: cautions.entryId, sense: cautions.sense, text: cautions.text })
+      .from(cautions)
+      .where(inArray(cautions.entryId, [...entryIds]))
+      .orderBy(asc(cautions.entryId), asc(cautions.rank)),
+    db
+      .select({ entryId: usagePatterns.entryId, sense: usagePatterns.sense, text: usagePatterns.text })
+      .from(usagePatterns)
+      .where(inArray(usagePatterns.entryId, [...entryIds]))
+      .orderBy(asc(usagePatterns.entryId), asc(usagePatterns.sense), asc(usagePatterns.position))
+  ])
+  for (const entryId of entryIds) {
+    const own = cautionRows.filter((row) => row.entryId === entryId)
+    const patterns = patternRows.filter((row) => row.entryId === entryId)
+    const word = own.find((row) => row.sense === null)?.text ?? null
+    found.set(
+      entryId,
+      (sense) =>
+        own.find((row) => row.sense === sense)?.text ??
+        word ??
+        patterns.find((row) => row.sense === sense)?.text ??
+        null
+    )
+  }
+  return found
+}, Effect.orDie)

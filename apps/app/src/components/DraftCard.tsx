@@ -12,12 +12,15 @@ import Animated, {
   withDelay,
   withTiming
 } from "react-native-reanimated"
+import { useAddNote, useNotes } from "../api/queries.ts"
 import { posLabel } from "../i18n/strings.ts"
 import { draftHeadwordSize } from "../lib/ask.ts"
 import { labelItems, senseCautions, wordCautions } from "../lib/entry.ts"
+import { noteOn } from "../lib/notes.ts"
 import { useSession } from "../session/SessionProvider.tsx"
 import { easeOut } from "../theme/easing.ts"
 import { useTheme } from "../theme/ThemeProvider.tsx"
+import { IconButton } from "./Button.tsx"
 import { Card } from "./Card.tsx"
 import { Cautions } from "./Cautions.tsx"
 import { Chip } from "./Chip.tsx"
@@ -146,6 +149,9 @@ export const DraftCard = ({
 }) => {
   const theme = useTheme()
   const { t } = useSession()
+  const notes = useNotes()
+  const addNote = useAddNote()
+  const saved = noteOn(notes.data, draft.id) !== undefined
   const size = draftHeadwordSize(draft.headword, language)
   const reading = draft.reading.length > 0 && draft.reading !== draft.headword ? draft.reading : null
   // Each part follows the one before it by a beat, after the card itself has landed.
@@ -177,7 +183,21 @@ export const DraftCard = ({
           }}
         >
           <Snow />
-          <Chip tone="accent" icon="auto_awesome" label={t.dictionary.askDraft} />
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <View style={{ flex: 1, alignItems: "flex-start" }}>
+              <Chip tone="accent" icon="auto_awesome" label={t.dictionary.askDraft} />
+            </View>
+            {/* A draft can be saved before anyone checks it; the note follows it if it's approved. */}
+            <View style={{ marginVertical: -8, marginRight: -8 }}>
+              <IconButton
+                icon="bookmark"
+                filled={saved}
+                size={40}
+                label={saved ? t.common.saved : t.entry.save}
+                onPress={saved || addNote.isPending ? undefined : () => addNote.mutate({ entryId: draft.id })}
+              />
+            </View>
+          </View>
           <Animated.View entering={step(0)} style={{ gap: 2 }}>
             <Headword
               language={language}

@@ -1,13 +1,13 @@
 import { type ClaudeError, CONTESTED_AT, type DraftCandidate, Lexicographer, type Triage } from "@kotori/ai"
 import { AiUnavailable, type Language, RateLimited } from "@kotori/contracts"
-import type { AskTriage, DraftEntry } from "@kotori/db"
+import type { AskTriage, DraftEntry, EntryId } from "@kotori/db"
 import { katakanaToHiragana } from "@kotori/language"
-import { Effect, Option } from "effect"
+import { Effect, Match, Option } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 import { Dictionary } from "../dictionary/Dictionary.ts"
-import { findForms } from "../dictionary/queries.ts"
+import { entryRanks, findForms } from "../dictionary/queries.ts"
 import { checkDraft } from "./draft.ts"
-import type { Verdict } from "./queries.ts"
+import type { DraftedEntryState, Verdict } from "./queries.ts"
 
 /** Jev's routing of a query: as stored with the proposal, and as read (`interpretTriage`). */
 export interface Triaged {
@@ -24,19 +24,20 @@ const fromClaude = (error: ClaudeError): AiUnavailable | RateLimited =>
  * The one entry a draft would duplicate: an entry written as its headword or one of its spellings
  * (inflections aside) and, for Japanese, read as it is too, since 上手 read うわて isn't 上手 read
  * じょうず. English forms match case-folded, so a spelling that matches exactly wins ("polish" over
- * "Polish"). When that still leaves two or more, nothing says which the draft is: none is chosen,
- * and the draft waits for the admin like any other.
+ * "Polish"). Kotori's unreviewed drafts count, so the first draft of a word is the only one. When
+ * that still leaves two or more, nothing says which the draft is: none is chosen, and the draft
+ * waits for the admin like any other.
  */
 const duplicateOf = Effect.fnUntraced(function* (db: DatabaseShape, draft: DraftEntry, language: Language) {
   const texts = [draft.headword, ...draft.spellings]
-  const forms = (yield* findForms(db, texts, language)).filter((form) => form.kind !== "inflection")
+  const forms = (yield* findForms(db, texts, language, "searchable")).filter((form) => form.kind !== "inflection")
   let ids = new Set(forms.map((form) => form.entryId))
   if (language === "en") {
     const exact = new Set(forms.filter((form) => texts.includes(form.text)).map((form) => form.entryId))
     if (exact.size > 0) ids = exact
   } else if (draft.reading.length > 0) {
     const readings = [...new Set([draft.reading, katakanaToHiragana(draft.reading)])]
-    const read = new Set((yield* findForms(db, readings, language)).map((form) => form.entryId))
+    const read = new Set((yield* findForms(db, readings, language, "searchable")).map((form) => form.entryId))
     ids = new Set([...ids].filter((id) => read.has(id)))
   }
   const [only, ...more] = ids
@@ -65,28 +66,39 @@ export const judge = Effect.fn("asks.judge")(function* (
   }))
   const output = yield* lexicographer.draft({ query, language, candidates }).pipe(Effect.mapError(fromClaude))
   const base = { model: output.model, route: "lookup" as const, triage: triaged?.record ?? null, contested: false }
-  const linkTo = (entryId: Verdict["linkedEntryId"]): Verdict => ({
-    ...base,
-    status: "linked",
-    draft: null,
-    linkedEntryId: entryId,
-    reason: null
+  // An entry the dictionary has is linked; one Kotori drafted before is that draft again, standing
+  // where it does (a discarded one stays discarded).
+  const answerWith = Effect.fnUntraced(function* (entryId: EntryId) {
+    const entry: DraftedEntryState = (yield* entryRanks(db, [entryId])).get(entryId)?.review ?? "gone"
+    return {
+      ...base,
+      status: Match.value(entry).pipe(
+        Match.when("approved", () => "linked" as const),
+        Match.whenOr("unreviewed", "discarded", () => "drafted" as const),
+        // Deleted since it was found: a draft of it would stand as removed, and a link links nothing.
+        Match.when("gone", () => "linked" as const),
+        Match.exhaustive
+      ),
+      draft: null,
+      entryId,
+      reason: null
+    } satisfies Verdict
   })
 
   // Candidates are numbered from 1, in the order Claude saw them.
   const linked = output.verdict === "link" && output.link !== null ? found.entries[output.link - 1] : undefined
-  if (linked !== undefined) return linkTo(linked.id)
+  if (linked !== undefined) return yield* answerWith(linked.id)
   const draft = output.entry === null ? null : checkDraft(output.entry, language)
   if ((output.verdict === "entry" || output.verdict === "link") && draft !== null) {
     const duplicate = yield* duplicateOf(db, draft, language)
-    if (Option.isSome(duplicate)) return linkTo(duplicate.value)
-    return { ...base, status: "pending", draft, linkedEntryId: null, reason: null } satisfies Verdict
+    if (Option.isSome(duplicate)) return yield* answerWith(duplicate.value)
+    return { ...base, status: "drafted", draft, entryId: null, reason: null } satisfies Verdict
   }
   return {
     ...base,
     status: "rejected",
     draft: null,
-    linkedEntryId: null,
+    entryId: null,
     reason: output.reason?.trim() || null,
     // Jev was sure this was a lookup and Claude turned it down: the admin should see it.
     contested: triaged !== null && triaged.reading.probabilities.lookup >= CONTESTED_AT

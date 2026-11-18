@@ -3,13 +3,14 @@ import type {
   EnrichmentStatus,
   Entry,
   EntryCaution,
+  EntryReview,
   Label,
   LabelCode,
   LabelSeverity,
   Sense,
-  Source,
-  UsagePattern
+  Source
 } from "@kotori/contracts"
+import type { Tone } from "../components/Chip.tsx"
 import type { IconName } from "../components/Icon.tsx"
 import type { Strings } from "../i18n/strings.ts"
 
@@ -227,20 +228,27 @@ export const CAUTION_ICON: Record<CautionKind, IconName> = {
 }
 
 /**
- * What a saved word carries into its reviews: the usage labels worth a hint (the labels that
- * aren't grammar facts, word's then the sense's), and the one note most worth remembering: a
- * caution on that sense or the word, else its first usage pattern.
+ * How an entry is marked for where it stands with the admin, wherever it is shown: as a chip in a
+ * list, and as a notice on its page. An approved word carries no mark.
  */
-export const saveDetails = (
-  t: Strings,
-  entry: Pick<Entry, "labels" | "cautions">,
-  sense: Pick<Sense, "index" | "labels" | "usagePatterns">
-): { readonly hint: string | null; readonly note: string | null } => {
-  const hint = [...entry.labels, ...sense.labels]
-    .filter((label) => label.severity !== "quiet")
-    .map((label) => t.labels.name[label.code])
-    .join(" · ")
-  const caution = senseCautions(entry.cautions, sense.index)[0] ?? wordCautions(entry.cautions)[0]
-  const usagePattern: UsagePattern | undefined = sense.usagePatterns[0]
-  return { hint: hint.length > 0 ? hint : null, note: caution?.text ?? usagePattern?.text ?? null }
+export interface ReviewMark {
+  readonly chip: { readonly tone: Tone; readonly icon?: IconName; readonly label: string }
+  readonly notice: { readonly tone: "primary" | "accent"; readonly message: string }
+}
+
+export const reviewMark = (t: Strings, review: EntryReview): ReviewMark | null => {
+  switch (review) {
+    case "approved":
+      return null
+    case "unreviewed":
+      return {
+        chip: { tone: "accent", icon: "auto_awesome", label: t.dictionary.askDraft },
+        notice: { tone: "primary", message: t.entry.unverified }
+      }
+    case "discarded":
+      return {
+        chip: { tone: "neutral", label: t.entry.notAdded },
+        notice: { tone: "accent", message: t.entry.notAdded }
+      }
+  }
 }

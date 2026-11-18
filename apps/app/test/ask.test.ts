@@ -19,6 +19,7 @@ import {
 } from "../src/lib/ask.ts"
 
 const draft: DraftEntry = {
+  id: 200000001 as EntryId,
   headword: "ぴえん",
   reading: "ぴえん",
   spellings: [],
@@ -39,6 +40,7 @@ const draft: DraftEntry = {
 const entry: EntrySummary = {
   id: 1 as EntryId,
   language: "en",
+  review: "approved",
   headword: "it is what it is",
   reading: "",
   common: false,

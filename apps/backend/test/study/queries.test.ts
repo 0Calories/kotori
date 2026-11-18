@@ -1,13 +1,15 @@
 import { assert, layer } from "@effect/vitest"
-import { NoteId, UserId } from "@kotori/contracts"
+import { type EntryId, NoteId, UserId } from "@kotori/contracts"
 import { reviewLogs } from "@kotori/db"
 import { eq } from "drizzle-orm"
 import { Effect, Exit, Option } from "effect"
 import { Database } from "../../src/db/Database.ts"
 import { scopedToUser } from "../../src/db/scopedToUser.ts"
 import { ensureUser } from "../../src/features/accounts/queries.ts"
+import { insertEntries } from "../../src/features/dictionary/queries.ts"
 import {
   allNotes,
+  arrangeNote,
   countReviewed,
   deleteNote,
   insertNote,
@@ -16,6 +18,7 @@ import {
   newNotes,
   nextLearningDue,
   nextPosition,
+  noteByEntry,
   noteById,
   noteCount,
   retention,
@@ -26,36 +29,25 @@ import {
   studyDays
 } from "../../src/features/study/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
-import { learner, N1, N2, N3, U1 } from "../fixtures.ts"
+import { entries, learner, N1, N2, N3, U1 } from "../fixtures.ts"
 
 const at = (ms: number) => new Date(ms)
 
 const U2 = UserId.make("00000000-0000-4000-8000-000000000002")
 
-const phrase = (text: string) =>
-  ({
-    kind: "phrase",
-    text,
-    furigana: null,
-    meaning: text,
-    note: null,
-    register: "polite",
-    source: "manual"
-  }) as const
+const [tabemasu, kuu, third, fourth] = entries.map((entry) => entry.id)
 
-/** A phrase note at a retention stage, due at `due`. */
+/** A note on an entry at a retention stage, due at `due`. */
 const note = (
   id: NoteId,
-  text: string,
+  entryId: EntryId,
   retentionStage: NonNullable<NewNote["retentionStage"]>,
   due: number,
   position = 0
 ): NewNote & { readonly id: NoteId } => ({
   id,
-  kind: "phrase",
-  content: phrase(text),
-  entryId: null,
-  sense: null,
+  entryId,
+  senses: null,
   retentionStage,
   due: at(due),
   interval: retentionStage === "review" ? 3 : 0,
@@ -83,11 +75,12 @@ layer(DatabaseMemory)("study queries", (it) => {
     Effect.gen(function* () {
       const db = yield* Database
       yield* ensureUser(db, learner)
+      yield* insertEntries(db, entries)
       const own = scopedToUser(db, U1)
 
-      yield* insertNote(own, note(N1, "お疲れ様です", "new", 0, 0))
-      yield* insertNote(own, note(N2, "いただきます", "review", 500, 1))
-      yield* insertNote(own, note(N3, "すみません", "learning", 700, 2))
+      yield* insertNote(own, note(N1, tabemasu!, "new", 0, 0))
+      yield* insertNote(own, note(N2, kuu!, "review", 500, 1))
+      yield* insertNote(own, note(N3, third!, "learning", 700, 2))
 
       assert.deepStrictEqual(
         (yield* allNotes(own)).map((n) => n.id),
@@ -110,7 +103,7 @@ layer(DatabaseMemory)("study queries", (it) => {
       assert.deepStrictEqual(Option.getOrThrow(yield* nextLearningDue(own)), at(700))
 
       const loaded = Option.getOrThrow(yield* noteById(own, N2))
-      assert.strictEqual(loaded.content.kind, "phrase")
+      assert.strictEqual(loaded.entryId, kuu)
       assert.isTrue(yield* saveReview(own, N2, { due: at(99_999), interval: 8 }, review))
       assert.strictEqual(Option.getOrThrow(yield* noteById(own, N2)).interval, 8)
 
@@ -154,10 +147,11 @@ layer(DatabaseMemory)("study queries", (it) => {
     Effect.gen(function* () {
       const db = yield* Database
       yield* ensureUser(db, learner)
+      yield* insertEntries(db, entries)
       yield* ensureUser(db, { ...learner, id: U2 })
       const own = scopedToUser(db, U1)
       const other = scopedToUser(db, U2)
-      yield* insertNote(own, note(N1, "いただきます", "review", 0))
+      yield* insertNote(own, note(N1, kuu!, "review", 0))
 
       assert.deepStrictEqual(yield* allNotes(other), [])
       assert.isTrue(Option.isNone(yield* noteById(other, N1)))
@@ -178,13 +172,14 @@ layer(DatabaseMemory)("study queries", (it) => {
     Effect.gen(function* () {
       const db = yield* Database
       yield* ensureUser(db, learner)
+      yield* insertEntries(db, entries)
       yield* ensureUser(db, { ...learner, id: U2 })
       const own = scopedToUser(db, U1)
       const other = scopedToUser(db, U2)
       const removedId = NoteId.make("00000000-0000-4000-8000-00000000000d")
       const keptId = NoteId.make("00000000-0000-4000-8000-00000000000e")
-      yield* insertNote(own, note(removedId, "いただきます", "review", 0))
-      yield* insertNote(other, note(keptId, "ごちそうさま", "review", 0))
+      yield* insertNote(own, note(removedId, kuu!, "review", 0))
+      yield* insertNote(other, note(keptId, third!, "review", 0))
       yield* saveReview(own, removedId, { reps: 1 }, review)
       yield* saveReview(own, removedId, { reps: 2 }, review)
       yield* saveReview(other, keptId, { reps: 1 }, review)
@@ -209,8 +204,9 @@ layer(DatabaseMemory)("study queries", (it) => {
     Effect.gen(function* () {
       const db = yield* Database
       yield* ensureUser(db, learner)
+      yield* insertEntries(db, entries)
       const own = scopedToUser(db, U1)
-      yield* insertNote(own, note(N1, "ごめんなさい", "review", 0))
+      yield* insertNote(own, note(N1, fourth!, "review", 0))
       // A log the database refuses (no study day), written after the note was updated.
       const reviewed = yield* saveReview(own, N1, { interval: 30 }, { ...review, studyDay: null as never }).pipe(
         Effect.exit
@@ -220,6 +216,31 @@ layer(DatabaseMemory)("study queries", (it) => {
       assert.strictEqual(yield* countReviewed(own, review.studyDay), 0)
 
       assert.strictEqual(yield* deleteNote(own, N1), "deleted")
+    })
+  )
+
+  it.effect("keeps one note per learner and entry, and the senses it chose", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      yield* ensureUser(db, learner)
+      yield* insertEntries(db, entries)
+      const own = scopedToUser(db, U1)
+
+      const saved = yield* insertNote(own, note(N1, tabemasu!, "new", 0))
+      assert.strictEqual(saved.id, N1)
+      // Saving the entry again, say from two screens at once, finds the note already there.
+      const again = yield* insertNote(own, note(N2, tabemasu!, "new", 0))
+      assert.strictEqual(again.id, N1)
+      assert.strictEqual(yield* noteCount(own), 1)
+      assert.strictEqual(Option.getOrThrow(yield* noteByEntry(own, tabemasu!)).id, N1)
+      assert.isTrue(Option.isNone(yield* noteByEntry(own, kuu!)))
+
+      assert.deepStrictEqual(Option.getOrThrow(yield* arrangeNote(own, N1, [1, 0])).senses, [1, 0])
+      assert.strictEqual(Option.getOrThrow(yield* arrangeNote(own, N1, null)).senses, null)
+      // Another learner's note can't be arranged.
+      assert.isTrue(Option.isNone(yield* arrangeNote(scopedToUser(db, U2), N1, [0])))
+
+      yield* deleteNote(own, N1)
     })
   )
 })

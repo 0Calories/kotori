@@ -1,20 +1,9 @@
-import type { EntryId, Note, NoteId, PhraseNote, WordNote } from "@kotori/contracts"
+import type { Note } from "@kotori/contracts"
 import { describe, expect, it } from "vitest"
-import { searchNotes, searchNotesByKind } from "../src/lib/noteSearch.ts"
+import { searchNotes } from "../src/lib/noteSearch.ts"
+import { savedWord } from "./notes.fixtures.ts"
 
-const note = (id: string, content: WordNote | PhraseNote): Note => ({
-  id: id as NoteId,
-  createdAt: new Date(0),
-  content,
-  retentionStage: "new",
-  due: new Date(0),
-  interval: 0,
-  ease: 0,
-  reps: 0,
-  lapses: 0,
-  leech: false
-})
-
+/** A saved word with one sense per "; " or "、"-separated meaning. */
 const word = (
   id: string,
   headword: string,
@@ -23,34 +12,36 @@ const word = (
   language?: "ja" | "en",
   usageNote: string | null = null
 ): Note =>
-  note(id, {
-    kind: "word",
-    entryId: 1 as EntryId,
-    senseIndex: 0,
-    ...(language === undefined ? {} : { language }),
+  savedWord(id, {
     headword,
     reading,
-    meaning,
-    hint: null,
-    note: usageNote,
-    example: null,
-    audioUrl: null
+    ...(language === undefined ? {} : { language }),
+    senses: meaning
+      .split(/\s*[;、]\s*/)
+      .map((gloss, index) => ({ glosses: [gloss], note: index === 0 ? usageNote : null }))
   })
 
-const phrase = (
+/** An expression the dictionary holds, saved like any word: headword, its kana, one meaning. */
+const expression = (
   id: string,
-  text: string,
-  furigana: string | null,
+  headword: string,
+  reading: string | null,
   meaning: string,
   usageNote: string | null = null
-): Note => note(id, { kind: "phrase", text, furigana, meaning, note: usageNote, register: null, source: "manual" })
+): Note =>
+  savedWord(id, {
+    headword,
+    reading: reading ?? "",
+    language: /[\u3040-\u30ff\u4e00-\u9fff]/u.test(headword) ? "ja" : "en",
+    senses: [{ glosses: [meaning], note: usageNote }]
+  })
 
 const taberu = word("taberu", "食べる", "たべる", "to eat; to live on (e.g. a salary)")
 const umbrella = word("kasa", "傘", "かさ", "umbrella; parasol")
 const neko = word("neko", "猫", "ねこ", "cat")
 const coffee = word("koohii", "コーヒー", "コーヒー", "coffee")
 const thinIce = word("usugori", "薄氷を踏む", "はくひょうをふむ", "to skate on thin ice")
-const late = phrase("late", "遅れてすみません", "{遅|おく}れてすみません", "Sorry I'm late")
+const late = expression("late", "遅れてすみません", "おくれてすみません", "Sorry I'm late")
 const english = word("apple", "apple", "/ˈæp.əl/", "りんご、林檎", "en")
 
 const notes = [taberu, umbrella, neko, coffee, thinIce, late, english]
@@ -84,7 +75,7 @@ describe("searchNotes", () => {
     expect(searchNotes([taku, take, toru], "take").notes.map((n) => n.id)).toEqual(["toru", "take"])
   })
 
-  it("finds a word inside a phrase, and a phrase by its kana", () => {
+  it("finds a word inside an expression, and an expression by its kana", () => {
     expect(ids("すみません")).toEqual(["late"])
     expect(ids("おくれて")).toEqual(["late"])
   })
@@ -97,10 +88,10 @@ describe("searchNotes", () => {
   })
 
   it("ranks whole-word and placeholder matches in English forms above prefixes", () => {
-    const walkAway = phrase("walk-away", "walk away", null, "立ち去る")
-    const neverWalk = phrase("never-walk", "never walk away", null, "決して立ち去らない")
+    const walkAway = expression("walk-away", "walk away", null, "立ち去る")
+    const neverWalk = expression("never-walk", "never walk away", null, "決して立ち去らない")
     const walkabout = word("walkabout", "walkabout", "/ˈwɔːk.ə.baʊt/", "徒歩の旅", "en")
-    const tellSomeone = phrase("tell-sb", "tell someone", null, "誰かに話す")
+    const tellSomeone = expression("tell-sb", "tell someone", null, "誰かに話す")
 
     expect(searchNotes([walkabout, neverWalk, walkAway], "walk").notes.map((n) => n.id)).toEqual([
       "walk-away",
@@ -129,10 +120,10 @@ describe("searchNotes", () => {
       "ja",
       "Used with に to mark the person met."
     )
-    const politePhrase = phrase(
+    const politePhrase = expression(
       "otsukare",
       "お疲れ様です",
-      "お{疲|つか}れ{様|さま}です",
+      "おつかれさまです",
       "Polite way to say お疲れ",
       "Warmer than ありがとう among coworkers."
     )
@@ -152,21 +143,16 @@ describe("searchNotes", () => {
     expect(searchNotes(notes, "giraffe")).toEqual({ match: "none", notes: [] })
   })
 
-  it("searches words and phrases independently per tab and ignores a lingering query when empty", () => {
-    const sumimasen = word("sumimasen", "すみません", "すみません", "excuse me; sorry")
-    const byTab = searchNotesByKind([sumimasen, late], "すみません")
-    expect(byTab.word.match).toBe("exact")
-    expect(byTab.phrase.match).toBe("weak")
-
-    // A substring hit in phrases doesn't block typo fallback in words.
-    const mention = phrase("umb-phrase", "傘をさす", null, "open an umbrela")
-    const typoByTab = searchNotesByKind([umbrella, mention], "umbrela")
-    expect(typoByTab.word.notes.map((n) => n.id)).toEqual(["kasa"])
-    expect(typoByTab.word.match).toBe("weak")
-
-    expect(searchNotesByKind([], "すみません")).toEqual({
-      word: { match: "none", notes: [] },
-      phrase: { match: "none", notes: [] }
+  it("searches only the senses a note shows, not the ones the learner hid", () => {
+    const kasa = savedWord("kasa", {
+      headword: "傘",
+      reading: "かさ",
+      senses: [{ glosses: ["umbrella"] }, { glosses: ["parasol"], note: "For the sun.", shown: false }]
     })
+    expect(searchNotes([kasa], "umbrella").notes.map((n) => n.id)).toEqual(["kasa"])
+    expect(searchNotes([kasa], "parasol").notes).toEqual([])
+    expect(searchNotes([kasa], "sun").notes).toEqual([])
+    // The word itself is found whatever it shows.
+    expect(searchNotes([kasa], "かさ").notes.map((n) => n.id)).toEqual(["kasa"])
   })
 })

@@ -9,15 +9,26 @@ import {
   RateLimited
 } from "@kotori/contracts"
 import { normalizeAsk } from "@kotori/language"
-import { Clock, Config, Context, Effect, Layer, Option } from "effect"
+import { Clock, Config, Context, Effect, Layer, Match, Option } from "effect"
 import { Database } from "../../db/Database.ts"
 import { scopedToUser } from "../../db/scopedToUser.ts"
 import { reserveUsage } from "../coaching/queries.ts"
 import { Dictionary } from "../dictionary/Dictionary.ts"
+import { deleteEntries } from "../dictionary/index.ts"
+import { entryRanks } from "../dictionary/queries.ts"
+import { unique } from "../dictionary/shared.ts"
+import { draftedEntryView, writeDraftedEntry } from "./draft.ts"
 import { turnAway } from "./garbage.ts"
-import { viewDrafts } from "./draft.ts"
 import { judge, type Triaged } from "./judge.ts"
-import { asksFor, findProposal, insertProposal, type ProposalRow, recordAsk, type Verdict } from "./queries.ts"
+import {
+  asksFor,
+  findProposal,
+  insertProposal,
+  type ProposalRow,
+  recordAsk,
+  standing,
+  type Verdict
+} from "./queries.ts"
 
 const HOUR = 60 * 60 * 1000
 const DAY = 24 * HOUR
@@ -29,7 +40,8 @@ const DAY = 24 * HOUR
  * which drafts an entry, names the existing entry the learner missed, or says the query isn't a
  * real expression (`judge`). A hesitant Jev fails open to Claude: a real question must never be
  * lost to the cheap stage. Answers are kept per normalized query, so a question is only ever
- * paid for once, and drafts wait for the admin (`kotori proposals`) before becoming real entries.
+ * paid for once. A draft is an unreviewed dictionary entry from the start (ADR 0002), shown marked
+ * unverified and saveable to notes, until the admin (`kotori proposals`) approves or discards it.
  * Each learner has their own allowances, Jev's and Claude's apart, so no one learner can use up
  * Ask Kotori for everyone.
  */
@@ -53,27 +65,43 @@ export class Asks extends Context.Service<
       const askDaily = yield* Config.Int("KOTORI_ASK_DAILY_LIMIT").pipe(Config.withDefault(30))
       const triageHourly = yield* Config.Int("KOTORI_TRIAGE_HOURLY_LIMIT").pipe(Config.withDefault(60))
 
-      /** Proposals as the app reads them; a list of them costs the same few queries as one. */
+      /** Proposals as the app reads them, each standing where its entry does. */
       const toProposals = Effect.fnUntraced(function* (rows: ReadonlyArray<ProposalRow>) {
-        const linkedIds = [...new Set(rows.flatMap((row) => (row.linkedEntryId === null ? [] : [row.linkedEntryId])))]
-        const linked = new Map(
-          (linkedIds.length === 0 ? [] : yield* dictionary.summarize(linkedIds)).map((entry) => [entry.id, entry])
+        const ids = unique(rows.flatMap((row) => (row.entryId === null ? [] : [row.entryId])))
+        const reviews = yield* entryRanks(db, ids)
+        const summaries = new Map(
+          (ids.length === 0 ? [] : yield* dictionary.summarize(ids)).map((entry) => [entry.id, entry])
         )
-        const drafted = rows.flatMap((row) =>
-          row.draft === null ? [] : [{ id: row.id, draft: row.draft, language: row.language }]
+        return yield* Effect.forEach(
+          rows,
+          Effect.fnUntraced(function* (row) {
+            const status = standing(
+              row.status,
+              row.entryId === null ? "gone" : (reviews.get(row.entryId)?.review ?? "gone")
+            )
+            // What the answer shows of its entry: the draft itself, the entry as a link, or nothing.
+            const shows = Match.value(status).pipe(
+              Match.when("pending", () => "draft" as const),
+              Match.whenOr("linked", "approved", () => "link" as const),
+              Match.whenOr("rejected", "discarded", "removed", () => "nothing" as const),
+              Match.exhaustive
+            )
+            const draft =
+              shows === "draft" && row.entryId !== null
+                ? Option.getOrNull(Option.map(yield* dictionary.entry(row.entryId), draftedEntryView))
+                : null
+            return {
+              id: ProposalId.make(row.id),
+              query: row.query,
+              language: row.language,
+              status,
+              draft,
+              linked: shows === "link" && row.entryId !== null ? (summaries.get(row.entryId) ?? null) : null,
+              reason: row.reason,
+              route: row.route
+            } satisfies Proposal
+          })
         )
-        const views = yield* viewDrafts(db, drafted)
-        const drafts = new Map(drafted.map((stored, index) => [stored.id, views[index]!]))
-        return rows.map((row): Proposal => ({
-          id: ProposalId.make(row.id),
-          query: row.query,
-          language: row.language,
-          status: row.status,
-          draft: drafts.get(row.id) ?? null,
-          linked: row.linkedEntryId === null ? null : (linked.get(row.linkedEntryId) ?? null),
-          reason: row.reason,
-          route: row.route
-        }))
       })
       const toProposal = (row: ProposalRow) => toProposals([row]).pipe(Effect.map((proposals) => proposals[0]!))
 
@@ -144,8 +172,13 @@ export class Asks extends Context.Service<
         const triaged = yield* triage(query, language)
         const route = triaged?.reading.route ?? "lookup"
 
-        const settle = Effect.fnUntraced(function* (verdict: Verdict) {
-          const row = yield* insertProposal(db, { language, query, ...verdict, requestedBy: user.id, now })
+        const settle = Effect.fnUntraced(function* ({ draft, ...verdict }: Verdict) {
+          // A new draft is an entry before the proposal names it.
+          const drafted = draft === null ? null : yield* writeDraftedEntry(db, draft, language)
+          const entryId = drafted ?? verdict.entryId
+          const row = yield* insertProposal(db, { language, query, ...verdict, entryId, requestedBy: user.id, now })
+          // Another learner asked the same at the same moment and their answer stands: ours goes.
+          if (drafted !== null && row.entryId !== drafted) yield* deleteEntries(db, [drafted])
           yield* recordAsk(db, row.id, user.id, now)
           return yield* toProposal(row)
         })
@@ -155,7 +188,7 @@ export class Asks extends Context.Service<
           return yield* settle({
             status: "rejected",
             draft: null,
-            linkedEntryId: null,
+            entryId: null,
             reason: null,
             model: jev.model,
             route,

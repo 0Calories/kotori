@@ -1,0 +1,379 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "c5f85a79-e6fd-4aa7-8f13-3d1574bfa20f",
+  "prevIds": ["6f171f8a-b75c-4d94-82e4-d243473e917c"],
+  "footprints": [
+    {
+      "statementType": "create_enum",
+      "statementTarget": ["enum", "public", "entry_review"],
+      "writes": [
+        "s|enum|public.entry_review",
+        "n|enum|public.entry_review",
+        "e|enum|public.entry_review",
+        "n|type|public.entry_review"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "rename_column",
+      "statementTarget": ["column", "public", "proposals", "linked_entry_id"],
+      "writes": [
+        "s|col|public.proposals.linked_entry_id",
+        "n|col|public.proposals.linked_entry_id",
+        "s|col|public.proposals.entry_id",
+        "n|col|public.proposals.entry_id"
+      ],
+      "reads": ["n|tbl|public.proposals", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_index",
+      "statementTarget": ["index", "public", "notes", "notes_word"],
+      "writes": [
+        "s|idx|public.notes_word",
+        "n|idx|public.notes_word",
+        "e|idx|public.notes_word",
+        "n|rel|public.notes_word"
+      ],
+      "reads": [
+        "e|tbl|public.notes",
+        "n|sch|public",
+        "e|col|public.notes.user_id",
+        "e|col|public.notes.entry_id",
+        "e|col|public.notes.sense"
+      ],
+      "sharedWrites": []
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "entries", "review"],
+      "writes": ["s|col|public.entries.review", "n|col|public.entries.review", "e|col|public.entries.review"],
+      "reads": ["n|tbl|public.entries", "n|sch|public", "n|enum|public.entry_review"]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": ["column", "public", "notes", "senses"],
+      "writes": ["s|col|public.notes.senses", "n|col|public.notes.senses", "e|col|public.notes.senses"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "recreate_enum",
+      "statementTarget": ["enum", "public", "proposal_status"],
+      "writes": [
+        "s|enum|public.proposal_status",
+        "n|enum|public.proposal_status",
+        "e|enum|public.proposal_status",
+        "n|type|public.proposal_status",
+        "s|colprop|public.proposals.status.type",
+        "s|colprop|public.proposals.status.default"
+      ],
+      "reads": ["n|sch|public", "n|tbl|public.proposals", "n|sch|public", "n|col|public.proposals.status"],
+      "sqlHash": "085ddd8048ad69a9"
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "notes", "kind"],
+      "writes": ["s|col|public.notes.kind", "n|col|public.notes.kind", "e|col|public.notes.kind"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "notes", "content"],
+      "writes": ["s|col|public.notes.content", "n|col|public.notes.content", "e|col|public.notes.content"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "notes", "sense"],
+      "writes": ["s|col|public.notes.sense", "n|col|public.notes.sense", "e|col|public.notes.sense"],
+      "reads": ["n|tbl|public.notes", "n|sch|public"]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "proposals", "draft"],
+      "writes": ["s|col|public.proposals.draft", "n|col|public.proposals.draft", "e|col|public.proposals.draft"],
+      "reads": ["n|tbl|public.proposals", "n|sch|public"]
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": ["column", "public", "notes", "entry_id"],
+      "writes": ["s|colprop|public.notes.entry_id.notNull"],
+      "reads": ["n|tbl|public.notes", "n|sch|public", "n|col|public.notes.entry_id"],
+      "sqlHash": "a3cdb448d8912ddf"
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "entries", "entries_drafts"],
+      "writes": [
+        "s|idx|public.entries_drafts",
+        "n|idx|public.entries_drafts",
+        "e|idx|public.entries_drafts",
+        "n|rel|public.entries_drafts"
+      ],
+      "reads": ["n|tbl|public.entries", "n|sch|public", "n|col|public.entries.id"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "notes", "notes_entry"],
+      "writes": [
+        "s|idx|public.notes_entry",
+        "n|idx|public.notes_entry",
+        "e|idx|public.notes_entry",
+        "n|rel|public.notes_entry"
+      ],
+      "reads": ["n|tbl|public.notes", "n|sch|public", "n|col|public.notes.user_id", "n|col|public.notes.entry_id"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "notes", "notes_entry_id"],
+      "writes": [
+        "s|idx|public.notes_entry_id",
+        "n|idx|public.notes_entry_id",
+        "e|idx|public.notes_entry_id",
+        "n|rel|public.notes_entry_id"
+      ],
+      "reads": ["n|tbl|public.notes", "n|sch|public", "n|col|public.notes.entry_id"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "proposals", "proposals_entry"],
+      "writes": [
+        "s|idx|public.proposals_entry",
+        "n|idx|public.proposals_entry",
+        "e|idx|public.proposals_entry",
+        "n|rel|public.proposals_entry"
+      ],
+      "reads": ["n|tbl|public.proposals", "n|sch|public", "n|col|public.proposals.entry_id"]
+    },
+    {
+      "statementType": "recreate_fk",
+      "statementTarget": ["table", "public", "notes"],
+      "writes": [
+        "s|fk|public.notes.notes_entry_id_entries_id_fkey",
+        "n|fk|public.notes.notes_entry_id_entries_id_fkey",
+        "e|fk|public.notes.notes_entry_id_entries_id_fkey",
+        "n|con|public.notes.notes_entry_id_entries_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.notes",
+        "n|sch|public",
+        "n|tbl|public.entries",
+        "n|sch|public",
+        "n|col|public.notes.entry_id",
+        "n|col|public.entries.id",
+        "e|uniqueness|public.entries.id"
+      ],
+      "sqlHash": "dba122283bf51d7e"
+    },
+    {
+      "statementType": "drop_enum",
+      "statementTarget": ["enum", "public", "note_kind"],
+      "writes": [
+        "s|enum|public.note_kind",
+        "n|enum|public.note_kind",
+        "e|enum|public.note_kind",
+        "n|type|public.note_kind"
+      ],
+      "reads": ["n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "rename",
+      "key": "columns\u0000[\"public\",\"proposals\",\"linked_entry_id\"]",
+      "set": {
+        "name": "entry_id"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "entry_review",
+        "values": ["unreviewed", "approved", "discarded"],
+        "entityType": "enums"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "entries",
+        "name": "review",
+        "type": "entry_review",
+        "typeSchema": "public",
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'approved'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "notes",
+        "name": "senses",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 1,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "entries",
+        "name": "entries_drafts",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": "\"review\" <> 'approved'",
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "notes",
+        "name": "notes_entry",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "user_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "entry_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "notes",
+        "name": "notes_entry_id",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "entry_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "proposals",
+        "name": "proposals_entry",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "entry_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "drop",
+      "key": "enums\u0000[\"public\",\"note_kind\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"notes\",\"kind\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"notes\",\"content\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"notes\",\"sense\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"proposals\",\"draft\"]"
+    },
+    {
+      "op": "drop",
+      "key": "indexes\u0000[\"public\",\"notes_word\"]"
+    },
+    {
+      "op": "alter",
+      "key": "enums\u0000[\"public\",\"proposal_status\"]",
+      "set": {
+        "values": ["drafted", "linked", "rejected"]
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"notes\",\"entry_id\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "fks\u0000[\"public\",\"notes\",\"notes_entry_id_entries_id_fkey\"]",
+      "set": {
+        "onDelete": "CASCADE"
+      }
+    }
+  ]
+}

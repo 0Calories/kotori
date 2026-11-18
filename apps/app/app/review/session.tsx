@@ -28,8 +28,8 @@ import {
   unansweredItems,
   waitRefetchDelay
 } from "../../src/lib/reviewSession.ts"
+import { glossLine, senseHint, shownSenses } from "../../src/lib/notes.ts"
 import { useReadingPhase } from "../../src/lib/readingPhase.ts"
-import { registerTone } from "../../src/lib/tones.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
 
@@ -52,132 +52,99 @@ const Faces = ({
 }) => {
   const theme = useTheme()
   const { t } = useSession()
-  const content = item.note.content
-
-  if (content.kind === "word") {
-    // The headword is in the language being learned. Notes saved before the English dictionary
-    // are all Japanese words, which English learners saved for their English glosses.
-    const language = content.language ?? "ja"
-    const learning = language === target
-    const headword = (
-      <View style={{ alignItems: "center", gap: 4 }}>
-        {revealed || !learning ? (
-          <Text jp={language === "ja"} color="textMuted" size={18}>
-            {content.reading.length > 0 && content.reading !== content.headword ? content.reading : " "}
-          </Text>
-        ) : null}
-        <Headword language={language} size={language === "ja" ? 52 : 44} style={{ lineHeight: 62 }} align="center">
-          {content.headword}
-        </Headword>
-      </View>
-    )
-    const meaning = (
-      <View style={{ alignItems: "center", gap: 8 }}>
-        <Text variant="title" align="center">
-          {content.meaning}
+  const { entry } = item.note
+  const senses = shownSenses(item.note)
+  const many = senses.length > 1
+  // The headword is in the language being learned, and its glosses in the learner's.
+  const language = entry.language
+  const learning = language === target
+  const takeaways = [...new Set(senses.flatMap((sense) => (sense.note === null ? [] : [sense.note])))]
+  const example = senses.find((sense) => sense.example !== null)?.example ?? null
+  const firstGloss = senses[0]?.glosses[0] ?? ""
+  const headword = (
+    <View style={{ alignItems: "center", gap: 4 }}>
+      {revealed || !learning ? (
+        <Text jp={language === "ja"} color="textMuted" size={18}>
+          {entry.reading.length > 0 && entry.reading !== entry.headword ? entry.reading : " "}
         </Text>
-        {content.hint ? <Chip tone="neutral" label={content.hint} /> : null}
-      </View>
-    )
-    // The side in the language being learned comes first.
-    const front = learning ? headword : meaning
-    const back = learning ? meaning : headword
-    return (
-      <View style={{ gap: theme.space.xl, alignItems: "center" }}>
-        <Text variant="label" color="textFaint">
-          {t.review.recallMeaning.toUpperCase()}
-        </Text>
-        {front}
-        {revealed ? (
-          <Animated.View
-            entering={FadeInDown.duration(260)}
-            style={{ gap: theme.space.lg, alignItems: "center", width: "100%" }}
-          >
-            <View style={{ height: 1, alignSelf: "stretch", backgroundColor: theme.color.border }} />
-            {back}
-            {/* Learners hear the side they're learning: the headword, or for an older note its English. */}
-            {learning ? (
-              content.audioUrl === null && language === "en" ? (
-                <AudioButton speak={{ text: content.headword, language }} size={44} />
-              ) : (
-                <AudioButton url={content.audioUrl} size={44} />
-              )
-            ) : (
-              <AudioButton speak={{ text: spokenGloss(content.meaning.split("; ")[0]!), language: target }} size={44} />
-            )}
-            {content.note ? (
-              <Text variant="small" color="textMuted" align="center">
-                {content.note}
-              </Text>
-            ) : null}
-            {content.example ? (
-              <View
-                style={{
-                  gap: 6,
-                  alignSelf: "stretch",
-                  backgroundColor: theme.color.surfaceMuted,
-                  borderRadius: theme.radius.md,
-                  padding: theme.space.md
-                }}
-              >
-                <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-end" }}>
-                  <View style={{ flex: 1 }}>
-                    {target === "en" ? (
-                      <Text variant="strong">{content.example.en}</Text>
-                    ) : (
-                      <Furigana text={content.example.ja} furigana={content.example.furigana} size={17} />
-                    )}
-                  </View>
-                  <AudioButton
-                    url={target === "en" ? (content.example.translationAudioUrl ?? null) : content.example.audioUrl}
-                    size={32}
-                  />
-                </View>
-                <Text jp={target === "en"} variant="small" color="textMuted">
-                  {target === "en" ? content.example.ja : content.example.en}
-                </Text>
-              </View>
-            ) : null}
-          </Animated.View>
-        ) : null}
-      </View>
-    )
-  }
-
-  const phrase =
-    target === "ja" ? (
-      <Furigana text={content.text} furigana={content.furigana} size={26} center />
-    ) : (
-      <Text variant="title" align="center">
-        {content.text}
-      </Text>
-    )
-  const meaning = (
-    <Text variant="heading" align="center">
-      {content.meaning}
-    </Text>
+      ) : null}
+      <Headword language={language} size={language === "ja" ? 52 : 44} style={{ lineHeight: 62 }} align="center">
+        {entry.headword}
+      </Headword>
+    </View>
   )
+  // Every sense the note shows, in the learner's order, each with its labels as a hint.
+  const meaning = (
+    <View style={{ alignItems: "center", gap: many ? 14 : 8, alignSelf: "stretch" }}>
+      {senses.map((sense, position) => {
+        const hint = senseHint(t, item.note, sense)
+        return (
+          <View key={sense.index} style={{ alignItems: "center", gap: 8 }}>
+            <Text variant={many ? "heading" : "title"} align="center">
+              {many ? `${position + 1}. ` : ""}
+              {glossLine(language, sense.glosses)}
+            </Text>
+            {hint === null ? null : <Chip tone="neutral" label={hint} />}
+          </View>
+        )
+      })}
+    </View>
+  )
+  // The side in the language being learned comes first.
+  const front = learning ? headword : meaning
+  const back = learning ? meaning : headword
   return (
     <View style={{ gap: theme.space.xl, alignItems: "center" }}>
       <Text variant="label" color="textFaint">
         {t.review.recallMeaning.toUpperCase()}
       </Text>
-      {content.register ? (
-        <Chip tone={registerTone[content.register]} label={t.check.register[content.register]} />
-      ) : null}
-      {phrase}
+      {front}
       {revealed ? (
         <Animated.View
           entering={FadeInDown.duration(260)}
           style={{ gap: theme.space.lg, alignItems: "center", width: "100%" }}
         >
           <View style={{ height: 1, alignSelf: "stretch", backgroundColor: theme.color.border }} />
-          {meaning}
-          <AudioButton speak={{ text: content.text, language: target }} size={44} />
-          {content.note ? (
-            <Text variant="small" color="textMuted" align="center">
-              {content.note}
+          {back}
+          {/* Learners hear the side they're learning: the headword, or its first meaning. */}
+          {learning ? (
+            entry.audioUrl === null && language === "en" ? (
+              <AudioButton speak={{ text: entry.headword, language }} size={44} />
+            ) : (
+              <AudioButton url={entry.audioUrl} size={44} />
+            )
+          ) : (
+            <AudioButton speak={{ text: spokenGloss(firstGloss), language: target }} size={44} />
+          )}
+          {takeaways.map((takeaway) => (
+            <Text key={takeaway} variant="small" color="textMuted" align="center">
+              {takeaway}
             </Text>
+          ))}
+          {example ? (
+            <View
+              style={{
+                gap: 6,
+                alignSelf: "stretch",
+                backgroundColor: theme.color.surfaceMuted,
+                borderRadius: theme.radius.md,
+                padding: theme.space.md
+              }}
+            >
+              <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-end" }}>
+                <View style={{ flex: 1 }}>
+                  {target === "en" ? (
+                    <Text variant="strong">{example.en}</Text>
+                  ) : (
+                    <Furigana text={example.ja} furigana={example.furigana} size={17} />
+                  )}
+                </View>
+                <AudioButton url={target === "en" ? example.translationAudioUrl : example.audioUrl} size={32} />
+              </View>
+              <Text jp={target === "en"} variant="small" color="textMuted">
+                {target === "en" ? example.ja : example.en}
+              </Text>
+            </View>
           ) : null}
         </Animated.View>
       ) : null}

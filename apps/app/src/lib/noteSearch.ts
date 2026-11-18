@@ -3,8 +3,6 @@ import {
   deinflect,
   englishPhraseVariants,
   englishSearchTerms,
-  furiganaToKana,
-  furiganaToText,
   hasJapanese,
   katakanaToHiragana,
   keepBest,
@@ -37,42 +35,30 @@ interface Hit {
 
 /** What a note is searched by. */
 interface Fields {
-  /** The language of the word or phrase being learned; its meanings and note are in the other one. */
+  /** The language of the word being learned; its meanings and notes are in the other one. */
   readonly language: "ja" | "en"
-  /** The word or phrase being learned, as written and in kana; the first is the headword. */
+  /** The word being learned, as written and in kana; the first is the headword. */
   readonly forms: ReadonlyArray<string>
-  /** Its meanings, one gloss each, in the learner's language. */
+  /** The meanings the note shows, one gloss each, in the learner's language. */
   readonly glosses: ReadonlyArray<string>
-  /** A usage note, matched only by its words. */
+  /** What the note says is worth remembering, matched only by its words. */
   readonly note: string | null
 }
 
 const unique = <A>(items: Iterable<A>) => [...new Set(items)]
 
-/** Glosses as `wordNote` joins them: "to eat; to dine", "食べる、食事をする". */
-const GLOSS_SEPARATOR = /\s*[;；、]\s*/
-
+/** A note is found by its entry and the senses it shows, not the ones the learner hid. */
 const fieldsOf = (note: Note): Fields => {
-  const content = note.content
-  if (content.kind === "word") {
-    const language = content.language ?? "ja"
-    // An English word's `reading` is IPA ("/rɛd/"), not a spelling to search by.
-    const rawForms = language === "en" ? [content.headword] : [content.headword, content.reading]
-    return {
-      language,
-      forms: unique(rawForms.filter((form) => form.length > 0)),
-      glosses: content.meaning.split(GLOSS_SEPARATOR).filter((gloss) => gloss.length > 0),
-      note: content.note ?? null
-    }
-  }
-  const { furigana } = content
-  const written =
-    furigana === null ? [content.text] : [furiganaToText(furigana), content.text, furiganaToKana(furigana)]
+  const { entry } = note
+  const shown = note.senses.filter((sense) => sense.shown)
+  // An English word's `reading` is IPA ("/rɛd/"), not a spelling to search by.
+  const rawForms = entry.language === "en" ? [entry.headword] : [entry.headword, entry.reading]
+  const notes = unique(shown.flatMap((sense) => (sense.note === null ? [] : [sense.note])))
   return {
-    language: furigana !== null || hasJapanese(content.text) ? "ja" : "en",
-    forms: unique(written.filter((form) => form.length > 0)),
-    glosses: [content.meaning],
-    note: content.note
+    language: entry.language,
+    forms: unique(rawForms.filter((form) => form.length > 0)),
+    glosses: unique(shown.flatMap((sense) => sense.glosses).filter((gloss) => gloss.length > 0)),
+    note: notes.length === 0 ? null : notes.join(" ")
   }
 }
 
@@ -323,27 +309,5 @@ export const searchNotes = (notes: ReadonlyArray<Note>, raw: string): NoteSearch
   return {
     match: best.length === 0 ? "none" : best.some((hit) => hit.strong) ? "exact" : "weak",
     notes: best.map((hit) => hit.note)
-  }
-}
-
-/**
- * Searches saved words and saved phrases separately so each tab has its own `match` ("Close
- * matches") and fallback thresholds while both tabs show their match counts. When `notes` is
- * empty (for instance after deleting the last note during a search), any lingering query is ignored.
- */
-export const searchNotesByKind = (
-  notes: ReadonlyArray<Note>,
-  raw: string
-): { readonly word: NoteSearchResult; readonly phrase: NoteSearchResult } => {
-  const active = notes.length > 0 ? raw : ""
-  return {
-    word: searchNotes(
-      notes.filter((note) => note.content.kind === "word"),
-      active
-    ),
-    phrase: searchNotes(
-      notes.filter((note) => note.content.kind === "phrase"),
-      active
-    )
   }
 }
