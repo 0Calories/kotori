@@ -11,7 +11,6 @@ tools/*/*
 !tools/*/package.json
 **/src
 **/test
-**/golden
 **/out-tsc
 **/*.tsbuildinfo
 .nx

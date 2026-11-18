@@ -1,7 +1,6 @@
 import { type Language, otherLanguage, ProposalRoute } from "@kotori/contracts"
 import type { ChoiceQuestion, EntryType } from "@typesafe-ai/sdk"
-import { averagedChoice } from "../nuance/interpret.ts"
-import { REVERSED, reversedChoice } from "../nuance/questions.ts"
+import { averagedChoice, REVERSED, reversedChoice } from "../providers/choices.ts"
 
 /**
  * Where an Ask Kotori query goes after the deterministic checks: Jev sorts it by what kind of

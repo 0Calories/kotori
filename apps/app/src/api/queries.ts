@@ -1,21 +1,21 @@
 import type {
   AddNoteRequest,
-  CardId,
   EntryId,
   HowToSayRequest,
   Language,
   NaturalnessRequest,
+  DueNotes,
   Note,
   NoteId,
   Proposal,
   Rating,
-  ReviewQueue,
   SpeakRequest,
   StudyStats
 } from "@kotori/contracts"
 import { keepPreviousData, useMutation, useMutationState, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { AskAttempt } from "../lib/ask.ts"
-import { queueWithoutNote, statsWithoutNote, withoutNote } from "../lib/collection.ts"
+import { dueWithoutNote, statsWithoutNote, withoutNote } from "../lib/deck.ts"
+import { onItsWay } from "../lib/entry.ts"
 import { call } from "./client.ts"
 
 export const keys = {
@@ -26,7 +26,7 @@ export const keys = {
   ask: (language: Language, key: string) => ["ask", language, key] as const,
   entry: (id: number) => ["entry", id] as const,
   notes: ["notes"] as const,
-  queue: ["queue"] as const,
+  due: ["due"] as const,
   stats: ["stats"] as const
 }
 
@@ -88,7 +88,7 @@ export const useEntry = (id: number) =>
     // While Kotori's worker is still enriching the entry, check back every few seconds.
     refetchInterval: (query) => {
       const enrichment = query.state.data?.enrichment
-      return enrichment && Object.values(enrichment).includes("queued") ? 3000 : false
+      return enrichment && Object.values(enrichment).some(onItsWay) ? 3000 : false
     }
   })
 
@@ -98,7 +98,7 @@ const useInvalidateStudy = () => {
   const client = useQueryClient()
   return () => {
     void client.invalidateQueries({ queryKey: keys.notes })
-    void client.invalidateQueries({ queryKey: keys.queue })
+    void client.invalidateQueries({ queryKey: keys.due })
     void client.invalidateQueries({ queryKey: keys.stats })
   }
 }
@@ -117,36 +117,36 @@ export const useRemoveNote = () => {
   return useMutation({
     mutationFn: (id: NoteId) => call((api) => api.study.removeNote({ params: { id } })),
     onSuccess: async (_result, id) => {
-      // Drop the note before the refetch returns, so the collection, the queue
+      // Drop the note before the refetch returns, so the deck, the due notes
       // and the due counts move together. Cancel in-flight reads first: one that
       // started before the delete would put the note back.
       await Promise.all([
         client.cancelQueries({ queryKey: keys.notes }),
-        client.cancelQueries({ queryKey: keys.queue }),
+        client.cancelQueries({ queryKey: keys.due }),
         client.cancelQueries({ queryKey: keys.stats })
       ])
       const notes = client.getQueryData<ReadonlyArray<Note>>(keys.notes)
       const note = notes?.find((row) => row.id === id)
-      const queue = client.getQueryData<ReviewQueue>(keys.queue)
+      const due = client.getQueryData<DueNotes>(keys.due)
       if (notes !== undefined) client.setQueryData(keys.notes, withoutNote(notes, id))
-      if (queue !== undefined) client.setQueryData(keys.queue, queueWithoutNote(queue, id))
+      if (due !== undefined) client.setQueryData(keys.due, dueWithoutNote(due, id))
       if (note !== undefined) {
         const stats = client.getQueryData<StudyStats>(keys.stats)
-        if (stats !== undefined) client.setQueryData(keys.stats, statsWithoutNote(stats, note, queue))
+        if (stats !== undefined) client.setQueryData(keys.stats, statsWithoutNote(stats, note, due))
       }
       invalidate()
     }
   })
 }
 
-export const useQueue = () =>
-  useQuery({ queryKey: keys.queue, queryFn: () => call((api) => api.study.queue({ query: { limit: 100 } })) })
+export const useDueNotes = () =>
+  useQuery({ queryKey: keys.due, queryFn: () => call((api) => api.study.due({ query: { limit: 100 } })) })
 
 export const useStats = () => useQuery({ queryKey: keys.stats, queryFn: () => call((api) => api.study.stats()) })
 
 export const useAnswer = () =>
   useMutation({
-    mutationFn: (input: { readonly id: CardId; readonly rating: Rating; readonly durationMs: number }) =>
+    mutationFn: (input: { readonly id: NoteId; readonly rating: Rating; readonly durationMs: number }) =>
       call((api) =>
         api.study.answer({ params: { id: input.id }, payload: { rating: input.rating, durationMs: input.durationMs } })
       )
@@ -160,7 +160,7 @@ export const useNaturalness = () =>
 export const useHowToSay = () =>
   useMutation({ mutationFn: (request: HowToSayRequest) => call((api) => api.coach.howToSay({ payload: request })) })
 
-/** Asks the worker to add nuance, examples and audio to an entry that has none yet. */
+/** Asks the worker to add example sentences and audio to an entry that has none yet. */
 export const useEnrich = (id: number) => {
   const client = useQueryClient()
   return useMutation({

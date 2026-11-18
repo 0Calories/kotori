@@ -1,25 +1,25 @@
 import { bigint, doublePrecision, index, integer, pgEnum, uuid } from "drizzle-orm/pg-core"
-import { type CardId, cards } from "./cards.ts"
-import { cardQueue, table, timestamptz } from "./columns.ts"
+import { retentionStage, table, timestamptz } from "./columns.ts"
+import { type NoteId, notes } from "./notes.ts"
 import { type UserId, users } from "./users.ts"
 
 export const rating = pgEnum("rating", ["again", "hard", "good", "easy"])
 
-/** Every answer, with the card's state before and after, for statistics and tuning. */
+/** Every review, with the note's schedule before and after, for statistics and tuning. */
 export const reviewLogs = table(
   "review_logs",
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    cardId: uuid()
-      .$type<CardId>()
+    noteId: uuid()
+      .$type<NoteId>()
       .notNull()
-      .references(() => cards.id, { onDelete: "cascade" }),
+      .references(() => notes.id, { onDelete: "cascade" }),
     userId: uuid()
       .$type<UserId>()
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     rating: rating().notNull(),
-    queueBefore: cardQueue().notNull(),
+    retentionStageBefore: retentionStage().notNull(),
     intervalBefore: integer().notNull(),
     interval: integer().notNull(),
     easeBefore: doublePrecision().notNull(),

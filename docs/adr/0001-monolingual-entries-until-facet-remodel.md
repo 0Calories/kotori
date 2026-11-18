@@ -1,0 +1,3 @@
+# Keep single-language `entries` rows until the faceted-entry remodel
+
+`GLOSSARY.md` models an `Entry` as carrying an English facet, a Japanese facet, or both when expressions pair as counterparts, and treats written shapes (including headwords and kana readings) as `Form`s distinct from IPA phonetics. In the database and HTTP contracts, `entries` currently stores one language per row (`language: "ja" | "en"`) with `headword` and `reading` columns (kana for Japanese, IPA for English) and links counterparts externally via `loan_links`. We are keeping this storage shape through the dictionary enrichment rollout so we do not block enrichment or migrate `entries` twice, deferring dual-faceted entries and splitting `forms` from IPA phonetics to a dedicated schema remodel.

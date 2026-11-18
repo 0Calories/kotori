@@ -32,7 +32,10 @@ const fromClaude = (error: ClaudeError): AiUnavailable | RateLimited => {
       return new AiUnavailable({ message: "Coaching isn't set up on this server yet (missing Anthropic credentials)." })
     case "refused":
       return new AiUnavailable({ message: "Kotori can't help with that request." })
-    default:
+    case "unavailable":
+    case "timed_out":
+    case "truncated":
+    case "invalid_output":
       return new AiUnavailable({ message: "Kotori couldn't finish that answer. Please try again." })
   }
 }

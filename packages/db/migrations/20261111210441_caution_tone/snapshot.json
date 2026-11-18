@@ -1,0 +1,37 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "8f532115-f7b0-43a1-b0e0-1877345cd0bd",
+  "prevIds": ["ff4661e2-6f0f-4e81-90a4-b286fbc852f4"],
+  "footprints": [
+    {
+      "statementType": "alter_enum",
+      "statementTarget": ["enum", "public", "caution_kind"],
+      "writes": ["s|enum|public.caution_kind"],
+      "reads": ["n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "alter",
+      "key": "enums\u0000[\"public\",\"caution_kind\"]",
+      "set": {
+        "values": [
+          "rude_upward",
+          "keigo_direction",
+          "set_phrase",
+          "particle_pattern",
+          "gendered_speech",
+          "wasei_eigo",
+          "textbook_english",
+          "directness",
+          "variety",
+          "confusable",
+          "collocation",
+          "tone"
+        ]
+      }
+    }
+  ]
+}

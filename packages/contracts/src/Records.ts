@@ -1,7 +1,21 @@
-import { entries, EntryId, forms, glosses, senses } from "@kotori/db"
+import {
+  Casting,
+  entries,
+  EntryId,
+  forms,
+  glosses,
+  SenseOrigin,
+  senses,
+  SentenceMedium,
+  SentenceTone,
+  SpeakerAge,
+  SpeakerGender
+} from "@kotori/db"
 import { createSelectSchema } from "drizzle-orm/effect-schema"
 import * as Schema from "effect/Schema"
 import * as Struct from "effect/Struct"
+
+export { Casting, SenseOrigin, SentenceMedium, SentenceTone, SpeakerAge, SpeakerGender }
 
 // Dictionary data as stored, close to JMDict's own structure, which English entries share: an
 // entry with its forms and senses, a sense with its glosses, in order. The importers build it,
@@ -24,7 +38,7 @@ const SenseRow = createSelectSchema(senses, {
   stagr: List,
   xrefs: List,
   antonyms: List,
-  sources: List
+  origins: Schema.Array(SenseOrigin)
 })
 
 export const GlossRecord = Schema.Struct(Struct.pick(createSelectSchema(glosses).fields, ["text", "type"]))
@@ -47,7 +61,7 @@ export const SenseRecord = Schema.Struct({
     "stagr",
     "xrefs",
     "antonyms",
-    "sources",
+    "origins",
     "wasei"
   ])
 })
@@ -57,6 +71,7 @@ export const EntryRecord = Schema.Struct({
   ...Struct.pick(createSelectSchema(entries, { id: EntryId }).fields, [
     "id",
     "language",
+    "source",
     "headword",
     "reading",
     "common",

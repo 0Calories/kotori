@@ -1,5 +1,6 @@
 import type { Example, Language } from "@kotori/contracts"
 import { View } from "react-native"
+import { useSession } from "../session/SessionProvider.tsx"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { AudioButton } from "./AudioButton.tsx"
 import { Furigana } from "./Furigana.tsx"
@@ -9,7 +10,8 @@ import { Text } from "./Text.tsx"
 
 /**
  * One example sentence, led and spoken in the word's language, the one being learned,
- * with the learner's own as its translation and note.
+ * with the learner's own as its translation and note. A sentence Kotori didn't write names
+ * where it is from (Tatoeba, Wiktionary).
  */
 export const ExampleRow = ({
   example,
@@ -23,6 +25,7 @@ export const ExampleRow = ({
   readonly mark?: string | undefined
 }) => {
   const theme = useTheme()
+  const { t } = useSession()
   const english = language === "en"
   const note = english ? example.noteJa : example.note
   return (
@@ -70,6 +73,11 @@ export const ExampleRow = ({
             </Text>
           </View>
         ) : null}
+        {example.source === "kotori" ? null : (
+          <Text variant="caption" color="textFaint" style={{ marginTop: 2 }}>
+            {t.entry.sourceName[example.source]}
+          </Text>
+        )}
       </View>
       <AudioButton url={english ? example.translationAudioUrl : example.audioUrl} />
     </View>

@@ -1,0 +1,1 @@
+ALTER TYPE "caution_kind" ADD VALUE 'tone';

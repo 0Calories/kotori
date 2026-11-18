@@ -2,6 +2,7 @@ import type { DraftEntry, EntryId, EntrySummary, Proposal, ProposalId } from "@k
 import { assert, describe, it } from "vitest"
 import {
   ASK_MIN_THINKING_MS,
+  ASK_PONDER_STAGE,
   ASK_STAGE_STARTS,
   type AskAttempt,
   type AskError,
@@ -21,8 +22,18 @@ const draft: DraftEntry = {
   headword: "ぴえん",
   reading: "ぴえん",
   spellings: [],
-  currency: "trendy",
-  senses: [{ glosses: ["boo-hoo (crying sound)"], partOfSpeech: "int", labels: ["net-sl"], note: null }]
+  frequency: 4,
+  labels: [{ code: "net-sl", severity: "warning", source: "kotori" }],
+  senses: [
+    {
+      index: 0,
+      glosses: ["boo-hoo (crying sound)"],
+      partsOfSpeech: [{ code: "int", name: "interjection" }],
+      labels: [],
+      usagePatterns: []
+    }
+  ],
+  cautions: []
 }
 
 const entry: EntrySummary = {
@@ -34,8 +45,7 @@ const entry: EntrySummary = {
   romaji: "",
   meanings: ["しかたがない"],
   partOfSpeech: "exp",
-  formality: null,
-  currency: null,
+  labels: [],
   inflection: [],
   audioUrl: null
 }
@@ -280,8 +290,19 @@ describe("Kotori's pose in the panel", () => {
     assert.deepStrictEqual(askMood({ phase: "offer" }, "weak"), { mood: "neutral", facing: "front" })
   })
 
-  it("thinks while asked", () => {
-    assert.deepStrictEqual(askMood({ phase: "thinking", since: 0 }, "none"), { mood: "thinking", facing: "front" })
+  it("reads while asked", () => {
+    assert.deepStrictEqual(askMood({ phase: "thinking", since: 0 }, "none"), { mood: "reading", facing: "front" })
+  })
+
+  it("reads through the first status lines, then thinks it over", () => {
+    const thinking = { phase: "thinking", since: 0 } as const
+    ASK_STAGE_STARTS.forEach((_, stage) => {
+      assert.strictEqual(
+        askMood(thinking, "none", stage).mood,
+        stage < ASK_PONDER_STAGE ? "reading" : "thinking",
+        `status line ${stage}`
+      )
+    })
   })
 
   it("celebrates side on (so its confetti flies) at a fresh draft, and is glad to see one again", () => {

@@ -44,7 +44,7 @@ export class Accounts extends Context.Service<
       const auth = yield* Auth
 
       const profile = Effect.fn("Accounts.profile")(function* (user: AuthUser) {
-        // The table's defaults make a pending learner of English speakers learning Japanese.
+        // The table's defaults make a pending Japanese learner.
         const row = yield* ensureUser(db, {
           id: user.id,
           displayName: user.name.trim() || null,

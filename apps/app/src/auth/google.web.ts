@@ -1,12 +1,15 @@
 import { managedAuth } from "./client.ts"
+import { capturedReturn } from "./googleCapture"
 import {
   buildGoogleIdTokenUrl,
   type GoogleLinkReturn,
   type GoogleReturn,
   ID_TOKEN_RETURN_PARAMS,
   LINK_PARAM,
+  LINK_STORAGE_KEY,
   LINK_VALUE,
   type PendingGoogleLink,
+  parsePendingLink,
   randomOAuthToken,
   readIdTokenReturn,
   readLinkReturn,
@@ -14,25 +17,9 @@ import {
   RETURN_PARAMS
 } from "./googleReturn.ts"
 
-const LINK_STORAGE_KEY = "kotori.googleLink"
-
 const readPendingLink = (): PendingGoogleLink | null => {
   try {
-    const raw = window.sessionStorage.getItem(LINK_STORAGE_KEY)
-    if (raw === null) return null
-    const parsed: unknown = JSON.parse(raw)
-    if (
-      typeof parsed === "object" &&
-      parsed !== null &&
-      typeof (parsed as Record<string, unknown>)["state"] === "string" &&
-      typeof (parsed as Record<string, unknown>)["nonce"] === "string"
-    ) {
-      return {
-        state: (parsed as Record<string, string>)["state"]!,
-        nonce: (parsed as Record<string, string>)["nonce"]!
-      }
-    }
-    return null
+    return parsePendingLink(window.sessionStorage.getItem(LINK_STORAGE_KEY))
   } catch {
     return null
   }
@@ -74,18 +61,6 @@ const redirect = (url: string, onCancel?: () => void): Promise<"cancelled"> =>
 
 const currentPage = () => window.location.origin + window.location.pathname
 
-const takeParams = (
-  predicate: (params: URLSearchParams) => boolean,
-  keys: ReadonlyArray<string>
-): URLSearchParams | null => {
-  const url = new URL(window.location.href)
-  if (!predicate(url.searchParams)) return null
-  const params = new URLSearchParams(url.searchParams)
-  for (const key of keys) url.searchParams.delete(key)
-  window.history.replaceState(window.history.state, "", url.toString())
-  return params
-}
-
 /**
  * On the web, sign-in goes through Managed Auth's `/sign-in/social/init` hop and returns a
  * verifier to trade with the challenge cookie on the API's origin. Account linking in Settings
@@ -106,12 +81,13 @@ export const google = {
     return redirect(buildGoogleIdTokenUrl({ clientId, redirectUri: currentPage(), state, nonce }), clearPendingLink)
   },
   /**
-   * The answer the page was loaded with, taken off the address bar so a reload doesn't
-   * replay it. Throws AuthError when Google or Managed Auth refused.
+   * The answer the page was loaded with, which `googleCapture.web.ts` took off the address bar
+   * at load. Handed out once, so a retry doesn't replay it. Throws AuthError when Google or
+   * Managed Auth refused.
    */
   returned: (): GoogleReturn => {
     if (readPendingLink() !== null) return null
-    const params = takeParams(
+    const params = capturedReturn.takeQuery(
       (q) => q.get(LINK_PARAM) !== LINK_VALUE && RETURN_PARAMS.some((name) => q.has(name)),
       RETURN_PARAMS
     )
@@ -120,21 +96,20 @@ export const google = {
   /** The answer when the Settings page comes back from linking Google. */
   linkReturned: (): GoogleLinkReturn => {
     const pending = readPendingLink()
+    // Taken either way: an `id_token` with no pending link in this tab is discarded.
+    const hashParams = capturedReturn.takeHash()
     if (pending !== null) {
-      const url = new URL(window.location.href)
-      const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""))
-      const inHash = ID_TOKEN_RETURN_PARAMS.some((name) => hashParams.has(name))
-      const inQuery = ID_TOKEN_RETURN_PARAMS.some((name) => url.searchParams.has(name))
-      if (inHash || inQuery) {
-        const params = inHash ? hashParams : new URLSearchParams(url.searchParams)
+      const queryParams = capturedReturn.takeQuery(
+        (q) => hashParams !== null || ID_TOKEN_RETURN_PARAMS.some((name) => q.has(name)),
+        ID_TOKEN_RETURN_PARAMS
+      )
+      const params = hashParams ?? queryParams
+      if (params !== null) {
         clearPendingLink()
-        url.hash = ""
-        for (const key of ID_TOKEN_RETURN_PARAMS) url.searchParams.delete(key)
-        window.history.replaceState(window.history.state, "", url.toString())
         return readIdTokenReturn(params, pending)
       }
     }
-    const params = takeParams((q) => q.get(LINK_PARAM) === LINK_VALUE, [LINK_PARAM, ...RETURN_PARAMS])
+    const params = capturedReturn.takeQuery((q) => q.get(LINK_PARAM) === LINK_VALUE, [LINK_PARAM, ...RETURN_PARAMS])
     return params === null ? null : readLinkReturn(params)
   }
 }

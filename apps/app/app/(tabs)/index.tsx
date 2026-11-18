@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react"
 import { type TextInput, useWindowDimensions, View } from "react-native"
 import Animated, { FadeIn, FadeInDown, LinearTransition } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { useAsks, useQueue, useSearch, useStats } from "../../src/api/queries.ts"
+import { useAsks, useDueNotes, useSearch, useStats } from "../../src/api/queries.ts"
 import { AskKotori } from "../../src/components/AskKotori.tsx"
 import { Button } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
@@ -20,7 +20,7 @@ import { Snow } from "../../src/components/Snow.tsx"
 import { ErrorState } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { strings } from "../../src/i18n/strings.ts"
-import { useSearchMascotPhase } from "../../src/lib/searchMascot.ts"
+import { SEARCH_THINKING_DELAY_MS, useReadingPhase } from "../../src/lib/readingPhase.ts"
 import { usePreference } from "../../src/session/preferences.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
@@ -53,16 +53,16 @@ const LANGUAGE_NAMES: Record<Language, { readonly short: string; readonly long: 
 const ReviewTeaser = () => {
   const { t } = useSession()
   const router = useRouter()
-  const queue = useQueue()
+  const dueNotes = useDueNotes()
   const stats = useStats()
-  const due = queue.data ? queue.data.counts.new + queue.data.counts.learning + queue.data.counts.review : 0
-  if (!queue.data) return null
+  const due = dueNotes.data ? dueNotes.data.counts.new + dueNotes.data.counts.learning + dueNotes.data.counts.review : 0
+  if (!dueNotes.data) return null
   return (
     <Animated.View entering={FadeInDown.duration(400)}>
       <Card style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
         <Mascot size={56} mood={due > 0 ? "neutral" : "sleepy"} />
         <View style={{ flex: 1, gap: 6 }}>
-          <Text variant="strong">{due > 0 ? t.dictionary.reviewCard(due) : t.dictionary.reviewCardNone}</Text>
+          <Text variant="strong">{due > 0 ? t.dictionary.reviewDue(due) : t.dictionary.reviewDueNone}</Text>
           {stats.data && stats.data.streak > 0 ? (
             <Chip tone="accent" icon="local_fire_department" label={t.dictionary.streak(stats.data.streak)} />
           ) : null}
@@ -93,9 +93,10 @@ export default function LookUpScreen() {
   useAsks()
   const searching = query.trim().length > 0
   // True from the first keystroke until this text's results arrive, debounce included.
-  // The pose stays neutral until that wait is long enough to be worth a change.
+  // Kotori holds still over the field while searching, and takes the thinking pose only
+  // once that wait has run very long.
   const loading = searching && (debounced !== query.trim() || search.isFetching)
-  const mascot = useSearchMascotPhase(loading)
+  const mascot = useReadingPhase(loading, SEARCH_THINKING_DELAY_MS) === "reading" ? "thinking" : "neutral"
 
   const history = recent.slice(0, MAX_RECENT)
   const remember = (term: string) => setRecent([term, ...recent.filter((r) => r !== term)].slice(0, MAX_RECENT))
@@ -189,7 +190,7 @@ export default function LookUpScreen() {
         <View style={{ marginTop: 24, marginHorizontal: theme.space.lg }}>
           <SearchField ref={input} value={query} onChangeText={setQuery} placeholder={t.dictionary.placeholder} />
           <View pointerEvents="none" style={{ position: "absolute", right: 62, top: -58 }}>
-            <Mascot size={70} mood={mascot} />
+            <Mascot size={70} mood={mascot} still={searching} />
           </View>
         </View>
 

@@ -20,7 +20,7 @@ import {
   Unauthorized
 } from "./Errors.ts"
 import { Language } from "./Language.ts"
-import { AddNoteRequest, AnswerRequest, AnswerResult, CardId, Note, NoteId, ReviewQueue, StudyStats } from "./Study.ts"
+import { AddNoteRequest, AnswerRequest, AnswerResult, DueNotes, Note, NoteId, StudyStats } from "./Study.ts"
 
 export class CurrentUser extends Context.Service<
   CurrentUser,
@@ -52,7 +52,11 @@ export const Health = Schema.Struct({
   /** Which optional providers are configured on this server. */
   features: Schema.Struct({
     coach: Schema.Boolean,
-    nuance: Schema.Boolean,
+    /**
+     * Whether Jev is configured: it reads a checked sentence's formality, and also routes Ask
+     * Kotori queries and judges seeded example sentences so they can be voiced.
+     */
+    formality: Schema.Boolean,
     audio: Schema.Boolean,
     /** Whether an email provider is configured (verification, reset and approval emails). */
     email: Schema.Boolean
@@ -79,7 +83,7 @@ export class AccountApi extends HttpApiGroup.make("account")
 export class DictionaryApi extends HttpApiGroup.make("dictionary")
   .add(
     // Searches the dictionary of the language the learner is learning: Japanese words for
-    // English speakers, English words for Japanese speakers.
+    // Japanese learners, English words for English learners.
     HttpApiEndpoint.get("search", "/search", {
       query: {
         q: Schema.String,
@@ -92,11 +96,17 @@ export class DictionaryApi extends HttpApiGroup.make("dictionary")
       success: Entry,
       error: NotFound
     }),
+    // Whether an entry's example sentences and audio are ready yet. Reads only; never queues work.
+    HttpApiEndpoint.get("enrichment", "/entries/:id/enrichment", {
+      params: { id: EntryId },
+      success: Enrichment,
+      error: NotFound
+    }),
     // Queue example sentences and audio for an entry that hasn't been enriched yet.
     HttpApiEndpoint.post("enrich", "/entries/:id/enrich", {
       params: { id: EntryId },
       success: Enrichment,
-      error: NotFound
+      error: [NotFound, RateLimited]
     }),
     // When a search found no exact match, ask Kotori to draft an entry (or name the one it missed).
     HttpApiEndpoint.post("ask", "/ask", {
@@ -139,12 +149,12 @@ export class StudyApi extends HttpApiGroup.make("study")
       success: HttpApiSchema.NoContent,
       error: NotFound
     }),
-    HttpApiEndpoint.get("queue", "/queue", {
+    HttpApiEndpoint.get("due", "/due", {
       query: { limit: Schema.optional(Schema.Int) },
-      success: ReviewQueue
+      success: DueNotes
     }),
-    HttpApiEndpoint.post("answer", "/cards/:id/answer", {
-      params: { id: CardId },
+    HttpApiEndpoint.post("answer", "/notes/:id/answer", {
+      params: { id: NoteId },
       payload: AnswerRequest,
       success: AnswerResult,
       error: NotFound
@@ -185,6 +195,6 @@ export class KotoriApi extends HttpApi.make("kotori")
   .annotateMerge(
     OpenApi.annotations({
       title: "Kotori API",
-      description: "Dictionary, coaching and spaced repetition for learners of Japanese and English."
+      description: "Dictionary, coaching and spaced repetition for Japanese and English learners."
     })
   ) {}

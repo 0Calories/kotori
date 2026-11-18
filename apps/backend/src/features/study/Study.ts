@@ -1,25 +1,22 @@
 import {
   type AddNoteRequest,
-  type AnswerLabels,
   type AnswerResult,
-  type CardId,
-  type CardSummary,
+  type DueCounts,
+  type DueNotes,
   type Note,
   NoteId,
   type Profile,
-  type QueueCounts,
   type Rating,
-  type ReviewQueue,
-  type StudyCard,
+  type RatingLabels,
   type StudyStats
 } from "@kotori/contracts"
 import {
-  answer as answerCard,
-  type CardState,
+  answer as answerNote,
   dayNumber,
   dayStart,
   defaultConfig,
   formatPreview,
+  type NoteState,
   preview,
   type ReviewContext
 } from "@kotori/srs"
@@ -27,76 +24,56 @@ import { Clock, Context, Effect, Layer, Option } from "effect"
 import { randomInt, randomUUID } from "node:crypto"
 import { Database } from "../../db/Database.ts"
 import { type Learner, scopedToUser } from "../../db/scopedToUser.ts"
-import { gatherQueue } from "./gather.ts"
+import { gatherDueNotes } from "./gather.ts"
 import {
-  answerCard as saveAnswer,
-  type CardRow,
-  type CardWithContent,
-  cardWithContent,
-  countAnswers,
+  allNotes,
+  countReviewed,
   deleteNote,
   insertNote,
   learningDue,
-  newCards,
+  newNotes,
   nextLearningDue,
   nextPosition,
-  noteCount,
-  type NoteRow,
+  noteById,
   type NoteDeletion,
-  notesWithCards,
-  noteWithCards,
-  queueCounts,
+  type NoteRow,
+  type NoteSchedule,
   retention,
   reviewDue,
   reviewDueTimes,
   savedWords,
+  saveReview,
+  stageCounts,
   studyDays
 } from "./queries.ts"
 import { utcOffsetMinutes } from "./time.ts"
 
-/** Learning cards due within this window can be shown early, as in Anki. */
+/** Learning notes due within this window can be shown early, as in Anki. */
 const LEARN_AHEAD = 20 * 60_000
 
-/** The scheduler's view of a card: it works in epoch milliseconds. */
-const toState = (card: CardRow): CardState => ({
-  queue: card.queue,
-  due: card.due.getTime(),
-  interval: card.interval,
-  ease: card.ease,
-  step: card.step,
-  reps: card.reps,
-  lapses: card.lapses,
-  lastReview: card.lastReview?.getTime() ?? null
+/** The scheduler's view of a note: it works in epoch milliseconds. */
+const toState = (note: NoteRow): NoteState => ({
+  retentionStage: note.retentionStage,
+  due: note.due.getTime(),
+  interval: note.interval,
+  ease: note.ease,
+  step: note.step,
+  reps: note.reps,
+  lapses: note.lapses,
+  lastReview: note.lastReview?.getTime() ?? null
 })
 
-const toStudyCard = (card: CardWithContent): StudyCard => ({
-  id: card.id,
-  noteId: card.noteId,
-  template: card.template,
-  queue: card.queue,
-  due: card.due,
-  interval: card.interval,
-  ease: card.ease,
-  reps: card.reps,
-  lapses: card.lapses,
-  leech: card.leech,
-  content: card.content
-})
-
-const toSummary = (card: CardRow): CardSummary => ({
-  id: card.id,
-  template: card.template,
-  queue: card.queue,
-  due: card.due,
-  interval: card.interval,
-  leech: card.leech
-})
-
-const toNote = (note: NoteRow, cards: ReadonlyArray<CardRow>): Note => ({
+const toNote = (note: NoteRow): Note => ({
   id: note.id,
   content: note.content,
   createdAt: note.createdAt,
-  cards: cards.map(toSummary)
+  retentionStage: note.retentionStage,
+  due: note.due,
+  interval: note.interval,
+  ease: note.ease,
+  reps: note.reps,
+  lapses: note.lapses,
+  leech: note.leech
 })
 
 export class Study extends Context.Service<
@@ -105,10 +82,10 @@ export class Study extends Context.Service<
     notes(user: Profile): Effect.Effect<ReadonlyArray<Note>>
     addNote(user: Profile, request: AddNoteRequest): Effect.Effect<Note>
     removeNote(user: Profile, id: NoteId): Effect.Effect<NoteDeletion>
-    queue(user: Profile, limit: number): Effect.Effect<ReviewQueue>
+    dueNotes(user: Profile, limit: number): Effect.Effect<DueNotes>
     answer(
       user: Profile,
-      id: CardId,
+      id: NoteId,
       rating: Rating,
       durationMs: number | undefined
     ): Effect.Effect<Option.Option<AnswerResult>>
@@ -121,10 +98,12 @@ export class Study extends Context.Service<
       const db = yield* Database
       const learnerOf = (user: Profile): Learner => scopedToUser(db, user.id)
 
-      const clockFor = (user: Profile, now: number) => ({ utcOffsetMinutes: utcOffsetMinutes(user.timezone, now) })
+      const clockFor = (user: Profile, now: number) => ({
+        utcOffsetMinutes: utcOffsetMinutes(user.timezone, now)
+      })
 
       const notes = Effect.fn("Study.notes")(function* (user: Profile) {
-        return (yield* notesWithCards(learnerOf(user))).map(({ cards, ...note }) => toNote(note, cards))
+        return (yield* allNotes(learnerOf(user))).map(toNote)
       })
 
       const addNote = Effect.fn("Study.addNote")(function* (user: Profile, request: AddNoteRequest) {
@@ -136,44 +115,31 @@ export class Study extends Context.Service<
           const saved = yield* savedWords(learner, [word.entryId])
           const existing = saved.find((row) => row.sense === word.senseIndex)
           if (existing !== undefined) {
-            const found = yield* noteWithCards(learner, existing.id)
-            if (Option.isSome(found)) {
-              const { cards, ...note } = found.value
-              return toNote(note, cards)
-            }
+            const found = yield* noteById(learner, existing.id)
+            if (Option.isSome(found)) return toNote(found.value)
           }
         }
 
         const now = new Date(yield* Clock.currentTimeMillis)
-        // One card per saved item: the target-language side.
-        const saved = yield* insertNote(
-          learner,
-          {
-            id: NoteId.make(randomUUID()),
-            kind: content.kind,
-            content,
-            entryId: word?.entryId ?? null,
-            sense: word?.senseIndex ?? null,
-            createdAt: now
-          },
-          [
-            {
-              template: "recognize",
-              queue: "new",
-              due: now,
-              seed: randomInt(2 ** 31),
-              position: yield* nextPosition(learner),
-              createdAt: now
-            }
-          ]
-        )
-        return toNote(saved.note, saved.cards)
+        const saved = yield* insertNote(learner, {
+          id: NoteId.make(randomUUID()),
+          kind: content.kind,
+          content,
+          entryId: word?.entryId ?? null,
+          sense: word?.senseIndex ?? null,
+          retentionStage: "new",
+          due: now,
+          seed: randomInt(2 ** 31),
+          position: yield* nextPosition(learner),
+          createdAt: now
+        })
+        return toNote(saved)
       })
 
       const removeNote = (user: Profile, id: NoteId) => deleteNote(learnerOf(user), id)
 
-      const labelsFor = (card: CardRow, ctx: ReviewContext): AnswerLabels => {
-        const shown = preview(toState(card), ctx, defaultConfig)
+      const labelsFor = (note: NoteRow, ctx: ReviewContext): RatingLabels => {
+        const shown = preview(toState(note), ctx, defaultConfig)
         return {
           again: formatPreview(shown.again, ctx.now),
           hard: formatPreview(shown.hard, ctx.now),
@@ -182,81 +148,71 @@ export class Study extends Context.Service<
         }
       }
 
-      const counts = Effect.fnUntraced(function* (user: Profile, now: number) {
+      /** The notes due now, by retention stage, within the learner's daily limits. */
+      const due = Effect.fnUntraced(function* (user: Profile, now: number) {
         const learner = learnerOf(user)
         const today = dayNumber(now, clockFor(user, now))
         const learning = yield* learningDue(learner, new Date(now + LEARN_AHEAD))
-        const reviewedToday = yield* countAnswers(learner, today, "review")
+        const reviewedToday = yield* countReviewed(learner, today, "review")
         const reviews = yield* reviewDue(learner, new Date(now), Math.max(user.dailyReviewLimit - reviewedToday, 0))
-        const introducedToday = yield* countAnswers(learner, today, "new")
-        const fresh = yield* newCards(learner, Math.max(user.dailyNewLimit - introducedToday, 0))
+        const introducedToday = yield* countReviewed(learner, today, "new")
+        const fresh = yield* newNotes(learner, Math.max(user.dailyNewLimit - introducedToday, 0))
         return { learning, reviews, fresh }
       })
 
-      const queue = Effect.fn("Study.queue")(function* (user: Profile, limit: number) {
+      const dueNotes = Effect.fn("Study.dueNotes")(function* (user: Profile, limit: number) {
         const now = yield* Clock.currentTimeMillis
-        const { learning, reviews, fresh } = yield* counts(user, now)
-        const ordered = gatherQueue(learning, reviews, fresh, new Date(now))
+        const { learning, reviews, fresh } = yield* due(user, now)
+        const ordered = gatherDueNotes(learning, reviews, fresh, new Date(now))
 
-        const items = ordered.slice(0, limit).map((card) => ({
-          card: toStudyCard(card),
-          labels: labelsFor(card, { now, ...clockFor(user, now), seed: card.seed })
+        const items = ordered.slice(0, limit).map((note) => ({
+          note: toNote(note),
+          labels: labelsFor(note, { now, ...clockFor(user, now), seed: note.seed })
         }))
-        const queueCounts: QueueCounts = { new: fresh.length, learning: learning.length, review: reviews.length }
+        const counts: DueCounts = { new: fresh.length, learning: learning.length, review: reviews.length }
         const nextDue = items.length === 0 ? Option.getOrNull(yield* nextLearningDue(learnerOf(user))) : null
-        const dueCards = ordered.map(({ noteId, queue }) => ({ noteId, queue }))
-        return { items, counts: queueCounts, dueCards, nextDue }
+        const all = ordered.map(({ id, retentionStage }) => ({ id, retentionStage }))
+        return { items, counts, all, nextDue }
       })
 
       const answer = Effect.fn("Study.answer")(function* (
         user: Profile,
-        id: CardId,
+        id: NoteId,
         rating: Rating,
         durationMs: number | undefined
       ) {
         const learner = learnerOf(user)
-        const found = yield* cardWithContent(learner, id)
+        const found = yield* noteById(learner, id)
         if (Option.isNone(found)) return Option.none()
-        const card = found.value
+        const note = found.value
         const now = yield* Clock.currentTimeMillis
-        const ctx: ReviewContext = { now, ...clockFor(user, now), seed: card.seed }
-        const outcome = answerCard(toState(card), rating, ctx, defaultConfig)
+        const ctx: ReviewContext = { now, ...clockFor(user, now), seed: note.seed }
+        const outcome = answerNote(toState(note), rating, ctx, defaultConfig)
 
-        const updated: CardWithContent = {
-          ...card,
-          ...outcome.card,
-          due: new Date(outcome.card.due),
-          lastReview: outcome.card.lastReview === null ? null : new Date(outcome.card.lastReview),
-          leech: card.leech || outcome.log.leech
+        const schedule: NoteSchedule = {
+          retentionStage: outcome.note.retentionStage,
+          due: new Date(outcome.note.due),
+          interval: outcome.note.interval,
+          ease: outcome.note.ease,
+          step: outcome.note.step,
+          reps: outcome.note.reps,
+          lapses: outcome.note.lapses,
+          leech: note.leech || outcome.log.leech,
+          lastReview: outcome.note.lastReview === null ? null : new Date(outcome.note.lastReview)
         }
-        yield* saveAnswer(
-          learner,
-          card.id,
-          {
-            queue: updated.queue,
-            due: updated.due,
-            interval: updated.interval,
-            ease: updated.ease,
-            step: updated.step,
-            reps: updated.reps,
-            lapses: updated.lapses,
-            leech: updated.leech,
-            lastReview: updated.lastReview
-          },
-          {
-            rating,
-            queueBefore: outcome.log.queueBefore,
-            intervalBefore: outcome.log.intervalBefore,
-            interval: outcome.log.interval,
-            easeBefore: outcome.log.easeBefore,
-            ease: outcome.log.ease,
-            delayMs: outcome.log.delay,
-            durationMs: durationMs ?? null,
-            reviewedAt: new Date(now),
-            studyDay: dayNumber(now, ctx)
-          }
-        )
-        return Option.some({ card: toStudyCard(updated), leech: outcome.log.leech })
+        yield* saveReview(learner, note.id, schedule, {
+          rating,
+          retentionStageBefore: outcome.log.retentionStageBefore,
+          intervalBefore: outcome.log.intervalBefore,
+          interval: outcome.log.interval,
+          easeBefore: outcome.log.easeBefore,
+          ease: outcome.log.ease,
+          delayMs: outcome.log.delay,
+          durationMs: durationMs ?? null,
+          reviewedAt: new Date(now),
+          studyDay: dayNumber(now, ctx)
+        })
+        return Option.some({ note: toNote({ ...note, ...schedule }), leech: outcome.log.leech })
       })
 
       const stats = Effect.fn("Study.stats")(function* (user: Profile) {
@@ -264,7 +220,7 @@ export class Study extends Context.Service<
         const now = yield* Clock.currentTimeMillis
         const clock = clockFor(user, now)
         const today = dayNumber(now, clock)
-        const { learning, reviews, fresh } = yield* counts(user, now)
+        const { learning, reviews, fresh } = yield* due(user, now)
 
         const days = yield* studyDays(learner)
         let streak = 0
@@ -275,9 +231,9 @@ export class Study extends Context.Service<
           expected--
         }
 
-        const byQueue = yield* queueCounts(learner)
-        const total = (filter: (row: (typeof byQueue)[number]) => boolean) =>
-          byQueue.filter(filter).reduce((sum, row) => sum + row.n, 0)
+        const byStage = yield* stageCounts(learner)
+        const total = (filter: (row: (typeof byStage)[number]) => boolean) =>
+          byStage.filter(filter).reduce((sum, row) => sum + row.n, 0)
 
         const answered = yield* retention(learner, today - 30)
         const dueTimes = yield* reviewDueTimes(learner, new Date(dayStart(today + 7, clock)))
@@ -289,19 +245,18 @@ export class Study extends Context.Service<
 
         return {
           due: { new: fresh.length, learning: learning.length, review: reviews.length },
-          reviewedToday: yield* countAnswers(learner, today),
+          reviewedToday: yield* countReviewed(learner, today),
           streak,
-          notes: yield* noteCount(learner),
-          cards: total(() => true),
-          unseen: total((row) => row.queue === "new"),
-          young: total((row) => row.queue !== "new" && !(row.queue === "review" && row.mature)),
-          mature: total((row) => row.queue === "review" && row.mature),
+          notes: total(() => true),
+          unseen: total((row) => row.retentionStage === "new"),
+          young: total((row) => row.retentionStage !== "new" && !(row.retentionStage === "review" && row.mature)),
+          mature: total((row) => row.retentionStage === "review" && row.mature),
           retention: answered.total === 0 ? null : 1 - answered.failed / answered.total,
           forecast
         }
       })
 
-      return Study.of({ notes, addNote, removeNote, queue, answer, stats })
+      return Study.of({ notes, addNote, removeNote, dueNotes, answer, stats })
     })
   )
 }

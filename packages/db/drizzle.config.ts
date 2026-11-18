@@ -1,10 +1,15 @@
 import { defineConfig } from "drizzle-kit"
+import { statSync } from "node:fs"
 
 // The repository's `.env.local` (written by the Neon CLI) and then `.env`, for the commands that
 // connect (studio, introspect); variables already in the environment win, then the first file.
+const nxLoadedDotEnv =
+  process.env["NX_TASK_TARGET_PROJECT"] !== undefined && process.env["NX_LOAD_DOT_ENV_FILES"] !== "false"
 for (const file of [".env.local", ".env"]) {
   try {
-    process.loadEnvFile(new URL(`../../${file}`, import.meta.url))
+    const url = new URL(`../../${file}`, import.meta.url)
+    if (nxLoadedDotEnv && statSync(url).isFIFO()) continue
+    process.loadEnvFile(url)
   } catch {
     // Absent: nothing to load.
   }

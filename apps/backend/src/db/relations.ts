@@ -13,6 +13,10 @@ export const relations = defineRelations(schema, (r) => ({
     senses: r.many.senses({ from: r.entries.id, to: r.senses.entryId }),
     glosses: r.many.glosses({ from: r.entries.id, to: r.glosses.entryId }),
     audio: r.one.entryAudio({ from: r.entries.id, to: r.entryAudio.entryId }),
+    frequency: r.one.entryFrequency({ from: r.entries.id, to: r.entryFrequency.entryId }),
+    cautions: r.many.cautions({ from: r.entries.id, to: r.cautions.entryId }),
+    loansFrom: r.many.loanLinks({ from: r.entries.id, to: r.loanLinks.katakanaEntryId }),
+    loansTo: r.many.loanLinks({ from: r.entries.id, to: r.loanLinks.englishEntryId }),
     jobs: r.many.jobs({ from: r.entries.id, to: r.jobs.entryId })
   },
   forms: {
@@ -21,21 +25,24 @@ export const relations = defineRelations(schema, (r) => ({
   senses: {
     entry: r.one.entries({ from: r.senses.entryId, to: r.entries.id, optional: false }),
     glosses: r.many.glosses({ from: [r.senses.entryId, r.senses.position], to: [r.glosses.entryId, r.glosses.sense] }),
-    nuance: r.one.senseNuance({
-      from: [r.senses.entryId, r.senses.position],
-      to: [r.senseNuance.entryId, r.senseNuance.sense]
-    }),
-    similar: r.many.similarWords({
-      from: [r.senses.entryId, r.senses.position],
-      to: [r.similarWords.entryId, r.similarWords.sense]
-    }),
     examples: r.many.examples({
       from: [r.senses.entryId, r.senses.position],
       to: [r.examples.entryId, r.examples.sense]
+    }),
+    labels: r.many.labels({
+      from: [r.senses.entryId, r.senses.position],
+      to: [r.labels.entryId, r.labels.sense]
+    }),
+    usagePatterns: r.many.usagePatterns({
+      from: [r.senses.entryId, r.senses.position],
+      to: [r.usagePatterns.entryId, r.usagePatterns.sense]
     })
   },
-  similarWords: {
-    similar: r.one.entries({ from: r.similarWords.similarId, to: r.entries.id, optional: false })
+  usagePatterns: {
+    about: r.one.entries({ from: r.usagePatterns.aboutEntryId, to: r.entries.id })
+  },
+  cautions: {
+    about: r.one.entries({ from: r.cautions.aboutEntryId, to: r.entries.id })
   },
   examples: {
     audio: r.many.exampleAudio({ from: r.examples.id, to: r.exampleAudio.exampleId })
@@ -50,19 +57,14 @@ export const relations = defineRelations(schema, (r) => ({
     file: r.one.audioFiles({ from: r.audio.key, to: r.audioFiles.key })
   },
   users: {
-    notes: r.many.notes({ from: r.users.id, to: r.notes.userId }),
-    cards: r.many.cards({ from: r.users.id, to: r.cards.userId })
+    notes: r.many.notes({ from: r.users.id, to: r.notes.userId })
   },
   notes: {
     user: r.one.users({ from: r.notes.userId, to: r.users.id, optional: false }),
     entry: r.one.entries({ from: r.notes.entryId, to: r.entries.id }),
-    cards: r.many.cards({ from: r.notes.id, to: r.cards.noteId })
-  },
-  cards: {
-    note: r.one.notes({ from: r.cards.noteId, to: r.notes.id, optional: false }),
-    reviews: r.many.reviewLogs({ from: r.cards.id, to: r.reviewLogs.cardId })
+    reviews: r.many.reviewLogs({ from: r.notes.id, to: r.reviewLogs.noteId })
   },
   reviewLogs: {
-    card: r.one.cards({ from: r.reviewLogs.cardId, to: r.cards.id, optional: false })
+    note: r.one.notes({ from: r.reviewLogs.noteId, to: r.notes.id, optional: false })
   }
 }))

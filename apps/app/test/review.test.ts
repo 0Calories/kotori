@@ -1,13 +1,12 @@
-import type { CardId, EntryId, NoteId, ReviewItem } from "@kotori/contracts"
+import type { EntryId, NoteId, ReviewItem } from "@kotori/contracts"
 import { assert, describe, it } from "vitest"
-import { shownReviewCard } from "../src/lib/review.ts"
+import { shownReviewNote } from "../src/lib/review.ts"
 
 const item = (id: string, good = "1d"): ReviewItem => ({
-  card: {
-    id: id as CardId,
-    noteId: "note" as NoteId,
-    template: "recognize",
-    queue: "review",
+  note: {
+    id: id as NoteId,
+    createdAt: new Date(0),
+    retentionStage: "review",
     due: new Date(0),
     interval: 1,
     ease: 2.5,
@@ -29,61 +28,61 @@ const item = (id: string, good = "1d"): ReviewItem => ({
   labels: { again: "1m", hard: "1d", good, easy: "4d" }
 })
 
-describe("the card on screen during review", () => {
-  it("opens on the head of the queue", () => {
-    assert.strictEqual(shownReviewCard([item("r1"), item("n1")], null, new Set())?.card.id, "r1")
-    assert.strictEqual(shownReviewCard([], null, new Set()), undefined)
+describe("the note on screen during review", () => {
+  it("opens on the first due note", () => {
+    assert.strictEqual(shownReviewNote([item("r1"), item("n1")], null, new Set())?.note.id, "r1")
+    assert.strictEqual(shownReviewNote([], null, new Set()), undefined)
   })
 
-  it("keeps the opening card when a refetch puts a different card first", () => {
+  it("keeps the opening note when a refetch puts a different note first", () => {
     const opening = [item("r1"), item("n1"), item("r2")]
-    const shown = shownReviewCard(opening, null, new Set())
-    assert.strictEqual(shown?.card.id, "r1")
+    const shown = shownReviewNote(opening, null, new Set())
+    assert.strictEqual(shown?.note.id, "r1")
 
-    // A learning card came due, so gathering again jumped it ahead of r1.
+    // A learning note came due, so gathering again jumped it ahead of r1.
     const refetched = [item("l1"), ...opening]
-    assert.strictEqual(refetched[0]?.card.id, "l1")
-    assert.strictEqual(shownReviewCard(refetched, shown ?? null, new Set())?.card.id, "r1")
+    assert.strictEqual(refetched[0]?.note.id, "l1")
+    assert.strictEqual(shownReviewNote(refetched, shown ?? null, new Set())?.note.id, "r1")
   })
 
-  it("keeps the card an answer advanced to when gathering again would show another", () => {
+  it("keeps the note an answer advanced to when gathering again would show another", () => {
     const before = [item("r1"), item("n1"), item("r2"), item("n2")]
-    const shown = shownReviewCard(before, null, new Set())
-    assert.strictEqual(shown?.card.id, "r1")
+    const shown = shownReviewNote(before, null, new Set())
+    assert.strictEqual(shown?.note.id, "r1")
 
-    // The session pins this before refetching: the next card in the queue it already has.
+    // The session pins this before refetching: the next of the due notes it already has.
     const answered = new Set(["r1"])
-    const advanced = shownReviewCard(before, shown ?? null, answered)
-    assert.strictEqual(advanced?.card.id, "n1")
+    const advanced = shownReviewNote(before, shown ?? null, answered)
+    assert.strictEqual(advanced?.note.id, "n1")
 
-    // New cards get re-spaced among the reviews that remain, so r2 is now the head.
+    // New notes get re-spaced among the reviews that remain, so r2 is now the head.
     const regathered = [item("r2"), item("n1"), item("n2")]
-    assert.notStrictEqual(regathered[0]?.card.id, advanced?.card.id)
-    assert.strictEqual(shownReviewCard(regathered, advanced ?? null, answered)?.card.id, "n1")
+    assert.notStrictEqual(regathered[0]?.note.id, advanced?.note.id)
+    assert.strictEqual(shownReviewNote(regathered, advanced ?? null, answered)?.note.id, "n1")
 
     // The answer settles and r1 leaves the local answered set. n1 stays.
-    assert.strictEqual(shownReviewCard(regathered, advanced ?? null, new Set())?.card.id, "n1")
+    assert.strictEqual(shownReviewNote(regathered, advanced ?? null, new Set())?.note.id, "n1")
   })
 
-  it("holds a card a refetch dropped until that card is answered", () => {
-    const shown = shownReviewCard([item("r1"), item("n1")], null, new Set())
-    assert.strictEqual(shownReviewCard([item("n1")], shown ?? null, new Set())?.card.id, "r1")
-    assert.strictEqual(shownReviewCard([item("n1")], shown ?? null, new Set(["r1"]))?.card.id, "n1")
+  it("holds a note a refetch dropped until that note is answered", () => {
+    const shown = shownReviewNote([item("r1"), item("n1")], null, new Set())
+    assert.strictEqual(shownReviewNote([item("n1")], shown ?? null, new Set())?.note.id, "r1")
+    assert.strictEqual(shownReviewNote([item("n1")], shown ?? null, new Set(["r1"]))?.note.id, "n1")
   })
 
-  it("uses the queue's newer copy of the pinned card", () => {
-    const shown = shownReviewCard([item("r1", "1d")], null, new Set())
-    const refreshed = shownReviewCard([item("r1", "2d"), item("n1")], shown ?? null, new Set())
-    assert.strictEqual(refreshed?.card.id, "r1")
+  it("uses the newer copy of the pinned note", () => {
+    const shown = shownReviewNote([item("r1", "1d")], null, new Set())
+    const refreshed = shownReviewNote([item("r1", "2d"), item("n1")], shown ?? null, new Set())
+    assert.strictEqual(refreshed?.note.id, "r1")
     assert.strictEqual(refreshed?.labels.good, "2d")
   })
 
-  it("shows a card again once a failed answer pins it back", () => {
-    const queue = [item("r1"), item("n1")]
-    const shown = shownReviewCard(queue, null, new Set())
-    const advanced = shownReviewCard(queue, shown ?? null, new Set(["r1"]))
-    assert.strictEqual(advanced?.card.id, "n1")
+  it("shows a note again once a failed answer pins it back", () => {
+    const due = [item("r1"), item("n1")]
+    const shown = shownReviewNote(due, null, new Set())
+    const advanced = shownReviewNote(due, shown ?? null, new Set(["r1"]))
+    assert.strictEqual(advanced?.note.id, "n1")
     // The request failed: the session pins r1 again and clears the answered mark.
-    assert.strictEqual(shownReviewCard(queue, shown ?? null, new Set())?.card.id, "r1")
+    assert.strictEqual(shownReviewNote(due, shown ?? null, new Set())?.note.id, "r1")
   })
 })

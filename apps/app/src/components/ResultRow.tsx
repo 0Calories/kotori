@@ -1,13 +1,14 @@
 import type { EntrySummary } from "@kotori/contracts"
 import { Pressable, View } from "react-native"
 import { posLabel } from "../i18n/strings.ts"
-import { currencyTone, formalityTone } from "../lib/tones.ts"
+import { labelItems, resultLabels } from "../lib/entry.ts"
 import { useSession } from "../session/SessionProvider.tsx"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { AudioButton } from "./AudioButton.tsx"
 import { Chip } from "./Chip.tsx"
 import { Headword } from "./Headword.tsx"
 import { Icon } from "./Icon.tsx"
+import { LabelTag } from "./LabelChips.tsx"
 import { PressableScale } from "./PressableScale.tsx"
 import { Text } from "./Text.tsx"
 
@@ -27,7 +28,7 @@ export const ResultRow = ({
   const theme = useTheme()
   const { t } = useSession()
   const pos = posLabel(t, entry.partOfSpeech)
-  const currency = entry.currency && entry.currency !== "current" ? entry.currency : null
+  const labels = labelItems(t, resultLabels(entry.labels))
   // A stored clip when there is one; otherwise voiced on demand, from the kana for a Japanese word.
   const speak = {
     text: entry.language === "ja" && entry.reading.length > 0 ? entry.reading : entry.headword,
@@ -64,11 +65,7 @@ export const ResultRow = ({
           <Text color="textMuted" numberOfLines={2}>
             {entry.meanings.join(entry.language === "ja" ? "; " : "、")}
           </Text>
-          {entry.inflection.length > 0 ||
-          entry.common ||
-          pos ||
-          currency ||
-          (entry.formality && entry.formality !== "neutral") ? (
+          {entry.inflection.length > 0 || entry.common || pos || labels.length > 0 ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
               {entry.inflection.length > 0 ? (
                 <Chip
@@ -79,10 +76,9 @@ export const ResultRow = ({
               ) : null}
               {entry.common ? <Chip label={t.dictionary.common} /> : null}
               {pos ? <Chip label={pos} /> : null}
-              {entry.formality && entry.formality !== "neutral" ? (
-                <Chip tone={formalityTone[entry.formality]} label={t.nuance.scale[entry.formality]} />
-              ) : null}
-              {currency ? <Chip tone={currencyTone[currency]} label={t.nuance.currency[currency]} /> : null}
+              {labels.map((item) => (
+                <LabelTag key={item.key} item={item} />
+              ))}
             </View>
           ) : null}
         </View>

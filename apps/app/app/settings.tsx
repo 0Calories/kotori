@@ -69,7 +69,7 @@ const ServerDiagnostics = () => {
           {apiUrl}
         </Text>
         <Feature label={`${t.tabs.check} · ${t.tabs.say} (Claude)`} on={health.data?.features.coach} />
-        <Feature label={`${t.nuance.formality} (Jev)`} on={health.data?.features.nuance} />
+        <Feature label={`${t.nuance.formality} (Jev)`} on={health.data?.features.formality} />
         <Feature label={`${t.common.listen} (ElevenLabs)`} on={health.data?.features.audio} />
         {health.data ? (
           <Text variant="caption" color="textFaint">

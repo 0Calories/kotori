@@ -58,6 +58,6 @@ export const updateUser = Effect.fn("accounts.updateUser")(function* (db: Databa
   return yield* userById(db, id)
 })
 
-/** Removes the profile; notes, cards, review logs and coach usage all cascade from it. */
+/** Removes the profile; notes, review logs and coach usage all cascade from it. */
 export const deleteUser = (db: DatabaseShape, id: UserId) =>
   db.delete(users).where(eq(users.id, id)).pipe(Effect.asVoid, Effect.orDie)

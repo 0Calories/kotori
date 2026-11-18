@@ -36,6 +36,10 @@ pnpm nx run <project>:<target>                         # Run a single project ta
 - **Tests require no external services**: Database tests run against in-process PGlite (`@effect/sql-pglite`) and auth tests use an in-memory fake — no Docker container, running server, or API keys are needed to run `pnpm test`.
 - **Pull requests**: Squash-merged into `main` with Conventional Commit titles (`feat(app): ...`, `fix: ...`) and `Closes #<issue>` when resolving an issue. Commit PR screenshots to the shared orphan `assets` branch under `<slug>/<file>`.
 
+## Coding standards
+
+Coding standards live in `CODING_STANDARDS.md`. Read it before writing or reviewing code.
+
 ## Agent skills
 
 ### Issue tracker

@@ -20,17 +20,20 @@ import { useEffect } from "react"
 import { Platform } from "react-native"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
 import { SafeAreaProvider } from "react-native-safe-area-context"
+import { retryOffline } from "../src/api/errors.ts"
 import { Button } from "../src/components/Button.tsx"
 import { iconFonts } from "../src/components/Icon.tsx"
 import { Screen } from "../src/components/Screen.tsx"
 import { MascotMessage } from "../src/components/States.tsx"
 import { isUnguardedRoute } from "../src/lib/legal.ts"
+import { sentryRedaction } from "../src/lib/sentryRedaction.ts"
 import { SessionProvider, useSession } from "../src/session/SessionProvider.tsx"
 import { ThemeProvider, useTheme } from "../src/theme/ThemeProvider.tsx"
 
 // Errors and traces go to Sentry (project `sparkwright/kotori-app`). The DSN only allows sending
 // events, and every shipped bundle contains it anyway. Development builds stay quiet unless
-// EXPO_PUBLIC_SENTRY_IN_DEV=on.
+// EXPO_PUBLIC_SENTRY_IN_DEV=on. On the web, `index.ts` has already taken Google's answer off the
+// address bar (`src/auth/googleCapture.web.ts`), so Sentry never records a navigation from a URL that carried it.
 Sentry.init({
   dsn: "https://545a5bb03825fe26735e49c85aa3fbff@o4511310091124736.ingest.us.sentry.io/4512368599564288",
   enabled: !__DEV__ || process.env.EXPO_PUBLIC_SENTRY_IN_DEV === "on",
@@ -42,7 +45,12 @@ Sentry.init({
   replaysOnErrorSampleRate: 1,
   replaysSessionSampleRate: 0,
   integrations: [Sentry.mobileReplayIntegration()],
-  enableNativeFramesTracking: !isRunningInExpoGo()
+  enableNativeFramesTracking: !isRunningInExpoGo(),
+  // Blanks Google sign-in's return parameters in any URL Sentry records.
+  beforeBreadcrumb: sentryRedaction.beforeBreadcrumb,
+  beforeSend: sentryRedaction.beforeSend,
+  beforeSendTransaction: sentryRedaction.beforeSendTransaction,
+  beforeSendSpan: sentryRedaction.beforeSendSpan
 })
 
 SplashScreen.preventAutoHideAsync().catch(() => {})
@@ -54,7 +62,7 @@ setAudioModeAsync({ playsInSilentMode: true }).catch(() => {})
 const swap = (uri: number) => ({ uri, display: FontDisplay.SWAP })
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 } }
+  defaultOptions: { queries: { retry: retryOffline, refetchOnWindowFocus: false, staleTime: 30_000 } }
 })
 
 // expo-status-bar icon color. A binding, so oxlint does not treat the attribute as a view style.
@@ -63,7 +71,7 @@ const statusBarStyle = "dark" as const
 const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
   const theme = useTheme()
   const { status, t, retry } = useSession()
-  // Public pages (/privacy, /terms) and /proto mock-ups need neither a session nor the API.
+  // Public legal pages (/privacy, /terms) need neither a session nor the API.
   const unguarded = isUnguardedRoute(usePathname())
   const ready = fontsLoaded && (unguarded || status !== "loading")
 
@@ -73,10 +81,15 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
 
   if (!ready) return null
 
-  if (status === "offline" && !unguarded) {
+  if ((status === "offline" || status === "unavailable") && !unguarded) {
     return (
       <Screen bottomInset={40}>
-        <MascotMessage mood="sleepy" title={t.appName} body={t.common.offline} size={140}>
+        <MascotMessage
+          mood={status === "offline" ? "sleepy" : "oops"}
+          title={t.appName}
+          body={status === "offline" ? t.common.offline : t.common.errors.trouble}
+          size={140}
+        >
           <Button label={t.common.retry} icon="refresh" onPress={retry} />
         </MascotMessage>
       </Screen>
@@ -87,11 +100,9 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
     <>
       <StatusBar style={statusBarStyle} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.color.background } }}>
-        {/* Unguarded: public legal pages and prototype mock-ups open without signing in. */}
+        {/* Unguarded: public legal pages open without signing in. */}
         <Stack.Screen name="privacy" />
         <Stack.Screen name="terms" />
-        <Stack.Screen name="proto/index" />
-        <Stack.Screen name="proto/[id]" />
         <Stack.Protected guard={status === "ready"}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="entry/[id]" />

@@ -1,16 +1,6 @@
 // The enrichment feature's interface for the rest of the backend: other features and the entry
 // points call these, never its queries directly.
-export {
-  type ExampleRow,
-  examplesFor,
-  loanWordsFor,
-  nuanceEntryIds,
-  nuanceFor,
-  outdatedNuanceEntryIds,
-  saveSenseNotes,
-  senseNotesFor,
-  similarFor
-} from "./queries.ts"
+export { type ExampleRow, examplesFor, judgedCasting } from "./queries.ts"
 export {
   claimJob,
   completeJob,
@@ -18,10 +8,13 @@ export {
   failJob,
   jobCounts,
   jobStatusFor,
+  queueNewJob,
   refillJob,
   releaseJob,
   requeueJob,
   requeueStaleJobs,
   type Job,
-  type JobKind
+  type JobKind,
+  type JobStatus
 } from "./jobs.ts"
+export { examplesToCome, sentencesHeard, sentencesToVoice } from "./voicing.ts"

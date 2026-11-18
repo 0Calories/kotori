@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Kotori for iOS, Android and the web",
-  "main": "expo-router/entry",
+  "main": "index.ts",
   "scripts": {
     "dev": "expo start",
     "web": "expo start --web",

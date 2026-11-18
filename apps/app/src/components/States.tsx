@@ -1,6 +1,6 @@
 import { View } from "react-native"
 import Animated, { FadeIn } from "react-native-reanimated"
-import { ApiError } from "../api/client.ts"
+import { apiErrorMessage } from "../api/errors.ts"
 import { useT } from "../session/SessionProvider.tsx"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Button } from "./Button.tsx"
@@ -47,14 +47,8 @@ export const MascotMessage = ({
 
 export const ErrorState = ({ error, onRetry }: { readonly error: unknown; readonly onRetry?: () => void }) => {
   const t = useT()
-  const message =
-    error instanceof ApiError
-      ? error.tag === "Offline"
-        ? t.common.offline
-        : error.message || t.common.somethingWrong
-      : t.common.somethingWrong
   return (
-    <MascotMessage mood="oops" body={message}>
+    <MascotMessage mood="oops" body={apiErrorMessage(t, error)}>
       {onRetry ? <Button label={t.common.retry} variant="soft" icon="refresh" onPress={onRetry} /> : null}
     </MascotMessage>
   )

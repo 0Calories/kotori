@@ -15,9 +15,10 @@ import { storage } from "./storage"
 /**
  * Where the learner is: signed out; signed in but waiting for approval (archived
  * looks the same); approved but yet to pick a language; or in. `offline` is the API
- * or Managed Auth being unreachable, which never throws credentials away.
+ * or Managed Auth being unreachable, and `unavailable` the API answering with something
+ * unexpected (a bug, or a response this build can't read); neither throws credentials away.
  */
-type Status = "loading" | "signedOut" | "pending" | "onboarding" | "ready" | "offline"
+type Status = "loading" | "signedOut" | "pending" | "onboarding" | "ready" | "offline" | "unavailable"
 
 export interface SignUp {
   readonly email: string
@@ -202,7 +203,8 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
     }
     load().catch((error: unknown) => {
       if (cancelled) return
-      setStatus(error instanceof ApiError && error.tag === "Unauthorized" ? "signedOut" : "offline")
+      if (!(error instanceof ApiError) || error.tag === "Offline") return setStatus("offline")
+      setStatus(error.tag === "Unauthorized" ? "signedOut" : "unavailable")
     })
     return () => {
       cancelled = true

@@ -1,16 +1,8 @@
 import { Effect, Layer } from "effect"
 import { describe, expect, it } from "vitest"
-import { englishExamplesSystem, examplesSystem, loanSystem } from "../src/examples/prompts.ts"
-import {
-  Claude,
-  describeLoan,
-  describeRequest,
-  ExamplesOutput,
-  ExampleWriter,
-  LoanOutput,
-  LoanWriter
-} from "../src/index.ts"
-import type { ExampleRequest, LoanRequest } from "../src/index.ts"
+import { englishExamplesSystem, examplesSystem } from "../src/examples/prompts.ts"
+import { Claude, describeRequest, ExamplesOutput, ExampleWriter } from "../src/index.ts"
+import type { ExampleRequest } from "../src/index.ts"
 
 const request: ExampleRequest = {
   language: "ja",
@@ -45,7 +37,7 @@ const written = (overrides: Partial<(typeof ExamplesOutput.Type)["senses"][numbe
 })
 
 /** A Claude that returns a fixed structured answer and records what it was asked. */
-const fakeClaude = (output: typeof ExamplesOutput.Type | typeof LoanOutput.Type) => {
+const fakeClaude = (output: typeof ExamplesOutput.Type) => {
   const asked: Array<{ system: string; prompt: string }> = []
   const layer = Layer.succeed(
     Claude,
@@ -66,7 +58,7 @@ const write = (output: unknown, to: ExampleRequest = request) => {
   const claude = fakeClaude(output as typeof ExamplesOutput.Type)
   return Effect.flatMap(ExampleWriter, (writer) => writer.write(to))
     .pipe(Effect.provide(ExampleWriter.layer.pipe(Layer.provide(claude.layer))), Effect.runPromise)
-    .then(({ examples, notes, dropped }) => ({ examples, notes, dropped, asked: claude.asked }))
+    .then(({ examples, dropped }) => ({ examples, dropped, asked: claude.asked }))
 }
 
 describe("examples prompt", () => {
@@ -83,9 +75,12 @@ describe("examples prompt", () => {
     expect(englishExamplesSystem).toContain('"gloss"')
   })
 
-  it("asks for Japanese notes and warnings in the polite style the app speaks in", () => {
+  it("asks for Japanese notes in the polite style the app speaks in", () => {
     expect(englishExamplesSystem).toContain("です・ます")
-    expect(loanSystem).toContain("です・ます")
+  })
+
+  it("asks for no usage note per sense: a sentence's note is about that sentence", () => {
+    for (const system of [examplesSystem, englishExamplesSystem]) expect(system).not.toMatch(/usage note/)
   })
 
   it("tells the writer which senses are dialect and keeps other notes separate", () => {
@@ -100,20 +95,22 @@ const group = (
   sense: number,
   examples: Array<ReturnType<typeof written>>,
   extra: Partial<Record<string, unknown>> = {}
-) => ({ sense, note: null, examples, ...extra }) as never
+) => ({ sense, examples, ...extra }) as never
 
 describe("ExampleWriter.write", () => {
-  it("flattens the speaker and normalises the variety label", async () => {
+  it("gathers the speaker signals into the sentence's casting and normalises the variety label", async () => {
     const { examples } = await write({ senses: [group(0, [written()])] })
     expect(examples).toHaveLength(1)
     expect(examples[0]).toMatchObject({
       sense: 0,
       formality: "casual",
-      speakerGender: "masculine",
-      speakerAge: "adult",
-      medium: "conversation",
-      variety: "kansai",
-      tone: "rough"
+      casting: {
+        speakerGender: "masculine",
+        speakerAge: "adult",
+        medium: "conversation",
+        variety: "kansai",
+        tone: "rough"
+      }
     })
   })
 
@@ -128,22 +125,7 @@ describe("ExampleWriter.write", () => {
     const { examples } = await write({
       senses: [group(1, [written({ variety: label, gloss: "must not" })])]
     })
-    expect(examples[0]?.variety).toBe(expected)
-  })
-
-  it("keeps the usage note of each known sense", async () => {
-    const { notes } = await write({
-      senses: [
-        group(0, [written()], { note: "Kansai speech." }),
-        group(1, []),
-        group(9, [], { note: "Not a listed sense." })
-      ]
-    })
-    // A Japanese word's note is for learners of Japanese, in English.
-    expect(notes).toEqual([
-      { sense: 0, note: "Kansai speech.", noteJa: null },
-      { sense: 1, note: null, noteJa: null }
-    ])
+    expect(examples[0]?.casting.variety).toBe(expected)
   })
 
   it("drops a sentence that uses another sense, or a meaning it wasn't given", async () => {
@@ -180,12 +162,11 @@ describe("ExampleWriter.write for English words", () => {
   }
 
   it("asks for English sentences with Japanese translations and notes", async () => {
-    const { examples, notes, asked } = await write(
+    const { examples, asked } = await write(
       {
         senses: [
           {
             sense: 0,
-            noteJa: "人間関係の気まずさにも、動作のぎこちなさにも使える。",
             examples: [
               {
                 gloss: "気まずい",
@@ -214,58 +195,17 @@ describe("ExampleWriter.write for English words", () => {
       furigana: "気まずい沈黙が流れた。",
       note: null,
       noteJa: "「awkward silence」は決まった言い方。",
-      variety: null
+      casting: {
+        speakerGender: "unspecified",
+        speakerAge: "adult",
+        medium: "narration",
+        variety: null,
+        tone: "neutral"
+      }
     })
-    // An English word's note is for Japanese speakers, in Japanese.
-    expect(notes).toEqual([{ sense: 0, note: null, noteJa: "人間関係の気まずさにも、動作のぎこちなさにも使える。" }])
   })
 
   it("leaves out an empty reading", () => {
     expect(describeRequest({ ...awkward, reading: "" })).toContain("Headword: awkward\n")
-  })
-})
-
-const loanRequest: LoanRequest = {
-  headword: "style",
-  reading: "/staɪl/",
-  meanings: ["様式; 型", "流行; ファッション", "花柱 [botany]"],
-  loanWord: "スタイル",
-  loanMeanings: ["(one's) figure; build; physique", "style"]
-}
-
-const writeLoan = (output: typeof LoanOutput.Type) => {
-  const claude = fakeClaude(output)
-  return Effect.flatMap(LoanWriter, (writer) => writer.write(loanRequest))
-    .pipe(Effect.provide(LoanWriter.layer.pipe(Layer.provide(claude.layer))), Effect.runPromise)
-    .then((trap) => ({ trap, asked: claude.asked }))
-}
-
-describe("LoanWriter.write", () => {
-  it("names the English word with its senses, and the katakana loan with its meanings", async () => {
-    const { asked } = await writeLoan({ loanTrap: "" })
-    expect(asked[0]?.system).toBe(loanSystem)
-    expect(asked[0]?.prompt).toBe(describeLoan(loanRequest))
-    expect(asked[0]?.prompt).toBe(
-      [
-        "English word: style (/staɪl/)",
-        "Its senses in the dictionary, in Japanese:",
-        "1. 様式; 型",
-        "2. 流行; ファッション",
-        "3. 花柱 [botany]",
-        "Katakana loanword: スタイル",
-        "Its meanings in Japanese, translated into English:",
-        "1. (one's) figure; build; physique",
-        "2. style"
-      ].join("\n")
-    )
-    // Not every listed sense is what the word means: the writer is told which to describe.
-    expect(loanSystem).toContain("its main everyday meaning")
-  })
-
-  it("keeps the warning Claude wrote, and none when it is blank", async () => {
-    expect((await writeLoan({ loanTrap: " 日本語の「スタイル」は体型を指すことが多いです。 " })).trap).toBe(
-      "日本語の「スタイル」は体型を指すことが多いです。"
-    )
-    expect((await writeLoan({ loanTrap: "  " })).trap).toBeNull()
   })
 })

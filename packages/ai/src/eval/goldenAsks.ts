@@ -14,12 +14,12 @@ const a = (query: string, language: Language, expect: AskRoute): GoldenAsk => ({
  * Queries with known routes for `kotori eval asks`, in both learning directions: real words
  * and idioms the dictionary lacks (lookups, however new or misspelled), sentences that belong
  * to the Coach, names, the wrong language, and mash. Lookups must be missing from the dictionary
- * (`data/eiwa`, `data/jmdict`): one it answers is never asked about, so never reaches Jev. Some
+ * (`data/english`, `data/jmdict`): one it answers is never asked about, so never reaches Jev. Some
  * cases are turned away by the free checks before Jev; the eval reports those apart. Seeded from
  * what learners typed; add to it whenever the router sends a real lookup elsewhere.
  */
 export const GOLDEN_ASKS: ReadonlyArray<GoldenAsk> = [
-  // Lookups a learner of English might type: slang, idioms, variants, misspellings.
+  // Lookups an English learner might type: slang, idioms, variants, misspellings.
   a("bussin", "en", "lookup"),
   a("aura farming", "en", "lookup"),
   a("living rent free", "en", "lookup"),
@@ -36,7 +36,7 @@ export const GOLDEN_ASKS: ReadonlyArray<GoldenAsk> = [
   a("rage bait", "en", "lookup"),
   a("brainrot", "en", "lookup"),
   a("bang for your buck", "en", "lookup"),
-  // Lookups a learner of Japanese might type, in kana, kanji or rōmaji.
+  // Lookups a Japanese learner might type, in kana, kanji or rōmaji.
   a("てぇてぇ", "ja", "lookup"),
   a("蛙化", "ja", "lookup"),
   a("しか勝たん", "ja", "lookup"),

@@ -1,4 +1,4 @@
-import { type ComponentProps, type ReactNode, useEffect, useMemo, useState } from "react"
+import { type ComponentProps, createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react"
 import { StyleSheet, View } from "react-native"
 import Animated, {
   cancelAnimation,
@@ -13,15 +13,19 @@ import Animated, {
 } from "react-native-reanimated"
 import Svg, { Circle, Ellipse, G, Path } from "react-native-svg"
 import {
+  catchlightDx,
   confetti,
   type Facing,
   frontMoods,
   frontShapes,
   type Mood,
   palette,
+  puffPath,
+  readingShapes,
   shapes,
   sparklePath,
-  thinkingShapes
+  thinkingShapes,
+  trailPath
 } from "../mascot/geometry.ts"
 import {
   type ClipName,
@@ -30,15 +34,20 @@ import {
   confettiFor,
   entrances,
   idles,
+  type LandingPart,
   loops,
   type Part,
   type Piece,
   pieceAt,
   pieceTransform,
   poseAt,
+  puffParts,
   type SparklePart,
   sparkleParts,
+  type SparkPart,
+  sparkParts,
   sparklesFor,
+  trailParts,
   viewTransform,
   type ZPart,
   zParts
@@ -49,7 +58,8 @@ export type { Facing, Mood }
 /** The eyes and catchlight of one of Kotori's views. */
 type Face = {
   readonly eyes: readonly { readonly cx: number; readonly cy: number; readonly rx: number; readonly ry: number }[]
-  readonly catchlight: { readonly dx: number; readonly dy: number; readonly r: number }
+  /** `inward` mirrors `dx` on the eye right of the middle, so both catch the light on the beak's side. */
+  readonly catchlight: { readonly dx: number; readonly dy: number; readonly r: number; readonly inward?: boolean }
 }
 
 const Eyes = ({ mood, face = shapes }: { readonly mood: Mood; readonly face?: Face }) => {
@@ -82,7 +92,12 @@ const Eyes = ({ mood, face = shapes }: { readonly mood: Mood; readonly face?: Fa
   return face.eyes.map((e) => (
     <G key={e.cx}>
       <Ellipse cx={e.cx} cy={e.cy} rx={e.rx * scale} ry={e.ry * scale} fill={palette.ink} />
-      <Circle cx={e.cx + catchlight.dx} cy={e.cy + catchlight.dy} r={catchlight.r} fill={palette.white} />
+      <Circle
+        cx={e.cx + catchlightDx(catchlight, e.cx)}
+        cy={e.cy + catchlight.dy}
+        r={catchlight.r}
+        fill={palette.white}
+      />
     </G>
   ))
 }
@@ -133,6 +148,16 @@ const repeat = (channel: Channel, name: ClipName | null, delay: number) => {
 /** What Kotori is playing: the mood's entrance, then its loop over the entrance's last frame, and its idle clip over both. */
 type Motion = { readonly entrance: Channel; readonly loop: Channel; readonly idle: Channel }
 
+/** Set by `Mascot` when the screen asks Kotori to keep `still`. */
+const StillContext = createContext(false)
+
+/** Whether Kotori holds its pose: the user prefers reduced motion, or the screen asked it to keep still. */
+const useStill = () => {
+  const reduceMotion = useReducedMotion()
+  const still = useContext(StillContext)
+  return reduceMotion || still
+}
+
 /**
  * Plays `mood`'s entrance and loop, and its idle clip now and then; with
  * reduced motion, holds the mood's pose and plays no idle. A view starts on the
@@ -140,7 +165,7 @@ type Motion = { readonly entrance: Channel; readonly loop: Channel; readonly idl
  * appears with the mood doesn't jump.
  */
 const useMotion = (mood: Mood): Motion => {
-  const reduceMotion = useReducedMotion()
+  const reduceMotion = useStill()
   const enter = entrances[mood] ?? null
   const entrance = useChannel(enter, reduceMotion && enter !== null ? clips[enter].duration : 0)
   const loop = useChannel(null, 0)
@@ -366,7 +391,7 @@ const Side = ({
   readonly mood: Mood
   readonly facing?: "left" | "right"
 }) => {
-  const reduceMotion = useReducedMotion()
+  const reduceMotion = useStill()
   const enter = entrances[mood] ?? null
   const motion = useMotion(mood)
   const bird = usePartStyle("bird", size, motion)
@@ -488,7 +513,7 @@ const ThoughtBubble = ({ size, motion }: { readonly size: number; readonly motio
  * bubble above its head.
  */
 const Front = ({ size, mood }: { readonly size: number; readonly mood: Mood }) => {
-  const reduceMotion = useReducedMotion()
+  const reduceMotion = useStill()
   const motion = useMotion(mood)
   const eyes = usePartStyle("eyes", size, motion)
   const shutEyes = usePartStyle("eyes", size, motion, true)
@@ -532,29 +557,244 @@ const Front = ({ size, mood }: { readonly size: number; readonly mood: Mood }) =
   )
 }
 
+/** A page of Kotori's dictionary, its far edge and its print. */
+const Page = ({ side }: { readonly side: 0 | 1 }) => {
+  const { book } = readingShapes
+  return (
+    <>
+      <Path d={book.pages[side]} fill={palette.paper} />
+      <Path d={book.edges[side]} stroke={palette.shade} strokeWidth={2.2} strokeLinecap="round" fill="none" />
+      <Path
+        d={book.print[side]}
+        stroke={palette.ink}
+        strokeOpacity={0.45}
+        strokeWidth={2.4}
+        strokeLinecap="round"
+        fill="none"
+      />
+    </>
+  )
+}
+
+/**
+ * A puff of dust, a spark or a spark's trail that the dictionary throws up
+ * as it lands, from the foot of its spine, a spark and its trail in the
+ * spark's `color`. It shows only as the book takes its place, grown on a
+ * small Kotori as celebrate's sparkles are (see `sparklesFor`).
+ */
+const Landing = ({
+  part,
+  size,
+  entrance,
+  color = palette.white
+}: {
+  readonly part: LandingPart
+  readonly size: number
+  readonly entrance: Channel
+  readonly color?: string
+}) => {
+  const style = useAnimatedStyle(() => {
+    const pose = combine(poseAt(entrance.clip.get(), part, entrance.time.get()), sparklesFor(size))
+    return { opacity: pose.opacity, transform: viewTransform(pose, part, size) }
+  })
+  const { origin, puff, sparks } = readingShapes.landing
+  return (
+    <Layer style={style} size={size}>
+      {part === "puff0" || part === "puff1" ? (
+        <Path
+          d={puffPath({ cx: origin.x, cy: origin.y, r: puff })}
+          fill={palette.white}
+          stroke={palette.paperLine}
+          strokeWidth={1.6}
+          strokeLinejoin="round"
+        />
+      ) : part in sparks ? (
+        <Path d={sparklePath({ cx: origin.x, cy: origin.y, r: sparks[part as SparkPart].r })} fill={color} />
+      ) : (
+        <Path d={trailPath(origin)} fill={color} fillOpacity={0.6} />
+      )}
+    </Layer>
+  )
+}
+
+/** A wing as Kotori holds it, in ink. */
+const Wing = ({ d }: { readonly d: string }) => <Path d={d} fill={palette.ink} />
+
+/**
+ * Kotori reading, facing the viewer in round glasses over an open dictionary.
+ * Taking up the book, it puts its glasses on and the book drops in front of
+ * it (see `startReading`), puffing out dust from under its spine as sparks
+ * fly out from there; then its eyes run along the lines and now and then
+ * blink, and its left wing turns the pages. Every part that moves as it does
+ * is a layer of its own, the page it turns and that wing over the book and
+ * under the other wing, the dust behind the spine and the sparks over it all.
+ */
+const Reading = ({ size }: { readonly size: number }) => {
+  const motion = useMotion("reading")
+  const foldedWing0 = usePartStyle("foldedWing0", size, motion)
+  const foldedWing1 = usePartStyle("foldedWing1", size, motion)
+  const cheeks = usePartStyle("cheeks", size, motion)
+  const eyes = usePartStyle("eyes", size, motion)
+  const shutEyes = usePartStyle("eyes", size, motion, true)
+  const lookingEyes = usePartStyle("lookingEyes", size, motion)
+  const glassesStyle = usePartStyle("glasses", size, motion)
+  const bookStyle = usePartStyle("book", size, motion)
+  const spineStyle = usePartStyle("book", size, motion)
+  const page = usePartStyle("page", size, motion)
+  const pageWing = usePartStyle("pageWing", size, motion)
+  const bookWing = usePartStyle("bookWing", size, motion)
+  const { glasses, book, wings } = readingShapes
+  const { feet } = frontShapes
+
+  return (
+    <>
+      <Layer style={foldedWing1} size={size}>
+        <Wing d={frontShapes.wings[1]} />
+      </Layer>
+      <Layer style={foldedWing0} size={size}>
+        <Wing d={frontShapes.wings[0]} />
+      </Layer>
+      <Canvas size={size}>
+        {frontShapes.tuft.map((t) => (
+          <Circle key={t.cx} cx={t.cx} cy={t.cy} r={t.r} fill={palette.cream} />
+        ))}
+        <Path d={frontShapes.body} fill={palette.cream} />
+        <Path d={frontShapes.shade} fill={palette.shade} />
+        <Path d={frontShapes.belly} fill={palette.white} fillOpacity={0.4} />
+        {[feet.left, feet.right].map((d) => (
+          <Path key={d} d={d} stroke={palette.ink} strokeWidth={feet.width} strokeLinecap="round" />
+        ))}
+        <Path d={frontShapes.beak} fill={palette.ink} />
+      </Canvas>
+      <Layer style={cheeks} size={size}>
+        {readingShapes.cheeks.map((c) => (
+          <Ellipse key={c.cx} cx={c.cx} cy={c.cy} rx={c.rx} ry={c.ry} fill={palette.blush} />
+        ))}
+      </Layer>
+      <Layer style={eyes} size={size}>
+        <Eyes mood="reading" face={readingShapes} />
+      </Layer>
+      <Layer style={shutEyes} size={size}>
+        <Eyes mood="sleepy" face={readingShapes} />
+      </Layer>
+      <Layer style={lookingEyes} size={size}>
+        <Eyes mood="neutral" face={frontShapes} />
+      </Layer>
+      <Layer style={glassesStyle} size={size}>
+        {glasses.lenses.map((l) => (
+          <Circle
+            key={l.cx}
+            cx={l.cx}
+            cy={l.cy}
+            r={l.r}
+            stroke={palette.frame}
+            strokeWidth={glasses.stroke}
+            fill="none"
+          />
+        ))}
+        <Path
+          d={glasses.bridge}
+          stroke={palette.frame}
+          strokeWidth={glasses.stroke}
+          strokeLinecap="round"
+          fill="none"
+        />
+      </Layer>
+      <Layer style={bookStyle} size={size}>
+        <Path d={book.coverTop} fill={palette.leatherDark} />
+        {book.stacks.map((d) => (
+          <Path key={d} d={d} fill={palette.paperEdge} />
+        ))}
+        <Path d={book.stackLines} stroke={palette.paperLine} strokeWidth={1.8} strokeLinecap="round" fill="none" />
+        <Path d={book.coverEdge} fill={palette.leather} />
+        <Page side={0} />
+        <Page side={1} />
+        <Path d={book.gutter} stroke={palette.shade} strokeWidth={2.6} fill="none" />
+      </Layer>
+      <Layer style={page} size={size}>
+        <Page side={0} />
+      </Layer>
+      <Layer style={pageWing} size={size}>
+        <Wing d={wings[0]} />
+      </Layer>
+      <Layer style={bookWing} size={size}>
+        <Wing d={wings[1]} />
+      </Layer>
+      {puffParts.map((part) => (
+        <Landing key={part} part={part} size={size} entrance={motion.entrance} />
+      ))}
+      <Layer style={spineStyle} size={size}>
+        <Path d={book.spine} fill={palette.leather} />
+        <Path d={book.spineHollow} fill={palette.leatherDark} />
+      </Layer>
+      {sparkParts.map((spark, i) => (
+        <Landing
+          key={trailParts[i]}
+          part={trailParts[i] ?? spark}
+          size={size}
+          entrance={motion.entrance}
+          color={palette[readingShapes.landing.sparks[spark].color]}
+        />
+      ))}
+      {sparkParts.map((spark) => (
+        <Landing
+          key={spark}
+          part={spark}
+          size={size}
+          entrance={motion.entrance}
+          color={palette[readingShapes.landing.sparks[spark].color]}
+        />
+      ))}
+    </>
+  )
+}
+
 /**
  * Kotori, the shima enaga. Changes expression with `mood` and angle with
  * `facing`, plays the mood's entrance and loop from `motion.ts`, confetti and
  * all, and now and then blinks; with reduced motion it holds each mood's pose,
  * and doesn't blink, throw confetti or glint.
  * Thinking, it faces the viewer and holds still under a thought bubble that
- * rises above its `size` box. Every moving part is a layer placed with plain
- * view transforms, so a clip plays the same way on iOS, Android and the web.
+ * rises above its `size` box. Reading, it faces the viewer: it puts on its
+ * glasses and a dictionary drops open in front of it, then its eyes run along
+ * the lines as its wing turns the pages.
+ *
+ * Kotori reads whenever it is fetching, looking up or writing something for
+ * the learner: a slow dictionary search, a screen loading its content (after
+ * `useReadingPhase`'s delay), example sentences being written, and the first
+ * part of an ask. It thinks when working something out, as an ask runs on,
+ * and over a verdict that needs a second look.
+ *
+ * `still` holds every mood's pose as reduced motion does, for a place where
+ * movement would distract, such as the search field while a search runs.
+ *
+ * Every moving part is a layer placed with plain view transforms, so a clip
+ * plays the same way on iOS, Android and the web.
  */
 export const Mascot = ({
   size = 120,
   mood = "neutral",
-  facing = "left"
+  facing = "left",
+  still = false
 }: {
   readonly size?: number
   readonly mood?: Mood
   readonly facing?: Facing
+  readonly still?: boolean
 }) => (
-  <View style={{ width: size, height: size }} accessibilityRole="image" accessibilityLabel="Kotori the long-tailed tit">
-    {facing === "front" || frontMoods.has(mood) ? (
-      <Front size={size} mood={mood} />
-    ) : (
-      <Side size={size} mood={mood} facing={facing} />
-    )}
-  </View>
+  <StillContext value={still}>
+    <View
+      style={{ width: size, height: size }}
+      accessibilityRole="image"
+      accessibilityLabel="Kotori the long-tailed tit"
+    >
+      {mood === "reading" ? (
+        <Reading size={size} />
+      ) : facing === "front" || frontMoods.has(mood) ? (
+        <Front size={size} mood={mood} />
+      ) : (
+        <Side size={size} mood={mood} facing={facing} />
+      )}
+    </View>
+  </StillContext>
 )

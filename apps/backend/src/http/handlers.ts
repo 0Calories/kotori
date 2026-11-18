@@ -1,6 +1,5 @@
 import { Claude, Jev, Pronouncer } from "@kotori/ai"
 import { CurrentUser, InvalidRequest, KotoriApi, NotFound } from "@kotori/contracts"
-import * as Sentry from "@sentry/effect/server"
 import { Effect, Layer, Option } from "effect"
 import { HttpApiBuilder } from "effect/http-api"
 import { Database } from "../db/Database.ts"
@@ -36,7 +35,7 @@ const SystemHandlers = HttpApiBuilder.group(
             version: VERSION,
             features: {
               coach: yield* claude.available,
-              nuance: jev.configured,
+              formality: jev.configured,
               audio: pronouncer.configured,
               email: mailer.configured
             },
@@ -73,13 +72,12 @@ const DictionaryHandlers = HttpApiBuilder.group(
           dictionary.search(query.q, user.profile.targetLanguage, Math.min(Math.max(query.limit ?? 30, 1), 100))
         ),
       entry: ({ params }) => dictionary.entry(params.id).pipe(Effect.flatMap(orNotFound("No such entry"))),
-      enrich: ({ params }) => dictionary.requestEnrichment(params.id).pipe(Effect.flatMap(orNotFound("No such entry"))),
-      ask: ({ payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          yield* Effect.sync(() => Sentry.setUser({ id: user.id }))
-          return yield* asksService.ask(user.profile, payload.q)
-        }),
+      enrichment: ({ params }) => dictionary.enrichment(params.id).pipe(Effect.flatMap(orNotFound("No such entry"))),
+      enrich: ({ params }) =>
+        Effect.flatMap(CurrentUser, (user) =>
+          dictionary.requestEnrichment(params.id, user.profile.id).pipe(Effect.flatMap(orNotFound("No such entry")))
+        ),
+      ask: ({ payload }) => Effect.flatMap(CurrentUser, (user) => asksService.ask(user.profile, payload.q)),
       asks: () => Effect.flatMap(CurrentUser, (user) => asksService.asks(user.profile))
     })
   })
@@ -91,18 +89,8 @@ const CoachHandlers = HttpApiBuilder.group(
   Effect.fn(function* (handlers) {
     const coaching = yield* Coaching
     return handlers.handleAll({
-      naturalness: ({ payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          yield* Effect.sync(() => Sentry.setUser({ id: user.id }))
-          return yield* coaching.naturalness(user.profile, payload)
-        }),
-      howToSay: ({ payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          yield* Effect.sync(() => Sentry.setUser({ id: user.id }))
-          return yield* coaching.howToSay(user.profile, payload)
-        })
+      naturalness: ({ payload }) => Effect.flatMap(CurrentUser, (user) => coaching.naturalness(user.profile, payload)),
+      howToSay: ({ payload }) => Effect.flatMap(CurrentUser, (user) => coaching.howToSay(user.profile, payload))
     })
   })
 )
@@ -113,12 +101,7 @@ const AudioHandlers = HttpApiBuilder.group(
   Effect.fn(function* (handlers) {
     const coaching = yield* Coaching
     return handlers.handleAll({
-      speak: ({ payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          yield* Effect.sync(() => Sentry.setUser({ id: user.id }))
-          return yield* coaching.speak(user.profile, payload)
-        })
+      speak: ({ payload }) => Effect.flatMap(CurrentUser, (user) => coaching.speak(user.profile, payload))
     })
   })
 )
@@ -147,13 +130,15 @@ const StudyHandlers = HttpApiBuilder.group(
             return yield* new NotFound({ message: "No such note" })
           }
         }),
-      queue: ({ query }) =>
-        Effect.flatMap(CurrentUser, (user) => study.queue(user.profile, Math.min(Math.max(query.limit ?? 50, 1), 200))),
+      due: ({ query }) =>
+        Effect.flatMap(CurrentUser, (user) =>
+          study.dueNotes(user.profile, Math.min(Math.max(query.limit ?? 50, 1), 200))
+        ),
       answer: ({ params, payload }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const result = yield* study.answer(user.profile, params.id, payload.rating, payload.durationMs)
-          return yield* orNotFound<typeof result extends Option.Option<infer A> ? A : never>("No such card")(result)
+          return yield* orNotFound<typeof result extends Option.Option<infer A> ? A : never>("No such note")(result)
         }),
       stats: () => Effect.flatMap(CurrentUser, (user) => study.stats(user.profile))
     })

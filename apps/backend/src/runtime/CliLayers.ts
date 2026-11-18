@@ -1,5 +1,5 @@
 import { NodeHttpClient } from "@effect/platform-node"
-import { AiProviders, Claude, FamiliarityRater, Lexicographer, Pronouncer } from "@kotori/ai"
+import { AiProviders, CautionWriter, Claude, FrequencyRater, Jev, Lexicographer, Pronouncer } from "@kotori/ai"
 import { Layer } from "effect"
 import { DatabaseLive } from "../db/Database.ts"
 import { Approvals } from "../features/accounts/Approvals.ts"
@@ -19,10 +19,27 @@ export const AccountsLive = Approvals.layer.pipe(
   Layer.provideMerge(NodeHttpClient.layerUndici)
 )
 
-/** What `kotori familiarity` needs: Claude to rate phrases, and the database for the phrases to rate. */
-export const FamiliarityLive = FamiliarityRater.layer.pipe(
+/** What `kotori frequency` needs: Claude to rate phrases, and the database for the phrases to rate. */
+export const FrequencyLive = FrequencyRater.layer.pipe(
   Layer.provideMerge(Claude.layer),
   Layer.provideMerge(DatabaseLive)
+)
+
+/**
+ * What `kotori judge` needs: Jev for the typed passes (`ja-form`, `loans`), Claude's caution
+ * writer for the written ones, and the database for the candidates. Keys come from the
+ * environment; a pass whose model has none fails alone.
+ */
+export const JudgeLive = CautionWriter.layer.pipe(
+  Layer.provideMerge(Claude.layer),
+  Layer.provideMerge(Jev.layer),
+  Layer.provideMerge(DatabaseLive)
+)
+
+/** What `kotori eval` needs: Jev, and Claude as the caution writer and the Lexicographer. No database. */
+export const EvalLive = Layer.mergeAll(CautionWriter.layer, Lexicographer.layer).pipe(
+  Layer.provideMerge(Claude.layer),
+  Layer.provideMerge(Jev.layer)
 )
 
 /**

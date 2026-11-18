@@ -20,11 +20,11 @@ export interface LegalDocument {
 
 /**
  * Routes that need neither a signed-in session nor the API to render: public legal
- * pages (`/privacy`, `/terms`, crawled directly on the web) and `/proto` mock-ups.
+ * pages (`/privacy`, `/terms`, crawled directly on the web).
  */
 export const isUnguardedRoute = (pathname: string): boolean => {
   const clean = pathname.replace(/\/+$/, "") || "/"
-  return clean === "/privacy" || clean === "/terms" || clean === "/proto" || clean.startsWith("/proto/")
+  return clean === "/privacy" || clean === "/terms"
 }
 
 /** Optional `?lang=en|ja` query override on `/privacy` and `/terms`, falling back to the app language. */

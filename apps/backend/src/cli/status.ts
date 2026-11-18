@@ -15,7 +15,7 @@ export const status = Command.make(
       ["JMDict", "ja"],
       ["English", "en"]
     ] as const) {
-      const ids = (missing?: "nuance" | "examples" | "audio") =>
+      const ids = (missing?: "examples" | "audio") =>
         entriesByPriority(db, { limit: 1_000_000, missing, commonOnly: true, language }).pipe(
           Effect.map((found) => found.length)
         )
@@ -23,7 +23,7 @@ export const status = Command.make(
       yield* Console.log(
         `${name}: ${(yield* countOf(db, language)).toLocaleString()} entries (${common.toLocaleString()} common)`
       )
-      for (const kind of ["nuance", "examples", "audio"] as const) {
+      for (const kind of ["examples", "audio"] as const) {
         yield* Console.log(
           `  ${kind.padEnd(9)} ${(common - (yield* ids(kind))).toLocaleString()} / ${common.toLocaleString()} common entries`
         )

@@ -19,8 +19,7 @@ const tables = [
       senses.stagk,
       senses.stagr,
       senses.xrefs,
-      senses.antonyms,
-      senses.sources
+      senses.antonyms
     ]
   },
   { name: "forms", table: forms, entryId: forms.entryId, lists: [forms.tags, forms.priorities, forms.restrictions] }

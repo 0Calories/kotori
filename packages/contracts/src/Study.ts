@@ -1,13 +1,10 @@
 import {
-  CardId,
-  cardQueue,
-  cards,
-  cardTemplate,
   NoteContent,
   NoteId,
   notes,
   PhraseNote,
   rating,
+  retentionStage,
   SavedExample,
   UserId,
   WordNote
@@ -16,84 +13,61 @@ import { createSelectSchema } from "drizzle-orm/effect-schema"
 import * as Schema from "effect/Schema"
 import * as Struct from "effect/Struct"
 
-export { CardId, NoteContent, NoteId, PhraseNote, SavedExample, WordNote }
+export { NoteContent, NoteId, PhraseNote, SavedExample, WordNote }
 
 export const Rating = createSelectSchema(rating)
 export type Rating = typeof Rating.Type
 
-export const CardQueue = createSelectSchema(cardQueue)
-export type CardQueue = typeof CardQueue.Type
+export const RetentionStage = createSelectSchema(retentionStage)
+export type RetentionStage = typeof RetentionStage.Type
 
-/**
- * recognize: show the word in the target language and ask for the meaning.
- * produce: the retired reverse direction. The column's enum still has the value; a migration
- * deleted those cards and their review logs, and new notes are not given one.
- */
-export const CardTemplate = createSelectSchema(cardTemplate)
-export type CardTemplate = typeof CardTemplate.Type
-
-const Card = createSelectSchema(cards, { id: CardId, noteId: NoteId, userId: UserId })
 const NoteRow = createSelectSchema(notes, { id: NoteId, userId: UserId, content: NoteContent })
 
-export const CardSummary = Schema.Struct(
-  Struct.pick(Card.fields, ["id", "template", "queue", "due", "interval", "leech"])
+/** Where a note stands in the spaced-repetition schedule. */
+export const NoteSchedule = Schema.Struct(
+  Struct.pick(NoteRow.fields, ["retentionStage", "due", "interval", "ease", "reps", "lapses", "leech"])
 )
-export type CardSummary = typeof CardSummary.Type
+export type NoteSchedule = typeof NoteSchedule.Type
 
+/** A saved note: what it shows and where it stands in the review schedule. */
 export const Note = Schema.Struct({
   ...Struct.pick(NoteRow.fields, ["id", "content", "createdAt"]),
-  cards: Schema.Array(CardSummary)
+  ...NoteSchedule.fields
 })
 export type Note = typeof Note.Type
 
-export const StudyCard = Schema.Struct({
-  ...Struct.pick(Card.fields, [
-    "id",
-    "noteId",
-    "template",
-    "queue",
-    "due",
-    "interval",
-    "ease",
-    "reps",
-    "lapses",
-    "leech"
-  ]),
-  content: NoteContent
-})
-export type StudyCard = typeof StudyCard.Type
-
-/** Button labels such as "10m", "1d", "4d" for each answer. */
-export const AnswerLabels = Schema.Struct({
+/** Button labels such as "10m", "1d", "4d" for each rating. */
+export const RatingLabels = Schema.Struct({
   again: Schema.String,
   hard: Schema.String,
   good: Schema.String,
   easy: Schema.String
 })
-export type AnswerLabels = typeof AnswerLabels.Type
+export type RatingLabels = typeof RatingLabels.Type
 
-export const ReviewItem = Schema.Struct({ card: StudyCard, labels: AnswerLabels })
+/** A note to review, with what each rating would do to it. */
+export const ReviewItem = Schema.Struct({ note: Note, labels: RatingLabels })
 export type ReviewItem = typeof ReviewItem.Type
 
-export const QueueCounts = Schema.Struct({
+/** How many notes are due, by retention stage; relearning counts as learning. */
+export const DueCounts = Schema.Struct({
   new: Schema.Int,
   learning: Schema.Int,
   review: Schema.Int
 })
-export type QueueCounts = typeof QueueCounts.Type
+export type DueCounts = typeof DueCounts.Type
 
-export const ReviewQueue = Schema.Struct({
+/** The notes a learner has to review now, in the order they will be shown. */
+export const DueNotes = Schema.Struct({
   items: Schema.Array(ReviewItem),
-  counts: QueueCounts,
-  /** All cards included in the counts, including those beyond `items`' page limit.
-   * Optional so clients can still read queues from servers predating this field. */
-  dueCards: Schema.optional(Schema.Array(Schema.Struct(Struct.pick(Card.fields, ["noteId", "queue"])))),
-  /** When the next learning card becomes due, if nothing is due now. */
-  nextDue: Schema.NullOr(Card.fields.due)
+  counts: DueCounts,
+  /** Every note included in the counts, including those beyond `items`' page limit. */
+  all: Schema.Array(Schema.Struct(Struct.pick(NoteRow.fields, ["id", "retentionStage"]))),
+  /** When the next learning note becomes due, if nothing is due now. */
+  nextDue: Schema.NullOr(NoteRow.fields.due)
 })
-export type ReviewQueue = typeof ReviewQueue.Type
+export type DueNotes = typeof DueNotes.Type
 
-/** Saving creates the one target-language card. */
 export const AddNoteRequest = Schema.Struct({ content: NoteContent })
 export type AddNoteRequest = typeof AddNoteRequest.Type
 
@@ -105,23 +79,23 @@ export const AnswerRequest = Schema.Struct({
 export type AnswerRequest = typeof AnswerRequest.Type
 
 export const AnswerResult = Schema.Struct({
-  card: StudyCard,
+  note: Note,
+  /** True when this answer made the note a leech. */
   leech: Schema.Boolean
 })
 export type AnswerResult = typeof AnswerResult.Type
 
 export const StudyStats = Schema.Struct({
-  due: QueueCounts,
+  due: DueCounts,
   reviewedToday: Schema.Int,
   streak: Schema.Int,
   notes: Schema.Int,
-  cards: Schema.Int,
   unseen: Schema.Int,
   young: Schema.Int,
   mature: Schema.Int,
   /** Share of review answers in the last 30 days that weren't "again". */
   retention: Schema.NullOr(Schema.Number),
-  /** Cards due on each of the next 7 study days (today first). */
+  /** Notes due on each of the next 7 study days (today first). */
   forecast: Schema.Array(Schema.Int)
 })
 export type StudyStats = typeof StudyStats.Type

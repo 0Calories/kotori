@@ -2,7 +2,7 @@ import { formatDelay } from "@kotori/srs"
 import { useRouter } from "expo-router"
 import { RefreshControl, View } from "react-native"
 import Animated, { FadeInDown } from "react-native-reanimated"
-import { useNotes, useQueue, useStats } from "../../src/api/queries.ts"
+import { useNotes, useDueNotes, useStats } from "../../src/api/queries.ts"
 import { Button } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
 import { type Tone, useTone } from "../../src/components/Chip.tsx"
@@ -42,7 +42,7 @@ const Stat = ({ icon, label, value }: { readonly icon: IconName; readonly label:
   )
 }
 
-/** Cards due on each of the next seven days. One series, so one hue: today in the dark mark, the rest faded. */
+/** Notes due on each of the next seven days. One series, so one hue: today in the dark mark, the rest faded. */
 const Forecast = ({ days }: { readonly days: ReadonlyArray<number> }) => {
   const theme = useTheme()
   const { t, profile } = useSession()
@@ -88,21 +88,21 @@ export default function ReviewScreen() {
   const theme = useTheme()
   const router = useRouter()
   const { t } = useSession()
-  const queue = useQueue()
+  const dueNotes = useDueNotes()
   const stats = useStats()
   const notes = useNotes()
 
-  const counts = queue.data?.counts
+  const counts = dueNotes.data?.counts
   const due = counts ? counts.new + counts.learning + counts.review : 0
-  const nextDue = queue.data?.nextDue?.getTime() ?? null
+  const nextDue = dueNotes.data?.nextDue?.getTime() ?? null
 
   return (
     <Screen
       refreshControl={
         <RefreshControl
-          refreshing={queue.isRefetching}
+          refreshing={dueNotes.isRefetching}
           onRefresh={() => {
-            void queue.refetch()
+            void dueNotes.refetch()
             void stats.refetch()
           }}
         />
@@ -120,7 +120,7 @@ export default function ReviewScreen() {
         </View>
       </View>
 
-      {queue.isError ? <ErrorState error={queue.error} onRetry={() => queue.refetch()} /> : null}
+      {dueNotes.isError ? <ErrorState error={dueNotes.error} onRetry={() => dueNotes.refetch()} /> : null}
 
       {counts ? (
         <Animated.View entering={FadeInDown.duration(350)}>
@@ -170,8 +170,8 @@ export default function ReviewScreen() {
             />
             <Stat
               icon="eco"
-              label={`${t.review.mature} / ${t.review.cards}`}
-              value={`${stats.data.mature} / ${stats.data.cards}`}
+              label={`${t.review.mature} / ${t.review.notes}`}
+              value={`${stats.data.mature} / ${stats.data.notes}`}
             />
           </View>
         </Section>
