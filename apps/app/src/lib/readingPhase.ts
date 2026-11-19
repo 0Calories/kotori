@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 
 /**
- * How long a wait (a dictionary lookup, or a screen loading its content)
+ * How long a wait (a dictionary lookup)
  * must already be running before Kotori takes the reading pose. Anything shorter stays on the resting pose, so a fast result never
  * flashes reading.
  */
@@ -30,7 +30,7 @@ export const SEARCH_THINKING_DELAY_MS = 2500
 /**
  * `reading` is the pose Kotori takes once a wait has gone on long enough to be
  * worth showing; `neutral` is anything else. The search field shows its
- * resting bird when neutral; a loading screen shows nothing.
+ * resting bird when neutral.
  *
  * The reading pose plays a loop of Kotori turning pages and reading along
  * the lines. `Mascot` already holds that pose still when the user prefers

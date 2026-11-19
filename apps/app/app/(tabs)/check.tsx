@@ -1,7 +1,6 @@
 import type { Issue, NaturalnessResult } from "@kotori/contracts"
 import { useState } from "react"
 import { View } from "react-native"
-import Animated, { FadeInDown } from "react-native-reanimated"
 import { useNaturalness } from "../../src/api/queries.ts"
 import { Button, IconButton } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
@@ -205,7 +204,7 @@ const Result = ({
   // How it comes across: right under the verdict when there's nothing to fix, as the mock's tone card is,
   // and after the fixes and other ways otherwise, so those come first as in the mock.
   const comesAcross = (
-    <Animated.View entering={FadeInDown.delay(200).duration(400)}>
+    <View>
       <Card style={{ gap: theme.space.md }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <Text variant="label" color="textMuted" style={{ flexShrink: 1 }}>
@@ -230,7 +229,7 @@ const Result = ({
           </View>
         ) : null}
       </Card>
-    </Animated.View>
+    </View>
   )
 
   return (
@@ -248,8 +247,7 @@ const Result = ({
         <Written text={text} issues={result.issues} />
       </View>
 
-      <Animated.View
-        entering={FadeInDown.duration(400)}
+      <View
         style={{
           flexDirection: "row",
           alignItems: "center",
@@ -279,10 +277,10 @@ const Result = ({
             {result.summary} {t.check.byAi}
           </Text>
         </View>
-      </Animated.View>
+      </View>
 
       {best && !natural ? (
-        <Animated.View entering={FadeInDown.delay(80).duration(400)}>
+        <View>
           <PhraseCard
             label={t.check.natural}
             text={best.text}
@@ -293,19 +291,19 @@ const Result = ({
             highlight
             lines={[{ text: best.translation }, { text: best.note }]}
           />
-        </Animated.View>
+        </View>
       ) : null}
 
       {result.issues.map((issue, index) => (
-        <Animated.View key={issue.excerpt} entering={FadeInDown.delay(140 + index * 60).duration(400)}>
+        <View key={issue.excerpt}>
           <IssueCard issue={issue} number={index + 1} />
-        </Animated.View>
+        </View>
       ))}
 
       {natural ? comesAcross : null}
 
       {natural && result.rewrites.length > 0 ? (
-        <Animated.View entering={FadeInDown.delay(260).duration(400)}>
+        <View>
           <Section title={t.check.alternatives}>
             {result.rewrites.map((rewrite) => (
               <PhraseCard
@@ -319,11 +317,11 @@ const Result = ({
               />
             ))}
           </Section>
-        </Animated.View>
+        </View>
       ) : null}
 
       {!natural && others.length > 0 ? (
-        <Animated.View entering={FadeInDown.delay(260).duration(400)}>
+        <View>
           <Section title={t.check.rewrites}>
             <Card list padded={false} style={{ paddingHorizontal: theme.space.lg }}>
               {others.map((rewrite, index) => (
@@ -356,7 +354,7 @@ const Result = ({
               ))}
             </Card>
           </Section>
-        </Animated.View>
+        </View>
       ) : null}
 
       {natural ? null : comesAcross}
@@ -426,7 +424,7 @@ export default function CheckScreen() {
           </Text>
         </PressableScale>
         {showMore ? (
-          <Animated.View entering={FadeInDown.duration(220)} style={{ gap: theme.space.md }}>
+          <View style={{ gap: theme.space.md }}>
             <Input
               label={t.check.context}
               value={context}
@@ -441,7 +439,7 @@ export default function CheckScreen() {
               placeholder={t.check.intentPlaceholder}
               maxLength={400}
             />
-          </Animated.View>
+          </View>
         ) : null}
         <Button
           label={check.isPending ? t.check.checking : t.check.submit}

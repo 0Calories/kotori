@@ -1,5 +1,4 @@
 import { View } from "react-native"
-import Animated, { FadeIn } from "react-native-reanimated"
 import { apiErrorMessage } from "../api/errors.ts"
 import { useT } from "../session/SessionProvider.tsx"
 import { useTheme } from "../theme/ThemeProvider.tsx"
@@ -25,10 +24,7 @@ export const MascotMessage = ({
 }) => {
   const theme = useTheme()
   return (
-    <Animated.View
-      entering={FadeIn.duration(250)}
-      style={{ alignItems: "center", gap: theme.space.md, paddingVertical: theme.space.xl }}
-    >
+    <View style={{ alignItems: "center", gap: theme.space.md, paddingVertical: theme.space.xl }}>
       <Mascot size={size} mood={mood} facing={facing} />
       {title ? (
         <Text variant="heading" align="center">
@@ -41,7 +37,7 @@ export const MascotMessage = ({
         </Text>
       ) : null}
       {children}
-    </Animated.View>
+    </View>
   )
 }
 

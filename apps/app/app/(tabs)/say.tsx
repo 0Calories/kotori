@@ -2,7 +2,6 @@ import type { HowToSayResult, Register } from "@kotori/contracts"
 import { useRouter } from "expo-router"
 import { useState } from "react"
 import { View } from "react-native"
-import Animated, { FadeInDown } from "react-native-reanimated"
 import { useHowToSay } from "../../src/api/queries.ts"
 import { Button } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
@@ -28,7 +27,7 @@ const Result = ({ result }: { readonly result: HowToSayResult }) => {
   const japanese = profile?.targetLanguage !== "en"
   return (
     <View style={{ gap: theme.space.lg }}>
-      <Animated.View entering={FadeInDown.duration(400)}>
+      <View>
         <Card tone="primary" style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
           <Mascot size={48} mood="happy" />
           <View style={{ flex: 1, gap: 4 }}>
@@ -38,9 +37,9 @@ const Result = ({ result }: { readonly result: HowToSayResult }) => {
             <Text>{result.intent}</Text>
           </View>
         </Card>
-      </Animated.View>
+      </View>
 
-      <Animated.View entering={FadeInDown.delay(100).duration(400)}>
+      <View>
         <Section title={t.say.phrases}>
           {result.phrases.map((phrase, index) => (
             <PhraseCard
@@ -59,10 +58,10 @@ const Result = ({ result }: { readonly result: HowToSayResult }) => {
             />
           ))}
         </Section>
-      </Animated.View>
+      </View>
 
       {result.keyWords.length > 0 ? (
-        <Animated.View entering={FadeInDown.delay(180).duration(400)}>
+        <View>
           <Section title={t.say.keyWords}>
             <Card padded={false} style={{ paddingHorizontal: theme.space.lg, paddingVertical: 2 }}>
               {result.keyWords.map((word, index) => (
@@ -106,11 +105,11 @@ const Result = ({ result }: { readonly result: HowToSayResult }) => {
               ))}
             </Card>
           </Section>
-        </Animated.View>
+        </View>
       ) : null}
 
       {result.pitfalls.length > 0 ? (
-        <Animated.View entering={FadeInDown.delay(240).duration(400)}>
+        <View>
           <Section title={t.say.pitfalls}>
             {result.pitfalls.map((pitfall) => (
               <Card key={pitfall.text} tone="accent" style={{ gap: 6 }}>
@@ -125,7 +124,7 @@ const Result = ({ result }: { readonly result: HowToSayResult }) => {
               </Card>
             ))}
           </Section>
-        </Animated.View>
+        </View>
       ) : null}
 
       {result.culturalNote ? (

@@ -2,7 +2,6 @@ import type { Entry, Language, Sense, SimilarWord } from "@kotori/contracts"
 import { Link, useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { Platform, Share, View } from "react-native"
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated"
 import { useAddNote, useEnrich, useEntry, useNotes, useRemoveNote } from "../../src/api/queries.ts"
 import { AudioButton } from "../../src/components/AudioButton.tsx"
 import { Button, IconButton } from "../../src/components/Button.tsx"
@@ -19,7 +18,8 @@ import { PressableScale } from "../../src/components/PressableScale.tsx"
 import { removalErrorText, RemoveNoteDialog } from "../../src/components/RemoveNote.tsx"
 import { Header, Screen, Section } from "../../src/components/Screen.tsx"
 import { Snow } from "../../src/components/Snow.tsx"
-import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
+import { Skeleton, SkeletonCard, SkeletonGroup } from "../../src/components/Skeleton.tsx"
+import { ErrorState } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { UsagePatterns } from "../../src/components/UsagePatterns.tsx"
 import { posLabel, tagName } from "../../src/i18n/strings.ts"
@@ -38,7 +38,6 @@ import {
 } from "../../src/lib/entry.ts"
 import { findForm } from "../../src/lib/forms.ts"
 import { wordNote } from "../../src/lib/notes.ts"
-import { useReadingPhase } from "../../src/lib/readingPhase.ts"
 import { entryIdFromParam, entrySourcesHref } from "../../src/lib/sources.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
@@ -233,6 +232,36 @@ const headwordSize = (headword: string, language: Language) => {
   return length <= 4 ? 64 : Math.max(36, Math.floor(280 / length))
 }
 
+/** The entry's hero and its first meanings, held in place while the entry loads. */
+const EntrySkeleton = () => {
+  const theme = useTheme()
+  return (
+    <SkeletonGroup style={{ gap: theme.space.lg }}>
+      <View
+        style={{
+          borderRadius: theme.radius.xl,
+          backgroundColor: theme.color.primaryTint,
+          paddingHorizontal: 20,
+          paddingTop: 20,
+          paddingBottom: 18,
+          gap: 12
+        }}
+      >
+        <Skeleton tone="onTint" width={140} height={56} radius={14} />
+        <Skeleton tone="onTint" width={110} height={14} />
+        <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+          <Skeleton tone="onTint" width={64} height={26} radius={13} />
+          <Skeleton tone="onTint" width={52} height={26} radius={13} />
+        </View>
+        <Skeleton tone="onTint" width={108} height={44} radius={22} style={{ marginTop: 4 }} />
+      </View>
+      <Skeleton width={90} height={16} style={{ marginTop: 8, marginLeft: 6 }} />
+      <SkeletonCard lines={3} />
+      <SkeletonCard lines={2} />
+    </SkeletonGroup>
+  )
+}
+
 export default function EntryScreen() {
   const theme = useTheme()
   const { t } = useSession()
@@ -249,7 +278,6 @@ export default function EntryScreen() {
   const [removingSense, setRemovingSense] = useState<number | null>(null)
   const [removeError, setRemoveError] = useState<string | null>(null)
   const back = () => (router.canGoBack() ? router.back() : router.replace("/"))
-  const kotoriReading = useReadingPhase(id !== null && !entry.isLoadingError && !entry.data) === "reading"
 
   // A failed refetch (one of the polls while the entry is being enriched, say) keeps the entry
   // already loaded, with a notice until a later one succeeds. Only a failed first load has nothing to show.
@@ -260,10 +288,10 @@ export default function EntryScreen() {
       </Screen>
     )
   }
-  if (!entry.data || kotoriReading) {
+  if (!entry.data) {
     return (
       <Screen bottomInset={40} header={<Header onBack={back} />}>
-        {kotoriReading ? <MascotMessage mood="reading" /> : null}
+        <EntrySkeleton />
       </Screen>
     )
   }
@@ -399,8 +427,7 @@ export default function EntryScreen() {
           action={{ label: t.common.retry, onPress: () => void entry.refetch() }}
         />
       ) : null}
-      <Animated.View
-        entering={FadeInDown.duration(350)}
+      <View
         style={
           plain
             ? { paddingHorizontal: 6, paddingTop: 4, marginBottom: 8, gap: 2 }
@@ -472,26 +499,26 @@ export default function EntryScreen() {
             ) : null}
           </View>
         )}
-      </Animated.View>
+      </View>
 
-      <Animated.View entering={FadeInDown.delay(60).duration(350)}>
+      <View>
         <Cautions cautions={wordCautions(data.cautions)} headline />
-      </Animated.View>
+      </View>
 
       {waiting ? (
-        <Animated.View entering={FadeIn}>
+        <View>
           <Card tone="primary" style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
             <Mascot size={52} mood="reading" />
             <Text variant="small" style={{ flex: 1 }}>
               {t.entry.writing}
             </Text>
           </Card>
-        </Animated.View>
+        </View>
       ) : null}
 
       <Section title={data.senses.length === 1 ? t.entry.meaning : t.entry.meanings}>
         {senses.map((sense, index) => (
-          <Animated.View key={sense.index} entering={FadeInDown.delay(80 + index * 60).duration(350)}>
+          <View key={sense.index}>
             <SenseCard
               entry={data}
               sense={sense}
@@ -504,7 +531,7 @@ export default function EntryScreen() {
               onSave={() => save(sense)}
               onRemove={() => beginRemove(sense.index)}
             />
-          </Animated.View>
+          </View>
         ))}
         {data.senses.length > 3 ? (
           <Button

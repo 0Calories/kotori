@@ -3,7 +3,7 @@ import { normalizeAsk } from "@kotori/language"
 import { useRouter } from "expo-router"
 import { useEffect, useRef, useState } from "react"
 import { type TextInputInstance, useWindowDimensions, View } from "react-native"
-import Animated, { FadeIn, FadeInDown, LinearTransition } from "react-native-reanimated"
+import Animated, { LinearTransition } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useAsks, useDueNotes, useSearch, useStats } from "../../src/api/queries.ts"
 import { AskKotori } from "../../src/components/AskKotori.tsx"
@@ -16,6 +16,7 @@ import { PressableScale } from "../../src/components/PressableScale.tsx"
 import { ResultRow } from "../../src/components/ResultRow.tsx"
 import { Screen } from "../../src/components/Screen.tsx"
 import { SearchField } from "../../src/components/SearchField.tsx"
+import { Skeleton, SkeletonGroup, SkeletonRows } from "../../src/components/Skeleton.tsx"
 import { Snow } from "../../src/components/Snow.tsx"
 import { ErrorState } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
@@ -56,22 +57,33 @@ const ReviewTeaser = () => {
   const dueNotes = useDueNotes()
   const stats = useStats()
   const due = dueNotes.data ? dueNotes.data.counts.new + dueNotes.data.counts.learning + dueNotes.data.counts.review : 0
+  if (dueNotes.isPending) {
+    return (
+      <SkeletonGroup>
+        <Card style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+          <Skeleton width={56} height={56} radius={28} />
+          <View style={{ flex: 1, gap: 8 }}>
+            <Skeleton width="70%" height={16} radius={8} />
+            <Skeleton width="40%" height={12} radius={6} />
+          </View>
+        </Card>
+      </SkeletonGroup>
+    )
+  }
   if (!dueNotes.data) return null
   return (
-    <Animated.View entering={FadeInDown.duration(400)}>
-      <Card style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-        <Mascot size={56} mood={due > 0 ? "neutral" : "sleepy"} />
-        <View style={{ flex: 1, gap: 6 }}>
-          <Text variant="strong">{due > 0 ? t.dictionary.reviewDue(due) : t.dictionary.reviewDueNone}</Text>
-          {stats.data && stats.data.streak > 0 ? (
-            <Chip tone="accent" icon="local_fire_department" label={t.dictionary.streak(stats.data.streak)} />
-          ) : null}
-        </View>
-        {due > 0 ? (
-          <Button label={t.dictionary.startReview} size="sm" onPress={() => router.push("/review/session")} />
+    <Card style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+      <Mascot size={56} mood={due > 0 ? "neutral" : "sleepy"} />
+      <View style={{ flex: 1, gap: 6 }}>
+        <Text variant="strong">{due > 0 ? t.dictionary.reviewDue(due) : t.dictionary.reviewDueNone}</Text>
+        {stats.data && stats.data.streak > 0 ? (
+          <Chip tone="accent" icon="local_fire_department" label={t.dictionary.streak(stats.data.streak)} />
         ) : null}
-      </Card>
-    </Animated.View>
+      </View>
+      {due > 0 ? (
+        <Button label={t.dictionary.startReview} size="sm" onPress={() => router.push("/review/session")} />
+      ) : null}
+    </Card>
   )
 }
 
@@ -218,7 +230,6 @@ export default function LookUpScreen() {
               {history.map((term) => (
                 <Animated.View
                   key={term}
-                  entering={FadeIn.duration(180)}
                   layout={LinearTransition.duration(180)}
                   style={[pill, { paddingLeft: 12, paddingRight: 4, maxWidth: "100%" }]}
                 >
@@ -276,14 +287,15 @@ export default function LookUpScreen() {
               {t.dictionary.similarResults}
             </Text>
           ) : null}
+          {loading && results === undefined && !search.isError ? (
+            <SkeletonGroup>
+              <SkeletonRows rows={3} />
+            </SkeletonGroup>
+          ) : null}
           {results && results.entries.length > 0 ? (
             <Card padded={false} style={{ paddingHorizontal: theme.space.lg, paddingVertical: 2 }}>
               {results.entries.map((entry, index) => (
-                <Animated.View
-                  key={entry.id}
-                  entering={FadeIn.delay(Math.min(index, 8) * 25).duration(200)}
-                  layout={LinearTransition.duration(180)}
-                >
+                <Animated.View key={entry.id} layout={LinearTransition.duration(180)}>
                   <ResultRow entry={entry} first={index === 0} onPress={() => open(entry)} />
                 </Animated.View>
               ))}

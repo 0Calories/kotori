@@ -12,11 +12,11 @@ import { PressableScale } from "../src/components/PressableScale.tsx"
 import { removalErrorText, RemoveNoteConfirm } from "../src/components/RemoveNote.tsx"
 import { Header, Screen } from "../src/components/Screen.tsx"
 import { SearchField } from "../src/components/SearchField.tsx"
+import { SkeletonCard, SkeletonGroup } from "../src/components/Skeleton.tsx"
 import { Segmented } from "../src/components/Segmented.tsx"
 import { ErrorState, MascotMessage } from "../src/components/States.tsx"
 import { Text } from "../src/components/Text.tsx"
 import { searchNotesByKind } from "../src/lib/noteSearch.ts"
-import { useReadingPhase } from "../src/lib/readingPhase.ts"
 import { useSession } from "../src/session/SessionProvider.tsx"
 import { theme } from "../src/theme/tokens.ts"
 
@@ -106,7 +106,7 @@ export default function SavedScreen() {
   const notes = useNotes()
   const [kind, setKind] = useState<"word" | "phrase">("word")
   const [query, setQuery] = useState("")
-  const kotoriReading = useReadingPhase(!notes.data && !notes.isError) === "reading"
+  const loading = !notes.data && !notes.isError
   const hasNotes = (notes.data?.length ?? 0) > 0
   const searching = hasNotes && query.trim().length > 0
   // Every saved note is loaded, so the search runs here, per tab so each tab has its own
@@ -135,8 +135,14 @@ export default function SavedScreen() {
         ]}
       />
       {notes.isError ? <ErrorState error={notes.error} onRetry={() => notes.refetch()} /> : null}
-      {kotoriReading ? <MascotMessage mood="reading" /> : null}
-      {notes.data && !kotoriReading && shown.length === 0 ? (
+      {loading ? (
+        <SkeletonGroup style={{ gap: theme.space.md }}>
+          <SkeletonCard lines={2} />
+          <SkeletonCard lines={2} />
+          <SkeletonCard lines={2} />
+        </SkeletonGroup>
+      ) : null}
+      {notes.data && shown.length === 0 ? (
         <MascotMessage
           mood="neutral"
           facing="front"
@@ -150,7 +156,9 @@ export default function SavedScreen() {
         </Text>
       ) : null}
       <View style={{ gap: theme.space.md }}>
-        {kotoriReading ? null : shown.map((note) => <NoteRow key={note.id} note={note} />)}
+        {shown.map((note) => (
+          <NoteRow key={note.id} note={note} />
+        ))}
       </View>
     </Screen>
   )

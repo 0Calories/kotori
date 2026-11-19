@@ -760,9 +760,8 @@ const Reading = ({ size }: { readonly size: number }) => {
  * the lines as its wing turns the pages.
  *
  * Kotori reads whenever it is fetching, looking up or writing something for
- * the learner: a slow dictionary search, a screen loading its content (after
- * `useReadingPhase`'s delay), example sentences being written, and the first
- * part of an ask. It thinks when working something out, as an ask runs on,
+ * the learner: a slow dictionary search, example sentences being written, and
+ * the first part of an ask. It thinks when working something out, as an ask runs on,
  * and over a verdict that needs a second look.
  *
  * `still` holds every mood's pose as reduced motion does, for a place where
