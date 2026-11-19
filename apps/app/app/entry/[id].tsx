@@ -250,10 +250,10 @@ const EntrySkeleton = () => {
         <Skeleton tone="onTint" width={140} height={56} radius={14} />
         <Skeleton tone="onTint" width={110} height={14} />
         <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
-          <Skeleton tone="onTint" width={64} height={26} radius={13} />
-          <Skeleton tone="onTint" width={52} height={26} radius={13} />
+          <Skeleton tone="onTint" width={64} height={26} />
+          <Skeleton tone="onTint" width={52} height={26} />
         </View>
-        <Skeleton tone="onTint" width={108} height={44} radius={22} style={{ marginTop: 4 }} />
+        <Skeleton tone="onTint" width={108} height={44} style={{ marginTop: 4 }} />
       </View>
       <Skeleton width={90} height={16} style={{ marginTop: 8, marginLeft: 6 }} />
       <SkeletonCard lines={3} />
@@ -501,37 +501,32 @@ export default function EntryScreen() {
         )}
       </View>
 
-      <View>
-        <Cautions cautions={wordCautions(data.cautions)} headline />
-      </View>
+      <Cautions cautions={wordCautions(data.cautions)} headline />
 
       {waiting ? (
-        <View>
-          <Card tone="primary" style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <Mascot size={52} mood="reading" />
-            <Text variant="small" style={{ flex: 1 }}>
-              {t.entry.writing}
-            </Text>
-          </Card>
-        </View>
+        <Card tone="primary" style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <Mascot size={52} mood="reading" />
+          <Text variant="small" style={{ flex: 1 }}>
+            {t.entry.writing}
+          </Text>
+        </Card>
       ) : null}
 
       <Section title={data.senses.length === 1 ? t.entry.meaning : t.entry.meanings}>
         {senses.map((sense, index) => (
-          <View key={sense.index}>
-            <SenseCard
-              entry={data}
-              sense={sense}
-              number={index + 1}
-              forms={forms}
-              partOfSpeech={partOfSpeech}
-              saved={savedSenses.has(sense.index)}
-              saving={addNote.isPending}
-              removing={removeNote.isPending}
-              onSave={() => save(sense)}
-              onRemove={() => beginRemove(sense.index)}
-            />
-          </View>
+          <SenseCard
+            key={sense.index}
+            entry={data}
+            sense={sense}
+            number={index + 1}
+            forms={forms}
+            partOfSpeech={partOfSpeech}
+            saved={savedSenses.has(sense.index)}
+            saving={addNote.isPending}
+            removing={removeNote.isPending}
+            onSave={() => save(sense)}
+            onRemove={() => beginRemove(sense.index)}
+          />
         ))}
         {data.senses.length > 3 ? (
           <Button

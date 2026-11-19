@@ -355,7 +355,7 @@ export default function ReviewSession() {
               gap: theme.space.xl
             }}
           >
-            <Skeleton width={120} height={12} radius={6} />
+            <Skeleton width={120} height={12} />
             <Skeleton width={160} height={56} radius={14} />
             <Skeleton width={90} height={14} />
           </Card>
@@ -392,18 +392,14 @@ export default function ReviewSession() {
           </Card>
         </PressableScale>
         {leech ? (
-          <View>
-            <Text variant="caption" color="accent" align="center" style={{ marginTop: 12 }}>
-              {t.review.leech}
-            </Text>
-          </View>
+          <Text variant="caption" color="accent" align="center" style={{ marginTop: 12 }}>
+            {t.review.leech}
+          </Text>
         ) : null}
         {state.notice === "answerFailed" ? (
-          <View>
-            <Text variant="caption" color="accent" align="center" style={{ marginTop: 12 }}>
-              {t.review.answerFailed}
-            </Text>
-          </View>
+          <Text variant="caption" color="accent" align="center" style={{ marginTop: 12 }}>
+            {t.review.answerFailed}
+          </Text>
         ) : null}
       </View>
     )

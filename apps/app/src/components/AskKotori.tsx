@@ -306,19 +306,17 @@ const LinkedEntry = ({
   }, [glow, live])
   const lit = useAnimatedStyle(() => ({ opacity: glow.get() }))
   return (
-    <View>
-      <Card padded={false} style={{ paddingHorizontal: theme.space.lg, paddingVertical: 2 }}>
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: theme.color.primaryTint, borderRadius: theme.radius.lg - 1 },
-            lit
-          ]}
-        />
-        <ResultRow entry={entry} first onPress={() => onOpen(entry)} />
-      </Card>
-    </View>
+    <Card padded={false} style={{ paddingHorizontal: theme.space.lg, paddingVertical: 2 }}>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: theme.color.primaryTint, borderRadius: theme.radius.lg - 1 },
+          lit
+        ]}
+      />
+      <ResultRow entry={entry} first onPress={() => onOpen(entry)} />
+    </Card>
   )
 }
 

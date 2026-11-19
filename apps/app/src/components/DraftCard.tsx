@@ -193,15 +193,14 @@ export const DraftCard = ({
           {live ? <Glint /> : null}
         </View>
         <View style={{ paddingHorizontal: 18, paddingTop: 16, paddingBottom: 18, gap: 18 }}>
-          {headline.length > 0 ? (
-            <View>
-              <Cautions cautions={headline} headline />
-            </View>
-          ) : null}
+          {headline.length > 0 ? <Cautions cautions={headline} headline /> : null}
           {draft.senses.map((sense, index) => (
-            <View key={sense.glosses.join("\n")}>
-              <DraftSenseRow sense={sense} language={language} cautions={senseCautions(draft.cautions, sense.index)} />
-            </View>
+            <DraftSenseRow
+              key={sense.glosses.join("\n")}
+              sense={sense}
+              language={language}
+              cautions={senseCautions(draft.cautions, sense.index)}
+            />
           ))}
         </View>
       </Card>

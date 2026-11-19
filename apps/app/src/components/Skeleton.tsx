@@ -34,7 +34,11 @@ export const SkeletonGroup = ({
   useEffect(() => {
     if (reduceMotion) return
     pulse.set(withRepeat(withTiming(0.55, { duration: 900, easing: Easing.inOut(Easing.quad) }), -1, true))
-    return () => cancelAnimation(pulse)
+    return () => {
+      // Stopping mid-breath would leave the blocks dimmed; settle them back to full.
+      cancelAnimation(pulse)
+      pulse.set(1)
+    }
   }, [pulse, reduceMotion])
   return (
     <Pulse.Provider value={pulse}>
@@ -51,16 +55,16 @@ export const SkeletonGroup = ({
   )
 }
 
-/** A placeholder bar or shape. Place it inside a `SkeletonGroup`. */
+/** A placeholder bar or shape, rounded into a pill unless given a `radius`. Place it inside a `SkeletonGroup`. */
 export const Skeleton = ({
   width = "100%",
   height = 14,
-  radius = 7,
+  radius = height / 2,
   tone = "muted",
   style
 }: {
   readonly width?: DimensionValue
-  readonly height?: DimensionValue
+  readonly height?: number
   readonly radius?: number
   /** `onTint` for blocks drawn on a tinted band, such as the entry's hero. */
   readonly tone?: "muted" | "onTint"
@@ -96,7 +100,7 @@ export const SkeletonCard = ({
   readonly style?: StyleProp<ViewStyle>
 }) => (
   <Card style={[{ gap: 10 }, style]}>
-    {title ? <Skeleton width="45%" height={20} radius={10} style={{ marginBottom: 4 }} /> : null}
+    {title ? <Skeleton width="45%" height={20} style={{ marginBottom: 4 }} /> : null}
     {Array.from({ length: lines }, (_, index) => (
       <Skeleton key={index} width={index === lines - 1 && lines > 1 ? "70%" : "100%"} />
     ))}
@@ -118,8 +122,8 @@ export const SkeletonRows = ({ rows = 3 }: { readonly rows?: number }) => {
             borderTopColor: theme.color.divider
           }}
         >
-          <Skeleton width="35%" height={20} radius={10} />
-          <Skeleton width="80%" height={12} radius={6} />
+          <Skeleton width="35%" height={20} />
+          <Skeleton width="80%" height={12} />
         </View>
       ))}
     </Card>

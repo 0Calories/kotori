@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react"
 
 /**
- * How long a wait (a dictionary lookup)
- * must already be running before Kotori takes the reading pose. Anything shorter stays on the resting pose, so a fast result never
- * flashes reading.
+ * The default for how long a wait must already be running before Kotori takes
+ * the reading pose. Anything shorter stays on the resting pose, so a fast
+ * result never flashes reading.
  */
 export const READING_DELAY_MS = 400
 
@@ -189,10 +189,8 @@ export const createReadingTiming = (
 /**
  * Kotori's phase for a wait that is `loading`: neutral until the wait is long,
  * then reading, then neutral again once it has ended — including when the
- * request was cancelled, superseded, or failed. A screen that loads its
- * content keeps its loading state up while this is reading, so the pose never
- * blinks off the moment it appears. `delay` is how long the wait must run
- * first.
+ * request was cancelled, superseded, or failed. `delay` is how long the wait
+ * must run first.
  */
 export const useReadingPhase = (loading: boolean, delay: number = READING_DELAY_MS): ReadingPhase => {
   const [phase, setPhase] = useState<ReadingPhase>("neutral")

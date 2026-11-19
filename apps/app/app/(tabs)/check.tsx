@@ -204,32 +204,30 @@ const Result = ({
   // How it comes across: right under the verdict when there's nothing to fix, as the mock's tone card is,
   // and after the fixes and other ways otherwise, so those come first as in the mock.
   const comesAcross = (
-    <View>
-      <Card style={{ gap: theme.space.md }}>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <Text variant="label" color="textMuted" style={{ flexShrink: 1 }}>
-            {t.check.meaning.toUpperCase()}
-          </Text>
-          <Chip tone={registerTone[result.register]} label={t.check.register[result.register]} />
+    <Card style={{ gap: theme.space.md }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <Text variant="label" color="textMuted" style={{ flexShrink: 1 }}>
+          {t.check.meaning.toUpperCase()}
+        </Text>
+        <Chip tone={registerTone[result.register]} label={t.check.register[result.register]} />
+      </View>
+      <Text variant="strong">{result.meaning}</Text>
+      {result.formality ? (
+        <View style={{ paddingTop: theme.space.md, borderTopWidth: 1, borderTopColor: theme.color.divider }}>
+          <NuanceScales
+            rows={[
+              {
+                left: t.nuance.poles.casual,
+                right: t.nuance.poles.formal,
+                position: result.formality.position,
+                value: t.nuance.scale[FORMALITY[Math.round(result.formality.position * 4)] ?? "neutral"],
+                faded: result.formality.confidence < 0.55
+              }
+            ]}
+          />
         </View>
-        <Text variant="strong">{result.meaning}</Text>
-        {result.formality ? (
-          <View style={{ paddingTop: theme.space.md, borderTopWidth: 1, borderTopColor: theme.color.divider }}>
-            <NuanceScales
-              rows={[
-                {
-                  left: t.nuance.poles.casual,
-                  right: t.nuance.poles.formal,
-                  position: result.formality.position,
-                  value: t.nuance.scale[FORMALITY[Math.round(result.formality.position * 4)] ?? "neutral"],
-                  faded: result.formality.confidence < 0.55
-                }
-              ]}
-            />
-          </View>
-        ) : null}
-      </Card>
-    </View>
+      ) : null}
+    </Card>
   )
 
   return (
@@ -280,81 +278,73 @@ const Result = ({
       </View>
 
       {best && !natural ? (
-        <View>
-          <PhraseCard
-            label={t.check.natural}
-            text={best.text}
-            furigana={best.furigana}
-            register={best.register}
-            meaning={best.translation}
-            source="naturalness"
-            highlight
-            lines={[{ text: best.translation }, { text: best.note }]}
-          />
-        </View>
+        <PhraseCard
+          label={t.check.natural}
+          text={best.text}
+          furigana={best.furigana}
+          register={best.register}
+          meaning={best.translation}
+          source="naturalness"
+          highlight
+          lines={[{ text: best.translation }, { text: best.note }]}
+        />
       ) : null}
 
       {result.issues.map((issue, index) => (
-        <View key={issue.excerpt}>
-          <IssueCard issue={issue} number={index + 1} />
-        </View>
+        <IssueCard key={issue.excerpt} issue={issue} number={index + 1} />
       ))}
 
       {natural ? comesAcross : null}
 
       {natural && result.rewrites.length > 0 ? (
-        <View>
-          <Section title={t.check.alternatives}>
-            {result.rewrites.map((rewrite) => (
-              <PhraseCard
-                key={rewrite.text}
-                text={rewrite.text}
-                furigana={rewrite.furigana}
-                register={rewrite.register}
-                meaning={rewrite.translation}
-                source="naturalness"
-                lines={[{ text: rewrite.translation }, { text: rewrite.note }]}
-              />
-            ))}
-          </Section>
-        </View>
+        <Section title={t.check.alternatives}>
+          {result.rewrites.map((rewrite) => (
+            <PhraseCard
+              key={rewrite.text}
+              text={rewrite.text}
+              furigana={rewrite.furigana}
+              register={rewrite.register}
+              meaning={rewrite.translation}
+              source="naturalness"
+              lines={[{ text: rewrite.translation }, { text: rewrite.note }]}
+            />
+          ))}
+        </Section>
       ) : null}
 
       {!natural && others.length > 0 ? (
-        <View>
-          <Section title={t.check.rewrites}>
-            <Card list padded={false} style={{ paddingHorizontal: theme.space.lg }}>
-              {others.map((rewrite, index) => (
-                <View
-                  key={rewrite.text}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 12,
-                    minHeight: 64,
-                    paddingVertical: 10,
-                    borderTopWidth: index === 0 ? 0 : 1,
-                    borderTopColor: theme.color.divider
-                  }}
-                >
-                  <View style={{ flex: 1, gap: 3 }}>
-                    {japanese ? (
-                      <Furigana text={rewrite.text} furigana={rewrite.furigana} size={16} />
-                    ) : (
-                      <Text variant="strong" style={{ lineHeight: 21.5 }} selectable>
-                        {rewrite.text}
-                      </Text>
-                    )}
-                    <Text variant="small" size={13} color="textMuted" style={{ lineHeight: 17 }}>
-                      {rewrite.translation}
+        <Section title={t.check.rewrites}>
+          <Card list padded={false} style={{ paddingHorizontal: theme.space.lg }}>
+            {others.map((rewrite, index) => (
+              <View
+                key={rewrite.text}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                  minHeight: 64,
+                  paddingVertical: 10,
+                  borderTopWidth: index === 0 ? 0 : 1,
+                  borderTopColor: theme.color.divider
+                }}
+              >
+                <View style={{ flex: 1, gap: 3 }}>
+                  {japanese ? (
+                    <Furigana text={rewrite.text} furigana={rewrite.furigana} size={16} />
+                  ) : (
+                    <Text variant="strong" style={{ lineHeight: 21.5 }} selectable>
+                      {rewrite.text}
                     </Text>
-                  </View>
-                  <Chip tone={registerTone[rewrite.register]} label={t.check.register[rewrite.register]} />
+                  )}
+                  <Text variant="small" size={13} color="textMuted" style={{ lineHeight: 17 }}>
+                    {rewrite.translation}
+                  </Text>
                 </View>
-              ))}
-            </Card>
-          </Section>
-        </View>
+                <Chip tone={registerTone[rewrite.register]} label={t.check.register[rewrite.register]} />
+              </View>
+            ))}
+          </Card>
+        </Section>
       ) : null}
 
       {natural ? null : comesAcross}

@@ -122,57 +122,55 @@ export default function ReviewScreen() {
 
       {dueNotes.isError ? <ErrorState error={dueNotes.error} onRetry={() => dueNotes.refetch()} /> : null}
 
-      {!counts && !dueNotes.isError ? (
+      {dueNotes.isPending ? (
         <SkeletonGroup>
           <Card style={{ gap: theme.space.lg }}>
-            <Skeleton width={56} height={12} radius={6} />
+            <Skeleton width={56} height={12} />
             <View style={{ flexDirection: "row" }}>
               {[0, 1, 2].map((i) => (
                 <View key={i} style={{ flex: 1, alignItems: "center", gap: 8 }}>
                   <Skeleton width={36} height={28} radius={8} />
-                  <Skeleton width={56} height={12} radius={6} />
+                  <Skeleton width={56} height={12} />
                 </View>
               ))}
             </View>
-            <Skeleton height={52} radius={theme.radius.pill} />
+            <Skeleton height={52} />
           </Card>
         </SkeletonGroup>
       ) : null}
 
       {counts ? (
-        <View>
-          <Card style={{ gap: theme.space.lg }}>
-            {due > 0 ? (
-              <>
-                <Text variant="label" color="textMuted">
-                  {t.review.due.toUpperCase()}
-                </Text>
-                <View style={{ flexDirection: "row" }}>
-                  <Count label={t.review.new} value={counts.new} tone="neutral" />
-                  <Count label={t.review.learning} value={counts.learning} tone="accent" />
-                  <Count label={t.review.toReview} value={counts.review} tone="primary" />
-                </View>
-                <Button
-                  label={t.review.start}
-                  icon="play_arrow"
-                  size="lg"
-                  full
-                  onPress={() => router.push("/review/session")}
-                />
-              </>
-            ) : (
-              <View style={{ alignItems: "center", gap: 8, paddingVertical: theme.space.md }}>
-                <Mascot size={96} mood="sleepy" />
-                <Text variant="heading">{t.review.allDone}</Text>
-                <Text color="textMuted" align="center">
-                  {nextDue !== null
-                    ? t.review.nextIn(formatDelay(Math.max(nextDue - Date.now(), 0)))
-                    : t.review.allDoneHint}
-                </Text>
+        <Card style={{ gap: theme.space.lg }}>
+          {due > 0 ? (
+            <>
+              <Text variant="label" color="textMuted">
+                {t.review.due.toUpperCase()}
+              </Text>
+              <View style={{ flexDirection: "row" }}>
+                <Count label={t.review.new} value={counts.new} tone="neutral" />
+                <Count label={t.review.learning} value={counts.learning} tone="accent" />
+                <Count label={t.review.toReview} value={counts.review} tone="primary" />
               </View>
-            )}
-          </Card>
-        </View>
+              <Button
+                label={t.review.start}
+                icon="play_arrow"
+                size="lg"
+                full
+                onPress={() => router.push("/review/session")}
+              />
+            </>
+          ) : (
+            <View style={{ alignItems: "center", gap: 8, paddingVertical: theme.space.md }}>
+              <Mascot size={96} mood="sleepy" />
+              <Text variant="heading">{t.review.allDone}</Text>
+              <Text color="textMuted" align="center">
+                {nextDue !== null
+                  ? t.review.nextIn(formatDelay(Math.max(nextDue - Date.now(), 0)))
+                  : t.review.allDoneHint}
+              </Text>
+            </View>
+          )}
+        </Card>
       ) : null}
 
       {stats.isPending ? (
@@ -180,9 +178,9 @@ export default function ReviewScreen() {
           <SkeletonGroup style={{ flexDirection: "row", flexWrap: "wrap", gap: theme.space.md }}>
             {[0, 1, 2, 3].map((i) => (
               <Card key={i} style={{ flexBasis: "47%", flexGrow: 1, gap: 8 }}>
-                <Skeleton width={20} height={20} radius={10} />
+                <Skeleton width={20} height={20} />
                 <Skeleton width={48} height={26} radius={8} />
-                <Skeleton width="60%" height={12} radius={6} />
+                <Skeleton width="60%" height={12} />
               </Card>
             ))}
           </SkeletonGroup>

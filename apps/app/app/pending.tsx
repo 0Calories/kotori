@@ -1,5 +1,5 @@
-import { View } from "react-native"
 import { useEffect } from "react"
+import { View } from "react-native"
 import { Button } from "../src/components/Button.tsx"
 import { ConfirmEmail } from "../src/components/ConfirmEmail.tsx"
 import { Mascot } from "../src/components/Mascot.tsx"

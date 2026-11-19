@@ -61,10 +61,10 @@ const ReviewTeaser = () => {
     return (
       <SkeletonGroup>
         <Card style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-          <Skeleton width={56} height={56} radius={28} />
+          <Skeleton width={56} height={56} />
           <View style={{ flex: 1, gap: 8 }}>
-            <Skeleton width="70%" height={16} radius={8} />
-            <Skeleton width="40%" height={12} radius={6} />
+            <Skeleton width="70%" height={16} />
+            <Skeleton width="40%" height={12} />
           </View>
         </Card>
       </SkeletonGroup>

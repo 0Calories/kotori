@@ -14,9 +14,7 @@ export default function Welcome() {
   return (
     <Screen bottomInset={40}>
       <View style={{ alignItems: "center", gap: theme.space.md, marginTop: theme.space.xxxl }}>
-        <View>
-          <Mascot size={190} mood="happy" />
-        </View>
+        <Mascot size={190} mood="happy" />
         <View style={{ alignItems: "center", gap: 6 }}>
           <Text variant="display" align="center">
             {t.onboarding.title}
