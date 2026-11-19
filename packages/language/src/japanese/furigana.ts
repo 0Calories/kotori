@@ -1,7 +1,3 @@
-/**
- * Furigana is written inline as `{base|reading}`, e.g. `{食|た}べる`.
- * The notation is unambiguous, survives JSON, and is easy for models to produce.
- */
 export interface RubySegment {
   readonly text: string
   readonly reading: string | null
@@ -21,13 +17,11 @@ export const parseFurigana = (input: string): Array<RubySegment> => {
   return segments
 }
 
-/** The sentence as normally written. */
 export const furiganaToText = (input: string) =>
   parseFurigana(input)
     .map((s) => s.text)
     .join("")
 
-/** The sentence with every annotated base replaced by its reading. */
 export const furiganaToKana = (input: string) =>
   parseFurigana(input)
     .map((s) => s.reading ?? s.text)

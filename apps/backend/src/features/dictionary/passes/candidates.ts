@@ -9,35 +9,19 @@ import { chunks } from "../../../db/chunks.ts"
 import type { DatabaseShape } from "../../../db/Database.ts"
 import { getEntries, tagNames } from "../queries.ts"
 
-/**
- * What the offline passes judge, read from the database: dictionary words (never approved Ask
- * Kotori words, whose cautions and labels come from the approved files), with what their entry page
- * already shows, so a pass fills only empty cells.
- */
-
-/** Senses shown to Claude per word: later ones rarely matter, and long entries would crowd a batch. */
 export const CAUTION_SENSES = 10
 
-/** Senses of a word Jev is asked about for `form`. */
 export const FORMAL_LABEL_SENSES = 6
 
-/** A word written in katakana alone, as loanwords are (スタイル, コーヒー); valid in JavaScript and Postgres. */
 export const KATAKANA_WORD = "^[゠-ヿ]+$"
 
 export interface PassQuery {
   readonly language: Language
-  /** Only words the dictionary marks common; off, every word. */
   readonly commonOnly: boolean
-  /** Entries already judged, skipped. */
   readonly judged: ReadonlySet<number>
   readonly limit: number
 }
 
-/**
- * Entries a pass may judge, most used first, in pages: one language, not approved Ask Kotori words
- * (`source = 'kotori'`), and not already judged. `keep` filters each page, so the limit counts
- * the words actually judged.
- */
 const pickEntries = Effect.fnUntraced(function* <T>(
   db: DatabaseShape,
   query: PassQuery,
@@ -74,7 +58,6 @@ const pickEntries = Effect.fnUntraced(function* <T>(
   return picked
 })
 
-/** Each entry's values by sense, in the order `select` reads them, a chunk of entries at a time. */
 const bySense = Effect.fnUntraced(function* <V>(
   ids: ReadonlyArray<EntryId>,
   select: (
@@ -92,7 +75,6 @@ const bySense = Effect.fnUntraced(function* <V>(
   return found
 })
 
-/** Each entry's label codes by sense, from every source. */
 const labelCodes = (db: DatabaseShape, ids: ReadonlyArray<EntryId>) =>
   bySense(ids, (chunk) =>
     db
@@ -103,7 +85,6 @@ const labelCodes = (db: DatabaseShape, ids: ReadonlyArray<EntryId>) =>
       .pipe(Effect.orDie)
   )
 
-/** Each entry's usage patterns by sense, in order. */
 const usagePatternsOf = (db: DatabaseShape, ids: ReadonlyArray<EntryId>) =>
   bySense(ids, (chunk) =>
     db
@@ -114,7 +95,6 @@ const usagePatternsOf = (db: DatabaseShape, ids: ReadonlyArray<EntryId>) =>
       .pipe(Effect.orDie)
   )
 
-/** The word as a model is shown it: its senses with their labels and usage patterns. */
 export const wordToJudge = (
   entry: EntryRecord,
   labelsBySense: ReadonlyMap<number, ReadonlyArray<LabelCode>> | undefined,
@@ -131,21 +111,15 @@ export const wordToJudge = (
   }))
 })
 
-/**
- * Whether a sense's register is unsaid, so the formal-label pass (`ja-form`) may ask about it and
- * its artifact may fill it: it carries no label but quiet ones (no register, no `form`).
- */
 export const registerUnsaid = (codes: ReadonlyArray<LabelCode> | undefined) =>
   (codes ?? []).every((code) => code !== "form" && labelSeverity(code) === "quiet")
 
 export interface FormalLabelCandidate {
   readonly entryId: EntryId
   readonly word: WordToJudge
-  /** Positions of the senses to ask about. */
   readonly senses: ReadonlyArray<number>
 }
 
-/** Japanese words with a sense whose register the dictionary leaves unsaid; see `registerUnsaid`. */
 export const formalLabelCandidates = Effect.fn("passes.formalLabelCandidates")(function* (
   db: DatabaseShape,
   query: Omit<PassQuery, "language">
@@ -176,7 +150,6 @@ export interface CautionCandidate {
   readonly word: WordToJudge
 }
 
-/** The loan links read from each entry's end, with a verdict first, and the other word's glosses. */
 const loansOf = Effect.fnUntraced(function* (db: DatabaseShape, language: Language, ids: ReadonlyArray<EntryId>) {
   const found = new Map<EntryId, NonNullable<WordToJudge["loan"]>>()
   if (ids.length === 0) return found
@@ -215,7 +188,6 @@ const loansOf = Effect.fnUntraced(function* (db: DatabaseShape, language: Langua
   return found
 })
 
-/** Words of one language to write cautions for, as their pages show them. */
 export const cautionCandidates = Effect.fn("passes.cautionCandidates")(function* (db: DatabaseShape, query: PassQuery) {
   return yield* pickEntries(db, query, (records) =>
     Effect.gen(function* () {
@@ -236,7 +208,6 @@ export const cautionCandidates = Effect.fn("passes.cautionCandidates")(function*
   )
 })
 
-/** A katakana word that may be the loan of an English word, and how the dictionary ties them. */
 interface FoundLoan {
   readonly word: string
   readonly entryId: EntryId
@@ -244,11 +215,6 @@ interface FoundLoan {
   readonly priority: number
 }
 
-/**
- * Common katakana words that may be the loanword of each English word: entries with the word as
- * a gloss, or whose JMdict source (`lsource`) it is; a source first, then the most used, at most
- * `limit` per word (restored from before Phase 7, where the nuance job asked the same).
- */
 export const loanCandidates = Effect.fn("passes.loanCandidates")(function* (
   db: DatabaseShape,
   words: ReadonlyArray<string>,
@@ -275,7 +241,6 @@ export const loanCandidates = Effect.fn("passes.loanCandidates")(function* (
       .where(and(inArray(glosses.norm, [...chunk]), katakana))
       .pipe(Effect.orDie)
     for (const row of byGloss) add({ ...row, by: "gloss" })
-    // Sources are matched loosely here and exactly below, as `normalizeGloss` matches glosses.
     const listed = sql.join(
       chunk.map((word) => sql`${word}`),
       sql`, `
@@ -321,11 +286,6 @@ export interface LoanCandidateWord {
   readonly candidates: ReadonlyArray<LoanCandidate & { readonly entryId: EntryId }>
 }
 
-/**
- * English words whose loan has no verdict yet, with their katakana candidates: the pairs JMdict
- * names (`lsource`), then gloss matches. A word with a verdict already, from any source, is
- * skipped; one with no candidate isn't asked about.
- */
 export const loanCandidateWords = Effect.fn("passes.loanCandidateWords")(function* (
   db: DatabaseShape,
   query: Omit<PassQuery, "language">,

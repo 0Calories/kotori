@@ -1,11 +1,3 @@
-/**
- * Tag codes for English words. Where JMDict has a code that means the same thing (col,
- * sl, arch, vt…), English senses use it, so search penalties, labels and voice
- * casting treat both dictionaries alike. The rest are English-only and declared here with
- * their labels; JMDict's own codes get theirs from JMDict.
- */
-
-/** Wiktionary parts of speech → part-of-speech codes. Abbreviations are tagged `abbr` instead. */
 export const PARTS_OF_SPEECH: Readonly<Record<string, string>> = {
   noun: "n",
   verb: "v",
@@ -28,7 +20,6 @@ export const PARTS_OF_SPEECH: Readonly<Record<string, string>> = {
   particle: "prt"
 }
 
-/** Usage notes, from Wiktionary's tags and from the Japanese labels its editors write. */
 export const USAGE: Readonly<Record<string, string>> = {
   informal: "col",
   colloquial: "col",
@@ -90,7 +81,6 @@ export const USAGE: Readonly<Record<string, string>> = {
   不可算: "uncountable"
 }
 
-/** Where a word is said, as a variety of English. */
 export const REGIONS: Readonly<Record<string, string>> = {
   US: "en-US",
   UK: "en-GB",
@@ -123,7 +113,6 @@ export const REGIONS: Readonly<Record<string, string>> = {
   南アフリカ: "en-ZA"
 }
 
-/** Wiktionary's topics, and the Japanese field labels in its glosses, → JMDict field codes. */
 export const FIELDS: Readonly<Record<string, string>> = {
   computing: "comp",
   programming: "comp",
@@ -198,7 +187,6 @@ export const FIELDS: Readonly<Record<string, string>> = {
   キリスト教: "Christn"
 }
 
-/** Transitivity, from Wiktionary's tags and the labels in its glosses; a verb's own part of speech. */
 export const TRANSITIVITY: Readonly<Record<string, string>> = {
   transitive: "vt",
   intransitive: "vi",
@@ -206,7 +194,7 @@ export const TRANSITIVITY: Readonly<Record<string, string>> = {
   自動詞: "vi"
 }
 
-/** Labels for the codes only English words use, for the `tags` table. */
+// Tag names for English-only codes; shared codes (col, sl, arch…) get their names from JMdict's DTD.
 export const ENGLISH_TAGS: ReadonlyArray<{ readonly code: string; readonly name: string }> = [
   { code: "v", name: "verb" },
   { code: "adj", name: "adjective" },

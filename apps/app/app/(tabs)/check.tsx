@@ -30,23 +30,17 @@ const MOOD: Record<NaturalnessResult["verdict"], Mood> = {
 
 const FORMALITY = ["vulgar", "casual", "neutral", "polite", "formal"] as const
 
-/** A word, or a run of spaces, in the learner's English, cut where a mistake starts or ends. */
 interface Piece {
   readonly text: string
   readonly start: number
-  /** The mistake it belongs to, or -1. */
   readonly mark: number
 }
 
-/**
- * Splits English into words that keep their trailing spaces, so lines break
- * between words as text does. A line break in the input forces one here too.
- */
 const words = (text: string, ranges: ReadonlyArray<Range>) =>
   Array.from(text.matchAll(/\n|\S+[^\S\n]*|[^\S\n]+/g), (match) => {
     const start = match.index
     const word = match[0]
-    // Cut at mistake edges, and before the trailing space so it can be left out at the end of a line.
+    // Split trailing spaces into their own piece so multi-word mistakes don't underline trailing spaces at a line wrap.
     const cuts = [
       ...new Set(
         [
@@ -67,7 +61,6 @@ const words = (text: string, ranges: ReadonlyArray<Range>) =>
 const ENGLISH_SIZE = 21
 const ENGLISH_LINE = Math.round(ENGLISH_SIZE * 1.35)
 
-/** The learner's English, with a squiggle under every mistake. */
 const WrittenEnglish = ({ text, issues }: { readonly text: string; readonly issues: ReadonlyArray<Issue> }) => {
   const theme = useTheme()
   const [boxes, measure] = useBoxes()
@@ -128,7 +121,6 @@ const WrittenEnglish = ({ text, issues }: { readonly text: string; readonly issu
   )
 }
 
-/** What the learner wrote, with a squiggle under each mistake. */
 const Written = ({ text, issues }: { readonly text: string; readonly issues: ReadonlyArray<Issue> }) => {
   const { profile } = useSession()
   if (profile?.targetLanguage === "en") return <WrittenEnglish text={text} issues={issues} />
@@ -145,7 +137,6 @@ const Written = ({ text, issues }: { readonly text: string; readonly issues: Rea
 const IssueCard = ({ issue, number }: { readonly issue: Issue; readonly number: number }) => {
   const theme = useTheme()
   const { t, profile } = useSession()
-  // The mock sets the change in the language being learned: English at 17pt, Japanese in Murecho at 16pt.
   const english = profile?.targetLanguage === "en"
   const phrase = { jp: !english, size: english ? 17 : 16, style: { lineHeight: 22 } } as const
   return (
@@ -202,8 +193,6 @@ const Result = ({
   const natural = result.verdict === "natural"
   const [best, ...others] = result.rewrites
   const japanese = profile?.targetLanguage !== "en"
-  // How it comes across: right under the verdict when there's nothing to fix, as the mock's tone card is,
-  // and after the fixes and other ways otherwise, so those come first as in the mock.
   const comesAcross = (
     <Animated.View entering={FadeInDown.delay(200).duration(400)}>
       <Card style={{ gap: theme.space.md }}>
@@ -240,7 +229,6 @@ const Result = ({
           <Text variant="label" color="textMuted">
             {t.check.youWrote.toUpperCase()}
           </Text>
-          {/* The button overhangs the label's line, so the sentence sits as close under it as in the mock. */}
           <View style={{ marginRight: -12, marginVertical: -15 }}>
             <IconButton icon="edit" label={t.check.again} onPress={onEdit} />
           </View>

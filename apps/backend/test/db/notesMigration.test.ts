@@ -8,7 +8,6 @@ import { migrationsFolder } from "../../src/db/Migrate.ts"
 
 const NOTES_ARE_ENTRIES = "20261114185840_notes_are_entries"
 
-/** A migration file's statements, split the way the migrator runs them. */
 const statements = (folder: string) =>
   readFileSync(`${migrationsFolder}/${folder}/migration.sql`, "utf8")
     .split("--> statement-breakpoint")
@@ -28,8 +27,6 @@ const PHRASE = "00000000-0000-4000-8000-0000000000a3"
 const ORPHAN = "00000000-0000-4000-8000-0000000000a4"
 const OTHER = "00000000-0000-4000-8000-0000000000a5"
 
-// The migration on a database as it stood before it, with rows in the old shape: an empty PGlite
-// taken through every earlier migration by hand, so the old columns can be filled.
 layer(PgliteClient.layer({ dataDir: "memory://", extensions: { pg_trgm } }))(
   "the notes-are-entries migration",
   (it) => {
@@ -50,8 +47,6 @@ layer(PgliteClient.layer({ dataDir: "memory://", extensions: { pg_trgm } }))(
           (1358280, 'ja', 'jmdict', '食べる', 'たべる'),
           (200000001, 'ja', 'kotori', '蛙化現象', 'かえるかげんしょう')`)
         const word = (sense: number) => `'{"kind":"word","entryId":1358280,"senseIndex":${sense}}'`
-        // U1 saved two senses of 食べる (the later one further along), a phrase, and a word whose
-        // entry has since gone; U2 saved one sense of 食べる.
         yield* sql.unsafe(`
         INSERT INTO notes (id, user_id, kind, content, entry_id, sense, due, reps, seed, position, created_at) VALUES
           ('${EAT}', '${U1}', 'word', ${word(2)}, 1358280, 2, '2026-11-01T00:00:00Z', 1, 1, 0, '2026-11-01T00:00:00Z'),
@@ -78,8 +73,6 @@ layer(PgliteClient.layer({ dataDir: "memory://", extensions: { pg_trgm } }))(
 
         yield* run(NOTES_ARE_ENTRIES)
 
-        // One note per learner and entry: the one furthest along, showing the senses saved, in the
-        // dictionary's order, with every review of the notes merged into it.
         const notes = yield* sql.unsafe<Record<string, unknown>>(`
         SELECT id, user_id, entry_id, senses, reps FROM notes ORDER BY user_id`)
         assert.deepStrictEqual(notes, [
@@ -94,8 +87,6 @@ layer(PgliteClient.layer({ dataDir: "memory://", extensions: { pg_trgm } }))(
           { note_id: EAT_LATER, study_day: 20401 }
         ])
 
-        // Pending drafts were never entries and go; an approval names its entry as a draft does;
-        // a discard stays turned down, without the admin's words.
         const proposals = yield* sql.unsafe<Record<string, unknown>>(`
         SELECT query, status::text AS status, entry_id, reason FROM proposals ORDER BY id`)
         assert.deepStrictEqual(proposals, [
@@ -105,19 +96,16 @@ layer(PgliteClient.layer({ dataDir: "memory://", extensions: { pg_trgm } }))(
           { query: "あsdf", status: "rejected", entry_id: null, reason: "実在しません。" }
         ])
 
-        // Every entry so far stands approved.
         const reviews = yield* sql.unsafe<Record<string, unknown>>(
           `SELECT DISTINCT review::text AS review FROM entries`
         )
         assert.deepStrictEqual(reviews, [{ review: "approved" }])
 
-        // A learner saves an entry once; deleting the entry takes their note with it.
         const twice = yield* sql
           .unsafe(`
           INSERT INTO notes (user_id, entry_id, due, seed, position)
           VALUES ('${U1}', 1358280, '2026-11-06T00:00:00Z', 6, 4)`)
           .pipe(Effect.flip)
-        // The only unique key the row could break is the learner's and entry's.
         assert.include(String((twice as { readonly cause?: unknown }).cause), "UniqueViolation")
         yield* sql.unsafe(`DELETE FROM entries WHERE id = 1358280`)
         assert.deepStrictEqual(yield* sql.unsafe(`SELECT count(*)::int AS n FROM notes`), [{ n: 0 }])

@@ -1,12 +1,7 @@
 import type { UserId } from "@kotori/db"
 import { boolean, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core"
 
-/**
- * Managed Better Auth's tables, declared read-only for typed queries and joins. Neon
- * owns and migrates this schema, so only the columns Kotori reads are listed, with
- * Better Auth's camelCase names. This file is deliberately outside `./schema`, which
- * is all drizzle-kit is pointed at: it must never appear in a migration.
- */
+// Neon owns and migrates neon_auth; keep these read-only table declarations outside @kotori/db so drizzle-kit never includes them in migrations.
 export const neonAuth = pgSchema("neon_auth")
 
 export const authUsers = neonAuth.table("user", {

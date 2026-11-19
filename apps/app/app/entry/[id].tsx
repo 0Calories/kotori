@@ -42,17 +42,10 @@ import { entryIdFromParam, entrySourcesHref } from "../../src/lib/sources.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
 
-/** Web browsers without the Web Share API can't share, so the button is left out there. */
 const canShare = Platform.OS !== "web" || (typeof navigator !== "undefined" && "share" in navigator)
 
-/** Glosses run together as their language lists them: "to eat; to dine", "食べる、食事をする". */
 const glossSeparator = (language: Language) => (language === "ja" ? "; " : "、")
 
-/**
- * One meaning: its glosses, then what is true of this sense and not the word as a whole (a part
- * of speech or label the hero doesn't show), the dictionary's usage patterns with Kotori's beside
- * them, examples, and any caution about this sense alone.
- */
 const SenseCard = ({
   entry,
   sense,
@@ -63,9 +56,7 @@ const SenseCard = ({
   readonly entry: Entry
   readonly sense: Sense
   readonly number: number
-  /** Ways the headword is written or inflected, to find and mark it in examples. */
   readonly forms: ReadonlyArray<string>
-  /** Already shown in the hero; repeated only when this sense differs. */
   readonly partOfSpeech: string | null
 }) => {
   const theme = useTheme()
@@ -149,13 +140,11 @@ const SenseCard = ({
   )
 }
 
-/** Words close to this one, each with how it differs, read off the two words' labels. */
 const SimilarList = ({
   words,
   language
 }: {
   readonly words: ReadonlyArray<SimilarWord>
-  /** Similar words come from the same dictionary as the entry. */
   readonly language: Language
 }) => {
   const theme = useTheme()
@@ -204,7 +193,6 @@ const SimilarList = ({
   )
 }
 
-/** A headword as large as fits: 64pt for short Japanese words and 52pt for short English ones, smaller for long ones. */
 const headwordSize = (headword: string, language: Language) => {
   const length = Array.from(headword).length
   if (language === "en") return length <= 8 ? 52 : Math.max(30, Math.floor(420 / length))
@@ -228,8 +216,6 @@ export default function EntryScreen() {
   const back = () => (router.canGoBack() ? router.back() : router.replace("/"))
   const kotoriReading = useReadingPhase(id !== null && !entry.isLoadingError && !entry.data) === "reading"
 
-  // A failed refetch (one of the polls while the entry is being enriched, say) keeps the entry
-  // already loaded, with a notice until a later one succeeds. Only a failed first load has nothing to show.
   if (id === null || entry.isLoadingError) {
     return (
       <Screen bottomInset={40} header={<Header onBack={back} />}>
@@ -271,7 +257,6 @@ export default function EntryScreen() {
       }`
     }).catch(() => {})
 
-  // Other spellings ("colour", 喰べる), and for English words their inflections ("ate", "eaten").
   const others = data.forms.filter(
     (form) => form.kind !== "inflection" && form.text !== data.headword && form.text !== data.reading
   )
@@ -284,8 +269,6 @@ export default function EntryScreen() {
   const forms = [data.headword, ...data.forms.map((form) => form.text), ...(language === "ja" ? [data.reading] : [])]
   const size = headwordSize(data.headword, language)
   const headwordAudio = data.audioUrl
-  // A word with nothing from Kotori yet gets a plain header, with the part of speech among the
-  // details, and an offer to ask for more.
   const plain = !hasKotoriContent(data) && !waiting
   const meta = [reading, data.usuallyKana ? t.entry.usuallyKana : null, plain ? partOfSpeech : null].filter(
     (part): part is string => part !== null

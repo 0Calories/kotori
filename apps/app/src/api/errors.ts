@@ -14,14 +14,11 @@ export type ApiErrorTag =
   | "Offline"
   | "Unexpected"
 
-/** A failed API call. `message` is for logs only: the learner sees `apiErrorMessage`. */
 export class ApiError extends Error {
   constructor(
     readonly tag: ApiErrorTag,
     message: string,
-    /** Why Ask Kotori turned the query away, for an `AskRefused`: a code the app words. */
     readonly refusal: AskRefusal | null = null,
-    /** For a `RateLimited`: how long the server said to wait, and when that wait ends (epoch ms). */
     readonly retry: { readonly afterSeconds: number; readonly at: number } | null = null
   ) {
     super(message)
@@ -37,11 +34,6 @@ const KNOWN = new Set<string>([
   "RateLimited"
 ])
 
-/**
- * Sorts a failed call by what the learner can do about it. Only a request that never got an
- * answer (`TransportError`) is offline; a response the contract doesn't declare (an unexpected
- * 500 arrives as a `DecodeError`) or a body that doesn't decode is Kotori's fault, so `Unexpected`.
- */
 export const toApiError = (error: unknown): ApiError => {
   if (error instanceof AskRefused) return new ApiError("AskRefused", "", error.reason)
   if (error instanceof RateLimited) {
@@ -49,6 +41,7 @@ export const toApiError = (error: unknown): ApiError => {
     return new ApiError("RateLimited", error.message, null, retry)
   }
   if (HttpClientError.isHttpClientError(error)) {
+    // HttpApiClient surfaces undeclared status codes (such as an unhandled 500) as DecodeError, not TransportError.
     return new ApiError(error.reason._tag === "TransportError" ? "Offline" : "Unexpected", error.message)
   }
   if (Predicate.hasProperty(error, "_tag") && Predicate.isString(error._tag)) {
@@ -60,7 +53,6 @@ export const toApiError = (error: unknown): ApiError => {
   return new ApiError("Unexpected", error instanceof Error ? error.message : String(error))
 }
 
-/** What to tell Sentry about an `Unexpected` failure: never headers (the token), cookies or bodies. */
 export const failureContext = (
   error: unknown
 ): {
@@ -76,24 +68,20 @@ export const failureContext = (
     return {
       kind: error.reason._tag,
       method: request.method,
-      // The path alone: no host, query or fragment.
       path: request.url.replace(/^[a-z]+:\/\/[^/]+/i, "").replace(/[?#].*$/, "") || "/",
       ...(status === undefined ? {} : { status })
     }
   }
   if (Predicate.hasProperty(error, "_tag") && Predicate.isString(error._tag)) {
-    // A `SchemaError` (a success body that doesn't decode) says where the wire shape differs.
     const detail = error instanceof Error ? error.message.slice(0, 1000) : undefined
     return { kind: error._tag, ...(detail ? { detail } : {}) }
   }
   return { kind: error instanceof Error ? error.name : typeof error }
 }
 
-/** React Query's retry policy: only a dropped connection can go differently next time. */
 export const retryOffline = (failureCount: number, error: unknown) =>
   failureCount < 2 && error instanceof ApiError && error.tag === "Offline"
 
-/** What to tell the learner about a failed call, in their language; never the server's own words. */
 export const apiErrorMessage = (t: Strings, error: unknown): string => {
   if (!(error instanceof ApiError)) return t.common.somethingWrong
   switch (error.tag) {

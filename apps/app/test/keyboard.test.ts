@@ -3,8 +3,6 @@ import { blurFocusedOnScroll, keyboardDismissModeFor, pointerMovedEnough } from 
 
 describe("dismissing the keyboard from a scrolling screen", () => {
   it("does not blur a web field when the scroller moves without a drag", () => {
-    // Caret reveal on iOS Safari, and a mouse wheel or trackpad flick, are
-    // scrolls with no vertical drag. "on-drag" on web would blur on all of them.
     assert.strictEqual(keyboardDismissModeFor("web"), "none")
     assert.strictEqual(blurFocusedOnScroll(false), false)
     assert.strictEqual(pointerMovedEnough(0, 0), false)

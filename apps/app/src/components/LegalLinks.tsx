@@ -4,10 +4,6 @@ import { useT } from "../session/SessionProvider.tsx"
 import { PressableScale } from "./PressableScale.tsx"
 import { Text } from "./Text.tsx"
 
-/**
- * Compact Privacy Policy and Terms of Service links (`<a href="/privacy">` and
- * `<a href="/terms">` on web, stack push on native) for Welcome, Sign-up and Settings.
- */
 export const LegalLinks = () => {
   const t = useT()
   return (

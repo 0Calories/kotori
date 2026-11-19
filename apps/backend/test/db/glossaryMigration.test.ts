@@ -8,7 +8,6 @@ import { migrationsFolder } from "../../src/db/Migrate.ts"
 
 const GLOSSARY = "20261109211253_glossary_language"
 
-/** A migration file's statements, split the way the migrator runs them. */
 const statements = (folder: string) =>
   readFileSync(`${migrationsFolder}/${folder}/migration.sql`, "utf8")
     .split("--> statement-breakpoint")
@@ -29,8 +28,6 @@ const C1 = "00000000-0000-4000-8000-0000000000c1"
 const C2 = "00000000-0000-4000-8000-0000000000c2"
 const C3 = "00000000-0000-4000-8000-0000000000c3"
 
-// The glossary migration on a database as it stood before it, with rows in the old shape: an
-// empty PGlite taken through every earlier migration by hand, so the old tables can be filled.
 layer(PgliteClient.layer({ dataDir: "memory://", extensions: { pg_trgm } }))("the glossary migration", (it) => {
   it.effect("moves each card's schedule and review logs onto its note, and renames tag labels to names", () =>
     Effect.gen(function* () {
@@ -39,7 +36,6 @@ layer(PgliteClient.layer({ dataDir: "memory://", extensions: { pg_trgm } }))("th
         .filter((entry) => entry.isDirectory())
         .map((entry) => entry.name)
         .sort()
-      // Only the migrations before it: later ones are written against the glossary's names.
       assert.include(folders, GLOSSARY)
       for (const folder of folders.filter((own) => own < GLOSSARY)) yield* run(folder)
 
@@ -70,7 +66,6 @@ layer(PgliteClient.layer({ dataDir: "memory://", extensions: { pg_trgm } }))("th
           ('${N1}', '${U1}', 'phrase', '${phrase}', '2026-11-01T00:00:00Z'),
           ('${N2}', '${U1}', 'word', '${word}', '2026-11-02T00:00:00Z'),
           ('${N3}', '${U1}', 'word', '${word}', '2026-11-03T00:00:00Z')`)
-      // N1 is in review; N2 kept a stray reverse card beside its own; N3 never had a card.
       yield* sql.unsafe(`
         INSERT INTO cards
           (id, note_id, user_id, template, queue, due, "interval", ease, step, reps, lapses, leech, last_review, seed, position)
@@ -110,15 +105,12 @@ layer(PgliteClient.layer({ dataDir: "memory://", extensions: { pg_trgm } }))("th
         position: 0,
         register: "polite"
       })
-      // The note's own card wins over the stray reverse one.
       assert.deepInclude(notes[1], { id: N2, retention_stage: "learning", step: 1, reps: 2, seed: 42, position: 1 })
       assert.deepStrictEqual(notes[1]?.["due"], new Date("2026-11-09T03:10:00Z"))
-      // A note without a card starts new, due when it was saved, after the user's others.
       assert.deepInclude(notes[2], { id: N3, retention_stage: "new", reps: 0, leech: false, position: 2 })
       assert.deepStrictEqual(notes[2]?.["due"], new Date("2026-11-03T00:00:00Z"))
       assert.isNumber(notes[2]?.["seed"])
 
-      // Reviews of the discarded stray reverse card (C3) are dropped rather than mixed into N2.
       const logs = yield* sql.unsafe<Record<string, unknown>>(`
         SELECT note_id, user_id, rating, retention_stage_before, study_day FROM review_logs ORDER BY study_day`)
       assert.deepStrictEqual(logs, [
@@ -140,7 +132,6 @@ layer(PgliteClient.layer({ dataDir: "memory://", extensions: { pg_trgm } }))("th
         WHERE table_schema = 'public' AND table_name = 'cards'`)
       assert.deepStrictEqual(gone, [])
 
-      // Deleting a user still takes their notes and review logs with them.
       yield* sql.unsafe(`DELETE FROM users WHERE id = '${U1}'`)
       const left = yield* sql.unsafe<Record<string, unknown>>(`
         SELECT (SELECT count(*)::int FROM notes) AS notes, (SELECT count(*)::int FROM review_logs) AS logs`)

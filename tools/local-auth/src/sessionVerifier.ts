@@ -3,24 +3,11 @@ import { createAuthMiddleware } from "better-auth/api"
 import { expireCookie, setSessionCookie } from "better-auth/cookies"
 import { randomUUID } from "node:crypto"
 
-/** The query parameter Neon appends to `callbackURL` after a social sign-in. */
 const VERIFIER_PARAM = "neon_auth_session_verifier"
 
-/** How long a challenge (sign-in → callback) and a verifier (callback → exchange) stay good. */
 const TTL_MS = 10 * 60_000
 
-/**
- * Managed Auth's social sign-in handoff, which plain Better Auth doesn't have. The
- * provider's callback lands on the auth server's own origin, so the session cookie it
- * would set there never reaches the API's proxy. Instead, as Neon does:
- *
- * 1. `POST /sign-in/social` also sets a `session_challenge` cookie, tied to the OAuth state.
- * 2. `/callback/:id` appends a one-time `neon_auth_session_verifier` to the redirect.
- * 3. `GET /get-session?neon_auth_session_verifier=…`, sent with the challenge cookie,
- *    sets the session cookie and answers the session.
- *
- * Kept in memory: a restart in the middle of a sign-in just means starting it again.
- */
+/** Emulates Neon Managed Auth's `neon_auth_session_verifier` cross-origin handoff, which plain Better Auth omits. */
 export const sessionVerifier = (): BetterAuthPlugin => {
   const challenges = new Map<string, { readonly challenge: string; readonly expiresAt: number }>()
   const verifiers = new Map<

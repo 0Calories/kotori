@@ -3,10 +3,6 @@ import { asc, eq, gte, inArray, sum } from "drizzle-orm"
 import { Effect, Option } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 
-// The clip library's rows: each clip's metadata (its bytes are in a bucket or `audio_files`, see AudioStore),
-// and which clips read each headword and each example sentence.
-
-/** How an example clip's voice was chosen, kept for debugging and re-casting. */
 export type Casting = Pick<typeof exampleAudio.$inferInsert, "castBy" | "score">
 
 export const findAudio = (db: DatabaseShape, key: string) =>
@@ -22,7 +18,6 @@ export const findAudio = (db: DatabaseShape, key: string) =>
 export const saveAudio = (db: DatabaseShape, row: typeof audio.$inferInsert) =>
   db.insert(audio).values(row).onConflictDoNothing().pipe(Effect.asVoid, Effect.orDie)
 
-/** Adds a headword clip to the entry; an entry has one clip per dictionary voice. */
 export const linkEntryAudio = (db: DatabaseShape, entryId: EntryId, key: string) =>
   db.insert(entryAudio).values({ entryId, audioKey: key }).onConflictDoNothing().pipe(Effect.asVoid, Effect.orDie)
 
@@ -41,7 +36,6 @@ export const linkExampleAudio = (
     .pipe(Effect.asVoid, Effect.orDie)
 }
 
-/** Headword clips per entry, oldest first, with the cast voice that reads each. */
 export const entryClips = Effect.fn("audio.entryClips")(function* (
   db: DatabaseShape,
   entryIds: ReadonlyArray<EntryId>
@@ -62,7 +56,6 @@ export const entryClips = Effect.fn("audio.entryClips")(function* (
   return clips
 }, Effect.orDie)
 
-/** Audio keys per example, as `${exampleId}:${language}`. */
 export const exampleClips = Effect.fn("audio.exampleClips")(function* (
   db: DatabaseShape,
   exampleIds: ReadonlyArray<number>
@@ -72,7 +65,6 @@ export const exampleClips = Effect.fn("audio.exampleClips")(function* (
   return new Map(rows.map((row) => [`${row.exampleId}:${row.language}`, row.audioKey]))
 }, Effect.orDie)
 
-/** Characters sent to the speech provider since `since`, for the monthly budget. */
 export const audioCharactersSince = (db: DatabaseShape, since: Date) =>
   db
     .select({ n: sum(audio.characters).mapWith(Number) })

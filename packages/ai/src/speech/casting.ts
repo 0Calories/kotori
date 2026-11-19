@@ -12,19 +12,7 @@ import {
   type VoiceMedium
 } from "./voices.ts"
 
-/**
- * Picks the voice that fits a sentence. Pure: `briefFor` merges the stored
- * signals into one language-neutral casting brief, `rank` scores a language's
- * cast against it. Ties (within TIE_WINDOW of the top) are broken by Jev elsewhere.
- */
-
-/**
- * A casting brief: the kind of speaker a sentence calls for, independent of
- * language. Derived once per sentence and used to cast both its Japanese and
- * its English clip, so the two land on matching speakers.
- */
 export interface CastingBrief {
-  /** Hard requirement; null means the language's default variety. */
   readonly variety: Variety | null
   readonly gender: "masculine" | "feminine" | null
   readonly age: VoiceAge | null
@@ -32,23 +20,14 @@ export interface CastingBrief {
   readonly medium: VoiceMedium | null
   readonly slang: boolean
   readonly archaic: boolean
-  /** A joke or comic line: comic voices may read it whatever its variety. */
   readonly humorous: boolean
 }
 
-/**
- * The sentence signals casting reads: its formality, and its `Casting` spread beside it (absent
- * on examples written before casting). A variety is the label Claude wrote ("kansai", "british"…).
- */
 export interface SentenceSignals extends Partial<Casting> {
   readonly formality: Formality
 }
 
-/**
- * What the sentence's own sense says about its speaker: all of the sense's labels, whatever
- * their source (a dictionary's, or Kotori's fill), and its subject fields. Not the word's labels,
- * which are only those every sense shares.
- */
+/** Must be the target sense's own labels (including Kotori fills), not entry-wide labels. */
 export interface SenseSignals {
   readonly labels: ReadonlyArray<string>
   readonly fields: ReadonlyArray<string>
@@ -59,10 +38,6 @@ export interface CastingInput {
   readonly sense: SenseSignals
 }
 
-/**
- * Dialect and region labels on a sense → the variety a voice must have: JMDict's dialects for
- * Japanese words, regions of English for English ones. Codes without one stay default.
- */
 const DIALECT_VARIETIES: Record<string, Variety> = {
   ksb: "kansai",
   osb: "kansai",
@@ -74,13 +49,11 @@ const DIALECT_VARIETIES: Record<string, Variety> = {
   "en-AU": "australian"
 }
 
-/** Labels that mark slang, which a casual or rough voice reads best; colloquial is a register, carried by formality. */
+/** Excludes "col", which sentence formality already carries. */
 const SLANG = new Set(["sl", "net-sl", "m-sl", "vulg"])
 
-/** Labels that mark a word as old, which an older voice reads best. */
 const ARCHAIC = new Set(["arch", "obs", "dated"])
 
-/** Sentence variety labels (free-form from Claude) → varieties. */
 const SENTENCE_VARIETIES: Record<string, Variety> = {
   kansai: "kansai",
   tohoku: "tohoku",
@@ -90,7 +63,6 @@ const SENTENCE_VARIETIES: Record<string, Variety> = {
   australian: "australian"
 }
 
-/** Writes the casting brief for a sentence, merging its signals most specific first: the sentence's, then its sense's labels. */
 export const briefFor = ({ sense, sentence }: CastingInput): CastingBrief => {
   const labels = new Set(sense.labels)
   const sentenceVariety = sentence.variety == null ? null : (SENTENCE_VARIETIES[sentence.variety] ?? null)
@@ -103,7 +75,6 @@ export const briefFor = ({ sense, sentence }: CastingInput): CastingBrief => {
   const speakerAge = sentence.speakerAge != null && sentence.speakerAge !== "unspecified" ? sentence.speakerAge : null
   const labelAge = labels.has("chn") ? "child" : null
 
-  // A formal line of a formal written word (Kotori's `form` fill) or a field's term is read as an announcement.
   const formalWriting = sentence.formality === "formal" && (labels.has("form") || sense.fields.length > 0)
 
   return {
@@ -118,9 +89,7 @@ export const briefFor = ({ sense, sentence }: CastingInput): CastingBrief => {
   }
 }
 
-// Scoring weights. Gender outranks everything soft because a mismatched speaker
-// (a man voicing わ-speech) is the most audible miscast after variety; age and
-// medium shape the scene; the rest nudge. Tune these from `regen --dry-run`.
+// Gender (±3) outweighs age and medium (+2) because a mismatched gendered ending is the most audible miscast after variety.
 const GENDER_MATCH = 3
 const GENDER_MISMATCH = -3
 const GENDER_ANDROGYNOUS = 1
@@ -130,13 +99,11 @@ const AGE_MISMATCH = -1
 const MEDIUM_MATCH = 2
 const SLANG_FIT = 1
 const ARCHAIC_FIT = 1
-/** Enough to beat a same-gender voice that matches age exactly, so a comic line goes to a comic voice. */
+/** Beats an exact age match (+2) within the same gender without overriding gender (±3). */
 const COMIC_FIT = 3
 const FORMALITY_LISTED = 1
-/** Voices within this of the top score are considered tied and go to Jev. */
 export const TIE_WINDOW = 1
 
-/** Adults by age; a child has no neighbour, so an adult voice never passes for one. */
 const AGE_ORDER: ReadonlyArray<VoiceAge> = ["youth", "adult", "middle-aged", "older"]
 
 const ageScore = (want: VoiceAge, has: VoiceAge): number => {
@@ -151,12 +118,6 @@ export interface RankedVoice<L extends Language = Language> {
   readonly score: number
 }
 
-/**
- * The cast voices of `language` that may read the sentence, best fit first.
- * Variety is a hard filter, except that a humorous brief also admits comic
- * voices of any variety; the register filter is relaxed rather than return
- * nobody, so there is always at least one candidate when the language is cast.
- */
 export const rank = <L extends Language>(
   brief: CastingBrief,
   language: L,
@@ -195,19 +156,11 @@ export const rank = <L extends Language>(
     .sort((a, b) => b.score - a.score)
 }
 
-/** The top voices that scoring could not separate; more than one means Jev decides. */
 export const tied = <L extends Language>(ranked: ReadonlyArray<RankedVoice<L>>): ReadonlyArray<RankedVoice<L>> =>
   ranked.length === 0 ? [] : ranked.filter(({ score }) => ranked[0]!.score - score <= TIE_WINDOW)
 
-// --- Jev as the tiebreaker ---------------------------------------------------------
-//
-// `rank` and `tied` narrow the cast; when several voices score level, one cheap Jev choice
-// question picks the one that sounds most like the person who would really say the sentence.
-
 export interface VoiceCandidate {
-  /** Kotori voice id, e.g. "ja-casual-m"; becomes the choice label. */
   readonly id: string
-  /** One line on how the voice sounds and when to use it, from the cast. */
   readonly description: string
 }
 
@@ -216,7 +169,6 @@ export interface CastVote {
   readonly confidence: number
 }
 
-/** Below this, Jev's pick is kept but logged, so weak calls show up when reviewing casting. */
 export const CAST_CONFIDENCE_FLOOR = 0.4
 
 const castingQuestion = (candidates: ReadonlyArray<VoiceCandidate>): ChoiceQuestion => ({
@@ -226,11 +178,6 @@ const castingQuestion = (candidates: ReadonlyArray<VoiceCandidate>): ChoiceQuest
   criteria: Object.fromEntries(candidates.map((candidate) => [candidate.id, candidate.description]))
 })
 
-/**
- * Jev's pick among voices the selector could not separate. A single candidate
- * is returned as-is without paying for a Jev call — there is nothing to break —
- * and no candidates is a defect: the selector guarantees at least one.
- */
 export const castVoice = (
   jev: Jev["Service"],
   input: { sentence: string; meaning: string; candidates: ReadonlyArray<VoiceCandidate> }
@@ -238,7 +185,6 @@ export const castVoice = (
   const [first, second] = input.candidates
   if (first === undefined) return Effect.die(new Error("castVoice needs at least one candidate"))
   if (second === undefined) return Effect.succeed({ voiceId: first.id, confidence: 1 })
-  // Asked by the worker's audio job, which nobody waits on.
   return jev
     .ask(
       { sentence: input.sentence, meaning: input.meaning },

@@ -7,14 +7,8 @@ import { insertEntries, linkLoans, saveTags } from "../../queries.ts"
 import type { ImportEntry } from "../seedFacts.ts"
 import { parseEntries, parseTags } from "./parse.ts"
 
-/**
- * EDRDG's English-only JMdict in its examples edition, refreshed daily: JMdict_e with Tatoeba's
- * sentence pairs on the senses they illustrate. JMdict is licensed CC BY-SA 4.0; the Tatoeba
- * sentences CC BY 2.0 FR.
- */
 export const JMDICT_URL = "https://www.edrdg.org/pub/Nihongo/JMdict_e_examp.gz"
 
-/** Where the download is kept, relative to the repository root, for the commands that reuse it. */
 export const JMDICT_FILE = "data/jmdict/JMdict_e_examp.gz"
 
 export class JMDictError extends Schema.TaggedError<JMDictError>()("JMDictError", {
@@ -22,7 +16,6 @@ export class JMDictError extends Schema.TaggedError<JMDictError>()("JMDictError"
   cause: Schema.optional(Schema.Defect())
 }) {}
 
-/** Downloads JMdict_e_examp.gz into its own directory, returning the file path. */
 export const download = Effect.fn("JMDict.download")(
   function* (directory: string) {
     const fs = yield* FileSystem.FileSystem
@@ -40,16 +33,12 @@ export const download = Effect.fn("JMDict.download")(
 )
 
 export interface ImportOptions {
-  /** Path to JMdict_e_examp.gz, JMdict_e.gz (no example sentences) or an uncompressed JMdict XML file. */
   readonly file: string
-  /** Stop after this many entries, for quick local setups. */
   readonly limit?: number | undefined
-  /** Only import entries JMDict marks as common (~22k words). */
   readonly commonOnly?: boolean | undefined
   readonly batchSize?: number | undefined
 }
 
-/** Parses JMDict and loads it into the database, then rebuilds the gloss search index. */
 export const importFile = Effect.fn("JMDict.importFile")(function* (options: ImportOptions) {
   const fs = yield* FileSystem.FileSystem
   const db = yield* Database

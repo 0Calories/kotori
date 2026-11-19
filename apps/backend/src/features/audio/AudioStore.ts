@@ -5,17 +5,13 @@ import { Config, Context, Effect, Layer, Option } from "effect"
 import { Database, type DatabaseShape } from "../../db/Database.ts"
 import { Bucket } from "../../integrations/storage/Bucket.ts"
 
-/** Audio keys are sha256 hex digests, which also makes them safe to use in paths and URLs. */
 export const isAudioKey = (key: string) => /^[a-f0-9]{64}$/.test(key)
 
-/** A clip's object in a bucket: its key, as an MP3 that never changes. */
 export const clipObject = (key: string) => `${key}.mp3`
 export const CLIP_HEADERS = { contentType: "audio/mpeg", cacheControl: "public, max-age=31536000, immutable" }
 
-/** The clips in `audio_files`. */
 const inTable = (db: DatabaseShape) => ({
   put: Effect.fn("AudioStore.put")(function* (key: string, bytes: Uint8Array) {
-    // `bytea` travels as a Buffer; the view shares the bytes without copying them.
     const data = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength)
     yield* db.insert(audioFiles).values({ key, data }).onConflictDoUpdate({ target: audioFiles.key, set: { data } })
   }, Effect.orDie),
@@ -32,20 +28,14 @@ const inTable = (db: DatabaseShape) => ({
   }, Effect.orDie)
 })
 
-/**
- * Where the MP3 clips live, shared by the API and the worker without a disk: a bucket when
- * `KOTORI_AUDIO_BUCKET` names one, the `audio_files` table otherwise (local dev, tests).
- */
 export class AudioStore extends Context.Service<
   AudioStore,
   {
-    /** Stores the bytes of a clip whose row `saveAudio` has already written. */
     put(key: string, bytes: Uint8Array): Effect.Effect<void>
     read(key: string): Effect.Effect<Option.Option<Uint8Array>>
     exists(key: string): Effect.Effect<boolean>
   }
 >()("@kotori/backend/AudioStore") {
-  /** Clips in the `audio_files` table. */
   static readonly database = Layer.effect(
     AudioStore,
     Effect.gen(function* () {
@@ -53,12 +43,6 @@ export class AudioStore extends Context.Service<
     })
   )
 
-  /**
-   * Clips in the `Bucket`. Until `kotori storage audio` has moved them all, a clip the bucket
-   * doesn't have (or can't give) is read from `audio_files`; once that table is empty, a miss
-   * costs one primary-key lookup. Writes and `exists` fail with the bucket: `exists` answering
-   * false would have `Speech` pay to synthesise a clip again.
-   */
   static readonly bucket = Layer.effect(
     AudioStore,
     Effect.gen(function* () {
@@ -71,7 +55,7 @@ export class AudioStore extends Context.Service<
 
       const read = Effect.fn("AudioStore.read")(function* (key: string) {
         if (!isAudioKey(key)) return Option.none<Uint8Array>()
-        // A bucket that fails (misconfigured, down) still leaves the clips not yet moved playable.
+        // Fall back to audio_files for unmigrated clips or transient bucket errors.
         const stored = yield* bucket
           .get(clipObject(key))
           .pipe(
@@ -84,6 +68,7 @@ export class AudioStore extends Context.Service<
 
       const exists = Effect.fn("AudioStore.exists")(function* (key: string) {
         if (!isAudioKey(key)) return false
+        // Propagate bucket.head errors rather than returning false, which would cause Speech to re-synthesize an existing clip.
         return Option.isSome(yield* bucket.head(clipObject(key))) || (yield* table.exists(key))
       }, Effect.orDie)
 
@@ -91,7 +76,6 @@ export class AudioStore extends Context.Service<
     })
   )
 
-  /** The bucket store when `KOTORI_AUDIO_BUCKET` is set, the table otherwise. */
   static readonly layer = Layer.unwrap(
     Effect.gen(function* () {
       const name = yield* Config.option(Config.String("KOTORI_AUDIO_BUCKET"))

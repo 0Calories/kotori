@@ -9,7 +9,6 @@ import { Button, IconButton } from "./Button.tsx"
 let current: AudioPlayer | null = null
 let stopCurrent: (() => void) | null = null
 
-/** Plays one clip at a time; starting another stops the first. */
 const play = (url: string, onEnd: () => void) => {
   stopCurrent?.()
   current?.remove()
@@ -25,7 +24,6 @@ const play = (url: string, onEnd: () => void) => {
   player.play()
 }
 
-/** Plays a stored clip, or asks the server to voice `speak` on demand. With a `label`, it's a pill. */
 export const AudioButton = ({
   url,
   speak,

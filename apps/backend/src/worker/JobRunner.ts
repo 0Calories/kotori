@@ -11,37 +11,17 @@ import {
   requeueStaleJobs
 } from "../features/enrichment/index.ts"
 
-/** A job still `running` this long after its claim belongs to a worker that crashed or was killed. */
 const STALE_AFTER = 10 * 60_000
-/**
- * How long one job may run before it fails like any other error and is retried later. Well under
- * `STALE_AFTER`, so the sweep never puts back a job this worker is still running; and the worker
- * runs one job at a time, so without it one hung provider call would stall the whole queue.
- */
+// Must stay below STALE_AFTER so the stale-job sweep never requeues a job this worker is still running.
 const JOB_DEADLINE = 8 * 60_000
-/** How often to look for such jobs: at startup and then while working. */
 const SWEEP_EVERY = 60_000
-/** First wait before retrying a failed job; it doubles with each attempt. */
 const RETRY_AFTER = 30_000
 
-/**
- * One cycle of the enrichment queue: puts stale jobs back when a sweep is due, claims the most
- * urgent runnable job of a kind that has a provider, runs it and settles it. Succeeds with whether
- * there was a job, so the caller knows when to wait. The worker runs it forever.
- *
- * Which kinds have a provider is read afresh every cycle, not once at startup: Claude's probe can
- * fail while the worker boots (during a deploy) and pass a moment later, and a worker that
- * remembered the failure would leave its jobs queued for good. The probes are cached, so it is cheap.
- */
 export const makeJobRunner = Effect.fn("makeJobRunner")(function* () {
   const db = yield* Database
   const enrichers = yield* Enrichers
 
-  // Only the enrichment itself is interruptible, so every claimed job is settled: on shutdown
-  // (SIGTERM during a deploy) an interrupted job goes back in the queue instead of staying `running`.
-  // The deadline sits inside `restore`, so a shutdown still interrupts the job at once; a job that
-  // overruns it fails with a `TimeoutError` (the interrupted enrichment isn't in the cause), so it
-  // is counted as a failed attempt and retried with backoff, not released.
+  // Keep timeout inside restore so SIGTERM interrupts immediately and releases the job, while a deadline overrun exits with TimeoutError and counts as a failed attempt.
   const runJob = (job: Job, audio: boolean) =>
     Effect.uninterruptibleMask((restore) =>
       Effect.gen(function* () {
@@ -50,8 +30,7 @@ export const makeJobRunner = Effect.fn("makeJobRunner")(function* () {
         const finishedAt = yield* Clock.currentTimeMillis
         const finished = new Date(finishedAt)
         if (Exit.isSuccess(exit)) {
-          // New example sentences need voicing too; queue audio before marking examples done so a
-          // concurrent poll never sees the new examples with audio already settled.
+          // Enqueue audio before completing examples so a concurrent poll never sees new examples with audio already settled.
           if (kind === "examples" && audio) yield* requeueJob(db, "audio", entryId, priority, finished)
           yield* completeJob(db, id, finished)
           yield* Effect.logInfo(`${kind} ${entryId}: ${exit.value}`)
@@ -80,8 +59,8 @@ export const makeJobRunner = Effect.fn("makeJobRunner")(function* () {
       yield* requeueStaleJobs(db, new Date(now - STALE_AFTER), new Date(now))
       nextSweep = now + SWEEP_EVERY
     }
+    // Re-check providers each cycle so a transient Claude probe failure during boot does not leave jobs stuck.
     const kinds = yield* enrichers.available
-    // Say so when the set changes, so a kind that drops out or comes back shows in the logs.
     const listed = kinds.join(", ")
     if (listed !== announced) {
       announced = listed

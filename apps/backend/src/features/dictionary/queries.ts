@@ -56,18 +56,15 @@ import { type EntryScope, outsideScope, reviewedAs } from "./entryReview.ts"
 import { matchSenses } from "./import/matchSenses.ts"
 import { type ImportEntry, labelsOf, usagePatternsOf, SEED_SOURCES, speaks } from "./import/seedFacts.ts"
 
-/** Enrichment an entry can be missing, used to find work for the worker. */
 export type EnrichmentKind = (typeof jobKind.enumValues)[number]
 
 export interface PriorityQuery {
   readonly limit: number
   readonly missing?: EnrichmentKind | undefined
   readonly commonOnly?: boolean | undefined
-  /** Only entries with headwords in this language; both dictionaries when absent. */
   readonly language?: Language | undefined
 }
 
-/** How many glosses the sense of a gloss row has. */
 const glossCount = sql<number>`(
   SELECT count(*) FROM ${glosses} AS g2
   WHERE g2.entry_id = ${glosses.entryId} AND g2.sense = ${glosses.sense}
@@ -75,11 +72,6 @@ const glossCount = sql<number>`(
 
 type Tx = Parameters<Parameters<DatabaseShape["transaction"]>[0]>[0]
 
-/**
- * Where each entry's stored senses go in `records`: per entry, each stored sense's new
- * position, or null where it is gone. Entries whose senses all stay put are left out, which
- * is every entry on a first import and nearly every one on a re-import of unchanged sources.
- */
 const sensesMoved = Effect.fnUntraced(function* (tx: Tx, records: ReadonlyArray<ImportEntry>) {
   const stored = new Map<EntryId, Array<Array<string>>>()
   for (const chunk of chunks(
@@ -116,19 +108,12 @@ const sensesMoved = Effect.fnUntraced(function* (tx: Tx, records: ReadonlyArray<
   return moves
 })
 
-/**
- * Takes out the rows keyed by sense of entries whose senses move, until the senses are in
- * place: labels are held and deleted; example sentences, usage patterns and cautions are
- * only listed, as they are moved in place (keeping their ids, and the sentences their audio).
- */
 const takeSenseRows = Effect.fnUntraced(function* (tx: Tx, ids: ReadonlyArray<EntryId>) {
   const held = {
     sentences: yield* tx
       .select({ id: examples.id, entryId: examples.entryId, sense: examples.sense })
       .from(examples)
       .where(inArray(examples.entryId, [...ids])),
-    // What the import rebuilds from the record is gone by now (`deleteSeedFacts`); what is left
-    // is Kotori's and learners', which follows its sense.
     labels: yield* tx
       .select()
       .from(labels)
@@ -146,7 +131,6 @@ const takeSenseRows = Effect.fnUntraced(function* (tx: Tx, ids: ReadonlyArray<En
   return held
 })
 
-/** Puts the taken rows back with their senses; a sense that is gone takes its rows with it. */
 const moveSenseRows = Effect.fnUntraced(function* (
   tx: Tx,
   moves: ReadonlyMap<EntryId, ReadonlyArray<number | null>>,
@@ -161,7 +145,7 @@ const moveSenseRows = Effect.fnUntraced(function* (
     })
   for (const chunk of chunks(follow(held.labels), 1000)) yield* tx.insert(labels).values([...chunk])
 
-  // Usage patterns and sense-scoped cautions move by id, as sentences do; one whose sense is gone goes.
+  // Update by pre-collected row IDs so swapping two sense positions does not move rows twice.
   for (const table of [usagePatterns, cautions] as const) {
     const rows = table === usagePatterns ? held.usagePatterns : held.cautions
     const gone: Array<number> = []
@@ -175,7 +159,6 @@ const moveSenseRows = Effect.fnUntraced(function* (
     for (const chunk of chunks(gone, 5000)) yield* tx.delete(table).where(inArray(table.id, [...chunk]))
   }
 
-  // Sentences move by id, so a swap of two senses can't carry either set twice.
   const sentences = new Map<number, Array<number>>()
   const unheard: Array<number> = []
   for (const sentence of held.sentences) {
@@ -193,13 +176,7 @@ const moveSenseRows = Effect.fnUntraced(function* (
   for (const chunk of chunks(unheard, 5000)) yield* tx.delete(examples).where(inArray(examples.id, [...chunk]))
 })
 
-/**
- * Deletes the labels and usage patterns an insert rebuilds from its records: those from a seed source or
- * from the entry's own source (an approved Ask Kotori word's are Kotori's), before and after
- * the insert, so a word the curated file takes over from Ask Kotori keeps none of the draft's.
- * What other sources layered on top, such as Kotori's `form` fill on a JMDict word, stays. Runs
- * before the entries are upserted, while they still name their old source.
- */
+// Delete facts from both the old and new entry.source before upserting entries so a curated entry replacing an approved Kotori draft drops the draft's facts while keeping offline-pass overlays.
 const deleteSeedFacts = Effect.fnUntraced(function* (tx: Tx, records: ReadonlyArray<ImportEntry>) {
   const stored = new Map<EntryId, Source>()
   for (const chunk of chunks(
@@ -230,7 +207,6 @@ const deleteSeedFacts = Effect.fnUntraced(function* (tx: Tx, records: ReadonlyAr
   }
 })
 
-/** Writes the labels and usage patterns read from the records' senses; a seed source's label replaces another source's. */
 const insertSeedFacts = Effect.fnUntraced(function* (tx: Tx, records: ReadonlyArray<ImportEntry>) {
   const labelRows = records.flatMap((entry) =>
     entry.senses.flatMap((sense, position) =>
@@ -260,14 +236,8 @@ const insertSeedFacts = Effect.fnUntraced(function* (tx: Tx, records: ReadonlyAr
   for (const chunk of chunks(usagePatternRows, 3000)) yield* tx.insert(usagePatterns).values([...chunk])
 })
 
-/** Sources of example sentences a seed import writes; Kotori's are the worker's. */
 const SEEDED_EXAMPLES = ["tatoeba", "jawiktionary", "enwiktionary"] as const satisfies ReadonlyArray<Source>
 
-/**
- * Brings the records' seeded example sentences into line with their sources: sentences a source
- * no longer gives go, new ones are added, and the rest keep their ids (and any audio). Kotori's
- * sentences are left alone. Runs after senses have moved, so stored sentences are in place.
- */
 const syncSeededExamples = Effect.fnUntraced(function* (tx: Tx, records: ReadonlyArray<ImportEntry>) {
   const key = (row: { entryId: EntryId; sense: number; source: string; ja: string; en: string }) =>
     `${row.entryId}\u0000${row.sense}\u0000${row.source}\u0000${row.ja}\u0000${row.en}`
@@ -304,7 +274,6 @@ const syncSeededExamples = Effect.fnUntraced(function* (tx: Tx, records: Readonl
   for (const chunk of chunks([...wanted.values()], 2000)) yield* tx.insert(examples).values([...chunk])
 })
 
-/** Writes the records' frequency signals; an entry whose sources say nothing has no row. */
 const syncFrequency = Effect.fnUntraced(function* (tx: Tx, records: ReadonlyArray<ImportEntry>) {
   const rows = records.flatMap((entry) => (speaks(entry.frequency) ? [{ entryId: entry.id, ...entry.frequency }] : []))
   const silent = records.filter((entry) => !speaks(entry.frequency)).map((entry) => entry.id)
@@ -327,18 +296,9 @@ const syncFrequency = Effect.fnUntraced(function* (tx: Tx, records: ReadonlyArra
 })
 
 export interface InsertOptions {
-  /**
-   * The records are a seed import's, carrying everything their sources say: their seeded example
-   * sentences and frequency signals replace the stored ones. Off, as when an alias re-inserts a
-   * stored entry, those are left as they are.
-   */
   readonly seeded?: boolean | undefined
 }
 
-/**
- * Inserts or replaces entries and their forms, senses and glosses, and the labels and usage patterns
- * read from their senses. Enrichment survives for every sense the entry still has.
- */
 export const insertEntries = Effect.fn("dictionary.insertEntries")(function* (
   db: DatabaseShape,
   records: ReadonlyArray<ImportEntry>,
@@ -348,11 +308,7 @@ export const insertEntries = Effect.fn("dictionary.insertEntries")(function* (
   const ids = records.map((entry) => entry.id)
   yield* db.transaction((tx) =>
     Effect.gen(function* () {
-      // Forms and glosses are replaced wholesale. Senses are upserted by position, since
-      // enrichment references them and would cascade away; only senses past an entry's
-      // new count are deleted. Where a re-import moves senses (or drops one), enrichment
-      // keyed by position follows its sense, matched by glosses (`matchSenses`), and
-      // what belonged to a sense that is gone goes with it.
+      // Upsert senses in place and delete only trailing positions >= count so foreign keys from examples/labels/cautions do not cascade-delete surviving senses.
       const moves = yield* sensesMoved(tx, records)
       yield* deleteSeedFacts(tx, records)
       const moved = [...moves.keys()]
@@ -370,7 +326,6 @@ export const insertEntries = Effect.fn("dictionary.insertEntries")(function* (
             reading: entry.reading,
             common: entry.common,
             priority: entry.priority,
-            // Set on a draft's first insert; a re-insert never changes where an entry stands.
             review: entry.review ?? "approved"
           }))
         )
@@ -440,7 +395,6 @@ export const insertEntries = Effect.fn("dictionary.insertEntries")(function* (
             }
           })
       }
-      // Every new position exists now, so rows can move before the surplus senses go.
       if (keyed !== null) yield* moveSenseRows(tx, moves, keyed)
       const bySenseCount = new Map<number, Array<EntryId>>()
       for (const entry of records) {
@@ -460,7 +414,6 @@ export const insertEntries = Effect.fn("dictionary.insertEntries")(function* (
             position,
             text: gloss.text,
             type: gloss.type,
-            // Glosses are in the other language from the headword.
             norm: entry.language === "ja" ? normalizeGloss(gloss.text) : normalizeJapaneseGloss(gloss.text)
           }))
         )
@@ -476,27 +429,14 @@ export const insertEntries = Effect.fn("dictionary.insertEntries")(function* (
   )
 }, Effect.orDie)
 
-/**
- * Links katakana loans to the English words they come from, as JMDict names them (`lsource`):
- * one row per pair, read from both entries. Re-run after either dictionary is imported, it adds
- * the pairs JMDict names now, drops those it no longer names, and points each at the English
- * entry spelled like it (exactly, else in another case). A verdict on the meaning, which JMDict
- * doesn't give, survives on a pair JMDict still names, with whose it is (`meaning_source`); a
- * pair it no longer names goes, verdict and all. A pair Kotori named that JMDict now names
- * becomes JMDict's, keeping its verdict. Pairs only Kotori names are the loan file's to keep.
- */
 export const linkLoans = Effect.fn("dictionary.linkLoans")(function* (db: DatabaseShape) {
-  // English words a loan may link to: the dictionary's own, never a draft.
   const inDictionary = sql`(${sql.join(
     reviewsWhere("inDictionary").map((review) => sql`${review}::entry_review`),
     sql`, `
   )})`
   yield* db.transaction((tx) =>
     Effect.gen(function* () {
-      // The pairs JMDict names now, by the katakana headword: a pair whose word changed headword
-      // is a different pair, and the old one goes. Two entries spelled alike may name the same
-      // word; the lower id, JMDict's older entry, holds it.
-      // One statement: the delete and the upsert see the same snapshot and touch disjoint pairs.
+      // Run DELETE and INSERT in one data-modifying CTE so both see the same snapshot; when homographs share a katakana headword and origin, lowest entry id wins.
       yield* tx.execute(sql`
         WITH wanted AS (
           SELECT DISTINCT ON (e.headword, o.word) e.headword AS katakana, e.id AS entry_id, o.word AS english
@@ -531,7 +471,6 @@ export const linkLoans = Effect.fn("dictionary.linkLoans")(function* (db: Databa
   )
 }, Effect.orDie)
 
-/** Deletes entries and everything hanging off them: forms, senses, enrichment and jobs. */
 export const deleteEntries = Effect.fn("dictionary.deleteEntries")(function* (
   db: DatabaseShape,
   ids: ReadonlyArray<EntryId>
@@ -539,12 +478,11 @@ export const deleteEntries = Effect.fn("dictionary.deleteEntries")(function* (
   for (const chunk of chunks(ids, 5000)) yield* db.delete(entries).where(inArray(entries.id, [...chunk]))
 }, Effect.orDie)
 
-/** Adds tag names, replacing those of codes already known; codes the other dictionary uses are kept. */
 export const saveTags = Effect.fn("dictionary.saveTags")(function* (
   db: DatabaseShape,
   rows: ReadonlyArray<{ readonly code: string; readonly name: string }>
 ) {
-  // One row per code, or the upsert would touch a row twice; the first name wins.
+  // Deduplicate by code because Postgres ON CONFLICT DO UPDATE cannot affect the same target row twice in one statement.
   const names = new Map<string, string>()
   for (const tag of rows) if (!names.has(tag.code)) names.set(tag.code, tag.name)
   for (const chunk of chunks([...names], 1000)) {
@@ -564,17 +502,11 @@ export const tagNames = (db: DatabaseShape) =>
       Effect.orDie
     )
 
-/** The dictionary's size: approved entries, Kotori's drafts aside. */
 export const entryCount = (db: DatabaseShape) => db.$count(entries, reviewedAs("inDictionary")).pipe(Effect.orDie)
 
-/** Approved entries whose headwords are in `language`. */
 export const countOf = (db: DatabaseShape, language: Language) =>
   db.$count(entries, and(eq(entries.language, language), reviewedAs("inDictionary"))).pipe(Effect.orDie)
 
-/**
- * Every approved headword in one dictionary with its entry id, so a re-import keeps ids stable.
- * Kotori's drafts aren't the sources' to keep or remove: a re-import leaves them be.
- */
 export const headwordIds = Effect.fn("dictionary.headwordIds")(function* (db: DatabaseShape, language: Language) {
   const rows = yield* db
     .select({ id: entries.id, headword: entries.headword })
@@ -583,7 +515,6 @@ export const headwordIds = Effect.fn("dictionary.headwordIds")(function* (db: Da
   return new Map(rows.map((row) => [row.headword, row.id]))
 }, Effect.orDie)
 
-/** The highest entry id in one dictionary's block from `from` up, drafts included, or `from` when there is none. */
 export const topEntryId = Effect.fn("dictionary.topEntryId")(function* (
   db: DatabaseShape,
   language: Language,
@@ -596,10 +527,6 @@ export const topEntryId = Effect.fn("dictionary.topEntryId")(function* (
   return Math.max(row?.top ?? 0, from)
 }, Effect.orDie)
 
-/**
- * An entry's id, language and review state, or undefined when there is none: enough to report
- * its enrichment.
- */
 export const entryLanguage = Effect.fn("dictionary.entryLanguage")(function* (db: DatabaseShape, id: EntryId) {
   const [row] = yield* db
     .select({ id: entries.id, language: entries.language, review: entries.review })
@@ -608,7 +535,6 @@ export const entryLanguage = Effect.fn("dictionary.entryLanguage")(function* (db
   return row
 }, Effect.orDie)
 
-/** An entry as stored: its record, and where it stands with the admin. */
 export type StoredEntry = EntryRecord & { readonly review: EntryReview }
 
 export const getEntries = Effect.fn("dictionary.getEntries")(function* (
@@ -664,38 +590,21 @@ export const getEntries = Effect.fn("dictionary.getEntries")(function* (
   })
 }, Effect.orDie)
 
-/** A list column as an array, empty where the row stores NULL (see `@kotori/db`'s `textList`). */
 const listOf = <C extends AnyColumn>(column: C) => sql`coalesce(${column}, '{}')`.mapWith(column)
 
-/** `lower(text)`, which `forms_folded` indexes for English forms, so English matches whatever the case. */
 const folded = sql<string>`lower(${forms.text})`
 
-// The searches' indexes are partial (see `@kotori/db`): the forms' hold English spellings or forms,
-// `glosses_document` Japanese words' glosses. The planner can't tell that from the entry's language,
-// so each search also states its index's condition (`isEnglishForm`, `isSpelling`,
-// `isJapaneseEntryId`); without it, it would scan the table.
-
-/** `englishDocument` of a form's text, the expression `forms_document` indexes. */
+// Repeat partial-index predicates (isEnglishForm, isSpelling, isJapaneseEntryId) in WHERE clauses because the Postgres planner cannot infer them from entries.language.
 const formDocument = englishDocument(forms.text)
 
-/** `englishDocument` of a gloss's text, the expression `glosses_document` indexes for Japanese words. */
 const glossDocument = englishDocument(glosses.text)
 
-/**
- * A query's words as the `english` configuration stems them, or, when every word is one it drops
- * ("what it is"), word for word with `simple`: the documents of such phrases are built the same
- * way (`englishDocument`), so the two still meet.
- */
+// Fall back to 'simple' when 'english' stems every token away as stop words (e.g. "what it is"), matching englishDocument.
 const tsquery = (query: string) =>
   sql`CASE WHEN numnode(plainto_tsquery('english', ${query})) = 0 THEN plainto_tsquery('simple', ${query}) ELSE plainto_tsquery('english', ${query}) END`
 
-/** Matches when any of `queries` does, each requiring all of its words (`plainto_tsquery`). */
 const toTsquery = (queries: ReadonlyArray<string>) => sql`(${sql.join(queries.map(tsquery), sql` || `)})`
 
-/**
- * Entries in one dictionary with a form equal to one of `texts`; English ignores case. Only
- * approved entries unless `scope` lets in Kotori's drafts, so a link never lands on one.
- */
 export const findForms = Effect.fn("dictionary.findForms")(function* (
   db: DatabaseShape,
   texts: ReadonlyArray<string>,
@@ -712,9 +621,7 @@ export const findForms = Effect.fn("dictionary.findForms")(function* (
       .innerJoin(entries, eq(entries.id, forms.entryId))
       .where(and(eq(entries.language, language), inArray(forms.text, texts), inScope))
   }
-  // An English form's kind says it is English, so there is nothing to join: the planner has no
-  // statistics for `lower(text)` from a partial index, and its guess at the matches made it hash
-  // every English entry (8 ms where the lookup takes a tenth of one).
+  // Omit the entries join for English forms because the planner lacks lower(text) stats on the partial index and otherwise hash-joins every English entry.
   return yield* db
     .select(match)
     .from(forms)
@@ -730,9 +637,6 @@ export const findForms = Effect.fn("dictionary.findForms")(function* (
     )
 }, Effect.orDie)
 
-// A range scan on bytewise-collated text, so the index serves it.
-
-/** Entry ids with a form starting with `prefix`, most common first; English ignores case and inflections. */
 export const findFormPrefix = Effect.fn("dictionary.findFormPrefix")(function* (
   db: DatabaseShape,
   prefix: string,
@@ -748,6 +652,7 @@ export const findFormPrefix = Effect.fn("dictionary.findFormPrefix")(function* (
       and(
         eq(entries.language, language),
         language === "ja" ? ne(forms.kind, "inflection") : isSpelling(forms.kind),
+        // forms.text uses C collation, so a >= / < '\u{10FFFF}' range scan uses the B-tree index for prefix matching.
         sql`${text} >= ${start} AND ${text} < ${start + "\u{10FFFF}"}`
       )
     )
@@ -757,7 +662,6 @@ export const findFormPrefix = Effect.fn("dictionary.findFormPrefix")(function* (
   return rows.map((row) => row.id)
 }, Effect.orDie)
 
-/** Full-text search over English forms; a list of queries matches when any of them does. */
 export const searchForms = Effect.fn("dictionary.searchForms")(function* (
   db: DatabaseShape,
   queries: ReadonlyArray<string>,
@@ -781,10 +685,6 @@ export const searchForms = Effect.fn("dictionary.searchForms")(function* (
     .limit(limit)
 }, Effect.orDie)
 
-/**
- * Trigram similarity of `column` to an English query (`trigramTargets`); `condition` is pg_trgm's
- * `%`, at its 0.3 threshold. Null when the query is too short to compare.
- */
 const trigramMatch = (column: AnyColumn, query: string) => {
   const targets = trigramTargets(query)
   if (targets.length === 0) return null
@@ -800,7 +700,6 @@ const trigramMatch = (column: AnyColumn, query: string) => {
   }
 }
 
-/** English forms spelled like `query`, for typos and phrases with a word changed: "umbrela" finds umbrella. */
 export const searchFormsFuzzy = Effect.fn("dictionary.searchFormsFuzzy")(function* (
   db: DatabaseShape,
   query: string,
@@ -833,11 +732,6 @@ const glossMatch = {
   misc: listOf(senses.misc)
 }
 
-// `rank` is negated ts_rank_cd so it keeps the old FTS5 bm25 shape: ascending, more negative = better.
-// Cover density is about 0.1 divided by how far apart the query's words sit, so "thin ice" ranks
-// "skate on thin ice" (0.1) above "ice cream in thin slices" (0.025).
-
-/** Full-text search over the English glosses of Japanese words; a list of queries matches when any of them does. */
 export const searchGlosses = Effect.fn("dictionary.searchGlosses")(function* (
   db: DatabaseShape,
   queries: ReadonlyArray<string>,
@@ -845,6 +739,7 @@ export const searchGlosses = Effect.fn("dictionary.searchGlosses")(function* (
 ) {
   if (queries.length === 0) return []
   const tsquery = toTsquery(queries)
+  // Negate ts_rank_cd so ascending sort orders higher cover-density (closer query words) first.
   const rank = sql<number>`-ts_rank_cd(${glossDocument}, ${tsquery})`
   return yield* db
     .select({ ...glossMatch, rank: rank.mapWith(Number) })
@@ -856,7 +751,6 @@ export const searchGlosses = Effect.fn("dictionary.searchGlosses")(function* (
     .limit(limit)
 }, Effect.orDie)
 
-/** English glosses of Japanese words spelled like `query`, for typos and phrases with a word changed. */
 export const searchGlossesFuzzy = Effect.fn("dictionary.searchGlossesFuzzy")(function* (
   db: DatabaseShape,
   query: string,
@@ -867,7 +761,6 @@ export const searchGlossesFuzzy = Effect.fn("dictionary.searchGlossesFuzzy")(fun
   const rows = yield* db
     .select({
       ...glossMatch,
-      // Shaped like `searchGlosses`'s rank: more negative is better.
       rank: sql<number>`-10 * ${match.similarity}`.mapWith(Number),
       similarity: match.similarity.mapWith(Number)
     })
@@ -890,7 +783,6 @@ const glossesWithNorm = (db: DatabaseShape, norms: ReadonlyArray<string>, langua
     .orderBy(desc(entries.common), desc(entries.priority))
     .limit(limit)
 
-/** English glosses of Japanese words matching `query` or its pronoun/placeholder variants (`englishPhraseVariants`). */
 export const findGlossesExact = Effect.fn("dictionary.findGlossesExact")(function* (
   db: DatabaseShape,
   query: string,
@@ -901,7 +793,6 @@ export const findGlossesExact = Effect.fn("dictionary.findGlossesExact")(functio
   return yield* glossesWithNorm(db, norms, "ja", limit)
 }, Effect.orDie)
 
-/** Japanese glosses of English words whose normalised text is one of `norms` (see `normalizeJapaneseGloss`). */
 export const findJapaneseGlosses = Effect.fn("dictionary.findJapaneseGlosses")(function* (
   db: DatabaseShape,
   norms: ReadonlyArray<string>,
@@ -912,10 +803,7 @@ export const findJapaneseGlosses = Effect.fn("dictionary.findJapaneseGlosses")(f
   return yield* glossesWithNorm(db, wanted, "en", limit)
 }, Effect.orDie)
 
-// Japanese has no word boundaries for full-text search, so this scans; the English dictionary's
-// glosses are few enough. Shorter glosses first: the query is more of what they say.
-
-/** Japanese glosses of English words containing `text`, for queries no gloss matches exactly. */
+// Postgres has no built-in Japanese tokenizer, so fall back to a LIKE scan over the small English-dictionary gloss set.
 export const searchJapaneseGlosses = Effect.fn("dictionary.searchJapaneseGlosses")(function* (
   db: DatabaseShape,
   text: string,
@@ -939,7 +827,6 @@ export interface EntryRank {
   readonly review: EntryReview
 }
 
-/** Commonness, frequency and review state of entries, for ranking without loading them. */
 export const entryRanks = Effect.fn("dictionary.entryRanks")(function* (
   db: DatabaseShape,
   ids: ReadonlyArray<EntryId>
@@ -955,7 +842,6 @@ export const entryRanks = Effect.fn("dictionary.entryRanks")(function* (
 const missing = (db: DatabaseShape, kind: EnrichmentKind) => {
   switch (kind) {
     case "examples":
-      // Seeded sentences don't count: Claude's are the ones the worker writes.
       return notExists(
         db
           .select()
@@ -967,7 +853,6 @@ const missing = (db: DatabaseShape, kind: EnrichmentKind) => {
   }
 }
 
-/** Entry ids in priority order, optionally only those still missing some enrichment. */
 export const entriesByPriority = Effect.fn("dictionary.entriesByPriority")(function* (
   db: DatabaseShape,
   query: PriorityQuery
@@ -977,7 +862,6 @@ export const entriesByPriority = Effect.fn("dictionary.entriesByPriority")(funct
     .from(entries)
     .where(
       and(
-        // Kotori's drafts are enriched once approved, not before.
         reviewedAs("inDictionary"),
         query.language ? eq(entries.language, query.language) : undefined,
         query.commonOnly ? eq(entries.common, true) : undefined,
@@ -989,15 +873,9 @@ export const entriesByPriority = Effect.fn("dictionary.entriesByPriority")(funct
   return rows.map((row) => row.id)
 }, Effect.orDie)
 
-/** A form found by `findForms`: which entry, what was matched, and an inflection's tags. */
 export type FormMatch = Effect.Success<ReturnType<typeof findForms>>[number]
-/** A gloss found by one of the gloss searches, with its rank and its sense's gloss count. */
 export type GlossMatch = Effect.Success<ReturnType<typeof searchGlosses>>[number]
 
-/**
- * The entry a word names, when exactly one is written that way (inflections aside): 上手 names
- * two (じょうず, うわて), so it names neither rather than guess.
- */
 const resolveWord = Effect.fn("dictionary.resolveWord")(function* (
   db: DatabaseShape,
   text: string,
@@ -1008,10 +886,6 @@ const resolveWord = Effect.fn("dictionary.resolveWord")(function* (
   return ids.length === 1 ? ids[0]! : null
 })
 
-/**
- * Replaces Kotori's cautions on an entry with `drafted`, in order, each linked to the word it
- * names where exactly one matches. Cautions from other sources stay; together they keep the cap.
- */
 export const saveKotoriCautions = Effect.fn("dictionary.saveKotoriCautions")(function* (
   db: DatabaseShape,
   entryId: EntryId,

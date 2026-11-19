@@ -9,25 +9,20 @@ import { type OneTime, templates } from "../../integrations/email/templates.ts"
 import { emailLanguage } from "./Approvals.ts"
 import { userById } from "./queries.ts"
 
-/** Neon's replay window: a correctly signed request older than this is still turned away. */
 const MAX_AGE = Duration.minutes(5)
 
-/** How long a delivered event id is remembered, comfortably past Neon's 15 s of retries. */
 const REMEMBER = Duration.minutes(15)
 
-/** Not provably from Managed Auth (headers, signature, key or age). Nothing is sent. */
 export class WebhookRejected extends Schema.TaggedError<WebhookRejected>()("WebhookRejected", {
   reason: Schema.String
 }) {}
 
-/** Signed by Managed Auth but not deliverable here: no address, an SMS code, an unknown type. */
 export class WebhookUnusable extends Schema.TaggedError<WebhookUnusable>()("WebhookUnusable", {
   reason: Schema.String
 }) {}
 
 const Purpose = Schema.Literals(["email-verification", "forget-password", "sign-in"])
 
-/** The envelope every event shares (docs/auth/guides/webhooks, "Payload structure"); user fields are optional. */
 const Envelope = Schema.Struct({
   event_id: Schema.String,
   event_type: Schema.String,
@@ -57,16 +52,9 @@ const TEMPLATES = {
 
 export type WebhookOutcome = "sent" | "duplicate" | "ignored"
 
-/**
- * Managed Better Auth's `send.otp` and `send.magic_link` webhooks, which replace its
- * own emails, so verification, reset and sign-in codes go out through Resend with
- * Kotori's templates, in the learner's language. Fails closed: nothing is sent, and
- * the request is refused, unless the signature verifies against Managed Auth's keys.
- */
 export class AuthWebhooks extends Context.Service<
   AuthWebhooks,
   {
-    /** Verifies a webhook and delivers what it carries; other event types are acknowledged and ignored. */
     receive(
       headers: Headers.Headers,
       body: Uint8Array
@@ -80,7 +68,6 @@ export class AuthWebhooks extends Context.Service<
       const db = yield* Database
       const mailer = yield* Mailer
 
-      // Neon retries with the same event id when a response is lost; this process doesn't send twice.
       const delivered = new Map<string, number>()
       const remember = (eventId: string, now: number) => {
         for (const [id, at] of delivered) if (now - at > Duration.toMillis(REMEMBER)) delivered.delete(id)
@@ -104,7 +91,6 @@ export class AuthWebhooks extends Context.Service<
         if ((yield* Clock.currentTimeMillis) - Number(timestamp) > Duration.toMillis(MAX_AGE)) {
           return yield* reject("timestamp too old")
         }
-        // Only now is the body Neon's; parse it, not re-serialise it.
         const text = yield* Effect.try({
           try: () => new TextDecoder("utf-8", { fatal: true }).decode(body),
           catch: () => new WebhookUnusable({ reason: "body is not UTF-8" })
@@ -142,7 +128,6 @@ export class AuthWebhooks extends Context.Service<
           const { purpose, secret } = yield* oneTimeFor(event)
           const to = event.user?.email
           if (to === undefined || to === "") return yield* unusable(`${event.event_type} has no email address`)
-          // Same rule as the approval email: the learner's chosen language once they've onboarded.
           const profile = event.user?.id === undefined ? Option.none() : yield* userById(db, event.user.id)
           const language = emailLanguage(Option.getOrUndefined(profile))
           const name = event.user?.name?.trim() || null

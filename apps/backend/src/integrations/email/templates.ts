@@ -7,7 +7,6 @@ interface Recipient {
   readonly language: Language
 }
 
-/** What completes the step: a code to type into the app, or (for link flows) a link to open. */
 export type OneTime = { readonly code: string } | { readonly url: string }
 
 const escape = (text: string) =>
@@ -18,7 +17,6 @@ const greeting = (who: Recipient) =>
 
 const signoff = (language: Language) => (language === "ja" ? "ことりより 🐦" : "Kotori 🐦")
 
-/** Plain text first; the HTML is the same copy, escaped, with a code set large or a link made clickable. */
 const compose = (
   who: Recipient,
   subject: string,
@@ -45,11 +43,9 @@ const compose = (
 
 interface OneTimeCopy {
   readonly subject: string
-  /** The instruction when the email carries a code, and when it carries a link. */
   readonly code: string
   readonly link: string
   readonly label: string
-  /** Said when the learner may not have asked for the email themselves. */
   readonly unasked?: string
 }
 
@@ -115,11 +111,6 @@ const oneTimeEmail =
     return compose(who, copy.subject, lines, { secret, label: copy.label })
   }
 
-/**
- * Emails Kotori sends itself. Managed Better Auth hands its verification,
- * password-reset and sign-in codes (or links) to the API's webhook, which
- * sends them with these.
- */
 export const templates = {
   verifyEmail: oneTimeEmail("verifyEmail"),
   resetPassword: oneTimeEmail("resetPassword"),

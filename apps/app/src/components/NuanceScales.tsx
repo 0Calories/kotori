@@ -6,20 +6,14 @@ import { Text } from "./Text.tsx"
 export interface ScaleRow {
   readonly left: string
   readonly right: string
-  /** 0..1 from the left end. */
   readonly position: number
-  /** What the dot says in words, for screen readers and (when labelled) under the dot. */
   readonly value: string
-  /** Low-confidence judgments are drawn lighter. */
   readonly faded?: boolean
-  /** Marks this many evenly spaced ticks on the track, for scales with discrete stops. */
   readonly stops?: number
 }
 
-/** Each row is as tall as its labels; the dot overhangs the row. */
 const ROW = 12.5
 const GAP = 16
-/** Room for the value written under the dot when the scales are labelled. */
 const VALUE = 18
 
 const Track = ({ row, labelled }: { readonly row: ScaleRow; readonly labelled: boolean }) => {
@@ -80,16 +74,11 @@ const Track = ({ row, labelled }: { readonly row: ScaleRow; readonly labelled: b
   )
 }
 
-/**
- * Where a word sits on each nuance scale: a dot on a line between two poles.
- * Laid out in columns, like a table, so every track starts and ends together.
- */
 export const NuanceScales = ({
   rows,
   labelled = false
 }: {
   readonly rows: ReadonlyArray<ScaleRow>
-  /** Writes each row's value under its dot. */
   readonly labelled?: boolean
 }) => {
   const height = ROW + (labelled ? VALUE : 0)

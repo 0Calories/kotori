@@ -13,10 +13,8 @@ import { Notebook } from "../features/notebook/Notebook.ts"
 import { Auth } from "../integrations/auth/Auth.ts"
 import { MailerLive } from "../integrations/email/live.ts"
 
-/** Providers that talk to external services: the AI providers and email. */
 const ProvidersLive = Layer.merge(AiProviders, MailerLive)
 
-/** Application services on top of the AI capabilities, the providers and the clip store. */
 const ServicesLive = Layer.mergeAll(
   Accounts.layer,
   Notebook.layer,
@@ -29,7 +27,6 @@ const ServicesLive = Layer.mergeAll(
   Layer.provideMerge(Layer.mergeAll(Coach.layer, Pronouncer.layer, Lexicographer.layer))
 )
 
-/** The services over the given database, with the given providers, auth and clip store. */
 export const makeApp = <P, EP, RP, ED, RD, EA, RA, ES, RS>(
   providers: Layer.Layer<P, EP, RP>,
   database: Layer.Layer<Database | SqlClient.SqlClient, ED, RD>,
@@ -43,5 +40,4 @@ export const makeApp = <P, EP, RP, ED, RD, EA, RA, ES, RS>(
     Layer.provideMerge(database)
   )
 
-/** The API's services, with the clips in the configured bucket or the table (`AudioStore.layer`). */
 export const AppLive = makeApp(ProvidersLive, DatabaseLive, Auth.layer, AudioStore.layer)

@@ -33,23 +33,10 @@ import {
 const HOUR = 60 * 60 * 1000
 const DAY = 24 * HOUR
 
-/**
- * "Ask Kotori": answers a search the dictionary couldn't, in three stages that get dearer as
- * they go. Deterministic checks turn mash and the wrong language away for free (`turnAway`);
- * Jev sorts the rest by what kind of input it is (`AskRoute`), and only lookups reach Claude,
- * which drafts an entry, names the existing entry the learner missed, or says the query isn't a
- * real expression (`judge`). A hesitant Jev fails open to Claude: a real question must never be
- * lost to the cheap stage. Answers are kept per normalized query, so a question is only ever
- * paid for once. A draft is an unreviewed dictionary entry from the start (ADR 0002), shown marked
- * unverified and saveable to notes, until the admin (`kotori proposals`) approves or discards it.
- * Each learner has their own allowances, Jev's and Claude's apart, so no one learner can use up
- * Ask Kotori for everyone.
- */
 export class Asks extends Context.Service<
   Asks,
   {
     ask(user: Profile, query: string): Effect.Effect<Proposal, AskRefused | AiUnavailable | RateLimited>
-    /** The learner's own asks, newest first. */
     asks(user: Profile): Effect.Effect<ReadonlyArray<Proposal>>
   }
 >()("@kotori/backend/Asks") {
@@ -65,7 +52,6 @@ export class Asks extends Context.Service<
       const askDaily = yield* Config.Int("KOTORI_ASK_DAILY_LIMIT").pipe(Config.withDefault(30))
       const triageHourly = yield* Config.Int("KOTORI_TRIAGE_HOURLY_LIMIT").pipe(Config.withDefault(60))
 
-      /** Proposals as the app reads them, each standing where its entry does. */
       const toProposals = Effect.fnUntraced(function* (rows: ReadonlyArray<ProposalRow>) {
         const ids = unique(rows.flatMap((row) => (row.entryId === null ? [] : [row.entryId])))
         const reviews = yield* entryRanks(db, ids)
@@ -79,7 +65,6 @@ export class Asks extends Context.Service<
               row.status,
               row.entryId === null ? "gone" : (reviews.get(row.entryId)?.review ?? "gone")
             )
-            // What the answer shows of its entry: the draft itself, the entry as a link, or nothing.
             const shows = Match.value(status).pipe(
               Match.when("pending", () => "draft" as const),
               Match.whenOr("linked", "approved", () => "link" as const),
@@ -105,10 +90,6 @@ export class Asks extends Context.Service<
       })
       const toProposal = (row: ProposalRow) => toProposals([row]).pipe(Effect.map((proposals) => proposals[0]!))
 
-      /**
-       * Takes one of the learner's requests of `kind` (`ask`: Claude, per hour and per day;
-       * `triage`: Jev, per hour), or fails when they've used them up.
-       */
       const reserve = Effect.fnUntraced(function* (user: Profile, kind: "ask" | "triage", now: Date) {
         const hour = { since: new Date(now.getTime() - HOUR), limit: kind === "ask" ? askHourly : triageHourly }
         const day = { since: new Date(now.getTime() - DAY), limit: askDaily }
@@ -124,10 +105,6 @@ export class Asks extends Context.Service<
           : new RateLimited({ message: "You've asked a lot this hour. Take a breather!", retryAfterSeconds: 600 })
       })
 
-      /**
-       * Stage one: Jev's reading of the query, or none when Jev isn't configured or failed — in
-       * which case the query goes on to Claude as if it were a lookup.
-       */
       const triage = Effect.fnUntraced(function* (query: string, language: Language) {
         if (!jev.configured) return null
         const request = triageRequest(query, language)
@@ -148,14 +125,12 @@ export class Asks extends Context.Service<
         const language = user.targetLanguage
         const query = normalizeAsk(raw, language)
 
-        // Stage zero: free, and never stored, but logged, so its mistakes show.
         const refusal = turnAway(query, language)
         if (refusal !== null) {
           yield* Effect.logInfo(`Ask Kotori turned away ${language} ${JSON.stringify(query)}: ${refusal}`)
           return yield* new AskRefused({ reason: refusal })
         }
 
-        // One question, one answer: whoever asked first paid; everyone who asks reads it.
         const existing = yield* findProposal(db, language, query)
         const now = new Date(yield* Clock.currentTimeMillis)
         if (Option.isSome(existing)) {
@@ -163,28 +138,24 @@ export class Asks extends Context.Service<
           return yield* toProposal(existing.value)
         }
 
-        // Never trust the client that nothing matched; strong results mean there is nothing to ask.
         const found = yield* dictionary.search(query, language, 10)
         if (found.match === "exact") return yield* new AskRefused({ reason: "in_dictionary" })
 
-        // Stage one, on its own allowance: a Jev call costs a fraction of a Claude one.
         if (jev.configured) yield* reserve(user, "triage", now)
         const triaged = yield* triage(query, language)
         const route = triaged?.reading.route ?? "lookup"
 
         const settle = Effect.fnUntraced(function* ({ draft, ...verdict }: Verdict) {
-          // A new draft is an entry before the proposal names it.
           const drafted = draft === null ? null : yield* writeDraftedEntry(db, draft, language)
           const entryId = drafted ?? verdict.entryId
           const row = yield* insertProposal(db, { language, query, ...verdict, entryId, requestedBy: user.id, now })
-          // Another learner asked the same at the same moment and their answer stands: ours goes.
+          // Delete our drafted entry if a concurrent request won the (language, query) unique constraint race.
           if (drafted !== null && row.entryId !== drafted) yield* deleteEntries(db, [drafted])
           yield* recordAsk(db, row.id, user.id, now)
           return yield* toProposal(row)
         })
 
         if (route !== "lookup") {
-          // Not a lookup: the answer is the route itself, which the app turns into a pointer.
           return yield* settle({
             status: "rejected",
             draft: null,
@@ -197,7 +168,6 @@ export class Asks extends Context.Service<
           })
         }
 
-        // Stage two.
         if (!(yield* claude.available)) {
           return yield* new AiUnavailable({ message: "Ask Kotori isn't available on this server right now." })
         }

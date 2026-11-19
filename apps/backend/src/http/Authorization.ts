@@ -5,19 +5,8 @@ import { Accounts } from "../features/accounts/Accounts.ts"
 import { Auth } from "../integrations/auth/Auth.ts"
 import * as Sentry from "../runtime/Sentry.ts"
 
-/** Groups a signed-in but unapproved learner may still call. */
 const OPEN_TO_PENDING = new Set(["account"])
 
-/**
- * Resolves the learner from either a managed JWT (`Authorization: Bearer`,
- * verified locally against the JWKS — the app's path) or the session cookie
- * (checked upstream — the web path), then applies the approval gate. When
- * Managed Auth can't be reached the answer is 503, not 401: a 401 tells the
- * app to throw its credentials away.
- *
- * The learner's id (only the id) tags the request's span and everything Sentry captures while the
- * handler runs — errors, logs and spans — and nothing from other requests.
- */
 export const AuthorizationLive = Layer.effect(
   Authorization,
   Effect.gen(function* () {
@@ -28,6 +17,7 @@ export const AuthorizationLive = Layer.effect(
       Effect.fn(function* (httpEffect, { group }) {
         const request = yield* HttpServerRequest.HttpServerRequest
         const bearer = request.headers["authorization"]?.match(/^Bearer\s+(.+)$/i)?.[1]
+        // Return 503 rather than 401 on upstream auth failures so the client does not discard stored credentials.
         const user = yield* (
           bearer === undefined ? auth.sessionFromCookies(request.headers) : auth.verifyToken(bearer)
         ).pipe(
@@ -48,9 +38,7 @@ export const AuthorizationLive = Layer.effect(
         yield* Effect.annotateCurrentSpan("user.id", profile.id)
         return yield* httpEffect.pipe(
           Effect.provideService(CurrentUser, { id: profile.id, profile }),
-          // `HttpApiBuilder` reports the handler's failures outside this middleware, where the scope
-          // no longer applies. Reporting them here first puts them in the scope; the Sentry reporter
-          // skips a cause or error it has already reported, so each is still sent once.
+          // Report handler errors before HttpApiBuilder catches them outside Sentry.withScope; Sentry deduplicates already-reported causes.
           Effect.withErrorReporting,
           Sentry.withScope((scope) => scope.setUser({ id: profile.id }))
         )

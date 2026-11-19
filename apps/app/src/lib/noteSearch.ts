@@ -20,16 +20,9 @@ import {
   uninflect
 } from "@kotori/language"
 
-// The dictionary search's ranking, run over the notes the app has loaded: a word as written or
-// inflected answers best, then a meaning with every word of the query, then prefixes and text that
-// merely contains the query, then (only when little else is found) a phrase with a word left out,
-// and typos when nothing else is. Japanese is matched in kana as well as kanji, and rōmaji is read as kana.
-// The scores keep the dictionary's tiers (`Dictionary.ts`) so the two order results alike.
-
 interface Hit {
   readonly note: Note
   readonly score: number
-  /** Whether the note answers the query rather than resembling it; see `SearchMatch`. */
   readonly strong: boolean
 }
 
@@ -55,18 +48,12 @@ const fieldsOf = (note: Note): Fields => {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Japanese text: forms as written or inflected, by prefix or inside a phrase
-// ---------------------------------------------------------------------------
-
-/** A Japanese query's spellings, and what each could be the dictionary form of (食べた → 食べる). */
 const japaneseCandidates = (query: string) => {
   const full = toFullwidth(query)
   const variants = unique([query, full, katakanaToHiragana(query), katakanaToHiragana(full)])
   return { variants, candidates: variants.flatMap(deinflect) }
 }
 
-/** A Japanese query prepared for matching against Japanese glosses (of English words). */
 const japaneseGlossQuery = (query: string) => {
   const terms = unique([query, katakanaToHiragana(query)].flatMap((v) => deinflect(v).map((c) => c.term)))
   // Adjectival nouns are glossed as they modify a noun: きれい → きれいな.
@@ -92,12 +79,10 @@ const japaneseFormHits = (
       }))
     const prefix = variants.some((variant) => spellings.some((spelling) => spelling.startsWith(variant)))
     const inside = variants.some((variant) => spellings.some((spelling) => spelling.includes(variant)))
-    // Phrases are long; a word inside one is what a learner looks for it by.
     const partial = prefix ? 400 + headword : inside ? 300 : null
     return partial === null ? exact : [...exact, { note, score: partial, strong: false }]
   })
 
-/** Japanese meanings (for English words) as written, in dictionary form, or containing the query. */
 const japaneseGlossHits = (
   note: Note,
   fields: Fields,
@@ -111,11 +96,6 @@ const japaneseGlossHits = (
     return []
   })
 
-// ---------------------------------------------------------------------------
-// English text: forms and meanings by every word, a word left out, or a typo
-// ---------------------------------------------------------------------------
-
-/** A word and the words it could be an inflection of, as stemming would meet them: "eating" → eat. */
 const stems = (word: string) => [word, ...uninflect(word).map((guess) => guess.base)]
 
 const stemGroups = (terms: string): ReadonlyArray<ReadonlyArray<string>> => terms.split(" ").map(stems)
@@ -125,21 +105,15 @@ const wordsOf = (text: string) =>
     .split(" ")
     .filter((word) => word.length > 0)
 
-/** Whether every word of `termStems` (`englishSearchTerms`) is in `text`, in any inflection. */
 const hasEveryWord = (text: string, termStems: ReadonlyArray<ReadonlyArray<string>>) => {
   const words = new Set(wordsOf(text).flatMap(stems))
   return termStems.every((group) => group.some((stem) => words.has(stem)))
 }
 
-/** Japanese characters and CJK brackets/punctuation quoted inside an English gloss or usage note. */
 const JAPANESE_TEXT = /[　-ヿ㐀-䶿一-鿿豈-﫿ｦ-ﾟ々〆ヵヶ]+/g
 
 const stripJapanese = (text: string) => text.replace(JAPANESE_TEXT, " ").trim()
 
-/**
- * The English texts on a note: English forms, and for Japanese notes their English meanings and
- * usage note (with any quoted Japanese words or particles stripped so the English words match cleanly).
- */
 const englishTexts = (fields: Fields) => ({
   forms: fields.forms.filter((form) => !hasJapanese(form)),
   glosses:
@@ -209,7 +183,6 @@ const englishHits = (
   return [...byForm, ...byGloss, ...byTakeaway]
 }
 
-/** A phrase of the query with one word left out, for "walk on thin ice" → "skate on thin ice". */
 const relaxedHits = (
   note: Note,
   fields: Fields,
@@ -221,7 +194,6 @@ const relaxedHits = (
     : []
 }
 
-/** Forms and meanings spelled like the query, for typos: "umbrela" finds umbrella. */
 const fuzzyHits = (fielded: ReadonlyArray<readonly [Note, Fields]>, query: string): Array<Hit> => {
   const targets = trigramTargets(query)
   if (targets.length === 0) return []
@@ -245,8 +217,6 @@ const fuzzyHits = (fielded: ReadonlyArray<readonly [Note, Fields]>, query: strin
   }))
 }
 
-// ---------------------------------------------------------------------------
-
 export interface NoteSearchResult {
   readonly match: SearchMatch
   readonly notes: ReadonlyArray<Note>
@@ -269,10 +239,7 @@ export const searchNotes = (notes: ReadonlyArray<Note>, raw: string): NoteSearch
     const prepared = englishQuery(query)
     const english = fielded.flatMap(([note, fields]) => englishHits(note, fields, prepared))
     const englishIsStrong = english.some((hit) => hit.score >= 680)
-    // Rōmaji counts only as a word written out ("taberu", "tabeta"), never as a prefix of one,
-    // so a query in English isn't crowded by the kana its letters happen to spell. When the query
-    // already matches an English form or gloss directly ("take", "mate"), deinflected rōmaji
-    // guesses ("まて" → 待つ) are left out and exact kana readings rank below the English match.
+    // When English matches strongly (e.g. "mate", "take"), drop deinflected rōmaji guesses like まて → 待つ and rank exact kana hits below English.
     const kana = romajiToKana(query)
     const japanese = kana === null ? null : japaneseCandidates(kana)
     const romaji =
@@ -284,8 +251,6 @@ export const searchNotes = (notes: ReadonlyArray<Note>, raw: string): NoteSearch
               .map((hit) => (englishIsStrong ? { ...hit, score: hit.score - 400 } : hit))
           )
     hits = [...english, ...romaji]
-    // As in the dictionary (`englishFallback`), a phrase with a word left out is tried only when
-    // the query's own words found fewer than three notes, and typos only when still nothing is found.
     const found = new Set(hits.map((hit) => hit.note.id)).size
     const relaxed = (found < 3 ? relaxedEnglishSearchTerms(query) : []).map(stemGroups)
     if (relaxed.length > 0) hits.push(...fielded.flatMap(([note, fields]) => relaxedHits(note, fields, relaxed)))

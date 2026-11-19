@@ -8,12 +8,10 @@ import { Text } from "../src/components/Text.tsx"
 import { useSession } from "../src/session/SessionProvider.tsx"
 import { theme } from "../src/theme/tokens.ts"
 
-/** How often the screen checks whether the admin has approved the account. */
 const POLL_MS = 30_000
 
 export default function Pending() {
   const { t, refresh, signOut } = useSession()
-  // Approval happens in the admin's CLI; check back now and then, and move on when it lands.
   useEffect(() => {
     const timer = setInterval(() => void refresh().catch(() => {}), POLL_MS)
     return () => clearInterval(timer)

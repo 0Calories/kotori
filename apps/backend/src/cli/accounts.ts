@@ -23,7 +23,6 @@ const table = (users: ReadonlyArray<Account>, empty: string) =>
 
 const notFound = (email: string) => Console.error(`No account with the email ${email}.`)
 
-/** Sign-ups waiting for the admin. */
 export const requests = Command.make(
   "requests",
   { all: Flag.Boolean("all").pipe(Flag.withDescription("Include archived requests"), Flag.withDefault(false)) },
@@ -98,13 +97,7 @@ export const revoke = Command.make(
   })
 ).pipe(Command.withDescription("Sign a learner out of every device"))
 
-/**
- * The development account the app signs in as, so testing skips sign-up, the
- * confirmation code and waiting for approval. Creating it is idempotent.
- *
- * Repeated in `apps/app/src/auth/dev.ts` rather than shared through a package, so
- * that the app's copy can be folded out of release builds. Keep the two in step.
- */
+// Duplicated in apps/app/src/auth/dev.ts instead of shared via a package so release builds can dead-code eliminate the app's copy.
 const DEV_EMAIL = "dev@kotori.test"
 const DEV_PASSWORD = "kotori-dev-account"
 
@@ -123,7 +116,6 @@ export const devAccount = Command.make(
     )
   },
   Effect.fn(function* ({ email, password, language, admin }) {
-    // This writes a known password into the identity store, so it must not reach production.
     if (process.env["NODE_ENV"] === "production") {
       return yield* Console.error("Refusing to create a development account with NODE_ENV=production.")
     }
@@ -139,8 +131,6 @@ export const devAccount = Command.make(
     const user = Option.isSome(existing) ? existing.value : yield* auth.signUp({ email, password, name: "Dev Learner" })
     yield* Console.log(Option.isSome(existing) ? `Reusing ${user.email}.` : `Created ${user.email}.`)
 
-    // Confirmed, approved and past the language picker, so the app opens onto the tabs.
-    // `ensureUser` then `updateUser`, so an account left over from an earlier run is reset too.
     yield* auth.setEmailVerified(user.id)
     const now = new Date(yield* Clock.currentTimeMillis)
     const role = admin ? "admin" : "user"

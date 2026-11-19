@@ -1,18 +1,8 @@
 import type { WordToJudge } from "../judge/word.ts"
 import { s, word } from "./goldenWords.ts"
 
-/**
- * Japanese senses with a known answer for `kotori eval ja-form`: formal or literary wording that
- * JMdict leaves untagged (鑑みる, 及び, 当該), and plain words, including business words and their
- * everyday counterparts, that must not be labelled. Every sense here carries no register label in
- * JMdict, as the pass's candidates don't. None of these words is an example in the question.
- *
- * Expected answers are claims about Japanese. `evidence` names a source where one says so;
- * `judgement` marks the answers that rest on the author's judgement alone, for review.
- */
 export interface GoldenFormalLabel {
   readonly word: WordToJudge
-  /** The sense asked about, by position. */
   readonly sense: number
   readonly formal: boolean
   readonly evidence: string
@@ -59,8 +49,8 @@ const nao = word("なお", "なお", [
   s(["as if", "just like", "as though"], ["adv"], ["form"], ["as なお ... ごとし; esp. 猶"])
 ])
 
+/** Must stay disjoint from the prompt examples in `formalLabel.ts` so the eval does not test memorised examples. */
 export const GOLDEN_FORMAL_LABELS: ReadonlyArray<GoldenFormalLabel> = [
-  // --- Formal or literary, untagged ---------------------------------------------------------
   formal(
     word("鑑みる", "かんがみる", [
       s(
@@ -180,8 +170,6 @@ export const GOLDEN_FORMAL_LABELS: ReadonlyArray<GoldenFormalLabel> = [
     0,
     "Literary 'especially'; speech says 特に"
   ),
-
-  // --- Plain: everyday wording, often the formal word's counterpart ------------------------------
   plain(
     word("考える", "かんがえる", [
       s(

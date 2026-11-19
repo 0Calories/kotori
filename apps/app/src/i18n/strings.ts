@@ -1,6 +1,5 @@
 import type { AskRefusal, CautionKind, LabelCode, SimilarDifference, Source } from "@kotori/contracts"
 
-/** Tab labels, named here once so copy that points to a tab can't drift from it. */
 const enTabs = {
   dictionary: "Look up",
   check: "Check",
@@ -9,21 +8,15 @@ const enTabs = {
   notReady: "This feature isn't ready yet"
 }
 
-/** Ask Kotori looks into the language being learned; English copy is for Japanese learners. */
 const enWrongLanguage =
   "That doesn't look like Japanese. Kotori can only look into Japanese words and expressions here."
 
-/**
- * Interface copy. Learners see Kotori in their native language: Japanese
- * learners get English, English learners get Japanese.
- */
 const en = {
   appName: "Kotori",
   tabs: enTabs,
   greeting: { morning: "Good morning", afternoon: "Good afternoon", evening: "Good evening" },
   common: {
     retry: "Try again",
-    /** Above a screen that is still showing what was loaded before. */
     notRefreshed:
       "Kotori flew off to check for anything new and came back empty-handed. This might be a little behind.",
     cancel: "Cancel",
@@ -39,9 +32,7 @@ const en = {
     offline: "Kotori got lost and couldn't find the server. Are you connected to the internet?",
     somethingWrong: "Something went wrong.",
     back: "Back",
-    /** Why a call to Kotori failed, by `ApiError` tag; never the server's own words. */
     errors: {
-      /** `Unexpected`: Kotori's own fault, including at start-up. */
       trouble: "Kotori tripped over something on its end. It's not you! Give it another go in a moment.",
       notFound: "Kotori looked everywhere but couldn't find that. It may have been removed.",
       signedOut: "You've been signed out. Sign in again to carry on.",
@@ -140,7 +131,6 @@ const en = {
     similarResults: "Similar words",
     askKotori: "Ask Kotori",
     askExplain: "Kotori can look into it and draft an entry.",
-    /** The thinking status, a line at a time as the wait goes on (`ASK_STAGE_STARTS`). */
     askThinking: [
       "Kotori is looking into it…",
       "Flipping through the dictionary…",
@@ -148,7 +138,6 @@ const en = {
       "Almost there — this one takes some thought…"
     ],
     askDraft: "AI draft — not checked by a person yet",
-    /** The headline over a fresh draft, and the line over one seen again. */
     askDrafted: "Kotori cooked up a new dictionary entry for you",
     askDraftedBody: "We'll double-check it before it joins the dictionary.",
     askLinked: "Kotori thinks you meant this:",
@@ -156,21 +145,16 @@ const en = {
     askDiscarded: "Kotori's draft didn't pass review, so it won't join the dictionary.",
     askAgain: "Ask again",
     askAgainIn: (wait: string) => `Ask again in ${wait}`,
-    /** Claude is rate limited: a wait of seconds. */
     askBusy: "Kotori is a little busy right now.",
-    /** The learner's hourly allowance is spent. */
     askResting: "You've asked a lot this hour, so Kotori is taking a short rest.",
-    /** The learner's daily allowance is spent. */
     askNapping: "You've asked a lot today. Kotori is napping until tomorrow.",
     askUnavailable: "Kotori can't look things up right now. Please try again in a little while.",
-    /** Why Kotori didn't look a query up, by what it took it for. */
     askRoute: {
       sentence: `That looks like a whole sentence. The ${enTabs.check} tab can tell you if it's natural, and ${enTabs.say} can help you phrase it.`,
       name: "That looks like a name rather than a word to look up.",
       other_language: enWrongLanguage,
       garbage: "That doesn't look like a word or expression."
     },
-    /** Why Kotori turned a query away before looking into it (`AskRefusal`). */
     askRefused: {
       not_askable: "That doesn't look like something Kotori can look up.",
       wrong_language: enWrongLanguage,
@@ -178,7 +162,6 @@ const en = {
       keyboard: "That looks like keys along the keyboard rather than a word.",
       in_dictionary: "The dictionary already has this one — it's in the results."
     } satisfies Record<AskRefusal, string>,
-    /** Claude turned a query down without saying why. */
     askNotReal: "Kotori couldn't verify this as a real expression.",
     recent: "Recent",
     clearRecent: "Clear",
@@ -215,7 +198,6 @@ const en = {
     compare: (word: string) => `Compare ${word}`,
     kotoriLegend: "✦ marks what Kotori's AI added. Everything else is from the dictionary.",
     similarIntro: (word: string) => `Words close to ${word}, and how each one differs.`,
-    /** How a similar word differs, read off the two words' labels. */
     difference: {
       respectful: "the respectful form",
       humble: "the humble form",
@@ -230,10 +212,8 @@ const en = {
       similar: "similar meaning"
     } satisfies Record<SimilarDifference, string>,
     sources: "Sources",
-    /** What follows "Sources" under an entry: who contributed to it. */
     sourcesList: (names: ReadonlyArray<string>) => `: ${names.join(" · ")}`,
     sourcesIntro: "Where this entry comes from.",
-    /** Who a fact on the page came from, for the sources line and an example's credit. */
     sourceName: {
       jmdict: "JMDict",
       jawiktionary: "Japanese Wiktionary",
@@ -273,7 +253,6 @@ const en = {
       `Kotori adds example sentences and audio to the most common words first. ${word} isn’t one of them yet.`,
     ask: "Ask for this word"
   },
-  /** Usage labels: a name for the chip and the sentence it explains itself with. */
   labels: {
     name: {
       vulg: "Vulgar",
@@ -389,10 +368,8 @@ const en = {
       wasei: "English-looking, but coined in Japan. English speakers won't recognise it.",
       uncountable: "No plural and no 'a'. To count it, say 'some' or 'a piece of'."
     } satisfies Record<LabelCode, string>,
-    /** Added to the explanation of a label from Kotori rather than the dictionary. */
     kotori: "The dictionary doesn't say this; Kotori's AI added it."
   },
-  /** What kind of caution a caution is, as its overline. */
   caution: {
     rude_upward: "Sounds rude upward",
     keigo_direction: "Keigo direction",
@@ -548,7 +525,7 @@ const en = {
     art: "article",
     contr: "contraction"
   } as Record<string, string>,
-  /** Usage tags shown on English words; JMDict's own labels are English already. */
+  // JMDict tag names are already English, so tagName falls back to tag.name.
   tags: {} as Record<string, string>,
   inflection: {
     plural: "plural",
@@ -589,7 +566,6 @@ const jaTabs: Strings["tabs"] = {
   notReady: "この機能はまだ準備中です"
 }
 
-/** Japanese copy is for English learners. */
 const jaWrongLanguage = "英語ではないようです。ここでは英語の単語や表現だけを調べられます。"
 
 const ja: Strings = {
@@ -1213,11 +1189,9 @@ const ja: Strings = {
 
 export const strings = { en, ja }
 
-/** A usage, field or region tag in the interface language, falling back to the dictionary's own name. */
 export const tagName = (t: Strings, tag: { readonly code: string; readonly name: string }) =>
   t.tags[tag.code] ?? tag.name
 
-/** Short part-of-speech label for a code like "v5k" or "adj-i" (JMDict) or "v" (English words). */
 export const posLabel = (t: Strings, code: string | null) => {
   if (code === null) return null
   if (code.startsWith("v5")) return t.pos.v5 ?? code

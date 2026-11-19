@@ -32,7 +32,6 @@ export default function SignIn() {
     setError(null)
     resetGoogleError()
     try {
-      // On success the session moves on, and the navigator with it.
       await signIn(email, password)
     } catch (e) {
       setError(authMessage(t, e))

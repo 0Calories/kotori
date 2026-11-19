@@ -19,7 +19,6 @@ describe("normalizeJapaneseGloss", () => {
   })
 
   it("keeps a leading particle that isn't the object marker", () => {
-    // Only after a tilde is a leading particle the object marker; とても keeps its と.
     expect(normalizeJapaneseGloss("とても")).toBe("とても")
   })
 })

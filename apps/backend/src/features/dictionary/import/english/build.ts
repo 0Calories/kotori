@@ -4,30 +4,21 @@ import { type EnglishInflection, normalizeGloss, normalizeJapaneseGloss } from "
 import type { ImportEntry } from "../seedFacts.ts"
 import type { FormOf, InflectedForm, References, Word } from "./words.ts"
 
-/** How many of the most used words count as common, as JMDict's markers make about a tenth of its words common. */
 const COMMON_WORDS = 10_000
 
-/** Baseline usage count for curated idioms/slang that don't appear in `en_50k.txt` unigrams. */
 const CURATED_FLOOR = 1_000
 
-/**
- * Baseline usage count for a phrase at each frequency rating, since the unigram counts can't
- * see phrases: 5 ranks with everyday words, 3 with words in ordinary use, 1 with words that are
- * only just understood. Curated entries carry their rating; the rest get theirs from
- * `data/english/frequency.json` (`kotori frequency`).
- */
+// Unigram subtitle counts miss multi-word phrases, so map 1–5 phrase ratings to synthetic count floors.
 const FREQUENCY_FLOOR: Readonly<Record<number, number>> = { 1: 300, 2: 600, 3: CURATED_FLOOR, 4: 3_000, 5: 10_000 }
 
 export type Tier = "curated" | "wiktionary" | "jmdict"
 
-/** The seed source each tier's senses come from, as entries, labels and usage patterns name it. */
 const SOURCE: Readonly<Record<Tier, Source>> = {
   curated: "enwiktionary",
   wiktionary: "jawiktionary",
   jmdict: "jmdict"
 }
 
-/** A word as the dictionary will hold it, with where it came from. */
 interface Built {
   readonly headword: string
   readonly tier: Tier
@@ -62,19 +53,12 @@ const addInflection = (word: Built, form: InflectedForm) => {
 }
 
 export interface Sources {
-  /** Curated English Wiktionary entries (`enwiktionary-ja.jsonl`), consolidated and learner-ordered. */
   readonly curated?: { readonly words: ReadonlyArray<Word>; readonly formsOf?: ReadonlyArray<FormOf> } | undefined
-  /** Japanese Wiktionary next: it has parts of speech, IPA and inflections. */
   readonly wiktionary: { readonly words: ReadonlyArray<Word>; readonly formsOf: ReadonlyArray<FormOf> }
-  /** Built knowing the other sources, so it only has words they lack, plus variant forms of existing idioms. */
   readonly jmdict: { readonly words: ReadonlyArray<Word>; readonly formsOf?: ReadonlyArray<FormOf> | undefined }
   readonly subtitles?: ReadonlyMap<string, number> | undefined
 }
 
-/**
- * One dictionary from the sources: each headword from the first source that has it,
- * with the forms the others point at it. Case tells words apart ("Polish", "polish").
- */
 export const mergeSources = (sources: Sources): Array<Built> => {
   const words = new Map<string, Built>()
   const add = (word: Word, tier: Tier) => {
@@ -110,10 +94,9 @@ export const mergeSources = (sources: Sources): Array<Built> => {
   return [...words.values()]
 }
 
-/** A sense's glosses as they are looked up, to compare one word's meanings with another's. */
 const meanings = (sense: SenseRecord) => new Set(sense.glosses.map((gloss) => normalizeJapaneseGloss(gloss.text)))
 
-/** Pairs of characters with a kanji or katakana in them: 食事 in both 食事をする and 食事をとる. Kana-only pairs (させ) say little. */
+// Require at least one kanji or katakana character so pure-kana inflections (させ) do not create false overlap.
 const bigrams = (glosses: Iterable<string>) => {
   const pairs = new Set<string>()
   for (const gloss of glosses) {
@@ -131,13 +114,6 @@ const overlap = <A>(a: ReadonlySet<A>, b: ReadonlySet<A>) => {
   return count
 }
 
-/**
- * Each word's senses with the synonyms and antonyms its source listed for a whole part of
- * speech placed on the sense they belong to: the one sharing a Japanese gloss with the other
- * word ("bother" and eat's 心配させる), failing that the one alone in sharing a word in its
- * glosses ("dine", 食事をとる, and eat's 食事をする), or the only sense there is. References
- * that fit no one sense are left out: a link under the wrong meaning misleads.
- */
 const placeReferences = (words: ReadonlyArray<Built>) => {
   const byHeadword = new Map<string, Built>()
   for (const word of words) byHeadword.set(word.headword, word)
@@ -171,38 +147,23 @@ const placeReferences = (words: ReadonlyArray<Built>) => {
         if (best !== -1 && !into[best]!.includes(other)) into[best]!.push(other)
       }
       for (const synonym of synonyms) place(synonym, xrefs, true)
-      // Opposites rarely share a gloss, so only a part of speech with one sense places them.
+      // Antonyms rarely share glosses, so attach them only when the part of speech has a single sense.
       for (const antonym of opposites) place(antonym, antonyms, false)
     }
     return word.senses.map((sense, index) => ({ ...sense, xrefs: xrefs[index]!, antonyms: antonyms[index]! }))
   }
 }
 
-/** Usage notes that make a sense one learners rarely need. */
 const LITTLE_USED = new Set(["arch", "obs", "rare", "dated", "hist"])
 
-/**
- * The Japanese words a gloss may name, for matching it to JMDict's spellings: the gloss as
- * looked up ("～を食べる" -> "食べる"), and without a な, の, に, と, だ or する ending, as
- * JMDict writes na-adjectives, adverbs and suru verbs bare ("利口な", "勉強する").
- */
+// Strip trailing Japanese inflections/particles so Wiktionary glosses ("利口な", "勉強する") match bare JMdict headwords.
 const namedWords = (gloss: string) => {
   const word = normalizeJapaneseGloss(gloss)
   const bare = word.replace(/(?:をする|する|な|の|に|と|だ)$/u, "")
   return bare.length > 0 && bare !== word ? [word, bare] : [word]
 }
 
-/**
- * Senses commonest first, as JMDict lists them. Wiktionary often lists the oldest or most
- * literal senses first ("kid": a young goat; "coffee": the coffee plant; "smart": to sting),
- * and no common Japanese word translates those. So a sense is attested when it names, among
- * its glosses, a common Japanese word that JMDict translates with the English word
- * (`backTranslations`), weighted by that word's best weight. The first attested sense leads;
- * the other attested senses follow by weight ("fall": 秋 rises from twelfth to sixth); the rest
- * keep Wiktionary's order after them; and archaic, obsolete, rare and dated senses go last
- * ("sad": 満足した, obsolete). A sense's weight is its heaviest word's, not their sum: summed,
- * senses listing more synonyms won ("cool" led with 冷淡な, "kid" with からかう).
- */
+// Wiktionary orders senses etymologically rather than by everyday usage, so promote JMdict-attested senses by max (not sum, which favors synonym-heavy senses) weight.
 export const commonestFirst = <S extends SenseRecord>(
   senses: ReadonlyArray<S>,
   attested: ReadonlyMap<string, number> = new Map()
@@ -226,14 +187,6 @@ const attestedTranslations = (
 ): ReadonlyMap<string, number> | undefined =>
   translations.get(headword.toLowerCase()) ?? translations.get(normalizeGloss(headword))
 
-/**
- * How often a word is used: its own count and its inflections', since "ate" is "eat" being
- * used. The counts are of lowercased text, so where a capitalised word has a lowercase twin
- * the count is the twin's: "a", not the letter "A"; "may", not the month. Only the pronoun
- * "I" outranks its twin, the letter "i". A rated word (curated, or in the frequency file)
- * counts at least its rating's floor, unless the rating says it is little used and the
- * subtitles counted it anyway.
- */
 const usage = (
   word: Built,
   subtitles: ReadonlyMap<string, number>,
@@ -241,6 +194,7 @@ const usage = (
   translations: ReadonlyMap<string, ReadonlyMap<string, number>>,
   ratings: ReadonlyMap<string, number>
 ) => {
+  // OpenSubtitles counts are lowercased, so give shared counts to the lowercase entry ("may" over "May"), except "I" over "i".
   const twin = lowercase.get(word.headword.toLowerCase())
   if (twin !== undefined && twin !== word && !(pronoun(word) && !pronoun(twin)))
     return { count: 0, rawCount: 0, score: undefined }
@@ -262,7 +216,6 @@ const usage = (
   return { count: rawCount, rawCount, score }
 }
 
-/** Usage folded into a priority on the scale of JMDict's (about 0–150), so ranking treats both alike. */
 const priorityOf = (count: number) => (count > 0 ? Math.round(20 * Math.log10(count)) : 0)
 
 const form = (
@@ -280,12 +233,6 @@ const form = (
   noKanji: false
 })
 
-/**
- * Entry records for the merged words, most used first. Words already in the database keep
- * their ids, so saved words and enrichment survive a re-import; new words are numbered on, past
- * `taken` (the highest id in use, Kotori's unreviewed drafts included, which `existing` leaves out).
- * `ratings` are 1–5 frequency ratings by lowercased headword for words whose source has none.
- */
 export const toEntries = (
   words: ReadonlyArray<Built>,
   subtitles: ReadonlyMap<string, number>,
@@ -319,16 +266,12 @@ export const toEntries = (
       reading: word.ipa ?? "",
       common,
       priority: priorityOf(count),
-      // Everyday is the dictionary's own common mark (the most used words); the spoken count is the
-      // subtitles' own, before any rating floor, so a phrase they can't see has none.
       frequency: { everyday: common, spokenCount: rawCount > 0 ? rawCount : null, score: score ?? null },
       forms: [
         form(word.headword, "spelling", common, []),
         ...spellings.map((spelling) => form(spelling, "spelling", false, [])),
         ...[...word.inflections].map(([text, tags]) => form(text, "inflection", false, [...tags]))
       ],
-      // Curated entries already have senses consolidated and ordered for learners;
-      // open-source entries use JMdict back-translations to promote attested everyday senses.
       senses:
         word.tier === "curated"
           ? [...placedSenses]

@@ -4,22 +4,13 @@ import { CAUTION_GUIDE, LABELS_SAY, NOT_CAUTIONS } from "../lexicon/cautionGuide
 import { Claude, ClaudeDeadline, type ClaudeError } from "../providers/Claude.ts"
 import { meaningOf, type WordToJudge } from "./word.ts"
 
-/**
- * The caution pass: Claude reads dictionary words as the entry page shows them (glosses, labels,
- * the dictionary's notes, a loan's verdict) and writes a caution only where a learner would still
- * be surprised. Most words get none. Ask Kotori drafts follow the same rules (`cautionGuide.ts`).
- */
-
-/** Bumped when the prompt changes; written in the artifact's header. */
 export const CAUTIONS_VERSION = 4
 
-/** Words per Claude request: enough to share the long system prompt, few enough to read each well. */
 export const CAUTION_BATCH = 10
 
 const CautionOutput = Schema.Struct({
   kind: Schema.String,
   text: Schema.String,
-  /** The sense it is about, numbered from 1 as listed; null for the whole word. */
   sense: Schema.NullOr(Schema.Int),
   about: Schema.NullOr(Schema.String)
 })
@@ -27,7 +18,6 @@ const CautionOutput = Schema.Struct({
 export const CautionsOutput = Schema.Struct({
   words: Schema.Array(
     Schema.Struct({
-      /** The word's number, as listed. */
       word: Schema.Int,
       cautions: Schema.Array(CautionOutput)
     })
@@ -35,16 +25,13 @@ export const CautionsOutput = Schema.Struct({
 })
 export type CautionsOutput = typeof CautionsOutput.Type
 
-/** A caution as checked: a valid kind, a sense that exists (by position), non-empty text. */
 export interface WrittenCaution {
   readonly kind: CautionKind
   readonly text: string
-  /** The sense's position in the word's senses; null for the whole word. */
   readonly sense: number | null
   readonly about: string | null
 }
 
-/** Why a caution Claude wrote was dropped, for the eval to report. */
 export interface DroppedCaution {
   readonly reason: "kind" | "sense" | "empty" | "numbered" | "cap"
   readonly caution: typeof CautionOutput.Type
@@ -53,10 +40,9 @@ export interface DroppedCaution {
 const NUMBERED =
   /\bsense\s*\d|\bmeaning\s*#?\d|#\d\b|（\d）|\(\d\)|[0-9０-９]+\s*番目?の(?:意味|語義)|語義\s*[0-9０-９]|意味\s*[0-9０-９]/i
 
-/** A sense named by its number in the text ("sense 2", "(2)", "2番目の意味"), which breaks if senses move. */
+/** Sense order can change across re-imports, so caution prose must refer to senses by meaning rather than number. */
 export const namesSenseByNumber = (text: string) => NUMBERED.test(text)
 
-/** Claude's cautions for one word, checked; see `WrittenCaution`. */
 export const checkCautions = (
   written: ReadonlyArray<typeof CautionOutput.Type>,
   word: WordToJudge,
@@ -159,19 +145,16 @@ export const cautionPrompt = (words: ReadonlyArray<WordToJudge>, language: Langu
     .map((word, index) => describeWord(word, index, language))
     .join("\n\n")}`
 
-/** One word's result: its checked cautions, what was dropped, or `missing` when Claude skipped it. */
 export interface EntryCautions {
   readonly missing: boolean
   readonly cautions: ReadonlyArray<WrittenCaution>
   readonly dropped: ReadonlyArray<DroppedCaution>
 }
 
-/** Writes cautions for dictionary words, a batch per request; see `cautionSystem`. */
 export class CautionWriter extends Context.Service<
   CautionWriter,
   {
     readonly model: string
-    /** Each word's cautions, in order. */
     write(
       words: ReadonlyArray<WordToJudge>,
       language: Language
@@ -189,7 +172,6 @@ export class CautionWriter extends Context.Service<
           system: cautionSystem(language),
           prompt: cautionPrompt(words, language),
           effort: "medium",
-          // An offline pass over the dictionary.
           timeout: ClaudeDeadline.bulk
         })
         const byNumber = new Map(output.words.map((word) => [word.word, word.cautions]))

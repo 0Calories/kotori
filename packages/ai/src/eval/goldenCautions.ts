@@ -2,26 +2,11 @@ import type { Language, CautionKind } from "@kotori/contracts"
 import type { WordToJudge } from "../judge/word.ts"
 import { s, word } from "./goldenWords.ts"
 
-/**
- * Words with a known answer for `kotori eval cautions` and `kotori eval drafts`, in both
- * directions: words a learner trips over, and words that need no caution because the page already
- * says it (a label, the dictionary's note) or there is nothing to say. The model doc's examples
- * are here: 了解, お疲れ様 and ご苦労様, 結構, 抱く (scoped to its hug sense), "How do you do", and
- * the wasei-eigo マンション and ナイーブ (whose English entries already say it as a
- * dictionary note, so they need none; リフト is left out, as no clear answer exists).
- *
- * A word that needs one is scored by kind, and where it matters by sense and by a word the text
- * must mention (any of `mentions`, in the text or `about`, ignoring case); the text itself is
- * printed for a person to read. Expected answers are claims about language: `evidence` names a
- * source where one says so, and `judgement` marks those that rest on the author's judgement.
- */
-
 export type CautionExpectation =
   | { readonly none: true }
   | {
       readonly none?: undefined
       readonly kinds: ReadonlyArray<CautionKind>
-      /** The sense it must be scoped to, by position; unset when any scope will do. */
       readonly sense?: number
       readonly mentions?: ReadonlyArray<string>
     }
@@ -32,11 +17,9 @@ export interface GoldenCaution {
   readonly expect: CautionExpectation
   readonly evidence: string
   readonly judgement: boolean
-  /** Also asked of the Lexicographer as an Ask Kotori query (the headword), scored the same way. */
   readonly draft?: true
 }
 
-/** An Ask Kotori query the dictionary lacks, for the Lexicographer only. */
 export interface GoldenDraft {
   readonly language: Language
   readonly query: string
@@ -68,7 +51,6 @@ const en = (
   draft?: true
 ): GoldenCaution => ({ language: "en", word: w, expect, evidence, judgement, ...(draft ? { draft } : {}) })
 
-/** A katakana loan as the English entry shows it once the loan pass has judged it. */
 const drifted = (katakana: string, glosses: ReadonlyArray<string>) => ({
   word: katakana,
   meaning: "wasei_eigo" as const,
@@ -76,7 +58,6 @@ const drifted = (katakana: string, glosses: ReadonlyArray<string>) => ({
 })
 
 export const GOLDEN_CAUTIONS: ReadonlyArray<GoldenCaution> = [
-  // --- Japanese: a learner trips ----------------------------------------------------------------
   ja(
     word("了解", "りょうかい", [
       s(["comprehension", "consent", "understanding", "agreement"], ["n", "vs", "vt"]),
@@ -188,8 +169,6 @@ export const GOLDEN_CAUTIONS: ReadonlyArray<GoldenCaution> = [
     "JMdict glosses it 'esp. cool or cold' and cross-refers 湯: hot water is お湯, so 熱い水 is a learner error. Changed from none after the first run",
     false
   ),
-
-  // --- Japanese: the page already says it, or there is nothing to say ---------------------------
   ja(
     word("ご苦労様", "ごくろうさま", [
       s(
@@ -246,8 +225,6 @@ export const GOLDEN_CAUTIONS: ReadonlyArray<GoldenCaution> = [
     false
   ),
   ja(word("学校", "がっこう", [s(["school"], ["n"])]), NONE, "Plain core noun (JMdict common, no tags)", false, true),
-
-  // --- English: a learner trips ------------------------------------------------------------------
   en(
     word("how do you do", "", [s(["はじめまして"], ["exp"])]),
     needs(["textbook_english"], { mentions: ["nice to meet you"] }),
@@ -332,8 +309,6 @@ export const GOLDEN_CAUTIONS: ReadonlyArray<GoldenCaution> = [
     "JMdict: ストーブ is a room heater; to most English speakers a stove is for cooking (the curated first sense)",
     true
   ),
-
-  // --- English: the page already says it, or there is nothing to say -------------------------------
   en(
     word(
       "mansion",
@@ -436,7 +411,6 @@ export const GOLDEN_CAUTIONS: ReadonlyArray<GoldenCaution> = [
   )
 ]
 
-/** Ask Kotori queries the dictionary lacks: new slang, where the draft's labels carry the register. */
 export const GOLDEN_DRAFTS: ReadonlyArray<GoldenDraft> = [
   {
     language: "ja",

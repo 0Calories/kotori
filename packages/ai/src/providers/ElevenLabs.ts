@@ -8,12 +8,8 @@ export class TtsError extends Schema.TaggedError<TtsError>()("TtsError", {
   cause: Schema.optional(Schema.Defect())
 }) {}
 
-/**
- * How long one request may wait for ElevenLabs to respond; a timed-out attempt is retried like
- * any other transient failure. `HttpClient` has no timeout of its own.
- */
+/** `HttpClient` has no default request timeout; timing out inside `transformResponse` lets `retryTransient` retry hung attempts. */
 const ATTEMPT_TIMEOUT = Duration.seconds(30)
-/** How long a whole `synthesize` may take, retries and reading the audio included. */
 const SYNTHESIZE_DEADLINE = Duration.seconds(90)
 
 export class ElevenLabs extends Context.Service<
@@ -21,7 +17,6 @@ export class ElevenLabs extends Context.Service<
   {
     readonly configured: boolean
     readonly model: string
-    /** Speaks `text` with the given ElevenLabs voice and returns MP3 bytes. */
     synthesize(text: string, language: Language, voiceId: string): Effect.Effect<Uint8Array, TtsError>
   }
 >()("@kotori/ai/ElevenLabs") {
@@ -39,7 +34,6 @@ export class ElevenLabs extends Context.Service<
         })
       }
 
-      // Either timeout interrupts the request, which aborts it.
       const client = (yield* HttpClient.HttpClient).pipe(
         HttpClient.mapRequest(HttpClientRequest.prependUrl("https://api.elevenlabs.io")),
         HttpClient.transformResponse(Effect.timeout(ATTEMPT_TIMEOUT)),

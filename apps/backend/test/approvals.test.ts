@@ -25,10 +25,8 @@ layer(TestLayer)("Approvals", (it) => {
 
       yield* signUp("first@example.com", "First")
       const second = yield* signUp("second@example.com", "二番目")
-      // Sign-up emails are Managed Auth's business (via webhooks); nothing is sent from here.
       assert.deepStrictEqual(yield* mailbox.messages, [])
 
-      // Learners who haven't opened the app yet still show up as pending.
       const pending = yield* approvals.requests()
       assert.deepStrictEqual(
         pending.map((u) => [u.email, u.status]),
@@ -50,7 +48,6 @@ layer(TestLayer)("Approvals", (it) => {
       )
       assert.deepStrictEqual(yield* mailbox.messages, [])
 
-      // A learner who already opened the app and picked Japanese is welcomed in Japanese.
       yield* ensureUser(db, {
         id: second.id,
         status: "pending",
@@ -68,11 +65,9 @@ layer(TestLayer)("Approvals", (it) => {
       assert.strictEqual(sent[0]?.to, "second@example.com")
       assert.include(sent[0]?.subject, "ようこそ")
 
-      // Approving again is a no-op.
       yield* approvals.approve("second@example.com")
       assert.strictEqual((yield* mailbox.messages).length, 1)
 
-      // Archived accounts can still be approved later, in English by default.
       yield* approvals.approve("first@example.com")
       assert.strictEqual((yield* approvals.requests({ all: true })).length, 0)
       assert.include((yield* mailbox.messages)[1]?.subject, "Welcome")
@@ -91,7 +86,6 @@ layer(TestLayer)("Approvals", (it) => {
       const user = yield* signUp("admin@example.com", "Admin")
       const promoted = yield* approvals.setRole("admin@example.com", "admin")
       assert.strictEqual(promoted.role, "admin")
-      // The role lives on Kotori's profile, created on the spot if needed.
       assert.strictEqual(Option.getOrThrow(yield* userById(db, user.id)).role, "admin")
 
       const before = yield* auth.sessionFromCookies(Headers.fromInput({ cookie: user.cookie }))

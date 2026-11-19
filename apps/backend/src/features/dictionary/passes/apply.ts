@@ -17,23 +17,11 @@ import { findForms } from "../queries.ts"
 import { ARTIFACTS, CautionLine, FormalLabelLine, LoanLine, type Pass, readArtifact } from "./artifacts.ts"
 import { registerUnsaid } from "./candidates.ts"
 
-/**
- * The import's half of the offline passes: reads each committed artifact, if there is one, and
- * fills only the cells the dictionary left empty. Each file decides what its pass gave: what it
- * no longer covers (a trimmed or reverted file, a word that changed) is removed, and all of it
- * when the file is gone, so a bad pass is a `git revert` and a reseed. Re-running it with the same
- * files changes nothing. Approved Ask Kotori words are never touched: their labels and cautions
- * are the approved files'. Runs after the dictionaries are imported, so every sense it names is in
- * place.
- */
-
-/** What applying one file did: rows written, and words (or loan pairs) whose earlier rows it removed. */
 export interface Applied {
   readonly written: number
   readonly removed: number
 }
 
-/** The judged entries that are still the words judged: same language and headword, not approved. */
 const stillJudged = Effect.fnUntraced(function* (
   db: DatabaseShape,
   language: Language,
@@ -61,7 +49,6 @@ const stillJudged = Effect.fnUntraced(function* (
   return found
 })
 
-/** Each entry's senses by their first gloss, so a judgment follows its sense when senses move. */
 const sensesByGloss = Effect.fnUntraced(function* (db: DatabaseShape, ids: ReadonlyArray<EntryId>) {
   const found = new Map<EntryId, Map<string, number>>()
   for (const chunk of chunks(ids, 5000)) {
@@ -80,12 +67,6 @@ const sensesByGloss = Effect.fnUntraced(function* (db: DatabaseShape, ids: Reado
   return found
 })
 
-/**
- * Kotori's `form` labels from `data/labels/ja-form.jsonl`: on each judged sense that still carries
- * no label but quiet ones from another source. Kotori's earlier `form` labels on dictionary words
- * are replaced, those on words the file doesn't name removed, so the file decides. Nothing else
- * writes a Kotori `form` label on a dictionary word: an approved word's are its approved file's.
- */
 export const applyFormalLabels = Effect.fn("passes.applyFormalLabels")(function* (
   db: DatabaseShape,
   lines: ReadonlyArray<FormalLabelLine>
@@ -126,7 +107,6 @@ export const applyFormalLabels = Effect.fn("passes.applyFormalLabels")(function*
           for (const { gloss } of line.form) {
             const sense = bySense.get(entryId)?.get(gloss)
             if (sense === undefined) continue
-            // Fill only what is empty: a register label from the dictionary says it already.
             if (!registerUnsaid(existing.get(`${entryId}:${sense}`))) continue
             rows.push({ entryId, sense, code: "form", source: "kotori" })
           }
@@ -142,7 +122,6 @@ export const applyFormalLabels = Effect.fn("passes.applyFormalLabels")(function*
   return { written: rows.length, removed } satisfies Applied
 })
 
-/** Entries written exactly as `texts`, inflections aside, by text: a word names one only when one matches. */
 const wordsNamed = Effect.fnUntraced(function* (db: DatabaseShape, texts: ReadonlyArray<string>, language: Language) {
   const key = (text: string) => (language === "en" ? text.toLowerCase() : text)
   const owners = new Map<string, Set<EntryId>>()
@@ -160,13 +139,6 @@ const wordsNamed = Effect.fnUntraced(function* (db: DatabaseShape, texts: Readon
   }
 })
 
-/**
- * Kotori's cautions from `data/cautions/{ja,en}.jsonl`, replacing Kotori's earlier ones on the
- * language's dictionary words and removing them from words the file doesn't name. Nothing else
- * writes a Kotori caution on a dictionary word: approved words' are their approved files', and are
- * skipped. Only the ranks other sources leave free are taken, so the cap holds. A caution about a
- * sense no longer there is left out.
- */
 export const applyCautions = Effect.fn("passes.applyCautions")(function* (
   db: DatabaseShape,
   language: Language,
@@ -237,14 +209,6 @@ export const applyCautions = Effect.fn("passes.applyCautions")(function* (
   return { written, removed } satisfies Applied
 })
 
-/**
- * Kotori's loan verdicts from `data/loans/verdicts.jsonl`: each sets `meaning` on its pair, judged
- * by Kotori (`meaning_source`), adding the pair as Kotori's where JMdict doesn't name it. A
- * meaning another source judged is kept; Kotori's own is replaced, so the file decides. A verdict
- * the file no longer gives is removed: a pair only Kotori named goes, and one JMdict names loses
- * its verdict. The loan import is the only writer of a verdict. A verdict-less line adds nothing,
- * and a line counts only while both its words are still the words judged, neither approved.
- */
 export const applyLoanVerdicts = Effect.fn("passes.applyLoanVerdicts")(function* (
   db: DatabaseShape,
   lines: ReadonlyArray<LoanLine>
@@ -327,11 +291,6 @@ export const applyLoanVerdicts = Effect.fn("passes.applyLoanVerdicts")(function*
   return { written, removed } satisfies Applied
 })
 
-/**
- * Applies every pass's artifact, in an order that needs both dictionaries for loans, and says
- * what each filled and removed. A pass whose file is absent removes all it gave. Called by
- * `kotori seed` after its imports; `files` points elsewhere in tests.
- */
 export const applyArtifacts = Effect.fn("passes.applyArtifacts")(function* (
   db: DatabaseShape,
   files: { readonly [P in Pass]: string } = ARTIFACTS

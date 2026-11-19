@@ -18,16 +18,11 @@ export interface LegalDocument {
   readonly companionLabel: string
 }
 
-/**
- * Routes that need neither a signed-in session nor the API to render: public legal
- * pages (`/privacy`, `/terms`, crawled directly on the web).
- */
 export const isUnguardedRoute = (pathname: string): boolean => {
   const clean = pathname.replace(/\/+$/, "") || "/"
   return clean === "/privacy" || clean === "/terms"
 }
 
-/** Optional `?lang=en|ja` query override on `/privacy` and `/terms`, falling back to the app language. */
 export const legalLanguageFromParam = (raw: string | readonly string[] | undefined, fallback: Language): Language => {
   const value = Array.isArray(raw) ? raw[0] : raw
   return value === "en" || value === "ja" ? value : fallback

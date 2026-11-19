@@ -4,20 +4,9 @@ import { source, table } from "./columns.ts"
 import { type EntryId } from "./entries.ts"
 import { senses } from "./senses.ts"
 
-/**
- * How loudly a label is shown: `avoid` (don't say it), `warning` (only in the right company),
- * `info` (worth knowing), `quiet` (a grammar or spelling fact, explained on tap).
- */
 export const LabelSeverity = Schema.Literals(["avoid", "warning", "info", "quiet"])
 export type LabelSeverity = typeof LabelSeverity.Type
 
-/**
- * One vocabulary for usage labels, each with its severity: JMDict's `misc` codes, which the
- * English dictionary also uses, JMDict's dialects, the English dictionary's regions and
- * countability, and Kotori's `form` fill for formal written words the dictionary leaves untagged.
- * Codes outside it (name types such as `place`, spelling facts such as `uk`, and `countable`,
- * the prior) are not labels.
- */
 export const LABEL_SEVERITY = {
   vulg: "avoid",
   X: "avoid",
@@ -44,7 +33,6 @@ export const LABEL_SEVERITY = {
   pol: "info",
   form: "info",
   poet: "info",
-  // JMDict's dialects
   ksb: "info",
   osb: "info",
   ktb: "info",
@@ -57,7 +45,6 @@ export const LABEL_SEVERITY = {
   rkb: "info",
   nab: "info",
   bra: "info",
-  // The English dictionary's regions
   "en-US": "info",
   "en-GB": "info",
   "en-AU": "info",
@@ -87,11 +74,6 @@ export const labelSeverity = (code: LabelCode): LabelSeverity => LABEL_SEVERITY[
 
 export const isLabelCode = (code: string): code is LabelCode => Object.hasOwn(LABEL_SEVERITY, code)
 
-/**
- * A sense's usage labels, one row per code. Only what differs from the learner's prior (neutral,
- * current, anyone says it) is stored; silence means unremarkable. One source per label: a
- * dictionary's code is never overwritten by Kotori's fill.
- */
 export const labels = table(
   "labels",
   {

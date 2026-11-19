@@ -11,7 +11,6 @@ import { jobStatusFor } from "../../src/features/enrichment/jobs.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 import { entries } from "../fixtures.ts"
 
-/** A migration's statements as it ships. */
 const statementsOf = (name: string) => {
   const folder = readdirSync(migrationsFolder).find((own) => own.endsWith(name))!
   return readFileSync(join(migrationsFolder, folder, "migration.sql"), "utf8")
@@ -20,7 +19,6 @@ const statementsOf = (name: string) => {
     .filter((statement) => statement.length > 0)
 }
 
-/** The old model's tables, as far as the drop needs them, and the job kind it had. */
 const OLD_SHAPE = [
   `CREATE TABLE "sense_nuance" ("entry_id" integer, "sense" integer, "nuance" jsonb)`,
   `CREATE TYPE "difference" AS ENUM ('more_casual', 'more_formal')`,

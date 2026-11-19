@@ -55,7 +55,6 @@ layer(TestLayer)("dictionary queries", (it) => {
       const db = yield* Database
       const before = yield* entryCount(db)
       const fine: EntryRecord = { ...entries[0]!, id: EntryId.make(9_000_000) }
-      // A form the database refuses (no such form kind), written after the batch's entries.
       const broken: EntryRecord = {
         ...entries[0]!,
         id: EntryId.make(9_000_001),
@@ -140,7 +139,6 @@ layer(TestLayer)("dictionary queries", (it) => {
   it.effect("keeps each dictionary's lookups to its own words", () =>
     Effect.gen(function* () {
       const db = yield* Database
-      // Japanese glosses of English words aren't English glosses of Japanese words.
       assert.notInclude(
         (yield* findGlossesExact(db, "eat", 20)).map((match) => match.entryId),
         EntryId.make(100000001)
@@ -159,7 +157,6 @@ layer(TestLayer)("dictionary queries", (it) => {
       )
       const [ate] = yield* findForms(db, ["Ate"], "en")
       assert.deepStrictEqual([ate?.entryId, ate?.kind, ate?.tags], [100000001, "inflection", ["past"]])
-      // Prefixes find headwords and spellings, not inflections: "eate" isn't the start of a word.
       assert.deepStrictEqual(yield* findFormPrefix(db, "Po", 10, "en"), [100000003, 100000002])
       assert.deepStrictEqual(yield* findFormPrefix(db, "eate", 10, "en"), [])
       assert.deepStrictEqual(yield* findFormPrefix(db, "た", 10, "en"), [])
@@ -190,12 +187,10 @@ layer(TestLayer)("dictionary queries", (it) => {
           senses: [sense(["しょうがない"], { pos: ["exp"] })]
         }
       ])
-      // Every word is one the English configuration drops, so the phrase is indexed word for word.
       assert.deepStrictEqual(
         (yield* searchForms(db, ["what it is"], 10)).map((match) => match.text),
         ["it is what it is"]
       )
-      // A query with a word of its own still stems: "eating" finds "eat", not the phrase.
       assert.notInclude(
         (yield* searchForms(db, ["eating"], 10)).map((match) => match.text),
         "it is what it is"
@@ -248,7 +243,6 @@ layer(TestLayer)("dictionary queries", (it) => {
         (yield* searchJapaneseGlosses(db, "食事", 20)).map((match) => match.entryId),
         [100000001, 100000004]
       )
-      // LIKE wildcards in a query are taken literally.
       assert.deepStrictEqual(yield* searchJapaneseGlosses(db, "%", 20), [])
       assert.deepStrictEqual(
         [...(yield* headwordIds(db, "en"))].sort(([, a], [, b]) => a - b),
@@ -268,14 +262,10 @@ describe("matchSenses", () => {
     const [a, b, c] = [["型", "様式"], ["やり方"], ["格好"]]
     assert.deepStrictEqual(matchSenses([a, b, c], [a, b, c]), [0, 1, 2])
     assert.deepStrictEqual(matchSenses([a, b, c], [c, a, b]), [1, 2, 0])
-    // An edit that keeps half the glosses is the same sense, wherever it went.
     assert.deepStrictEqual(matchSenses([a, b, c], [["やり方", "方法"], a]), [1, 0, null])
-    // One that keeps less stays at its position, as a sense reworded in place, unless another
-    // sense moved there.
     assert.deepStrictEqual(matchSenses([["型", "様式", "流儀"]], [["型", "スタイル", "流行"]]), [0])
     assert.deepStrictEqual(matchSenses([["to eat"], ["to drink"]], [["to eat (a meal)"], ["to drink"]]), [0, 1])
     assert.deepStrictEqual(matchSenses([a, ["流儀"]], [["流儀"], ["格好"]]), [null, 0])
-    // Twin senses keep their order; an incoming sense is taken once.
     assert.deepStrictEqual(matchSenses([b, b, a], [a, b, b]), [1, 2, 0])
     assert.deepStrictEqual(matchSenses([a, ["型"]], [a]), [0, null])
   })
@@ -301,7 +291,6 @@ layer(TestLayer)("dictionary re-imports", (it) => {
       const [form, way, look, pistil] = [["型", "様式"], ["やり方"], ["格好"], ["花柱"]]
       yield* insertEntries(db, [word([form, way, look, pistil])])
 
-      // Each sense's sentence and saved word names it by its first gloss.
       const markers = ["型", "やり方", "格好", "花柱"]
       yield* saveExamples(
         db,
@@ -325,7 +314,6 @@ layer(TestLayer)("dictionary re-imports", (it) => {
         createdAt: new Date(0)
       })
 
-      // The re-import ranks 格好 first, edits やり方, and drops 花柱.
       yield* insertEntries(db, [word([look, form, ["やり方", "方法"]])])
 
       const [entry] = yield* getEntries(db, [style])
@@ -335,7 +323,6 @@ layer(TestLayer)("dictionary re-imports", (it) => {
       )
       const bySense = <R extends { readonly sense: number }>(rows: ReadonlyArray<R>, read: (row: R) => unknown) =>
         rows.toSorted((a, b) => a.sense - b.sense).map((row) => [row.sense, read(row)])
-      // Sentences keep their ids, and so their audio; the dropped sense's sentence goes.
       const sentences = yield* examplesFor(db, [style])
       assert.deepStrictEqual(
         bySense(sentences, (row) => [row.ja, row.id]),
@@ -348,7 +335,6 @@ layer(TestLayer)("dictionary re-imports", (it) => {
       const [own] = yield* allNotes(scopedToUser(db, U1))
       assert.strictEqual(own?.entryId, style)
 
-      // Re-importing the same senses moves nothing.
       yield* insertEntries(db, [word([look, form, ["やり方", "方法"]])])
       assert.strictEqual((yield* examplesFor(db, [style])).length, 3)
     })

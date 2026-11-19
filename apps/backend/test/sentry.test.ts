@@ -17,13 +17,11 @@ import { makeApp } from "../src/runtime/HttpLayers.ts"
 import { SentryLive } from "../src/runtime/Sentry.ts"
 import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 
-// What would go to Sentry: the `before*` hooks see each item fully built from its scopes.
 const events: Array<SentrySdk.ErrorEvent> = []
 const logs: Array<SentrySdk.Log> = []
 const spans: Array<Parameters<NonNullable<SentrySdk.NodeOptions["beforeSendSpan"]>>[0]> = []
 const SentryCapture = Layer.mergeAll(
   SentryLive("api", {
-    // The client builds nothing without a DSN; this transport never sends.
     dsn: "https://public@sentry.invalid/1",
     transport: () => ({ send: () => Promise.resolve({}), flush: () => Promise.resolve(true) }),
     sendClientReports: false,
@@ -46,7 +44,6 @@ const SentryCapture = Layer.mergeAll(
   Layer.effectDiscard(Effect.addFinalizer(() => Effect.promise(() => SentrySdk.close())))
 )
 
-// Learner A's coaching answer waits until learner B's request has failed, then fails too.
 const aWaiting = Deferred.makeUnsafe<void>()
 const releaseA = Deferred.makeUnsafe<void>()
 let calls = 0
@@ -91,7 +88,6 @@ const TestLayer = Layer.mergeAll(Handlers, TestAuthLive, HttpServer.layerService
   Layer.provideMerge(SentryCapture)
 )
 
-// Read as each request is made, so a request keeps the cookie that was current when it started.
 let cookie: string | null = null
 const Session = HttpApiMiddleware.layerClient(Authorization, ({ next, request }) =>
   next(cookie === null ? request : HttpClientRequest.setHeader(request, "cookie", cookie))
@@ -111,7 +107,6 @@ const approvedLearner = (email: string) =>
 const messageOf = (event: SentrySdk.ErrorEvent) => event.exception?.values?.[0]?.value
 const logUser = (message: string) => logs.find((log) => log.message === message)?.attributes?.["user.id"]
 
-/** The learners named in the trace that has a span called `name`: on its root span, and on any span. */
 const traceUsers = (name: string) => {
   const traceId = spans.find((span) => span.name === name)?.trace_id
   const traced = spans.filter((span) => span.trace_id === traceId)
@@ -128,7 +123,6 @@ layer(TestLayer)("Sentry telemetry", (it) => {
       const a = yield* approvedLearner("a@example.com")
       const b = yield* approvedLearner("b@example.com")
 
-      // A's request starts first and is still running when B's fails; then A's fails too.
       cookie = a.cookie
       const requestA = yield* api.coach
         .naturalness({ payload: { text: "私は学生です。" } })
@@ -139,12 +133,9 @@ layer(TestLayer)("Sentry telemetry", (it) => {
       yield* Deferred.succeed(releaseA, undefined)
       const resultA = yield* Fiber.join(requestA)
       assert.isTrue(resultA._tag === "Failure" && resultB._tag === "Failure")
-      // Error events finish processing asynchronously (source context is read from disk).
+      // Sentry reads source context asynchronously before invoking `beforeSend`, so flush before asserting.
       yield* Effect.promise(() => SentrySdk.flush())
 
-      // Each failure is reported once, with its own learner. A's comes after B's request ran, so a
-      // process-wide user would tag it with B.
-      // (Processing is asynchronous, so the events may arrive in either order.)
       assert.deepStrictEqual(Object.fromEntries(events.map((event) => [messageOf(event), event.user?.id])), {
         "A's answer broke": a.id,
         "B's answer broke": b.id
@@ -152,7 +143,6 @@ layer(TestLayer)("Sentry telemetry", (it) => {
       assert.strictEqual(events.length, 2)
       assert.strictEqual(logUser("answer for A"), a.id)
       assert.strictEqual(logUser("answer for B"), b.id)
-      // Each request's root span names its learner, and no span in either request names the other.
       assert.deepStrictEqual(traceUsers("Coaching.naturalness"), { root: a.id, all: new Set([a.id]) })
       assert.deepStrictEqual(traceUsers("Coaching.howToSay"), { root: b.id, all: new Set([b.id]) })
     }).pipe(Effect.provide(Session))

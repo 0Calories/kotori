@@ -1,58 +1,27 @@
 import { confetti, joints, type Mood, type palette, readingShapes, type Shape } from "./geometry.ts"
 
-/**
- * Kotori's animations, kept as data. A clip moves the parts in `joints`
- * through keyframes, and `poseAt` says where a part is at any moment; a clip
- * can also throw confetti, which `pieceAt` places the same way. The app
- * plays clips with Reanimated, which runs these same functions on the UI
- * thread on iOS and Android and in the page on the web, and `mascotSvg` draws
- * single frames from them, so an animation moves the same way everywhere and
- * can be checked as stills with `pnpm motion`.
- *
- * To add an animation, name it in `ClipName`, give it keys in `clips`, and
- * list it in `entrances` to play it when Kotori takes a mood, in `loops` to
- * play it over and over in a mood, or in `idles` to play it now and then in
- * one. An entrance starts from the drawing and a loop starts and ends on it
- * (the tests hold them to that), so nothing jumps as the mood changes or as a
- * loop comes round.
- *
- * Functions marked "worklet" also run on the UI thread, so keep them to plain
- * loops and property access: Babel may turn destructuring or `for…of` into
- * helper calls that don't exist there.
- */
-
 export type Part = keyof typeof joints
 
-/** The glints that twinkle beside Kotori as it finishes celebrating, rather than moving with it, biggest first. */
 export const sparkleParts = ["sparkle0", "sparkle1", "sparkle2"] as const satisfies readonly Part[]
 
 export type SparklePart = (typeof sparkleParts)[number]
 
-/** The Zs that waft from Kotori's brow while it sleeps, smallest first. */
 export const zParts = ["z0", "z1", "z2"] as const satisfies readonly Part[]
 
 export type ZPart = (typeof zParts)[number]
 
-/** The dust the dictionary puffs out from under its spine as it lands in front of Kotori, left then right. */
 export const puffParts = ["puff0", "puff1"] as const satisfies readonly Part[]
 
-/** The sparks that fly out from the foot of the dictionary's spine as it lands, in the order they fly. */
 export const sparkParts = ["spark0", "spark1", "spark2", "spark3", "spark4"] as const satisfies readonly Part[]
 
-/** The sparks' trails, in the same order. */
 export const trailParts = ["trail0", "trail1", "trail2", "trail3", "trail4"] as const satisfies readonly Part[]
 
 export type SparkPart = (typeof sparkParts)[number]
 
-/** What the dictionary throws up as it lands. It's beside the book, not on it, and gone once it has settled. */
 export const landingParts = [...puffParts, ...trailParts, ...sparkParts] as const
 
 export type LandingPart = (typeof landingParts)[number]
 
-/**
- * Where a part sits relative to the drawing: moved `x` and `y` box units,
- * turned `rotate` degrees clockwise and scaled about its joint, and faded.
- */
 export type Pose = {
   readonly x: number
   readonly y: number
@@ -62,51 +31,35 @@ export type Pose = {
   readonly opacity: number
 }
 
-/** The drawing as it is. */
 export const rest: Pose = { x: 0, y: 0, rotate: 0, scaleX: 1, scaleY: 1, opacity: 1 }
 
-/**
- * How a value moves into a keyframe: `overshoot` goes about a tenth past it
- * and settles back, and `step` holds still until the key and jumps to it.
- */
 type Ease = "linear" | "in" | "out" | "inOut" | "overshoot" | "step"
 
-/** A value at a time in ms, eased in from the key before (`inOut` unless given). */
 type Key = readonly [ms: number, value: number, ease?: Ease]
 
-/**
- * A piece of confetti. The burst throws it from behind Kotori towards `to`,
- * and the air slows it nearly to a stop there; then it falls, swinging from
- * side to side and tumbling, and fades away before it lands.
- */
 export type Piece = {
   readonly shape: Shape
   readonly color: keyof typeof palette
-  /** Where the burst throws it, in box units. */
   readonly to: readonly [x: number, y: number]
-  /** How long after the burst it's thrown, in ms. */
   readonly delay: number
-  /** Turns a second, clockwise, or anticlockwise below zero; it tumbles over as often. */
   readonly spin: number
 }
 
-/** Confetti thrown `at` ms into a clip, from a point hidden behind Kotori. */
 type Burst = {
   readonly at: number
   readonly from: readonly [x: number, y: number]
-  /** The first six are the ones a small Kotori throws (see `confettiFor`). */
   readonly pieces: readonly Piece[]
 }
 
 export type Clip = {
   readonly duration: number
   readonly tracks: { readonly [P in Part]?: { readonly [K in keyof Pose]?: readonly Key[] } }
-  /** Confetti the clip throws, behind Kotori. It has all faded by the time the clip ends. */
   readonly confetti?: Burst
 }
 
 export type ClipName = "celebrate" | "thinking" | "startReading" | "reading" | "sleepy" | "blink"
 
+// Worklets avoid destructuring and for-of so Babel doesn't emit helper calls missing on the UI thread.
 const ease = (curve: Ease, u: number) => {
   "worklet"
   switch (curve) {
@@ -125,7 +78,6 @@ const ease = (curve: Ease, u: number) => {
   }
 }
 
-/** A track's value `t` ms in, holding its first key before and its last after; `fallback` without a track. */
 const sample = (keys: readonly Key[] | undefined, t: number, fallback: number) => {
   "worklet"
   if (keys === undefined) return fallback
@@ -142,7 +94,6 @@ const sample = (keys: readonly Key[] | undefined, t: number, fallback: number) =
   return from === undefined ? fallback : from[1]
 }
 
-/** A dot of the bubble's ellipsis hopping from `ms`, for 400 ms. */
 const hop = (ms: number) => ({
   y: [
     [0, 0],
@@ -152,10 +103,6 @@ const hop = (ms: number) => ({
   ] as const
 })
 
-/**
- * A Z fading in near the brow at `ms`, floating upward and outward over
- * 1200 ms while growing and tilting, and fading out into the air.
- */
 const waft = (ms: number) => ({
   x: [
     [0, 2],
@@ -199,13 +146,8 @@ const waft = (ms: number) => ({
   ] as const
 })
 
-/**
- * Where Kotori's eyes rest as it reads, from when to when: `x` and `y` box
- * units from where they're drawn, eased there from the stop before.
- */
 type Stop = readonly [from: number, to: number, x: number, y: number, ease?: Ease]
 
-/** The eyes' keys for moving from stop to stop and resting at each. */
 const gaze = (stops: readonly Stop[]) => {
   const keys = (value: (stop: Stop) => number) =>
     stops.flatMap((stop): Key[] => {
@@ -215,18 +157,8 @@ const gaze = (stops: readonly Stop[]) => {
   return { x: keys((stop) => stop[2]), y: keys((stop) => stop[3]) }
 }
 
-/**
- * Kotori taking up a book to read: when the page wing has the glasses on,
- * when the book starts to fall and when it lands, when the book has stopped
- * bouncing, and when the dust and sparkles it threw up are gone, which ends
- * the clip.
- */
 const start = { lift: 80, on: 420, fall: 760, land: 1000, settled: 1220, done: 1660 } as const
 
-/**
- * The page wing as Kotori brings it round from its side, where it's tucked
- * in, lifts the glasses to its face, pushes them on and lowers it again.
- */
 const liftGlasses = {
   rotate: [
     [0, 25],
@@ -243,14 +175,8 @@ const liftGlasses = {
   ]
 } as const satisfies Record<string, readonly Key[]>
 
-/** Where the page wing's tip is in the drawing, resting on the book. */
 const wingTip = { x: 61, y: 140.6 }
 
-/**
- * Keys that keep a part at the page wing's tip as the wing turns and grows
- * by `wing`'s keys, sampled every 30 ms from `from` until `to`, where the
- * wing lets go of it in the place it's drawn.
- */
 const carried = (wing: typeof liftGlasses, from: number, to: number) => {
   const joint = joints.pageWing
   const tip = (t: number) => {
@@ -270,14 +196,8 @@ const carried = (wing: typeof liftGlasses, from: number, to: number) => {
   return { x: keys("x"), y: keys("y") }
 }
 
-/** How long a sparkle glints for, in ms. */
 const glintSpan = 440
 
-/**
- * A sparkle glinting once from `ms`: it flares from nothing to its full size
- * as it starts to turn, holds there a moment as it turns on, and winks out
- * as it finishes a quarter turn.
- */
 const glint = (ms: number) => {
   const scale = [
     [0, 0],
@@ -303,15 +223,6 @@ const glint = (ms: number) => {
 
 type Point = readonly [x: number, y: number]
 
-/**
- * How each spark flies as the book lands: `at` ms after it lands, from the
- * foot of the spine, up `rise` box units at the top of its arc and down to
- * where it ends up, `to`, for `span` ms, turning `spin` degrees clockwise (or
- * anticlockwise below zero) as it goes. Gravity has them all: none rises far,
- * and each comes down on the pages or beside the book. No two are alike: big ones go higher
- * and hang longer, small ones skip out low and quick, to either side in no
- * set order.
- */
 const sparkFlights: Readonly<Record<SparkPart, { at: number; rise: number; to: Point; span: number; spin: number }>> = {
   spark0: { at: 0, rise: 28, to: [208, 186], span: 460, spin: 120 },
   spark1: { at: 30, rise: 40, to: [-4, 172], span: 600, spin: -90 },
@@ -320,34 +231,21 @@ const sparkFlights: Readonly<Record<SparkPart, { at: number; rise: number; to: P
   spark4: { at: 180, rise: 12, to: [160, 194], span: 340, spin: 90 }
 }
 
-/** The biggest spark's size, which its trail is drawn for (see `readingShapes.landing`). */
 const biggestSpark = Math.max(...Object.values(readingShapes.landing.sparks).map((spark) => spark.r))
 
-/**
- * A spark's flight and its trail's, sampled every 20 ms as it goes. It flies
- * as something thrown does: across, slowing a little as the air drags on it,
- * and up, slower and slower to the top of its arc, then down, faster and
- * faster, as gravity pulls it. The trail points back the way the spark came,
- * never reaching back past the foot of the spine, and shortens as the spark
- * burns out, to nothing as it winks out.
- */
 const sparkFlight = (spark: SparkPart) => {
   const { at, rise, to, span, spin } = sparkFlights[spark]
   const { origin, trail, sparks } = readingShapes.landing
-  // A smaller spark trails as much less.
   const scale = sparks[spark].r / biggestSpark
   const from = start.land + at
   const across = to[0] - origin.x
-  // The arc is a parabola in time, `fall` from its top to its end: it reaches
-  // the top at `peak` of the flight, and `pull` is how hard gravity pulls.
+  // Parabolic arc peaking at `rise` above `origin.y` before falling to `to[1]`.
   const fall = to[1] - (origin.y - rise)
   const peak = Math.sqrt(rise) / (Math.sqrt(rise) + Math.sqrt(fall))
   const pull = rise / (peak * peak)
-  // Where it is at `s` of its flight, from the foot of the spine, and which way it's going.
   const right = (s: number) => across * (0.6 * s + 0.4 * (1 - (1 - s) * (1 - s)))
   const down = (s: number) => pull * (s - peak) * (s - peak) - rise
   const heading = (s: number) => Math.atan2(2 * pull * (s - peak), across * (0.6 + 0.8 * (1 - s)))
-  // How far it has come by `s`, adding up short straight steps.
   const travelled = (s: number) => {
     let total = 0
     for (let i = 1; i <= 20; i++) {
@@ -383,7 +281,6 @@ const sparkFlight = (spark: SparkPart) => {
     [from, 1, "step"],
     [end, 0, "step"]
   ] as const
-  // It flares up as it's thrown, flies at its full size, and winks out as it stops.
   const size = (full: number) =>
     [
       [0, 0],
@@ -423,7 +320,6 @@ const flights = Object.fromEntries(sparkParts.map((spark) => [spark, sparkFlight
   ReturnType<typeof sparkFlight>
 >
 
-/** Each spark's track and its trail's, for a clip's `tracks`. */
 const sparkTracks = Object.fromEntries(
   sparkParts.flatMap((spark, i) => [
     [spark, flights[spark].spark],
@@ -431,12 +327,6 @@ const sparkTracks = Object.fromEntries(
   ])
 )
 
-/**
- * One of the puffs of dust the book squeezes out from under it as it lands:
- * from behind the foot of its spine, it rolls `outward` box units along the
- * ground in front of the book and a little up, swelling quickly, then thins
- * and fades as it drifts.
- */
 const puff = (outward: number) => {
   const swell = [
     [0, 0.4],
@@ -467,12 +357,6 @@ const puff = (outward: number) => {
 }
 
 export const clips: Record<ClipName, Clip> = {
-  /**
-   * Crouch, hop up stretched and throw confetti from the top of the hop, land
-   * squashed, and wave as it falls. As the confetti fades and the wing folds
-   * back down, three sparkles glint in turn in front of Kotori's brow and are
-   * gone, leaving it beaming.
-   */
   celebrate: {
     duration: 1420 + glintSpan,
     tracks: {
@@ -548,10 +432,6 @@ export const clips: Record<ClipName, Clip> = {
       ]
     }
   },
-  /**
-   * While thinking, on a loop: the ellipsis hops dot by dot, and the bubble
-   * bobs. Only the bubble moves; Kotori holds its pose.
-   */
   thinking: {
     duration: 1400,
     tracks: {
@@ -567,18 +447,6 @@ export const clips: Record<ClipName, Clip> = {
       dot2: hop(400)
     }
   },
-  /**
-   * As Kotori starts to read, from how it stands facing the viewer: it brings
-   * its wing round from its side with its glasses in its tip, lifts them to
-   * its face and pushes them on, then lowers the wing in front of it. It
-   * brings its other wing round as a thick dictionary falls from above, which
-   * it watches come down, and the book lands open in front of it, squashing
-   * a little and bouncing back. As it lands, dust puffs out to each side
-   * from under the foot of its spine and sparks fly out from there in arcs,
-   * trailing behind them, and Kotori blinks, and opens its eyes looking down
-   * at the page. The dust and the sparks are gone just after the book stops
-   * bouncing.
-   */
   startReading: {
     duration: start.done,
     tracks: {
@@ -610,7 +478,6 @@ export const clips: Record<ClipName, Clip> = {
           [200, 1, "out"]
         ]
       },
-      // Under the rims once the glasses are on, a little further in and slimmer than without them.
       cheeks: {
         y: [
           [0, -0.5],
@@ -682,7 +549,6 @@ export const clips: Record<ClipName, Clip> = {
           [start.fall + 80, 1, "out"]
         ]
       },
-      // The page Kotori turns waits on the book, which shows the same page, until it's settled.
       page: {
         opacity: [
           [0, 0],
@@ -692,8 +558,6 @@ export const clips: Record<ClipName, Clip> = {
       puff0: puff(-52),
       puff1: puff(52),
       ...sparkTracks,
-      // Kotori looks up at the book as it appears and follows it down, then
-      // blinks, and the eyes it reads with open in place of the ones it looked with.
       lookingEyes: {
         y: [
           [0, 0],
@@ -723,37 +587,20 @@ export const clips: Record<ClipName, Clip> = {
       }
     }
   },
-  /**
-   * While reading, on a loop: Kotori's wing lifts the corner of the left
-   * page and turns it over onto the right as its eyes follow it; then it
-   * reads on down the new page line by line, its eyes gliding calmly along a
-   * line and pausing on the way, then sweeping back to the start of the next,
-   * just below. Facing the viewer, it reads from its left to its right, so
-   * its eyes move leftward on screen, and it turns pages from the viewer's
-   * left to right. The loop starts and ends halfway along a line, where the
-   * eyes are drawn.
-   */
   reading: {
     duration: 2020,
     tracks: {
       eyes: gaze([
         [0, 70, 0, 0],
-        // A glance at the corner of the page as the wing lifts it,
         [230, 250, -3, 0],
-        // following it over onto the right, at the top of the next page,
         [640, 760, 3, -1],
-        // along the top line,
         [960, 1120, 0, -1],
         [1320, 1460, -3, -1],
-        // back to the start of the next,
         [1640, 1760, 3, 0],
-        // and halfway along it.
         [1960, 2020, 0, 0]
       ]),
-      // The page rises as it turns over the spine, and stands tallest upright.
-      // Landed, it looks just like the right page, so it goes straight back
-      // over the left one, which it looks just like too, to turn again.
       page: {
+        // Step back from -1 to 1 invisibly once flat on the mirrored right page.
         scaleX: [
           [0, 1],
           [140, 1],
@@ -784,10 +631,6 @@ export const clips: Record<ClipName, Clip> = {
       }
     }
   },
-  /**
-   * While sleeping, on a loop: Kotori breathes softly and nods as the three Zs
-   * fade in one by one from its brow, float upward and outward, and fade away.
-   */
   sleepy: {
     duration: 2200,
     tracks: {
@@ -815,7 +658,6 @@ export const clips: Record<ClipName, Clip> = {
       z2: waft(700)
     }
   },
-  /** Eyes shut for a moment: the open eyes vanish, and the shut ones show in their place. */
   blink: {
     duration: 140,
     tracks: {
@@ -829,20 +671,12 @@ export const clips: Record<ClipName, Clip> = {
   }
 }
 
-/** What Kotori plays on taking a mood. Its last frame is how Kotori stays in that mood. */
 export const entrances: Partial<Record<Mood, ClipName>> = { celebrate: "celebrate", reading: "startReading" }
 
-/** What Kotori plays over and over in a mood, once any entrance ends, over the entrance's last frame. */
 export const loops: Partial<Record<Mood, ClipName>> = { thinking: "thinking", reading: "reading", sleepy: "sleepy" }
 
-/**
- * What Kotori plays now and then in a mood once it's in it: it blinks while
- * its eyes are open, reading too. Thinking, it holds still and only the
- * thought bubble moves.
- */
 export const idles: Partial<Record<Mood, ClipName>> = { neutral: "blink", reading: "blink", oops: "blink" }
 
-/** Where `part` is `t` ms into a clip, and where it stays once the clip ends. */
 export const poseAt = (name: ClipName | null, part: Part, t: number): Pose => {
   "worklet"
   const track = name === null ? undefined : clips[name].tracks[part]
@@ -857,7 +691,6 @@ export const poseAt = (name: ClipName | null, part: Part, t: number): Pose => {
   }
 }
 
-/** Two clips playing at once, such as a blink during another clip: moves and turns add, scales and fades multiply. */
 export const combine = (a: Pose, b: Pose): Pose => {
   "worklet"
   return {
@@ -870,14 +703,9 @@ export const combine = (a: Pose, b: Pose): Pose => {
   }
 }
 
-/** Where `part` stays in `mood`: the last frame of the mood's entrance. */
 export const settled = (mood: Mood, part: Part) => poseAt(entrances[mood] ?? null, part, Infinity)
 
-/**
- * A React Native transform placing `part` in a view `size` pixels wide that
- * shows the 200×200 box and `headroom` units above it. Views turn and scale
- * about their centre, so the joint is moved there first and back after.
- */
+// React Native transforms rotate and scale around the view's center, so translate the joint to center and back.
 export const viewTransform = (pose: Pose, part: Part, size: number, headroom = 0) => {
   "worklet"
   const k = size / 200
@@ -894,29 +722,18 @@ export const viewTransform = (pose: Pose, part: Part, size: number, headroom = 0
   ]
 }
 
-/** The same placement as an SVG transform, in the box's own units. */
 export const svgTransform = (pose: Pose, part: Part) => {
   const joint = joints[part]
   return `translate(${joint.x + pose.x} ${joint.y + pose.y}) rotate(${pose.rotate}) scale(${pose.scaleX} ${pose.scaleY}) translate(${-joint.x} ${-joint.y})`
 }
 
-/** After `drag` ms the air has slowed a thrown piece so much that it's gone about two thirds of the way. */
 const drag = 120
-/** How fast a piece falls once the air has slowed it, in box units a second. */
 const fall = 85
-/** How far a falling piece swings to each side, in box units, and how long it takes to swing there and back. */
 const swing = { reach: 6, period: 800 }
-/** How long a piece shows after it's thrown, in ms, fading over the last `fade`. */
 const flight = { span: 1250, fade: 300 }
 
-/** A piece that isn't showing. */
 const hidden: Pose = { ...rest, opacity: 0 }
 
-/**
- * Where piece `index` of the confetti `name` throws is `t` ms into the clip:
- * its centre in the box, how it's turned, flipped and faded. It's hidden
- * until it's thrown and once it has faded, and when the clip throws none.
- */
 export const pieceAt = (name: ClipName | null, index: number, t: number): Pose => {
   "worklet"
   const burst = name === null ? undefined : clips[name].confetti
@@ -924,10 +741,9 @@ export const pieceAt = (name: ClipName | null, index: number, t: number): Pose =
   if (burst === undefined || piece === undefined) return hidden
   const s = t - burst.at - piece.delay
   if (!(s > 0 && s < flight.span)) return hidden
-  // How far the throw has gone, and how many turns the piece has made.
   const thrown = 1 - Math.exp(-s / drag)
   const turns = (piece.spin * s) / 1000
-  // Each piece starts its swing and its flip at its own point (the golden angle apart), so no two move together.
+  // Offset each piece by the golden angle (~2.4 rad) so pieces swing and tumble out of phase.
   const phase = index * 2.4
   const flip = Math.cos(Math.PI * turns + phase)
   return {
@@ -937,38 +753,21 @@ export const pieceAt = (name: ClipName | null, index: number, t: number): Pose =
       swing.reach * thrown * Math.sin((2 * Math.PI * s) / swing.period + phase),
     y: burst.from[1] + (piece.to[1] - burst.from[1]) * thrown + (fall * (s - drag * thrown)) / 1000,
     rotate: 360 * turns + (phase * 180) / Math.PI,
-    // Paper tumbles end over end and ribbon twists, so each flattens along its length and fills out again.
+    // Foreshorten scaleY with flip² so tumbling pieces flatten edge-on and fill out again.
     scaleX: 1,
     scaleY: 0.5 + 0.5 * flip * flip,
     opacity: Math.min(1, (flight.span - s) / flight.fade)
   }
 }
 
-/**
- * How many of a clip's pieces a Kotori `size` pixels square throws, and how
- * much bigger it draws them. Below 100 px it throws only the first six, drawn
- * as big as at 100 px, so they don't shrink to specks.
- */
 export const confettiFor = (size: number) => ({ count: size < 100 ? 6 : Infinity, grow: Math.max(1, 100 / size) })
 
-/**
- * How a Kotori `size` pixels square draws its sparkles: a pose to combine
- * with theirs, growing them about their middles. Below 100 px they grow,
- * though less than confetti does, so they don't shrink to specks and still
- * sit apart.
- */
 export const sparklesFor = (size: number): Pose => {
   "worklet"
   const grow = Math.max(1, Math.sqrt(100 / size))
   return { x: 0, y: 0, rotate: 0, scaleX: grow, scaleY: grow, opacity: 1 }
 }
 
-/**
- * A React Native transform placing a piece in a view `size` pixels square that
- * shows the 200×200 box. The piece's own view is its canvas, grown by `grow`,
- * in the box's top left corner; views turn and scale about their centre, so
- * moving the canvas's centre to the piece's is all it takes.
- */
 export const pieceTransform = (pose: Pose, size: number, grow: number) => {
   "worklet"
   const k = size / 200
@@ -982,6 +781,5 @@ export const pieceTransform = (pose: Pose, size: number, grow: number) => {
   ]
 }
 
-/** The same placement as an SVG transform, in the box's own units, for a piece drawn about the origin. */
 export const pieceSvgTransform = (pose: Pose, grow: number) =>
   `translate(${pose.x} ${pose.y}) rotate(${pose.rotate}) scale(${pose.scaleX * grow} ${pose.scaleY * grow})`

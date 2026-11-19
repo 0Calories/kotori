@@ -39,7 +39,6 @@ describe("structured output schemas", () => {
 
 describe("Claude.available", () => {
   it("answers false within the probe timeout when the API hangs", async () => {
-    // Accepts connections and never responds.
     const server = createServer(() => {})
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
     vi.stubEnv("ANTHROPIC_BASE_URL", `http://127.0.0.1:${(server.address() as AddressInfo).port}`)

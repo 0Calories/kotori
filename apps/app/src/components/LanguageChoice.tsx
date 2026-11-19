@@ -78,7 +78,6 @@ const Choice = ({
   )
 }
 
-/** The two directions Kotori teaches, picked by the learner's native language. */
 export const LanguageChoice = ({
   value,
   onChange

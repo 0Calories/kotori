@@ -12,7 +12,6 @@ import {
 } from "../../src/features/dictionary/import/english/wiktionary.ts"
 import { emptySense, formOf, type Word } from "../../src/features/dictionary/import/english/words.ts"
 
-// Lines as Wiktextract writes them for Japanese Wiktionary, trimmed to the fields read.
 const line = (entry: object) => JSON.stringify({ lang_code: "en", lang: "英語", ...entry })
 const wiktionary = [
   line({
@@ -67,8 +66,6 @@ const wiktionary = [
   }),
   line({ word: "tired", pos: "adj", senses: [{ glosses: ["疲れた。"] }], forms: [{ form: "more tired" }] }),
   line({ word: "tire", pos: "verb", senses: [{ glosses: ["疲れる。"] }] }),
-  // Pages for inflections and other spellings, saying so only in the definition, as Wiktionary
-  // writes it: bare, quoted, or after a label.
   line({ word: "ate", pos: "verb", senses: [{ glosses: ["eatの過去形"] }] }),
   line({
     word: "eaten",
@@ -78,13 +75,11 @@ const wiktionary = [
   line({ word: "asked", pos: "verb", senses: [{ glosses: ['"ask" の過去形・過去分詞形。'] }] }),
   line({ word: "gotten", pos: "verb", senses: [{ glosses: ["(米) getの過去分詞"] }] }),
   line({ word: "judgement", pos: "noun", senses: [{ glosses: ["judgmentの異綴、米国でも時折みられる"] }] }),
-  // Senses Wiktionary lists oldest first.
   line({
     word: "sad",
     pos: "adj",
     senses: [{ glosses: ["満足した。"], tags: ["obsolete"] }, { glosses: ["悲しい。"] }]
   }),
-  // Lines that aren't JSON, or aren't shaped like an entry, are skipped.
   '{"word": "broken", "lang_code": "en", ',
   line({ word: "mistyped", pos: "verb", senses: "走る。" }),
   line({
@@ -97,7 +92,6 @@ const wiktionary = [
       { form: "または" }
     ]
   }),
-  // Other languages share the file and are skipped.
   JSON.stringify({ word: "be", lang_code: "nb", pos: "verb", senses: [{ glosses: ["求める。"] }] })
 ]
 
@@ -136,7 +130,6 @@ describe("parseWiktionary", () => {
       [["食べ物"], ["n"], ["col"]]
     ])
     expect(eat?.senses[3]?.dialects).toEqual(["en-US"])
-    // Synonyms are listed for the whole part of speech, to be placed once every word is known.
     expect(eat?.senses[0]?.xrefs).toEqual([])
     expect(eat?.references).toEqual([{ from: 0, to: 3, synonyms: ["consume", "dine"], antonyms: [] }])
   })
@@ -176,7 +169,6 @@ describe("parseWiktionary", () => {
       { text: "judgement", base: "judgment", tags: [] }
     ])
     expect(word("tired")?.senses.map((sense) => sense.glosses[0]?.text)).toEqual(["疲れた"])
-    // "ate" is only eat's past, so it is no word of its own; "eaten" also has a meaning.
     expect(word("ate")).toBeUndefined()
     expect(word("asked")).toBeUndefined()
     expect(word("eaten")?.senses.map((sense) => sense.glosses[0]?.text)).toEqual(["（特に複合語で）食べられる"])
@@ -401,7 +393,6 @@ describe("wordsFromJmdict", () => {
     expect(word("website")?.mayBeName).toBe(false)
     expect(word("ex-wife")?.mayBeName).toBe(false)
     expect(word("eat out")?.mayBeName).toBe(false)
-    // The subtitles count Kim, the name.
     expect(word("kim")?.mayBeName).toBe(true)
     expect(word("selfie")?.mayBeName).toBe(true)
   })
@@ -514,7 +505,6 @@ describe("wordsFromJmdict", () => {
     const reader = jmdictReader({
       words: new Set(["police station"]),
       verbs: new Set(),
-      // "on the" and "of a": fragments the phrase index lists too.
       phrases: new Set(["stone's throw", "on the", "of a"]),
       subtitles: new Map()
     })
@@ -529,7 +519,6 @@ describe("wordsFromJmdict", () => {
         ["id"]
       )
     )
-    // The frame "head of a" names something else, and "on the dot" has no phrase of its own in it.
     reader.add(jmdictEntry(41, "署長", "しょちょう", ["head of a police station"], true, ["n"]))
     reader.add(jmdictEntry(42, "きっかり", "きっかり", ["on the dot"], false, ["adv"]))
 
@@ -668,7 +657,6 @@ describe("toEntries", () => {
     )
     const kid = entries.find((e) => e.headword === "kid")
     expect(kid?.tier).toBe("curated")
-    // Curated sense order stands even if backTranslations weights another sense higher.
     expect(kid?.senses.map((s) => s.glosses[0]?.text)).toEqual(["子供", "冗談を言う", "子ヤギ"])
 
     const onThinIce = entries.find((e) => e.headword === "on thin ice")
@@ -719,7 +707,6 @@ describe("toEntries", () => {
     const entries = toEntries(placed, subtitles, new Map())
     const eat = entries.find((entry) => entry.headword === "eat")
     expect(eat?.senses.map((sense) => sense.xrefs)).toEqual([[], ["dine"], ["bother"]])
-    // An antonym can only be placed when there is one sense to place it on.
     expect(eat?.senses.every((sense) => sense.antonyms.length === 0)).toBe(true)
     expect(entries.find((entry) => entry.headword === "awkward")?.senses[0]?.antonyms).toEqual(["handy"])
   })
@@ -727,7 +714,6 @@ describe("toEntries", () => {
   it("names each word's source by where its senses came from, and carries its frequency signals", () => {
     const entries = toEntries(merged, subtitles, new Map())
     const of = (headword: string) => entries.find((entry) => entry.headword === headword)
-    // The subtitle count is the word's and its inflections' (be + was), before any frequency floor.
     expect(of("be")).toMatchObject({
       source: "enwiktionary",
       frequency: { everyday: true, spokenCount: 170000, score: 5 }
@@ -853,7 +839,6 @@ describe("commonestFirst", () => {
     commonestFirst(senses, new Map(Object.entries(weights))).map((own) => own.glosses[0]?.text)
 
   it("leads with the first attested sense, then the other attested ones by weight, the rest after", () => {
-    // "kid" as Wiktionary lists it: no common Japanese word translates "kid" as a young goat.
     const kid = [
       sense(["仔やぎ"]),
       sense(["子供"]),
@@ -868,7 +853,6 @@ describe("commonestFirst", () => {
       "仔やぎ",
       "子分"
     ])
-    // Its heaviest word decides a sense's weight, not how many synonyms it lists.
     expect(
       order([sense(["涼しい"]), sense(["冷淡な", "冷ややかな", "冷たい"]), sense(["冷静な"])], {
         涼しい: 80,
@@ -878,7 +862,6 @@ describe("commonestFirst", () => {
         冷静: 60
       })
     ).toEqual(["涼しい", "冷静な", "冷淡な"])
-    // Without back-translations, Wiktionary's order stands but for the little-used senses.
     expect(order([sense(["満足した"], ["obs"]), sense(["悲しい"])], {})).toEqual(["悲しい", "満足した"])
   })
 
@@ -922,7 +905,6 @@ describe("jmdictReader backTranslations", () => {
     reader.add(entry(4, "利口", ["smart"], true, 3))
     reader.add(entry(5, "子供", ["child", "children"]))
     const smart = reader.backTranslations().get("smart")
-    // A fifth gloss, an uncommon word or a fourth sense is too far from the word's use to count.
     expect([...(smart?.keys() ?? [])]).toEqual(["賢い"])
     expect(reader.backTranslations().has("kid")).toBe(false)
   })

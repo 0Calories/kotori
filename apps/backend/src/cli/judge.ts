@@ -11,11 +11,6 @@ const ABOUT = {
   loans: "Jev: whether English words' katakana loans kept their meaning"
 } as const
 
-/**
- * Runs one offline inference pass over the dictionary into its artifact file (`data/…`), for
- * review before it is committed. Costs inference: only run a pass whose golden eval passes
- * (`kotori eval`), and try `--dry-run` first. `kotori seed` imports the committed files.
- */
 export const judge = Command.make(
   "judge",
   {

@@ -4,7 +4,6 @@ import { captureReturnUrl, LINK_STORAGE_KEY, parsePendingLink } from "../src/aut
 const JWT = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxIn0.c2lnbmF0dXJl"
 const PENDING = { state: "s-1", nonce: "n-1" }
 
-/** A page as `googleCapture.web.ts` and `google.web.ts` see it: an address bar, history, and sessionStorage. */
 const fakeWindow = (href: string, pending: object | null) => {
   const storage = new Map<string, string>(pending === null ? [] : [[LINK_STORAGE_KEY, JSON.stringify(pending)]])
   const replaced: Array<string> = []
@@ -27,7 +26,6 @@ const fakeWindow = (href: string, pending: object | null) => {
   return { window, storage, replaced }
 }
 
-/** Loads a fresh copy of the web modules against a page, as a page load does. */
 const loadPage = async (href: string, pending: object | null = null) => {
   const page = fakeWindow(href, pending)
   vi.stubGlobal("window", page.window)
@@ -35,19 +33,18 @@ const loadPage = async (href: string, pending: object | null = null) => {
   vi.doMock("../src/auth/client.ts", () => ({ managedAuth: {} }))
   // Metro picks the `.web.ts` module on the web; Vitest needs telling.
   vi.doMock("../src/auth/googleCapture", () => import("../src/auth/googleCapture.web.ts"))
-  // `index.ts` loads the capture first; the address bar is clean before anything else runs.
   await import("../src/auth/googleCapture.web.ts")
   const hrefAfterCapture = page.window.location.href
   const { google } = await import("../src/auth/google.web.ts")
   return { ...page, google, hrefAfterCapture }
 }
 
-/** The AuthError code `fn` throws. Each page load has its own copy of the AuthError class, so match by class name. */
 const thrownCode = (fn: () => unknown): string => {
   try {
     fn()
   } catch (error) {
     assert.instanceOf(error, Error)
+    // vi.resetModules() loads a fresh AuthError class per page load, so check constructor.name instead of instanceof.
     assert.strictEqual(error.constructor.name, "AuthError")
     return (error as Error & { readonly code: string }).code
   }
@@ -141,7 +138,6 @@ describe("Google return on a web page load", () => {
   it("strips a linking return at load and hands the id_token to Settings once", async () => {
     const page = await loadPage(`https://hellokotori.com/settings#state=s-1&id_token=${JWT}`, PENDING)
     assert.strictEqual(page.hrefAfterCapture, "https://hellokotori.com/settings")
-    // Sign-in leaves a page with a pending link alone.
     assert.isNull(page.google.returned())
     assert.deepStrictEqual(page.google.linkReturned(), { kind: "id_token", idToken: JWT, nonce: "n-1" })
     assert.isFalse(page.storage.has(LINK_STORAGE_KEY))

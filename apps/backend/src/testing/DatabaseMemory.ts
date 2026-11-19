@@ -26,12 +26,6 @@ const getMigratedDump = () =>
     throw error
   }))
 
-/**
- * A fresh in-memory Postgres (PGlite) for tests, migrated from `packages/db/migrations`
- * once per worker and cloned from its data-directory dump for each suite, with Drizzle and
- * the Effect SQL client over it. Only tests import it, so `@electric-sql/pglite` never
- * enters an entry point's module graph.
- */
 export const DatabaseMemory = Layer.effect(Database, PgliteDrizzle.makeWithDefaults({ relations })).pipe(
   Layer.provideMerge(
     PgliteClient.layerFrom(

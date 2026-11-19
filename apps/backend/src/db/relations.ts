@@ -1,12 +1,6 @@
 import * as schema from "@kotori/db"
 import { defineRelations } from "drizzle-orm"
 
-/**
- * How the tables relate, for `db.query.<table>.findMany({ with: … })`. Foreign keys are
- * declared on the tables; this adds the names and directions the relational queries use.
- * Every relation names its columns explicitly, which Drizzle requires unless the reverse
- * side is declared too.
- */
 export const relations = defineRelations(schema, (r) => ({
   entries: {
     forms: r.many.forms({ from: r.entries.id, to: r.forms.entryId }),

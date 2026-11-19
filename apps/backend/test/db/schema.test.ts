@@ -16,11 +16,6 @@ import { Effect, Exit } from "effect"
 import { Database } from "../../src/db/Database.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
-// The schema's Postgres-level behaviour, on PGlite: the parts a query can't
-// express and so can't test on its own. Full-text documents, bytewise
-// collation for the prefix scan, cascades, and relational reads.
-
-// The layer is shared by the tests in this file, so each starts from an empty dictionary.
 const seed = Effect.gen(function* () {
   const db = yield* Database
   yield* db.execute(sql`TRUNCATE ${entries} CASCADE`)
@@ -122,7 +117,6 @@ layer(DatabaseMemory)("schema", (it) => {
   )
 })
 
-// Labels, cautions, frequency and loan links: the constraints that keep the enrichment model honest.
 layer(DatabaseMemory)("enrichment schema", (it) => {
   const caution = (rank: number, sense: number | null = null) => ({
     entryId: EntryId.make(2),
@@ -180,12 +174,10 @@ layer(DatabaseMemory)("enrichment schema", (it) => {
       assert.strictEqual(entry?.cautions[0]?.about?.headword, "食べる")
       assert.strictEqual(entry?.loansFrom[0]?.english, "coo")
 
-      // The word a caution compares with going away leaves the caution standing.
       yield* db.delete(entries).where(eq(entries.id, EntryId.make(1)))
       assert.strictEqual(yield* db.$count(cautions), 1)
       assert.strictEqual(yield* db.$count(entryFrequency), 0)
 
-      // The word itself going away takes its labels and cautions, and leaves the loan link's text.
       yield* db.delete(entries).where(eq(entries.id, EntryId.make(2)))
       assert.strictEqual(yield* db.$count(labels), 0)
       assert.strictEqual(yield* db.$count(cautions), 0)

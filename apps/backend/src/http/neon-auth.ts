@@ -4,11 +4,7 @@ import { Auth } from "../integrations/auth/Auth.ts"
 
 const PREFIX = "/api/auth"
 
-/**
- * Sign-up, sign-in, sessions, verification, password reset and account deletion,
- * handled by Neon's Managed Better Auth and proxied here so the app talks to one
- * origin and its cookies come from the API.
- */
+// Proxy Managed Better Auth under the API origin so web session cookies stay first-party.
 export const AuthRoute = HttpRouter.add("*", `${PREFIX}/*`, (request) =>
   Effect.flatMap(Auth, (auth) => auth.forward(request, request.url.slice(PREFIX.length) || "/"))
 )

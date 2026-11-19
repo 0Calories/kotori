@@ -30,11 +30,6 @@ export class CurrentUser extends Context.Service<
   }
 >()("@kotori/contracts/CurrentUser") {}
 
-/**
- * Session auth. Better Auth issues a session cookie at `/api/auth/*`; the app
- * forwards it on every request. Resolves the learner, creates their profile on
- * first sight, and refuses unapproved accounts everywhere except `/account`.
- */
 export class Authorization extends HttpApiMiddleware.Service<
   Authorization,
   {
@@ -49,16 +44,10 @@ export class Authorization extends HttpApiMiddleware.Service<
 export const Health = Schema.Struct({
   ok: Schema.Boolean,
   version: Schema.String,
-  /** Which optional providers are configured on this server. */
   features: Schema.Struct({
     coach: Schema.Boolean,
-    /**
-     * Whether Jev is configured: it reads a checked sentence's formality, and also routes Ask
-     * Kotori queries and judges seeded example sentences so they can be voiced.
-     */
     formality: Schema.Boolean,
     audio: Schema.Boolean,
-    /** Whether an email provider is configured (verification, reset and approval emails). */
     email: Schema.Boolean
   }),
   dictionary: Schema.Struct({ entries: Schema.Int })
@@ -69,7 +58,7 @@ export class SystemApi extends HttpApiGroup.make("system", { topLevel: true }).a
   HttpApiEndpoint.get("health", "/health", { success: Health })
 ) {}
 
-/** Works for pending accounts too, so the app can show the approval status. */
+/** `Authorization` allows unapproved accounts only on `/account` so onboarding and approval status remain readable. */
 export class AccountApi extends HttpApiGroup.make("account")
   .add(
     HttpApiEndpoint.get("me", "/me", { success: Profile }),
@@ -81,8 +70,6 @@ export class AccountApi extends HttpApiGroup.make("account")
 
 export class DictionaryApi extends HttpApiGroup.make("dictionary")
   .add(
-    // Searches the dictionary of the language the learner is learning: Japanese words for
-    // Japanese learners, English words for English learners.
     HttpApiEndpoint.get("search", "/search", {
       query: {
         q: Schema.String,
@@ -95,25 +82,21 @@ export class DictionaryApi extends HttpApiGroup.make("dictionary")
       success: Entry,
       error: NotFound
     }),
-    // Whether an entry's example sentences and audio are ready yet. Reads only; never queues work.
     HttpApiEndpoint.get("enrichment", "/entries/:id/enrichment", {
       params: { id: EntryId },
       success: Enrichment,
       error: NotFound
     }),
-    // Queue example sentences and audio for an entry that hasn't been enriched yet.
     HttpApiEndpoint.post("enrich", "/entries/:id/enrich", {
       params: { id: EntryId },
       success: Enrichment,
       error: [NotFound, RateLimited]
     }),
-    // When a search found no exact match, ask Kotori to draft an entry (or name the one it missed).
     HttpApiEndpoint.post("ask", "/ask", {
       payload: AskRequest,
       success: Proposal,
       error: [AskRefused, AiUnavailable, RateLimited]
     }),
-    // The learner's own asks, newest first, so an answer can be revisited.
     HttpApiEndpoint.get("asks", "/asks", { success: Schema.Array(Proposal) })
   )
   .middleware(Authorization)
@@ -163,7 +146,6 @@ export type SpeakResult = typeof SpeakResult.Type
 
 export class AudioApi extends HttpApiGroup.make("audio")
   .add(
-    // Speaks any short phrase (e.g. a coach suggestion). Clips are cached by content.
     HttpApiEndpoint.post("speak", "/speak", {
       payload: SpeakRequest,
       success: SpeakResult,

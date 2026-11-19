@@ -46,7 +46,6 @@ import { frameSvg, mascotSvg } from "../src/mascot/svg.ts"
 
 const names = Object.keys(clips) as ClipName[]
 const parts = Object.keys(joints) as Part[]
-/** The parts of Kotori itself, not the sparkles, Zs or dust that float beside it. */
 const kotori = parts.filter(
   (part) => !([...sparkleParts, ...zParts, ...landingParts] as readonly Part[]).includes(part)
 )
@@ -63,7 +62,6 @@ const turn = ([x, y]: Point, degrees: number): Point => {
   return [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)]
 }
 
-/** A point through a React Native transform in a view `size` pixels wide and `height` high: about the view's centre, last step first. */
 const throughView = (transform: ReturnType<typeof viewTransform>, size: number, point: Point, height = size): Point => {
   let p: Point = [point[0] - size / 2, point[1] - height / 2]
   for (const step of transform.toReversed()) {
@@ -79,7 +77,6 @@ const throughView = (transform: ReturnType<typeof viewTransform>, size: number, 
 type SvgStep = readonly [op: string, a: number, b: number]
 const svgSteps = new Map<string, readonly SvgStep[]>()
 
-/** A point through an SVG transform attribute, last function first. */
 const throughSvg = (transform: string, point: Point): Point => {
   let steps = svgSteps.get(transform)
   if (steps === undefined) {
@@ -103,7 +100,6 @@ describe("Kotori's clips", () => {
     for (const name of Object.values(entrances).filter((name) => name !== "startReading")) {
       for (const part of kotori) assert.deepStrictEqual(poseAt(name, part, 0), rest, `${name}: ${part}`)
     }
-    // The sparkles come with the mood, so they start out of sight.
     for (const part of sparkleParts) assert.strictEqual(poseAt("celebrate", part, 0).opacity, 0, part)
   })
 
@@ -156,7 +152,6 @@ describe("Kotori's clips", () => {
     assert.strictEqual(loops.sleepy, "sleepy")
     for (const part of parts) assert.deepStrictEqual(settled("sleepy", part), rest, part)
     assert.sameMembers(Object.keys(clips.sleepy.tracks), ["bird", "face", ...zParts])
-    // Each Z fades in, floats upward and outward, and fades out after the one below it.
     const firstShow = (part: ZPart) => {
       for (let t = 0; t <= clips.sleepy.duration; t += 10) if (poseAt("sleepy", part, t).opacity > 0) return t
       return assert.fail(`${part} never shows`)
@@ -187,16 +182,11 @@ describe("Kotori's clips", () => {
   })
 
   it("ease between keys", () => {
-    // Halfway to an `out` key, a value has gone seven eighths of the way.
+    // Cubic ease-out reaches 1 - 0.5 ** 3 = 0.875 halfway through the segment.
     assert.closeTo(poseAt("celebrate", "bird", 250).y, -28 * 0.875, 1e-9)
   })
 })
 
-/**
- * How far a piece's outline reaches from its centre, at most: a curve stays
- * among its points and control points, and a circular arc no wider than a
- * semicircle stays within its radius of its chord's middle.
- */
 const reach = (d: string) => {
   const tokens = d.match(/[A-Z]|-?[\d.]+/g) ?? []
   const counts: Partial<Record<string, number>> = { M: 2, L: 2, H: 1, V: 1, Q: 4, C: 6, A: 7, Z: 0 }
@@ -209,6 +199,7 @@ const reach = (d: string) => {
     const values = tokens.slice(i + 1, (i += 1 + count)).map(Number)
     if (command === "A") {
       const [r = 0, , , large, , x = 0, y = 0] = values
+      // A minor circular arc (large-arc-flag 0) stays within radius r of its chord's midpoint.
       assert.strictEqual(large, 0, d)
       far = Math.max(far, Math.hypot((at[0] + x) / 2, (at[1] + y) / 2) + r)
       at = [x, y]
@@ -224,7 +215,6 @@ const reach = (d: string) => {
   return far
 }
 
-/** Whether `point` is inside `polygon`: a ray from it to the right crosses the edges an odd number of times. */
 const inside = (point: Point, polygon: readonly Point[]) => {
   let crossings = 0
   for (const [i, [x1, y1]] of polygon.entries()) {
@@ -234,11 +224,10 @@ const inside = (point: Point, polygon: readonly Point[]) => {
   return crossings % 2 === 1
 }
 
-/** Where the curves of Kotori's body meet. The body is convex, so it bulges past the shape these make. */
 const bodyCorners = () => {
   const numbers = (shapes.body.match(/-?[\d.]+/g) ?? []).map(Number)
   const corners: Point[] = []
-  // After the first point, each curve takes three: two control points, then where it ends.
+  // M takes 2 numbers and each C takes 6, so indices 0, 6, 12, ... are the curve endpoints.
   for (let i = 0; i < numbers.length; i += 6) corners.push([numbers[i] ?? 0, numbers[i + 1] ?? 0])
   return corners
 }
@@ -314,7 +303,6 @@ describe("celebrate's confetti", () => {
   })
 })
 
-/** Points along a path of cubic curves, close enough together to stand for its outline. */
 const outline = (d: string) => {
   const numbers = (d.match(/-?[\d.]+/g) ?? []).map(Number)
   let from: Point = [numbers[0] ?? 0, numbers[1] ?? 0]
@@ -339,7 +327,6 @@ describe("celebrate's sparkles", () => {
   const every10ms = Array.from({ length: duration / 10 + 1 }, (_, i) => i * 10)
   const pieces = clips.celebrate.confetti?.pieces ?? []
   const centre = (part: SparklePart, pose: Pose): Point => [joints[part].x + pose.x, joints[part].y + pose.y]
-  /** The times `part` shows, to the ms. */
   const shown = (part: SparklePart) =>
     Array.from({ length: duration + 1 }, (_, t) => t).filter((t) => poseAt("celebrate", part, t).opacity > 0)
 
@@ -377,7 +364,6 @@ describe("celebrate's sparkles", () => {
 
   it("are all gone as the clip ends, so none is left behind in the mood", () => {
     for (const part of sparkleParts) assert.strictEqual(settled("celebrate", part).opacity, 0, part)
-    // The last one winks out just as the clip ends, so it doesn't run on with nothing moving.
     assert.isAbove(poseAt("celebrate", "sparkle2", duration - 1).opacity, 0)
   })
 
@@ -397,7 +383,7 @@ describe("celebrate's sparkles", () => {
         assert.isFalse(inside(at, placedBody), label)
         assert.isAbove(Math.min(...placedBody.map(([x, y]) => Math.hypot(x - at[0], y - at[1]))), arm, label)
         for (const c of tuft) assert.isAbove(Math.hypot(c.at[0] - at[0], c.at[1] - at[1]) - c.r, arm, label)
-        // The tile is 60 px around a 48 px Kotori, so it reaches 25 box units past the box.
+        // A 60px tile around a 48px Kotori extends 25 viewBox units past [0, 200].
         assert.isAtLeast(Math.min(...at) - arm, -25, label)
         assert.isAtMost(Math.max(...at) + arm, 225, label)
         return [{ at, arm }]
@@ -442,10 +428,8 @@ describe("celebrate's sparkles", () => {
   })
 })
 
-/** The numbers in a path, in order. */
 const coordinates = (d: string) => (d.match(/-?[\d.]+/g) ?? []).map(Number)
 
-/** The points and control points of a path whose commands all take pairs; a curve stays among them. */
 const pointsOf = (d: string) => {
   const n = coordinates(d)
   return Array.from({ length: n.length / 2 }, (_, i): Point => [n[2 * i] ?? 0, n[2 * i + 1] ?? 0])
@@ -459,7 +443,6 @@ describe("reading", () => {
   const page = (t: number) => poseAt("reading", "page", t)
   const wing = (t: number) => poseAt("reading", "pageWing", t)
 
-  /** How the eyes move between rests, in order: when each move starts and ends, and how far it goes. */
   const moves: { start: number; end: number; dx: number; dy: number }[] = []
   let start: number | null = null
   let from = eyes(0)
@@ -502,7 +485,6 @@ describe("reading", () => {
     const reading = mascotSvg({ mood: "reading" })
     for (const eye of readingShapes.eyes)
       assert.include(reading, `cx="${eye.cx + catchlightDx(catchlight, eye.cx)}" cy="${eye.cy + catchlight.dy}"`)
-    // Kotori's other front-facing eyes catch the light to the right on both.
     assert.strictEqual(catchlightDx(frontShapes.catchlight, right.cx), frontShapes.catchlight.dx)
   })
 
@@ -523,7 +505,6 @@ describe("reading", () => {
   })
 
   it("reads a line calmly, gliding leftward and pausing on the way, as Kotori reads from its left facing the viewer, then sweeps back to start the next line below", () => {
-    // Reading, that is, not glancing at the page as it turns.
     const still = (t: number) => page(t).scaleX === 1 && page(t).y === 0 && wing(t).rotate === 0
     const reading = moves.filter((move) => still(move.start))
     const glides = reading.filter((move) => move.dx < 0 && move.dy === 0)
@@ -531,7 +512,6 @@ describe("reading", () => {
     for (const glide of glides) {
       assert.isAtLeast(glide.end - glide.start, 150, `the glide at ${glide.start} ms takes its time`)
       assert.isAtMost(-glide.dx, 3, `the glide at ${glide.start} ms goes a little way along`)
-      // The eyes pause where they reach; after the last, until the first move as the loop comes round.
       const next = moves[moves.indexOf(glide) + 1]
       const pause = next === undefined ? duration - glide.end + (moves[0]?.start ?? 0) : next.start - glide.end
       assert.isAtLeast(pause, 100, `the glide at ${glide.start} ms pauses`)
@@ -539,7 +519,6 @@ describe("reading", () => {
     const sweeps = reading.filter((move) => move.dx > 0 && move.dy > 0)
     assert.lengthOf(sweeps, 1)
     const sweep = sweeps[0] ?? assert.fail("the eyes never sweep back")
-    // The glides leading up to the sweep: a whole line.
     const before = moves.slice(0, moves.indexOf(sweep)).toReversed()
     const end = before.findIndex((move) => !glides.includes(move))
     const line = (end === -1 ? before : before.slice(0, end)).toReversed()
@@ -570,11 +549,9 @@ describe("reading", () => {
     const lifting = every10ms.find((t) => wing(t).rotate !== 0) ?? assert.fail("the wing never moves")
     const turning = every10ms.find((t) => page(t).scaleX !== 1) ?? assert.fail("the page never turns")
     assert.isBelow(lifting, turning, "the wing moves first")
-    // The wing reaches up and in, towards the spine, and is back on the book by the time the page lands.
     for (const t of every10ms) assert.isAtMost(wing(t).rotate, 0, `${t} ms`)
     const landed = every10ms.find((t) => page(t).scaleX === -1) ?? assert.fail("the page never lands")
     assert.strictEqual(wing(landed).rotate, 0)
-    // The page rises off the book as it turns, and lies flat before and after.
     for (const t of every10ms) {
       const { scaleX, scaleY, y } = page(t)
       if (Math.abs(scaleX) === 1) assert.deepStrictEqual([y, scaleY], [0, 1], `${t} ms`)
@@ -614,29 +591,22 @@ describe("taking up a book to read", () => {
   const { duration } = clips.startReading
   const every10ms = Array.from({ length: duration / 10 + 1 }, (_, i) => i * 10)
   const at = (part: Part, t: number) => poseAt("startReading", part, t)
-  /** The parts Kotori has before it reads, which it reads without. */
   const before = ["foldedWing0", "foldedWing1", "lookingEyes"] as const satisfies readonly Part[]
-  /** The parts it reads with, which come in as it takes up the book. */
   const after = ["glasses", "book", "page", "pageWing", "bookWing"] as const satisfies readonly Part[]
-  /** When `part` first shows, or `null`. */
   const shown = (part: Part) => every10ms.find((t) => at(part, t).opacity > 0) ?? null
-  /** When the glasses are on. */
   const on =
     every10ms.find(
       (t) =>
         t > (shown("glasses") ?? Infinity) &&
         Object.entries(rest).every(([k, v]) => at("glasses", t)[k as keyof Pose] === v)
     ) ?? assert.fail("the glasses never go on")
-  /** When the book lands. */
   const landed = every10ms.find((t) => at("book", t).y === 0) ?? assert.fail("the book never lands")
 
   it("starts as Kotori stands facing the viewer: its wings at its sides, its eyes catching the light above, its feet showing, and no glasses or book", () => {
     for (const part of before) assert.deepStrictEqual(at(part, 0), rest, part)
     for (const part of after) assert.strictEqual(at(part, 0).opacity, 0, part)
-    // The eyes it reads with are the same as the ones it looks with, which hide them.
     assert.deepStrictEqual(at("eyes", 0), at("lookingEyes", 0))
     assert.deepStrictEqual(readingShapes.eyes, frontShapes.eyes)
-    // Its cheeks sit where they do facing the viewer.
     const transform = svgTransform(at("cheeks", 0), "cheeks")
     for (const [i, cheek] of readingShapes.cheeks.entries()) {
       const front = frontShapes.cheeks[i] ?? assert.fail(`no cheek ${i}`)
@@ -685,7 +655,6 @@ describe("taking up a book to read", () => {
     assert.isBelow(on, landed)
     const lifted = shown("glasses") ?? assert.fail("the glasses never show")
     assert.isAtLeast(lifted, shown("pageWing") ?? Infinity, "the wing comes first")
-    // The point the wing holds them by stays in its tip, until they're on.
     const held: Point = [joints.glasses.x - 3.1, 71.3]
     const tip: Point = [61, 140.6]
     for (const t of every10ms.filter((t) => t >= lifted && t <= on)) {
@@ -693,7 +662,6 @@ describe("taking up a book to read", () => {
       const wing = throughSvg(svgTransform(at("pageWing", t), "pageWing"), tip)
       assert.isBelow(Math.hypot(glasses[0] - wing[0], glasses[1] - wing[1]), 3, `${t} ms`)
     }
-    // Pushed up onto the eyes from below them, and left there.
     assert.isAbove(at("glasses", on - 90).y, 5)
     for (const t of every10ms.filter((t) => t > on - 90 && t <= on))
       assert.isBelow(at("glasses", t).y, at("glasses", t - 10).y, `pushed up at ${t} ms`)
@@ -718,7 +686,6 @@ describe("taking up a book to read", () => {
     for (const t of squash) assert.strictEqual(at("book", t).y, 0, `${t} ms`)
     assert.isBelow(Math.min(...squash.map((t) => at("book", t).scaleY)), 0.9)
     assert.isAbove(Math.max(...squash.map((t) => at("book", t).scaleX)), 1.03)
-    // The page Kotori turns shows only once the book has settled, so it doesn't fall apart from it.
     for (const t of every10ms.filter((t) => t < duration)) assert.strictEqual(at("page", t).opacity, 0, `${t} ms`)
   })
 
@@ -727,7 +694,6 @@ describe("taking up a book to read", () => {
     assert.isBelow(lookingUp, landed)
     for (const t of every10ms.filter((t) => t >= (shown("book") ?? 0) && t <= landed && t >= lookingUp + 100))
       assert.isAtLeast(at("lookingEyes", t).y, at("lookingEyes", t - 10).y, `${t} ms`)
-    // The eyes it reads with move with the ones it looks with, under them, until it blinks.
     const gone = every10ms.find((t) => at("lookingEyes", t).opacity === 0) ?? assert.fail("the looking eyes never go")
     for (const t of every10ms.filter((t) => t < gone)) {
       const [eyes, looking] = [at("eyes", t), at("lookingEyes", t)]
@@ -749,7 +715,6 @@ describe("the book landing", () => {
   const landed = everyMs.find((t) => at("book", t).y === 0) ?? assert.fail("the book never lands")
   const { origin, puff, sparks, trail } = readingShapes.landing
   const shownByPart = new Map<Part, readonly number[]>()
-  /** The times `part` shows, to the ms. */
   const shown = (part: Part) => {
     let times = shownByPart.get(part)
     if (times === undefined) {
@@ -758,7 +723,6 @@ describe("the book landing", () => {
     }
     return times
   }
-  /** Where the middle of `part` is at `t`. */
   const centre = (part: Part, t: number): Point => [joints[part].x + at(part, t).x, joints[part].y + at(part, t).y]
   const spine = pointsOf(readingShapes.book.spine)
   const spineFoot = Math.max(...spine.map(([, y]) => y))
@@ -776,9 +740,7 @@ describe("the book landing", () => {
       assert.isBelow(first, landed + 200, `${part} comes with the landing`)
       assert.strictEqual(at(part, duration).opacity, 0, part)
     }
-    // The dust bursts out the moment the book hits the ground.
     for (const part of puffParts) assert.strictEqual(shown(part)[0], landed, part)
-    // The clip runs on only as long as something is still showing.
     assert.isTrue(
       landingParts.some((part) => at(part, duration - 50).opacity > 0),
       "something shows until near the end"
@@ -793,7 +755,6 @@ describe("the book landing", () => {
     ] as const) {
       const times = shown(part)
       const first = times[0] ?? assert.fail(`${part} never shows`)
-      // It starts small behind the spine and comes out well past it.
       assert.isBelow(1.62 * puff * at(part, first).scaleX, halfSpine, `${part} starts hidden behind the spine`)
       assert.isAbove(Math.abs(centre(part, times.at(-1) ?? first)[0] - 100), halfSpine * 3, `${part} rolls out`)
       for (const t of times.slice(1)) {
@@ -803,7 +764,6 @@ describe("the book landing", () => {
       }
       assert.isAbove(Math.max(...times.map((t) => at(part, t).scaleX)), 1, `${part} swells`)
     }
-    // Mirror images.
     for (const t of everyMs) {
       const [left, right] = [at("puff0", t), at("puff1", t)]
       assert.strictEqual(right.x + left.x, 0, `${t} ms`)
@@ -823,10 +783,8 @@ describe("the book landing", () => {
       near(centre(part, first), [origin.x, origin.y])
       const path = times.map((t) => centre(part, t))
       const end = path.at(-1) ?? assert.fail(`${part} has no path`)
-      // Up first, then over the top of its arc and a little way down again.
       assert.isBelow(Math.min(...path.map(([, y]) => y)), end[1] - 3, `${part} comes over the top`)
       assert.isAbove(Math.abs(end[0] - 100), 40, `${part} comes down well clear of the spine`)
-      // Its heading turns steadily one way, by a good deal, as it goes.
       const headings = path.slice(1).flatMap((p, i) => {
         const before = path[i] ?? p
         return Math.hypot(p[0] - before[0], p[1] - before[1]) > 0.05
@@ -843,7 +801,6 @@ describe("the book landing", () => {
       let total = (headings.at(-1) ?? 0) - (headings[0] ?? 0)
       if (total * turn < 0) total += turn * 2 * Math.PI
       assert.isAbove(Math.abs(total), Math.PI / 3, `${part} curves`)
-      // Gravity has it: it rises slower and slower, and falls faster and faster, but never far.
       const drop = (t: number) => centre(part, t)[1] - centre(part, t - 20)[1]
       for (let t = first + 40; t <= last; t += 20)
         assert.isAtLeast(drop(t), drop(t - 20) - 0.05, `${part} pulled down at ${t} ms`)
@@ -851,11 +808,9 @@ describe("the book landing", () => {
       assert.isAbove(drop(last), 1, `${part} is still falling as it winks out`)
       return Math.sign(end[0] - 100)
     })
-    // Only a few, but at least two to each side.
     assert.isAtMost(sparkParts.length, 5)
     assert.isAtLeast(sides.filter((side) => side < 0).length, 2)
     assert.isAtLeast(sides.filter((side) => side > 0).length, 2)
-    // In no set order: not simply turn and turn about.
     assert.isTrue(
       sides.some((side, i) => side === sides[i + 1]),
       "two in a row fly to the same side"
@@ -895,7 +850,6 @@ describe("the book landing", () => {
       assert.isBelow(poses[0]?.scaleX ?? 1, 0.05, `${part} starts from nothing`)
       assert.isBelow(poses.at(-1)?.scaleX ?? 1, 0.05, `${part} winks out`)
       assert.strictEqual(Math.max(...poses.map((pose) => pose.scaleX)), 1, `${part} reaches its drawn size`)
-      // One way or the other.
       assert.isAbove(Math.abs((poses.at(-1)?.rotate ?? 0) - (poses[0]?.rotate ?? 0)), 80, `${part} turns as it glints`)
     }
   })
@@ -917,7 +871,6 @@ describe("the book landing", () => {
           now[1] - trail.length * pose.scaleX * Math.sin(a)
         ]
         assert.isAtMost(tip[1], spineFoot, label)
-        // Pointing the way the spark is going.
         const next = centre(part, Math.min(t + 10, duration))
         if (Math.hypot(next[0] - now[0], next[1] - now[1]) > 0.5) {
           let off = Math.atan2(next[1] - now[1], next[0] - now[0]) - a
@@ -926,7 +879,6 @@ describe("the book landing", () => {
         }
       }
       const lengths = times.map((t) => at(tail, t).scaleX)
-      // As long and as wide as its spark is big.
       const scale = sparks[part].r / biggest
       assert.isAbove(Math.max(...lengths), 0.5 * scale, `${tail} streams out behind it`)
       assert.isAtMost(Math.max(...times.map((t) => at(tail, t).scaleY)), scale, `${tail} is as wide as ${part} is big`)
@@ -949,7 +901,6 @@ describe("the book landing", () => {
         const label = `${part} at ${t} ms`
         assert.isAtLeast(Math.min(...middle) - arm, -25, label)
         assert.isAtMost(Math.max(...middle) + arm, 225, label)
-        // Where it comes down, as it winks out.
         if (t >= (shown(part).at(-1) ?? 0) - 150) {
           for (const shape of clear) {
             assert.isFalse(inside(middle, shape), label)
@@ -969,7 +920,7 @@ describe("the book landing", () => {
   })
 
   it("is drawn inside Kotori's box, so the app's canvas, which moves and scales with it, doesn't clip it", () => {
-    // How far a puff reaches from its middle, in units of its size (see `puffPath`).
+    // puffPath extends at most 0.7 * r below cy.
     assert.isAtMost(origin.y + 0.7 * puff, 200)
     assert.isAtMost(origin.y + Math.max(...Object.values(sparks).map((spark) => spark.r)), 200)
     assert.isAtLeast(origin.x - trail.length, 0)
@@ -981,7 +932,6 @@ describe("the book landing", () => {
 
   it("is drawn in the stills as the book lands, and not before or once it's settled", () => {
     const has = (t: number, d: string) => frameSvg("startReading", "reading", t).includes(d)
-    // Each mark, in its colour, and a time it's on its way.
     const marks: [string, number][] = [
       [puffPath({ cx: origin.x, cy: origin.y, r: puff }), landed + 150],
       [trailPath(origin), landed + 150],
@@ -1010,7 +960,6 @@ describe("a pose", () => {
   it("turns and scales a part about its joint", () => {
     const { x, y } = joints.wing
     const at = (point: Point) => throughSvg(svgTransform(stretched, "wing"), point)
-    // The joint only moves by the offset; a point beside it doubles its distance and turns a quarter anticlockwise.
     near(at([x, y]), [x + 3, y - 4])
     near(at([x + 10, y]), [x + 3, y - 24])
   })
@@ -1019,7 +968,7 @@ describe("a pose", () => {
     const size = 120
     const k = size / 200
     const still = svgTransform(skewed, "wing")
-    // Three non-collinear points pin down an affine transform; check with and without the bubble's headroom.
+    // Three non-collinear points uniquely determine an affine transform.
     for (const headroom of [0, thinkingShapes.headroom]) {
       const height = (200 + headroom) * k
       const view = viewTransform(skewed, "wing", size, headroom)
@@ -1039,7 +988,6 @@ describe("a pose", () => {
     for (const size of [48, 150]) {
       const k = size / 200
       const { grow } = confettiFor(size)
-      // The piece's view is its canvas, grown, at the top left of Kotori's; the point is in the canvas's units.
       const width = confetti.canvas * k * grow
       const still = pieceSvgTransform(skewed, grow)
       const view = pieceTransform(skewed, size, grow)
@@ -1103,7 +1051,7 @@ describe("Kotori's views and facing", () => {
     const [eye] = frontShapes.eyes
     const [cheek] = frontShapes.cheeks
     if (eye === undefined || cheek === undefined) throw new Error("missing front face shapes")
-    // Sample points along the sweat drop's two quadratic curves (`M56 52 q 7 10 0 15 q -7 -5 0 -15 Z`).
+    // frontShapes.sweat uses relative quadratic commands: M x0 y0 q dx1 dy1 dx2 dy2 q dx3 dy3 ...
     const nums = (frontShapes.sweat.match(/-?[\d.]+/g) ?? []).map(Number)
     const [x0 = 0, y0 = 0, dx1 = 0, dy1 = 0, dx2 = 0, dy2 = 0, dx3 = 0, dy3 = 0] = nums
     const tip: Point = [x0, y0]

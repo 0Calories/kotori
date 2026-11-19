@@ -1,16 +1,3 @@
-/**
- * One-time local setup, safe to re-run: `.env` from `.env.example`, Postgres in Docker,
- * the schema (`kotori migrate`), the dictionaries (JMDict, and the English one for Japanese
- * speakers), and the development account the app signs in as. Each step skips what is already
- * done. Run with `pnpm dev:setup`.
- *
- * It only touches a database and auth server on this machine: when `DATABASE_URL` or
- * `NEON_AUTH_BASE_URL` points elsewhere, it stops before contacting either, unless run as
- * `pnpm dev:setup --remote` to set up a remote development database (a Neon branch of your own).
- *
- * It never deletes data. A Docker volume from an older Postgres, or a database still on the
- * schema from before the Drizzle rebuild, stops it with the command to start over instead.
- */
 import { type ChildProcess, spawn, spawnSync } from "node:child_process"
 import { copyFileSync, existsSync } from "node:fs"
 import { dirname, join } from "node:path"
@@ -19,7 +6,6 @@ import { isLocalHost, remoteDatabaseHost } from "./local-auth/src/localHost.ts"
 
 const workspaceRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 
-/** `.env.local` (the Neon CLI's), then `.env`: the first file to set a variable wins, and the environment beats both. */
 const loadDotEnv = () => {
   for (const name of [".env.local", ".env"]) {
     const file = join(workspaceRoot, name)
@@ -39,7 +25,6 @@ const run = (command: string, args: ReadonlyArray<string>, failure?: string) => 
   if (result.status !== 0) fail(failure ?? `\`${[command, ...args].join(" ")}\` failed.`)
 }
 
-/** How the 18+ Postgres images refuse a volume laid out by an older major (or mounted at `…/data`). */
 const OLD_VOLUME = "in 18+, these Docker images are configured to store database data"
 
 const reachable = async (url: string) => {
@@ -81,7 +66,6 @@ if (remote.length > 0) {
     - if that is a development setup of your own (a Neon branch, say), run \`pnpm dev:setup --remote\``)
   }
   if (remoteDatabase !== undefined && localAuthUrl) {
-    // tools/local-auth refuses a remote database, so the development account couldn't be made.
     fail(`DATABASE_URL points at ${remoteDatabase} but NEON_AUTH_BASE_URL at this machine, so nothing was set up.
   The local auth server only runs against a local database. Point NEON_AUTH_BASE_URL at that
   database's own auth (its Neon branch's) and run this again.`)
@@ -117,7 +101,6 @@ step("Dictionaries")
 run("pnpm", ["--silent", "kotori", "seed", "--if-empty"])
 
 step("Development account")
-// `dev-account` signs up through the auth server, so the local one has to be running.
 let localAuth: ChildProcess | undefined
 process.on("exit", () => localAuth?.kill("SIGTERM"))
 if (localAuthUrl && !(await reachable(`${authUrl}/ok`))) {

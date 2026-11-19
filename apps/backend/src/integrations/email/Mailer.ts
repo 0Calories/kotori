@@ -12,16 +12,13 @@ export interface Email {
   readonly html: string
 }
 
-/** Sends transactional email. `MailerLive` picks Resend when `RESEND_API_KEY` is set, otherwise the console. */
 export class Mailer extends Context.Service<
   Mailer,
   {
-    /** Whether mail actually leaves the machine. */
     readonly configured: boolean
     send(email: Email): Effect.Effect<void, MailError>
   }
 >()("@kotori/backend/Mailer") {
-  /** Logs each message, including links and codes, so flows can be followed in development. */
   static readonly layerConsole = Layer.succeed(
     Mailer,
     Mailer.of({
@@ -34,7 +31,6 @@ export class Mailer extends Context.Service<
   )
 }
 
-/** Captures everything the in-memory mailer sends, for tests. */
 export class Mailbox extends Context.Service<
   Mailbox,
   {
@@ -43,7 +39,6 @@ export class Mailbox extends Context.Service<
   }
 >()("@kotori/backend/Mailbox") {}
 
-/** A `Mailer` that stores messages in a `Mailbox` instead of sending them. */
 export const MailerMemory: Layer.Layer<Mailer | Mailbox> = Layer.effectContext(
   Effect.gen(function* () {
     const ref = yield* Ref.make<ReadonlyArray<Email>>([])

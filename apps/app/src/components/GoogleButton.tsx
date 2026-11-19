@@ -4,9 +4,7 @@ import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Button } from "./Button.tsx"
 import { Text } from "./Text.tsx"
 
-/** Google's four-colour "G", which its branding guidelines ask for on every sign-in button. */
 export const GoogleMark = ({ size = 18 }: { readonly size?: number }) => (
-  // Decoration: the button's label already says Google.
   <View aria-hidden>
     <Svg width={size} height={size} viewBox="0 0 48 48">
       <Path
@@ -29,7 +27,6 @@ export const GoogleMark = ({ size = 18 }: { readonly size?: number }) => (
   </View>
 )
 
-/** "Continue with Google": the same pill as the email button beside it, in the secondary style. */
 export const GoogleButton = ({
   label,
   onPress,
@@ -53,7 +50,6 @@ export const GoogleButton = ({
   />
 )
 
-/** The rule between "Continue with Google" and the email form. */
 export const OrDivider = ({ label }: { readonly label: string }) => {
   const { color } = useTheme()
   const rule = { flex: 1, height: 1, backgroundColor: color.outline }

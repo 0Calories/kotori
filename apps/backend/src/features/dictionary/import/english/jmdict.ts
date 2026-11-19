@@ -2,20 +2,8 @@ import type { EntryRecord } from "@kotori/contracts"
 import { isEnglishFunctionWord, normalizeGloss, romanize, uninflect } from "@kotori/language"
 import { addRedirect, emptySense, type FormOf, isEnglish, type Word } from "./words.ts"
 
-/**
- * English words the other sources lack, read backwards from JMDict: "selfie" is a gloss of
- * 自撮り, "hang out" of 遊ぶ, たむろする and 入り浸る. Synonymous Japanese words sharing a
- * part of speech are grouped into shared senses, most likely first.
- *
- * JMDict's glosses include descriptions as well as words ("clear autumnal weather"), so
- * only English that is attested as a word or phrase is taken: single words people use
- * (in the frequency list), phrases Wiktionary lists, and phrasal verbs.
- */
-
-/** Senses kept for a word, and glosses kept per sense: the most likely Japanese words for it. */
 const MAX_SENSES = 6
 
-/** The particles of phrasal verbs: "hang out", "run out of", "put up with". */
 const PARTICLES = new Set([
   "up",
   "down",
@@ -64,11 +52,6 @@ const VERB_PREFIXES = [
 
 const PREP_PREFIXES = ["on ", "in ", "at ", "under ", "out of ", "behind ", "beyond ", "above ", "below ", "off "]
 
-/**
- * The words a gloss may wrap an attested phrase in without naming anything else: "a stone's
- * throw away (from)" and "within a stone's throw (of)" both name "stone's throw". Particles,
- * articles, a few adverbs of degree, forms of "be" and "get", and the dictionary's placeholders.
- */
 const FRAME_WORDS = new Set([
   ...PARTICLES,
   "a",
@@ -95,24 +78,17 @@ const FRAME_WORDS = new Set([
   "someone's"
 ])
 
-/** The most frame words around a phrase; more and the gloss is describing something else. */
 const MAX_FRAME = 3
 
-/** Words of a phrase that are its own, not placeholders, pronouns, articles or prepositions. */
 const contentWords = (words: ReadonlyArray<string>) => words.filter((word) => !isEnglishFunctionWord(word)).length
 
-/**
- * The longest attested phrase inside a gloss, framed only by `FRAME_WORDS`: "stone's throw" in
- * "within a stone's throw", with the gloss as a variant of it. The phrase needs two words of its
- * own, or fragments the phrase index also lists ("of a", "on the") would claim every gloss
- * holding them. Null when no such phrase is there.
- */
 const framedPhrase = (words: ReadonlyArray<string>, attested: (phrase: string) => boolean): string | null => {
   for (let length = words.length - 1; length >= 2; length--) {
     for (let start = 0; start + length <= words.length; start++) {
       const inside = words.slice(start, start + length)
       const frame = [...words.slice(0, start), ...words.slice(start + length)]
       if (frame.length > MAX_FRAME || !frame.every((word) => FRAME_WORDS.has(word))) continue
+      // Require two content words so function-word pairs in the phrase index ("of a", "on the") do not claim unrelated glosses.
       if (contentWords(inside) < 2) continue
       const phrase = inside.join(" ")
       if (attested(phrase)) return phrase
@@ -167,10 +143,8 @@ const placeholderForms = (term: string): Array<string> => {
   return [...results]
 }
 
-/** Explanations, literal renderings and trademarks aren't English words. */
 const SKIPPED_TYPES = new Set(["expl", "lit", "tm"])
 
-/** JMDict parts of speech → the English codes a Japanese word lends the English one. */
 const partOfSpeech = (codes: ReadonlyArray<string>): Array<string> => {
   for (const code of codes) {
     if (/^v(?!s$)/.test(code)) return ["v"]
@@ -182,35 +156,27 @@ const partOfSpeech = (codes: ReadonlyArray<string>): Array<string> => {
   return []
 }
 
-/** The same ranking search uses: common words, early senses and first glosses go first. */
 const SENSE_BONUS = [40, 25, 15, 10, 5]
 const RARE = new Set(["arch", "obs", "obsc", "rare", "hist", "vulg", "X", "derog"])
 
 interface Candidate {
   readonly japanese: string
-  /** Whether JMDict marks the Japanese word common. */
   readonly common: boolean
   readonly pos: ReadonlyArray<string>
   readonly score: number
 }
 
-/** Back-translations are read from a Japanese word's leading senses and glosses, where JMDict puts the common ones. */
 const BACK_SENSES = 3
 const BACK_GLOSSES = 4
 
 export interface KnownEnglish {
-  /** Lowercased headwords, spellings and inflections of the words already in the dictionary. */
   readonly words: ReadonlySet<string>
-  /** Lowercased verbs, for recognising phrasal verbs. */
   readonly verbs: ReadonlySet<string>
-  /** Lowercased phrases Wiktionary lists under a word. */
   readonly phrases: ReadonlySet<string>
-  /** Variant idiom phrasings mapped to their canonical headword ("skate on thin ice" -> "on thin ice"). */
   readonly redirects?: ReadonlyMap<string, string> | undefined
   readonly subtitles: ReadonlyMap<string, number>
 }
 
-/** Reads JMDict an entry at a time, collecting the English words its glosses name; see `wordsFromJmdict`. */
 export const jmdictReader = (known: KnownEnglish) => {
   const phrases = new Set<string>()
   const redirects = new Map<string, string>()
@@ -231,7 +197,6 @@ export const jmdictReader = (known: KnownEnglish) => {
     const words = term.split(" ")
     if (words.length === 1) {
       if (known.words.has(term)) return { headword: term }
-      // Single words: ones people use, and not inflections of words already in.
       return known.subtitles.has(term) && !uninflect(term).some(({ base }) => known.words.has(base))
         ? { headword: term }
         : null
@@ -267,8 +232,6 @@ export const jmdictReader = (known: KnownEnglish) => {
       if (target !== undefined) return { headword: target, variant: term }
       if (phrases.has(candidate)) return { headword: candidate, variant: term }
     }
-    // "a stone's throw away (from)", "within a stone's throw (of)": a phrase with a frame around
-    // it, which becomes a way the phrase is written.
     const framed = framedPhrase(words, (phrase) => phrases.has(phrase) || redirects.has(phrase))
     if (framed !== null) return { headword: redirects.get(framed) ?? framed, variant: term }
     return null
@@ -276,16 +239,13 @@ export const jmdictReader = (known: KnownEnglish) => {
 
   const candidates = new Map<string, Array<Candidate>>()
   const variants = new Map<string, Set<string>>()
-  // Per English word already in the dictionary: the spellings of the common Japanese words that
-  // JMDict translates with it, each with its best weight as a candidate, as evidence of which
-  // of the English word's senses are in common use.
   const translations = new Map<string, Map<string, number>>()
 
   const add = (entry: EntryRecord) => {
     const romaji = romanize(entry.reading)
     entry.senses.forEach((sense, senseIndex) => {
       sense.glosses.forEach((gloss, position) => {
-        // Capitalised glosses are names ("Disney"); lowercase ones are words.
+        // Skip capitalized glosses, which in JMdict are proper nouns ("Disney").
         if ((gloss.type !== null && SKIPPED_TYPES.has(gloss.type)) || !/^[a-z]/.test(gloss.text)) return
         const term = normalizeGloss(gloss.text)
         if (term.length < 2 || !isEnglish(term) || term === romaji) return
@@ -355,8 +315,7 @@ export const jmdictReader = (known: KnownEnglish) => {
           glosses: group.glosses,
           pos: group.pos
         })),
-        // A common Japanese word for it vouches for the count, and names are rarely hyphenated
-        // ("ex-wife") or multi-word phrases. Otherwise the count may be a name's: 韓国海苔 is glossed "kim".
+        // Single unhyphenated words without a common JMdict source may match proper-noun subtitle counts (e.g. 韓国海苔 glossed "kim").
         mayBeName: !headword.includes(" ") && !headword.includes("-") && !list.some((candidate) => candidate.common)
       }
     })
@@ -364,10 +323,6 @@ export const jmdictReader = (known: KnownEnglish) => {
   const formsOf = (): Array<FormOf> =>
     [...variants].flatMap(([base, set]) => [...set].map((text): FormOf => ({ text, base, tags: [] })))
 
-  /**
-   * Per English word the dictionary already has (normalised), the spellings of the common
-   * Japanese words JMDict translates with it, weighted as candidates are.
-   */
   const backTranslations = (): ReadonlyMap<string, ReadonlyMap<string, number>> => translations
 
   return { add, finish, formsOf, backTranslations }

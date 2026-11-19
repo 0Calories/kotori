@@ -8,15 +8,12 @@ import { AudioEnricher } from "./AudioEnricher.ts"
 import type { JobKind } from "./jobs.ts"
 import { saveExamples } from "./queries.ts"
 
-/** Senses that get example sentences; later senses are rarely what learners look for. */
 const EXAMPLE_SENSES = 4
 
 export class Enrichers extends Context.Service<
   Enrichers,
   {
-    /** Which kinds of enrichment have a configured provider. */
     readonly available: Effect.Effect<ReadonlyArray<JobKind>>
-    /** Runs one kind of enrichment for an entry, returning a short description of what was done. */
     run(kind: JobKind, entryId: EntryId): Effect.Effect<string, unknown>
   }
 >()("@kotori/backend/Enrichers") {
@@ -41,7 +38,6 @@ export class Enrichers extends Context.Service<
         if (entry === undefined) return "missing entry"
         const tags = yield* tagNames(db)
         const tagName = (code: string) => tags.get(code) ?? code
-        // The dictionary's own usage labels and notes are the register hints Claude writes to.
         const senses = entry.senses.slice(0, EXAMPLE_SENSES).map((sense, index) => ({
           index,
           glosses: sense.glosses.map((gloss) => gloss.text),

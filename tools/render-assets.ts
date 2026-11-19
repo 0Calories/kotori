@@ -1,7 +1,3 @@
-/**
- * Renders the mascot into the app's icon, adaptive icon, splash image and favicon.
- * Usage: pnpm assets
- */
 import { Resvg } from "@resvg/resvg-js"
 import { mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"

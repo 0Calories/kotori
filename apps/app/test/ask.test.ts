@@ -74,7 +74,6 @@ const attempt = (fields: Partial<AskAttempt>): AskAttempt => ({
 
 const apiError = (fields: Partial<AskError>): AskError => ({ tag: "Unexpected", refusal: null, retry: null, ...fields })
 
-/** `askView` with nothing asked, nothing on record and Kotori free to offer, unless the test says otherwise. */
 const view = (input: Partial<Parameters<typeof askView>[0]>) =>
   askView({
     attempt: undefined,
@@ -113,7 +112,6 @@ describe("the thinking bar", () => {
 
   it("keeps filling for as long as an ask could take, but never reaches the end", () => {
     let last = askProgress(0)
-    // The bar's clock runs two minutes, far past any answer.
     for (let ms = 1000; ms <= 120_000; ms += 1000) {
       const next = askProgress(ms)
       assert.isAbove(next, last)

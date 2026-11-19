@@ -1,15 +1,5 @@
-/** How much of one sense's glosses another must share to count as the same sense after an edit. */
 const SAME_SENSE = 0.5
 
-/**
- * Where each of an entry's stored senses went in a re-import: the position of the sense with the
- * same glosses, in the same order, or, failing that, of the one sharing the most of them (at
- * least half, by Jaccard). A sense that matches nothing stays where it was, if no other sense
- * took that position, since dictionaries reword senses in place; null means it is gone.
- * Enrichment is keyed by position, so a re-import that reorders senses (the English dictionary
- * ranks them at import) moves each row with its sense rather than leaving it on whatever sense
- * now sits there.
- */
 export const matchSenses = (
   stored: ReadonlyArray<ReadonlyArray<string>>,
   incoming: ReadonlyArray<ReadonlyArray<string>>
@@ -41,8 +31,7 @@ export const matchSenses = (
     moves[from] = to
     taken.add(to)
   }
-  // JMDict rewords glosses ("to eat" → "to eat (a meal)") far more often than it moves senses,
-  // and dropping a reworded sense would take its examples, audio and saved words with it.
+  // JMdict rewords glosses in place far more often than it reorders senses, so keep unmatched senses at their old index when untaken.
   stored.forEach((_, from) => {
     if (moves[from] !== null || from >= incoming.length || taken.has(from)) return
     moves[from] = from

@@ -1,9 +1,3 @@
-/**
- * Previews one of the mascot's clips without running the app: a sheet of
- * frames, and a page that plays the clip on a loop at 60 fps. The clip plays
- * in the mood it belongs to unless another is given.
- * Usage: pnpm motion <clip> [mood], then `open` the files it prints.
- */
 import { Resvg } from "@resvg/resvg-js"
 import { writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -19,7 +13,6 @@ if (clip === undefined || !(clip in clips)) {
 }
 
 const name = clip as ClipName
-// The mood the clip enters or loops in, or else the first that plays it now and then.
 const shown =
   (mood as Mood | undefined) ??
   (Object.keys(entrances) as Mood[]).find((m) => entrances[m] === name) ??

@@ -2,23 +2,13 @@ import { type Language, otherLanguage, ProposalRoute } from "@kotori/contracts"
 import type { ChoiceQuestion, EntryType } from "@typesafe-ai/sdk"
 import { averagedChoice, REVERSED, reversedChoice } from "../providers/choices.ts"
 
-/**
- * Where an Ask Kotori query goes after the deterministic checks: Jev sorts it by what kind of
- * input it is — never by whether it knows the word, which is Claude's call — so the costly
- * lexicographer only sees things that are lookups, and sentences, names, other languages and
- * keyboard mash get a fitting answer at a fraction of the price. A proposal's `route`.
- */
 export type AskRoute = ProposalRoute
 export const ASK_ROUTES: ReadonlyArray<AskRoute> = ProposalRoute.literals
 
-/** Bumped when the routing question is reworded or its options change; stored with every triage. */
 export const TRIAGE_VERSION = 1
 
-/** `lookup` at or above this goes to Claude; below it, another route needs `ROUTE_SURE` to win. */
 export const LOOKUP_ROUTED = 0.5
-/** How sure Jev must be of a non-lookup route to turn a query away without asking Claude. */
 export const ROUTE_SURE = 0.7
-/** A rejection by Claude of a query Jev was this sure was a lookup is flagged for the admin. */
 export const CONTESTED_AT = 0.7
 
 const NAMES: Record<Language, string> = { en: "English", ja: "Japanese" }
@@ -44,7 +34,6 @@ export interface TriageRequest {
   readonly questions: Record<string, ChoiceQuestion>
 }
 
-/** The routing question, asked in both option orders as every Kotori Choice is. */
 export const triageRequest = (query: string, language: Language): TriageRequest => ({
   state: {
     query,
@@ -56,17 +45,11 @@ export const triageRequest = (query: string, language: Language): TriageRequest 
 
 export interface Triage {
   readonly route: AskRoute
-  /** Whether Jev was sure enough to decide; false when the query fell through to Claude by default. */
   readonly decided: boolean
-  /** The two orders' probabilities averaged, per route. */
   readonly probabilities: Readonly<Record<AskRoute, number>>
 }
 
-/**
- * The route Jev's answers point to. Lookups win at `LOOKUP_ROUTED`; otherwise the likeliest other
- * route needs `ROUTE_SURE`, and anything less sure is treated as a lookup: a real question must
- * never be lost to a hesitant classifier, and the rate limits bound what that costs.
- */
+/** Uncertain classifications fall open to `lookup` so a hesitant classifier never drops a real lookup. */
 export const interpretTriage = (answers: Readonly<Record<string, unknown>>): Triage => {
   const { probabilities, orders } = averagedChoice(answers, "route", ASK_ROUTES)
   if (orders === 0 || probabilities.lookup >= LOOKUP_ROUTED) {

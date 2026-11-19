@@ -30,19 +30,13 @@ import { Snow } from "./Snow.tsx"
 import { Text } from "./Text.tsx"
 import { UsagePatterns } from "./UsagePatterns.tsx"
 
-/** How wide the glint is that sweeps across a fresh draft's headword band. */
 const GLINT = 72
 
-/** How far the glint's slant reaches past its box, so it starts and ends wholly out of sight. */
+// Extra travel for skewX("-20deg") so the slanted gradient starts and ends outside the clipped band.
 const SLANT = 48
 
-/** Even speed through the middle, so the glint is seen crossing rather than flashing past. */
 const sweepEasing = Easing.bezier(0.4, 0, 0.6, 1)
 
-/**
- * A glint that sweeps once across the band as a fresh draft lands, after the card has settled.
- * It waits for the band's width so it starts and ends out of sight; reduced motion skips it.
- */
 const Glint = () => {
   const reduceMotion = useReducedMotion()
   const [width, setWidth] = useState(0)
@@ -70,7 +64,6 @@ const Glint = () => {
   )
 }
 
-/** The sense's number, as on an entry's sense cards: the first in ink-dark, the rest on tint. */
 const SenseNumber = ({ number }: { readonly number: number }) => {
   const theme = useTheme()
   const first = number === 1
@@ -97,14 +90,12 @@ const SenseNumber = ({ number }: { readonly number: number }) => {
   )
 }
 
-/** A drafted sense, read as an entry's is: glosses, the labels it adds, usage patterns, its own cautions. */
 const DraftSenseRow = ({
   sense,
   language,
   cautions
 }: {
   readonly sense: DraftSense
-  /** The headword's language; glosses and usage patterns are in the other one. */
   readonly language: Language
   readonly cautions: ReadonlyArray<EntryCaution>
 }) => {
@@ -130,20 +121,12 @@ const DraftSenseRow = ({
   )
 }
 
-/**
- * Kotori's drafted entry, laid out like a small entry page and read through the same parts:
- * the headword and its labels on a snowy band marked as an unchecked AI draft, the word's
- * cautions, then each sense. A `live` draft — one Kotori has just
- * written — lands as Kotori celebrates: the card drops in, its parts follow one by one, and a
- * glint crosses the band; a draft seen again simply fades in.
- */
 export const DraftCard = ({
   draft,
   language,
   live
 }: {
   readonly draft: DraftEntry
-  /** The language of the word drafted. */
   readonly language: Language
   readonly live: boolean
 }) => {
@@ -156,7 +139,6 @@ export const DraftCard = ({
   const busy = addNote.isPending || removeNote.isPending
   const size = draftHeadwordSize(draft.headword, language)
   const reading = draft.reading.length > 0 && draft.reading !== draft.headword ? draft.reading : null
-  // Each part follows the one before it by a beat, after the card itself has landed.
   const step = (index: number) =>
     live
       ? FadeInDown.duration(380)
@@ -189,7 +171,6 @@ export const DraftCard = ({
             <View style={{ flex: 1, alignItems: "flex-start" }}>
               <Chip tone="accent" icon="auto_awesome" label={t.dictionary.askDraft} />
             </View>
-            {/* A draft can be saved before anyone checks it; the note follows it if it's approved. */}
             <View style={{ marginVertical: -8, marginRight: -8 }}>
               <IconButton
                 icon="bookmark"

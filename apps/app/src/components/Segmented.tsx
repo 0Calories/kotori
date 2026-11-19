@@ -3,7 +3,6 @@ import { useTheme } from "../theme/ThemeProvider.tsx"
 import { PressableScale } from "./PressableScale.tsx"
 import { Text } from "./Text.tsx"
 
-/** A row of pills; the selected one is primary, the design's "selected segment". */
 export const Segmented = <A extends string>({
   options,
   value,

@@ -2,16 +2,12 @@ import { Config, Effect, Layer, Redacted, Schedule } from "effect"
 import { HttpClient, HttpClientRequest } from "effect/http"
 import { MailError, Mailer } from "./Mailer.ts"
 
-/**
- * Resend's HTTP API (https://resend.com/docs/api-reference/emails/send-email).
- * One endpoint, so no SDK. The default sender only delivers to the Resend
- * account's own address; set KOTORI_EMAIL_FROM to a verified domain for testers.
- */
 export const Resend = {
   layer: Layer.effect(
     Mailer,
     Effect.gen(function* () {
       const apiKey = yield* Config.Redacted("RESEND_API_KEY")
+      // Resend's onboarding@resend.dev sandbox address only delivers to the Resend account owner unless KOTORI_EMAIL_FROM uses a verified domain.
       const from = yield* Config.String("KOTORI_EMAIL_FROM").pipe(Config.withDefault("Kotori <onboarding@resend.dev>"))
       const client = (yield* HttpClient.HttpClient).pipe(
         HttpClient.mapRequest(HttpClientRequest.prependUrl("https://api.resend.com")),

@@ -47,8 +47,6 @@ export const seed = Command.make(
     const fs = yield* FileSystem.FileSystem
     const seconds = (started: number) => ((Date.now() - started) / 1000).toFixed(1)
 
-    // The English dictionary reads JMDict too, so the file is shared: the one given, the last
-    // download, or a fresh one.
     let jmdictFile = Option.getOrUndefined(file)
     const jmdict = Effect.gen(function* () {
       if (jmdictFile !== undefined) return jmdictFile
@@ -67,8 +65,7 @@ export const seed = Command.make(
         const result = yield* JMDict.importFile({ file: jmdictFile, limit: Option.getOrUndefined(limit), commonOnly })
         yield* Console.log(`Imported ${result.entries.toLocaleString()} JMDict entries in ${seconds(started)}s.`)
       }
-      // Approved Ask Kotori entries and aliases (ids from 200,000,000) come back on a fresh
-      // database, and aliases rejoin their entry's forms, which the import just rebuilt.
+      // JMDict import replaces forms wholesale, so approved aliases must be re-applied after it.
       const approvedJa = resolveFromRoot(APPROVED_JA_FILE)
       if (yield* fs.exists(approvedJa)) {
         const approved = parseApprovedJa((yield* fs.readFileString(approvedJa)).split("\n"))
@@ -124,8 +121,6 @@ export const seed = Command.make(
         )
       }
     }
-    // The offline passes' committed judgments, on top of whatever was imported: they fill only
-    // what the dictionaries leave empty, and re-applying them changes nothing.
     yield* applyArtifacts(db)
     yield* Console.log(`The dictionary has ${(yield* entryCount(db)).toLocaleString()} entries.`)
   })

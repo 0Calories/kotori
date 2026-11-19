@@ -44,7 +44,6 @@ describe("entry sources", () => {
     })
     const screen = readFileSync(join(appDir, "app/entry/[id].tsx"), "utf8")
     const layout = readFileSync(join(appDir, "app/_layout.tsx"), "utf8")
-    // The control on the entry, and the signed-in stack, both use that route.
     assert.match(screen, /href=\{entrySourcesHref\(/)
     assert.equal(screen.includes('"/settings"'), false)
     assert.match(layout, /Stack\.Screen name="sources\/\[id\]"/)
@@ -96,16 +95,12 @@ describe("entry sources", () => {
       strings.en.entry.sourceLoanDictionary
     )
 
-    // A translation clip is pronunciation even when the headword has none; seeded sentences
-    // aren't Kotori's, so they don't credit Claude.
     const spoken = entry({ senses: [sense({ examples: [example("tatoeba", "/audio/en")] })] })
     assert.deepStrictEqual(
       entryAttributions(strings.en, spoken).map((row) => row.id),
       ["dictionary", "tatoeba", "audio"]
     )
 
-    // A Japanese word's loan is its own dictionary's; Kotori's verdict on it is credited, whoever
-    // named the pair, and on an English word beside JMDict's naming of it.
     assert.deepStrictEqual(
       entryAttributions(strings.en, entry({ loanLink: { source: "jmdict", meaningSource: null } })).map(
         (row) => row.id
@@ -128,7 +123,6 @@ describe("entry sources", () => {
     assert.equal(entryAttributions(strings.en, judgedEnglish).at(-1)?.body, strings.en.entry.sourceLoanBoth)
     assert.equal(entryAttributions(strings.ja, judgedEnglish).at(-1)?.body, strings.ja.entry.sourceLoanBoth)
 
-    // A Kotori label or note is credited; on an approved Ask Kotori word the dictionary row says it.
     const marked = entry({ senses: [sense({ usagePatterns: [{ source: "kotori" }] })] })
     assert.deepStrictEqual(
       entryAttributions(strings.en, marked).map((row) => row.id),

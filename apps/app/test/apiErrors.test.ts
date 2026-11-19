@@ -31,11 +31,9 @@ const response = (status: number) => HttpClientResponse.fromWeb(request, new Res
 const transport = new HttpClientError.HttpClientError({
   reason: new HttpClientError.TransportError({ request, cause: new TypeError("Failed to fetch") })
 })
-// What `HttpApiClient` fails with for a status the contract doesn't declare (`statusOrElse`).
 const undeclared500 = new HttpClientError.HttpClientError({
   reason: new HttpClientError.DecodeError({ request, response: response(500) })
 })
-// What it fails with for a declared error status whose body doesn't decode.
 const undecodable404 = new HttpClientError.HttpClientError({
   reason: new HttpClientError.StatusCodeError({ request, response: response(404) })
 })
@@ -88,7 +86,6 @@ describe("toApiError", () => {
   })
 })
 
-/** `/account/me` through the real typed client, against a fake transport that answers `respond`. */
 const accountMe = (respond: (request: HttpClientRequest.HttpClientRequest) => Response | Error) =>
   Effect.runPromiseExit(
     Effect.gen(function* () {
