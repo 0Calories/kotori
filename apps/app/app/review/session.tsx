@@ -5,7 +5,7 @@ import * as Haptics from "expo-haptics"
 import { useRouter } from "expo-router"
 import { useCallback, useEffect, useReducer, useRef, useState } from "react"
 import { Platform, View } from "react-native"
-import Animated, { FadeIn, FadeInDown, FadeInUp, useAnimatedStyle, withTiming } from "react-native-reanimated"
+import Animated, { useAnimatedStyle, withTiming } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { keys, useAnswer, useDueNotes } from "../../src/api/queries.ts"
 import { AudioButton } from "../../src/components/AudioButton.tsx"
@@ -17,6 +17,7 @@ import { Headword } from "../../src/components/Headword.tsx"
 import { Mascot } from "../../src/components/Mascot.tsx"
 import { Notice } from "../../src/components/Notice.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
+import { Skeleton, SkeletonGroup } from "../../src/components/Skeleton.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { spokenGloss } from "../../src/lib/english.ts"
@@ -28,7 +29,6 @@ import {
   unansweredItems,
   waitRefetchDelay
 } from "../../src/lib/reviewSession.ts"
-import { useReadingPhase } from "../../src/lib/readingPhase.ts"
 import { registerTone } from "../../src/lib/tones.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
@@ -89,10 +89,7 @@ const Faces = ({
         </Text>
         {front}
         {revealed ? (
-          <Animated.View
-            entering={FadeInDown.duration(260)}
-            style={{ gap: theme.space.lg, alignItems: "center", width: "100%" }}
-          >
+          <View style={{ gap: theme.space.lg, alignItems: "center", width: "100%" }}>
             <View style={{ height: 1, alignSelf: "stretch", backgroundColor: theme.color.border }} />
             {back}
             {/* Learners hear the side they're learning: the headword, or for an older note its English. */}
@@ -138,7 +135,7 @@ const Faces = ({
                 </Text>
               </View>
             ) : null}
-          </Animated.View>
+          </View>
         ) : null}
       </View>
     )
@@ -167,10 +164,7 @@ const Faces = ({
       ) : null}
       {phrase}
       {revealed ? (
-        <Animated.View
-          entering={FadeInDown.duration(260)}
-          style={{ gap: theme.space.lg, alignItems: "center", width: "100%" }}
-        >
+        <View style={{ gap: theme.space.lg, alignItems: "center", width: "100%" }}>
           <View style={{ height: 1, alignSelf: "stretch", backgroundColor: theme.color.border }} />
           {meaning}
           <AudioButton speak={{ text: content.text, language: target }} size={44} />
@@ -179,7 +173,7 @@ const Faces = ({
               {content.note}
             </Text>
           ) : null}
-        </Animated.View>
+        </View>
       ) : null}
     </View>
   )
@@ -241,7 +235,6 @@ export default function ReviewSession() {
   const { t, profile } = useSession()
   const target: Language = profile?.targetLanguage ?? "ja"
   const dueNotes = useDueNotes()
-  const kotoriReading = useReadingPhase(!dueNotes.data && !dueNotes.isLoadingError) === "reading"
   const answer = useAnswer()
   const [state, dispatch] = useReducer(reduceReviewSession, initialReviewSession)
   const shownAt = useRef(Date.now())
@@ -349,7 +342,26 @@ export default function ReviewSession() {
     // Only a failed first load has nothing to show. After a failed refetch the pinned note and its
     // buttons keep working on the due notes as last fetched, with the notice above.
     if (dueNotes.isLoadingError) return <ErrorState error={dueNotes.error} onRetry={() => dueNotes.refetch()} />
-    if (!dueNotes.data || kotoriReading) return kotoriReading ? <MascotMessage mood="reading" /> : null
+    if (!dueNotes.data) {
+      return (
+        <SkeletonGroup style={{ flex: 1, justifyContent: "center" }}>
+          <Card
+            style={{
+              paddingVertical: theme.space.xxl,
+              paddingHorizontal: theme.space.xl,
+              minHeight: 320,
+              alignItems: "center",
+              justifyContent: "center",
+              gap: theme.space.xl
+            }}
+          >
+            <Skeleton width={120} height={12} />
+            <Skeleton width={160} height={56} radius={14} />
+            <Skeleton width={90} height={14} />
+          </Card>
+        </SkeletonGroup>
+      )
+    }
     if (current === undefined) {
       if (nextDue !== null && reviewed > 0) {
         return <MascotMessage mood="sleepy" title={t.review.nextIn(formatDelay(Math.max(nextDue - now, 0)))} />
@@ -366,11 +378,7 @@ export default function ReviewSession() {
       )
     }
     return (
-      <Animated.View
-        key={current.note.id}
-        entering={FadeIn.duration(220)}
-        style={{ flex: 1, justifyContent: "center" }}
-      >
+      <View key={current.note.id} style={{ flex: 1, justifyContent: "center" }}>
         <PressableScale onPress={reveal} disabled={revealed} scaleTo={0.99} accessibilityLabel={t.review.showAnswer}>
           <Card
             style={{
@@ -384,20 +392,16 @@ export default function ReviewSession() {
           </Card>
         </PressableScale>
         {leech ? (
-          <Animated.View entering={FadeInUp}>
-            <Text variant="caption" color="accent" align="center" style={{ marginTop: 12 }}>
-              {t.review.leech}
-            </Text>
-          </Animated.View>
+          <Text variant="caption" color="accent" align="center" style={{ marginTop: 12 }}>
+            {t.review.leech}
+          </Text>
         ) : null}
         {state.notice === "answerFailed" ? (
-          <Animated.View entering={FadeInUp}>
-            <Text variant="caption" color="accent" align="center" style={{ marginTop: 12 }}>
-              {t.review.answerFailed}
-            </Text>
-          </Animated.View>
+          <Text variant="caption" color="accent" align="center" style={{ marginTop: 12 }}>
+            {t.review.answerFailed}
+          </Text>
         ) : null}
-      </Animated.View>
+      </View>
     )
   })()
 
@@ -449,7 +453,7 @@ export default function ReviewSession() {
 
         {current !== undefined ? (
           revealed ? (
-            <Animated.View entering={FadeInUp.duration(200)} style={{ flexDirection: "row", gap: 8 }}>
+            <View style={{ flexDirection: "row", gap: 8 }}>
               {RATINGS.map(({ rating, tone, key }) => (
                 <AnswerButton
                   key={rating}
@@ -460,7 +464,7 @@ export default function ReviewSession() {
                   onPress={() => respond(rating)}
                 />
               ))}
-            </Animated.View>
+            </View>
           ) : (
             <Button label={t.review.showAnswer} size="lg" full onPress={reveal} />
           )

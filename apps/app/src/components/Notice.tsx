@@ -1,5 +1,4 @@
 import { View } from "react-native"
-import Animated, { FadeIn } from "react-native-reanimated"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Button } from "./Button.tsx"
 import { Card } from "./Card.tsx"
@@ -22,7 +21,7 @@ export const Notice = ({
   const { color } = useTheme()
   if (message === null) return null
   return (
-    <Animated.View entering={FadeIn.duration(200)} accessibilityLiveRegion="polite">
+    <View accessibilityLiveRegion="polite">
       <Card tone={tone} style={{ paddingVertical: 12 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <Icon
@@ -38,6 +37,6 @@ export const Notice = ({
           ) : null}
         </View>
       </Card>
-    </Animated.View>
+    </View>
   )
 }

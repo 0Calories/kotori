@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import Animated, { FadeInDown } from "react-native-reanimated"
+import { View } from "react-native"
 import { Button } from "../src/components/Button.tsx"
 import { ConfirmEmail } from "../src/components/ConfirmEmail.tsx"
 import { Mascot } from "../src/components/Mascot.tsx"
@@ -21,10 +21,7 @@ export default function Pending() {
 
   return (
     <Screen bottomInset={40}>
-      <Animated.View
-        entering={FadeInDown.duration(500)}
-        style={{ alignItems: "center", gap: theme.space.md, marginTop: theme.space.xl }}
-      >
+      <View style={{ alignItems: "center", gap: theme.space.md, marginTop: theme.space.xl }}>
         <Mascot size={150} mood="sleepy" />
         <Text variant="title" align="center">
           {t.pending.title}
@@ -32,11 +29,11 @@ export default function Pending() {
         <Text color="textMuted" align="center" style={{ maxWidth: 360 }}>
           {t.pending.body}
         </Text>
-      </Animated.View>
-      <Animated.View entering={FadeInDown.delay(150).duration(500)} style={{ gap: theme.space.lg }}>
+      </View>
+      <View style={{ gap: theme.space.lg }}>
         <ConfirmEmail />
         <Button label={t.pending.signOut} variant="secondary" icon="logout" onPress={() => void signOut()} />
-      </Animated.View>
+      </View>
     </Screen>
   )
 }

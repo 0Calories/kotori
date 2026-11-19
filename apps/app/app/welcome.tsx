@@ -1,6 +1,5 @@
 import { useRouter } from "expo-router"
 import { View } from "react-native"
-import Animated, { FadeInDown } from "react-native-reanimated"
 import { Button } from "../src/components/Button.tsx"
 import { LegalLinks } from "../src/components/LegalLinks.tsx"
 import { Mascot } from "../src/components/Mascot.tsx"
@@ -15,22 +14,17 @@ export default function Welcome() {
   return (
     <Screen bottomInset={40}>
       <View style={{ alignItems: "center", gap: theme.space.md, marginTop: theme.space.xxxl }}>
-        <Animated.View entering={FadeInDown.duration(500)}>
-          <Mascot size={190} mood="happy" />
-        </Animated.View>
-        <Animated.View entering={FadeInDown.delay(120).duration(500)} style={{ alignItems: "center", gap: 6 }}>
+        <Mascot size={190} mood="happy" />
+        <View style={{ alignItems: "center", gap: 6 }}>
           <Text variant="display" align="center">
             {t.onboarding.title}
           </Text>
           <Text color="textMuted" align="center" style={{ maxWidth: 340 }}>
             {t.onboarding.subtitle}
           </Text>
-        </Animated.View>
+        </View>
       </View>
-      <Animated.View
-        entering={FadeInDown.delay(260).duration(500)}
-        style={{ gap: theme.space.md, marginTop: theme.space.xl }}
-      >
+      <View style={{ gap: theme.space.md, marginTop: theme.space.xl }}>
         <Button
           label={t.auth.createAccount}
           size="lg"
@@ -43,7 +37,7 @@ export default function Welcome() {
           {t.auth.beta}
         </Text>
         <LegalLinks />
-      </Animated.View>
+      </View>
     </Screen>
   )
 }

@@ -2,7 +2,6 @@ import type { Language } from "@kotori/contracts"
 import { Link, Stack, useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { View } from "react-native"
-import Animated, { FadeIn } from "react-native-reanimated"
 import { strings } from "../i18n/strings.ts"
 import { legalDocument, type LegalKind, legalLanguageFromParam } from "../lib/legal.ts"
 import { useSession } from "../session/SessionProvider.tsx"
@@ -35,7 +34,7 @@ export const LegalDocumentScreen = ({ kind }: { readonly kind: LegalKind }) => {
   return (
     <Screen bottomInset={40} header={<Header onBack={back} title={doc.title} />}>
       <Stack.Screen options={{ title: `${doc.title} · Kotori` }} />
-      <Animated.View entering={FadeIn.duration(220)} style={{ gap: theme.space.lg }}>
+      <View style={{ gap: theme.space.lg }}>
         <View style={{ gap: 8, paddingHorizontal: 4 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
             <Text variant="caption" color="textFaint">
@@ -71,7 +70,7 @@ export const LegalDocumentScreen = ({ kind }: { readonly kind: LegalKind }) => {
             </PressableScale>
           </Link>
         </View>
-      </Animated.View>
+      </View>
     </Screen>
   )
 }

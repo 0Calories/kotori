@@ -4,8 +4,6 @@ import { useEffect, useState } from "react"
 import { StyleSheet, View } from "react-native"
 import Animated, {
   Easing,
-  FadeIn,
-  FadeInDown,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -16,7 +14,6 @@ import { posLabel } from "../i18n/strings.ts"
 import { draftHeadwordSize } from "../lib/ask.ts"
 import { labelItems, senseCautions, wordCautions } from "../lib/entry.ts"
 import { useSession } from "../session/SessionProvider.tsx"
-import { easeOut } from "../theme/easing.ts"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Card } from "./Card.tsx"
 import { Cautions } from "./Cautions.tsx"
@@ -131,8 +128,7 @@ const DraftSenseRow = ({
  * Kotori's drafted entry, laid out like a small entry page and read through the same parts:
  * the headword and its labels on a snowy band marked as an unchecked AI draft, the word's
  * cautions, then each sense. A `live` draft — one Kotori has just
- * written — lands as Kotori celebrates: the card drops in, its parts follow one by one, and a
- * glint crosses the band; a draft seen again simply fades in.
+ * written — lands as Kotori celebrates, with a glint across the band.
  */
 export const DraftCard = ({
   draft,
@@ -148,21 +144,11 @@ export const DraftCard = ({
   const { t } = useSession()
   const size = draftHeadwordSize(draft.headword, language)
   const reading = draft.reading.length > 0 && draft.reading !== draft.headword ? draft.reading : null
-  // Each part follows the one before it by a beat, after the card itself has landed.
-  const step = (index: number) =>
-    live
-      ? FadeInDown.duration(380)
-          .delay(260 + index * 80)
-          .easing(easeOut)
-      : undefined
   const inner = theme.radius.lg - 1
   const headline = wordCautions(draft.cautions)
 
   return (
-    <Animated.View
-      entering={live ? FadeInDown.duration(420).delay(120).easing(easeOut) : FadeIn.duration(250)}
-      accessibilityLabel={`${t.dictionary.askDraft}: ${draft.headword}`}
-    >
+    <View accessibilityLabel={`${t.dictionary.askDraft}: ${draft.headword}`}>
       <Card padded={false}>
         <View
           style={{
@@ -178,7 +164,7 @@ export const DraftCard = ({
         >
           <Snow />
           <Chip tone="accent" icon="auto_awesome" label={t.dictionary.askDraft} />
-          <Animated.View entering={step(0)} style={{ gap: 2 }}>
+          <View style={{ gap: 2 }}>
             <Headword
               language={language}
               size={size}
@@ -203,22 +189,21 @@ export const DraftCard = ({
                 <ChipRow items={labelItems(t, draft.labels)} onTint />
               </View>
             ) : null}
-          </Animated.View>
+          </View>
           {live ? <Glint /> : null}
         </View>
         <View style={{ paddingHorizontal: 18, paddingTop: 16, paddingBottom: 18, gap: 18 }}>
-          {headline.length > 0 ? (
-            <Animated.View entering={step(1)}>
-              <Cautions cautions={headline} headline />
-            </Animated.View>
-          ) : null}
+          {headline.length > 0 ? <Cautions cautions={headline} headline /> : null}
           {draft.senses.map((sense, index) => (
-            <Animated.View key={sense.glosses.join("\n")} entering={step(index + (headline.length > 0 ? 2 : 1))}>
-              <DraftSenseRow sense={sense} language={language} cautions={senseCautions(draft.cautions, sense.index)} />
-            </Animated.View>
+            <DraftSenseRow
+              key={sense.glosses.join("\n")}
+              sense={sense}
+              language={language}
+              cautions={senseCautions(draft.cautions, sense.index)}
+            />
           ))}
         </View>
       </Card>
-    </Animated.View>
+    </View>
   )
 }

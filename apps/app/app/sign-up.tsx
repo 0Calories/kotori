@@ -2,7 +2,6 @@ import type { Language } from "@kotori/contracts"
 import { useRouter } from "expo-router"
 import { useRef, useState } from "react"
 import { Platform, type TextInputInstance, View } from "react-native"
-import Animated, { FadeInDown } from "react-native-reanimated"
 import { authMessage } from "../src/auth/messages.ts"
 import { Button, IconButton } from "../src/components/Button.tsx"
 import { GoogleButton, OrDivider } from "../src/components/GoogleButton.tsx"
@@ -62,13 +61,13 @@ export default function SignUp() {
         />
         <Text variant="title">{t.auth.signUpTitle}</Text>
       </View>
-      <Animated.View entering={FadeInDown.duration(400)} style={{ gap: theme.space.md }}>
+      <View style={{ gap: theme.space.md }}>
         <Text variant="label" color="textMuted" style={{ paddingHorizontal: 4 }}>
           {t.onboarding.question.toUpperCase()}
         </Text>
         <LanguageChoice value={native} onChange={setNative} />
-      </Animated.View>
-      <Animated.View entering={FadeInDown.delay(100).duration(400)} style={{ gap: theme.space.md }}>
+      </View>
+      <View style={{ gap: theme.space.md }}>
         <GoogleButton
           label={googleBusy ? t.auth.googleOpening : t.auth.google}
           loading={googleBusy}
@@ -129,7 +128,7 @@ export default function SignUp() {
         <View style={{ alignItems: "center" }}>
           <Button label={t.auth.toSignIn} variant="ghost" size="sm" onPress={() => router.replace("/sign-in")} />
         </View>
-      </Animated.View>
+      </View>
     </Screen>
   )
 }
