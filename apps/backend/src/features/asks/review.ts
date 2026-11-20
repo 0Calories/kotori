@@ -1,17 +1,9 @@
 import { Claude, interpretTriage } from "@kotori/ai"
 import { AiUnavailable, EntryRecord, SenseRecord } from "@kotori/contracts"
-import {
-  DraftCaution,
-  type DraftEntry,
-  type DraftSense,
-  entries,
-  EntryId,
-  FIRST_APPROVED_JA_ID,
-  FIRST_ENGLISH_ID,
-  proposals
-} from "@kotori/db"
-import { and, eq, gte, max } from "drizzle-orm"
+import { DraftCaution, type DraftEntry, type DraftSense, type EntryId, kotoriEntryId, proposals } from "@kotori/db"
+import { eq } from "drizzle-orm"
 import { Effect, FileSystem, Option, Schema } from "effect"
+import { randomUUID } from "node:crypto"
 import type { DatabaseShape } from "../../db/Database.ts"
 import { APPROVED_EN_FILE, serializeApprovedLine } from "../dictionary/import/english/approved.ts"
 import { toConsolidatedWord } from "../dictionary/import/english/words.ts"
@@ -165,15 +157,7 @@ const proposalById = Effect.fn("review.proposalById")(function* (db: DatabaseSha
   return rows[0]
 })
 
-const nextEntryId = Effect.fn("review.nextEntryId")(function* (db: DatabaseShape, language: "en" | "ja") {
-  const from = EntryId.make(language === "en" ? FIRST_ENGLISH_ID : FIRST_APPROVED_JA_ID)
-  const [row] = yield* db
-    .select({ top: max(entries.id) })
-    .from(entries)
-    .where(and(eq(entries.language, language), gte(entries.id, from)))
-    .pipe(Effect.orDie)
-  return EntryId.make(Math.max(row?.top ?? 0, from) + 1)
-})
+const nextEntryId = () => Effect.sync(() => kotoriEntryId(randomUUID()))
 
 const appendLine = Effect.fnUntraced(function* (file: string, line: string) {
   const fs = yield* FileSystem.FileSystem
@@ -241,7 +225,7 @@ export const approveProposal = Effect.fn("review.approveProposal")(function* (
   }
 
   const draft = approval.headword === undefined ? proposal.draft : { ...proposal.draft, headword: approval.headword }
-  const entryId = yield* nextEntryId(db, language)
+  const entryId = yield* nextEntryId()
   const record = draftToRecord(draft, language, entryId)
   // Seeded, so the draft's frequency score is the word's frequency signal from the start.
   yield* insertEntries(db, [{ ...record, frequency: draftFrequency(draft.frequency) }], { seeded: true })

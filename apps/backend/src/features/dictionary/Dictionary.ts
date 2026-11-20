@@ -2,7 +2,7 @@ import type { Entry, EntryId, EntrySummary, Language, SearchResult } from "@koto
 import { Context, Effect, Layer, Option } from "effect"
 import { Database } from "../../db/Database.ts"
 import { assembleEntry } from "./entries.ts"
-import { getEntries } from "./queries.ts"
+import { getEntryDocuments } from "./queries.ts"
 import { makeSearch } from "./search.ts"
 
 export { audioUrl } from "./shared.ts"
@@ -30,8 +30,11 @@ export class Dictionary extends Context.Service<
       const { search, summarize, lookupWords } = makeSearch(db)
 
       const entry = Effect.fn("Dictionary.entry")(function* (id: EntryId) {
-        const [record] = yield* getEntries(db, [id])
-        return record === undefined ? Option.none() : Option.some(yield* assembleEntry(db, record))
+        const [doc] = yield* getEntryDocuments(db, [id])
+        if (doc === undefined) return Option.none()
+        // Follow a merge redirect once to resolve the canonical target entry (#181 seam).
+        const resolved = doc.redirectTo !== null ? (yield* getEntryDocuments(db, [doc.redirectTo]))[0] : doc
+        return resolved === undefined ? Option.none() : Option.some(yield* assembleEntry(db, resolved))
       })
 
       return Dictionary.of({ search, entry, summarize, lookupWords })

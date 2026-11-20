@@ -1,11 +1,18 @@
 import { assert, layer } from "@effect/vitest"
 import { EntryId, type EntryRecord } from "@kotori/contracts"
-import { cautions, usagePatterns } from "@kotori/db"
+import { entries } from "@kotori/db"
+import { eq } from "drizzle-orm"
 import { Effect, Layer, Option } from "effect"
 import { Database } from "../src/db/Database.ts"
 import { saveAudio } from "../src/features/audio/queries.ts"
 import { Dictionary } from "../src/features/dictionary/Dictionary.ts"
-import { deleteEntries, insertEntries, linkLoans, saveTags } from "../src/features/dictionary/queries.ts"
+import {
+  deleteEntries,
+  insertEntries,
+  linkLoans,
+  saveKotoriCautions,
+  saveTags
+} from "../src/features/dictionary/queries.ts"
 import { saveExamples } from "../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 
@@ -27,13 +34,13 @@ const sense = (glosses: Array<string>, pos: Array<string>, misc: Array<string> =
 })
 
 const entry = (
-  id: number,
+  id: number | EntryId,
   headword: string,
   reading: string,
   senses: EntryRecord["senses"],
   common = true
 ): EntryRecord => ({
-  id: EntryId.make(id),
+  id: typeof id === "number" ? EntryId.make(`jmdict:${id}`) : id,
   language: "ja",
   source: "jmdict",
   headword,
@@ -49,7 +56,7 @@ const entry = (
 
 /** An English word, with Japanese glosses, its inflections and other spellings. */
 const word = (
-  id: number,
+  id: number | EntryId,
   headword: string,
   senses: EntryRecord["senses"],
   options: {
@@ -60,7 +67,7 @@ const word = (
     readonly inflections?: ReadonlyArray<readonly [string, ReadonlyArray<string>]>
   } = {}
 ): EntryRecord => ({
-  id: EntryId.make(id),
+  id: typeof id === "number" ? EntryId.make(`en:${headword}`) : id,
   language: "en",
   source: "enwiktionary",
   headword,
@@ -349,13 +356,13 @@ layer(TestLayer)("Dictionary", (it) => {
       yield* saveTags(db, [{ code: "form", name: "formal or literary term" }])
       yield* saveExamples(
         db,
-        EntryId.make(100000021),
+        EntryId.make("en:consume"),
         [example(0, "電気を使いすぎる。", "We consume too much power.")],
         new Date(0)
       )
       yield* saveAudio(db, clip("consume", "consume", "en"))
 
-      const consume = Option.getOrThrow(yield* (yield* Dictionary).entry(EntryId.make(100000021)))
+      const consume = Option.getOrThrow(yield* (yield* Dictionary).entry(EntryId.make("en:consume")))
       assert.strictEqual(consume.language, "en")
       assert.strictEqual(consume.reading, "/kənˈsjuːm/")
       assert.strictEqual(consume.romaji, "")
@@ -373,22 +380,22 @@ layer(TestLayer)("Dictionary", (it) => {
         ["en-GB", "form"]
       )
       // Its synonym links to the English word, whatever the case it was written in.
-      assert.deepStrictEqual(consume.senses[0]?.related, [{ text: "Dine", entryId: EntryId.make(100000020) }])
+      assert.deepStrictEqual(consume.senses[0]?.related, [{ text: "Dine", entryId: EntryId.make("en:dine") }])
       assert.strictEqual(consume.audioUrl, "/audio/consume.mp3")
       assert.strictEqual(consume.senses[0]?.examples[0]?.translationAudioUrl, null)
       // Search results carry the headword clip too, so they can be heard without opening the entry.
       const results = yield* (yield* Dictionary).search("consume", "en", 10)
-      const heard = results.entries.find((entry) => entry.id === EntryId.make(100000021))
+      const heard = results.entries.find((entry) => entry.id === EntryId.make("en:consume"))
       assert.strictEqual(heard?.audioUrl, "/audio/consume.mp3")
       const dine = (yield* (yield* Dictionary).search("dine", "en", 10)).entries.find(
-        (entry) => entry.id === EntryId.make(100000020)
+        (entry) => entry.id === EntryId.make("en:dine")
       )
       assert.strictEqual(dine?.audioUrl, null)
 
       // Deleting and re-inserting under a different EntryId preserves spoken form audio in both search and entry views.
-      yield* deleteEntries(db, [EntryId.make(100000021)])
-      yield* insertEntries(db, [word(100000099, "consume", [sense(["消費する"], ["v", "vt"])])])
-      const rebuilt = Option.getOrThrow(yield* (yield* Dictionary).entry(EntryId.make(100000099)))
+      yield* deleteEntries(db, [EntryId.make("en:consume")])
+      yield* insertEntries(db, [word(EntryId.make("kotori:consume"), "consume", [sense(["消費する"], ["v", "vt"])])])
+      const rebuilt = Option.getOrThrow(yield* (yield* Dictionary).entry(EntryId.make("kotori:consume")))
       assert.strictEqual(rebuilt.audioUrl, "/audio/consume.mp3")
       const rebuiltSearch = yield* (yield* Dictionary).search("consume", "en", 10)
       assert.strictEqual(rebuiltSearch.entries[0]?.audioUrl, "/audio/consume.mp3")
@@ -407,10 +414,10 @@ layer(TestLayer)("Dictionary", (it) => {
           ],
           "en"
         ),
-        [EntryId.make(100000020), EntryId.make(100000099), null]
+        [EntryId.make("en:dine"), EntryId.make("kotori:consume"), null]
       )
       assert.deepStrictEqual(yield* dictionary.lookupWords([{ word: "猫", reading: "ねこ" }], "ja"), [
-        EntryId.make(1009310)
+        EntryId.make("jmdict:1009310")
       ])
     })
   )
@@ -742,14 +749,14 @@ layer(TestLayer)("Dictionary", (it) => {
 // and cautions with the words they name, frequency, the loan link from either end, and similar
 // words derived from shared glosses and cross-references.
 layer(TestLayer)("Dictionary: labels, usage patterns, cautions and similar words", (it) => {
-  const taberu = EntryId.make(1358280)
-  const kuu = EntryId.make(1269130)
-  const meshiagaru = EntryId.make(1594790)
-  const gokurou = EntryId.make(1270560)
-  const mansion = EntryId.make(1079450)
-  const mansionEn = EntryId.make(100000060)
-  const eat = EntryId.make(100000061)
-  const dine = EntryId.make(100000062)
+  const taberu = EntryId.make("jmdict:1358280")
+  const kuu = EntryId.make("jmdict:1269130")
+  const meshiagaru = EntryId.make("jmdict:1594790")
+  const gokurou = EntryId.make("jmdict:1270560")
+  const mansion = EntryId.make("jmdict:1079450")
+  const mansionEn = EntryId.make("en:mansion")
+  const eat = EntryId.make("en:eat")
+  const dine = EntryId.make("en:dine")
 
   const seed = Effect.gen(function* () {
     const db = yield* Database
@@ -780,9 +787,9 @@ layer(TestLayer)("Dictionary: labels, usage patterns, cautions and similar words
             { ...sense(["condominium"], ["n"]), origins: [{ language: "eng", word: "mansion" }] }
           ])
         },
-        word(Number(mansionEn), "mansion", [sense(["大邸宅"], ["n"])]),
-        word(Number(eat), "eat", [sense(["食べる"], ["v"]), { ...sense(["食事をする"], ["v"]), xrefs: ["dine"] }]),
-        word(Number(dine), "dine", [sense(["食事をする", "正餐を取る"], ["v"], ["form"])], { common: false })
+        word(mansionEn, "mansion", [sense(["大邸宅"], ["n"])]),
+        word(eat, "eat", [sense(["食べる"], ["v"]), { ...sense(["食事をする"], ["v"]), xrefs: ["dine"] }]),
+        word(dine, "dine", [sense(["食事をする", "正餐を取る"], ["v"], ["form"])], { common: false })
       ],
       { seeded: true }
     )
@@ -810,25 +817,24 @@ layer(TestLayer)("Dictionary: labels, usage patterns, cautions and similar words
       const db = yield* Database
       const dictionary = yield* Dictionary
       yield* seed
-      yield* db.insert(usagePatterns).values({
-        entryId: gokurou,
-        sense: 0,
-        position: 1,
-        text: "Upward it sounds condescending; say お疲れ様です.",
-        source: "kotori",
-        aboutEntryId: taberu
-      })
-      yield* db.insert(cautions).values([
-        { entryId: kuu, sense: 0, rank: 2, kind: "confusable", text: "Not 喰う.", source: "kotori" },
-        {
-          entryId: kuu,
-          sense: null,
-          rank: 1,
-          kind: "rude_upward",
-          text: "Rough upward.",
-          aboutEntryId: taberu,
-          source: "kotori"
-        }
+      yield* db
+        .update(entries)
+        .set({
+          enrichment: {
+            usagePatterns: [
+              {
+                sense: 0,
+                text: "Upward it sounds condescending; say お疲れ様です.",
+                source: "kotori",
+                aboutEntryId: taberu
+              }
+            ]
+          }
+        })
+        .where(eq(entries.id, gokurou))
+      yield* saveKotoriCautions(db, kuu, "ja", [
+        { sense: null, kind: "rude_upward", text: "Rough upward.", about: "食べる" },
+        { sense: 0, kind: "confusable", text: "Not 喰う.", about: null }
       ])
 
       const kurou = Option.getOrThrow(yield* dictionary.entry(gokurou))
@@ -928,9 +934,9 @@ layer(TestLayer)("Dictionary: labels, usage patterns, cautions and similar words
     Effect.gen(function* () {
       const db = yield* Database
       const dictionary = yield* Dictionary
-      const jouzu = EntryId.make(1580940)
-      const uwate = EntryId.make(1580960)
-      const shitate = EntryId.make(1302260)
+      const jouzu = EntryId.make("jmdict:1580940")
+      const uwate = EntryId.make("jmdict:1580960")
+      const shitate = EntryId.make("jmdict:1302260")
       yield* insertEntries(db, [
         { ...entry(jouzu, "上手", "じょうず", [sense(["skillful"], ["adj-na"])]), priority: 90 },
         { ...entry(uwate, "上手", "うわて", [sense(["upper hand"], ["n"])]), priority: 40 },

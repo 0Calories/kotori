@@ -1,4 +1,4 @@
-import type { Label, LabelCode, SimilarDifference } from "@kotori/contracts"
+import type { EntryId, Label, LabelCode, SimilarDifference } from "@kotori/contracts"
 
 /**
  * What the entry page derives from labels instead of asking a model: which labels each sense
@@ -61,7 +61,7 @@ export const differenceOf = (own: ReadonlyArray<LabelCode>, other: ReadonlyArray
 /** A word close to a sense, before it is looked up. */
 export interface Candidate {
   readonly sense: number
-  readonly entryId: number
+  readonly entryId: EntryId
   /**
    * The sense of the other word that is close: the one sharing the gloss, or the one a
    * cross-reference names; null for a cross-reference that names none.
@@ -75,11 +75,11 @@ export interface Candidate {
  * first sense it is close to, at most `perSense` a sense and never the entry itself.
  */
 export const pickCandidates = (
-  entryId: number,
+  entryId: EntryId,
   candidates: ReadonlyArray<Candidate>,
   perSense: number
 ): Array<Candidate> => {
-  const seen = new Set<number>([entryId])
+  const seen = new Set<EntryId>([entryId])
   const count = new Map<number, number>()
   const picked: Array<Candidate> = []
   const ordered = candidates.toSorted((a, b) => a.sense - b.sense || (a.via === b.via ? 0 : a.via === "xref" ? -1 : 1))

@@ -236,7 +236,7 @@ export default function EntryScreen() {
   const router = useRouter()
   const { id: rawId } = useLocalSearchParams<{ id?: string | string[] }>()
   const id = entryIdFromParam(rawId)
-  const entry = useEntry(id ?? 0)
+  const entry = useEntry(id)
   const notes = useNotes()
   const addNote = useAddNote()
   const removeNote = useRemoveNote()

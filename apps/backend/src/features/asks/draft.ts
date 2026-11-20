@@ -12,7 +12,7 @@ import {
   labelSeverity,
   MAX_CAUTIONS
 } from "@kotori/db"
-import { inArray } from "drizzle-orm"
+import { inArray, sql } from "drizzle-orm"
 import { Effect } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 import { findForms, tagNames } from "../dictionary/queries.ts"
@@ -126,7 +126,11 @@ const namedWords = Effect.fnUntraced(function* (
   const refs = new Map<EntryId, WordRef>()
   if (linked.length > 0) {
     const rows = yield* db
-      .select({ entryId: entries.id, headword: entries.headword, reading: entries.reading })
+      .select({
+        entryId: entries.id,
+        headword: sql<string>`${entries.base}->>'headword'`,
+        reading: sql<string>`${entries.base}->>'reading'`
+      })
       .from(entries)
       .where(inArray(entries.id, linked))
       .pipe(Effect.orDie)

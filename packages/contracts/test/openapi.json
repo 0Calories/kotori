@@ -554,9 +554,7 @@
                         "type": "object",
                         "properties": {
                           "id": {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991
+                            "type": "string"
                           },
                           "language": {
                             "type": "string",
@@ -565,14 +563,14 @@
                               "ja"
                             ]
                           },
+                          "common": {
+                            "type": "boolean"
+                          },
                           "headword": {
                             "type": "string"
                           },
                           "reading": {
                             "type": "string"
-                          },
-                          "common": {
-                            "type": "boolean"
                           },
                           "romaji": {
                             "type": "string"
@@ -707,9 +705,9 @@
                         "required": [
                           "id",
                           "language",
+                          "common",
                           "headword",
                           "reading",
-                          "common",
                           "romaji",
                           "meanings",
                           "partOfSpeech",
@@ -777,8 +775,7 @@
             "name": "id",
             "in": "path",
             "schema": {
-              "type": "string",
-              "pattern": "^[+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:[Ee][+-]?\\d+)?$"
+              "type": "string"
             },
             "required": true
           }
@@ -793,9 +790,7 @@
                   "type": "object",
                   "properties": {
                     "id": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
+                      "type": "string"
                     },
                     "language": {
                       "type": "string",
@@ -815,14 +810,14 @@
                         "user"
                       ]
                     },
+                    "common": {
+                      "type": "boolean"
+                    },
                     "headword": {
                       "type": "string"
                     },
                     "reading": {
                       "type": "string"
-                    },
-                    "common": {
-                      "type": "boolean"
                     },
                     "romaji": {
                       "type": "string"
@@ -936,8 +931,8 @@
                               "anyOf": [
                                 {
                                   "type": "integer",
-                                  "minimum": -2147483648,
-                                  "maximum": 2147483647
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
                                 },
                                 {
                                   "type": "null"
@@ -948,8 +943,8 @@
                               "anyOf": [
                                 {
                                   "type": "integer",
-                                  "minimum": -32768,
-                                  "maximum": 32767
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
                                 },
                                 {
                                   "type": "null"
@@ -980,9 +975,7 @@
                             "katakanaEntryId": {
                               "anyOf": [
                                 {
-                                  "type": "integer",
-                                  "minimum": -9007199254740991,
-                                  "maximum": 9007199254740991
+                                  "type": "string"
                                 },
                                 {
                                   "type": "null"
@@ -995,9 +988,7 @@
                             "englishEntryId": {
                               "anyOf": [
                                 {
-                                  "type": "integer",
-                                  "minimum": -9007199254740991,
-                                  "maximum": 9007199254740991
+                                  "type": "string"
                                 },
                                 {
                                   "type": "null"
@@ -1112,9 +1103,7 @@
                                 "type": "object",
                                 "properties": {
                                   "entryId": {
-                                    "type": "integer",
-                                    "minimum": -9007199254740991,
-                                    "maximum": 9007199254740991
+                                    "type": "string"
                                   },
                                   "headword": {
                                     "type": "string"
@@ -1163,6 +1152,9 @@
                       "items": {
                         "type": "object",
                         "properties": {
+                          "text": {
+                            "type": "string"
+                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -1171,9 +1163,6 @@
                               "spelling",
                               "inflection"
                             ]
-                          },
-                          "text": {
-                            "type": "string"
                           },
                           "common": {
                             "type": "boolean"
@@ -1199,8 +1188,8 @@
                           }
                         },
                         "required": [
-                          "kind",
                           "text",
+                          "kind",
                           "common",
                           "tags"
                         ],
@@ -1284,9 +1273,7 @@
                                 "entryId": {
                                   "anyOf": [
                                     {
-                                      "type": "integer",
-                                      "minimum": -9007199254740991,
-                                      "maximum": 9007199254740991
+                                      "type": "string"
                                     },
                                     {
                                       "type": "null"
@@ -1312,9 +1299,7 @@
                                 "entryId": {
                                   "anyOf": [
                                     {
-                                      "type": "integer",
-                                      "minimum": -9007199254740991,
-                                      "maximum": 9007199254740991
+                                      "type": "string"
                                     },
                                     {
                                       "type": "null"
@@ -1362,8 +1347,8 @@
                               "properties": {
                                 "id": {
                                   "type": "integer",
-                                  "minimum": -2147483648,
-                                  "maximum": 2147483647
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
                                 },
                                 "ja": {
                                   "type": "string"
@@ -1577,9 +1562,7 @@
                                       "type": "object",
                                       "properties": {
                                         "entryId": {
-                                          "type": "integer",
-                                          "minimum": -9007199254740991,
-                                          "maximum": 9007199254740991
+                                          "type": "string"
                                         },
                                         "headword": {
                                           "type": "string"
@@ -1615,9 +1598,7 @@
                               "type": "object",
                               "properties": {
                                 "entryId": {
-                                  "type": "integer",
-                                  "minimum": -9007199254740991,
-                                  "maximum": 9007199254740991
+                                  "type": "string"
                                 },
                                 "headword": {
                                   "type": "string"
@@ -1734,9 +1715,9 @@
                     "id",
                     "language",
                     "source",
+                    "common",
                     "headword",
                     "reading",
-                    "common",
                     "romaji",
                     "usuallyKana",
                     "labels",
@@ -2107,9 +2088,7 @@
                                               "type": "object",
                                               "properties": {
                                                 "entryId": {
-                                                  "type": "integer",
-                                                  "minimum": -9007199254740991,
-                                                  "maximum": 9007199254740991
+                                                  "type": "string"
                                                 },
                                                 "headword": {
                                                   "type": "string"
@@ -2198,9 +2177,7 @@
                                         "type": "object",
                                         "properties": {
                                           "entryId": {
-                                            "type": "integer",
-                                            "minimum": -9007199254740991,
-                                            "maximum": 9007199254740991
+                                            "type": "string"
                                           },
                                           "headword": {
                                             "type": "string"
@@ -2267,9 +2244,7 @@
                           "type": "object",
                           "properties": {
                             "id": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
+                              "type": "string"
                             },
                             "language": {
                               "type": "string",
@@ -2278,14 +2253,14 @@
                                 "ja"
                               ]
                             },
+                            "common": {
+                              "type": "boolean"
+                            },
                             "headword": {
                               "type": "string"
                             },
                             "reading": {
                               "type": "string"
-                            },
-                            "common": {
-                              "type": "boolean"
                             },
                             "romaji": {
                               "type": "string"
@@ -2420,9 +2395,9 @@
                           "required": [
                             "id",
                             "language",
+                            "common",
                             "headword",
                             "reading",
-                            "common",
                             "romaji",
                             "meanings",
                             "partOfSpeech",
@@ -2874,9 +2849,7 @@
                                                 "type": "object",
                                                 "properties": {
                                                   "entryId": {
-                                                    "type": "integer",
-                                                    "minimum": -9007199254740991,
-                                                    "maximum": 9007199254740991
+                                                    "type": "string"
                                                   },
                                                   "headword": {
                                                     "type": "string"
@@ -2965,9 +2938,7 @@
                                           "type": "object",
                                           "properties": {
                                             "entryId": {
-                                              "type": "integer",
-                                              "minimum": -9007199254740991,
-                                              "maximum": 9007199254740991
+                                              "type": "string"
                                             },
                                             "headword": {
                                               "type": "string"
@@ -3034,9 +3005,7 @@
                             "type": "object",
                             "properties": {
                               "id": {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991
+                                "type": "string"
                               },
                               "language": {
                                 "type": "string",
@@ -3045,14 +3014,14 @@
                                   "ja"
                                 ]
                               },
+                              "common": {
+                                "type": "boolean"
+                              },
                               "headword": {
                                 "type": "string"
                               },
                               "reading": {
                                 "type": "string"
-                              },
-                              "common": {
-                                "type": "boolean"
                               },
                               "romaji": {
                                 "type": "string"
@@ -3187,9 +3156,9 @@
                             "required": [
                               "id",
                               "language",
+                              "common",
                               "headword",
                               "reading",
-                              "common",
                               "romaji",
                               "meanings",
                               "partOfSpeech",
@@ -3652,9 +3621,7 @@
                           "entryId": {
                             "anyOf": [
                               {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991
+                                "type": "string"
                               },
                               {
                                 "type": "null"
@@ -3847,9 +3814,7 @@
                                 ]
                               },
                               "entryId": {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991
+                                "type": "string"
                               },
                               "senseIndex": {
                                 "type": "integer",
@@ -4179,9 +4144,7 @@
                               ]
                             },
                             "entryId": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
+                              "type": "string"
                             },
                             "senseIndex": {
                               "type": "integer",
@@ -4507,9 +4470,7 @@
                             ]
                           },
                           "entryId": {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991
+                            "type": "string"
                           },
                           "senseIndex": {
                             "type": "integer",
@@ -4835,9 +4796,7 @@
                                         ]
                                       },
                                       "entryId": {
-                                        "type": "integer",
-                                        "minimum": -9007199254740991,
-                                        "maximum": 9007199254740991
+                                        "type": "string"
                                       },
                                       "senseIndex": {
                                         "type": "integer",
@@ -5282,9 +5241,7 @@
                                   ]
                                 },
                                 "entryId": {
-                                  "type": "integer",
-                                  "minimum": -9007199254740991,
-                                  "maximum": 9007199254740991
+                                  "type": "string"
                                 },
                                 "senseIndex": {
                                   "type": "integer",

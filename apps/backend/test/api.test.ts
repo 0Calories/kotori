@@ -106,13 +106,13 @@ const sense = (glosses: Array<string>, pos: Array<string>) => ({
 })
 
 const entry = (
-  id: number,
+  id: number | string,
   headword: string,
   reading: string,
   glosses: Array<string>,
   pos: Array<string>
 ): EntryRecord => ({
-  id: EntryId.make(id),
+  id: EntryId.make(typeof id === "number" ? `jmdict:${id}` : id),
   language: "ja",
   source: "jmdict",
   headword,
@@ -226,16 +226,46 @@ layer(TestLayer)("Kotori API", (it) => {
       assert.strictEqual(detail.audioUrl, null)
       assert.deepStrictEqual(detail.audio, [])
 
-      const missing = yield* api.dictionary.entry({ params: { id: 999 as never } }).pipe(Effect.flip)
+      const missing = yield* api.dictionary.entry({ params: { id: EntryId.make("jmdict:999") } }).pipe(Effect.flip)
       assert.strictEqual(missing._tag, "NotFound")
 
-      // English learners search the English dictionary the same way round.
+      // English learners search the English dictionary the same way round, including deterministic
+      // string IDs with spaces and case-preserving twins (en:May vs en:may).
       yield* insertEntries(db, [
         {
-          ...entry(100000001, "eat", "/iːt/", ["～を食べる"], ["v"]),
+          ...entry("en:eat", "eat", "/iːt/", ["～を食べる"], ["v"]),
           language: "en",
           forms: [
             { kind: "spelling", text: "eat", common: true, tags: [], priorities: [], restrictions: [], noKanji: false }
+          ]
+        },
+        {
+          ...entry("en:run into", "run into", "", ["偶然出会う"], ["v"]),
+          language: "en",
+          forms: [
+            {
+              kind: "spelling",
+              text: "run into",
+              common: true,
+              tags: [],
+              priorities: [],
+              restrictions: [],
+              noKanji: false
+            }
+          ]
+        },
+        {
+          ...entry("en:May", "May", "", ["5月"], ["n"]),
+          language: "en",
+          forms: [
+            { kind: "spelling", text: "May", common: true, tags: [], priorities: [], restrictions: [], noKanji: false }
+          ]
+        },
+        {
+          ...entry("en:may", "may", "", ["～かもしれない"], ["v"]),
+          language: "en",
+          forms: [
+            { kind: "spelling", text: "may", common: true, tags: [], priorities: [], restrictions: [], noKanji: false }
           ]
         }
       ])
@@ -246,6 +276,15 @@ layer(TestLayer)("Kotori API", (it) => {
         [["eat", "en"]]
       )
       assert.strictEqual((yield* api.dictionary.search({ query: { q: "食べる" } })).entries[0]?.headword, "eat")
+
+      // Multi-word and case-preserving English EntryIds round-trip cleanly over HTTP path params.
+      const runInto = yield* api.dictionary.entry({ params: { id: EntryId.make("en:run into") } })
+      assert.strictEqual(runInto.id, EntryId.make("en:run into"))
+      assert.strictEqual(runInto.headword, "run into")
+      const upperMay = yield* api.dictionary.entry({ params: { id: EntryId.make("en:May") } })
+      const lowerMay = yield* api.dictionary.entry({ params: { id: EntryId.make("en:may") } })
+      assert.strictEqual(upperMay.senses[0]?.glosses[0], "5月")
+      assert.strictEqual(lowerMay.senses[0]?.glosses[0], "～かもしれない")
     }).pipe(Effect.provide(Session))
   )
 
@@ -257,7 +296,7 @@ layer(TestLayer)("Kotori API", (it) => {
         payload: {
           content: {
             kind: "word",
-            entryId: 1 as never,
+            entryId: EntryId.make("jmdict:1"),
             senseIndex: 0,
             headword: "食べる",
             reading: "たべる",

@@ -6,8 +6,8 @@ import { entriesByPriority } from "../features/dictionary/index.ts"
 import { ENRICHMENT_KINDS, Enrichers } from "../features/enrichment/Enrichers.ts"
 import { wipeEnrichment } from "../features/enrichment/index.ts"
 
-const entryIdsFlag = Flag.Int("entry").pipe(
-  Flag.withDescription("Target specific entry id(s); repeat --entry to target multiple"),
+const entryIdsFlag = Flag.String("entry").pipe(
+  Flag.withDescription("Target specific entry id(s), e.g. jmdict:1358280 or en:eat; repeat --entry to target multiple"),
   Flag.between(0, Number.MAX_SAFE_INTEGER)
 )
 
@@ -77,14 +77,7 @@ const wipe = Command.make(
     const summary = yield* wipeEnrichment(db, ids)
     const scope = ids === undefined ? "all entries" : `${ids.length} targeted entries`
     yield* Console.log(
-      `Wiped AI enrichment for ${scope}: ` +
-        `${summary.examples} examples, ` +
-        `${summary.seededCastingCleared} seeded example castings cleared, ` +
-        `${summary.cautions} cautions, ` +
-        `${summary.labels} labels, ` +
-        `${summary.usagePatterns} usage patterns, ` +
-        `${summary.loanLinksDeleted} loan links deleted, ` +
-        `${summary.loanVerdictsCleared} loan verdicts cleared.`
+      `Wiped AI enrichment for ${scope}: reset enrichment to null on ${summary.entriesCleared.toLocaleString()} entries.`
     )
   })
 ).pipe(

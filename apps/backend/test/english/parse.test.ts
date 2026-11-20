@@ -310,7 +310,7 @@ const jmdictEntry = (
   pos: Array<string> = ["v5b"],
   misc: Array<string> = []
 ): EntryRecord => ({
-  id: EntryId.make(id),
+  id: EntryId.make(`jmdict:${id}`),
   language: "ja",
   source: "jmdict",
   headword,
@@ -659,7 +659,6 @@ describe("toEntries", () => {
     const entries = toEntries(
       withCurated,
       subtitles,
-      new Map(),
       new Map([
         ["kid", new Map([["子ヤギ", 99]])],
         ["cut corners", new Map([["手を抜く", 50]])],
@@ -716,7 +715,7 @@ describe("toEntries", () => {
       jmdict: { words: [] },
       subtitles
     })
-    const entries = toEntries(placed, subtitles, new Map())
+    const entries = toEntries(placed, subtitles)
     const eat = entries.find((entry) => entry.headword === "eat")
     expect(eat?.senses.map((sense) => sense.xrefs)).toEqual([[], ["dine"], ["bother"]])
     // An antonym can only be placed when there is one sense to place it on.
@@ -725,7 +724,7 @@ describe("toEntries", () => {
   })
 
   it("names each word's source by where its senses came from, and carries its frequency signals", () => {
-    const entries = toEntries(merged, subtitles, new Map())
+    const entries = toEntries(merged, subtitles)
     const of = (headword: string) => entries.find((entry) => entry.headword === headword)
     // The subtitle count is the word's and its inflections' (be + was), before any frequency floor.
     expect(of("be")).toMatchObject({
@@ -753,18 +752,17 @@ describe("toEntries", () => {
         jmdict: { words: [] },
         subtitles: new Map()
       }),
-      new Map(),
       new Map()
     )
     expect(approved[0]).toMatchObject({ source: "kotori", frequency: { everyday: false, spokenCount: null } })
   })
 
-  it("ranks words by how often they and their inflections are used, and keeps ids stable", () => {
-    const entries = toEntries(merged, subtitles, new Map([["team", 100000007]]))
+  it("ranks words by how often they and their inflections are used, with deterministic case-preserving ids", () => {
+    const entries = toEntries(merged, subtitles)
     expect(entries.slice(0, 3).map((entry) => [entry.headword, entry.id, entry.priority])).toEqual([
-      ["be", 100000008, Math.round(20 * Math.log10(170000))],
-      ["eat", 100000009, Math.round(20 * Math.log10(8000))],
-      ["team", 100000007, Math.round(20 * Math.log10(4000))]
+      ["be", "en:be", Math.round(20 * Math.log10(170000))],
+      ["eat", "en:eat", Math.round(20 * Math.log10(8000))],
+      ["team", "en:team", Math.round(20 * Math.log10(4000))]
     ])
     const eat = entries.find((entry) => entry.headword === "eat")
     expect(eat).toMatchObject({ language: "en", reading: "/iːt/", common: true })
@@ -779,7 +777,7 @@ describe("toEntries", () => {
   })
 
   it("lists rare, dated and obsolete senses last", () => {
-    const sad = toEntries(merged, subtitles, new Map()).find((entry) => entry.headword === "sad")
+    const sad = toEntries(merged, subtitles).find((entry) => entry.headword === "sad")
     expect(sad?.senses.map((sense) => [sense.glosses[0]?.text, sense.misc])).toEqual([
       ["悲しい", []],
       ["満足した", ["obs"]]
@@ -802,8 +800,7 @@ describe("toEntries", () => {
         jmdict: { words: [jmdictOnly("kim", true), jmdictOnly("website", false)] },
         subtitles: counts
       }),
-      counts,
-      new Map()
+      counts
     )
     expect(entries.map((entry) => [entry.headword, entry.common])).toEqual([
       ["kim", false],
@@ -826,7 +823,6 @@ describe("toEntries", () => {
         jmdict: { words: [phrase("it is what it is"), phrase("stone's throw"), phrase("unrated phrase")] },
         subtitles: new Map()
       }),
-      new Map(),
       new Map(),
       new Map(),
       new Map([

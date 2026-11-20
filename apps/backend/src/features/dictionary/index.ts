@@ -10,3 +10,4 @@ export {
   saveKotoriCautions,
   tagNames
 } from "./queries.ts"
+export { rebuildEntrySearch } from "./searchProjection.ts"

@@ -20,7 +20,7 @@ export default function SourcesScreen() {
   const router = useRouter()
   const { id: raw } = useLocalSearchParams<{ id?: string | string[] }>()
   const id = entryIdFromParam(raw)
-  const entry = useEntry(id ?? 0)
+  const entry = useEntry(id)
   const back = () => (router.canGoBack() ? router.back() : router.replace("/"))
   const header = <Header onBack={back} title={t.entry.sources} />
   const kotoriReading = useReadingPhase(id !== null && !entry.isLoadingError && !entry.data) === "reading"

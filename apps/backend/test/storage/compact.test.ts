@@ -18,11 +18,11 @@ layer(DatabaseMemory)("compacting the dictionary's tables", (it) => {
       const planned = yield* compactTables(db, { cap: 1024 * MB, reserve: 0, dryRun: true })
       assert.deepStrictEqual(
         planned.map((step) => step.compacted),
-        [false, false, false, false]
+        [false, false]
       )
       assert.sameMembers(
         planned.map((step) => step.table),
-        ["entries", "senses", "glosses", "forms"]
+        ["entries", "entry_search"]
       )
       const sizes = planned.map((step) => step.before)
       assert.deepStrictEqual(

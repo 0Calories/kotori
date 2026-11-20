@@ -1,18 +1,19 @@
 import {
+  BaseFrequency,
+  BaseLoanLink,
   CAUTION_KINDS,
   CautionKind,
   entries,
-  entryFrequency,
   EntryId,
-  examples,
   Formality,
-  forms,
+  FormKind,
   LabelCode,
   LabelSeverity,
   LoanLinkMeaning,
   MAX_CAUTIONS,
   proposalRoute,
   proposalStatus,
+  ReviewState,
   SenseOrigin,
   Source,
   tags
@@ -27,25 +28,26 @@ export {
   CautionKind,
   EntryId,
   Formality,
+  FormKind,
   LabelCode,
   LabelSeverity,
   LoanLinkMeaning,
   MAX_CAUTIONS,
+  ReviewState,
   SenseOrigin,
   Source
 }
 
 const EntryRow = createSelectSchema(entries, { id: EntryId })
-// `text` is a bytewise-collated custom column, which derives as unknown.
-const FormRow = createSelectSchema(forms, { text: Schema.String })
-const ExampleRow = createSelectSchema(examples)
 
 /** A JMDict tag such as `v5r` with its human-readable description. */
 export const Tag = createSelectSchema(tags)
 export type Tag = typeof Tag.Type
 
 export const Form = Schema.Struct({
-  ...Struct.pick(FormRow.fields, ["text", "kind", "common"]),
+  text: Schema.String,
+  kind: FormKind,
+  common: Schema.Boolean,
   /** Usage tags for Japanese forms; what an English inflection is ("past", "plural"). */
   tags: Schema.Array(Tag)
 })
@@ -60,7 +62,8 @@ export type CrossReference = typeof CrossReference.Type
 /** Another entry a fact points at: the word to compare with, or not to confuse it with. */
 export const WordRef = Schema.Struct({
   entryId: EntryId,
-  ...Struct.pick(EntryRow.fields, ["headword", "reading"])
+  headword: Schema.String,
+  reading: Schema.String
 })
 export type WordRef = typeof WordRef.Type
 
@@ -97,25 +100,12 @@ export const EntryCaution = Schema.Struct({
 })
 export type EntryCaution = typeof EntryCaution.Type
 
-/** Multi-signal frequency for an entry; see the `entry_frequency` table. */
-export const EntryFrequency = Schema.Struct(
-  Struct.pick(createSelectSchema(entryFrequency).fields, ["everyday", "spokenCount", "score"])
-)
+/** Multi-signal frequency for an entry; derived from `entries.base.frequency`. */
+export const EntryFrequency = BaseFrequency
 export type EntryFrequency = typeof EntryFrequency.Type
 
 /** A katakana word and the English word it was borrowed from, read the same from both entries. */
-export const LoanLink = Schema.Struct({
-  katakana: Schema.String,
-  katakanaEntryId: Schema.NullOr(EntryId),
-  english: Schema.String,
-  englishEntryId: Schema.NullOr(EntryId),
-  /** Whether the loan is a true loanword or wasei-eigo; null until a source says. */
-  meaning: Schema.NullOr(LoanLinkMeaning),
-  /** Who named the pair: JMDict, or Kotori for a pair JMDict doesn't name. */
-  source: Source,
-  /** Who judged `meaning` (Kotori, for every verdict so far); null with it. */
-  meaningSource: Schema.NullOr(Source)
-})
+export const LoanLink = BaseLoanLink
 export type LoanLink = typeof LoanLink.Type
 
 /**
@@ -151,7 +141,13 @@ export const SimilarWord = Schema.Struct({
 export type SimilarWord = typeof SimilarWord.Type
 
 export const Example = Schema.Struct({
-  ...Struct.pick(ExampleRow.fields, ["id", "ja", "furigana", "en", "formality", "note", "noteJa"]),
+  id: Schema.Int,
+  ja: Schema.String,
+  furigana: Schema.String,
+  en: Schema.String,
+  formality: Schema.NullOr(Formality),
+  note: Schema.NullOr(Schema.String),
+  noteJa: Schema.NullOr(Schema.String),
   /** Kotori wrote it, or it was seeded from Tatoeba or Wiktionary. */
   source: Source,
   /** The Japanese sentence, spoken. */
@@ -200,7 +196,9 @@ export type EntryAudio = typeof EntryAudio.Type
  * JMDict for Japanese learners, an English word for English learners.
  */
 export const Entry = Schema.Struct({
-  ...Struct.pick(EntryRow.fields, ["id", "language", "source", "headword", "reading", "common"]),
+  ...Struct.pick(EntryRow.fields, ["id", "language", "source", "common"]),
+  headword: Schema.String,
+  reading: Schema.String,
   /** The kana reading in rōmaji; empty for English words. */
   romaji: Schema.String,
   /** Usually written in kana (JMDict's `uk`): a spelling fact, not a register label. */
@@ -226,7 +224,9 @@ export const Entry = Schema.Struct({
 export type Entry = typeof Entry.Type
 
 export const EntrySummary = Schema.Struct({
-  ...Struct.pick(EntryRow.fields, ["id", "language", "headword", "reading", "common"]),
+  ...Struct.pick(EntryRow.fields, ["id", "language", "common"]),
+  headword: Schema.String,
+  reading: Schema.String,
   romaji: Schema.String,
   meanings: Schema.Array(Schema.String),
   partOfSpeech: Schema.NullOr(Schema.String),
@@ -255,7 +255,8 @@ export type DraftSense = typeof DraftSense.Type
  * becomes an entry with these same facts.
  */
 export const DraftEntry = Schema.Struct({
-  ...Struct.pick(EntryRow.fields, ["headword", "reading"]),
+  headword: Schema.String,
+  reading: Schema.String,
   spellings: Schema.Array(Schema.String),
   /** How commonly natives use it today, 1–5; a draft has no other frequency signals. */
   frequency: Schema.Int,

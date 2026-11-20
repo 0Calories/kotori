@@ -1,4 +1,5 @@
-import { EntryId, type FormRecord, type SenseOrigin } from "@kotori/contracts"
+import { type FormRecord, type SenseOrigin } from "@kotori/contracts"
+import { jmdictEntryId } from "@kotori/db"
 import type { ImportEntry, ImportSense, SeedExample, SeedFrequency } from "../seedFacts.ts"
 
 /**
@@ -202,7 +203,7 @@ export const parseEntry = (block: string): ImportEntry => {
   }
   const { headword, reading } = chooseHeadword(forms, senses)
   return {
-    id: EntryId.make(Number(first(block, "ent_seq"))),
+    id: jmdictEntryId(first(block, "ent_seq") ?? ""),
     language: "ja",
     source: "jmdict",
     headword,

@@ -9,6 +9,7 @@ import { frequency } from "../cli/frequency.ts"
 import { judge } from "../cli/judge.ts"
 import { migrate } from "../cli/migrate.ts"
 import { proposalsCommand } from "../cli/proposals.ts"
+import { searchCommand } from "../cli/search.ts"
 import { seed } from "../cli/seed.ts"
 import { status } from "../cli/status.ts"
 import { storage } from "../cli/storage.ts"
@@ -28,6 +29,7 @@ const kotori = Command.make("kotori").pipe(
     migrate.pipe(Command.provide(DatabaseLive)),
     proposalsCommand(RedoLive).pipe(Command.provide(DatabaseLive)),
     seed.pipe(Command.provide(SeedLive)),
+    searchCommand.pipe(Command.provide(DatabaseLive)),
     enrichCommand(WorkerLive).pipe(Command.provide(DatabaseLive)),
     frequency.pipe(Command.provide(FrequencyLive)),
     judge.pipe(Command.provide(JudgeLive)),

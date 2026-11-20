@@ -12,18 +12,20 @@ import {
   VoiceCasts
 } from "@kotori/ai"
 import { EntryId, type EntryRecord } from "@kotori/contracts"
-import { cautions, labels, loanLinks, usagePatterns } from "@kotori/db"
+import { entries, entrySearch } from "@kotori/db"
+import { eq } from "drizzle-orm"
 import { ConfigProvider, Effect, Layer, Option } from "effect"
 import { Command } from "effect/cli"
 import { enrichCommand } from "../../src/cli/enrich.ts"
+import { searchCommand } from "../../src/cli/search.ts"
 import { Database } from "../../src/db/Database.ts"
 import { AudioStore } from "../../src/features/audio/AudioStore.ts"
 import { Speech } from "../../src/features/audio/Speech.ts"
 import { Dictionary } from "../../src/features/dictionary/Dictionary.ts"
-import { insertEntries, linkLoans } from "../../src/features/dictionary/queries.ts"
+import { insertEntries, linkLoans, saveKotoriCautions } from "../../src/features/dictionary/queries.ts"
 import { AudioEnricher } from "../../src/features/enrichment/AudioEnricher.ts"
 import { Enrichers } from "../../src/features/enrichment/Enrichers.ts"
-import { examplesFor, saveExamples } from "../../src/features/enrichment/queries.ts"
+import { saveExamples } from "../../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
 const synthesized: Array<string> = []
@@ -117,13 +119,13 @@ const sense = (glosses: Array<string>, pos: Array<string>, misc: Array<string> =
 })
 
 const jaEntry = (
-  id: number,
+  id: EntryId,
   headword: string,
   reading: string,
   glosses: Array<string>,
   options: { readonly source?: "jmdict" | "kotori"; readonly misc?: Array<string>; readonly info?: Array<string> } = {}
 ): EntryRecord => ({
-  id: EntryId.make(id),
+  id,
   language: "ja",
   source: options.source ?? "jmdict",
   headword,
@@ -137,20 +139,22 @@ const jaEntry = (
   senses: [sense(glosses, ["v1"], options.misc, options.info)]
 })
 
-layer(TestLayer)("CLI kotori enrich", (it) => {
-  const runCli = (args: ReadonlyArray<string>) =>
+layer(TestLayer)("CLI kotori enrich & kotori search", (it) => {
+  const runEnrich = (args: ReadonlyArray<string>) =>
     Effect.gen(function* () {
       const enrichers = yield* Enrichers
       const cmd = enrichCommand(Layer.succeed(Enrichers, enrichers))
       yield* Command.runWith(cmd, { version: "0.1.0" })(args)
     })
 
-  it.effect("runs enrichment manually on targeted entries only", () =>
+  const runSearchCli = (args: ReadonlyArray<string>) => Command.runWith(searchCommand, { version: "0.1.0" })(args)
+
+  it.effect("runs enrichment manually on targeted deterministic string entry IDs only", () =>
     Effect.gen(function* () {
       const db = yield* Database
       const dictionary = yield* Dictionary
-      const taberu = EntryId.make(1358280)
-      const nomu = EntryId.make(1169870)
+      const taberu = EntryId.make("jmdict:1358280")
+      const nomu = EntryId.make("jmdict:1169870")
       yield* insertEntries(db, [
         jaEntry(taberu, "食べる", "たべる", ["to eat"]),
         jaEntry(nomu, "飲む", "のむ", ["to drink"])
@@ -158,8 +162,8 @@ layer(TestLayer)("CLI kotori enrich", (it) => {
 
       writtenFor.length = 0
       synthesized.length = 0
-      yield* runCli(["run", "examples", "--entry", String(taberu)])
-      yield* runCli(["run", "audio", "--entry", String(taberu)])
+      yield* runEnrich(["run", "examples", "--entry", taberu])
+      yield* runEnrich(["run", "audio", "--entry", taberu])
 
       assert.deepStrictEqual(writtenFor, ["食べる"])
       assert.deepStrictEqual(synthesized, ["たべる"])
@@ -173,13 +177,13 @@ layer(TestLayer)("CLI kotori enrich", (it) => {
     })
   )
 
-  it.effect("wipes all AI enrichment instantaneously without touching Source facts or spoken Form audio", () =>
+  it.effect("wipes entries.enrichment to null without touching base, entry_search, or spoken Form audio", () =>
     Effect.gen(function* () {
       const db = yield* Database
       const dictionary = yield* Dictionary
-      const taberu = EntryId.make(1358280)
-      const mansion = EntryId.make(1079450)
-      const approved = EntryId.make(200000001)
+      const taberu = EntryId.make("jmdict:1358280")
+      const mansion = EntryId.make("jmdict:1079450")
+      const approved = EntryId.make("kotori:kaeruka")
 
       yield* insertEntries(
         db,
@@ -206,7 +210,7 @@ layer(TestLayer)("CLI kotori enrich", (it) => {
       )
       yield* linkLoans(db)
 
-      // Add AI enrichment on top of Source facts: Kotori examples, cautions, labels, usage patterns, loan verdict, and spoken Form audio.
+      // Add AI enrichment on top of Source facts.
       yield* saveExamples(
         db,
         taberu,
@@ -223,40 +227,24 @@ layer(TestLayer)("CLI kotori enrich", (it) => {
         ],
         new Date(1000)
       )
-      yield* db.insert(cautions).values([
-        { entryId: taberu, sense: null, rank: 1, kind: "tone", text: "AI caution on JMDict word", source: "kotori" },
-        { entryId: approved, sense: null, rank: 1, kind: "tone", text: "Approved entry caution", source: "kotori" }
+      yield* saveKotoriCautions(db, taberu, "ja", [
+        { sense: null, kind: "tone", text: "AI caution on JMDict word", about: null }
       ])
-      yield* db.insert(labels).values({ entryId: taberu, sense: 0, code: "form", source: "kotori" })
-      yield* db.insert(usagePatterns).values({
-        entryId: taberu,
-        sense: 0,
-        position: 1,
-        text: "AI usage pattern",
-        source: "kotori"
-      })
-      yield* db.update(loanLinks).set({ meaning: "wasei_eigo", meaningSource: "kotori" })
-      yield* db.insert(loanLinks).values({
-        katakana: "テスト",
-        katakanaEntryId: null,
-        english: "test",
-        englishEntryId: null,
-        meaning: "true_loanword",
-        source: "kotori",
-        meaningSource: "kotori"
-      })
-      yield* runCli(["run", "audio", "--entry", String(taberu)])
+      yield* saveKotoriCautions(db, approved, "ja", [
+        { sense: null, kind: "tone", text: "Approved entry caution", about: null }
+      ])
+      yield* runEnrich(["run", "audio", "--entry", taberu])
       const audioBefore = Option.getOrThrow(yield* dictionary.entry(taberu)).audioUrl
       assert.isNotNull(audioBefore)
 
       // Wipe all AI enrichment via CLI.
-      yield* runCli(["wipe"])
+      yield* runEnrich(["wipe"])
 
       const afterTaberu = Option.getOrThrow(yield* dictionary.entry(taberu))
       const afterMansion = Option.getOrThrow(yield* dictionary.entry(mansion))
       const afterApproved = Option.getOrThrow(yield* dictionary.entry(approved))
 
-      // AI enrichment on JMDict entries is gone.
+      // AI enrichment on JMDict entries is gone; Source facts remain intact.
       assert.deepStrictEqual(afterTaberu.cautions, [])
       assert.deepStrictEqual(
         afterTaberu.labels.map((l) => [l.code, l.source]),
@@ -267,25 +255,60 @@ layer(TestLayer)("CLI kotori enrich", (it) => {
         [["Source usage note", "jmdict"]]
       )
       assert.deepStrictEqual(
-        (yield* examplesFor(db, [taberu])).map((e) => [e.ja, e.source]),
+        afterTaberu.senses[0]?.examples.map((e) => [e.ja, e.source]),
         [["パンを食べる。", "tatoeba"]]
       )
-      // JMDict loan link stays, but Kotori's verdict is cleared; Kotori-only loan link is deleted.
       assert.strictEqual(afterMansion.loanLink?.source, "jmdict")
       assert.isNull(afterMansion.loanLink?.meaning)
-      assert.isNull(afterMansion.loanLink?.meaningSource)
-      assert.strictEqual(yield* db.$count(loanLinks), 1)
 
-      // Spoken Form pronunciation audio is completely untouched!
+      // Spoken Form pronunciation audio and search results are completely untouched.
       assert.strictEqual(afterTaberu.audioUrl, audioBefore)
       assert.isAbove(afterTaberu.audio.length, 0)
+      assert.strictEqual((yield* dictionary.search("食べる", "ja", 5)).entries[0]?.id, taberu)
 
-      // Kotori-sourced approved entry keeps its own labels and cautions.
+      // Kotori-sourced approved entry keeps its own base labels and cautions.
       assert.deepStrictEqual(
         afterApproved.labels.map((l) => l.code),
         ["sl"]
       )
       assert.strictEqual(afterApproved.cautions.length, 1)
+    })
+  )
+
+  it.effect("kotori search rebuild drops and rebuilds entry_search from entries.base without touching enrichment", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      const taberu = EntryId.make("jmdict:1358280")
+
+      yield* insertEntries(db, [jaEntry(taberu, "食べる", "たべる", ["to eat"])])
+      yield* saveExamples(
+        db,
+        taberu,
+        [
+          {
+            sense: 0,
+            ja: "晩ご飯を食べる。",
+            furigana: "晩ご飯を食べる。",
+            en: "I eat dinner.",
+            formality: "polite",
+            note: null,
+            model: "test-claude"
+          }
+        ],
+        new Date(2000)
+      )
+
+      // Wipe entry_search manually to prove rebuild restores it purely from entries.base.
+      yield* db.delete(entrySearch)
+      assert.strictEqual((yield* dictionary.search("食べる", "ja", 5)).entries.length, 0)
+
+      yield* runSearchCli(["rebuild"])
+
+      assert.strictEqual((yield* dictionary.search("食べる", "ja", 5)).entries[0]?.id, taberu)
+      // Enrichment on entries was untouched by rebuilding entry_search.
+      const [row] = yield* db.select({ enrichment: entries.enrichment }).from(entries).where(eq(entries.id, taberu))
+      assert.strictEqual(row?.enrichment?.examples?.length, 1)
     })
   )
 })

@@ -134,7 +134,7 @@ layer(DatabaseMemory)("drafts", (it) => {
         ...english,
         {
           ...entries[0]!,
-          id: EntryId.make(1900001),
+          id: EntryId.make("jmdict:1900001"),
           headword: "上手",
           reading: "じょうず",
           forms: [kanji("上手"), kana("じょうず")],
@@ -142,7 +142,7 @@ layer(DatabaseMemory)("drafts", (it) => {
         },
         {
           ...entries[0]!,
-          id: EntryId.make(1900002),
+          id: EntryId.make("jmdict:1900002"),
           headword: "上手",
           reading: "うわて",
           forms: [kanji("上手"), kana("うわて")],

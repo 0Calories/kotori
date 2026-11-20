@@ -1,8 +1,8 @@
 import { boolean, index, integer, jsonb, pgEnum, primaryKey, text, unique, uuid } from "drizzle-orm/pg-core"
 import * as Schema from "effect/Schema"
 import { createdAt, language, table, timestamptz } from "./columns.ts"
-import { entries, type EntryId } from "./entries.ts"
-import { CautionKind } from "./cautions.ts"
+import { entries } from "./entries.ts"
+import { CautionKind, type EntryId } from "./entryDocument.ts"
 import { type UserId, users } from "./users.ts"
 
 /**
@@ -94,7 +94,7 @@ export const proposals = table(
     /** What Claude drafted; null when it linked or rejected instead. */
     draft: jsonb().$type<DraftEntry>(),
     /** The existing entry the query names, for `linked` and alias-approved proposals. */
-    linkedEntryId: integer()
+    linkedEntryId: text()
       .$type<EntryId>()
       .references(() => entries.id, { onDelete: "set null" }),
     /** Why it was rejected (in the asker's native language) or discarded (the admin's words). */

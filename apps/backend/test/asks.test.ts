@@ -134,7 +134,7 @@ const yomi = learnerNo(9, "ja")
 
 /** 上手 is two words: じょうず (skilled) and うわて (superior). Neither is read かみて here. */
 const jouzu = {
-  id: EntryId.make(1900001),
+  id: EntryId.make("jmdict:1900001"),
   language: "ja" as const,
   source: "jmdict" as const,
   headword: "上手",
@@ -146,7 +146,7 @@ const jouzu = {
 }
 const uwate = {
   ...jouzu,
-  id: EntryId.make(1900002),
+  id: EntryId.make("jmdict:1900002"),
   reading: "うわて",
   common: false,
   priority: 40,
@@ -254,7 +254,7 @@ layer(TestLayer)("Asks", (it) => {
       const linked = yield* asks.ask(asker, "polsh")
       assert.strictEqual(linked.status, "linked")
       assert.strictEqual(linked.draft, null)
-      assert.strictEqual(linked.linked?.id, EntryId.make(100000002))
+      assert.strictEqual(linked.linked?.id, EntryId.make("en:Polish"))
     })
   )
 
@@ -464,7 +464,7 @@ layer(TestLayer)("Asks", (it) => {
       queued.push(draft("polish"))
       const exact = yield* asks.ask(drafter, "polish up nicely")
       assert.strictEqual(exact.status, "linked")
-      assert.strictEqual(exact.linked?.id, EntryId.make(100000003))
+      assert.strictEqual(exact.linked?.id, EntryId.make("en:polish"))
       // …and without one, neither is chosen, and the draft waits for the admin.
       queued.push(draft("POLISH"))
       const unsure = yield* asks.ask(drafter, "polishing up")

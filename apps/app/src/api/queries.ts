@@ -23,7 +23,7 @@ export const keys = {
   asks: ["asks"] as const,
   /** Asks of one query, by the key the server keeps its answer under (`normalizeAsk`). */
   ask: (language: Language, key: string) => ["ask", language, key] as const,
-  entry: (id: number) => ["entry", id] as const,
+  entry: (id: EntryId | null) => ["entry", id] as const,
   notes: ["notes"] as const,
   due: ["due"] as const,
   stats: ["stats"] as const
@@ -79,11 +79,11 @@ export const useLatestAsk = (language: Language, key: string): AskAttempt | unde
     })
   }).at(-1)
 
-export const useEntry = (id: number) =>
+export const useEntry = (id: EntryId | null) =>
   useQuery({
     queryKey: keys.entry(id),
-    queryFn: () => call((api) => api.dictionary.entry({ params: { id: id as EntryId } })),
-    enabled: Number.isInteger(id) && id > 0
+    queryFn: () => call((api) => api.dictionary.entry({ params: { id: id! } })),
+    enabled: id !== null && id.length > 0
   })
 
 export const useNotes = () => useQuery({ queryKey: keys.notes, queryFn: () => call((api) => api.study.notes()) })

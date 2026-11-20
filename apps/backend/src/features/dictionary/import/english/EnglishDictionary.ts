@@ -6,7 +6,14 @@ import { createInterface } from "node:readline"
 import { createGunzip } from "node:zlib"
 import { Database } from "../../../../db/Database.ts"
 import { resolveFromRoot } from "../../../../runtime/Paths.ts"
-import { deleteEntries, headwordIds, insertEntries, linkLoans, saveKotoriCautions, saveTags } from "../../queries.ts"
+import {
+  deleteEntries,
+  externalEntryIds,
+  insertEntries,
+  linkLoans,
+  saveKotoriCautions,
+  saveTags
+} from "../../queries.ts"
 import { entrySplitter } from "../jmdict/parse.ts"
 import type { ImportEntry } from "../seedFacts.ts"
 import { APPROVED_EN_FILE, parseApproved, skippedLines } from "./approved.ts"
@@ -155,7 +162,7 @@ export interface ImportOptions {
  * The English dictionary's entries, built from its sources. Its own scope, so everything
  * parsed along the way can be let go before the entries are written.
  */
-const build = Effect.fnUntraced(function* (options: ImportOptions, existing: ReadonlyMap<string, number>) {
+const build = Effect.fnUntraced(function* (options: ImportOptions) {
   const curatedReader = curatedParser()
   const curatedPath = options.files.curated
   if (curatedPath !== undefined && existsSync(resolveFromRoot(curatedPath))) {
@@ -201,7 +208,6 @@ const build = Effect.fnUntraced(function* (options: ImportOptions, existing: Rea
   let entries = toEntries(
     mergeSources({ curated, wiktionary, jmdict, subtitles }),
     subtitles,
-    existing,
     reader.backTranslations(),
     ratings
   )
@@ -218,8 +224,8 @@ const build = Effect.fnUntraced(function* (options: ImportOptions, existing: Rea
  */
 export const importFiles = Effect.fn("EnglishDictionary.importFiles")(function* (options: ImportOptions) {
   const db = yield* Database
-  const existing = yield* headwordIds(db, "en")
-  const built = yield* build(options, existing)
+  const existing = yield* externalEntryIds(db, "en:")
+  const built = yield* build(options)
   const entries: ReadonlyArray<ImportEntry & { readonly tier: Tier }> = built.entries
 
   yield* saveTags(db, ENGLISH_TAGS)
@@ -229,11 +235,10 @@ export const importFiles = Effect.fn("EnglishDictionary.importFiles")(function* 
     if (start % 20_000 < batchSize && start > 0) yield* Effect.logInfo(`Imported ${start} English words`)
   }
 
-  // Words the sources no longer have, or that are now another word's inflection ("ate"), go,
-  // with their enrichment; a partial import leaves the rest of the dictionary alone.
+  // Words the external sources no longer have go on a complete import; `kotori:` entries stay untouched.
   const complete = !options.commonOnly && options.limit === undefined
-  const imported = new Set(entries.map((entry) => entry.headword))
-  const stale = complete ? [...existing].filter(([headword]) => !imported.has(headword)).map(([, id]) => id) : []
+  const importedIds = new Set(entries.map((entry) => entry.id))
+  const stale = complete ? existing.filter((id) => !importedIds.has(id)) : []
   yield* deleteEntries(db, stale)
   for (const entry of entries) {
     const drafted = entry.source === "kotori" ? built.cautions.get(entry.headword) : undefined

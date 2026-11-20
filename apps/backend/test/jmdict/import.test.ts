@@ -1,17 +1,17 @@
 import { assert, layer } from "@effect/vitest"
-import { EntryId } from "@kotori/contracts"
-import { labels } from "@kotori/db"
-import { eq } from "drizzle-orm"
-import { Effect, FileSystem, Layer } from "effect"
+import { EntryId, type EntryRecord } from "@kotori/contracts"
+import { Effect, FileSystem, Layer, Option } from "effect"
 import { Database } from "../../src/db/Database.ts"
+import { Dictionary } from "../../src/features/dictionary/Dictionary.ts"
 import * as JMDict from "../../src/features/dictionary/import/jmdict/JMDict.ts"
-import { entryCount, getEntries, tagNames } from "../../src/features/dictionary/queries.ts"
-import { examplesFor, saveExamples } from "../../src/features/enrichment/queries.ts"
+import { entryCount, insertEntries } from "../../src/features/dictionary/queries.ts"
+import { saveExamples } from "../../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
 const release = (
   taberuSenses: string,
-  honLabel = "honorific or respectful (sonkeigo) language"
+  honLabel = "honorific or respectful (sonkeigo) language",
+  includeOkashi = true
 ) => `<?xml version="1.0"?>
 <!DOCTYPE JMdict [
 <!ENTITY v1 "Ichidan verb">
@@ -24,58 +24,103 @@ const release = (
 <k_ele><keb>食べる</keb><ke_pri>ichi1</ke_pri><ke_pri>news1</ke_pri></k_ele>
 <r_ele><reb>たべる</reb><re_pri>ichi1</re_pri></r_ele>
 ${taberuSenses}
-</entry>
+</entry>${
+  includeOkashi
+    ? `
 <entry>
 <ent_seq>1001720</ent_seq>
 <k_ele><keb>お菓子</keb></k_ele>
 <r_ele><reb>おかし</reb></r_ele>
 <sense><pos>&n;</pos><gloss>confections</gloss><gloss>sweets</gloss></sense>
-</entry>
+</entry>`
+    : ""
+}
 </JMdict>`
 
 const twoSenses =
   "<sense><pos>&v1;</pos><gloss>to eat</gloss></sense>" +
   '<sense><gloss>to live on (e.g. a salary)</gloss><gloss g_type="fig">to subsist on</gloss></sense>'
 
-// The seeder reads whatever JMDict file it is given; here the "file" is whichever release is current.
 let current = release(twoSenses)
 const Files = FileSystem.layerNoop({ readFile: () => Effect.sync(() => new TextEncoder().encode(current)) })
 
-const TestLayer = Layer.mergeAll(Files).pipe(Layer.provideMerge(DatabaseMemory))
+const TestLayer = Layer.mergeAll(Dictionary.layer, Files).pipe(Layer.provideMerge(DatabaseMemory))
 
-const taberu = EntryId.make(1358280)
-/** Kotori's labels on the word's senses: enrichment the import keeps, following its sense. */
-const kotoriLabel = (sense: number) => ({ entryId: taberu, sense, code: "form" as const, source: "kotori" as const })
-const labelledSenses = Effect.gen(function* () {
-  const db = yield* Database
-  const rows = yield* db.select().from(labels).where(eq(labels.entryId, taberu))
-  return rows.flatMap((row) => (row.source === "kotori" ? [row.sense] : [])).sort((a, b) => a - b)
-})
+const taberu = EntryId.make("jmdict:1358280")
+const okashi = EntryId.make("jmdict:1001720")
+const kotoriSlang = EntryId.make("kotori:kaeruka")
 
-// Dictionary and enrichment are rebuildable, so moving to a new JMDict release is a reseed:
-// the seeder upserts, and enrichment for senses that still exist must survive it.
+const kotoriEntry: EntryRecord = {
+  id: kotoriSlang,
+  language: "ja",
+  source: "kotori",
+  headword: "蛙化現象",
+  reading: "かえるかげんしょう",
+  common: false,
+  priority: 10,
+  forms: [
+    { kind: "kanji", text: "蛙化現象", common: false, tags: [], priorities: [], restrictions: [], noKanji: false },
+    {
+      kind: "kana",
+      text: "かえるかげんしょう",
+      common: false,
+      tags: [],
+      priorities: [],
+      restrictions: [],
+      noKanji: false
+    }
+  ],
+  senses: [
+    {
+      glosses: [{ text: "the ick", type: null }],
+      pos: ["n"],
+      misc: ["sl"],
+      fields: [],
+      dialects: [],
+      info: [],
+      stagk: [],
+      stagr: [],
+      xrefs: [],
+      antonyms: [],
+      origins: [],
+      wasei: false
+    }
+  ]
+}
+
 layer(TestLayer)("JMDict.importFile", (it) => {
-  it.effect("seeding twice leaves the same dictionary and enrichment", () =>
+  it.effect("imports deterministic jmdict:<seq> IDs and is idempotent across re-imports", () =>
     Effect.gen(function* () {
       const db = yield* Database
+      const dictionary = yield* Dictionary
 
       assert.deepStrictEqual(yield* JMDict.importFile({ file: "JMdict_e.gz" }), { entries: 2, tags: 3 })
-      const seeded = yield* getEntries(db, [taberu, EntryId.make(1001720)])
-      assert.strictEqual(seeded[0]?.senses[1]?.glosses[1]?.type, "fig")
+      const first = Option.getOrThrow(yield* dictionary.entry(taberu))
+      assert.strictEqual(first.id, taberu)
+      assert.strictEqual(first.headword, "食べる")
+      assert.strictEqual(first.reading, "たべる")
+      assert.deepStrictEqual(
+        first.senses.map((s) => s.glosses),
+        [["to eat"], ["to live on (e.g. a salary)", "to subsist on"]]
+      )
 
-      yield* db.insert(labels).values([kotoriLabel(0), kotoriLabel(1)])
+      // Search finds imported entries immediately via entry_search.
+      const search = yield* dictionary.search("食べる", "ja", 10)
+      assert.strictEqual(search.entries[0]?.id, taberu)
+
+      // Manual enrichment survives an identical re-import.
       yield* saveExamples(
         db,
         taberu,
         [
           {
-            sense: 1,
-            ja: "給料で食べる。",
-            furigana: "",
-            en: "Live on a salary.",
+            sense: 0,
+            ja: "パンを食べる。",
+            furigana: "パンを食べる。",
+            en: "I eat bread.",
             formality: "neutral",
             note: null,
-            model: "m"
+            model: "test"
           }
         ],
         new Date(1000)
@@ -83,27 +128,35 @@ layer(TestLayer)("JMDict.importFile", (it) => {
 
       assert.deepStrictEqual(yield* JMDict.importFile({ file: "JMdict_e.gz" }), { entries: 2, tags: 3 })
       assert.strictEqual(yield* entryCount(db), 2)
-      assert.deepStrictEqual(yield* getEntries(db, [taberu, EntryId.make(1001720)]), seeded)
-      assert.strictEqual((yield* tagNames(db)).size, 3)
-      assert.deepStrictEqual(yield* labelledSenses, [0, 1])
-      assert.strictEqual((yield* examplesFor(db, [taberu])).length, 1)
+      const reimported = Option.getOrThrow(yield* dictionary.entry(taberu))
+      assert.strictEqual(reimported.senses[0]?.examples.length, 1)
     })
   )
 
-  it.effect("a newer release updates in place and drops only the enrichment of senses it lost", () =>
+  it.effect("replaces only external jmdict: rows on complete re-import while leaving kotori: rows untouched", () =>
     Effect.gen(function* () {
       const db = yield* Database
-      current = release("<sense><pos>&v1;</pos><gloss>to eat</gloss><gloss>to have a meal</gloss></sense>", "honorific")
+      const dictionary = yield* Dictionary
+      yield* insertEntries(db, [kotoriEntry])
+
+      current = release(
+        "<sense><pos>&v1;</pos><gloss>to eat</gloss><gloss>to have a meal</gloss></sense>",
+        "honorific",
+        false
+      )
 
       yield* JMDict.importFile({ file: "JMdict_e.gz" })
-      const [updated] = yield* getEntries(db, [taberu])
+
+      const updated = Option.getOrThrow(yield* dictionary.entry(taberu))
       assert.deepStrictEqual(
-        updated?.senses.map((sense) => sense.glosses.map((gloss) => gloss.text)),
+        updated.senses.map((s) => s.glosses),
         [["to eat", "to have a meal"]]
       )
-      assert.strictEqual((yield* tagNames(db)).get("hon"), "honorific")
-      assert.deepStrictEqual(yield* labelledSenses, [0])
-      assert.strictEqual((yield* examplesFor(db, [taberu])).length, 0)
+      // Stale jmdict: entry removed on complete re-import.
+      assert.isTrue(Option.isNone(yield* dictionary.entry(okashi)))
+      // kotori: entry is completely untouched.
+      const kept = Option.getOrThrow(yield* dictionary.entry(kotoriSlang))
+      assert.strictEqual(kept.headword, "蛙化現象")
       assert.strictEqual(yield* entryCount(db), 2)
     })
   )

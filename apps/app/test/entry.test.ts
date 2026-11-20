@@ -57,7 +57,7 @@ const caution = (id: number, sense: number | null, source: Source = "kotori"): E
 })
 
 const similar = (entryId: number): SimilarWord => ({
-  entryId: EntryId.make(entryId),
+  entryId: EntryId.make(`jmdict:${entryId}`),
   headword: `word ${entryId}`,
   reading: "",
   meaning: "meaning",
@@ -84,7 +84,7 @@ const sense = (index: number, overrides: Partial<Sense> = {}): Sense => ({
 
 /** A dictionary-only Japanese word: no labels, frequency, loan or cautions. */
 const entry = (overrides: Partial<Entry> = {}): Entry => ({
-  id: EntryId.make(1),
+  id: EntryId.make("jmdict:1"),
   language: "ja",
   source: "jmdict",
   headword: "食べる",
@@ -182,9 +182,9 @@ describe("frequency chip", () => {
 describe("loan link", () => {
   const link = (meaning: "true_loanword" | "wasei_eigo" | null) => ({
     katakana: "アドバイス",
-    katakanaEntryId: EntryId.make(2),
+    katakanaEntryId: EntryId.make("jmdict:2"),
     english: "advice",
-    englishEntryId: EntryId.make(3),
+    englishEntryId: EntryId.make("en:3"),
     meaning,
     source: "kotori" as const,
     meaningSource: meaning === null ? null : ("kotori" as const)
@@ -287,7 +287,7 @@ describe("sources line", () => {
         labels: [label("col")],
         loanLink: {
           katakana: "マンション",
-          katakanaEntryId: EntryId.make(1),
+          katakanaEntryId: EntryId.make("jmdict:1"),
           english: "mansion",
           englishEntryId: null,
           meaning: null,
@@ -313,7 +313,7 @@ describe("similar words", () => {
     ])
     assert.deepStrictEqual(
       words.map((word) => word.entryId),
-      [5, 6, 7]
+      ["jmdict:5", "jmdict:6", "jmdict:7"]
     )
   })
 })

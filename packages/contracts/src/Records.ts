@@ -1,11 +1,11 @@
 import {
+  BaseForm,
+  BaseGloss,
+  BaseSense,
   Casting,
   entries,
   EntryId,
-  forms,
-  glosses,
   SenseOrigin,
-  senses,
   SentenceMedium,
   SentenceTone,
   SpeakerAge,
@@ -17,41 +17,19 @@ import * as Struct from "effect/Struct"
 
 export { Casting, SenseOrigin, SentenceMedium, SentenceTone, SpeakerAge, SpeakerGender }
 
-// Dictionary data as stored, close to JMDict's own structure, which English entries share: an
-// entry with its forms and senses, a sense with its glosses, in order. The importers build it,
-// the backend reads it from the four tables, and the AI judges it. Every field comes from its
-// column; the keys that tie a row to its parent and its position are the nesting itself. Lists
-// are arrays here, empty or not; the tables store an empty one as NULL (`textList`).
+// Dictionary data as stored in `entries.base`: an entry with its forms and senses, a sense with
+// its glosses, in order. The importers build it, the backend reads it from `entries.base`, and
+// the AI judges it.
 
-const List = Schema.Array(Schema.String)
-
-/** `text` is a bytewise-collated custom column, which derives as unknown. */
-const FormRow = createSelectSchema(forms, { text: Schema.String, tags: List, priorities: List, restrictions: List })
-
-const SenseRow = createSelectSchema(senses, {
-  pos: List,
-  misc: List,
-  fields: List,
-  dialects: List,
-  info: List,
-  stagk: List,
-  stagr: List,
-  xrefs: List,
-  antonyms: List,
-  origins: Schema.Array(SenseOrigin)
-})
-
-export const GlossRecord = Schema.Struct(Struct.pick(createSelectSchema(glosses).fields, ["text", "type"]))
+export const GlossRecord = BaseGloss
 export type GlossRecord = typeof GlossRecord.Type
 
-export const FormRecord = Schema.Struct(
-  Struct.pick(FormRow.fields, ["kind", "text", "common", "tags", "priorities", "restrictions", "noKanji"])
-)
+export const FormRecord = BaseForm
 export type FormRecord = typeof FormRecord.Type
 
-export const SenseRecord = Schema.Struct({
-  glosses: Schema.Array(GlossRecord),
-  ...Struct.pick(SenseRow.fields, [
+export const SenseRecord = Schema.Struct(
+  Struct.pick(BaseSense.fields, [
+    "glosses",
     "pos",
     "misc",
     "fields",
@@ -64,7 +42,7 @@ export const SenseRecord = Schema.Struct({
     "origins",
     "wasei"
   ])
-})
+)
 export type SenseRecord = typeof SenseRecord.Type
 
 export const EntryRecord = Schema.Struct({
@@ -72,11 +50,11 @@ export const EntryRecord = Schema.Struct({
     "id",
     "language",
     "source",
-    "headword",
-    "reading",
     "common",
     "priority"
   ]),
+  headword: Schema.String,
+  reading: Schema.String,
   forms: Schema.Array(FormRecord),
   senses: Schema.Array(SenseRecord)
 })

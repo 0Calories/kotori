@@ -9,25 +9,13 @@
 
 export * from "./columns.ts"
 
-// The dictionary holds two of them: JMDict's Japanese words with English glosses, and English
-// words with Japanese glosses (see the backend's dictionary import). Entries are each
-// dictionary's own units; forms, senses and glosses are ordered children with a `position`.
-// The seeders upsert entries and senses and replace forms and glosses, so enrichment survives
-// a reseed.
+// Monolingual Japanese and English dictionary entries stored as PostgreSQL JSONB documents
+// (`entries.base` for deterministic Source facts, nullable `entries.enrichment` for Kotori AI
+// enrichment) paired with an isolated, rebuildable `entry_search` projection and `tags` lookup.
+export * from "./entryDocument.ts"
 export * from "./entries.ts"
-export * from "./forms.ts"
-export * from "./senses.ts"
-export * from "./glosses.ts"
+export * from "./entrySearch.ts"
 export * from "./tags.ts"
-
-// What the dictionary says about using a word, each fact tagged with its source: labels and
-// usage patterns per sense, cautions per word, frequency, and katakana ↔ English loan links. The
-// seed import writes the sources' facts; Kotori's offline passes fill what they left empty.
-export * from "./labels.ts"
-export * from "./usagePatterns.ts"
-export * from "./cautions.ts"
-export * from "./entryFrequency.ts"
-export * from "./loanLinks.ts"
 
 // The learner: who they are, what they study and how it went. Everything cascades from `users`.
 export * from "./users.ts"
@@ -37,8 +25,7 @@ export * from "./coachCache.ts"
 export * from "./coachUsage.ts"
 export * from "./proposals.ts"
 
-// Example sentences (seeded or manually enriched) and content-addressed speech clips.
-// Form pronunciation clips resolve deterministically from `audio` by language and form text.
-export * from "./examples.ts"
+// Content-addressed speech clips. Form pronunciation clips resolve deterministically from `audio`
+// by language and form text.
 export * from "./audio.ts"
 export * from "./audioFiles.ts"

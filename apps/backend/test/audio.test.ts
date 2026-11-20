@@ -53,7 +53,7 @@ const TestLayer = AudioEnricher.layer.pipe(
 )
 
 const entry = (id: number, headword = "食べる", reading = "たべる"): EntryRecord => ({
-  id: EntryId.make(id),
+  id: EntryId.make(`jmdict:${id}`),
   language: "ja",
   source: "jmdict",
   headword,
