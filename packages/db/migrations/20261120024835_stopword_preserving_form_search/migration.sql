@@ -1,0 +1,2 @@
+DROP INDEX "entry_search_form_doc";--> statement-breakpoint
+CREATE INDEX "entry_search_form_doc" ON "entry_search" USING gin ((to_tsvector('simple', "text"))) WHERE "kind" = 'form' AND "language" = 'en' AND "form_kind" = 'spelling';

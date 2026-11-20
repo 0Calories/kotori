@@ -11,15 +11,31 @@ import {
   type EntryId,
   entrySearch,
   isEnglishFormSearch,
+  isEnglishGlossCjkSearch,
   isEnglishSpellingSearch,
   isGlossSearch,
   isJapaneseFormSearch,
   isJapaneseGlossDocSearch,
   MAX_CAUTIONS,
+  simpleDocument,
   tags
 } from "@kotori/db"
-import { englishPhraseVariants, nearBest, trigramFloor, trigramTargets } from "@kotori/language"
-import { type AnyColumn, and, asc, desc, eq, inArray, like, max, min, ne, notExists, sql } from "drizzle-orm"
+import { cjkSearchTokens, englishPhraseVariants, nearBest, trigramFloor, trigramTargets } from "@kotori/language"
+import {
+  type AnyColumn,
+  and,
+  arrayContains,
+  asc,
+  desc,
+  eq,
+  inArray,
+  like,
+  max,
+  min,
+  ne,
+  notExists,
+  sql
+} from "drizzle-orm"
 import { Effect } from "effect"
 import { chunks } from "../../db/chunks.ts"
 import type { DatabaseShape } from "../../db/Database.ts"
@@ -389,7 +405,14 @@ export const getEntries = Effect.fn("dictionary.getEntries")(function* (
 /** A list column as an array, empty where the row stores NULL. */
 const listOf = <C extends AnyColumn>(column: C) => sql`coalesce(${column}, '{}')`.mapWith(column)
 
-const searchDocument = englishDocument(entrySearch.text)
+const formDocument = simpleDocument(entrySearch.text)
+const glossDocument = englishDocument(entrySearch.text)
+
+const simpleTsquery = (queries: ReadonlyArray<string>) =>
+  sql`(${sql.join(
+    queries.map((query) => sql`plainto_tsquery('simple', ${query})`),
+    sql` || `
+  )})`
 
 const tsquery = (query: string) =>
   sql`CASE WHEN numnode(plainto_tsquery('english', ${query})) = 0 THEN plainto_tsquery('simple', ${query}) ELSE plainto_tsquery('english', ${query}) END`
@@ -455,15 +478,15 @@ export const findFormPrefix = Effect.fn("dictionary.findFormPrefix")(function* (
   return rows.map((row) => row.id)
 }, Effect.orDie)
 
-/** Full-text search over English forms; a list of queries matches when any of them does. */
+/** Stopword-preserving full-text search over English forms; a list of queries matches when any of them does. */
 export const searchForms = Effect.fn("dictionary.searchForms")(function* (
   db: DatabaseShape,
   queries: ReadonlyArray<string>,
   limit: number
 ) {
   if (queries.length === 0) return []
-  const query = toTsquery(queries)
-  const rank = sql<number>`-ts_rank_cd(${searchDocument}, ${query})`
+  const query = simpleTsquery(queries)
+  const rank = sql<number>`-ts_rank_cd(${formDocument}, ${query})`
   return yield* db
     .select({
       entryId: entrySearch.entryId,
@@ -476,7 +499,7 @@ export const searchForms = Effect.fn("dictionary.searchForms")(function* (
     .where(
       and(
         isEnglishSpellingSearch(entrySearch.kind, entrySearch.language, entrySearch.formKind),
-        sql`${searchDocument} @@ ${query}`
+        sql`${formDocument} @@ ${query}`
       )
     )
     .orderBy(rank, desc(entrySearch.common), desc(entrySearch.priority), sql`length(${entrySearch.text})`)
@@ -543,11 +566,11 @@ export const searchGlosses = Effect.fn("dictionary.searchGlosses")(function* (
 ) {
   if (queries.length === 0) return []
   const query = toTsquery(queries)
-  const rank = sql<number>`-ts_rank_cd(${searchDocument}, ${query})`
+  const rank = sql<number>`-ts_rank_cd(${glossDocument}, ${query})`
   return yield* db
     .select({ ...glossMatch, rank: rank.mapWith(Number) })
     .from(entrySearch)
-    .where(and(isJapaneseGlossDocSearch(entrySearch.kind, entrySearch.language), sql`${searchDocument} @@ ${query}`))
+    .where(and(isJapaneseGlossDocSearch(entrySearch.kind, entrySearch.language), sql`${glossDocument} @@ ${query}`))
     .orderBy(rank)
     .limit(limit)
 }, Effect.orDie)
@@ -605,19 +628,28 @@ export const findJapaneseGlosses = Effect.fn("dictionary.findJapaneseGlosses")(f
   return yield* glossesWithNorm(db, wanted, "en", limit)
 }, Effect.orDie)
 
-/** Japanese glosses of English words containing `text`, for queries no gloss matches exactly (#180 upgrades to CJK token index). */
+/**
+ * Japanese glosses of English words containing `text`, using the GIN index on
+ * `entry_search.cjk_tokens` (overlapping CJK bigrams and kanji unigrams) with a `LIKE`
+ * recheck for contiguous substring order.
+ */
 export const searchJapaneseGlosses = Effect.fn("dictionary.searchJapaneseGlosses")(function* (
   db: DatabaseShape,
   text: string,
   limit: number
 ) {
   if (text.length === 0) return []
+  const tokens = cjkSearchTokens(text)
   const pattern = `%${text.replace(/[\\%_]/g, (char) => `\\${char}`)}%`
   return yield* db
     .select({ ...glossMatch, rank: sql<number>`-1.0 / length(${entrySearch.norm})`.mapWith(Number) })
     .from(entrySearch)
     .where(
-      and(isGlossSearch(entrySearch.kind), eq(entrySearch.language, "en"), sql`${entrySearch.norm} LIKE ${pattern}`)
+      and(
+        isEnglishGlossCjkSearch(entrySearch.kind, entrySearch.language),
+        tokens.length > 0 ? arrayContains(entrySearch.cjkTokens, tokens) : undefined,
+        sql`${entrySearch.norm} LIKE ${pattern}`
+      )
     )
     .orderBy(desc(entrySearch.common), desc(entrySearch.priority), sql`length(${entrySearch.norm})`)
     .limit(limit)

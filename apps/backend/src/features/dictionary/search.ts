@@ -92,6 +92,19 @@ const TAG_PENALTY: Record<string, number> = {
 
 const tagPenalty = (misc: ReadonlyArray<string>) => misc.reduce((sum, tag) => sum + (TAG_PENALTY[tag] ?? 0), 0)
 
+/** English phrasal-verb particles and prepositions that Postgres's `english` stemmer drops as stop words. */
+const PHRASAL_PARTICLES = new Set(
+  "about above across after against along among around at away back before behind below beneath beside between beyond by down during except for from in inside into near of off on onto out outside over past round since through throughout to toward towards under underneath until unto up upon with within without".split(
+    " "
+  )
+)
+
+const missingParticleCount = (requiredParticles: ReadonlyArray<string>, text: string) => {
+  if (requiredParticles.length === 0) return 0
+  const words = new Set(normalizeEnglishPhrase(text).split(" "))
+  return requiredParticles.filter((particle) => !words.has(particle)).length
+}
+
 /**
  * The searches an English query falls back on when the searches for all its words found fewer than
  * three entries: the phrase with one word left out (`relaxedEnglishSearchTerms`), then, only if
@@ -243,8 +256,13 @@ export const makeSearch = (db: DatabaseShape) => {
    */
   const englishGlossHits = Effect.fnUntraced(function* (query: string) {
     const terms = englishSearchTerms(query)
+    const strictQueries = unique(
+      [terms, ...uninflect(query).map((guess) => englishSearchTerms(guess.base))].filter(
+        (term): term is string => term !== null
+      )
+    )
     const exact = yield* findGlossesExact(db, query, 300)
-    const strict = terms === null ? [] : yield* searchGlosses(db, [terms], 600)
+    const strict = strictQueries.length === 0 ? [] : yield* searchGlosses(db, strictQueries, 600)
     const { relaxed, fuzzy } = yield* englishFallback(
       query,
       unique([...exact, ...strict].map((m) => m.entryId)).length,
@@ -271,7 +289,15 @@ export const makeSearch = (db: DatabaseShape) => {
         strong
       }
     }
-    const direct = [...exact.map((m) => score(m, true, true)), ...strict.map((m) => score(m, false, true))]
+    const queryTokens = terms === null ? [] : terms.split(" ")
+    const requiredParticles = queryTokens.length >= 2 ? queryTokens.filter((token) => PHRASAL_PARTICLES.has(token)) : []
+    const direct = [
+      ...exact.map((m) => score(m, true, true)),
+      ...strict.map((m) => {
+        const missing = missingParticleCount(requiredParticles, m.text)
+        return score(m, false, missing === 0, missing * 60)
+      })
+    ]
     return {
       hits: keepBest([
         ...direct,
@@ -426,9 +452,12 @@ export const makeSearch = (db: DatabaseShape) => {
     ])
     const prefixIds = yield* findFormPrefix(db, query, 40, "en")
     const terms = englishSearchTerms(query)
+    const strictQueries = unique(
+      [terms, ...guesses.map((guess) => englishSearchTerms(guess.base))].filter((term): term is string => term !== null)
+    )
     const isPhrase = /\s/.test(query)
     const hasDirect = matches.length > 0 || guessed.length > 0 || prefixIds.length > 0
-    const strict = terms !== null && (isPhrase || !hasDirect) ? yield* searchForms(db, [terms], 60) : []
+    const strict = strictQueries.length > 0 && (isPhrase || !hasDirect) ? yield* searchForms(db, strictQueries, 60) : []
     const found = unique([...matches, ...guessed, ...strict].map((m) => m.entryId).concat(prefixIds))
     const { relaxed, fuzzy } = yield* englishFallback(query, found.length, {
       relaxed: (relaxedTerms) => searchForms(db, relaxedTerms, 40),

@@ -13,6 +13,7 @@ import {
   saveKotoriCautions,
   saveTags
 } from "../src/features/dictionary/queries.ts"
+import { rebuildEntrySearch } from "../src/features/dictionary/searchProjection.ts"
 import { saveExamples } from "../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 
@@ -741,6 +742,104 @@ layer(TestLayer)("Dictionary", (it) => {
         yield* check("ran into", "run into", ["past"])
         yield* check("biting the bullet", "bite the bullet", ["present-participle"])
         yield* check("pulling my leg", "pull one's leg", ["present-participle"])
+      })
+  )
+
+  it.effect("finds English entries from 1-2 character kanji and short Japanese substrings via indexed CJK tokens", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      yield* insertEntries(db, [
+        word(100030001, "black cat", [sense(["黒猫"], ["n"])], { priority: 60 }),
+        word(100030002, "cat tongue", [sense(["猫舌"], ["n"])], { priority: 40 }),
+        word(100030003, "Japanese language", [sense(["日本語"], ["n"])], { priority: 70 }),
+        word(100030004, "eastern Japan", [sense(["東日本"], ["n"])], { priority: 50 }),
+        word(100030005, "today", [sense(["本日"], ["n"])], { priority: 80 }),
+        word(100030006, "all-you-can-eat", [sense(["食べ放題"], ["n"])], { priority: 65 })
+      ])
+
+      // Rebuilding the search projection from entries.base must populate cjk_tokens cleanly.
+      yield* rebuildEntrySearch(db)
+
+      const headwords = (query: string) =>
+        Effect.map(dictionary.search(query, "en", 10), (res) => res.entries.map((e) => e.headword))
+
+      assert.includeMembers(yield* headwords("猫"), ["black cat", "cat tongue"])
+      const nihon = yield* headwords("日本")
+      assert.includeMembers(nihon, ["Japanese language", "eastern Japan"])
+      assert.notInclude(nihon, "today")
+      assert.include(yield* headwords("食べ"), "all-you-can-eat")
+    })
+  )
+
+  it.effect(
+    "preserves stop-word particles in English phrasal-verb search and ranks phrasal entries above bare verbs",
+    () =>
+      Effect.gen(function* () {
+        const db = yield* Database
+        const dictionary = yield* Dictionary
+        yield* insertEntries(db, [
+          word(100040001, "run", [sense(["走る"], ["v"])], { priority: 95 }),
+          word(100040002, "run into", [sense(["偶然出会う"], ["v"])], { common: false, priority: 40 }),
+          word(100040003, "run out", [sense(["尽きる"], ["v"])], { priority: 60 }),
+          word(100040004, "run into trouble", [sense(["困難に陥る"], ["v"])], { common: false, priority: 30 }),
+          word(100040005, "put", [sense(["置く"], ["v"])], { priority: 95 }),
+          word(100040006, "put up", [sense(["掲げる"], ["v"])], { priority: 60 }),
+          word(100040007, "put up with", [sense(["我慢する"], ["v"])], { common: false, priority: 40 }),
+          word(100040008, "call", [sense(["呼ぶ"], ["v"])], { priority: 95 }),
+          word(100040009, "call on", [sense(["訪問する"], ["v"])], { priority: 60 }),
+          word(100040010, "call off", [sense(["中止する"], ["v"])], { common: false, priority: 40 }),
+          word(100040011, "take", [sense(["取る"], ["v"])], { priority: 95 }),
+          word(100040012, "take on", [sense(["引き受ける"], ["v"])], { common: false, priority: 40 }),
+          word(100040013, "find", [sense(["見つける"], ["v"])], { priority: 95 }),
+          word(100040014, "find out", [sense(["判明する"], ["v"])], { common: false, priority: 40 }),
+          entry(1910001, "走る", "はしる", [sense(["to run"], ["v5r"])]),
+          {
+            ...entry(1910002, "出くわす", "でくわす", [sense(["to run into by chance"], ["v5s"])], false),
+            priority: 30
+          },
+          entry(1910003, "置く", "おく", [sense(["to put"], ["v5k"])]),
+          { ...entry(1910004, "我慢する", "がまんする", [sense(["to put up with"], ["vs"])], false), priority: 30 },
+          entry(1910005, "呼ぶ", "よぶ", [sense(["to call"], ["v5b"])]),
+          { ...entry(1910006, "中止する", "ちゅうしする", [sense(["to call off"], ["vs"])], false), priority: 30 }
+        ])
+
+        const headwords = (query: string, language: "en" | "ja") =>
+          Effect.map(dictionary.search(query, language, 10), (res) => res.entries.map((e) => e.headword))
+
+        for (const [query, expected, bare] of [
+          ["run into", "run into", "run"],
+          ["ran into", "run into", "run"],
+          ["running into", "run into", "run"],
+          ["put up with", "put up with", "put"],
+          ["putting up with", "put up with", "put"],
+          ["call off", "call off", "call"],
+          ["calling off", "call off", "call"],
+          ["take on", "take on", "take"],
+          ["find out", "find out", "find"],
+          ["running into trouble", "run into trouble", "run"]
+        ] as const) {
+          const results = yield* headwords(query, "en")
+          assert.strictEqual(results[0], expected, `expected "${expected}" first for "${query}"`)
+          assert.notInclude(results, bare, `did not expect bare "${bare}" for "${query}"`)
+        }
+
+        // Japanese learners searching English phrasal verbs also rank the phrasal match above bare verbs.
+        for (const [query, expected, bare] of [
+          ["run into", "出くわす", "走る"],
+          ["ran into", "出くわす", "走る"],
+          ["running into", "出くわす", "走る"],
+          ["put up with", "我慢する", "置く"],
+          ["call off", "中止する", "呼ぶ"]
+        ] as const) {
+          const results = yield* headwords(query, "ja")
+          const expectedIndex = results.indexOf(expected)
+          const bareIndex = results.indexOf(bare)
+          assert.notStrictEqual(expectedIndex, -1, `expected "${expected}" for "${query}"`)
+          if (bareIndex !== -1) {
+            assert.isBelow(expectedIndex, bareIndex, `expected "${expected}" above "${bare}" for "${query}"`)
+          }
+        }
       })
   )
 })

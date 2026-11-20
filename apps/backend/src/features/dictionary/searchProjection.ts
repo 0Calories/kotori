@@ -7,7 +7,7 @@ import {
   nullIfEmpty,
   type ReviewState
 } from "@kotori/db"
-import { normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
+import { cjkSearchTokens, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
 import { asc, gt, inArray } from "drizzle-orm"
 import { Effect } from "effect"
 import { chunks } from "../../db/chunks.ts"
@@ -76,7 +76,7 @@ export const projectEntrySearch = (entry: SearchProjectionSource): Array<EntrySe
         glossCount,
         tags: null,
         misc,
-        cjkTokens: null
+        cjkTokens: entry.language === "en" ? nullIfEmpty(cjkSearchTokens(norm)) : null
       })
     })
   })

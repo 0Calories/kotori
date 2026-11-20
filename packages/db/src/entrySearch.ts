@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm"
 import { type AnyPgColumn, boolean, index, integer, pgEnum, text } from "drizzle-orm/pg-core"
-import { bytewiseText, englishDocument, language, table, textList } from "./columns.ts"
+import { bytewiseText, englishDocument, language, simpleDocument, table, textList } from "./columns.ts"
 import { entries, reviewState } from "./entries.ts"
 import type { EntryId } from "./entryDocument.ts"
 
@@ -71,7 +71,7 @@ export const entrySearch = table(
     index("entry_search_form_text").on(t.text).where(isJapaneseFormSearch(t.kind, t.language)),
     index("entry_search_form_folded").on(t.folded).where(isEnglishFormSearch(t.kind, t.language)),
     index("entry_search_form_doc")
-      .using("gin", englishDocument(t.text))
+      .using("gin", simpleDocument(t.text))
       .where(isEnglishSpellingSearch(t.kind, t.language, t.formKind)),
     index("entry_search_form_trgm")
       .using("gin", t.text.op("gin_trgm_ops"))
