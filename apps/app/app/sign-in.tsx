@@ -1,7 +1,6 @@
 import { useRouter } from "expo-router"
 import { useRef, useState } from "react"
 import { Platform, type TextInputInstance, View } from "react-native"
-import Animated, { FadeInDown } from "react-native-reanimated"
 import { devCredentials } from "../src/auth/dev.ts"
 import { authMessage } from "../src/auth/messages.ts"
 import { Button, IconButton } from "../src/components/Button.tsx"
@@ -53,13 +52,13 @@ export default function SignIn() {
         label={t.auth.back}
         onPress={() => (router.canGoBack() ? router.back() : router.replace("/welcome"))}
       />
-      <Animated.View entering={FadeInDown.duration(400)} style={{ alignItems: "center", gap: theme.space.sm }}>
+      <View style={{ alignItems: "center", gap: theme.space.sm }}>
         <Mascot size={110} mood="neutral" />
         <Text variant="title" align="center">
           {t.auth.signInTitle}
         </Text>
-      </Animated.View>
-      <Animated.View entering={FadeInDown.delay(100).duration(400)} style={{ gap: theme.space.md }}>
+      </View>
+      <View style={{ gap: theme.space.md }}>
         <GoogleButton
           label={googleBusy ? t.auth.googleOpening : t.auth.google}
           loading={googleBusy}
@@ -105,7 +104,7 @@ export default function SignIn() {
           <Button label={t.auth.forgot} variant="ghost" size="sm" onPress={() => router.push("/forgot-password")} />
           <Button label={t.auth.toSignUp} variant="ghost" size="sm" onPress={() => router.replace("/sign-up")} />
         </View>
-      </Animated.View>
+      </View>
     </Screen>
   )
 }

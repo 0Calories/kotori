@@ -1,7 +1,6 @@
 import { useRouter } from "expo-router"
 import { useRef, useState } from "react"
 import { Platform, type TextInputInstance, View } from "react-native"
-import Animated, { FadeInDown } from "react-native-reanimated"
 import { managedAuth } from "../src/auth/client.ts"
 import { authMessage } from "../src/auth/messages.ts"
 import { Button, IconButton } from "../src/components/Button.tsx"
@@ -65,7 +64,7 @@ export default function ForgotPassword() {
         label={t.auth.back}
         onPress={() => (router.canGoBack() ? router.back() : toSignIn())}
       />
-      <Animated.View entering={FadeInDown.duration(400)} style={{ alignItems: "center", gap: theme.space.sm }}>
+      <View style={{ alignItems: "center", gap: theme.space.sm }}>
         <Mascot size={110} mood={step === "done" ? "happy" : "neutral"} />
         <Text variant="title" align="center">
           {t.auth.forgotTitle}
@@ -75,15 +74,15 @@ export default function ForgotPassword() {
             {step === "email" ? t.auth.forgotBody : t.auth.codeSentBody(address)}
           </Text>
         ) : null}
-      </Animated.View>
+      </View>
 
       {step === "done" ? (
-        <Animated.View entering={FadeInDown.duration(400)} style={{ gap: theme.space.md }}>
+        <View style={{ gap: theme.space.md }}>
           <Notice message={t.auth.passwordReset} tone="primary" />
           <Button label={t.auth.signIn} size="lg" full icon="arrow_forward" onPress={toSignIn} />
-        </Animated.View>
+        </View>
       ) : (
-        <Animated.View entering={FadeInDown.delay(100).duration(400)} style={{ gap: theme.space.md }}>
+        <View style={{ gap: theme.space.md }}>
           {step === "email" ? (
             <>
               <Input
@@ -163,7 +162,7 @@ export default function ForgotPassword() {
           <View style={{ alignItems: "center" }}>
             <Button label={t.auth.toSignInFromReset} variant="ghost" size="sm" onPress={toSignIn} />
           </View>
-        </Animated.View>
+        </View>
       )}
     </Screen>
   )

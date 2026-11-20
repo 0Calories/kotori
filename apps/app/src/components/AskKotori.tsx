@@ -7,9 +7,6 @@ import { AccessibilityInfo, Platform, StyleSheet, View } from "react-native"
 import Animated, {
   cancelAnimation,
   Easing,
-  FadeIn,
-  FadeInDown,
-  FadeOutUp,
   ReduceMotion,
   useAnimatedStyle,
   useReducedMotion,
@@ -177,8 +174,8 @@ const ThinkingBar = ({ since }: { readonly since: number }) => {
 }
 
 /**
- * What Kotori is up to while it thinks: one line at a time, each rising in as the last rises
- * away, over the filling bar.
+ * What Kotori is up to while it thinks: one line at a time, each replacing the last, over the
+ * filling bar.
  */
 const ThinkingStatus = ({ since, reached }: { readonly since: number; readonly reached: number }) => {
   const { t } = useSession()
@@ -193,16 +190,14 @@ const ThinkingStatus = ({ since, reached }: { readonly since: number; readonly r
       style={{ alignSelf: "stretch", alignItems: "center", gap: 12 }}
     >
       <View style={{ alignSelf: "stretch", height: 44, overflow: "hidden" }}>
-        <Animated.View
+        <View
           key={stage}
-          entering={stage === 0 ? FadeIn.duration(200) : FadeInDown.duration(380).easing(easeOut)}
-          exiting={FadeOutUp.duration(260).easing(easeOut)}
           style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center", paddingHorizontal: 8 }]}
         >
           <Text color="textMuted" align="center">
             {lines[stage]}
           </Text>
-        </Animated.View>
+        </View>
       </View>
       <ThinkingBar since={since} />
     </View>
@@ -310,19 +305,17 @@ const LinkedEntry = ({
   }, [glow, live])
   const lit = useAnimatedStyle(() => ({ opacity: glow.get() }))
   return (
-    <Animated.View entering={live ? FadeInDown.duration(380).delay(120).easing(easeOut) : FadeIn.duration(250)}>
-      <Card padded={false} style={{ paddingHorizontal: theme.space.lg, paddingVertical: 2 }}>
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: theme.color.primaryTint, borderRadius: theme.radius.lg - 1 },
-            lit
-          ]}
-        />
-        <ResultRow entry={entry} first onPress={() => onOpen(entry)} />
-      </Card>
-    </Animated.View>
+    <Card padded={false} style={{ paddingHorizontal: theme.space.lg, paddingVertical: 2 }}>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: theme.color.primaryTint, borderRadius: theme.radius.lg - 1 },
+          lit
+        ]}
+      />
+      <ResultRow entry={entry} first onPress={() => onOpen(entry)} />
+    </Card>
   )
 }
 
@@ -501,7 +494,7 @@ export const AskKotori = ({
   })()
 
   return (
-    <Animated.View entering={FadeIn.duration(250)}>
+    <View>
       <View style={{ alignItems: "center", paddingTop: theme.space.xl }}>
         <Wobble trigger={shaken}>
           <Mascot size={90} mood={mood} facing={facing} />
@@ -511,17 +504,16 @@ export const AskKotori = ({
         <View style={{ gap: theme.space.lg, paddingTop: theme.space.md, paddingBottom: theme.space.lg }}>
           {/* The live region stays put while what it holds is swapped, so the change is announced. */}
           <View accessibilityLiveRegion="polite">
-            <Animated.View
+            <View
               key={view.phase === "thinking" ? `thinking:${view.since}` : `${view.phase}:${attempt?.submittedAt ?? 0}`}
-              entering={FadeIn.duration(240).easing(easeOut)}
               style={{ alignItems: "center", gap: 10 }}
             >
               {content}
-            </Animated.View>
+            </View>
           </View>
           {view.phase === "answered" ? <AnswerCard answer={view.answer} live={view.live} onOpen={onOpen} /> : null}
         </View>
       </Resizing>
-    </Animated.View>
+    </View>
   )
 }

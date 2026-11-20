@@ -2,7 +2,6 @@ import type { HowToSayResult, Register } from "@kotori/contracts"
 import { useRouter } from "expo-router"
 import { useState } from "react"
 import { View } from "react-native"
-import Animated, { FadeInDown } from "react-native-reanimated"
 import { useHowToSay } from "../../src/api/queries.ts"
 import { Button } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
@@ -28,104 +27,96 @@ const Result = ({ result }: { readonly result: HowToSayResult }) => {
   const japanese = profile?.targetLanguage !== "en"
   return (
     <View style={{ gap: theme.space.lg }}>
-      <Animated.View entering={FadeInDown.duration(400)}>
-        <Card tone="primary" style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
-          <Mascot size={48} mood="happy" />
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text variant="label" color="primaryDeep">
-              {t.say.understood.toUpperCase()}
-            </Text>
-            <Text>{result.intent}</Text>
-          </View>
-        </Card>
-      </Animated.View>
+      <Card tone="primary" style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
+        <Mascot size={48} mood="happy" />
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text variant="label" color="primaryDeep">
+            {t.say.understood.toUpperCase()}
+          </Text>
+          <Text>{result.intent}</Text>
+        </View>
+      </Card>
 
-      <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-        <Section title={t.say.phrases}>
-          {result.phrases.map((phrase, index) => (
-            <PhraseCard
-              key={phrase.text}
-              text={phrase.text}
-              furigana={phrase.furigana}
-              register={phrase.register}
-              meaning={phrase.whenToUse ? `${phrase.nuance} (${phrase.whenToUse})` : phrase.nuance}
-              source="how-to-say"
-              highlight={index === 0}
-              lines={[
-                { text: phrase.nuance },
-                { label: t.say.literal, text: phrase.literal },
-                { label: t.say.whenToUse, text: phrase.whenToUse }
-              ]}
-            />
-          ))}
-        </Section>
-      </Animated.View>
+      <Section title={t.say.phrases}>
+        {result.phrases.map((phrase, index) => (
+          <PhraseCard
+            key={phrase.text}
+            text={phrase.text}
+            furigana={phrase.furigana}
+            register={phrase.register}
+            meaning={phrase.whenToUse ? `${phrase.nuance} (${phrase.whenToUse})` : phrase.nuance}
+            source="how-to-say"
+            highlight={index === 0}
+            lines={[
+              { text: phrase.nuance },
+              { label: t.say.literal, text: phrase.literal },
+              { label: t.say.whenToUse, text: phrase.whenToUse }
+            ]}
+          />
+        ))}
+      </Section>
 
       {result.keyWords.length > 0 ? (
-        <Animated.View entering={FadeInDown.delay(180).duration(400)}>
-          <Section title={t.say.keyWords}>
-            <Card padded={false} style={{ paddingHorizontal: theme.space.lg, paddingVertical: 2 }}>
-              {result.keyWords.map((word, index) => (
-                <PressableScale
-                  key={word.word}
-                  disabled={word.entryId === null}
-                  onPress={() =>
-                    word.entryId !== null &&
-                    router.push({ pathname: "/entry/[id]", params: { id: String(word.entryId) } })
-                  }
-                  accessibilityRole={word.entryId !== null ? "link" : undefined}
-                  style={{
-                    flexDirection: "row",
-                    gap: 12,
-                    alignItems: "center",
-                    paddingVertical: 10,
-                    borderTopWidth: index === 0 ? 0 : 1,
-                    borderTopColor: theme.color.divider
-                  }}
-                >
-                  <View style={{ minWidth: 84 }}>
-                    <Text mincho={japanese} variant="strong" size={japanese ? 22 : 17}>
-                      {word.word}
+        <Section title={t.say.keyWords}>
+          <Card padded={false} style={{ paddingHorizontal: theme.space.lg, paddingVertical: 2 }}>
+            {result.keyWords.map((word, index) => (
+              <PressableScale
+                key={word.word}
+                disabled={word.entryId === null}
+                onPress={() =>
+                  word.entryId !== null &&
+                  router.push({ pathname: "/entry/[id]", params: { id: String(word.entryId) } })
+                }
+                accessibilityRole={word.entryId !== null ? "link" : undefined}
+                style={{
+                  flexDirection: "row",
+                  gap: 12,
+                  alignItems: "center",
+                  paddingVertical: 10,
+                  borderTopWidth: index === 0 ? 0 : 1,
+                  borderTopColor: theme.color.divider
+                }}
+              >
+                <View style={{ minWidth: 84 }}>
+                  <Text mincho={japanese} variant="strong" size={japanese ? 22 : 17}>
+                    {word.word}
+                  </Text>
+                  {word.reading !== word.word ? (
+                    <Text jp variant="caption" color="textMuted">
+                      {word.reading}
                     </Text>
-                    {word.reading !== word.word ? (
-                      <Text jp variant="caption" color="textMuted">
-                        {word.reading}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text variant="small">{word.meaning}</Text>
-                    {word.note ? (
-                      <Text variant="caption" color="textMuted">
-                        {word.note}
-                      </Text>
-                    ) : null}
-                  </View>
-                  {word.entryId !== null ? <Icon name="chevron_right" size={20} color={theme.color.textMuted} /> : null}
-                </PressableScale>
-              ))}
-            </Card>
-          </Section>
-        </Animated.View>
+                  ) : null}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text variant="small">{word.meaning}</Text>
+                  {word.note ? (
+                    <Text variant="caption" color="textMuted">
+                      {word.note}
+                    </Text>
+                  ) : null}
+                </View>
+                {word.entryId !== null ? <Icon name="chevron_right" size={20} color={theme.color.textMuted} /> : null}
+              </PressableScale>
+            ))}
+          </Card>
+        </Section>
       ) : null}
 
       {result.pitfalls.length > 0 ? (
-        <Animated.View entering={FadeInDown.delay(240).duration(400)}>
-          <Section title={t.say.pitfalls}>
-            {result.pitfalls.map((pitfall) => (
-              <Card key={pitfall.text} tone="accent" style={{ gap: 6 }}>
-                <Text
-                  variant="strong"
-                  color="accent"
-                  style={{ textDecorationLine: "line-through", textDecorationColor: theme.color.accent }}
-                >
-                  {pitfall.text}
-                </Text>
-                <Text variant="small">{pitfall.why}</Text>
-              </Card>
-            ))}
-          </Section>
-        </Animated.View>
+        <Section title={t.say.pitfalls}>
+          {result.pitfalls.map((pitfall) => (
+            <Card key={pitfall.text} tone="accent" style={{ gap: 6 }}>
+              <Text
+                variant="strong"
+                color="accent"
+                style={{ textDecorationLine: "line-through", textDecorationColor: theme.color.accent }}
+              >
+                {pitfall.text}
+              </Text>
+              <Text variant="small">{pitfall.why}</Text>
+            </Card>
+          ))}
+        </Section>
       ) : null}
 
       {result.culturalNote ? (

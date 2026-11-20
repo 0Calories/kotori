@@ -1,7 +1,6 @@
 import { formatDelay } from "@kotori/srs"
 import { useRouter } from "expo-router"
 import { RefreshControl, View } from "react-native"
-import Animated, { FadeInDown } from "react-native-reanimated"
 import { useNotes, useDueNotes, useStats } from "../../src/api/queries.ts"
 import { Button } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
@@ -10,6 +9,7 @@ import { Icon, type IconName } from "../../src/components/Icon.tsx"
 import { Mascot } from "../../src/components/Mascot.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
 import { Screen, Section } from "../../src/components/Screen.tsx"
+import { Skeleton, SkeletonGroup } from "../../src/components/Skeleton.tsx"
 import { ErrorState } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { useSession } from "../../src/session/SessionProvider.tsx"
@@ -122,40 +122,69 @@ export default function ReviewScreen() {
 
       {dueNotes.isError ? <ErrorState error={dueNotes.error} onRetry={() => dueNotes.refetch()} /> : null}
 
-      {counts ? (
-        <Animated.View entering={FadeInDown.duration(350)}>
+      {dueNotes.isPending ? (
+        <SkeletonGroup>
           <Card style={{ gap: theme.space.lg }}>
-            {due > 0 ? (
-              <>
-                <Text variant="label" color="textMuted">
-                  {t.review.due.toUpperCase()}
-                </Text>
-                <View style={{ flexDirection: "row" }}>
-                  <Count label={t.review.new} value={counts.new} tone="neutral" />
-                  <Count label={t.review.learning} value={counts.learning} tone="accent" />
-                  <Count label={t.review.toReview} value={counts.review} tone="primary" />
+            <Skeleton width={56} height={12} />
+            <View style={{ flexDirection: "row" }}>
+              {[0, 1, 2].map((i) => (
+                <View key={i} style={{ flex: 1, alignItems: "center", gap: 8 }}>
+                  <Skeleton width={36} height={28} radius={8} />
+                  <Skeleton width={56} height={12} />
                 </View>
-                <Button
-                  label={t.review.start}
-                  icon="play_arrow"
-                  size="lg"
-                  full
-                  onPress={() => router.push("/review/session")}
-                />
-              </>
-            ) : (
-              <View style={{ alignItems: "center", gap: 8, paddingVertical: theme.space.md }}>
-                <Mascot size={96} mood="sleepy" />
-                <Text variant="heading">{t.review.allDone}</Text>
-                <Text color="textMuted" align="center">
-                  {nextDue !== null
-                    ? t.review.nextIn(formatDelay(Math.max(nextDue - Date.now(), 0)))
-                    : t.review.allDoneHint}
-                </Text>
-              </View>
-            )}
+              ))}
+            </View>
+            <Skeleton height={52} />
           </Card>
-        </Animated.View>
+        </SkeletonGroup>
+      ) : null}
+
+      {counts ? (
+        <Card style={{ gap: theme.space.lg }}>
+          {due > 0 ? (
+            <>
+              <Text variant="label" color="textMuted">
+                {t.review.due.toUpperCase()}
+              </Text>
+              <View style={{ flexDirection: "row" }}>
+                <Count label={t.review.new} value={counts.new} tone="neutral" />
+                <Count label={t.review.learning} value={counts.learning} tone="accent" />
+                <Count label={t.review.toReview} value={counts.review} tone="primary" />
+              </View>
+              <Button
+                label={t.review.start}
+                icon="play_arrow"
+                size="lg"
+                full
+                onPress={() => router.push("/review/session")}
+              />
+            </>
+          ) : (
+            <View style={{ alignItems: "center", gap: 8, paddingVertical: theme.space.md }}>
+              <Mascot size={96} mood="sleepy" />
+              <Text variant="heading">{t.review.allDone}</Text>
+              <Text color="textMuted" align="center">
+                {nextDue !== null
+                  ? t.review.nextIn(formatDelay(Math.max(nextDue - Date.now(), 0)))
+                  : t.review.allDoneHint}
+              </Text>
+            </View>
+          )}
+        </Card>
+      ) : null}
+
+      {stats.isPending ? (
+        <Section title={t.review.stats}>
+          <SkeletonGroup style={{ flexDirection: "row", flexWrap: "wrap", gap: theme.space.md }}>
+            {[0, 1, 2, 3].map((i) => (
+              <Card key={i} style={{ flexBasis: "47%", flexGrow: 1, gap: 8 }}>
+                <Skeleton width={20} height={20} />
+                <Skeleton width={48} height={26} radius={8} />
+                <Skeleton width="60%" height={12} />
+              </Card>
+            ))}
+          </SkeletonGroup>
+        </Section>
       ) : null}
 
       {stats.data ? (
