@@ -13,9 +13,9 @@ The app runs on iOS, Android, and the web from a single Expo codebase, with the 
 
 ## What's inside
 
-- **Bilingual dictionary** — Japanese learners get all ~219k Japanese entries from [JMDict](https://www.edrdg.org/jmdict/j_jmdict.html); English learners get ~65k English entries explained in Japanese. Search in either language or in rōmaji, including conjugated forms (`食べなかった` finds `食べる`, `"ate"` finds `eat`).
+- **Bilingual dictionary** — Japanese learners get all ~219k Japanese entries from [JMDict](https://www.edrdg.org/jmdict/j_jmdict.html); English learners get ~50k English entries explained in Japanese. Search in either language or in rōmaji, including conjugated forms (`食べなかった` finds `食べる`, `"ate"` finds `eat`).
 - **Usage and cautions** — Each sense carries the usage labels its source dictionary gives it (casual, respectful, archaic, British…), how natives use it, and learner cautions (*"Can sound rude to your boss or customers"*, *"Not the katakana 「マンション」"*), alongside similar words and how they differ.
-- **Examples and audio** — Natural example sentences with furigana (written by **Claude**) and spoken audio for headwords and sentences (voiced by **ElevenLabs**).
+- **Examples and audio** — Natural example sentences with furigana (written by **Claude**) and spoken headword audio (voiced by **ElevenLabs**), added on demand from the `kotori` CLI.
 - **Naturalness check** — Write a sentence in the language you're learning to see how it comes across to a native speaker, what to fix, and natural ways to phrase it.
 - **How do I say…** — Describe what you want to say in your own language and get idiomatic ways natives actually say it, with tone, literal meaning, key vocabulary, and pitfalls to avoid.
 - **Spaced repetition** — Save any word or phrase to your deck. Reviews are scheduled with Anki's SM-2 (v3) algorithm, including learning steps, ease, lapses, interval fuzz, and leech detection.
@@ -27,7 +27,7 @@ Kotori is an [Nx](https://nx.dev) workspace managed with `pnpm`. The backend and
 ```text
 apps/
   app/        Expo (Router) app for iOS, Android, and web
-  backend/    HTTP API, enrichment worker and `kotori` CLI: one deployable, three entry points
+  backend/    HTTP API and `kotori` CLI: one deployable, two entry points
 packages/
   db/         The data model: Drizzle tables and the migrations generated from them
   contracts/  The HTTP contract (KotoriApi), its schemas derived from the tables
@@ -77,7 +77,7 @@ This one-time script is safe to re-run (each step skips work that's already done
 1. Creates `.env` from `.env.example` if needed.
 2. Starts Postgres 18 in Docker (`compose.yaml`) and runs migrations (`pnpm kotori migrate`).
 3. Downloads and imports JMDict (~219k Japanese entries).
-4. Downloads and builds the English dictionary (~65k English entries).
+4. Downloads and builds the English dictionary (~50k English entries).
 5. Creates a pre-approved development account (`dev@kotori.test` / `kotori-dev-account`).
 
 It only sets up a database and auth server on this machine. If `DATABASE_URL` or `NEON_AUTH_BASE_URL` points anywhere else, it stops before touching either; run `pnpm dev:setup --remote` to set up a remote development database on purpose, such as a Neon branch of your own.
@@ -87,7 +87,7 @@ To re-import dictionary data later without losing enrichment, run `pnpm seed` (o
 ### 4. Start the backend and app
 
 ```sh
-pnpm dev       # starts local-auth (:4001), API (:4000), and the enrichment worker
+pnpm dev       # starts local-auth (:4001) and the API (:4000)
 pnpm dev:app   # in another terminal: press w for web, i for iOS, a for Android
 ```
 
@@ -100,27 +100,30 @@ Dictionary search and reviews work without any API keys. To enable coaching and 
 | Variable | Powers | Behavior without key |
 | --- | --- | --- |
 | `ANTHROPIC_API_KEY` | Naturalness check, *How do I say…*, example sentences | Coaching shows "not set up"; no new examples generated |
-| `TYPESAFE_API_KEY` | The naturalness check's formality meter, Ask Kotori triage, and judging seeded example sentences so they can be voiced (Jev) | No formality meter; every Ask Kotori query goes to Claude; seeded sentences stay unvoiced |
-| `ELEVENLABS_API_KEY` | Headword and example pronunciation audio | Audio buttons are hidden for unvoiced items |
+| `TYPESAFE_API_KEY` | The naturalness check's formality meter and Ask Kotori triage (Jev) | No formality meter; every Ask Kotori query goes to Claude |
+| `ELEVENLABS_API_KEY` | Headword pronunciation audio | Audio buttons are hidden for unvoiced headwords |
 
 The Anthropic client also accepts `ANTHROPIC_AUTH_TOKEN` or an `ant auth login` profile. See `.env.example` for model, voice, and rate-limit settings.
 
 ## Enrichment and dictionary data
 
-When a learner opens an unenriched entry, the API queues high-priority jobs that the background worker (`pnpm dev`) picks up automatically. You can also backfill common words in batches:
+Each entry is one `entries` row: `base` holds the source dictionary's facts, and `enrichment` holds anything Kotori added (see [ADR-0003](docs/adr/0003-postgres-document-entries-and-derived-search.md)). Entry pages show the source facts. Enrichment is never added automatically: opening an entry doesn't queue any work, and there is no background worker. Add it from the CLI instead:
 
 ```sh
-pnpm kotori enrich examples --limit 500     # Claude example sentences
-pnpm kotori enrich audio --limit 100        # ElevenLabs pronunciation clips
-pnpm kotori status                          # check coverage and queue depth
+pnpm kotori enrich run examples --limit 500             # Claude example sentences for common words
+pnpm kotori enrich run audio --entry jmdict:1358280     # ElevenLabs headword clips for one entry
+pnpm kotori enrich wipe                                 # clear all AI enrichment (or --entry <id>)
+pnpm kotori status                                      # dictionary and enrichment coverage
 ```
 
-All enrichment commands skip entries that are already complete, so they can be interrupted and re-run safely.
+`enrich run` skips entries that are already done, so it's safe to interrupt and re-run. Use `--dictionary jmdict|english` to pick a dictionary and `--concurrency` to set how many entries run at once.
+
+Search reads from `entry_search`, a projection derived from `entries.base`. Seeding keeps it up to date; if it drifts, rebuild it with `pnpm kotori search rebuild`. Drafted entries from Ask Kotori live in `entries` as `kotori:` ids. Review them with `pnpm kotori proposals list|show|approve|discard|merge`, and back them up with `pnpm kotori entries export <file>` / `pnpm kotori entries import <file>`, since re-seeding only replaces `jmdict:` and `en:` entries.
 
 - **Labels, usage patterns and cautions** — What an entry says about using a word comes from its sources at import time, each fact marked with its source: usage labels such as `col`, `hon`, `arch` or `en-GB`, the dictionary's own usage notes, example sentences from Tatoeba and Wiktionary, multi-signal frequency, and katakana ↔ English loan links. Similar words, and how each one differs, are derived from cross-references, shared glosses and labels. Kotori's own inference comes back only through offline passes that must pass a golden eval first (see [`docs/specs/dictionary-enrichment-plan.md`](docs/specs/dictionary-enrichment-plan.md)).
 - **English dictionary & katakana loans** — For English learners, the backend's dictionary import (`features/dictionary/import/english`) assembles ~50k English headwords and idioms from [English Wiktionary](https://en.wiktionary.org), [Japanese Wiktionary](https://ja.wiktionary.org), and attested English glosses in JMDict, ranked by [OpenSubtitles word frequency](https://github.com/hermitdave/FrequencyWords). JMDict's loanword origins tie a katakana word such as マンション to the English word it came from, and both entries show the link.
 - **Examples (Claude)** — Generated via structured outputs validated with Effect Schema. Furigana is written inline as `{漢字|かんじ}` and verified against the Japanese text before saving.
-- **Audio (ElevenLabs)** — Each sentence gets a voice chosen from its formality and its sense's labels. Sentences from Tatoeba and Wiktionary come with no formality, so Jev judges their formality and speaker first. Clips are cached by content hash `(voice, model, text)` so each clip is synthesized once, guarded by a 30-day character budget (`KOTORI_AUDIO_MONTHLY_CHARS`, default `500000`).
+- **Audio (ElevenLabs)** — Each headword is read by up to `KOTORI_HEADWORD_VOICES` (default `3`) dictionary voices. Clips are cached by content hash `(voice, model, text)` so each clip is synthesized once, guarded by a 30-day character budget (`KOTORI_AUDIO_MONTHLY_CHARS`, default `500000`).
 
 ## Accounts and authentication
 
@@ -161,11 +164,11 @@ pnpm motion        # preview a mascot animation clip, e.g. `pnpm motion celebrat
 Production runs on **Fly.io** (compute), **Neon** (Postgres 18 + Managed Better Auth), and **Vercel** (static Expo web bundle).
 
 - **CI/CD** (`.github/workflows/ci.yml`) runs `nx sync:check`, `pnpm format:check`, and `nx affected -t lint typecheck test check` on every push. On pull requests that affect `@kotori/app`, it runs `@kotori/app:deploy-preview` (`vercel pull --environment=preview && vercel build && vercel deploy --prebuilt`, using repository secret `VERCEL_TOKEN`) to deploy a Vercel preview connected to the production API. On `main`, it runs `nx affected -t deploy`:
-  - `@kotori/backend:deploy` (`flyctl deploy --remote-only`, using `FLY_API_TOKEN`) deploys one Docker image for the `api` and `worker` process groups (`fly.toml`), running `kotori migrate` as Fly's `release_command` before rolling new machines.
+  - `@kotori/backend:deploy` (`flyctl deploy --remote-only`, using `FLY_API_TOKEN`) deploys one Docker image for the `api` process group (`fly.toml`), running `kotori migrate` as Fly's `release_command` before rolling new machines.
   - `@kotori/app:deploy` (`vercel pull && vercel build --prod && vercel deploy --prebuilt --prod`, using `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`) deploys the static web bundle (`vercel.json`).
   - Manual deploys: `pnpm nx run @kotori/backend:deploy`, `pnpm nx run @kotori/app:deploy`, or `pnpm nx run @kotori/app:deploy-preview`.
 - **Database migrations** (`packages/db/migrations`, generated via `pnpm --filter @kotori/db generate`) are forward-only. Because `release_command` migrates before new machines roll, destructive schema changes must use two deploys (expand first, contract in a later release).
-- **Seeding production dictionaries**: `pnpm kotori seed` (`--dictionary jmdict|english`) imports or updates dictionaries in place while preserving sense-linked enrichment and saved notes. Because the English Wiktionary stream peaks around ~500 MB RAM, run `pnpm kotori seed --dictionary english` from a local machine with the production `DATABASE_URL` rather than on the 512 MB Fly worker.
+- **Seeding production dictionaries**: `pnpm kotori seed` (`--dictionary jmdict|english`) imports or updates dictionaries in place while preserving sense-linked enrichment and saved notes. Because the English Wiktionary stream peaks around ~500 MB RAM, run `pnpm kotori seed --dictionary english` from a local machine with the production `DATABASE_URL` rather than on a 512 MB Fly machine.
 - **Managed Auth & webhooks**: The API proxies `/api/auth/*` to `NEON_AUTH_BASE_URL` and verifies 15-minute EdDSA JWTs against Neon's JWKS (plus checking `neon_auth.session` for immediate revocation). `KOTORI_WEB_ORIGINS` in `fly.toml` controls CORS for browser cookies and validates team-scoped Vercel preview origins at the `/api/auth/*` proxy (since Neon Auth domain rules only accept leftmost-label wildcards). On the production Neon branch, register `<api-host>` as a trusted redirect domain (for `/auth/return`), configure custom Google OAuth **Web application** credentials with Authorized redirect URIs `<NEON_AUTH_BASE_URL>/callback/google` (for `/sign-in/social`) and `<web-origin>/settings` (for web `/link-social` OIDC `id_token` account linking, since Neon Managed Auth only wraps `/sign-in/social` with a state-cookie `/init` hop), and point verification/password-reset webhooks at `POST /webhooks/neon-auth` (verified via `X-Neon-Signature-Kid` and sent via Resend):
   ```sh
   neon neon-auth domain add https://<api-host> --branch production
