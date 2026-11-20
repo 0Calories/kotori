@@ -10,7 +10,7 @@
   "scripts": {
     "dev:http": "tsx watch --clear-screen=false -C @kotori/source src/entrypoints/http.ts",
     "dev:worker": "tsx watch --clear-screen=false -C @kotori/source src/entrypoints/worker.ts",
-    "cli": "tsx -C @kotori/source src/entrypoints/cli.ts",
+    "cli": "node --conditions=@kotori/source src/entrypoints/cli.ts",
     "test": "vitest run"
   },
   "dependencies": {

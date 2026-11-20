@@ -5,14 +5,17 @@ import { Database } from "../src/db/Database.ts"
 import { Approvals } from "../src/features/accounts/Approvals.ts"
 import { ensureUser, userById } from "../src/features/accounts/queries.ts"
 import { Auth, TestAuth } from "../src/integrations/auth/Auth.ts"
-import { Mailbox, MailerMemory } from "../src/integrations/email/Mailer.ts"
+import { Mailbox, MailError, Mailer, MailerMemory } from "../src/integrations/email/Mailer.ts"
 import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 
-const TestLayer = Approvals.layer.pipe(
-  Layer.provideMerge(Auth.layerMemory),
-  Layer.provideMerge(Layer.mergeAll(TestAuth.layer, MailerMemory)),
-  Layer.provideMerge(DatabaseMemory)
-)
+const approvalsLayer = <A, E>(mailer: Layer.Layer<Mailer | A, E>) =>
+  Approvals.layer.pipe(
+    Layer.provideMerge(Auth.layerMemory),
+    Layer.provideMerge(Layer.mergeAll(TestAuth.layer, mailer)),
+    Layer.provideMerge(DatabaseMemory)
+  )
+
+const TestLayer = approvalsLayer(MailerMemory)
 
 const signUp = (email: string, name: string) => Effect.flatMap(TestAuth, (auth) => auth.signUp(email, name))
 
@@ -65,20 +68,31 @@ layer(TestLayer)("Approvals", (it) => {
         createdAt: new Date(1)
       })
       const approved = yield* approvals.approve("Second@Example.com")
-      assert.strictEqual(approved.status, "approved")
+      assert.strictEqual(approved.account.status, "approved")
+      assert.strictEqual(approved.alreadyApproved, false)
+      assert.strictEqual(approved.emailStatus, "sent")
       const sent = yield* mailbox.messages
       assert.strictEqual(sent.length, 1)
       assert.strictEqual(sent[0]?.to, "second@example.com")
       assert.include(sent[0]?.subject, "ようこそ")
 
-      // Approving again is a no-op.
-      yield* approvals.approve("second@example.com")
+      // Approving again is a no-op unless `--resend` is requested.
+      const repeated = yield* approvals.approve("second@example.com")
+      assert.strictEqual(repeated.alreadyApproved, true)
+      assert.strictEqual(repeated.emailStatus, "skipped")
       assert.strictEqual((yield* mailbox.messages).length, 1)
 
+      const resent = yield* approvals.approve("second@example.com", { resend: true })
+      assert.strictEqual(resent.alreadyApproved, true)
+      assert.strictEqual(resent.emailStatus, "sent")
+      assert.strictEqual((yield* mailbox.messages).length, 2)
+
       // Archived accounts can still be approved later, in English by default.
-      yield* approvals.approve("first@example.com")
+      const fromArchived = yield* approvals.approve("first@example.com")
+      assert.strictEqual(fromArchived.alreadyApproved, false)
+      assert.strictEqual(fromArchived.emailStatus, "sent")
       assert.strictEqual((yield* approvals.requests({ all: true })).length, 0)
-      assert.include((yield* mailbox.messages)[1]?.subject, "Welcome")
+      assert.include((yield* mailbox.messages)[2]?.subject, "Welcome")
 
       const missing = yield* approvals.approve("nobody@example.com").pipe(Effect.flip)
       assert.strictEqual(missing._tag, "NoSuchUser")
@@ -103,6 +117,44 @@ layer(TestLayer)("Approvals", (it) => {
       yield* approvals.revoke("admin@example.com")
       const after = yield* auth.sessionFromCookies(Headers.fromInput({ cookie: user.cookie }))
       assert.isTrue(Option.isNone(after))
+    })
+  )
+})
+
+const FailingMailer = Layer.succeed(
+  Mailer,
+  Mailer.of({
+    configured: true,
+    send: () => Effect.fail(new MailError({ message: "Resend returned 403" }))
+  })
+)
+
+layer(approvalsLayer(FailingMailer))("Approvals with failing mailer", (it) => {
+  it.effect("still approves the account and reports email failure", () =>
+    Effect.gen(function* () {
+      const approvals = yield* Approvals
+      const db = yield* Database
+
+      const user = yield* signUp("blocked@example.com", "Blocked")
+      const result = yield* approvals.approve("blocked@example.com")
+      assert.strictEqual(result.account.status, "approved")
+      assert.strictEqual(result.alreadyApproved, false)
+      assert.strictEqual(result.emailStatus, "failed")
+      assert.strictEqual(Option.getOrThrow(yield* userById(db, user.id)).status, "approved")
+    })
+  )
+})
+
+layer(approvalsLayer(Mailer.layerConsole))("Approvals with console mailer", (it) => {
+  it.effect("reports email as logged when mailer is not configured", () =>
+    Effect.gen(function* () {
+      const approvals = yield* Approvals
+
+      yield* signUp("dev@example.com", "Dev")
+      const result = yield* approvals.approve("dev@example.com")
+      assert.strictEqual(result.account.status, "approved")
+      assert.strictEqual(result.alreadyApproved, false)
+      assert.strictEqual(result.emailStatus, "logged")
     })
   )
 })

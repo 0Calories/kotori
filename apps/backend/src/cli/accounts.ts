@@ -1,5 +1,5 @@
 import type { Language } from "@kotori/contracts"
-import { Clock, Console, Effect, Option } from "effect"
+import { Clock, Console, Effect, Match, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { Database } from "../db/Database.ts"
 import { type Account, Approvals } from "../features/accounts/Approvals.ts"
@@ -35,11 +35,42 @@ export const requests = Command.make(
 
 export const approve = Command.make(
   "approve",
-  { email },
-  Effect.fn(function* ({ email }) {
+  {
+    email,
+    resend: Flag.Boolean("resend").pipe(
+      Flag.withDescription("Send the approval email even if the account is already approved"),
+      Flag.withDefault(false)
+    )
+  },
+  Effect.fn(function* ({ email, resend }) {
     const approvals = yield* Approvals
-    yield* approvals.approve(email).pipe(
-      Effect.flatMap((user) => Console.log(`Approved ${user.email}; they've been emailed.`)),
+    yield* approvals.approve(email, { resend }).pipe(
+      Effect.flatMap(({ account, alreadyApproved, emailStatus }) => {
+        const prefix = alreadyApproved ? `${account.email} was already approved` : `Approved ${account.email}`
+        return Match.value(emailStatus).pipe(
+          Match.when("sent", () =>
+            Console.log(
+              alreadyApproved
+                ? `${account.email} was already approved; re-sent the approval email.`
+                : `Approved ${account.email}; they've been emailed.`
+            )
+          ),
+          Match.when("logged", () =>
+            Console.log(`${prefix}; mailer is not configured, so the email was logged to the console.`)
+          ),
+          Match.when("failed", () =>
+            Console.error(
+              alreadyApproved
+                ? `${prefix}, but the approval email could not be sent (see warning above).`
+                : `${prefix}, but the approval email could not be sent (see warning above). Retry with \`kotori approve ${account.email} --resend\`.`
+            )
+          ),
+          Match.when("skipped", () =>
+            Console.log(`${account.email} is already approved; no email was sent. Pass --resend to email them again.`)
+          ),
+          Match.exhaustive
+        )
+      }),
       Effect.catchTag("NoSuchUser", () => notFound(email))
     )
   })
