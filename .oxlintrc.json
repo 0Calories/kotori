@@ -109,7 +109,7 @@
           },
           {
             "sourceTag": "type:util",
-            "onlyDependOnLibsWithTags": ["type:contract", "type:util"],
+            "onlyDependOnLibsWithTags": ["type:util"],
             "allowedExternalImports": ["effect", "effect/*", "wanakana", "vitest", "@effect/vitest"]
           },
           {
@@ -159,7 +159,6 @@
         "packages/db/src/**",
         "packages/contracts/src/**",
         "packages/language/src/**",
-        "packages/srs/src/**",
         "apps/app/app/**",
         "apps/app/src/**"
       ],

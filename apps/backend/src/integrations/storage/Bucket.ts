@@ -2,11 +2,6 @@ import { Clock, Config, Context, Effect, Layer, Option, Redacted, Schedule, Sche
 import { HttpClient, HttpClientRequest, type HttpClientResponse } from "effect/http"
 import { createHash, createHmac } from "node:crypto"
 
-// An S3-compatible bucket, at the endpoint, with the keys, of the standard AWS variables, so any
-// provider's works: Neon Object Storage (`neon env pull` writes them), S3, R2, MinIO. Path-style
-// requests signed with AWS Signature Version 4, the one form every provider takes. Three
-// operations on single objects, so no SDK.
-
 export class BucketError extends Schema.TaggedError<BucketError>()("BucketError", {
   message: Schema.String
 }) {}
@@ -17,7 +12,6 @@ export interface BucketCredentials {
   readonly region: string
 }
 
-/** What a stored object's metadata says: its size, and its entity tag (an MD5 of the bytes on most providers). */
 export interface ObjectHead {
   readonly size: number
   readonly etag: string | null
@@ -36,7 +30,6 @@ export class Bucket extends Context.Service<
     head(key: string): Effect.Effect<Option.Option<ObjectHead>, BucketError>
   }
 >()("@kotori/backend/Bucket") {
-  /** The bucket `name` at `AWS_ENDPOINT_URL_S3`, signed with `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_REGION`. */
   static readonly layer = (name: string) =>
     Layer.effect(
       Bucket,
@@ -132,11 +125,7 @@ export class Bucket extends Context.Service<
     )
 }
 
-/**
- * What's under a request that failed without a response, which `HttpClientError`'s message
- * leaves out: each cause's code and message, outermost first, so a dropped connection
- * (`UND_ERR_SOCKET`) reads differently from a timeout or a refused one.
- */
+// Unwrap nested Node/Undici error causes (e.g. UND_ERR_SOCKET) omitted from HttpClientError.message.
 export const describeCause = (cause: unknown): string => {
   const parts: Array<string> = []
   const seen = new Set<unknown>()
@@ -151,11 +140,10 @@ export const describeCause = (cause: unknown): string => {
   return parts.join(" ← ")
 }
 
-/** RFC 3986 percent-encoding, which Signature Version 4 requires of each path segment. */
+// AWS SigV4 requires RFC 3986 percent-encoding of !'()*, which encodeURIComponent leaves unescaped.
 const encodeSegment = (segment: string) =>
   encodeURIComponent(segment).replace(/[!'()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`)
 
-/** A path-style object URL: `<endpoint>/<bucket>/<key>`, below any path the endpoint has. */
 export const objectUrl = (endpoint: URL, bucket: string, key: string) => {
   const base = endpoint.pathname.replace(/\/$/, "")
   const path = [bucket, ...key.split("/")].map(encodeSegment).join("/")
@@ -165,12 +153,6 @@ export const objectUrl = (endpoint: URL, bucket: string, key: string) => {
 const sha256 = (data: string | Uint8Array) => createHash("sha256").update(data).digest("hex")
 const hmac = (key: string | Buffer, data: string) => createHmac("sha256", key).update(data).digest()
 
-/**
- * The headers that sign a request with AWS Signature Version 4: `x-amz-date`,
- * `x-amz-content-sha256` and `authorization`, with the request's own headers, all of which are
- * signed. `url`'s path must already be encoded (`objectUrl`); query strings aren't used here.
- * https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
- */
 export const signRequest = (
   request: {
     readonly method: string

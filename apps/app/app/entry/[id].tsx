@@ -3,7 +3,7 @@ import { Link, useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { Platform, Share, View } from "react-native"
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated"
-import { useAddNote, useArrangeNote, useEnrich, useEntry, useNotes, useRemoveNote } from "../../src/api/queries.ts"
+import { useAddNote, useEnrich, useEntry, useNotes, useRemoveNote } from "../../src/api/queries.ts"
 import { AudioButton } from "../../src/components/AudioButton.tsx"
 import { Button, IconButton } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
@@ -16,7 +16,6 @@ import { ChipRow } from "../../src/components/LabelChips.tsx"
 import { Mascot } from "../../src/components/Mascot.tsx"
 import { Notice } from "../../src/components/Notice.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
-import { removalErrorText, RemoveNoteDialog } from "../../src/components/RemoveNote.tsx"
 import { Header, Screen, Section } from "../../src/components/Screen.tsx"
 import { Snow } from "../../src/components/Snow.tsx"
 import { ErrorState, MascotMessage } from "../../src/components/States.tsx"
@@ -37,47 +36,28 @@ import {
   wordCautions
 } from "../../src/lib/entry.ts"
 import { findForm } from "../../src/lib/forms.ts"
-import { noteOn, showsSense, withoutSense } from "../../src/lib/notes.ts"
+import { noteErrorText, noteOn } from "../../src/lib/notes.ts"
 import { useReadingPhase } from "../../src/lib/readingPhase.ts"
 import { entryIdFromParam, entrySourcesHref } from "../../src/lib/sources.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
 
-/** Web browsers without the Web Share API can't share, so the button is left out there. */
 const canShare = Platform.OS !== "web" || (typeof navigator !== "undefined" && "share" in navigator)
 
-/** Glosses run together as their language lists them: "to eat; to dine", "食べる、食事をする". */
 const glossSeparator = (language: Language) => (language === "ja" ? "; " : "、")
 
-/**
- * One meaning: its glosses, then what is true of this sense and not the word as a whole (a part
- * of speech or label the hero doesn't show), the dictionary's usage patterns with Kotori's beside
- * them, examples, and any caution about this sense alone.
- */
 const SenseCard = ({
   entry,
   sense,
   number,
   forms,
-  partOfSpeech,
-  saved,
-  onSave,
-  saving,
-  removing,
-  onRemove
+  partOfSpeech
 }: {
   readonly entry: Entry
   readonly sense: Sense
   readonly number: number
-  /** Ways the headword is written or inflected, to find and mark it in examples. */
   readonly forms: ReadonlyArray<string>
-  /** Already shown in the hero; repeated only when this sense differs. */
   readonly partOfSpeech: string | null
-  readonly saved: boolean
-  readonly onSave: () => void
-  readonly saving: boolean
-  readonly removing: boolean
-  readonly onRemove: () => void
 }) => {
   const theme = useTheme()
   const { t } = useSession()
@@ -113,22 +93,11 @@ const SenseCard = ({
         </Text>
       </View>
       <View style={{ flex: 1, gap: theme.space.sm + 2 }}>
-        <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
-          <View style={{ flex: 1, gap: 4, paddingTop: 1 }}>
-            <Text variant="heading" selectable>
-              {second ? `${first}${separator}${second}` : first}
-            </Text>
-            {rest.length > 0 ? <Text color="textMuted">{rest.join(separator)}</Text> : null}
-          </View>
-          <View style={{ marginTop: -9, marginRight: -8 }}>
-            <IconButton
-              icon="bookmark"
-              filled={saved}
-              size={40}
-              label={saved ? t.entry.hideSense : t.entry.save}
-              onPress={removing ? undefined : saved ? onRemove : saving ? undefined : onSave}
-            />
-          </View>
+        <View style={{ gap: 4, paddingTop: 1 }}>
+          <Text variant="heading" selectable>
+            {second ? `${first}${separator}${second}` : first}
+          </Text>
+          {rest.length > 0 ? <Text color="textMuted">{rest.join(separator)}</Text> : null}
         </View>
         <ChipRow items={labelItems(t, sense.labels)} plain={[...pos, ...fields]} />
         {sense.appliesTo.length > 0 ? (
@@ -171,13 +140,11 @@ const SenseCard = ({
   )
 }
 
-/** Words close to this one, each with how it differs, read off the two words' labels. */
 const SimilarList = ({
   words,
   language
 }: {
   readonly words: ReadonlyArray<SimilarWord>
-  /** Similar words come from the same dictionary as the entry. */
   readonly language: Language
 }) => {
   const theme = useTheme()
@@ -226,7 +193,6 @@ const SimilarList = ({
   )
 }
 
-/** A headword as large as fits: 64pt for short Japanese words and 52pt for short English ones, smaller for long ones. */
 const headwordSize = (headword: string, language: Language) => {
   const length = Array.from(headword).length
   if (language === "en") return length <= 8 ? 52 : Math.max(30, Math.floor(420 / length))
@@ -243,17 +209,13 @@ export default function EntryScreen() {
   const notes = useNotes()
   const addNote = useAddNote()
   const removeNote = useRemoveNote()
-  const arrangeNote = useArrangeNote()
   const enrich = useEnrich(id ?? 0)
   const [showAll, setShowAll] = useState(false)
   const [scrolled, setScrolled] = useState(false)
-  const [removing, setRemoving] = useState(false)
-  const [removeError, setRemoveError] = useState<string | null>(null)
+  const [noteError, setNoteError] = useState<string | null>(null)
   const back = () => (router.canGoBack() ? router.back() : router.replace("/"))
   const kotoriReading = useReadingPhase(id !== null && !entry.isLoadingError && !entry.data) === "reading"
 
-  // A failed refetch (one of the polls while the entry is being enriched, say) keeps the entry
-  // already loaded, with a notice until a later one succeeds. Only a failed first load has nothing to show.
   if (id === null || entry.isLoadingError) {
     return (
       <Screen bottomInset={40} header={<Header onBack={back} />}>
@@ -271,42 +233,21 @@ export default function EntryScreen() {
 
   const data = entry.data
   const language = data.language
-  // The learner's note on this word, if they saved it: the senses it shows are the ones saved.
   const note = noteOn(notes.data, data.id)
-  const busy = addNote.isPending || removeNote.isPending || arrangeNote.isPending
-  const beginRemove = () => {
-    setRemoveError(null)
-    setRemoving(true)
-  }
-  const confirmRemove = async () => {
-    if (note === undefined || removeNote.isPending) {
-      setRemoving(false)
-      return
-    }
-    setRemoveError(null)
-    try {
-      await removeNote.mutateAsync(note.id)
-      setRemoving(false)
-    } catch (error) {
-      setRemoveError(removalErrorText(t, error))
-    }
-  }
-  // Saving one meaning saves the word showing just that meaning, or shows it on the note too.
-  const save = (sense?: Sense) =>
-    addNote.mutate(sense === undefined ? { entryId: data.id } : { entryId: data.id, sense: sense.index })
-  // Taking off the note's only meaning removes the note, which asks first.
-  const unsave = (sense: Sense) => {
-    if (note === undefined) return
-    const change = withoutSense(note, sense.index)
-    switch (change.kind) {
-      case "remove":
-        return beginRemove()
-      case "arrange":
-        return arrangeNote.mutate({ id: note.id, senses: change.senses })
-    }
-  }
-  // A discarded draft can't be saved anew, but a note that saved it can still be changed or removed.
+  const busy = addNote.isPending || removeNote.isPending
   const saveable = REVIEW_RULES[data.review].saveable
+  const toggleNote = async () => {
+    setNoteError(null)
+    try {
+      if (note !== undefined) {
+        await removeNote.mutateAsync(note.id)
+      } else {
+        await addNote.mutateAsync({ entryId: data.id })
+      }
+    } catch (caught) {
+      setNoteError(noteErrorText(t, caught, note !== undefined ? "remove" : "save"))
+    }
+  }
   const mark = reviewMark(t, data.review)
   const reading = data.reading.length > 0 && data.reading !== data.headword ? data.reading : null
   const share = () =>
@@ -316,7 +257,6 @@ export default function EntryScreen() {
       }`
     }).catch(() => {})
 
-  // Other spellings ("colour", 喰べる), and for English words their inflections ("ate", "eaten").
   const others = data.forms.filter(
     (form) => form.kind !== "inflection" && form.text !== data.headword && form.text !== data.reading
   )
@@ -329,8 +269,6 @@ export default function EntryScreen() {
   const forms = [data.headword, ...data.forms.map((form) => form.text), ...(language === "ja" ? [data.reading] : [])]
   const size = headwordSize(data.headword, language)
   const headwordAudio = data.audioUrl
-  // A word with nothing from Kotori yet gets a plain header, with the part of speech among the
-  // details, and an offer to ask for more.
   const plain = !hasKotoriContent(data) && !waiting
   const meta = [reading, data.usuallyKana ? t.entry.usuallyKana : null, plain ? partOfSpeech : null].filter(
     (part): part is string => part !== null
@@ -357,8 +295,8 @@ export default function EntryScreen() {
               <IconButton
                 icon="bookmark"
                 filled={note !== undefined}
-                label={note !== undefined ? t.saved.remove : t.entry.save}
-                onPress={busy ? undefined : note !== undefined ? beginRemove : saveable ? () => save() : undefined}
+                label={note !== undefined ? t.notebook.remove : t.entry.save}
+                onPress={busy || (note === undefined && !saveable) ? undefined : () => void toggleNote()}
               />
               {canShare ? (
                 <IconButton
@@ -372,16 +310,7 @@ export default function EntryScreen() {
         />
       }
     >
-      <RemoveNoteDialog
-        note={removing ? note : undefined}
-        busy={removeNote.isPending}
-        error={removeError}
-        onConfirm={() => void confirmRemove()}
-        onCancel={() => {
-          setRemoving(false)
-          setRemoveError(null)
-        }}
-      />
+      <Notice message={noteError} />
       {mark === null ? null : <Notice {...mark.notice} />}
       {entry.isRefetchError ? (
         <Notice
@@ -482,18 +411,7 @@ export default function EntryScreen() {
       <Section title={data.senses.length === 1 ? t.entry.meaning : t.entry.meanings}>
         {senses.map((sense, index) => (
           <Animated.View key={sense.index} entering={FadeInDown.delay(80 + index * 60).duration(350)}>
-            <SenseCard
-              entry={data}
-              sense={sense}
-              number={index + 1}
-              forms={forms}
-              partOfSpeech={partOfSpeech}
-              saved={showsSense(note, sense.index)}
-              saving={busy || (note === undefined && !saveable)}
-              removing={busy}
-              onSave={() => save(sense)}
-              onRemove={() => unsave(sense)}
-            />
+            <SenseCard entry={data} sense={sense} number={index + 1} forms={forms} partOfSpeech={partOfSpeech} />
           </Animated.View>
         ))}
         {data.senses.length > 3 ? (

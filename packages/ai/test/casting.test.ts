@@ -3,13 +3,11 @@ import { describe, expect, it } from "vitest"
 import { briefFor, CASTS, castVoices, ENGLISH_CAST, headwordVoices, JAPANESE_CAST, rank, tied } from "../src/index.ts"
 import type { CastingBrief, CastingInput, Casts, SenseSignals, SentenceSignals } from "../src/index.ts"
 
-/** The real casts with fake provider ids, so tests don't depend on which voices are cast. */
 const FULL_CASTS: Casts = {
   ja: JAPANESE_CAST.map((voice) => ({ ...voice, providerId: `fake-${voice.id}` })),
   en: ENGLISH_CAST.map((voice) => ({ ...voice, providerId: `fake-${voice.id}` }))
 }
 
-/** Only one dictionary voice per language cast, as before the rest of the cast was chosen. */
 const DICTIONARY_ONLY: Casts = {
   ja: FULL_CASTS.ja.map((voice) => (voice.id === "ja-kyoko" ? voice : { ...voice, providerId: null })),
   en: FULL_CASTS.en.map((voice) => (voice.id === "en-casual-m" ? voice : { ...voice, providerId: null }))
@@ -81,7 +79,6 @@ describe("briefFor", () => {
     for (const code of ["sl", "net-sl", "m-sl", "vulg"]) {
       expect(briefFor(input({}, { labels: [code] })).slang).toBe(true)
     }
-    // Colloquial is a register, which the sentence's formality carries; it isn't slang.
     expect(briefFor(input({}, { labels: ["col"] })).slang).toBe(false)
     expect(briefFor(input({})).slang).toBe(false)
   })
@@ -150,7 +147,6 @@ describe("rank", () => {
     const brief = briefFor(input({ formality: "casual", tone: "humorous", speakerGender: "masculine" }))
     expect(brief.variety).toBeNull()
     expect(topVoice(brief)).toBe("ja-kansai-m")
-    // Without the joke, the variety filter keeps the Kansai voice out entirely.
     const plain = rank(briefFor(input({ formality: "casual", speakerGender: "masculine" })), "ja", FULL_CASTS)
     expect(plain.map(({ voice }) => voice.id)).not.toContain("ja-kansai-m")
   })
@@ -170,7 +166,6 @@ describe("rank", () => {
       )
     const child = scores("child")
     const unspecified = scores("unspecified")
-    // Youth sits next to child by age, but a child line read by a youth still mismatches.
     expect(child.get("ja-casual-m2")).toBe(unspecified.get("ja-casual-m2")! - 1)
   })
 
@@ -180,7 +175,6 @@ describe("rank", () => {
   })
 
   it("relaxes the register filter rather than return nobody", () => {
-    // No Kansai voice lists "formal", but the sentence is Kansai: the filter must relax.
     const ranked = rank(briefFor(input({ variety: "kansai", formality: "formal" })), "ja", FULL_CASTS)
     expect(ranked).toHaveLength(1)
     expect(ranked[0]!.voice.id).toBe("ja-kansai-m")

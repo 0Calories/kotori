@@ -15,11 +15,6 @@ import { alias } from "drizzle-orm/pg-core"
 import { Effect } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 
-/**
- * Reads of the enrichment model for the entry page: labels, usage patterns and cautions with the words
- * they point at, frequency signals, the loan link, and the candidates for similar words.
- */
-
 const wordRefs = Effect.fnUntraced(function* (db: DatabaseShape, ids: ReadonlyArray<EntryId | null>) {
   const wanted = [...new Set(ids.filter((id): id is EntryId => id !== null))]
   if (wanted.length === 0) return new Map<EntryId, WordRef>()
@@ -30,7 +25,6 @@ const wordRefs = Effect.fnUntraced(function* (db: DatabaseShape, ids: ReadonlyAr
   return new Map(rows.map((row) => [row.entryId, row]))
 })
 
-/** Each sense's labels, by sense position, in code order so a page lists them alike every time. */
 export const labelsBySense = Effect.fn("dictionary.labelsBySense")(function* (
   db: DatabaseShape,
   entryIds: ReadonlyArray<EntryId>
@@ -53,7 +47,6 @@ export const labelsBySense = Effect.fn("dictionary.labelsBySense")(function* (
   return found
 }, Effect.orDie)
 
-/** An entry's usage patterns, by sense position, in order. */
 export const usagePatternsBySense = Effect.fn("dictionary.usagePatternsBySense")(function* (
   db: DatabaseShape,
   entryId: EntryId
@@ -79,7 +72,6 @@ export const usagePatternsBySense = Effect.fn("dictionary.usagePatternsBySense")
   return found
 }, Effect.orDie)
 
-/** An entry's cautions, first first. */
 export const cautionsFor = Effect.fn("dictionary.cautionsFor")(function* (db: DatabaseShape, entryId: EntryId) {
   const rows = yield* db.select().from(cautions).where(eq(cautions.entryId, entryId)).orderBy(asc(cautions.rank))
   const about = yield* wordRefs(
@@ -108,11 +100,6 @@ export const frequencyFor = Effect.fn("dictionary.frequencyFor")(function* (db: 
   return (row ?? null) satisfies EntryFrequency | null
 }, Effect.orDie)
 
-/**
- * The loan link read from this entry's end: as the katakana word or as the English one. A word
- * with several (an English word borrowed twice) shows the one with a verdict on its meaning, then
- * the one whose other word is used most.
- */
 export const loanLinkFor = Effect.fn("dictionary.loanLinkFor")(function* (db: DatabaseShape, entryId: EntryId) {
   const other = alias(entries, "other")
   const [row] = yield* db
@@ -136,14 +123,6 @@ export const loanLinkFor = Effect.fn("dictionary.loanLinkFor")(function* (db: Da
   return (row ?? null) satisfies LoanLink | null
 }, Effect.orDie)
 
-/**
- * Words in the same dictionary close to each of an entry's senses by their glosses, most used
- * first, at most `perSense` a sense, with the earliest sense of theirs that is close. A sense of
- * theirs is close when it shares two glosses with ours, or when both senses lead with the same
- * one: glosses are polysemous English or Japanese words, and one shared in passing ties 結構
- * ("fine", splendid) to 罰金 ("fine", a penalty). Common words only: a gloss shared with a rare
- * word says little to a learner. One query for every sense, as the page asks on each view.
- */
 export const sharedGlossesBySense = Effect.fn("dictionary.sharedGlossesBySense")(function* (
   db: DatabaseShape,
   entryId: EntryId,
@@ -183,10 +162,10 @@ export const sharedGlossesBySense = Effect.fn("dictionary.sharedGlossesBySense")
       })
       .from(pairs)
       .innerJoin(entries, eq(entries.id, pairs.entryId))
+      // Require two shared glosses or matching lead glosses so a single polysemous gloss ("fine") does not link unrelated senses (結構 and 罰金).
       .where(sql`${pairs.shared} >= 2 OR ${pairs.bothLead}`)
       .groupBy(pairs.sense, pairs.entryId)
   )
-  // Integer columns, and `min` of one, which both drivers return as numbers.
   return yield* db
     .with(pairs, close)
     .select({ sense: close.sense, entryId: close.entryId, otherSense: close.otherSense })
@@ -195,11 +174,6 @@ export const sharedGlossesBySense = Effect.fn("dictionary.sharedGlossesBySense")
     .orderBy(asc(close.sense), asc(close.rank))
 }, Effect.orDie)
 
-/**
- * What is most worth remembering about each sense of each entry, for the notes that save them: the
- * sense's first caution, else the word's, else the sense's first usage pattern; one batch for any
- * number of entries.
- */
 export const takeawaysBySense = Effect.fn("dictionary.takeawaysBySense")(function* (
   db: DatabaseShape,
   entryIds: ReadonlyArray<EntryId>

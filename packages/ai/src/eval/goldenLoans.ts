@@ -1,20 +1,8 @@
 import type { LoanCandidate } from "../judge/loans.ts"
 
-/**
- * English words with a known loan verdict for `kotori eval loans`: katakana loans that drifted
- * (the English word's false friend), loans that kept their meaning (a "same as" chip), and words
- * whose only candidates are false (no loan). Each word's candidates are those the pass's search
- * finds in JMdict (created 2026-10-27): common katakana words with the word as a gloss or JMdict
- * source, at most three, a source first, then the most used. Their meanings are JMdict's glosses
- * and tag descriptions, CC BY-SA 4.0: see NOTICE.md beside this file.
- *
- * None of these words is an example in the questions. `evidence` names what the verdict rests
- * on; `judgement` marks verdicts that rest on the author's judgement of everyday Japanese.
- */
 export interface GoldenLoan {
   readonly english: string
   readonly expect: "true_loanword" | "wasei_eigo" | "no_loan"
-  /** The katakana word the verdict is about. */
   readonly katakana?: string
   readonly candidates: ReadonlyArray<LoanCandidate>
   readonly evidence: string
@@ -73,8 +61,8 @@ const none = (english: string, candidates: ReadonlyArray<LoanCandidate>, evidenc
   judgement: false
 })
 
+/** Must stay disjoint from the prompt examples in `loans.ts` so the eval does not test memorised examples. */
 export const GOLDEN_LOANS: ReadonlyArray<GoldenLoan> = [
-  // --- Drifted: the katakana word's everyday meaning misleads in English ----------------------
   drifted(
     "style",
     [
@@ -178,8 +166,6 @@ export const GOLDEN_LOANS: ReadonlyArray<GoldenLoan> = [
     [{ ...talent, by: "source" }],
     "JMdict's first sense: a TV personality; the curated English note says タレント is a celebrity"
   ),
-
-  // --- Kept its meaning: the English word can be used wherever the loan is ----------------------
   same("table", [c("テーブル", ["table"], "gloss")], "JMdict glosses テーブル only as table"),
   same(
     "coffee",
@@ -265,8 +251,6 @@ export const GOLDEN_LOANS: ReadonlyArray<GoldenLoan> = [
     [c("アドバイス", ["advice"], "gloss")],
     "The model doc's example of a 'same as' chip; JMdict glosses アドバイス only as advice"
   ),
-
-  // --- No loan: the only candidates are other words' loans --------------------------------------------
   none(
     "walk",
     [c("フォアボール", ["base on balls; walk; pass [baseball]"], "gloss", true)],

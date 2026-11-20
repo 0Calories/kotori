@@ -6,10 +6,6 @@ import { Card } from "./Card.tsx"
 import { Icon } from "./Icon.tsx"
 import { Text } from "./Text.tsx"
 
-/**
- * A one-line message under a form, or above content that is still showing: what went wrong, or
- * that something worked. `action` adds a small button at the end, such as a way to try again.
- */
 export const Notice = ({
   message,
   tone = "accent",

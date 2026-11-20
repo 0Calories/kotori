@@ -4,7 +4,6 @@ import { Claude, ClaudeDeadline, type ClaudeError } from "../providers/Claude.ts
 export const FrequencyOutput = Schema.Struct({
   ratings: Schema.Array(
     Schema.Struct({
-      /** The expression, copied from the list. */
       phrase: Schema.String,
       frequency: Schema.Int
     })
@@ -12,10 +11,7 @@ export const FrequencyOutput = Schema.Struct({
 })
 export type FrequencyOutput = typeof FrequencyOutput.Type
 
-/**
- * The scale the curated English entries were rated on, so ratings from here rank alongside
- * theirs: how commonly native speakers use an expression today, from everyday to rare.
- */
+/** Calibrated to the 1–5 scale of the curated English source so both sort together. */
 export const frequencySystem = `You rate how commonly English expressions are used by native speakers today, for a dictionary used by English learners. The rating decides how prominently the dictionary lists an expression and whether learners are told it is worth memorising.
 
 Rate each expression as a whole, with the meaning native speakers take it to have, in present-day American English unless its wording is clearly another variety:
@@ -30,11 +26,9 @@ Judge how much the expression is used, not how proper it is: slang and profanity
 const frequencyPrompt = (phrases: ReadonlyArray<string>) =>
   `Rate these ${phrases.length} expressions:\n\n${phrases.map((phrase) => `- ${phrase}`).join("\n")}`
 
-/** Rates how commonly English phrases are used by native speakers today, 1–5, in batches. */
 export class FrequencyRater extends Context.Service<
   FrequencyRater,
   {
-    /** Ratings by phrase, as given; a phrase Claude skipped or rated off the scale is left out. */
     rate(phrases: ReadonlyArray<string>): Effect.Effect<ReadonlyMap<string, number>, ClaudeError>
   }
 >()("@kotori/ai/FrequencyRater") {
@@ -51,7 +45,6 @@ export class FrequencyRater extends Context.Service<
           system: frequencySystem,
           prompt: frequencyPrompt(phrases),
           effort: "low",
-          // An offline pass over the dictionary.
           timeout: ClaudeDeadline.bulk
         })
         const asked = new Map(phrases.map((phrase) => [phrase.toLowerCase(), phrase]))

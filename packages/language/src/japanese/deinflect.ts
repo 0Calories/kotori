@@ -1,14 +1,3 @@
-/**
- * Turns conjugated verbs and adjectives back into dictionary forms, so learners
- * can look up what they actually read or hear: 食べなかった -> 食べる.
- *
- * Works like Yomichan's deinflector: each rule rewrites a suffix and records the
- * grammatical type of the result. Rules chain (食べています -> 食べている -> 食べて
- * -> 食べる) and the dictionary lookup keeps only entries whose part of speech
- * fits the final type.
- */
-
-/** Grammatical types a deinflected term can have. `iru` marks a て-form that came from ている. */
 export type WordType = "v1" | "v5" | "vk" | "vs" | "vs-noun" | "adj-i" | "iru"
 
 export type Inflection =
@@ -35,7 +24,6 @@ export type Inflection =
 interface Rule {
   readonly from: string
   readonly to: string
-  /** Types the inflected word must have; empty means it can only be the original input. */
   readonly inTypes: ReadonlyArray<WordType>
   readonly outType: WordType
   readonly reason: Inflection
@@ -43,9 +31,7 @@ interface Rule {
 
 export interface Deinflection {
   readonly term: string
-  /** Null for the query itself, which may be any kind of word. */
   readonly type: WordType | null
-  /** Inflections undone to reach the term, outermost last ("polite", "past"). */
   readonly reasons: ReadonlyArray<Inflection>
 }
 
@@ -57,7 +43,6 @@ const rule = (
   reason: Inflection
 ): Rule => ({ from, to, inTypes, outType, reason })
 
-/** Godan rows: dictionary ending, a/i/e/o stems, て-form and た-form endings. */
 const GODAN = [
   ["う", "わ", "い", "え", "お", "って", "った"],
   ["く", "か", "き", "け", "こ", "いて", "いた"],
@@ -70,7 +55,6 @@ const GODAN = [
   ["る", "ら", "り", "れ", "ろ", "って", "った"]
 ] as const
 
-/** Conjugations shared by every verb class, keyed by the stem each one attaches to. */
 const verbRules = (
   type: "v1" | "v5" | "vk" | "vs",
   dict: string,
@@ -118,7 +102,6 @@ const godan: Array<Rule> = GODAN.flatMap(([dict, a, i, e, o, te, ta]) => [
   rule(`${te.slice(0, -1)}${te.endsWith("で") ? "じゃう" : "ちゃう"}`, dict, ["v5"], "v5", "completed")
 ])
 
-// 行く is the one godan verb with an irregular て/た-form.
 const iku: Array<Rule> = ["行", "い"].flatMap((stem) => [
   rule(`${stem}って`, `${stem}く`, ["iru"], "v5", "te"),
   rule(`${stem}った`, `${stem}く`, [], "v5", "past"),
@@ -147,7 +130,6 @@ const suru: Array<Rule> = [
   rule("せよ", "する", [], "vs", "imperative"),
   rule("すれば", "する", [], "vs", "conditional"),
   rule("せず", "する", [], "vs", "negative"),
-  // 勉強する -> 勉強: nouns that take する are listed without it.
   rule("する", "", ["vs"], "vs-noun", "suru")
 ]
 
@@ -161,7 +143,6 @@ const adjectives: Array<Rule> = [
   rule("さ", "い", [], "adj-i", "noun"),
   rule("そう", "い", [], "adj-i", "seems"),
   rule("すぎる", "い", ["v1"], "adj-i", "too-much"),
-  // いい conjugates from its older form よい.
   rule("よかった", "いい", [], "adj-i", "past"),
   rule("よくない", "いい", ["adj-i"], "adj-i", "negative"),
   rule("よくて", "いい", [], "adj-i", "te"),
@@ -175,7 +156,6 @@ const progressive: Array<Rule> = [
 
 const RULES: ReadonlyArray<Rule> = [...ichidan, ...godan, ...iku, ...kuru, ...suru, ...adjectives, ...progressive]
 
-/** Every way `word` could be deinflected, including `word` itself. */
 export const deinflect = (word: string): Array<Deinflection> => {
   const results: Array<Deinflection> = [{ term: word, type: null, reasons: [] }]
   const seen = new Set([`${word}|`])
@@ -187,7 +167,6 @@ export const deinflect = (word: string): Array<Deinflection> => {
       if (!current.term.endsWith(candidate.from)) continue
       const term = current.term.slice(0, current.term.length - candidate.from.length) + candidate.to
       if (term.length === 0) continue
-      // 〜て(い)る only follows a て-form.
       if (candidate.outType === "iru" && !/[てで]$/.test(term)) continue
       const key = `${term}|${candidate.outType}`
       if (seen.has(key)) continue
@@ -199,7 +178,6 @@ export const deinflect = (word: string): Array<Deinflection> => {
   return results.filter((result) => result.type !== "iru")
 }
 
-/** Whether an entry with the given JMDict part-of-speech tags can be the result of a deinflection. */
 export const matchesPartOfSpeech = (type: WordType | null, partsOfSpeech: ReadonlyArray<string>) => {
   switch (type) {
     case null:

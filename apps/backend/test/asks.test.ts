@@ -27,12 +27,9 @@ import { ensureUser } from "../src/features/accounts/queries.ts"
 import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 import { english, kana, kanji, learner, sense } from "./fixtures.ts"
 
-// The Asks service over PGlite and a Claude whose answers are queued by the test.
-
 const queued: Array<DraftOutput> = []
 let generated = 0
 
-/** Jev's next routing answers; empty means a sure lookup. A thrown entry fails the request. */
 const routes: Array<Record<string, number> | "fail"> = []
 let triaged = 0
 
@@ -93,8 +90,7 @@ const TestLayer = Asks.layer.pipe(
   Layer.provideMerge(Pronouncer.layer),
   Layer.provideMerge(FakeProviders),
   Layer.provideMerge(DatabaseMemory),
-  // Not process.env: Effect reads it once per process, and test files share workers
-  // (`isolate: false`), so a file that read config first would fix the limits for this one.
+  // Vitest shares workers across files (`isolate: false`), so override `ConfigProvider` rather than `process.env`.
   Layer.provide(
     ConfigProvider.layer(
       ConfigProvider.fromUnknown({
@@ -115,7 +111,6 @@ const asker: Profile = {
   onboarded: true
 }
 
-/** More learners, each with allowances of their own, for the tests after a rate limit is reached. */
 const learnerNo = (n: number, target: Profile["targetLanguage"] = "en"): Profile => ({
   ...asker,
   id: UserId.make(`00000000-0000-4000-8000-00000000000${n}`),
@@ -134,7 +129,6 @@ const yomi = learnerNo(9, "ja")
 const saver = { ...learnerNo(1), id: UserId.make("00000000-0000-4000-8000-000000000010"), email: "10@kotori.test" }
 const reasker = { ...learnerNo(1), id: UserId.make("00000000-0000-4000-8000-000000000011"), email: "11@kotori.test" }
 
-/** 上手 is two words: じょうず (skilled) and うわて (superior). Neither is read かみて here. */
 const jouzu = {
   id: EntryId.make(1900001),
   language: "ja" as const,
@@ -156,9 +150,7 @@ const uwate = {
   senses: [sense(["superior", "better"], { pos: ["n"] })]
 }
 
-/** Idempotent: every test seeds, so each runs alone (`vitest -t`) and none leans on another. */
 const seeded = Effect.gen(function* () {
-  // Answers a refused ask never consumed would otherwise answer the next test's questions.
   queued.length = 0
   routes.length = 0
   const db = yield* Database
@@ -168,7 +160,6 @@ const seeded = Effect.gen(function* () {
   yield* insertEntries(db, [...english, jouzu, uwate])
 })
 
-/** The number `headword` is shown to Claude under, among the lookalikes the search for `query` finds. */
 const numberOf = (query: string, language: Language, headword: string) =>
   Effect.gen(function* () {
     const found = yield* (yield* Dictionary).search(normalizeAsk(query, language), language, 10)
@@ -202,11 +193,9 @@ layer(TestLayer)("Asks", (it) => {
       yield* seeded
       const asks = yield* Asks
 
-      // Too short, markup, too many words: codes the app words, never copy.
       for (const bad of ["a", "a<b>c", "one two three four five six seven eight nine"]) {
         assert.deepInclude(yield* Effect.flip(asks.ask(asker, bad)), { _tag: "AskRefused", reason: "not_askable" })
       }
-      // The learner's own language, Japanese for a Japanese speaker learning English.
       assert.deepInclude(yield* Effect.flip(asks.ask(asker, "食べる")), {
         _tag: "AskRefused",
         reason: "wrong_language"
@@ -216,7 +205,6 @@ layer(TestLayer)("Asks", (it) => {
       assert.isTrue(askable("sorena", "ja"))
       assert.strictEqual(normalizeAsk("  Bussin ", "en"), "bussin")
 
-      // "eat" is in the fixtures: a strong match, nothing to ask.
       assert.deepInclude(yield* Effect.flip(asks.ask(asker, "eat")), { _tag: "AskRefused", reason: "in_dictionary" })
       assert.strictEqual(generated, 0)
     })
@@ -258,10 +246,8 @@ layer(TestLayer)("Asks", (it) => {
       assert.strictEqual(first.status, "pending")
       const id = first.draft!.id
 
-      // The draft is an entry: its page reads as any other's, marked unreviewed, and search finds it.
       const page = yield* dictionary.entry(id)
       assert.strictEqual(page._tag === "Some" ? page.value.review : null, "unreviewed")
-      // Nothing is enriched before approval, and asking for it queues nothing.
       assert.deepStrictEqual(page._tag === "Some" ? page.value.enrichment : null, {
         examples: "unavailable",
         audio: "unavailable"
@@ -272,13 +258,11 @@ layer(TestLayer)("Asks", (it) => {
         [[id, "unreviewed"]]
       )
 
-      // Another query drafting the same word answers with the draft already there.
       queued.push(draft("skibidi"))
       const second = yield* asks.ask(reasker, "skibidi toilet")
       assert.strictEqual(second.status, "pending")
       assert.strictEqual(second.draft?.id, id)
 
-      // Discarded, it leaves search, and its askers see it turned down.
       const [row] = yield* db.select().from(proposals).where(eq(proposals.id, first.id))
       yield* discardProposal(db, row!.id, "not a word")
       assert.deepStrictEqual((yield* dictionary.search("skibidi", "en", 10)).entries, [])
@@ -291,7 +275,6 @@ layer(TestLayer)("Asks", (it) => {
     Effect.gen(function* () {
       yield* seeded
       const asks = yield* Asks
-      // "polsh" finds "polish" and "Polish", which match each other case-folded: the number says which.
       queued.push({ verdict: "link", link: yield* numberOf("polsh", "en", "Polish"), reason: null, entry: null })
       const linked = yield* asks.ask(asker, "polsh")
       assert.strictEqual(linked.status, "linked")
@@ -320,12 +303,9 @@ layer(TestLayer)("Asks", (it) => {
       assert.strictEqual(rejected.status, "rejected")
       assert.strictEqual(rejected.reason, "実在する表現ではないようです。")
 
-      // Four fresh asks so far (bussin, eeting good, dine fancy, blorptastic) used up the limit
-      // of 4 — the reservation is taken before each generation — so the next fresh ask is refused …
       queued.push(draft("yeet"))
       const limited = yield* Effect.flip(asks.ask(asker, "yeet"))
       assert.strictEqual(limited._tag, "RateLimited")
-      // … while cached answers stay free.
       const cached = yield* asks.ask(asker, "bussin")
       assert.strictEqual(cached.status, "pending")
     })
@@ -366,7 +346,6 @@ layer(TestLayer)("Asks", (it) => {
       ]
       const before = { generated, triaged }
       for (const { user, query } of reaching) {
-        // Jev answers each (here: as mash, so Claude isn't needed); what matters is that it was asked.
         routes.push({ lookup: 0.05, garbage: 0.95 })
         const answer = yield* asks.ask(user, query)
         assert.strictEqual(answer.route, "garbage", query)
@@ -386,11 +365,9 @@ layer(TestLayer)("Asks", (it) => {
       }
       for (const query of ["snorkle", "wibbler", "plonker", "zazzle"]) yield* ask(query)
       assert.deepInclude(yield* Effect.flip(ask("gronkle")), { _tag: "RateLimited", retryAfterSeconds: 600 })
-      // An hour on, the hourly allowance is back, but the day's runs out after six.
       yield* TestClock.adjust("61 minutes")
       for (const query of ["gronkle", "fizzle"]) yield* ask(query)
       assert.deepInclude(yield* Effect.flip(ask("blooper")), { _tag: "RateLimited", retryAfterSeconds: 3600 })
-      // Another learner asks freely meanwhile.
       queued.length = 0
       queued.push(draft("blooper"))
       assert.strictEqual((yield* asks.ask(routed, "blooper")).status, "pending")
@@ -401,12 +378,10 @@ layer(TestLayer)("Asks", (it) => {
     Effect.gen(function* () {
       yield* seeded
       const asks = yield* Asks
-      // More Jev-routed asks than Claude's hourly allowance of 4 …
       for (const query of ["what is this", "how do i say it", "is this right", "say it nicely", "tell me more"]) {
         routes.push({ lookup: 0.05, sentence: 0.95 })
         assert.strictEqual((yield* asks.ask(routed, query)).route, "sentence")
       }
-      // … and Claude can still be asked.
       queued.push(draft("snazzle"))
       assert.strictEqual((yield* asks.ask(routed, "snazzle")).status, "pending")
     })
@@ -423,7 +398,6 @@ layer(TestLayer)("Asks", (it) => {
       assert.strictEqual(sentence.route, "sentence")
       assert.strictEqual(sentence.reason, null)
       assert.strictEqual(generated, before)
-      // The route is the cached answer too.
       const again = yield* asks.ask(other, "how do i say thank you politely")
       assert.strictEqual(again.id, sentence.id)
     })
@@ -433,23 +407,19 @@ layer(TestLayer)("Asks", (it) => {
     Effect.gen(function* () {
       yield* seeded
       const asks = yield* Asks
-      // Unsure: no route reaches the bar, so Claude is asked.
       routes.push({ lookup: 0.3, name: 0.4, garbage: 0.3 })
       queued.push(draft("glorp"))
       const unsure = yield* asks.ask(other, "glorp")
       assert.strictEqual(unsure.status, "pending")
       assert.strictEqual(unsure.route, "lookup")
-      // Down: likewise.
       routes.push("fail")
       queued.push(draft("zonked"))
       const down = yield* asks.ask(other, "zonked")
       assert.strictEqual(down.status, "pending")
-      // Jev sure it was a lookup, Claude said no: contested, for the admin's eye.
       routes.push({ lookup: 0.95, garbage: 0.05 })
       queued.push({ verdict: "reject", link: null, reason: null, entry: null })
       const contested = yield* asks.ask(other, "frindle")
       assert.strictEqual(contested.status, "rejected")
-      // No reason from Claude: the app words one, rather than the server.
       assert.strictEqual(contested.reason, null)
       const db = yield* Database
       const [row] = yield* db.select().from(proposals).where(eq(proposals.id, contested.id))
@@ -470,7 +440,6 @@ layer(TestLayer)("Asks", (it) => {
       const { proposal, headword } = yield* redoProposal(db, rejected.id)
       assert.strictEqual(proposal.status, "drafted")
       assert.strictEqual(headword, "yoinks")
-      // Claude's answer stands, so the app shows it rather than Jev's pointer: the draft, as an entry.
       assert.strictEqual(proposal.route, "lookup")
       const shown = (yield* asks.asks(other)).find((own) => own.id === rejected.id)
       assert.strictEqual(shown?.status, "pending")
@@ -484,16 +453,13 @@ layer(TestLayer)("Asks", (it) => {
     Effect.gen(function* () {
       yield* seeded
       const asks = yield* Asks
-      // The search finds nothing for this, so a link could only come from Claude's memory.
       queued.push({ verdict: "link", link: 1, reason: null, entry: null })
       const unseen = yield* asks.ask(linker, "eeting good")
       assert.strictEqual(unseen.status, "rejected")
       assert.strictEqual(unseen.linked, null)
-      // A number past the list is no link either.
       queued.push({ verdict: "link", link: 9, reason: null, entry: null })
       const past = yield* asks.ask(linker, "polishy")
       assert.strictEqual(past.status, "rejected")
-      // Nor is one that came with a draft: the draft stands instead.
       queued.push({ ...draft("polished off"), verdict: "link", link: 0 })
       const drafted = yield* asks.ask(linker, "polished off")
       assert.strictEqual(drafted.status, "pending")
@@ -505,18 +471,15 @@ layer(TestLayer)("Asks", (it) => {
     Effect.gen(function* () {
       yield* seeded
       const asks = yield* Asks
-      // English matches case-folded, so an exact spelling decides between "polish" and "Polish"…
       queued.push(draft("polish"))
       const exact = yield* asks.ask(drafter, "polish up nicely")
       assert.strictEqual(exact.status, "linked")
       assert.strictEqual(exact.linked?.id, EntryId.make(100000003))
-      // …and without one, neither is chosen, and the draft waits for the admin.
       queued.push(draft("POLISH"))
       const unsure = yield* asks.ask(drafter, "polishing up")
       assert.strictEqual(unsure.status, "pending")
       assert.strictEqual(unsure.linked, null)
 
-      // Japanese homographs are told apart by reading, katakana or hiragana.
       queued.push(draft("上手", [], { reading: "ウワテ" }))
       const uwateDraft = yield* asks.ask(yomi, "うわてっぽい")
       assert.strictEqual(uwateDraft.status, "linked")
@@ -524,7 +487,6 @@ layer(TestLayer)("Asks", (it) => {
       queued.push(draft("上手", [], { reading: "じょうず" }))
       const jouzuDraft = yield* asks.ask(yomi, "じょうずめ")
       assert.strictEqual(jouzuDraft.linked?.id, jouzu.id)
-      // A reading neither has is another word written the same: a draft, not a link.
       queued.push(draft("上手", [], { reading: "かみて" }))
       const kamite = yield* asks.ask(yomi, "かみてがわ")
       assert.strictEqual(kamite.status, "pending")

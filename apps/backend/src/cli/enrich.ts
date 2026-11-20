@@ -34,7 +34,6 @@ export const enrich = Command.make(
       return yield* Console.error(`No provider is configured for ${kind}. See .env.example.`)
     }
 
-    // Most frequent words first, skipping anything already enriched, so runs can be resumed.
     const ids = Option.isSome(entry)
       ? [EntryId.make(entry.value)]
       : yield* entriesByPriority(db, { limit, missing: kind, commonOnly, language })

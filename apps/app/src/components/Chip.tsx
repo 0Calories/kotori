@@ -3,7 +3,6 @@ import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Icon, type IconName } from "./Icon.tsx"
 import { Text } from "./Text.tsx"
 
-/** neutral: an outlined tag. primary: a green pill on tint. accent: a rose warning on blush. */
 export type Tone = "neutral" | "primary" | "accent"
 
 export const useTone = (tone: Tone) => {

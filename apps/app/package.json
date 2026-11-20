@@ -21,7 +21,6 @@
     "@expo/vector-icons": "^15.0.2",
     "@kotori/contracts": "workspace:*",
     "@kotori/language": "workspace:*",
-    "@kotori/srs": "workspace:*",
     "@sentry/react-native": "catalog:",
     "@tanstack/react-query": "^5.104.2",
     "effect": "catalog:",

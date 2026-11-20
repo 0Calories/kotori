@@ -8,7 +8,6 @@ import { Icon } from "./Icon.tsx"
 import { Text } from "./Text.tsx"
 import { CompareLink } from "./UsagePatterns.tsx"
 
-/** One caution: its kind as an overline, the teaching, and the word to compare with. */
 const CautionRow = ({ caution }: { readonly caution: EntryCaution }) => {
   const theme = useTheme()
   const { t } = useSession()
@@ -34,10 +33,6 @@ const CautionRow = ({ caution }: { readonly caution: EntryCaution }) => {
   )
 }
 
-/**
- * What would surprise a learner, on blush. The word's own sit under the hero headed "Cautions";
- * a sense's sit inside it, where the heading would only repeat the card above.
- */
 export const Cautions = ({
   cautions,
   headline

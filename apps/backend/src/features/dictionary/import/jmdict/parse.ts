@@ -1,15 +1,6 @@
 import { EntryId, type FormRecord, type SenseOrigin } from "@kotori/contracts"
 import type { ImportEntry, ImportSense, SeedExample, SeedFrequency } from "../seedFacts.ts"
 
-/**
- * A streaming-friendly parser for EDRDG's JMdict XML.
- *
- * JMDict's markup is small and regular, so entries are cut out with indexOf and
- * read with targeted regexes rather than a general XML parser. Tag codes are
- * declared as DTD entities (`<!ENTITY v1 "Ichidan verb">`); references like
- * `&v1;` are kept as their code and the declarations become the tag table.
- */
-
 export interface JMDictTag {
   readonly code: string
   readonly name: string
@@ -17,16 +8,15 @@ export interface JMDictTag {
 
 const XML_ENTITIES: Record<string, string> = { lt: "<", gt: ">", amp: "&", quot: '"', apos: "'" }
 
+// JMdict encodes tag codes as XML entity references (e.g. &v1;), so preserve non-standard entity names as bare codes.
 const decodeText = (raw: string) =>
   raw.replace(/&([\w-]+);/g, (whole, name: string) => XML_ENTITIES[name] ?? name).trim()
 
 const ENTITY_DECLARATION = /<!ENTITY\s+([\w-]+)\s+"([^"]*)">/g
 
-/** Tag codes and descriptions declared in the DTD. */
 export const parseTags = (xml: string): Array<JMDictTag> => {
   const end = xml.indexOf("]>")
   const dtd = end === -1 ? "" : xml.slice(0, end)
-  // A few codes are declared more than once; the first declaration wins.
   const tags = new Map<string, string>()
   for (const [, code, name] of dtd.matchAll(ENTITY_DECLARATION)) {
     if (!tags.has(code!)) tags.set(code!, name!)
@@ -44,13 +34,8 @@ const first = (block: string, name: string) => elements(block, name)[0]
 const blocks = (block: string, name: string): Array<string> =>
   Array.from(block.matchAll(new RegExp(`<${name}>([\\s\\S]*?)</${name}>`, "g")), (match) => match[1]!)
 
-// ---------------------------------------------------------------------------
-// Priority
-// ---------------------------------------------------------------------------
-
 const COMMON_MARKERS = new Set(["news1", "ichi1", "spec1", "spec2", "gai1"])
 
-/** ichi1 (the "Ichimango" basic vocabulary list) says more about everyday use than newspaper counts. */
 const MARKER_WEIGHT: Record<string, number> = {
   ichi1: 40,
   spec1: 25,
@@ -62,10 +47,7 @@ const MARKER_WEIGHT: Record<string, number> = {
   gai2: 5
 }
 
-/**
- * Folds a form's JMDict frequency markers into one score. nfXX ranks newspaper
- * frequency in bands of 500 words (nf01 = most frequent).
- */
+// JMdict nf01..nf48 markers rank newspaper frequency in 500-word bands from most frequent.
 export const priorityScore = (priorities: ReadonlyArray<string>) =>
   Math.round(
     priorities.reduce((score, marker) => {
@@ -77,11 +59,7 @@ export const priorityScore = (priorities: ReadonlyArray<string>) =>
 
 export const isCommon = (priorities: ReadonlyArray<string>) => priorities.some((marker) => COMMON_MARKERS.has(marker))
 
-// ---------------------------------------------------------------------------
-// Entries
-// ---------------------------------------------------------------------------
-
-/** Forms that exist for search only, or that learners shouldn't be shown first. Ateji (寿司) are often the standard spelling, so they stay. */
+// Keep ateji (e.g. 寿司) visible since it is often the standard spelling.
 const HIDDEN_KANJI = new Set(["sK", "rK", "iK", "oK", "io"])
 const HIDDEN_KANA = new Set(["sk", "ik", "ok"])
 
@@ -111,16 +89,12 @@ const parseKana = (block: string): FormRecord => {
   }
 }
 
-/**
- * A sense's `lsource` elements: the languages and original words a loan comes from, and whether
- * JMDict marks it wasei-eigo. A source that is only part of the loan (`ls_type="part"`, as "sub"
- * in サブリーダー) names no single word the loan stands for, though `ls_wasei="y"` still marks it.
- */
 const parseOrigins = (block: string) => {
   const origins: Array<SenseOrigin> = []
   let wasei = false
   for (const [, attributes = "", text = ""] of block.matchAll(/<lsource([^>]*?)(?:\/>|>([\s\S]*?)<\/lsource>)/g)) {
     if (/ls_wasei="y"/.test(attributes)) wasei = true
+    // Skip ls_type="part" partial-root origins (e.g. "sub" in サブリーダー) after recording ls_wasei="y".
     if (/ls_type="part"/.test(attributes)) continue
     const language = /xml:lang="([^"]+)"/.exec(attributes)?.[1] ?? "eng"
     const word = decodeText(text)
@@ -129,10 +103,6 @@ const parseOrigins = (block: string) => {
   return { origins, wasei }
 }
 
-/**
- * A sense's Tatoeba sentence pairs, as the JMdict_e_examp edition carries them: an `<example>`
- * with the Japanese sentence and its English translation (`ex_sent`, by `xml:lang`).
- */
 const parseExamples = (block: string): Array<SeedExample> =>
   blocks(block, "example").flatMap((example) => {
     const sentence = (language: string) =>
@@ -149,8 +119,7 @@ const parseSense = (block: string, previousPos: ReadonlyArray<string>): ImportSe
       text: decodeText(match[2]!),
       type: /g_type="([^"]+)"/.exec(match[1] ?? "")?.[1] ?? null
     })),
-    // "The part-of-speech of an earlier sense will apply to later senses unless
-    // there is a new part-of-speech indicated." (JMdict DTD)
+    // Per the JMdict DTD, a sense with no <pos> inherits the preceding sense's part of speech.
     pos: pos.length > 0 ? pos : previousPos,
     misc: elements(block, "misc"),
     fields: elements(block, "field"),
@@ -168,7 +137,6 @@ const parseSense = (block: string, previousPos: ReadonlyArray<string>): ImportSe
 const visible = (form: FormRecord) =>
   !form.tags.some((tag) => (form.kind === "kanji" ? HIDDEN_KANJI : HIDDEN_KANA).has(tag))
 
-/** Picks the forms to show first: kana for words usually written in kana, else the best kanji form. */
 export const chooseHeadword = (forms: ReadonlyArray<FormRecord>, senses: ReadonlyArray<ImportSense>) => {
   const kanji = forms.filter((form) => form.kind === "kanji")
   const kana = forms.filter((form) => form.kind === "kana")
@@ -184,10 +152,6 @@ export const chooseHeadword = (forms: ReadonlyArray<FormRecord>, senses: Readonl
   return { headword, reading }
 }
 
-/**
- * JMDict's frequency signals: whether a form is on the ichi1 list, the "Ichimango" basic
- * vocabulary. Japanese has no spoken counts yet (the subtitle counts are badly tokenised).
- */
 const frequencyOf = (forms: ReadonlyArray<FormRecord>): SeedFrequency => ({
   everyday: forms.some((form) => form.priorities.includes("ichi1")),
   spokenCount: null,
@@ -215,10 +179,6 @@ export const parseEntry = (block: string): ImportEntry => {
   }
 }
 
-/**
- * Cuts entries out of a JMdict document arriving in chunks, so it never has to be held whole:
- * each call takes the next chunk and returns the entries it completes, wherever chunks split.
- */
 export const entrySplitter = () => {
   let buffer = ""
   return (chunk: string): Array<ImportEntry> => {
@@ -231,13 +191,12 @@ export const entrySplitter = () => {
       start = buffer.indexOf("<entry>", end)
       end = start === -1 ? -1 : buffer.indexOf("</entry>", start)
     }
-    // Keep what may begin the next entry, which a chunk can end partway into ("<ent").
+    // Retain a trailing slice in case "<entry>" was split across chunk boundaries.
     buffer = start === -1 ? buffer.slice(-"<entry>".length) : buffer.slice(start)
     return entries
   }
 }
 
-/** Lazily yields every entry in a JMdict XML document. */
 export function* parseEntries(xml: string): Generator<ImportEntry> {
   let cursor = xml.indexOf("<entry>")
   while (cursor !== -1) {

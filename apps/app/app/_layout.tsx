@@ -30,23 +30,16 @@ import { sentryRedaction } from "../src/lib/sentryRedaction.ts"
 import { SessionProvider, useSession } from "../src/session/SessionProvider.tsx"
 import { ThemeProvider, useTheme } from "../src/theme/ThemeProvider.tsx"
 
-// Errors and traces go to Sentry (project `sparkwright/kotori-app`). The DSN only allows sending
-// events, and every shipped bundle contains it anyway. Development builds stay quiet unless
-// EXPO_PUBLIC_SENTRY_IN_DEV=on. On the web, `index.ts` has already taken Google's answer off the
-// address bar (`src/auth/googleCapture.web.ts`), so Sentry never records a navigation from a URL that carried it.
 Sentry.init({
   dsn: "https://545a5bb03825fe26735e49c85aa3fbff@o4511310091124736.ingest.us.sentry.io/4512368599564288",
   enabled: !__DEV__ || process.env.EXPO_PUBLIC_SENTRY_IN_DEV === "on",
   environment: __DEV__ ? "development" : "production",
-  // The commit for web builds (set by CI); native builds default to the app version and build number.
   release: process.env.EXPO_PUBLIC_SENTRY_RELEASE,
   tracesSampleRate: __DEV__ ? 1 : 0.2,
-  // Native replay of the moments before an error, with all text and images masked.
   replaysOnErrorSampleRate: 1,
   replaysSessionSampleRate: 0,
   integrations: [Sentry.mobileReplayIntegration()],
   enableNativeFramesTracking: !isRunningInExpoGo(),
-  // Blanks Google sign-in's return parameters in any URL Sentry records.
   beforeBreadcrumb: sentryRedaction.beforeBreadcrumb,
   beforeSend: sentryRedaction.beforeSend,
   beforeSendTransaction: sentryRedaction.beforeSendTransaction,
@@ -54,24 +47,21 @@ Sentry.init({
 })
 
 SplashScreen.preventAutoHideAsync().catch(() => {})
-// Pronunciation should play even when the phone's ring switch is on silent.
 setAudioModeAsync({ playsInSilentMode: true }).catch(() => {})
 
-// The Japanese faces are several megabytes each. Apps bundle them; the web shows
-// the page without waiting and swaps them in as they arrive.
+// Multi-megabyte CJK fonts swap in asynchronously on web instead of blocking first paint.
 const swap = (uri: number) => ({ uri, display: FontDisplay.SWAP })
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: retryOffline, refetchOnWindowFocus: false, staleTime: 30_000 } }
 })
 
-// expo-status-bar icon color. A binding, so oxlint does not treat the attribute as a view style.
+// Extracted so oxlint does not treat StatusBar's style prop as a React Native View style.
 const statusBarStyle = "dark" as const
 
 const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
   const theme = useTheme()
   const { status, t, retry } = useSession()
-  // Public legal pages (/privacy, /terms) need neither a session nor the API.
   const unguarded = isUnguardedRoute(usePathname())
   const ready = fontsLoaded && (unguarded || status !== "loading")
 
@@ -100,16 +90,13 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
     <>
       <StatusBar style={statusBarStyle} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.color.background } }}>
-        {/* Unguarded: public legal pages open without signing in. */}
         <Stack.Screen name="privacy" />
         <Stack.Screen name="terms" />
         <Stack.Protected guard={status === "ready"}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="entry/[id]" />
           <Stack.Screen name="sources/[id]" />
-          <Stack.Screen name="saved" />
           <Stack.Screen name="settings" options={{ presentation: "modal" }} />
-          <Stack.Screen name="review/session" options={{ presentation: "fullScreenModal", gestureEnabled: false }} />
         </Stack.Protected>
         <Stack.Protected guard={status === "onboarding"}>
           <Stack.Screen name="onboarding" options={{ animation: "fade" }} />

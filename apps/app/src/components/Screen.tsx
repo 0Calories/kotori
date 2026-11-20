@@ -12,7 +12,6 @@ import { useTheme } from "../theme/ThemeProvider.tsx"
 import { IconButton } from "./Button.tsx"
 import { Text } from "./Text.tsx"
 
-/** A scrolling page with safe-area padding, centred into a readable column on wide screens. */
 export const Screen = ({
   children,
   bottomInset = 110,
@@ -22,11 +21,9 @@ export const Screen = ({
   onScroll
 }: {
   readonly children: ReactNode
-  /** Room left for the floating tab bar. */
   readonly bottomInset?: number
   readonly refreshControl?: React.ReactElement<RefreshControlProps>
   readonly scroll?: boolean
-  /** A bar that stays put above the scrolling content, such as `Header`. */
   readonly header?: ReactNode
   readonly onScroll?: (y: number) => void
 }) => {
@@ -34,10 +31,7 @@ export const Screen = ({
   const insets = useSafeAreaInsets()
   const column = { width: "100%" as const, maxWidth: theme.maxWidth, alignSelf: "center" as const }
   const scrollerRef = useRef<HTMLElement | null>(null)
-  // Web only, on the DOM node. react-native-web's "on-drag" blurs on every
-  // scroll, including the ones iOS uses to follow the caret, and its pointer
-  // props do not see the gesture that actually scrolls. A vertical drag sets
-  // the flag; wheel, trackpad, and caret scrolls do not.
+  // Listen on the DOM node directly: react-native-web's responder/pointer props miss touch-scroll gestures, and its "on-drag" mode blurs on iOS Safari caret scrolls.
   useEffect(() => {
     const node = scrollerRef.current
     if (Platform.OS !== "web" || node === null) return
@@ -117,7 +111,6 @@ export const Screen = ({
   )
 }
 
-/** The top bar of a pushed screen: back on the left, an optional title, actions on the right. */
 export const Header = ({
   onBack,
   backIcon = "back",
@@ -158,7 +151,6 @@ export const Section = ({
 }: {
   readonly title?: string
   readonly children: ReactNode
-  /** A note or link on the right of the title. */
   readonly action?: ReactNode
 }) => {
   const theme = useTheme()

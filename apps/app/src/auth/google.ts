@@ -31,16 +31,9 @@ const openGoogle = async <A>(
   }
 }
 
-/**
- * On iOS and Android, Google's page opens in the system's sign-in sheet
- * (ASWebAuthenticationSession / Custom Tabs) and returns to `kotori://auth/callback`,
- * which `app/+native-intent.ts` keeps out of Expo Router on Android. The challenge
- * cookie from starting the flow is kept by the native transport until traded or cleared.
- */
 export const google = {
   start: (): Promise<GoogleReturn> => openGoogle(managedAuth.startGoogle, readReturn),
   link: (): Promise<GoogleLinkReturn> => openGoogle(managedAuth.linkGoogle, readLinkReturn),
-  /** Only the web comes back to a fresh page load; see `google.web.ts`. */
   returned: (): GoogleReturn => null,
   linkReturned: (): GoogleLinkReturn => null
 }

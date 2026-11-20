@@ -1,12 +1,5 @@
 import { captureReturnUrl, LINK_STORAGE_KEY, parsePendingLink } from "./googleReturn.ts"
 
-/**
- * Takes what Google or Managed Auth returned off the address bar as soon as the bundle starts,
- * and keeps it in memory for `google.web.ts`. `index.ts` loads this module before Expo Router,
- * which would otherwise copy the URL into its navigation state and write it back, and before
- * `Sentry.init`, so Sentry never records a navigation from a URL that carried it.
- */
-
 const hasPendingLink = () => {
   try {
     return parsePendingLink(window.sessionStorage.getItem(LINK_STORAGE_KEY)) !== null
@@ -28,14 +21,12 @@ const query = captured.query
 let hash = captured.hash
 
 export const capturedReturn = {
-  /** Removes `keys` from the captured query and returns what it held, if `predicate` accepts it. */
   takeQuery: (predicate: (params: URLSearchParams) => boolean, keys: ReadonlyArray<string>): URLSearchParams | null => {
     if (!predicate(query)) return null
     const params = new URLSearchParams(query)
     for (const key of keys) query.delete(key)
     return params
   },
-  /** The captured fragment, handed out once. */
   takeHash: (): URLSearchParams | null => {
     const taken = hash
     hash = null

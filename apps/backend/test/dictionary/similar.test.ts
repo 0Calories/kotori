@@ -16,12 +16,10 @@ describe("senseLabels", () => {
     expect(codes(shared.word)).toEqual(["male"])
     expect(shared.senses.map(codes)).toEqual([[], ["col"]])
 
-    // One archaic sense of two doesn't make the word archaic.
     const split = senseLabels([[label("arch"), label("pol")], [label("pol")], []])
     expect(codes(split.word)).toEqual([])
     expect(split.senses.map(codes)).toEqual([["arch", "pol"], ["pol"], []])
 
-    // A single sense speaks for the word.
     const single = senseLabels([[label("sl"), label("col")]])
     expect(codes(single.word)).toEqual(["sl", "col"])
     expect(single.senses).toEqual([[]])
@@ -45,15 +43,11 @@ describe("differenceOf", () => {
     [[], ["col"], "more_casual"],
     [[], ["vulg"], "more_casual"],
     [[], ["form"], "more_formal"],
-    // An unmarked word beside a marked one is the plain word, not the opposite register.
     [["sl"], [], "plain"],
     [["pol"], [], "plain"],
     [["hon"], [], "plain"],
-    // Still masculine, so not the plain word; dropping only the casual label says nothing more.
     [["col", "male"], ["male"], "similar"],
-    // 食う to 食べる: the word without the gendered label is the plain one.
     [["male"], [], "plain"],
-    // 食べる and 食う: JMDict marks 食う male, not casual.
     [[], ["male"], "masculine"],
     [["col"], ["col", "male"], "masculine"],
     [[], ["fem"], "feminine"],
@@ -62,7 +56,6 @@ describe("differenceOf", () => {
     [[], ["dated"], "older"],
     [["col"], ["col"], "similar"],
     [[], [], "similar"],
-    // Keigo outranks register: 召し上がる is the respectful form even beside a casual word.
     [["col"], ["hon"], "respectful"]
   ] as const)("%j against %j is %s", (own, other, expected) => {
     expect(differenceOf(own, other)).toBe(expected)

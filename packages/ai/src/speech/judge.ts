@@ -12,33 +12,18 @@ import { Effect } from "effect"
 import { SENTENCE_FORMALITY, FORMALITY_QUESTION } from "../coaching/formality.ts"
 import { type Jev, JevDeadline, type JevError } from "../providers/Jev.ts"
 
-/**
- * Jev's judgment of the casting signals of sentences nobody wrote for Kotori: those seeded from
- * Tatoeba and Wiktionary, whose sources give no register or speaker. Claude judges the same
- * signals for its own sentences as it writes them (`ExampleWriter`); a seeded sentence is
- * already written, so a typed judgment is all it needs, at a fraction of the cost.
- */
-
-/** A sentence to judge: the side that is voiced, and its translation to pin down what it means. */
 export interface SentenceToJudge {
   readonly sentence: string
   readonly translation: string
 }
 
 export interface JudgedCasting {
-  /** The most probable register, always set: a judged sentence can be voiced. */
   readonly formality: Formality
   readonly casting: Casting
 }
 
-/** Sentences per Jev request: five questions each, well inside a request's token limit. */
 export const CASTING_BATCH = 10
 
-/**
- * Below this probability a speaker signal is too unsure to steer casting and is dropped: a
- * wrong gender or a child's voice is the most audible miscast, and an unsure "humorous" would
- * send a plain line to a comic voice.
- */
 export const CASTING_CONFIDENCE = 0.6
 
 const WHO =
@@ -78,7 +63,6 @@ const QUESTIONS = {
   } satisfies Record<SentenceTone, string>)
 }
 
-/** One sentence's questions, keyed `s{index}_{signal}`, each carrying the sentence beside its wording. */
 const sentenceQuestions = (index: number, { sentence, translation }: SentenceToJudge): Record<string, Question> => ({
   [`s${index}_formality`]: {
     type: "score",
@@ -93,10 +77,7 @@ const sentenceQuestions = (index: number, { sentence, translation }: SentenceToJ
   )
 })
 
-/**
- * The most probable level of a score answer, not its expected score: casual-or-polite isn't
- * neutral. Null when the answer is missing or names no level, so the sentence stays unjudged.
- */
+/** Picks the highest-probability level rather than `answer.score` so a bimodal casual-or-polite split does not average to neutral. */
 const levelOf = (answer: ScoreResponse | undefined): Formality | null => {
   if (answer?.type !== "score") return null
   const levels = Formality.literals
@@ -107,7 +88,6 @@ const levelOf = (answer: ScoreResponse | undefined): Formality | null => {
   return Number.isInteger(index) ? levels[Math.min(Math.max(index, 0), levels.length - 1)]! : null
 }
 
-/** The choice when it is one of `allowed` and sure enough, else null. */
 const sureChoice = <A extends string>(answer: ChoiceResponse | undefined, allowed: ReadonlyArray<A>): A | null => {
   if (answer === undefined || !allowed.includes(answer.choice as A)) return null
   const probability = (answer.probabilities as Readonly<Record<string, number>>)[answer.choice] ?? answer.confidence
@@ -119,7 +99,6 @@ const judgeBatch = (jev: Jev["Service"], language: Language, batch: ReadonlyArra
     .ask(
       { sentence_language: language === "ja" ? "Japanese" : "English" },
       Object.assign({}, ...batch.map((sentence, index) => sentenceQuestions(index, sentence))),
-      // The worker's audio job asks this; nobody is waiting.
       { timeout: JevDeadline.bulk }
     )
     .pipe(
@@ -144,12 +123,6 @@ const judgeBatch = (jev: Jev["Service"], language: Language, batch: ReadonlyArra
       })
     )
 
-/**
- * Each sentence's formality and casting, in order, judged by Jev in requests of `CASTING_BATCH`
- * sentences (one request for a typical entry). Fails as a whole on any Jev error: an unjudged
- * sentence keeps no formality, and is not voiced. A sentence whose formality answer is missing or
- * malformed is null, unjudged, and the rest are judged.
- */
 export const judgeCasting = (
   jev: Jev["Service"],
   language: Language,

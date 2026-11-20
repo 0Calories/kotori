@@ -3,21 +3,13 @@ import { type LayoutChangeEvent, View } from "react-native"
 import Svg, { Path } from "react-native-svg"
 import { baseline, type Face } from "../theme/tokens.ts"
 
-/**
- * The mistake squiggle copies what the mock's browser draws for
- * `text-decoration: underline wavy 1.5px` with a 6px offset, measured from its
- * rendering: one cubic curve per 11px wave, its control points 7.5px either
- * side of the axis (a swing of about 2.2px), stroked at 2px (the browser
- * rounds the thickness up). The axis sits 9.5px under the baseline.
- */
+// Cubic-bezier approximation of CSS `underline wavy 1.5px` at 6px offset (2.2px amplitude, 9.5px below baseline).
 const WAVELENGTH = 11
 const CONTROL = 7.5
 const STROKE = 2
-/** Room for the swing and the stroke above and below the axis. */
 const HEIGHT = 8
 const DROP = 9.5
 
-/** Starts on the axis heading down, as the browser's does, so every line's squiggle begins the same way. */
 const wave = (width: number) => {
   let path = `M0 ${HEIGHT / 2}`
   for (let x = 0; x < width; x += WAVELENGTH) {
@@ -33,31 +25,22 @@ export interface Box {
   readonly height: number
 }
 
-/** A laid-out stretch of text inside a mistake: a character, a word, or the space after a word. */
 export interface Piece {
   readonly box: Box
-  /** Which mistake it belongs to. */
   readonly mark: number
-  /** Spaces carry the line between words, but never start or end it. */
   readonly space: boolean
 }
 
 interface Run {
   readonly x: number
   readonly width: number
-  /** The bottom of the line box the run sits on. */
   readonly bottom: number
 }
 
-/**
- * Joins each mistake's pieces into one run per line, so the wave flows
- * unbroken across characters and words and starts afresh on a new line, as
- * the browser's does. A piece taller than a line (a word too long for the
- * width) is treated as one run per line it fills.
- */
 const runs = (pieces: ReadonlyArray<Piece>, lineHeight: number): Array<Run> => {
   const lines = new Map<string, Array<{ readonly x: number; readonly right: number; readonly space: boolean }>>()
   for (const { box, mark, space } of pieces) {
+    // Split pieces taller than one line so a wrapped overlong word gets a squiggle on each line.
     const count = Math.max(1, Math.round(box.height / lineHeight))
     for (let line = 0; line < count; line++) {
       const bottom = Math.round(box.y + box.height - (count - 1 - line) * lineHeight)
@@ -74,10 +57,6 @@ const runs = (pieces: ReadonlyArray<Piece>, lineHeight: number): Array<Run> => {
   })
 }
 
-/**
- * Wavy lines under mistakes, drawn behind the text. Place it first inside the
- * container the pieces were measured in.
- */
 export const Squiggles = ({
   pieces,
   face,
@@ -116,7 +95,6 @@ export const Squiggles = ({
   )
 }
 
-/** Remembers where each measured view landed, keyed by the caller. */
 export const useBoxes = () => {
   const [boxes, setBoxes] = useState<ReadonlyMap<string, Box>>(new Map())
   const measure = useCallback(
@@ -140,11 +118,6 @@ export interface Range {
   readonly end: number
 }
 
-/**
- * Where each excerpt sits in the text. A repeated excerpt takes its next
- * unclaimed occurrence; ranges that overlap or touch merge, so they read as
- * one squiggle. Excerpts that aren't in the text are skipped.
- */
 export const mistakeRanges = (text: string, excerpts: ReadonlyArray<string>): Array<Range> => {
   const found: Array<Range> = []
   for (const excerpt of excerpts) {

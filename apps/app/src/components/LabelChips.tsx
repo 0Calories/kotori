@@ -7,13 +7,11 @@ import { Chip } from "./Chip.tsx"
 import { Icon } from "./Icon.tsx"
 import { Text } from "./Text.tsx"
 
-/** A chip's colours by how loudly it should speak: `quiet` outlined, `info` green, `warning` amber, `avoid` rose. */
 const useSeverityColors = (severity: LabelSeverity, onTint: boolean) => {
   const { color } = useTheme()
   return (
     {
       quiet: { fg: color.textMuted, bg: "transparent", ring: color.border },
-      // On the hero's tint a green chip would vanish, so it sits on white there.
       info: onTint
         ? { fg: color.primaryDeep, bg: color.surface, ring: color.surface }
         : { fg: color.primaryDeep, bg: color.primaryTint, ring: color.primaryTint },
@@ -23,10 +21,6 @@ const useSeverityColors = (severity: LabelSeverity, onTint: boolean) => {
   )[severity]
 }
 
-/**
- * A label chip that doesn't explain itself, for a place that is a link as a whole, such as a
- * search result: coloured by severity, Kotori's carrying the ✦ mark.
- */
 export const LabelTag = ({ item }: { readonly item: ChipItem }) => {
   const colors = useSeverityColors(item.severity, false)
   return (
@@ -50,10 +44,6 @@ export const LabelTag = ({ item }: { readonly item: ChipItem }) => {
   )
 }
 
-/**
- * A chip coloured by how loudly it should speak (`useSeverityColors`). Kotori's carry the ✦ mark.
- * Pressing it (or hovering, on the web) opens its explanation under the row.
- */
 const SeverityChip = ({
   item,
   onTint,
@@ -100,10 +90,6 @@ const SeverityChip = ({
 
 const NO_PLAIN: ReadonlyArray<string> = []
 
-/**
- * A row of chips that explain themselves, one at a time, in a line under the row. Plain chips
- * (parts of speech, subject fields) lead in the neutral outline and explain nothing.
- */
 export const ChipRow = ({
   items,
   plain = NO_PLAIN,
@@ -111,7 +97,6 @@ export const ChipRow = ({
 }: {
   readonly items: ReadonlyArray<ChipItem>
   readonly plain?: ReadonlyArray<string>
-  /** On the hero's green tint rather than a white card. */
   readonly onTint?: boolean
 }) => {
   const theme = useTheme()

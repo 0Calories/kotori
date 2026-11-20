@@ -1,14 +1,6 @@
 import createIconSet from "@expo/vector-icons/createIconSet"
 
-/**
- * Material Symbols Rounded (Apache 2.0, see assets/fonts), weight 400 at the
- * 24px optical size, outlined and filled. The fonts are subsets holding only
- * the glyphs below. To add one, add its codepoint here and download both styles again from
- * Google Fonts (`css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,{0|1},0&icon_names=…`,
- * every name below in alphabetical order; curl's default user agent is served TrueType). A name
- * missing from the fonts draws as a crossed box, so check the new files hold its codepoint
- * (`fc-query --format='%{charset}' MaterialSymbolsRounded.ttf`).
- */
+// Subsetted Material Symbols Rounded (opsz 24, wght 400, FILL 0/1); adding a glyph requires re-downloading both TTFs with alphabetical icon_names.
 const glyphs = {
   add: 57669,
   arrow_back: 58820,
@@ -26,17 +18,12 @@ const glyphs = {
   close: 57676,
   content_copy: 57677,
   delete: 59506,
-  done_all: 59511,
-  eco: 59957,
   edit: 58313,
   error: 57344,
-  expand_less: 58830,
-  expand_more: 58831,
   forum: 57535,
   info: 59534,
   ios_share: 59064,
   link: 57687,
-  local_fire_department: 61269,
   logout: 59834,
   mail: 57688,
   menu_book: 59929,
@@ -70,10 +57,8 @@ const Filled = createIconSet(
   require("../../assets/fonts/MaterialSymbolsRounded-Filled.ttf")
 )
 
-/** Both icon fonts, for loading alongside the text faces before the app shows. */
 export const iconFonts = { ...Outlined.font, ...Filled.font }
 
-/** A decorative glyph; the control around it carries the accessible label. */
 export const Icon = ({
   name,
   size = 22,
@@ -83,7 +68,6 @@ export const Icon = ({
   readonly name: IconName
   readonly size?: number
   readonly color?: string
-  /** The filled style, for selected tabs and toggled states. */
   readonly filled?: boolean
 }) => {
   const Glyph = filled ? Filled : Outlined

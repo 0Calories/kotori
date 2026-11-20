@@ -16,59 +16,36 @@ import {
 import { type JudgedCasting, judgeCasting, type SentenceToJudge } from "./judge.ts"
 import { CASTS, type Casts, headwordVoices, type Voice } from "./voices.ts"
 
-/** The curated voices in use; defaults to the checked-in casts, overridden in tests. */
 export const VoiceCasts = Context.Reference<Casts>("@kotori/ai/VoiceCasts", {
   defaultValue: () => CASTS
 })
 
-/** An example sentence as casting reads it: both sides, its formality and its speaker signals. */
 export interface CastingSentence extends SentenceSignals {
-  /** For logs. */
   readonly id: number
   readonly ja: string
   readonly en: string
 }
 
-/** The chosen reader of one clip, and how the choice was made: scoring alone, or Jev breaking a tie. */
 export interface CastingDecision {
   readonly voice: Voice
   readonly castBy: "rules" | "jev"
   readonly score: number
 }
 
-/**
- * Speech for Kotori's curated voices: who reads what, and the synthesis itself. Stateless; the
- * caller keeps the clips, pays attention to the budget and decides what still needs voicing.
- */
 export class Pronouncer extends Context.Service<
   Pronouncer,
   {
     readonly configured: boolean
-    /** The synthesis model; clips are told apart by it, so a new model voices them anew. */
     readonly model: string
-    /** The language's dictionary voices, in casting order: who reads headwords. */
     headwordVoices(language: Language): ReadonlyArray<Voice>
-    /** Who reads text when nobody is chosen: the language's first dictionary voice. */
     defaultVoice(language: Language): Effect.Effect<Voice, TtsError>
-    /** `text` read aloud by `voice`, as MP3 bytes. */
     synthesize(text: string, language: Language, voice: Voice): Effect.Effect<Uint8Array, TtsError>
-    /**
-     * The voice that reads one side of an example. Scoring decides alone when it can; Jev breaks
-     * ties when it is configured, and any Jev problem falls back to the top score. None when the
-     * language has nobody cast who could read it.
-     */
     cast(
       sentence: CastingSentence,
       sense: SenseSignals,
       language: Language
     ): Effect.Effect<Option.Option<CastingDecision>>
-    /** Whether `judge` can run: Jev is configured. Without it, seeded sentences stay unvoiced. */
     readonly judges: boolean
-    /**
-     * The formality and speaker signals of sentences nobody judged as they were written (those
-     * seeded from Tatoeba and Wiktionary), in `language`, all in one or a few Jev requests. Null
-     * for a sentence Jev gave no usable formality.
-     */
     judge(
       language: Language,
       sentences: ReadonlyArray<SentenceToJudge>
@@ -102,8 +79,7 @@ export class Pronouncer extends Context.Service<
         language: Language
       ) {
         const brief: CastingBrief = briefFor({ sentence, sense })
-        // A brief may ask for a variety nobody is cast in yet (see docs/voice-casting.md);
-        // the standard voices then read the sentence rather than nobody.
+        // Some varieties in VARIETIES have no cast voice yet, so fall back to the language's default variety.
         let ranked: ReadonlyArray<RankedVoice> = rank(brief, language, casts)
         if (ranked.length === 0) ranked = rank({ ...brief, variety: null }, language, casts)
         const top = ranked[0]

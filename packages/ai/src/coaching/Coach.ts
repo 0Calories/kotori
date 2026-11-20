@@ -39,7 +39,6 @@ export const HowToSayOutput = Schema.Struct({
 })
 export type HowToSayOutput = typeof HowToSayOutput.Type
 
-/** Drops furigana that doesn't spell out the sentence it annotates, rather than show wrong readings. */
 const checkedFurigana = (text: string, furigana: string | null) =>
   furigana !== null && furiganaToText(furigana) === text ? furigana : null
 
@@ -61,7 +60,6 @@ export class Coach extends Context.Service<
           system: naturalnessSystem(learner),
           prompt: naturalnessPrompt(request),
           effort: "medium",
-          // A learner is waiting on the answer.
           timeout: ClaudeDeadline.interactive
         })
         return {

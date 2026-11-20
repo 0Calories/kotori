@@ -1,7 +1,6 @@
 import { assert, describe, it } from "vitest"
 import { applySetCookie, cookieHeader, dropChallenges, hasSessionToken, splitSetCookie } from "../src/auth/cookies.ts"
 
-// React Native joins repeated Set-Cookie headers with ", ", as iOS's URL loading system does.
 const signIn = [
   "__Secure-neonauth.session_token=abc.def%2B; Path=/; Expires=Thu, 29 Oct 2026 12:00:00 GMT; HttpOnly; Secure; SameSite=None",
   "__Secure-neonauth.session_data=eyJzZXNzaW9uIjp7fX0; Path=/; Max-Age=300; HttpOnly; Secure",
@@ -21,11 +20,9 @@ describe("the native session cookie", () => {
     assert.deepStrictEqual(stored, { "__Secure-neonauth.session_token": "abc.def%2B" })
     assert.strictEqual(cookieHeader(stored), "__Secure-neonauth.session_token=abc.def%2B")
 
-    // Unrelated responses change nothing (same object, so nothing is written to storage).
     assert.strictEqual(applySetCookie(stored, null, now), stored)
     assert.strictEqual(applySetCookie(stored, signIn, now), stored)
 
-    // Sign-out clears it with Max-Age=0, or an Expires in the past.
     const cleared = "__Secure-neonauth.session_token=; Path=/; Max-Age=0; HttpOnly; Secure"
     assert.deepStrictEqual(applySetCookie(stored, cleared, now), {})
     const expired = "__Secure-neonauth.session_token=old; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT"
@@ -48,7 +45,6 @@ describe("the native session cookie", () => {
       now
     )
     assert.deepStrictEqual(started, { "__Secure-neon-auth.session_challenge": "chal" })
-    // A challenge alone isn't being signed in.
     assert.isFalse(hasSessionToken(started))
 
     const finished = applySetCookie(
@@ -71,7 +67,6 @@ describe("the native session cookie", () => {
     }
     const cleaned = dropChallenges(withBoth)
     assert.deepStrictEqual(cleaned, { "__Secure-neon-auth.session_token": "tok" })
-    // Nothing to drop returns the same reference, so storage isn't rewritten.
     assert.strictEqual(dropChallenges(cleaned), cleaned)
   })
 })

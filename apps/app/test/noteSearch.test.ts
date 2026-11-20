@@ -3,37 +3,35 @@ import { describe, expect, it } from "vitest"
 import { searchNotes } from "../src/lib/noteSearch.ts"
 import { savedWord } from "./notes.fixtures.ts"
 
-/** A saved word with one sense per "; " or "、"-separated meaning. */
 const word = (
   id: string,
   headword: string,
   reading: string,
-  meaning: string,
+  glosses: string,
   language?: "ja" | "en",
-  usageNote: string | null = null
+  takeaway: string | null = null
 ): Note =>
   savedWord(id, {
     headword,
     reading,
     ...(language === undefined ? {} : { language }),
-    senses: meaning
+    senses: glosses
       .split(/\s*[;、]\s*/)
-      .map((gloss, index) => ({ glosses: [gloss], note: index === 0 ? usageNote : null }))
+      .map((gloss, index) => ({ glosses: [gloss], takeaway: index === 0 ? takeaway : null }))
   })
 
-/** An expression the dictionary holds, saved like any word: headword, its kana, one meaning. */
 const expression = (
   id: string,
   headword: string,
   reading: string | null,
-  meaning: string,
-  usageNote: string | null = null
+  gloss: string,
+  takeaway: string | null = null
 ): Note =>
   savedWord(id, {
     headword,
     reading: reading ?? "",
     language: /[\u3040-\u30ff\u4e00-\u9fff]/u.test(headword) ? "ja" : "en",
-    senses: [{ glosses: [meaning], note: usageNote }]
+    senses: [{ glosses: [gloss], takeaway }]
   })
 
 const taberu = word("taberu", "食べる", "たべる", "to eat; to live on (e.g. a salary)")
@@ -141,18 +139,5 @@ describe("searchNotes", () => {
 
   it("finds nothing for what isn't saved", () => {
     expect(searchNotes(notes, "giraffe")).toEqual({ match: "none", notes: [] })
-  })
-
-  it("searches only the senses a note shows, not the ones the learner hid", () => {
-    const kasa = savedWord("kasa", {
-      headword: "傘",
-      reading: "かさ",
-      senses: [{ glosses: ["umbrella"] }, { glosses: ["parasol"], note: "For the sun.", shown: false }]
-    })
-    expect(searchNotes([kasa], "umbrella").notes.map((n) => n.id)).toEqual(["kasa"])
-    expect(searchNotes([kasa], "parasol").notes).toEqual([])
-    expect(searchNotes([kasa], "sun").notes).toEqual([])
-    // The word itself is found whatever it shows.
-    expect(searchNotes([kasa], "かさ").notes.map((n) => n.id)).toEqual(["kasa"])
   })
 })

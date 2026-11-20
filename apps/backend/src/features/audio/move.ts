@@ -7,18 +7,12 @@ import { Bucket } from "../../integrations/storage/Bucket.ts"
 import { CLIP_HEADERS, clipObject } from "./AudioStore.ts"
 
 export interface MoveClipsOptions {
-  /** Rows read from `audio_files` at a time. */
   readonly batch: number
-  /** Clips uploaded at once. */
   readonly concurrency: number
   readonly onProgress?: (progress: { readonly moved: number; readonly bytes: number }) => Effect.Effect<void>
 }
 
-/**
- * Whether the bucket holds exactly `bytes` for `key`: the size it reports, and its entity tag,
- * which most providers make the MD5 of the bytes. Where it isn't one, the object is read back
- * and compared, which costs its size in egress.
- */
+// Single-part S3 uploads usually set ETag to the MD5 hex digest; fall back to a full GET only when ETag differs.
 const holds = Effect.fn("audio.holds")(function* (key: string, bytes: Uint8Array) {
   const bucket = yield* Bucket
   const head = yield* bucket.head(clipObject(key))
@@ -28,12 +22,6 @@ const holds = Effect.fn("audio.holds")(function* (key: string, bytes: Uint8Array
   return Option.isSome(stored) && Buffer.from(stored.value).equals(Buffer.from(bytes))
 })
 
-/**
- * Moves the clips in `audio_files` to the bucket: each is uploaded, checked (`holds`), and only
- * then deleted from the table; a clip that doesn't check out stays, and is reported. When the
- * table is empty it is truncated, which hands its files back at once (deleted rows would only
- * free space for reuse). Resumable: a clip uploaded but not yet deleted is uploaded again.
- */
 export const moveClipsToBucket = Effect.fn("audio.moveClipsToBucket")(function* (
   db: DatabaseShape,
   options: MoveClipsOptions
@@ -71,6 +59,7 @@ export const moveClipsToBucket = Effect.fn("audio.moveClipsToBucket")(function* 
   }
   const [left] = yield* db.select({ n: count() }).from(audioFiles).pipe(Effect.orDie)
   const truncated = (left?.n ?? 0) === 0
+  // TRUNCATE reclaims table disk pages immediately, whereas DELETE only marks tuples reusable.
   if (truncated) yield* db.execute(sql`TRUNCATE ${audioFiles}`).pipe(Effect.orDie)
   return { moved, bytes, unverified, truncated }
 })

@@ -9,7 +9,6 @@ import { Bucket } from "../integrations/storage/Bucket.ts"
 
 const MB = 1024 * 1024
 
-/** A clean exit code would let a script carry on as if the step had finished. */
 const failExitCode = Effect.sync(() => void (process.exitCode = 1))
 const mb = (bytes: number) => `${(bytes / MB).toFixed(1)} MB`
 
@@ -42,7 +41,6 @@ const lists = Command.make(
   )
 )
 
-/** The bucket `KOTORI_AUDIO_BUCKET` names, which `kotori storage audio` requires. */
 const ConfiguredBucket = Layer.unwrap(Effect.map(Config.String("KOTORI_AUDIO_BUCKET"), Bucket.layer)).pipe(
   Layer.provide(NodeHttpClient.layerUndici)
 )

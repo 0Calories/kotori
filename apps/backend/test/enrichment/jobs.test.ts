@@ -16,7 +16,6 @@ import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
 const at = (ms: number) => new Date(ms)
 
-/** Jobs reference dictionary entries, so the queue tests need a few to point at. */
 const stubEntries = (ids: ReadonlyArray<number>) =>
   Effect.flatMap(Database, (db) =>
     insertEntries(
@@ -45,7 +44,6 @@ layer(DatabaseMemory)("the job queue", (it) => {
       const claimed = Option.getOrThrow(yield* claimJob(db, ["examples"], at(1000)))
       yield* releaseJob(db, claimed.id, at(1500))
 
-      // Released back to the queue: its old worker can no longer complete or fail it.
       yield* completeJob(db, claimed.id, at(2000))
       yield* failJob(db, claimed.id, "late", at(9000), at(2000))
       assert.strictEqual((yield* jobStatusFor(db, id)).get("examples"), "queued")
@@ -71,7 +69,6 @@ layer(DatabaseMemory)("the job queue", (it) => {
       const second = yield* claimJob(db, ["examples"], at(3000))
       assert.strictEqual(Option.getOrThrow(second).entryId, 1)
 
-      // The failed job becomes runnable again once its retry time passes.
       assert.isTrue(Option.isNone(yield* claimJob(db, ["examples"], at(4000))))
       const retried = yield* claimJob(db, ["examples"], at(6000))
       assert.strictEqual(Option.getOrThrow(retried).attempts, 2)
@@ -111,13 +108,11 @@ layer(DatabaseMemory)("the job queue", (it) => {
       }
       assert.strictEqual((yield* jobStatusFor(db, id)).get("examples"), "failed")
 
-      // A soon refill leaves the failed job alone; once the cool-off passes, it queues again.
       yield* refillJob(db, "examples", id, at(2500), 0, at(4000))
       assert.strictEqual((yield* jobStatusFor(db, id)).get("examples"), "failed")
       yield* refillJob(db, "examples", id, at(3500), 0, at(4000))
       assert.strictEqual((yield* jobStatusFor(db, id)).get("examples"), "queued")
 
-      // Failing all three attempts again leaves a future retry timestamp, which enqueueJob clears.
       for (const tick of [4000, 5000, 6000]) {
         const claimed = Option.getOrThrow(yield* claimJob(db, ["examples"], at(tick)))
         yield* failJob(db, claimed.id, "quota", at(tick === 6000 ? 240_000 : tick + 500), at(tick))

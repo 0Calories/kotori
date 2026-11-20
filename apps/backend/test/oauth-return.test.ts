@@ -10,7 +10,6 @@ const Route = OAuthReturnRoute.pipe(
   Layer.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({ KOTORI_WEB_ORIGINS: WEB.join(",") })))
 )
 
-/** GETs the route as a browser coming back from Managed Auth would, and returns status and Location. */
 const get = (query: string) =>
   Effect.acquireUseRelease(
     Effect.sync(() => HttpRouter.toWebHandler(Route, { disableLogger: true })),

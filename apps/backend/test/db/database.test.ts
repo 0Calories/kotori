@@ -14,13 +14,10 @@ import { migrateDatabase, migrationsFolder } from "../../src/db/Migrate.ts"
 import { relations } from "../../src/db/relations.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
-// The Drizzle instance and the migrator over PGlite: the same code paths production
-// uses, minus the network.
 layer(DatabaseMemory)("Database", (it) => {
   it.effect("answers queries through Drizzle on the shared client", () =>
     Effect.gen(function* () {
       const db = yield* Database
-      // `execute` is untyped on the drivers' common base; typed access goes through tables.
       const result = (yield* db.execute(sql`SELECT 1 + 1 AS two`)) as { readonly rows: ReadonlyArray<unknown> }
       assert.deepStrictEqual(result.rows, [{ two: 2 }])
     })
@@ -45,7 +42,6 @@ layer(DatabaseMemory)("Database", (it) => {
   )
 })
 
-// An empty PGlite that nothing has migrated yet, to stand in for a database from before the rebuild.
 const Unmigrated = Layer.effect(Database, PgliteDrizzle.makeWithDefaults({ relations })).pipe(
   Layer.provideMerge(PgliteClient.layer({ dataDir: "memory://" }))
 )
@@ -54,7 +50,6 @@ layer(Unmigrated)("Database on the legacy schema", (it) => {
   it.effect("refuses to migrate and changes nothing", () =>
     Effect.gen(function* () {
       const sqlClient = yield* SqlClient.SqlClient
-      // What the Effect SQL migrator and the first hand-written migration left behind.
       yield* sqlClient`CREATE TABLE effect_sql_migrations (migration_id integer PRIMARY KEY, name text NOT NULL)`
       yield* sqlClient`CREATE TABLE entries (id integer PRIMARY KEY, headword text NOT NULL)`
 
@@ -70,9 +65,7 @@ layer(Unmigrated)("Database on the legacy schema", (it) => {
   )
 })
 
-// The Postgres driver's encoding, which PGlite doesn't share: `@effect/sql-pg` can't bind an
-// empty JS array, and the seeder writes plenty (forms without tags, senses without misc codes).
-// The client is never reached; `toSQL` only renders the statement and its parameters.
+// `@effect/sql-pg` cannot bind empty JS arrays (unlike PGlite), and `.toSQL()` exercises `pgCodecs` without connecting.
 describe("Database on Postgres", () => {
   it.effect("sends text arrays as array literals, empty ones included", () =>
     Effect.gen(function* () {

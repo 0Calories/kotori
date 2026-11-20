@@ -35,7 +35,6 @@ interface Order {
   towardFirst: number
 }
 
-/** One question's results: how often it was right, and how its Choices held up with the options reversed. */
 interface Row {
   readonly tally: Tally
   readonly order: Order
@@ -84,7 +83,6 @@ const two = (x: number | null) => (x === null ? "  — " : x.toFixed(2))
 
 const report = (results: Results) =>
   Effect.gen(function* () {
-    // The passes' evals report their own scores (`evalPasses.ts`); only the asks fill the table.
     if (results.rows.size > 0) yield* table(results)
     if (results.failures.length > 0) {
       yield* Console.log("\nFailed requests:")
@@ -132,7 +130,6 @@ const summary = (results: Results) =>
     ])
   )
 
-/** The recorded answers of a run, for offline reinterpretation with --from. */
 const Recording = Schema.Struct({
   kind: Schema.String,
   model: Schema.String,
@@ -142,7 +139,6 @@ const Recording = Schema.Struct({
 
 type Answers = Readonly<Record<string, unknown>>
 
-/** What each eval measures, and the version of the questions it asks. */
 const KINDS = {
   asks: {
     version: TRIAGE_VERSION,
@@ -165,7 +161,7 @@ const KINDS = {
     about: "Claude's cautions on dictionary words, both directions"
   },
   drafts: {
-    // The Lexicographer's prompt carries no version; recordings say only which model ran.
+    // Lexicographer prompts are unversioned.
     version: 0,
     model: "claude",
     about: "the cautions in Claude's Ask Kotori drafts"
@@ -174,12 +170,6 @@ const KINDS = {
 type Kind = keyof typeof KINDS
 const kinds = Object.keys(KINDS) as ReadonlyArray<Kind>
 
-/**
- * Runs the current questions against their golden set and reports accuracy, confidence and
- * option-order agreement, with every request built by the production builders. Costs inference:
- * run deliberately, not in CI. With --record, the raw answers are written as JSON so
- * interpretation changes can be evaluated offline against the same answers (--from).
- */
 export const evaluate = Command.make(
   "eval",
   {
@@ -219,7 +209,6 @@ export const evaluate = Command.make(
     const recorded: Record<string, Answers> = {}
     let inputTokens = 0
 
-    /** Fresh answers from Jev, or the recorded ones; a failed request is reported and skipped. */
     const answersFor = (
       key: string,
       state: EntryType,
@@ -227,7 +216,7 @@ export const evaluate = Command.make(
     ): Effect.Effect<Answers | undefined> => {
       const answers: Effect.Effect<Answers | undefined, JevError> =
         recording === null
-          ? // An offline run: give Jev the bulk budget even for questions learners wait on.
+          ? // Offline evals use the bulk timeout even for interactive triage questions.
             jev.ask(state, { ...questions }, { timeout: JevDeadline.bulk }).pipe(
               Sentry.withScope((scope) => scope.setConversationId(key)),
               Effect.map((result) => {
@@ -251,7 +240,6 @@ export const evaluate = Command.make(
       )
     }
 
-    /** Claude's result (fresh, or recorded), kept for --record; a failed request is reported and skipped. */
     const remember = <A extends Answers>(key: string, run: Effect.Effect<A, unknown>): Effect.Effect<A | undefined> => {
       const result: Effect.Effect<A | undefined, unknown> =
         recording === null ? run : Effect.succeed(recording.answers[key] as A | undefined)
@@ -278,13 +266,11 @@ export const evaluate = Command.make(
       asks: () =>
         Effect.gen(function* () {
           yield* Console.log(`Triaging ${GOLDEN_ASKS.length} golden asks with ${model}, triage version ${version}…`)
-          // Jev sees what production gives it: the query normalized, and only if the free checks let it by.
           const turnedAway: Array<string> = []
           const reaching = GOLDEN_ASKS.flatMap((golden) => {
             const query = normalizeAsk(golden.query, golden.language)
             const refusal = turnAway(query, golden.language)
             if (refusal === null) return [{ ...golden, query }]
-            // A lookup turned away is a real question lost for free; anything else was spared a Jev call.
             turnedAway.push(
               `${golden.expect === "lookup" ? "LOST " : ""}${golden.language} "${golden.query}": ${refusal}, wanted ${golden.expect}`
             )

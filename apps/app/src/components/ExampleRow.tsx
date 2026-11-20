@@ -8,20 +8,13 @@ import { Icon } from "./Icon.tsx"
 import { MarkedText } from "./MarkedText.tsx"
 import { Text } from "./Text.tsx"
 
-/**
- * One example sentence, led and spoken in the word's language, the one being learned,
- * with the learner's own as its translation and note. A sentence Kotori didn't write names
- * where it is from (Tatoeba, Wiktionary).
- */
 export const ExampleRow = ({
   example,
   language,
   mark
 }: {
   readonly example: Example
-  /** The language of the entry the sentence illustrates. */
   readonly language: Language
-  /** The word as it appears in the sentence, to mark it. */
   readonly mark?: string | undefined
 }) => {
   const theme = useTheme()
@@ -63,7 +56,6 @@ export const ExampleRow = ({
           </>
         )}
         {note ? (
-          // Set apart from the translation above it, which it otherwise reads like.
           <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 5, marginTop: 4 }}>
             <View style={{ paddingTop: 1 }}>
               <Icon name="info" size={14} color={theme.color.textFaint} />

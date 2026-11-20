@@ -18,30 +18,20 @@ export class ClaudeError extends Schema.TaggedError<ClaudeError>()("ClaudeError"
 export type Effort = "low" | "medium" | "high"
 
 export interface GenerateOptions<S extends Schema.Top> {
-  /** The shape Claude must answer in; enforced with structured outputs and decoded with Schema. */
   readonly schema: S
   readonly system: string
   readonly prompt: string
   readonly effort?: Effort | undefined
   readonly maxTokens?: number | undefined
-  /**
-   * How long the whole call may take, the SDK's retries included, before it fails as `timed_out`.
-   * Defaults to `ClaudeDeadline.interactive`; offline passes nobody is waiting on pass `bulk`.
-   */
   readonly timeout?: Duration.Duration | undefined
 }
 
-/** Whole-call deadlines for `generate`: a learner waits on an `interactive` call, nobody on a `bulk` one. */
 export const ClaudeDeadline = {
   interactive: Duration.seconds(90),
   bulk: Duration.minutes(5)
 } as const
 
-/**
- * How long one attempt may wait for the response to start (the SDK's default is 10 minutes). The
- * SDK arms it around `fetch` only, so a stream that has begun is bounded by the call's deadline
- * instead; a timed-out attempt is retried, within that deadline.
- */
+/** Anthropic's SDK `timeout` only bounds initial `fetch` headers (default 10m), while `ClaudeDeadline` bounds the full stream and retries. */
 const ATTEMPT_TIMEOUT = Duration.seconds(60)
 
 /** Validation keywords structured outputs doesn't accept; Schema still enforces them when decoding. */
@@ -67,10 +57,7 @@ const sanitize = (value: unknown): unknown => {
   )
 }
 
-/**
- * JSON Schema for structured outputs. Every object is closed (`additionalProperties: false`),
- * as the API requires.
- */
+/** Anthropic structured outputs requires `additionalProperties: false` on every object (`onExcessProperty: "error"`). */
 export const outputSchema = (schema: Schema.Top): Record<string, unknown> => {
   const document = Schema.toJsonSchemaDocument(schema, { onExcessProperty: "error" })
   const root =
@@ -93,24 +80,19 @@ const classify = (cause: unknown): ClaudeError => {
   return new ClaudeError({ reason: "unavailable", message: "Claude request failed", cause })
 }
 
-/** How long the availability probe may take; a slower API counts as unavailable until the next probe. */
+/** `/health` awaits `available`, so probes fail fast rather than stalling health checks when Anthropic hangs. */
 const PROBE_TIMEOUT = Duration.seconds(2)
 
 export class Claude extends Context.Service<
   Claude,
   {
     readonly model: string
-    /**
-     * Whether credentials resolve and the model is reachable. Cached for a few minutes, and
-     * answers within a couple of seconds even if the API hangs: `/health` (Fly's check) waits on it.
-     */
     readonly available: Effect.Effect<boolean>
     generate<S extends Schema.Top>(
       options: GenerateOptions<S>
     ): Effect.Effect<S["Type"], ClaudeError, S["DecodingServices"]>
   }
 >()("@kotori/ai/Claude") {
-  /** The service over an SDK client built with `options` over Kotori's defaults; tests pass a fake `fetch`. */
   static readonly make = Effect.fnUntraced(function* (options: ClientOptions = {}) {
     const model = yield* Config.String("KOTORI_CLAUDE_MODEL").pipe(Config.withDefault("claude-opus-5-5"))
     // The SDK resolves credentials itself: ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN or an `ant` profile.
@@ -151,7 +133,6 @@ export class Claude extends Context.Service<
               .finalMessage(),
           catch: classify
         }).pipe(
-          // The deadline interrupts the request, which aborts it through `signal`, retries and all.
           Effect.timeoutOrElse({
             duration: deadline,
             orElse: () =>

@@ -4,19 +4,11 @@ import * as Schema from "effect/Schema"
 import { source, table } from "./columns.ts"
 import { entries, type EntryId } from "./entries.ts"
 
-/** Whether a katakana loan is a true loanword with the exact same meaning (アドバイス) or wasei-eigo (マンション, コンビニ). */
 export const loanMeaning = pgEnum("loan_meaning", ["true_loanword", "wasei_eigo"])
 
 export const LoanLinkMeaning = Schema.Literals(loanMeaning.enumValues)
 export type LoanLinkMeaning = typeof LoanLinkMeaning.Type
 
-/**
- * A katakana word and the English word it was borrowed from: one fact, stored once and read from
- * both entries. JMDict's `lsource` names most pairs; Kotori judges the rest, and whether the
- * meaning drifted. Who named the pair and who judged its meaning are kept apart, so a reseed that
- * names the pair again keeps the verdict and whose it is. The words are kept as text so a link
- * survives either entry being absent.
- */
 export const loanLinks = table(
   "loan_links",
   {
@@ -29,11 +21,8 @@ export const loanLinks = table(
     englishEntryId: integer()
       .$type<EntryId>()
       .references(() => entries.id, { onDelete: "set null" }),
-    /** Null until a source says; JMDict names the pair but not whether the meaning drifted. */
     meaning: loanMeaning(),
-    /** Who named the pair: JMDict, or Kotori's loan pass for a pair JMDict doesn't name. */
     source: source().notNull(),
-    /** Who judged `meaning`; set exactly when it is. */
     meaningSource: source()
   },
   (t) => [

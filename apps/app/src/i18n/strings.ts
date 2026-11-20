@@ -1,35 +1,27 @@
 import type { AskRefusal, CautionKind, LabelCode, SimilarDifference, Source } from "@kotori/contracts"
 
-/** Tab labels, named here once so copy that points to a tab can't drift from it. */
 const enTabs = {
   dictionary: "Look up",
   check: "Check",
   say: "Speak",
-  review: "Notebook",
+  notebook: "Notebook",
   notReady: "This feature isn't ready yet"
 }
 
-/** Ask Kotori looks into the language being learned; English copy is for Japanese learners. */
 const enWrongLanguage =
   "That doesn't look like Japanese. Kotori can only look into Japanese words and expressions here."
 
-/**
- * Interface copy. Learners see Kotori in their native language: Japanese
- * learners get English, English learners get Japanese.
- */
 const en = {
   appName: "Kotori",
   tabs: enTabs,
   greeting: { morning: "Good morning", afternoon: "Good afternoon", evening: "Good evening" },
   common: {
     retry: "Try again",
-    /** Above a screen that is still showing what was loaded before. */
     notRefreshed:
       "Kotori flew off to check for anything new and came back empty-handed. This might be a little behind.",
     cancel: "Cancel",
     done: "Done",
     save: "Save",
-    saved: "Saved",
     delete: "Delete",
     listen: "Listen",
     copy: "Copy",
@@ -40,9 +32,7 @@ const en = {
     offline: "Kotori got lost and couldn't find the server. Are you connected to the internet?",
     somethingWrong: "Something went wrong.",
     back: "Back",
-    /** Why a call to Kotori failed, by `ApiError` tag; never the server's own words. */
     errors: {
-      /** `Unexpected`: Kotori's own fault, including at start-up. */
       trouble: "Kotori tripped over something on its end. It's not you! Give it another go in a moment.",
       notFound: "Kotori looked everywhere but couldn't find that. It may have been removed.",
       signedOut: "You've been signed out. Sign in again to carry on.",
@@ -141,7 +131,6 @@ const en = {
     similarResults: "Similar words",
     askKotori: "Ask Kotori",
     askExplain: "Kotori can look into it and draft an entry.",
-    /** The thinking status, a line at a time as the wait goes on (`ASK_STAGE_STARTS`). */
     askThinking: [
       "Kotori is looking into it…",
       "Flipping through the dictionary…",
@@ -149,7 +138,6 @@ const en = {
       "Almost there — this one takes some thought…"
     ],
     askDraft: "AI draft — not checked by a person yet",
-    /** The headline over a fresh draft, and the line over one seen again. */
     askDrafted: "Kotori cooked up a new dictionary entry for you",
     askDraftedBody: "We'll double-check it before it joins the dictionary.",
     askLinked: "Kotori thinks you meant this:",
@@ -157,21 +145,16 @@ const en = {
     askDiscarded: "Kotori's draft didn't pass review, so it won't join the dictionary.",
     askAgain: "Ask again",
     askAgainIn: (wait: string) => `Ask again in ${wait}`,
-    /** Claude is rate limited: a wait of seconds. */
     askBusy: "Kotori is a little busy right now.",
-    /** The learner's hourly allowance is spent. */
     askResting: "You've asked a lot this hour, so Kotori is taking a short rest.",
-    /** The learner's daily allowance is spent. */
     askNapping: "You've asked a lot today. Kotori is napping until tomorrow.",
     askUnavailable: "Kotori can't look things up right now. Please try again in a little while.",
-    /** Why Kotori didn't look a query up, by what it took it for. */
     askRoute: {
       sentence: `That looks like a whole sentence. The ${enTabs.check} tab can tell you if it's natural, and ${enTabs.say} can help you phrase it.`,
       name: "That looks like a name rather than a word to look up.",
       other_language: enWrongLanguage,
       garbage: "That doesn't look like a word or expression."
     },
-    /** Why Kotori turned a query away before looking into it (`AskRefusal`). */
     askRefused: {
       not_askable: "That doesn't look like something Kotori can look up.",
       wrong_language: enWrongLanguage,
@@ -179,17 +162,12 @@ const en = {
       keyboard: "That looks like keys along the keyboard rather than a word.",
       in_dictionary: "The dictionary already has this one — it's in the results."
     } satisfies Record<AskRefusal, string>,
-    /** Claude turned a query down without saying why. */
     askNotReal: "Kotori couldn't verify this as a real expression.",
     recent: "Recent",
     clearRecent: "Clear",
     removeRecent: (term: string) => `Remove ${term} from recent searches`,
     common: "common",
     inflected: (forms: string) => `${forms} form`,
-    reviewDue: (n: number) => (n === 1 ? "1 note is waiting for you" : `${n} notes are waiting for you`),
-    reviewDueNone: "You're all caught up",
-    startReview: "Review now",
-    streak: (n: number) => `${n}-day streak`,
     title: "What do you want to look up?",
     language: "Language and settings"
   },
@@ -200,8 +178,7 @@ const en = {
     meaning: "Meaning",
     similar: "Similar words",
     antonyms: "Opposites",
-    save: "Save to review",
-    hideSense: "Take this meaning off your note",
+    save: "Save to notebook",
     unverified: "Kotori's draft — not checked by a person yet",
     notAdded: "Turned down — it won't join the dictionary",
     writing: "Kotori is writing example sentences…",
@@ -221,7 +198,6 @@ const en = {
     compare: (word: string) => `Compare ${word}`,
     kotoriLegend: "✦ marks what Kotori's AI added. Everything else is from the dictionary.",
     similarIntro: (word: string) => `Words close to ${word}, and how each one differs.`,
-    /** How a similar word differs, read off the two words' labels. */
     difference: {
       respectful: "the respectful form",
       humble: "the humble form",
@@ -236,10 +212,8 @@ const en = {
       similar: "similar meaning"
     } satisfies Record<SimilarDifference, string>,
     sources: "Sources",
-    /** What follows "Sources" under an entry: who contributed to it. */
     sourcesList: (names: ReadonlyArray<string>) => `: ${names.join(" · ")}`,
     sourcesIntro: "Where this entry comes from.",
-    /** Who a fact on the page came from, for the sources line and an example's credit. */
     sourceName: {
       jmdict: "JMDict",
       jawiktionary: "Japanese Wiktionary",
@@ -279,7 +253,6 @@ const en = {
       `Kotori adds example sentences and audio to the most common words first. ${word} isn’t one of them yet.`,
     ask: "Ask for this word"
   },
-  /** Usage labels: a name for the chip and the sentence it explains itself with. */
   labels: {
     name: {
       vulg: "Vulgar",
@@ -395,10 +368,8 @@ const en = {
       wasei: "English-looking, but coined in Japan. English speakers won't recognise it.",
       uncountable: "No plural and no 'a'. To count it, say 'some' or 'a piece of'."
     } satisfies Record<LabelCode, string>,
-    /** Added to the explanation of a label from Kotori rather than the dictionary. */
     kotori: "The dictionary doesn't say this; Kotori's AI added it."
   },
-  /** What kind of caution a caution is, as its overline. */
   caution: {
     rude_upward: "Sounds rude upward",
     keigo_direction: "Keigo direction",
@@ -479,69 +450,22 @@ const en = {
     culture: "Cultural note",
     again: "Ask another"
   },
-  review: {
-    subtitle: "Spaced repetition, Anki-style. A few minutes a day keeps words fresh.",
-    due: "Due today",
-    new: "New",
-    learning: "Learning",
-    toReview: "Review",
-    start: "Start review",
-    allDone: "All caught up!",
-    allDoneHint: "New notes appear when you save words.",
-    nextIn: (when: string) => `Next note ${when}`,
-    stats: "Your progress",
-    streak: "Day streak",
-    reviewedToday: "Reviewed today",
-    retention: "Retention",
-    notes: "Notes",
-    mature: "Mature",
-    forecast: "Coming up this week",
-    today: "Today",
-    saved: "Your saved words",
-    empty: "Nothing saved yet. Tap “Save” on any word to start your deck.",
-    showAnswer: "Show answer",
-    again: "Again",
-    hard: "Hard",
-    good: "Good",
-    easy: "Easy",
-    recallMeaning: "What does this mean?",
-    leech: "This note keeps slipping. Try making a sentence with it!",
-    sessionDone: "Nice work!",
-    sessionDoneHint: (n: number) => (n === 1 ? "You reviewed 1 note." : `You reviewed ${n} notes.`),
-    finish: "Finish",
-    remaining: "left",
-    answerFailed: "Oops, that answer got lost on the way. Give it another go!"
-  },
-  saved: {
-    title: "Saved",
-    search: "Search what you've saved",
-    noMatches: (query: string) => `Nothing saved here matches “${query}”.`,
+  notebook: {
+    title: "Notebook",
+    subtitle: "Words and expressions you've saved.",
+    empty: "Nothing saved yet. Tap the bookmark on any word to add it to your notebook.",
+    search: "Search your notebook",
+    noMatches: (query: string) => `Nothing in your notebook matches “${query}”.`,
     similar: "Close matches",
-    remove: "Remove from deck",
-    removeTitle: "Remove this from your deck?",
-    removeBody: "Its review history is deleted too. This can't be undone.",
-    removeConfirm: "Remove",
-    removing: "Removing…",
+    remove: "Remove from notebook",
     removeFailed: "Couldn't remove it. Try again.",
-    arrange: "Choose meanings",
-    arrangeHint: "Pick the meanings you want to review, in the order you like.",
-    show: "Show this meaning",
-    hide: "Hide this meaning",
-    moveUp: "Move up",
-    moveDown: "Move down",
-    showAll: "Show every meaning",
-    done: "Done",
-    arrangeFailed: "Couldn't save that. Try again.",
-    lastSense: "A note keeps at least one meaning.",
-    hidden: (n: number) => (n === 1 ? "1 meaning hidden" : `${n} meanings hidden`)
+    saveFailed: "Couldn't save it. Try again."
   },
   settings: {
     title: "Settings",
     learning: "I'm learning",
     japanese: "Japanese",
     english: "English",
-    dailyNew: "New notes per day",
-    dailyReviews: "Reviews per day",
     furigana: "Show furigana",
     theme: "Theme",
     sora: "Sora",
@@ -564,7 +488,7 @@ const en = {
     deleteAccount: "Delete account",
     deleteTitle: "Delete your account?",
     deleteBody:
-      "This erases your account, your notebook and everything you've studied. It can't be undone, and we can't get it back for you.",
+      "This erases your account, your notebook and everything you've asked. It can't be undone, and we can't get it back for you.",
     deleteConfirm: "Yes, delete everything",
     deleting: "Deleting your account…"
   },
@@ -601,7 +525,7 @@ const en = {
     art: "article",
     contr: "contraction"
   } as Record<string, string>,
-  /** Usage tags shown on English words; JMDict's own labels are English already. */
+  // JMDict tag names are already English, so tagName falls back to tag.name.
   tags: {} as Record<string, string>,
   inflection: {
     plural: "plural",
@@ -638,11 +562,10 @@ const jaTabs: Strings["tabs"] = {
   dictionary: "調べる",
   check: "添削",
   say: "話す",
-  review: "ノート",
+  notebook: "ノート",
   notReady: "この機能はまだ準備中です"
 }
 
-/** Japanese copy is for English learners. */
 const jaWrongLanguage = "英語ではないようです。ここでは英語の単語や表現だけを調べられます。"
 
 const ja: Strings = {
@@ -655,7 +578,6 @@ const ja: Strings = {
     cancel: "キャンセル",
     done: "完了",
     save: "保存",
-    saved: "保存済み",
     delete: "削除",
     listen: "聞く",
     copy: "コピー",
@@ -799,10 +721,6 @@ const ja: Strings = {
     removeRecent: (term: string) => `「${term}」を最近の検索から削除`,
     common: "よく使う",
     inflected: (forms: string) => forms,
-    reviewDue: (n: number) => `${n}件のノートが待っています`,
-    reviewDueNone: "今日の復習は完了です",
-    startReview: "復習する",
-    streak: (n: number) => `${n}日連続`,
     title: "何を調べたい？",
     language: "言語と設定"
   },
@@ -813,8 +731,7 @@ const ja: Strings = {
     meaning: "意味",
     similar: "似た言葉",
     antonyms: "対義語",
-    save: "復習に追加",
-    hideSense: "この意味をノートから外す",
+    save: "ノートに保存",
     unverified: "コトリの下書き・まだ人が確認していません",
     notAdded: "見送りになりました・辞書には載りません",
     writing: "例文を作成しています…",
@@ -1080,69 +997,22 @@ const ja: Strings = {
     culture: "文化のメモ",
     again: "ほかの表現を聞く"
   },
-  review: {
-    subtitle: "Ankiと同じ間隔反復で、毎日少しずつ。",
-    due: "今日の復習",
-    new: "新規",
-    learning: "学習中",
-    toReview: "復習",
-    start: "復習をはじめる",
-    allDone: "今日の分は完了！",
-    allDoneHint: "単語を保存すると、新しいノートが追加されます。",
-    nextIn: (when: string) => `次のノート：${when}`,
-    stats: "学習の記録",
-    streak: "連続日数",
-    reviewedToday: "今日の復習",
-    retention: "定着率",
-    notes: "ノート",
-    mature: "定着",
-    forecast: "今週の予定",
-    today: "今日",
-    saved: "保存した単語",
-    empty: "まだ何も保存していません。「保存」をタップしてデッキを作りましょう。",
-    showAnswer: "答えを見る",
-    again: "もう一度",
-    hard: "難しい",
-    good: "正解",
-    easy: "簡単",
-    recallMeaning: "どういう意味？",
-    leech: "何度も間違えているノートです。例文を作ってみましょう！",
-    sessionDone: "おつかれさまでした！",
-    sessionDoneHint: (n: number) => `${n}件のノートを復習しました。`,
-    finish: "終わる",
-    remaining: "残り",
-    answerFailed: "答えがうまく届きませんでした。もう一度どうぞ！"
-  },
-  saved: {
-    title: "保存済み",
-    search: "保存したものを検索",
-    noMatches: (query: string) => `「${query}」に合うものは保存されていません。`,
+  notebook: {
+    title: "ノート",
+    subtitle: "保存した単語や表現です。",
+    empty: "まだ何も保存していません。単語のブックマークをタップしてノートに追加しましょう。",
+    search: "ノートを検索",
+    noMatches: (query: string) => `「${query}」に合う項目はノートにありません。`,
     similar: "近いもの",
-    remove: "デッキから削除",
-    removeTitle: "デッキから削除しますか？",
-    removeBody: "このノートの復習の記録も削除されます。元に戻せません。",
-    removeConfirm: "削除する",
-    removing: "削除しています…",
+    remove: "ノートから削除",
     removeFailed: "削除できませんでした。もう一度お試しください。",
-    arrange: "意味を選ぶ",
-    arrangeHint: "復習したい意味を、好きな順番で選びましょう。",
-    show: "この意味を表示",
-    hide: "この意味を隠す",
-    moveUp: "上へ",
-    moveDown: "下へ",
-    showAll: "すべての意味を表示",
-    done: "完了",
-    arrangeFailed: "保存できませんでした。もう一度お試しください。",
-    lastSense: "少なくとも1つの意味は残してください。",
-    hidden: (n: number) => `${n}件の意味を非表示`
+    saveFailed: "保存できませんでした。もう一度お試しください。"
   },
   settings: {
     title: "設定",
     learning: "勉強している言語",
     japanese: "日本語",
     english: "英語",
-    dailyNew: "1日の新規ノート",
-    dailyReviews: "1日の復習上限",
     furigana: "ふりがなを表示",
     theme: "テーマ",
     sora: "空",
@@ -1164,7 +1034,7 @@ const ja: Strings = {
     googleLinked: "Googleを連携しました。次回からGoogleでログインできます。",
     deleteAccount: "アカウントを削除",
     deleteTitle: "アカウントを削除しますか？",
-    deleteBody: "アカウント、ノート、学習した内容がすべて消えます。元に戻すことはできません。",
+    deleteBody: "アカウント、ノート、質問の履歴がすべて消えます。元に戻すことはできません。",
     deleteConfirm: "すべて削除する",
     deleting: "削除しています…"
   },
@@ -1319,11 +1189,9 @@ const ja: Strings = {
 
 export const strings = { en, ja }
 
-/** A usage, field or region tag in the interface language, falling back to the dictionary's own name. */
 export const tagName = (t: Strings, tag: { readonly code: string; readonly name: string }) =>
   t.tags[tag.code] ?? tag.name
 
-/** Short part-of-speech label for a code like "v5k" or "adj-i" (JMDict) or "v" (English words). */
 export const posLabel = (t: Strings, code: string | null) => {
   if (code === null) return null
   if (code.startsWith("v5")) return t.pos.v5 ?? code

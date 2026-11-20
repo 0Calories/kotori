@@ -11,7 +11,6 @@ import { Chip } from "./Chip.tsx"
 import { Furigana } from "./Furigana.tsx"
 import { Text } from "./Text.tsx"
 
-/** A target-language phrase from the coach, which learners can hear and copy. */
 export const PhraseCard = ({
   text,
   furigana,
@@ -23,11 +22,8 @@ export const PhraseCard = ({
   readonly text: string
   readonly furigana: string | null
   readonly register: Register
-  /** Supporting notes shown under the phrase, in the learner's language. The first sits with the phrase. */
   readonly lines: ReadonlyArray<{ readonly label?: string; readonly text: string }>
-  /** The best answer: shown larger. */
   readonly highlight?: boolean
-  /** An overline above the phrase, such as "Natural". */
   readonly label?: string
 }) => {
   const theme = useTheme()

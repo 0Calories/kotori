@@ -32,7 +32,6 @@ import {
 
 const t = strings.en
 
-/** The severities of the codes these tests use, as the API sends them (`LABEL_SEVERITY` in `@kotori/db`). */
 const SEVERITY: Partial<Record<LabelCode, LabelSeverity>> = {
   vulg: "avoid",
   arch: "avoid",
@@ -83,7 +82,6 @@ const sense = (index: number, overrides: Partial<Sense> = {}): Sense => ({
   ...overrides
 })
 
-/** A dictionary-only Japanese word: no labels, frequency, loan or cautions. */
 const entry = (overrides: Partial<Entry> = {}): Entry => ({
   id: EntryId.make(1),
   language: "ja",
@@ -143,7 +141,6 @@ describe("label chips", () => {
       for (const kind of CautionKind.literals) assert.ok(ui.caution[kind].length > 0, kind)
       for (const difference of SimilarDifference.literals) assert.ok(ui.entry.difference[difference].length > 0)
     }
-    // The Japanese interface has its own words, not the English ones copied over.
     assert.notEqual(strings.ja.labels.help.col, strings.en.labels.help.col)
     assert.notEqual(strings.ja.labels.name.uncountable, strings.en.labels.name.uncountable)
   })
@@ -177,7 +174,6 @@ describe("frequency chip", () => {
     assert.equal(rare?.key, "rare")
     assert.equal(rare?.severity, "warning")
     assert.equal(frequencyChip(t, entry({ labels: [label("arch")] }))?.key, "rare")
-    // Dated words are still heard; their label says the rest.
     assert.equal(frequencyChip(t, entry({ labels: [label("dated")] })), null)
   })
 })
@@ -205,13 +201,11 @@ describe("loan link", () => {
     const english = (meaning: "true_loanword" | "wasei_eigo" | null) =>
       entry({ language: "en", loanLink: link(meaning) })
     assert.equal(loanChip(t, english("true_loanword"))?.label, t.entry.loanSame("アドバイス"))
-    // Kotori judged the meaning here, so the chip carries the mark and the page its legend.
     assert.equal(loanChip(t, english("true_loanword"))?.kotori, true)
     assert.equal(hasKotoriMarks(english("true_loanword")), true)
     assert.equal(loanChip(t, english("wasei_eigo")), null)
     assert.equal(loanChip(t, english(null)), null)
 
-    // JMDict named the pair and Kotori judged it: the verdict still carries the mark.
     const named = entry({ language: "en", loanLink: { ...link("true_loanword"), source: "jmdict" } })
     assert.equal(loanChip(t, named)?.kotori, true)
     assert.equal(hasKotoriMarks(named), true)

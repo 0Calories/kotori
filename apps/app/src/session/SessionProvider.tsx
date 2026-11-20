@@ -12,12 +12,6 @@ import { transport } from "../auth/transport"
 import { strings, type Strings } from "../i18n/strings.ts"
 import { storage } from "./storage"
 
-/**
- * Where the learner is: signed out; signed in but waiting for approval (archived
- * looks the same); approved but yet to pick a language; or in. `offline` is the API
- * or Managed Auth being unreachable, and `unavailable` the API answering with something
- * unexpected (a bug, or a response this build can't read); neither throws credentials away.
- */
 type Status = "loading" | "signedOut" | "pending" | "onboarding" | "ready" | "offline" | "unavailable"
 
 export interface SignUp {
@@ -30,27 +24,17 @@ export interface SignUp {
 interface Session {
   readonly status: Status
   readonly profile: Profile | null
-  /** Interface copy in the learner's native language. */
   readonly t: Strings
   readonly signIn: (email: string, password: string) => Promise<void>
   readonly signUp: (input: SignUp) => Promise<void>
-  /**
-   * Signs in with Google, making the account if there isn't one; `nativeLanguage` (from
-   * the sign-up screen) is applied to a new account. On the web the page leaves for
-   * Google and comes back signed in, cancelled (including bfcache Back), or with `googleError`.
-   */
   readonly signInWithGoogle: (nativeLanguage?: Language) => Promise<void>
-  /** Why the Google sign-in the web app just came back from didn't work, for the sign-in screens. */
   readonly googleError: AuthError | null
   readonly clearGoogleError: () => void
   readonly signOut: () => Promise<void>
   readonly sendVerificationCode: () => Promise<void>
   readonly verifyEmail: (code: string) => Promise<void>
-  /** Changes the password and signs the learner's other devices out; this one stays in. */
   readonly changePassword: (currentPassword: string, newPassword: string) => Promise<void>
-  /** Erases the account and everything studied, then lands on the welcome screen. Irreversible. */
   readonly deleteAccount: () => Promise<void>
-  /** Re-reads the profile, e.g. while waiting for approval. */
   readonly refresh: () => Promise<void>
   readonly updateProfile: (patch: UpdateProfileRequest) => Promise<void>
   readonly retry: () => void
@@ -60,34 +44,26 @@ const SessionContext = createContext<Session | null>(null)
 
 const deviceLanguage = (): Language => (getLocales()[0]?.languageCode === "ja" ? "ja" : "en")
 
-const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC"
-
 const statusOf = (profile: Profile): Status =>
   profile.status !== "approved" && profile.role !== "admin" ? "pending" : profile.onboarded ? "ready" : "onboarding"
 
-/** A JWT for the session just created, or the reason there isn't one. */
 const sessionToken = async () => {
   if ((await tokens.refresh()) === null) throw new AuthError("NO_SESSION", "", 401)
 }
 
-/** The sign-up screen's language, kept across the web's round trip to Google. */
 const GOOGLE_LANGUAGE = "kotori.googleSignUpLanguage"
 
-/** Applies any pending Google sign-up language (for an un-onboarded account) and current timezone. */
 const syncSignInProfile = async (me: Profile): Promise<Profile> => {
   const stored = await storage.get(GOOGLE_LANGUAGE).catch(() => null)
   const nativeLanguage: Language | undefined = stored === "en" || stored === "ja" ? stored : undefined
-  // Only a learner who hasn't picked yet: signing up with an existing Google account just signs in.
-  const patch: UpdateProfileRequest = {
-    ...(nativeLanguage !== undefined && !me.onboarded ? { nativeLanguage } : {}),
-    ...(me.timezone !== timeZone() ? { timezone: timeZone() } : {})
-  }
-  const updated = Object.keys(patch).length > 0 ? await call((api) => api.account.update({ payload: patch })) : me
+  const updated =
+    nativeLanguage !== undefined && !me.onboarded
+      ? await call((api) => api.account.update({ payload: { nativeLanguage } }))
+      : me
   if (stored !== null) await storage.remove(GOOGLE_LANGUAGE).catch(() => {})
   return updated
 }
 
-/** Whether a session was established as the development account; always false in a release build. */
 const signInAsDeveloper = async (): Promise<boolean> => {
   const credentials = devCredentials()
   if (credentials === null) return false
@@ -95,7 +71,6 @@ const signInAsDeveloper = async (): Promise<boolean> => {
     await managedAuth.signIn(credentials)
     return (await tokens.refresh()) !== null
   } catch (error) {
-    // Usually the account doesn't exist on this branch yet, and the sign-in screen still works.
     console.warn(
       `Could not sign in as ${credentials.email}: ${error instanceof Error ? error.message : String(error)}. ` +
         "Run `pnpm kotori dev-account` to create it."
@@ -128,10 +103,8 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
     setStatus("signedOut")
   }, [queryClient])
 
-  // A session that ends elsewhere (sign-out on another device, revocation, deletion) lands here.
   useEffect(() => tokens.onSignedOut(leave), [leave])
 
-  /** Trades Google's verifier for a session, then applies what the sign-up screen chose to a new account. */
   const finishGoogle = useCallback(
     async (verifier: string, onTraded?: () => void, isCancelled?: () => boolean) => {
       try {
@@ -139,7 +112,6 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
         await sessionToken()
         onTraded?.()
       } catch (error) {
-        // An expired or replayed verifier, or a challenge cookie that didn't survive the trip.
         if (error instanceof AuthError && error.code !== "OFFLINE") {
           onTraded?.()
           await storage.remove(GOOGLE_LANGUAGE).catch(() => {})
@@ -158,7 +130,6 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
   useEffect(() => {
     let cancelled = false
     const load = async () => {
-      // On the web, the page may be coming back from Google (or retrying a verifier exchange after an offline blip).
       let skipDevSignIn = false
       try {
         const back = google.returned()
@@ -196,10 +167,6 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
         return
       }
       enter(me)
-      // Keep study days aligned with wherever the learner is now.
-      if (me.timezone !== timeZone()) {
-        call((api) => api.account.update({ payload: { timezone: timeZone() } })).then(setProfile, () => {})
-      }
     }
     load().catch((error: unknown) => {
       if (cancelled) return
@@ -227,16 +194,11 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
     async ({ email, password, name, nativeLanguage }: SignUp) => {
       setGoogleError(null)
       const address = email.trim()
-      // Managed Auth wants a name; the address's local part stands in, as in Neon's examples.
+      // Better Auth requires a non-empty name on sign-up, so fall back to the email local part.
       await managedAuth.signUp({ email: address, password, name: name.trim() || address.split("@")[0] || address })
       await sessionToken()
-      // The language first, so the verification code, and later the approval email, arrive in it.
-      enter(
-        await call((api) =>
-          api.account.update({ payload: { nativeLanguage, timezone: timeZone(), displayName: name.trim() || null } })
-        )
-      )
-      // The pending screen offers a new code if this one doesn't arrive.
+      // Set nativeLanguage before sending the OTP so the verification email uses that language.
+      enter(await call((api) => api.account.update({ payload: { nativeLanguage, displayName: name.trim() || null } })))
       await managedAuth.sendVerificationCode(address).catch(() => {})
     },
     [enter]
@@ -265,7 +227,6 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
   )
 
   const signOut = useCallback(async () => {
-    // Ends the session upstream; this device forgets it either way.
     await managedAuth.signOut().catch(() => {})
     await transport.forget()
     leave()
@@ -279,7 +240,7 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
     async (code: string) => {
       if (profile === null) return
       await managedAuth.verifyEmail(profile.email, code.trim())
-      // The JWT carries emailVerified, so mint one that knows.
+      // Mint a fresh JWT so its emailVerified claim reflects the verification.
       await sessionToken()
       await refresh()
     },
@@ -288,14 +249,12 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
 
   const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
     await managedAuth.changePassword(currentPassword, newPassword)
-    // The JWT in hand was minted from the old session, so drop it and mint from
-    // whatever cookie the response left with the transport.
+    // Change-password rotates the session cookie, so discard the cached JWT before minting from the new session.
     tokens.clear()
     await sessionToken()
   }, [])
 
   const deleteAccount = useCallback(async () => {
-    // The API deletes the identity along with the data, so there is no session left to end.
     await call((api) => api.account.delete())
     await transport.forget()
     leave()
@@ -313,7 +272,7 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
     () => ({
       status,
       profile,
-      // Until the learner picks a language (onboarding), follow the device rather than the table's `"en"` default.
+      // Follow device locale until onboarding completes, since un-onboarded profiles default nativeLanguage to "en" in the database.
       t: strings[profile?.onboarded ? profile.nativeLanguage : deviceLanguage()],
       signIn,
       signUp,
@@ -359,7 +318,6 @@ export const useSession = () => {
   return session
 }
 
-/** Shared button state and error lifecycle for `/sign-in` and `/sign-up` Google flows. */
 export const useGoogleSignIn = () => {
   const { t, signInWithGoogle, googleError, clearGoogleError } = useSession()
   const [googleBusy, setGoogleBusy] = useState(false)
@@ -392,10 +350,8 @@ export const useGoogleSignIn = () => {
   return { googleBusy, continueWithGoogle, googleMessage, resetGoogleError }
 }
 
-/** Interface copy for the current learner. */
 export const useT = () => useSession().t
 
-/** The language the interface is in; English outside a session. */
 export const useInterfaceLanguage = (): Language => {
   const session = useContext(SessionContext)
   return session?.t === strings.ja ? "ja" : "en"

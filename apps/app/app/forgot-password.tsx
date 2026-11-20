@@ -13,13 +13,8 @@ import { Text } from "../src/components/Text.tsx"
 import { useSession } from "../src/session/SessionProvider.tsx"
 import { theme } from "../src/theme/tokens.ts"
 
-/** Better Auth's default minimum; Managed Auth's own answer wins if it differs. */
 const MIN_PASSWORD = 8
 
-/**
- * Resetting a forgotten password: ask for a code by email, then set a new one with it.
- * The reset doesn't sign anyone in, so it ends at the sign-in screen.
- */
 export default function ForgotPassword() {
   const { t } = useSession()
   const router = useRouter()

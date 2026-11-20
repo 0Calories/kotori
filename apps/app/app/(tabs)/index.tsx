@@ -3,13 +3,11 @@ import { normalizeAsk } from "@kotori/language"
 import { useRouter } from "expo-router"
 import { useEffect, useRef, useState } from "react"
 import { type TextInput, useWindowDimensions, View } from "react-native"
-import Animated, { FadeIn, FadeInDown, LinearTransition } from "react-native-reanimated"
+import Animated, { FadeIn, LinearTransition } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { useAsks, useDueNotes, useSearch, useStats } from "../../src/api/queries.ts"
+import { useAsks, useSearch } from "../../src/api/queries.ts"
 import { AskKotori } from "../../src/components/AskKotori.tsx"
-import { Button } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
-import { Chip } from "../../src/components/Chip.tsx"
 import { Icon } from "../../src/components/Icon.tsx"
 import { Mascot } from "../../src/components/Mascot.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
@@ -34,7 +32,6 @@ const useDebounced = (value: string, delay: number) => {
   return debounced
 }
 
-/** Kotori says hello in the language you're learning. */
 const greeting = (target: Language, name: string | null) => {
   const hour = new Date().getHours()
   const words = strings[target].greeting
@@ -42,37 +39,11 @@ const greeting = (target: Language, name: string | null) => {
   return name === null ? hello : `${hello}${target === "ja" ? "、" : ", "}${name}`
 }
 
-/** How many recent searches to keep and show as chips under the search field. */
 const MAX_RECENT = 6
 
 const LANGUAGE_NAMES: Record<Language, { readonly short: string; readonly long: string }> = {
   en: { short: "EN", long: "English" },
   ja: { short: "日本語", long: "日本語" }
-}
-
-const ReviewTeaser = () => {
-  const { t } = useSession()
-  const router = useRouter()
-  const dueNotes = useDueNotes()
-  const stats = useStats()
-  const due = dueNotes.data ? dueNotes.data.counts.new + dueNotes.data.counts.learning + dueNotes.data.counts.review : 0
-  if (!dueNotes.data) return null
-  return (
-    <Animated.View entering={FadeInDown.duration(400)}>
-      <Card style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-        <Mascot size={56} mood={due > 0 ? "neutral" : "sleepy"} />
-        <View style={{ flex: 1, gap: 6 }}>
-          <Text variant="strong">{due > 0 ? t.dictionary.reviewDue(due) : t.dictionary.reviewDueNone}</Text>
-          {stats.data && stats.data.streak > 0 ? (
-            <Chip tone="accent" icon="local_fire_department" label={t.dictionary.streak(stats.data.streak)} />
-          ) : null}
-        </View>
-        {due > 0 ? (
-          <Button label={t.dictionary.startReview} size="sm" onPress={() => router.push("/review/session")} />
-        ) : null}
-      </Card>
-    </Animated.View>
-  )
 }
 
 export default function LookUpScreen() {
@@ -89,12 +60,9 @@ export default function LookUpScreen() {
   const native = profile?.nativeLanguage ?? "en"
   const target = profile?.targetLanguage ?? "ja"
   const search = useSearch(debounced, target)
-  // Fetched up front, so a search Kotori has already answered shows the answer with its results.
+  // Prefetch so cached answers render alongside search results without a second round-trip.
   useAsks()
   const searching = query.trim().length > 0
-  // True from the first keystroke until this text's results arrive, debounce included.
-  // Kotori holds still over the field while searching, and takes the thinking pose only
-  // once that wait has run very long.
   const loading = searching && (debounced !== query.trim() || search.isFetching)
   const mascot = useReadingPhase(loading, SEARCH_THINKING_DELAY_MS) === "reading" ? "thinking" : "neutral"
 
@@ -108,8 +76,6 @@ export default function LookUpScreen() {
   }
 
   const results = search.data
-  // Results for the text being searched: while the next search loads, the last one's results
-  // stay on screen, but what Kotori says about them doesn't.
   const current = results !== undefined && !search.isPlaceholderData ? results : null
   const pill = {
     backgroundColor: "rgba(255, 255, 255, 0.66)",
@@ -260,7 +226,6 @@ export default function LookUpScreen() {
           ) : null}
           {search.isError ? <ErrorState error={search.error} onRetry={() => search.refetch()} /> : null}
           {current !== null && current.match !== "exact" ? (
-            // Keyed by the question, so each query gets its own Kotori; an ask in flight lives on in the cache.
             <AskKotori
               key={`${target}:${normalizeAsk(debounced, target)}`}
               query={debounced}
@@ -271,7 +236,6 @@ export default function LookUpScreen() {
             />
           ) : null}
           {current !== null && current.match === "weak" && current.entries.length > 0 ? (
-            // Only lookalikes: said plainly, so a learner doesn't take "bus" for "bussin".
             <Text variant="caption" color="textMuted" style={{ paddingHorizontal: 6 }}>
               {t.dictionary.similarResults}
             </Text>
@@ -290,9 +254,7 @@ export default function LookUpScreen() {
             </Card>
           ) : null}
         </View>
-      ) : (
-        <ReviewTeaser />
-      )}
+      ) : null}
     </Screen>
   )
 }

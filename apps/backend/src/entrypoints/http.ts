@@ -34,17 +34,14 @@ const Routes = Layer.mergeAll(
 
 const ServerLive = Layer.unwrap(
   Effect.gen(function* () {
-    // Hosts inject PORT (Fly sets it in fly.toml); KOTORI_PORT still wins for a local override.
     const port = yield* Config.Port("KOTORI_PORT").pipe(
       Config.orElse(() => Config.Port("PORT")),
       Config.withDefault(4000)
     )
-    // Listen on all interfaces so phones on the same network can reach a dev server.
     return HttpRouter.serve(Routes).pipe(Layer.provide(NodeHttpServer.layer(createServer, { port, host: "0.0.0.0" })))
   })
 )
 
-// JSON lines in production for the host's log viewer; development keeps the pretty logger. Both also go to Sentry.
 const LoggerLive = loggerLayer(process.env.NODE_ENV === "production" ? [Logger.consoleJson] : [])
 
 Layer.launch(ServerLive).pipe(

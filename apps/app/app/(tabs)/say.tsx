@@ -24,7 +24,6 @@ const Result = ({ result }: { readonly result: HowToSayResult }) => {
   const theme = useTheme()
   const router = useRouter()
   const { t, profile } = useSession()
-  // Key words are in the language being learned; Japanese ones get the mincho face, like headwords.
   const japanese = profile?.targetLanguage !== "en"
   return (
     <View style={{ gap: theme.space.lg }}>

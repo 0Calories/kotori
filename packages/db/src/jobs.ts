@@ -6,7 +6,6 @@ export const jobKind = pgEnum("job_kind", ["examples", "audio"])
 
 export const jobStatus = pgEnum("job_status", ["queued", "running", "done", "failed"])
 
-/** Enrichment work queue, shared by the API (on-demand requests) and the worker. One job per kind and entry. */
 export const jobs = table(
   "jobs",
   {
@@ -20,7 +19,6 @@ export const jobs = table(
     status: jobStatus().notNull().default("queued"),
     attempts: integer().notNull().default(0),
     error: text(),
-    /** Not before this moment; pushed into the future by retries. */
     runAfter: timestamptz().notNull().defaultNow(),
     createdAt: createdAt(),
     updatedAt: timestamptz().notNull().defaultNow()

@@ -4,7 +4,6 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core"
 import { Effect } from "effect"
 import { type DatabaseShape, rawRows } from "./Database.ts"
 
-/** The tables whose lists the import writes NULL when empty (`textList`), and those lists. */
 const tables = [
   {
     name: "senses",
@@ -26,9 +25,7 @@ const tables = [
 ] as const
 
 export interface NullEmptyListsOptions {
-  /** Entries per `UPDATE`. */
   readonly batch: number
-  /** Batches between vacuums, which make the space the replaced rows held reusable by the next. */
   readonly vacuumEvery: number
   readonly onProgress?: (progress: {
     readonly table: string
@@ -37,15 +34,7 @@ export interface NullEmptyListsOptions {
   }) => Effect.Effect<void>
 }
 
-/**
- * Rewrites the empty lists that rows written before `textList` still hold (`'{}'`, 16 bytes
- * each) as NULL, entry by entry in batches. An `UPDATE` writes a new copy of each row it
- * changes, so the table would grow by every row it rewrites; vacuuming every few batches
- * frees the old copies for the next batches to fill, and keeps the growth to about that many
- * batches' rows. The files keep their size: `VACUUM FULL` is what hands the space back.
- * Resumable, as it only touches rows that still have an empty list. Returns how many rows of
- * each table it rewrote.
- */
+// Postgres UPDATE writes new tuple versions, so VACUUM periodically to reuse dead space instead of bloating the table across the full rewrite.
 export const nullEmptyLists = Effect.fn("storage.nullEmptyLists")(function* (
   db: DatabaseShape,
   options: NullEmptyListsOptions

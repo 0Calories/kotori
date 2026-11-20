@@ -1,22 +1,11 @@
 import type { Formality, Language } from "@kotori/contracts"
 
-/**
- * Trait tags describing how a curated voice sounds. Gender, age and variety are
- * single-valued; the rest are sets. Selection works on tags (see `casting.ts`),
- * so adding or recasting a voice is a data change, never a code change.
- */
 export const VOICE_GENDERS = ["masculine", "feminine", "androgynous"] as const
 export const VOICE_AGES = ["child", "youth", "adult", "middle-aged", "older"] as const
 export const VOICE_MEDIUMS = ["conversation", "announcement", "narration"] as const
 /** Scoring reads only "comic", for humorous sentences; the rest is stored for later voice-settings work. */
 export const VOICE_TONES = ["warm", "bright", "calm", "serious", "rough", "gentle", "comic"] as const
 
-/**
- * Regional variety of the language, in the linguist's sense: it covers both
- * Japanese dialects (Kansai-ben differs in grammar and vocabulary) and national
- * varieties of English (mostly accent and spelling). Each language has its own
- * list and its own default, the variety an unlabelled sentence is read in.
- */
 export const VARIETIES = {
   ja: ["standard", "kansai", "tohoku", "kyushu"],
   en: ["american", "british", "australian"]
@@ -36,31 +25,22 @@ export interface VoiceTags<L extends Language = Language> {
   readonly gender: VoiceGender
   readonly age: VoiceAge
   readonly variety: Variety<L>
-  /** Registers this voice sounds right in. */
   readonly formality: ReadonlyArray<Formality>
   readonly medium: ReadonlyArray<VoiceMedium>
   readonly tone: ReadonlyArray<VoiceTone>
-  /** Eligible as a dictionary voice for headword pronunciations. */
   readonly headword: boolean
 }
 
 export interface Voice<L extends Language = Language> {
-  /** Stable Kotori id, e.g. "ja-kyoko". Stored on clips; survives recasting the provider voice. */
+  /** Persisted on audio clips so recasting `providerId` does not orphan the role. */
   readonly id: string
   readonly language: L
-  /** ElevenLabs voice id; null while the role is designed but not yet cast. */
   readonly providerId: string | null
   readonly name: string
   readonly tags: VoiceTags<L>
-  /** One line for Jev and for humans: how this voice sounds and when to use it. */
   readonly description: string
 }
 
-/**
- * The curated casts, one per language. Provider ids are filled in by auditioning
- * the ElevenLabs library (`kotori audio regen --provider-voice`); the tags are
- * the contract.
- */
 export const JAPANESE_CAST: ReadonlyArray<Voice<"ja">> = [
   {
     id: "ja-kyoko",
@@ -377,10 +357,8 @@ export type Casts = { readonly [L in Language]: ReadonlyArray<Voice<L>> }
 
 export const CASTS: Casts = { ja: JAPANESE_CAST, en: ENGLISH_CAST }
 
-/** The voices of one language that are actually cast (have a provider voice). */
 export const castVoices = <L extends Language>(language: L, casts: Casts = CASTS): ReadonlyArray<Voice<L>> =>
   casts[language].filter((voice) => voice.providerId !== null)
 
-/** Dictionary voices for headword pronunciations, in cast order. */
 export const headwordVoices = <L extends Language>(language: L, casts: Casts = CASTS): ReadonlyArray<Voice<L>> =>
   castVoices(language, casts).filter((voice) => voice.tags.headword)

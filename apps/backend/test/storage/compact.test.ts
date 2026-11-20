@@ -12,7 +12,7 @@ layer(DatabaseMemory)("compacting the dictionary's tables", (it) => {
   it.effect("goes smallest first, and only compacts what fits under the cap", () =>
     Effect.gen(function* () {
       const db = yield* Database
-      // Re-imports leave dead rows behind, the space compaction takes back.
+      // Repeated upserts leave MVCC dead tuples so compaction measurably shrinks the tables.
       for (let i = 0; i < 3; i++) yield* insertEntries(db, [...entries, ...english])
 
       const planned = yield* compactTables(db, { cap: 1024 * MB, reserve: 0, dryRun: true })
@@ -30,7 +30,6 @@ layer(DatabaseMemory)("compacting the dictionary's tables", (it) => {
         [...sizes].sort((a, b) => a - b)
       )
 
-      // A cap right at the database's size: the first table doesn't fit, so nothing runs.
       const full = yield* compactTables(db, { cap: planned[0]!.database, reserve: 0, dryRun: false })
       assert.deepStrictEqual(
         full.map((step) => [step.fits, step.compacted]),

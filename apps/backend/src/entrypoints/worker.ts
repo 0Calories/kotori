@@ -7,7 +7,6 @@ import { work } from "../worker/work.ts"
 
 loadDotEnv()
 
-/** Polling interval while the queue is empty. */
 const IDLE = "2 seconds"
 
 work(IDLE).pipe(

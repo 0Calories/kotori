@@ -4,10 +4,8 @@ import { Effect, Option } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 import type { Learner } from "../../db/scopedToUser.ts"
 
-/** What a coach request asked for, recorded with its usage. */
 export type CoachKind = typeof coachUsage.$inferSelect.kind
 
-/** The cached answer for `key`, if it was stored at or after `notBefore`. Decoding is the caller's. */
 export const cachedAnswer = (db: DatabaseShape, key: string, notBefore: Date) =>
   db
     .select({ result: coachCache.result })
@@ -25,19 +23,11 @@ export const storeAnswer = (db: DatabaseShape, key: string, result: unknown, now
     .onConflictDoUpdate({ target: coachCache.key, set: { result, createdAt: now } })
     .pipe(Effect.asVoid, Effect.orDie)
 
-/** At most `limit` requests since `since`: one window of a rate limit. */
 export interface UsageWindow {
   readonly since: Date
   readonly limit: number
 }
 
-/**
- * Records a request of `kind` if, in every window, the learner has made fewer than its `limit`
- * requests of `kinds`; otherwise returns the first window that is full, recording nothing. One
- * row however many windows, so an hourly and a daily limit count each request once. The
- * learner's profile row is locked for the transaction, so two requests at once can't both take
- * the last slot.
- */
 export const reserveUsage = Effect.fn("coaching.reserveUsage")(function* (
   learner: Learner,
   request: {
@@ -50,6 +40,7 @@ export const reserveUsage = Effect.fn("coaching.reserveUsage")(function* (
   const { db, userId } = learner
   return yield* db.transaction(() =>
     Effect.gen(function* () {
+      // Serialize concurrent rate-limit checks per learner by locking their users row.
       yield* db.select({ id: users.id }).from(users).where(eq(users.id, userId)).for("update")
       for (const window of request.windows) {
         const [used] = yield* db
@@ -70,7 +61,6 @@ export const reserveUsage = Effect.fn("coaching.reserveUsage")(function* (
   )
 }, Effect.orDie)
 
-/** The learner's requests of the given kinds since `since`; coaching and audio are limited separately. */
 export const usageSince = (learner: Learner, since: Date, kinds: ReadonlyArray<CoachKind>) =>
   learner.db
     .select({ n: count() })

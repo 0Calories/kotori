@@ -36,16 +36,10 @@ const savePendingLink = (pending: PendingGoogleLink) => {
 const clearPendingLink = () => {
   try {
     window.sessionStorage.removeItem(LINK_STORAGE_KEY)
-  } catch {
-    // Ignore storage errors during cleanup.
-  }
+  } catch {}
 }
 
-/**
- * Navigates to Google's consent page. Never settles during a normal unload so buttons
- * stay in their opening state; resolves `"cancelled"` if the browser restores the page
- * from bfcache (e.g. pressing Back on Google's page).
- */
+// Never resolves during unload so buttons stay busy, unless the browser restores the page from bfcache (event.persisted).
 const redirect = (url: string, onCancel?: () => void): Promise<"cancelled"> =>
   new Promise((resolve) => {
     const onPageShow = (event: PageTransitionEvent) => {
@@ -61,12 +55,6 @@ const redirect = (url: string, onCancel?: () => void): Promise<"cancelled"> =>
 
 const currentPage = () => window.location.origin + window.location.pathname
 
-/**
- * On the web, sign-in goes through Managed Auth's `/sign-in/social/init` hop and returns a
- * verifier to trade with the challenge cookie on the API's origin. Account linking in Settings
- * requests an OIDC `id_token` directly from Google back to the Settings page (`#state=...&id_token=...`),
- * since Neon Managed Auth doesn't wrap `/link-social` with an `/init` state-cookie hop.
- */
 export const google = {
   start: async (): Promise<GoogleReturn> => {
     clearPendingLink()
@@ -80,11 +68,6 @@ export const google = {
     savePendingLink({ state, nonce })
     return redirect(buildGoogleIdTokenUrl({ clientId, redirectUri: currentPage(), state, nonce }), clearPendingLink)
   },
-  /**
-   * The answer the page was loaded with, which `googleCapture.web.ts` took off the address bar
-   * at load. Handed out once, so a retry doesn't replay it. Throws AuthError when Google or
-   * Managed Auth refused.
-   */
   returned: (): GoogleReturn => {
     if (readPendingLink() !== null) return null
     const params = capturedReturn.takeQuery(
@@ -93,10 +76,9 @@ export const google = {
     )
     return params === null ? null : readReturn(params)
   },
-  /** The answer when the Settings page comes back from linking Google. */
   linkReturned: (): GoogleLinkReturn => {
     const pending = readPendingLink()
-    // Taken either way: an `id_token` with no pending link in this tab is discarded.
+    // Always consume the hash so an unsolicited id_token in the URL is discarded.
     const hashParams = capturedReturn.takeHash()
     if (pending !== null) {
       const queryParams = capturedReturn.takeQuery(

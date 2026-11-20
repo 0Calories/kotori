@@ -17,20 +17,12 @@ import {
   type Word
 } from "./words.ts"
 
-/**
- * Reads the English entries of Japanese Wiktionary (ja.wiktionary.org) as Wiktextract
- * extracts them for kaikki.org: one JSON object per word and part of speech, with
- * definitions written in Japanese. Licensed CC BY-SA 4.0, like JMDict.
- */
-
-/** Wiktextract's extraction of every language in Japanese Wiktionary, refreshed weekly. */
 export const WIKTIONARY_URL = "https://kaikki.org/jawiktionary/raw-wiktextract-data.jsonl.gz"
 
-// Only the fields read here; anything else in the extraction is ignored.
 const Strings = Schema.optional(Schema.Array(Schema.String))
 const WordRef = Schema.Struct({ word: Schema.optional(Schema.String) })
 const WordRefs = Schema.optional(Schema.Array(WordRef))
-// Usually a list of words; some pages hold a table instead, as one string.
+// Wiktextract emits some word lists as a newline-delimited wiki table string instead of an array.
 const WordList = Schema.optional(Schema.Union([Schema.Array(WordRef), Schema.String]))
 const SenseLink = Schema.Union([Schema.Array(Schema.String), WordRef, Schema.String])
 
@@ -45,7 +37,6 @@ const RawSense = Schema.Struct({
   form_of: WordRefs,
   alt_of: WordRefs,
   links: Schema.optional(Schema.Array(SenseLink)),
-  /** Example sentences: the English `text` with its Japanese `translation`, when the editors gave one. */
   examples: Schema.optional(
     Schema.Array(Schema.Struct({ text: Schema.optional(Schema.String), translation: Schema.optional(Schema.String) }))
   )
@@ -69,13 +60,10 @@ const RawEntry = Schema.Struct({
 })
 type RawEntry = typeof RawEntry.Type
 
-/** A line of the extraction, or none for a line that isn't JSON or isn't shaped like an entry. */
 const decodeLine = Schema.decodeUnknownOption(Schema.fromJsonString(RawEntry))
 
-/** Whether a line of the extraction is about an English word, checked before paying to parse it. */
 const isEnglishLine = (line: string) => line.includes('"lang_code": "en"') || line.includes('"lang_code":"en"')
 
-/** The most synonyms or antonyms kept as cross-references; the first are the closest. */
 const MAX_REFERENCES = 8
 
 const words = (list: ReadonlyArray<typeof WordRef.Type> | undefined) =>
@@ -84,7 +72,6 @@ const words = (list: ReadonlyArray<typeof WordRef.Type> | undefined) =>
     .filter((word) => word.length > 0 && isEnglish(word))
     .slice(0, MAX_REFERENCES)
 
-/** A sense's tags as they are gathered, before the sense is built. */
 interface Labels {
   readonly pos: Array<string>
   readonly misc: Array<string>
@@ -101,10 +88,6 @@ const LABELS: ReadonlyArray<readonly [Readonly<Record<string, string>>, keyof La
 
 const isLabel = (label: string) => LABELS.some(([table]) => table[label] !== undefined)
 
-/**
- * Files usage labels, regions, fields and transitivity, wherever they appear: tags, raw
- * tags, topics, or labels in a gloss. Returns false, filing nothing, if any label is unknown.
- */
 const classify = (labels: ReadonlyArray<string>, into: Labels) => {
   const filed = labels.map((label) => {
     const match = LABELS.find(([table]) => table[label] !== undefined)
@@ -115,20 +98,14 @@ const classify = (labels: ReadonlyArray<string>, into: Labels) => {
   return true
 }
 
-/** Like `classify`, but files what it knows and skips the rest, for tags that aren't all labels. */
 const classifyKnown = (labels: ReadonlyArray<string>, into: Labels) => {
   for (const label of labels) classify([label], into)
 }
 
 const unique = <A>(items: ReadonlyArray<A>) => [...new Set(items)]
 
-/**
- * Tags that mark a `form_of` sense as a standalone word sense (such as "goat" = Greatest Of All Time,
- * "ad" = advertisement) rather than an inflection or spelling redirect.
- */
 const STANDALONE_FORM_TAGS = new Set(["abbreviation", "acronym", "initialism", "clipping", "contraction", "ellipsis"])
 
-/** A sense's example sentences that come with a Japanese translation; the rest teach nothing to read. */
 const readExamples = (raw: RawSense): Array<SeedExample> =>
   (raw.examples ?? []).flatMap((example) => {
     const en = example.text?.trim() ?? ""
@@ -136,13 +113,6 @@ const readExamples = (raw: RawSense): Array<SeedExample> =>
     return en.length > 0 && ja.length > 0 ? [{ ja, en, source: "jawiktionary" as const }] : []
   })
 
-/**
- * One sense, and the forms it points at when it says "the past tense of …", which are
- * forms of that word rather than meanings: "ate" is no word of its own but eat's past,
- * as 食べた is 食べる's. Leading labels such as "(米話)" or "(他動詞)" become tags; asides
- * that describe the use, such as "(人を)", stay in the gloss as JMDict's English glosses
- * keep "(of a person)".
- */
 const readSense = (
   raw: RawSense,
   word: string,
@@ -165,14 +135,14 @@ const readSense = (
   for (const definition of raw.glosses ?? []) {
     let text = definition.trim()
     for (let lead = leadingAside(text); lead !== null; lead = leadingAside(text)) {
-      // "(米話)" is two labels written together: 米 and 話.
+      // Split combined Japanese region+register shorthands like "(米話)" into ["米", "話"].
       const named = lead.aside
         .split(/[・、,\s]+/)
         .flatMap((label) => (/^[米英豪][話俗古]$/.test(label) ? label.split("") : [label]))
       if (!classify(named, labels)) break
       text = lead.rest
     }
-    // Pages for inflections often say so in the definition itself, untagged: "(米) getの過去分詞".
+    // Japanese Wiktionary often writes inflection redirects as prose glosses ("getの過去分詞") without form_of tags.
     const form = formOf(text)
     if (form !== null) {
       if (form.base !== word) formsOf.push({ text: word, ...form })
@@ -183,8 +153,7 @@ const readSense = (
     info.push(...notes)
   }
   if (glosses.length === 0) return { sense: null, formsOf }
-  // Labels such as "犬などを" or "ピッチャーが" say what the word acts on or who does it: the
-  // context JMDict writes as "(of a dog)", so they lead the first gloss the same way.
+  // Particle-suffixed raw_tags ("犬などを", "ピッチャーが") express argument context rather than register labels.
   const context = (raw.raw_tags ?? []).filter((tag) => /[をがにでとの]$/.test(tag) && !isLabel(tag))
   if (context.length > 0) glosses[0] = { text: `（${context.join("・")}）${glosses[0]!.text}`, type: null }
   return {
@@ -212,7 +181,6 @@ const INFLECTION_TAGS: ReadonlyArray<readonly [ReadonlyArray<string>, EnglishInf
   [["superlative"], "superlative"]
 ]
 
-/** "bluer" and "bluest" come untagged; their endings say what they are. */
 const byEnding = (word: string, form: string): EnglishInflection | null => {
   const stem = word.replace(/e$/, "").replace(/y$/, "i")
   if (!form.startsWith(stem.slice(0, Math.max(1, stem.length - 1)))) return null
@@ -221,7 +189,6 @@ const byEnding = (word: string, form: string): EnglishInflection | null => {
   return null
 }
 
-/** Spellings that are only historical or rare would clutter "also written". */
 const QUIET_SPELLINGS = new Set(["obsolete", "archaic", "rare", "dialectal", "uncommon", "nonstandard", "slang"])
 
 const readForms = (word: string, raw: ReadonlyArray<RawForm>) => {
@@ -229,7 +196,6 @@ const readForms = (word: string, raw: ReadonlyArray<RawForm>) => {
   const spellings: Array<string> = []
   for (const { form, tags = [] } of raw) {
     const text = form?.trim() ?? ""
-    // Phrases ("more awkward") and anything not written in English ("または") aren't forms to look up.
     if (text.length === 0 || text === word || text.includes(" ") || !isEnglish(text)) continue
     if (tags.includes("canonical")) continue
     if (tags.includes("alternative")) {
@@ -240,7 +206,7 @@ const readForms = (word: string, raw: ReadonlyArray<RawForm>) => {
     const inflection = named ?? (tags.length === 0 ? byEnding(word, text) : null)
     if (inflection !== null) inflections.push({ text, tags: [inflection] })
   }
-  // A regular verb's "walked" is listed once, as the past participle, but is the past tense too.
+  // Wiktextract often tags regular "-ed" forms only as past-participle, omitting past.
   if (!inflections.some((form) => form.tags.includes("past"))) {
     return {
       spellings,
@@ -252,10 +218,7 @@ const readForms = (word: string, raw: ReadonlyArray<RawForm>) => {
   return { spellings, inflections }
 }
 
-/**
- * Cleans up an IPA string: strips unparsed wiki templates ("en", "lang=en"), turns ASCII "'"
- * into the IPA primary-stress mark "ˈ", and wraps bare transcriptions in slashes.
- */
+// Reject unparsed Wiktionary template remnants ("en", "lang=en", "list") emitted in sound.ipa.
 export const cleanIpa = (raw: string): string | null => {
   const bracket = raw.trim().startsWith("[") ? ["[", "]"] : ["/", "/"]
   const inner = raw
@@ -267,7 +230,6 @@ export const cleanIpa = (raw: string): string | null => {
   return `${bracket[0]}${inner}${bracket[1]}`
 }
 
-/** The first usable IPA transcription, preferring American, which is what the default voices speak. */
 const readIpa = (sounds: RawEntry["sounds"]): string | null => {
   const ipas = (sounds ?? []).flatMap((sound) => {
     const ipa = sound.ipa === undefined || sound.tags?.includes("X-SAMPA") ? null : cleanIpa(sound.ipa)
@@ -296,7 +258,6 @@ const isPhrase = (phrase: string) =>
     .slice(1)
     .some((word) => /^[A-Z]/.test(word) && !/^I(?:$|[’'])/.test(word))
 
-/** Phrases Wiktionary lists under a word, which attest them as English even without an entry of their own. */
 const readPhrases = (entry: RawEntry): Array<string> => {
   if (entry.pos === "name") return []
   const senseRefs = (entry.senses ?? []).flatMap((sense) => [
@@ -327,10 +288,6 @@ interface Builder {
   references: Array<References>
 }
 
-/**
- * Reads the extraction a line at a time, so a line can go as soon as it is read: each holds
- * on to the chunk of the file it was cut from, and most of the file is other languages.
- */
 export const wiktionaryParser = () => {
   const builders = new Map<string, Builder>()
   const formsOf: Array<FormOf> = []
@@ -363,7 +320,7 @@ export const wiktionaryParser = () => {
     const forms = readForms(word, entry.forms ?? [])
     builder.spellings.push(...forms.spellings)
     builder.inflections.push(...forms.inflections)
-    // Synonyms and antonyms are listed for the whole part of speech, not for one of its senses.
+    // Wiktextract attaches synonyms and antonyms to the POS entry rather than individual senses.
     const synonyms = words(entry.synonyms)
     const antonyms = words(entry.antonyms)
     if (synonyms.length + antonyms.length > 0) {
@@ -373,7 +330,6 @@ export const wiktionaryParser = () => {
     builder.senses.push(...senses)
   }
 
-  /** Every English word read, its parts of speech merged into one headword, in page order. */
   const finish = () => ({
     words: [...builders].map(([headword, builder]): Word => ({
       headword,
@@ -390,14 +346,12 @@ export const wiktionaryParser = () => {
   return { add, finish }
 }
 
-/** Every English word in the extraction's lines; see `wiktionaryParser`. */
 export const parseWiktionary = (lines: Iterable<string>) => {
   const parser = wiktionaryParser()
   for (const line of lines) parser.add(line)
   return parser.finish()
 }
 
-/** One form per spelling, with every inflection it is: "read" is both past and past participle. */
 const mergeInflections = (forms: ReadonlyArray<InflectedForm>): Array<InflectedForm> => {
   const merged = new Map<string, Set<EnglishInflection>>()
   for (const form of forms) {
@@ -408,10 +362,6 @@ const mergeInflections = (forms: ReadonlyArray<InflectedForm>): Array<InflectedF
   return [...merged].map(([text, tags]) => ({ text, tags: [...tags] }))
 }
 
-/**
- * Reads `data/english/enwiktionary-ja.jsonl`: curated English Wiktionary entries whose senses
- * have been consolidated and ordered for English learners.
- */
 export const curatedParser = () => {
   const byHeadword = new Map<string, Word>()
   const add = (line: string) => {

@@ -18,10 +18,6 @@ import { makeSearch } from "./search.ts"
 
 export { audioUrl } from "./shared.ts"
 
-/**
- * An unapproved entry's enrichment: what it has, or what is already on its way, stands; nothing
- * more comes until the admin approves it, so there is nothing to ask for.
- */
 const awaitingStatus = (status: EnrichmentStatus): EnrichmentStatus =>
   Match.value(status).pipe(
     Match.when("ready", () => "ready" as const),
@@ -38,20 +34,11 @@ const awaitingApproval = (enrichment: Enrichment): Enrichment => ({
 export class Dictionary extends Context.Service<
   Dictionary,
   {
-    /** Searches the dictionary of `language`: Japanese words for Japanese learners, English ones for English learners. */
     search(query: string, language: Language, limit: number): Effect.Effect<SearchResult>
-    /** An entry as the app shows it, with its enrichment status. Reads only; never queues work. */
     entry(id: EntryId): Effect.Effect<Option.Option<Entry>>
-    /** Whether an entry's example sentences and audio are ready yet. Reads only; never queues work. */
     enrichment(id: EntryId): Effect.Effect<Option.Option<Enrichment>>
-    /**
-     * Queues whatever enrichment an entry is missing, returning its status. Queuing its example
-     * sentences takes one of the requester's allowance; fails, queuing nothing, once it's used up.
-     */
     requestEnrichment(id: EntryId, requester: UserId): Effect.Effect<Option.Option<Enrichment>, RateLimited>
-    /** Search-result summaries for known entries, for Ask Kotori's links. */
     summarize(ids: ReadonlyArray<EntryId>): Effect.Effect<ReadonlyArray<EntrySummary>>
-    /** Entry ids for words in `language`, for linking coach vocabulary to the dictionary. */
     lookupWords(
       words: ReadonlyArray<{ readonly word: string; readonly reading: string }>,
       language: Language
@@ -65,7 +52,6 @@ export class Dictionary extends Context.Service<
       const { enrichmentOf, requestFor } = yield* makeEnrichmentStatus
       const { search, summarize, lookupWords } = makeSearch(db)
 
-      /** An entry's enrichment status; one outside the dictionary proper gets none until it is in. */
       const statusOf = (entry: { readonly id: EntryId; readonly language: Language; readonly review: EntryReview }) =>
         REVIEW_RULES[entry.review].inDictionary
           ? enrichmentOf(entry)
@@ -84,7 +70,6 @@ export class Dictionary extends Context.Service<
       const requestEnrichment = Effect.fn("Dictionary.requestEnrichment")(function* (id: EntryId, requester: UserId) {
         const found = yield* entryLanguage(db, id)
         if (found === undefined) return Option.none()
-        // Approval queues a draft's enrichment; asking before then queues nothing.
         return Option.some(
           yield* REVIEW_RULES[found.review].inDictionary ? requestFor(found, requester) : statusOf(found)
         )

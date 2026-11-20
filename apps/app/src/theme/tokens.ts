@@ -1,61 +1,35 @@
 import { Platform } from "react-native"
 
-/** `#RRGGBB` at the given opacity. */
 export const fade = (hex: string, alpha: number) =>
   `rgba(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(", ")}, ${alpha})`
 
-/**
- * Snow and young bamboo (wakatake), with one warm accent. Every lighter tint
- * and darker shade of green is drawn from Wakatake 500 at the same hue.
- */
 const wakatake = {
-  /** Snow: the screen background. */
   background: "#F7FAF7",
   surface: "#FFFFFF",
-  /** Stone: example boxes, keys and inactive fills. */
   surfaceMuted: "#ECF2ED",
-  /** Line: borders, chips and empty bars. */
   border: "#D7E1D9",
-  /** Dividers between rows inside a card. */
   divider: "#E9EFEA",
-  /** The faint ring that lifts a white card off the snow. */
   hairline: "rgba(19, 32, 26, 0.05)",
-  /** The ring around pills on the hero and the floating tab bar. */
   ring: "rgba(19, 32, 26, 0.07)",
-  /** The ring around white controls: audio buttons and secondary buttons. */
   outline: "rgba(19, 32, 26, 0.08)",
-  /** The line a nuance scale's dot sits on. */
   track: "rgba(19, 32, 26, 0.12)",
   ink: "#13201A",
   text: "#13201A",
-  /** Ink 2: secondary text. */
   textMuted: "#515E58",
-  /** Ink 3, darkened from the mock's #78837E so small text keeps 4.5:1 on snow and white. */
   textFaint: "#66716C",
-  /** Wakatake 500: buttons, the selected segment and checks, with ink text on top. */
   primary: "#81B38E",
   primaryPressed: "#649571",
-  /** 100: the hero, large surfaces, and behind badges, pills and selected icons. */
   primaryTint: "#DBF2E0",
-  /** 200: comparison bands and fading bars. */
   primarySoft: "#C3E5CB",
-  /** 800: marks on charts and scales, numbered badges. White text on it is 7.5:1. */
   primaryDark: "#355D41",
-  /** 900: green text on tints. */
   primaryDeep: "#23412C",
   onPrimary: "#13201A",
   onPrimaryDark: "#FFFFFF",
-  /** Rose dark: overlines, warnings, "avoid" labels and the wavy line under a mistake. */
   accent: "#B03D5B",
-  /** Blush: behind warnings. */
   accentSoft: "#FFEEF0",
-  /** Amber dark: "caution" labels, which can misfire (casual, gendered, dated) but aren't to avoid. 6.5:1 on its soft. */
   caution: "#7A4E00",
-  /** Amber cream: behind caution labels. */
   cautionSoft: "#FFF3D6",
-  /** The marker behind the word being looked up in an example. */
   highlight: "#FDC5CC",
-  /** A pressed or selected row: ink at 7.5%. */
   selected: "rgba(19, 32, 26, 0.075)",
   shadow: "#13201A",
   overlay: "rgba(19, 32, 26, 0.35)"
@@ -63,11 +37,6 @@ const wakatake = {
 
 export type Palette = typeof wakatake
 
-/**
- * Sky (sora): the blue behind the app icon in place of Wakatake 500. Every
- * other step, and every neutral wakatake tinges green, keeps its OKLCH
- * lightness turned to the sky's hue, so each contrast above still holds.
- */
 const sora: Palette = {
   ...wakatake,
   background: "#F6FAFC",
@@ -82,7 +51,6 @@ const sora: Palette = {
   text: "#131E26",
   textMuted: "#515C64",
   textFaint: "#666F76",
-  /** The icon's background. */
   primary: "#94C1E2",
   primaryPressed: "#76A3C3",
   primaryTint: "#DAEEFE",
@@ -95,7 +63,6 @@ const sora: Palette = {
   overlay: "rgba(19, 30, 38, 0.35)"
 }
 
-/** The palettes a learner can pick in settings; sora comes first and is the default. */
 const palettes = { sora, wakatake }
 
 export type ThemeName = keyof typeof palettes
@@ -106,12 +73,6 @@ const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, xxxl: 48 } as con
 
 const radius = { sm: 14, md: 16, lg: 24, xl: 28, pill: 999 } as const
 
-/**
- * Three families: Gabarito for the interface and English, Murecho for Japanese
- * text, and Hina Mincho for the Japanese words being learned. On the web each
- * Latin face falls through to Murecho, so Japanese inside English copy still
- * gets the Japanese face; native text picks Murecho itself (see `Text`).
- */
 const latin = {
   regular: "Gabarito_400Regular",
   medium: "Gabarito_500Medium",
@@ -145,27 +106,20 @@ const fonts = {
 
 export type Face = "latin" | "japanese"
 
-/** Ascent and descent of Gabarito and Murecho (hhea, as a share of the size): where text sits in its line. */
+// Gabarito and Murecho hhea ascent/descent ratios used to locate the text baseline within a line box.
 const faceMetrics: Record<Face, { readonly ascent: number; readonly descent: number }> = {
   latin: { ascent: 0.94, descent: 0.26 },
   japanese: { ascent: 1.16, descent: 0.288 }
 }
 
-/**
- * How far the baseline sits below the top of a line box. Every platform
- * centres the glyphs in the line height, so the leading splits evenly; this
- * rounds as browsers do, which native text is within a pixel of.
- */
 export const baseline = (face: Face, size: number, lineHeight: number) => {
   const ascent = Math.round(faceMetrics[face].ascent * size)
   const descent = Math.round(faceMetrics[face].descent * size)
   return Math.floor((lineHeight - ascent - descent) / 2) + ascent
 }
 
-/** Content width on large screens, so the web app reads like a phone-sized column. */
 const maxContentWidth = 640
 
-/** Soft drops that fade out before the card's edge: cards, the search field, then the tab bar. */
 const shadowIn = (color: Palette) => (elevation: 1 | 2 | 3) => {
   const web = ["none", "0 10px 24px -18px", "0 16px 30px -16px", "0 16px 34px -14px"][elevation]!
   const opacity = [0, 0.4, 0.35, 0.42][elevation]!
@@ -183,7 +137,6 @@ const shadowIn = (color: Palette) => (elevation: 1 | 2 | 3) => {
   )
 }
 
-/** Spacing, type and width: the same in every theme. Colors and shadows come from `useTheme`. */
 export const theme = {
   space,
   radius,
@@ -195,5 +148,4 @@ const themed = (color: Palette) => ({ ...theme, color, shadow: shadowIn(color) }
 
 type Theme = ReturnType<typeof themed>
 
-/** Each palette with the shared tokens and its own shadows, built once. */
 export const themes: Record<ThemeName, Theme> = { sora: themed(sora), wakatake: themed(wakatake) }

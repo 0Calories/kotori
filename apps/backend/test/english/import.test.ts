@@ -18,7 +18,6 @@ import {
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 import { sense, spelling } from "../fixtures.ts"
 
-// The importer streams its sources from disk, so the fixtures are real files.
 const directory = mkdtempSync(join(tmpdir(), "english-"))
 afterAll(() => rmSync(directory, { recursive: true, force: true }))
 const file = (name: string, lines: ReadonlyArray<string>) => {
@@ -85,7 +84,6 @@ layer(TestLayer)("EnglishDictionary.importFiles", (it) => {
       const db = yield* Database
       const ids = yield* headwordIds(db, "en")
       assert.sameMembers([...ids.keys()], ["twerk", "on thin ice", "eat", "walk", "selfie"])
-      // "ate" is eat's past, found through it.
       const [ate] = yield* findForms(db, ["ate"], "en")
       assert.deepStrictEqual([ate?.entryId, ate?.kind, ate?.tags], [ids.get("eat"), "inflection", ["past"]])
       const [walkOnThinIce] = yield* findForms(db, ["walk on thin ice"], "en")
@@ -120,7 +118,6 @@ layer(TestLayer)("EnglishDictionary.importFiles", (it) => {
       const ids = yield* headwordIds(db, "en")
       const [rizzler] = yield* findForms(db, ["rizzler"], "en")
       assert.strictEqual(rizzler?.entryId, ids.get("rizzler"))
-      // Approved words are Kotori's: their labels, usage patterns and cautions come back with them.
       const rizzlerId = ids.get("rizzler")!
       const [entry] = yield* getEntries(db, [rizzlerId])
       assert.strictEqual(entry?.source, "kotori")
@@ -139,14 +136,12 @@ layer(TestLayer)("EnglishDictionary.importFiles", (it) => {
         rows.map((row) => [row.rank, row.kind, row.source])
       )
       assert.deepStrictEqual(yield* cautionsOf, [[1, "variety", "kotori"]])
-      // A re-import replaces them rather than adding a second copy.
       yield* EnglishDictionary.importFiles({ files: { ...files(true), approved }, jmdict: jmdictFile })
       assert.deepStrictEqual(yield* cautionsOf, [[1, "variety", "kotori"]])
 
       const [walking] = yield* findForms(db, ["walking on thin ice"], "en")
       assert.strictEqual(walking?.entryId, ids.get("on thin ice"))
 
-      // Without the approved file, its words go the way of any removed source word.
       const without = yield* EnglishDictionary.importFiles({ files: files(true), jmdict: jmdictFile })
       assert.strictEqual(without.removed, 1)
     })
@@ -157,7 +152,6 @@ layer(TestLayer)("EnglishDictionary.importFiles", (it) => {
       const db = yield* Database
       const before = yield* headwordIds(db, "en")
 
-      // A partial import never removes anything.
       assert.strictEqual(
         (yield* EnglishDictionary.importFiles({ files: files(false), jmdict: jmdictFile, limit: 1 })).removed,
         0
@@ -175,7 +169,6 @@ layer(TestLayer)("EnglishDictionary.importFiles", (it) => {
   it.effect("leaves Kotori's drafts be, and numbers new words past them", () =>
     Effect.gen(function* () {
       const db = yield* Database
-      // The last test removed "walk"; a draft takes the next id before the sources bring it back.
       const draft = EntryId.make((yield* topEntryId(db, "en", EntryId.make(FIRST_ENGLISH_ID))) + 1)
       yield* insertEntries(db, [
         {
@@ -193,11 +186,9 @@ layer(TestLayer)("EnglishDictionary.importFiles", (it) => {
       ])
 
       const result = yield* EnglishDictionary.importFiles({ files: files(true), jmdict: jmdictFile })
-      // A draft isn't the sources' to remove…
       assert.strictEqual(result.removed, 0)
       const [kept] = yield* getEntries(db, [draft])
       assert.deepInclude(kept, { headword: "skibidi", source: "kotori", review: "unreviewed" })
-      // …nor its id theirs to give a new word.
       const walk = (yield* headwordIds(db, "en")).get("walk")
       assert.isAbove(walk!, draft)
     })

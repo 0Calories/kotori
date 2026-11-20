@@ -46,22 +46,13 @@ import { audioUrl, firstGlosses, unique } from "./shared.ts"
 import { senseLabels } from "./similar.ts"
 import { labelsBySense } from "./usage.ts"
 
-// Search and ranking: the words of either dictionary that answer a query, best first, and the
-// summaries search results and Ask Kotori's links show of them.
-
 interface Hit {
   readonly entryId: EntryId
   readonly score: number
   readonly inflection: ReadonlyArray<string>
-  /**
-   * Whether the entry answers the query rather than resembling it: the word as written or
-   * inflected, or a gloss with every word of the query; not a prefix, a typo's neighbour or a
-   * phrase with a word left out. See `SearchMatch`.
-   */
   readonly strong: boolean
 }
 
-/** How well a list of hits answers the query, from the best hit's kind. */
 const matchOf = (hits: ReadonlyArray<Hit>): SearchMatch =>
   hits.length === 0 ? "none" : hits.some((hit) => hit.strong) ? "exact" : "weak"
 
@@ -69,7 +60,6 @@ const keepBest = (hits: Iterable<Hit>) => keepBestBy(hits, (hit) => hit.entryId)
 
 const SENSE_BONUS = [40, 25, 15, 10, 5]
 
-/** Usage tags that make a word a less likely answer to a plain query. */
 const TAG_PENALTY: Record<string, number> = {
   arch: 30,
   obs: 30,
@@ -93,12 +83,6 @@ const TAG_PENALTY: Record<string, number> = {
 
 const tagPenalty = (misc: ReadonlyArray<string>) => misc.reduce((sum, tag) => sum + (TAG_PENALTY[tag] ?? 0), 0)
 
-/**
- * The searches an English query falls back on when the searches for all its words found fewer than
- * three entries: the phrase with one word left out (`relaxedEnglishSearchTerms`), then, only if
- * still nothing, trigram similarity for typos. Japanese text never gets here, and fallback hits
- * never outrank the word a romaji query spells (see `englishGlossHits`, `searchEnglish`).
- */
 const englishFallback = <Relaxed, Fuzzy>(
   query: string,
   found: number,
@@ -114,14 +98,9 @@ const englishFallback = <Relaxed, Fuzzy>(
     return { relaxed, fuzzy }
   })
 
-/**
- * Up to 10 points for how close a relaxed match's words sit, from its full-text rank (negated
- * `ts_rank_cd`, 0.1 for adjacent words): "thin ice" in "skate on thin ice" scores 10, three words
- * apart 3. With one word of the phrase missing, order is most of what's left to go on.
- */
+// ts_rank_cd is ~0.1 for adjacent words (negated in rank), scaling word proximity to 0..10.
 const proximity = (rank: number) => Math.min(10, Math.round(-100 * rank))
 
-/** How well a gloss answers a query in the glosses' language, normalised as that language is. */
 const glossScore = (
   match: GlossMatch,
   isExact: boolean,
@@ -139,39 +118,29 @@ const glossScore = (
   (rank?.common ? 30 : 0) +
   (rank?.priority ?? 0) / 5
 
-/** A word's own form, written as searched, scores a little above the same form in another case or entry. */
 const formScore = (
   base: number,
   exactCase: boolean,
   rank: { readonly common: boolean; readonly priority: number } | undefined
 ) => base + (exactCase ? 20 : 0) + (rank?.common ? 50 : 0) + (rank?.priority ?? 0) / 10
 
-/** "EAT", "IT", "STARTed": capitals in a row, so a word apart from the lowercase one spelled the same. */
 const isAcronym = (text: string) => /[A-Z]{2}/.test(text)
 
-/** JMDict's explanations, literal renderings and trademarks aren't English words to look up. */
+// Skip JMdict explanatory, literal, and trademark glosses when bridging to English headwords.
 const BRIDGE_SKIPS = new Set(["expl", "lit", "tm"])
-/** The words whose glosses lead to the other dictionary's words, and how many of their senses and glosses. */
 const BRIDGE_WORDS = 5
 const BRIDGE_SENSES = 2
 const BRIDGE_GLOSSES = 4
-/** Japanese glosses longer than this explain rather than translate; no word inside them is looked for. */
 const INSIDE_GLOSS_MAX = 20
-/** A word inside a gloss is 2 to this many characters: no particle, no phrase. */
 const INSIDE_WORD_MAX = 10
-/** How far a gloss in another spelling of the Japanese word the query is (禿 for ハゲ) ranks below one as typed. */
 const SPELLING_PENALTY = 10
-/** How far a word inside a gloss ranks below one the whole gloss names. */
 const INSIDE_PENALTY = 30
 
-/** A word the query is, whose glosses name words in the other dictionary. */
 interface BridgeSource {
   readonly record: EntryRecord
-  /** Whether the query is this word as written or listed, rather than a guess at its base form. */
   readonly exact: boolean
 }
 
-/** Every stretch of a gloss that could be a word inside it, longest first, left to right. */
 const stretches = (gloss: string) => {
   const found: Array<string> = []
   for (let length = Math.min(gloss.length - 1, INSIDE_WORD_MAX); length >= 2; length--) {
@@ -180,14 +149,9 @@ const stretches = (gloss: string) => {
   return found
 }
 
-/** The word's labels, those every sense carries (`senseLabels`), from its labels by sense. */
 const wordLabels = (entry: EntryRecord, bySense: ReadonlyMap<number, ReadonlyArray<Label>> | undefined) =>
   senseLabels(entry.senses.map((_, index) => bySense?.get(index) ?? [])).word
 
-/**
- * Which of a guessed "-s" form's meanings applies: a noun's plural or a verb's third person.
- * An unmarked sense is most often a noun's.
- */
 const guessedInflection = (tags: ReadonlyArray<string>, entry: EntryRecord | undefined) => {
   if (!(tags.includes("plural") && tags.includes("third-person"))) return tags
   const senses = entry?.senses ?? []
@@ -195,12 +159,7 @@ const guessedInflection = (tags: ReadonlyArray<string>, entry: EntryRecord | und
   return senses.some((sense) => sense.pos.includes("v")) ? ["third-person"] : []
 }
 
-/** Searching a dictionary, and summaries and lookups of its words, on `db`. */
 export const makeSearch = (db: DatabaseShape) => {
-  // ---------------------------------------------------------------------
-  // Search: Japanese words
-  // ---------------------------------------------------------------------
-
   const japaneseHits = Effect.fnUntraced(function* (query: string) {
     const full = toFullwidth(query)
     const variants = unique([query, full, katakanaToHiragana(query), katakanaToHiragana(full)])
@@ -237,11 +196,7 @@ export const makeSearch = (db: DatabaseShape) => {
     return keepBest([...exact, ...prefix])
   })
 
-  /**
-   * Japanese words whose English glosses match an English query, and `directScore`: the best
-   * score among glosses with every word of the query. Fallback hits never count there, so a
-   * near-miss English gloss can't outrank the word a romaji query spells ("taberu" vs "table").
-   */
+  // Exclude relaxed and fuzzy fallback hits from directScore so near-miss English glosses ("table") cannot outrank exact romaji ("taberu").
   const englishGlossHits = Effect.fnUntraced(function* (query: string) {
     const terms = englishSearchTerms(query)
     const exact = yield* findGlossesExact(db, query, 300)
@@ -283,14 +238,6 @@ export const makeSearch = (db: DatabaseShape) => {
     }
   })
 
-  /**
-   * The words of the `to` dictionary that the sources' glosses name: the bridge between the
-   * two dictionaries, for words one glosses that the other's glosses miss. A gloss that is a
-   * word's form names it. Japanese has no spaces to find words by, so a Japanese gloss no form
-   * matches whole names the longest word inside it, ranked lower: "蛙化現象のきっかけ" →
-   * 蛙化現象. A bridged word answers the query only when both legs are exact: the source is the
-   * query as written, and the gloss is the word's form.
-   */
   const bridgeHits = Effect.fnUntraced(function* (sources: ReadonlyArray<BridgeSource>, to: Language) {
     const normalize = to === "en" ? normalizeGloss : normalizeJapaneseGloss
     const named = sources
@@ -309,7 +256,6 @@ export const makeSearch = (db: DatabaseShape) => {
       .filter((name) => name.term.length > 0)
     if (named.length === 0) return []
 
-    // English forms are matched case-folded; JMDict's "to eat" names eat, not the acronym EAT.
     const key = (text: string) => (to === "en" ? text.toLowerCase() : text)
     const formsOf = (matches: ReadonlyArray<FormMatch>) => {
       const byText = new Map<string, Array<FormMatch>>()
@@ -320,6 +266,7 @@ export const makeSearch = (db: DatabaseShape) => {
       return byText
     }
     const whole = formsOf(yield* findForms(db, unique(named.map((name) => name.term)), to, "searchable"))
+    // Unspaced Japanese glosses ("蛙化現象のきっかけ") have no word boundaries, so match the longest dictionary form substring when the whole gloss misses.
     const unmatched = to === "ja" ? named.filter((name) => !whole.has(name.term)) : []
     const glosses = unique(unmatched.map((name) => name.term)).filter((term) => term.length <= INSIDE_GLOSS_MAX)
     const inside = formsOf(
@@ -337,7 +284,6 @@ export const makeSearch = (db: DatabaseShape) => {
       }))
     })
     const ranks = yield* entryRanks(db, unique(links.map((link) => link.match.entryId)))
-    // An entry reached both ways keeps its best score, and answers the query if either leg pair does.
     const best = new Map<EntryId, Hit>()
     for (const { match, weight, strong } of links) {
       const rank = ranks.get(match.entryId)
@@ -353,11 +299,6 @@ export const makeSearch = (db: DatabaseShape) => {
     return [...best.values()]
   })
 
-  /**
-   * Japanese words reached through the English dictionary: the English word the query is, and
-   * the Japanese words its glosses name ("ick" → 蛙化現象, which JMDict doesn't gloss as "the
-   * ick"). Only the query as written is an exact leg; a guess at its base form isn't.
-   */
   const englishBridgeHits = Effect.fnUntraced(function* (query: string) {
     const lower = query.toLowerCase()
     const matches = (yield* findForms(
@@ -365,9 +306,7 @@ export const makeSearch = (db: DatabaseShape) => {
       unique([lower, ...uninflect(lower).map((guess) => guess.base)]),
       "en",
       "searchable"
-    ))
-      // The acronym spelled like the word ("ICK" for "ick") is another word, unless typed so.
-      .filter((match) => match.text === query || !isAcronym(match.text))
+    )).filter((match) => match.text === query || !isAcronym(match.text))
     const exact = new Set(matches.filter((match) => match.text.toLowerCase() === lower).map((m) => m.entryId))
     const ids = unique([...exact, ...matches.map((match) => match.entryId)]).slice(0, BRIDGE_WORDS)
     const records = yield* getEntries(db, ids)
@@ -408,16 +347,6 @@ export const makeSearch = (db: DatabaseShape) => {
     }
   })
 
-  // ---------------------------------------------------------------------
-  // Search: English words, the same way round for English learners
-  // ---------------------------------------------------------------------
-
-  /**
-   * English words by their spelling, the way Japanese words are found by their forms:
-   * as written, through their inflections ("ate" finds eat, marked past), by prefix,
-   * and for phrases or typos by stemmed tokens and trigram similarity.
-   * Words whose sources list no inflections are reached by the regular rules ("teams").
-   */
   const englishWordHits = Effect.fnUntraced(function* (query: string) {
     const guesses = uninflect(query)
     const variants = unique([query, ...englishPhraseVariants(query)])
@@ -453,7 +382,6 @@ export const makeSearch = (db: DatabaseShape) => {
     const exact = matches.map((match): Hit => {
       const inflected = match.kind === "inflection"
       const isDirect = match.text.toLowerCase() === lowerQuery
-      // An acronym spelled like the word looked up ("EAT" for "eat") is another word altogether.
       const acronym = match.text !== query && isAcronym(match.text)
       const base = acronym ? 350 : inflected ? 800 : isDirect ? 1000 : 900
       return {
@@ -464,7 +392,6 @@ export const makeSearch = (db: DatabaseShape) => {
       }
     })
     const byRule = guessed
-      // "started" is start's past, not START's.
       .filter((match) => match.kind === "spelling" && !isAcronym(match.text))
       .map((match): Hit => {
         const guess = guesses.find((candidate) => candidate.base === match.text.toLowerCase())
@@ -481,7 +408,6 @@ export const makeSearch = (db: DatabaseShape) => {
       inflection: [],
       strong: false
     }))
-    // A phrase with every word of the query answers it; one that merely shares the words resembles it.
     const byTokens = strict.map((match): Hit => {
       const phraseExact = phraseNorm.length > 0 && normalizeEnglishPhrase(match.text) === phraseNorm
       return {
@@ -506,20 +432,13 @@ export const makeSearch = (db: DatabaseShape) => {
     return keepBest([...exact, ...byRule, ...byTokens, ...prefix, ...byRelaxed, ...byFuzzy])
   })
 
-  /**
-   * English words for a Japanese query, the way Japanese words are found for an English
-   * one: by their Japanese glosses, as typed or in dictionary form (食べなかった → 食べる),
-   * and through JMDict, whose English glosses for the Japanese word name English words
-   * (たべる → 食べる → "to eat" → eat). Glosses that only contain the query come last.
-   */
   const japaneseGlossHits = Effect.fnUntraced(function* (query: string) {
-    // Adjectival nouns and no-adjectives are glossed as they modify a noun: きれい → きれいな, 禿げ → 禿げの.
+    // Japanese glosses of English adjectives often carry trailing な or の (きれいな, 禿げの).
     const glossNorms = (term: string) => {
       const base = normalizeJapaneseGloss(term)
       return base.length === 0 ? [] : [base, `${base}な`, `${base}の`]
     }
-    // The Japanese words the query is, and the English words their glosses name. When the query is
-    // already a dictionary word (ハゲ → 禿), imperative lookalikes (はげ → 剥ぐ, 接ぐ) are left aside.
+    // Prefer uninflected matches so dictionary words (ハゲ → 禿) are not diluted by imperative homophones (はげ → 剥ぐ).
     const allJapanese = (yield* japaneseHits(query)).filter((hit) => hit.score >= 700)
     const uninflected = allJapanese.filter((hit) => hit.inflection.length === 0)
     const japanese = (uninflected.length > 0 ? uninflected : allJapanese).slice(0, BRIDGE_WORDS)
@@ -538,9 +457,7 @@ export const makeSearch = (db: DatabaseShape) => {
     )
     const norms = unique(terms.flatMap(glossNorms))
     const norm = normalizeJapaneseGloss(query)
-    // Glosses write those words in kanji where the query may be their reading: baldy is glossed
-    // 禿 and bald 禿げの, not ハゲ. Only kanji, which is the word's own; a reading is shared with
-    // its homophones, and an obscure homophone (接ぐ as はぐ) yields when a common word matches.
+    // Include kanji forms of matched Japanese words so kana queries (ハゲ) match kanji-only English glosses (禿), excluding shared kana readings.
     const commonRecords = records.filter((record) => record.common)
     const spellingRecords = commonRecords.length > 0 ? commonRecords : records
     const spellings = new Set(
@@ -567,8 +484,7 @@ export const makeSearch = (db: DatabaseShape) => {
       ...exact.map((m) => score(m, true, spellings.has(normalizeJapaneseGloss(m.text)) ? SPELLING_PENALTY : 0)),
       ...viaJmdict
     ])
-    // A gloss that only contains the query names something else (ハゲタカ is a vulture), so it
-    // comes after every word that answers the query, in its own order.
+    // Shift substring-only gloss hits below all exact and bridged hits so partial matches (ハゲタカ for ハゲ) never interleave.
     const answered = new Set(answers.map((hit) => hit.entryId))
     const contains = keepBest(fuzzy.filter((m) => !answered.has(m.entryId)).map((m) => score(m, false)))
     const lowest = Math.min(...answers.map((hit) => hit.score))
@@ -581,7 +497,6 @@ export const makeSearch = (db: DatabaseShape) => {
     if (hasJapanese(query)) return { mode: "japanese" as const, reading: null, hits: yield* japaneseGlossHits(query) }
 
     const english = yield* englishWordHits(query)
-    // Romaji for a Japanese word is read as such only when it isn't an English word: "kirei", not "sake".
     const kana = (english[0]?.score ?? 0) >= 700 ? null : romajiToKana(query)
     const romaji = kana === null ? [] : (yield* japaneseGlossHits(kana)).filter((hit) => hit.score >= 90)
     if (kana === null || romaji.length === 0) return { mode: "english" as const, reading: null, hits: english }
@@ -592,17 +507,12 @@ export const makeSearch = (db: DatabaseShape) => {
     }
   })
 
-  /**
-   * The hits a learner may see, approved words first: Kotori's unreviewed drafts come after every
-   * approved word, in their own order, and discarded ones not at all (ADR 0002).
-   */
   const listedFirst = Effect.fnUntraced(function* (hits: ReadonlyArray<Hit>) {
     const ranks = yield* entryRanks(db, unique(hits.map((hit) => hit.entryId)))
     const approved: Array<Hit> = []
     const drafts: Array<Hit> = []
     for (const hit of hits) {
       const review = ranks.get(hit.entryId)?.review
-      // An entry deleted since the hit was found is left out with the unsearchable ones.
       if (review === undefined || !REVIEW_RULES[review].searchable) continue
       ;(REVIEW_RULES[review].inDictionary ? approved : drafts).push(hit)
     }
@@ -655,8 +565,6 @@ export const makeSearch = (db: DatabaseShape) => {
     const fold = (text: string) => (language === "en" ? text.toLowerCase() : text)
     return words.map(({ word, reading }) => {
       const candidates = matches.filter((m) => fold(m.text) === fold(word) || fold(m.text) === fold(reading))
-      // Prefer an entry matching both spelling and reading (English words are their own reading),
-      // then the word as written rather than an inflection of another, then the most frequent.
       const best = candidates
         .map((m) => ({
           id: m.entryId,

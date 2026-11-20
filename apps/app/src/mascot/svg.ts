@@ -38,7 +38,6 @@ import {
   zParts
 } from "./motion.ts"
 
-/** `content` placed by `pose`, or by `at` when given; nothing while it's faded out. */
 const placed =
   (pose: (part: Part) => Pose) =>
   (name: Part, content: string, at = pose(name)) =>
@@ -54,7 +53,6 @@ const zSvg = (name: ZPart) => {
 
 type Face = {
   readonly eyes: readonly { readonly cx: number; readonly cy: number; readonly rx: number; readonly ry: number }[]
-  /** `inward` mirrors `dx` on the eye right of the middle, so both catch the light on the beak's side. */
   readonly catchlight: { readonly dx: number; readonly dy: number; readonly r: number; readonly inward?: boolean }
 }
 
@@ -85,20 +83,11 @@ const eyesSvg = (mood: Mood, face: Face) => {
     .join("")
 }
 
-/** A page, its far edge and its print. */
 const pageSvg = (side: 0 | 1) => {
   const { book } = readingShapes
   return `<path d="${book.pages[side]}" fill="${palette.paper}"/><path d="${book.edges[side]}" fill="none" stroke="${palette.shade}" stroke-width="2.2" stroke-linecap="round"/><path d="${book.print[side]}" fill="none" stroke="${palette.ink}" stroke-opacity="0.45" stroke-width="2.4" stroke-linecap="round"/>`
 }
 
-/**
- * Kotori reading, facing the viewer in its 200×200 box, with every part that
- * moves as it takes up the book and reads placed by `pose`. In the drawing,
- * the front view's wings and eyes are there too, under the ones it reads
- * with, and the book is in place; `startReading` fades them in and out. The
- * dust and sparks the book throws up as it lands grow beside a Kotori
- * `size` pixels square as celebrate's sparkles do.
- */
 const readingDrawing = (pose: (part: Part) => Pose, size: number) => {
   const part = placed(pose)
   const { origin, puff, sparks } = readingShapes.landing
@@ -146,12 +135,6 @@ const readingDrawing = (pose: (part: Part) => Pose, size: number) => {
   ${sparkParts.map((name) => part(name, `<path d="${sparklePath({ cx: origin.x, cy: origin.y, r: sparks[name].r })}" fill="${palette[sparks[name].color]}"/>`, grown(name))).join("")}`
 }
 
-/**
- * Kotori in three-quarter view in its 200×200 box, with each moving part
- * placed by `pose`, and its sparkles beside it when it celebrates, as big as a
- * Kotori `size` pixels square draws them. `facing === "right"` mirrors the
- * drawing horizontally about `x = 100`.
- */
 const sideDrawing = (mood: Mood, pose: (part: Part) => Pose, size = 200, facing: "left" | "right" = "left") => {
   const foot = (d: string) =>
     `<path d="${d}" stroke="${palette.ink}" stroke-width="${shapes.feet.width}" stroke-linecap="round"/>`
@@ -196,11 +179,6 @@ const sideDrawing = (mood: Mood, pose: (part: Part) => Pose, size = 200, facing:
   return facing === "right" ? `<g transform="translate(200 0) scale(-1 1)">${content}</g>` : content
 }
 
-/**
- * Kotori facing the viewer in its 200×200 box. It holds its pose while blinking
- * in open-eyed moods; `thinking` raises its wing to its chin and adds the
- * thought bubble above the box, placed by `pose`.
- */
 const frontDrawing = (mood: Mood, pose: (part: Part) => Pose) => {
   const { feet, wings } = frontShapes
   const foot = (d: string) =>
@@ -242,7 +220,6 @@ const frontDrawing = (mood: Mood, pose: (part: Part) => Pose) => {
   )}`
 }
 
-/** Kotori in `mood` and `facing`, as a Kotori `size` pixels square draws it. */
 const drawing = (mood: Mood, pose: (part: Part) => Pose, size = 200, facing: Facing = "left") =>
   mood === "reading"
     ? readingDrawing(pose, size)
@@ -250,7 +227,6 @@ const drawing = (mood: Mood, pose: (part: Part) => Pose, size = 200, facing: Fac
       ? frontDrawing(mood, pose)
       : sideDrawing(mood, pose, size, facing)
 
-/** The mascot as an SVG document, for generating icons and splash images. In moods that reach above the box, the image grows taller to fit. */
 export const mascotSvg = (options: { mood?: Mood; facing?: Facing; background?: string; padding?: number } = {}) => {
   const mood = options.mood ?? "neutral"
   const facing = options.facing ?? "left"
@@ -265,11 +241,9 @@ export const mascotSvg = (options: { mood?: Mood; facing?: Facing; background?: 
 </svg>`
 }
 
-/** Where `part` is `t` ms into a clip played in `mood`; a clip that isn't the mood's entrance plays over the mood's pose, as in the app. */
 const clipPose = (name: ClipName, mood: Mood, t: number) => (part: Part) =>
   entrances[mood] === name ? poseAt(name, part, t) : combine(settled(mood, part), poseAt(name, part, t))
 
-/** The confetti a clip has thrown `t` ms in, as a Kotori `size` pixels square throws it; it goes behind Kotori. */
 const thrown = (name: ClipName, t: number, size: number) => {
   const { count, grow } = confettiFor(size)
   return (clips[name].confetti?.pieces ?? [])
@@ -288,16 +262,10 @@ const thrown = (name: ClipName, t: number, size: number) => {
     .join("")
 }
 
-/** How far past the box a frame shows, for the hop and the confetti, which go beyond it. */
 const room = 40
 
-/** Moods whose own marks are `palette.sky` sit on white in preview frames so those marks show. */
 const backdrop = (mood: Mood) => (mood === "sleepy" || mood === "oops" ? palette.white : palette.sky)
 
-/**
- * One frame of a clip, `t` ms in, with confetti as a Kotori `size` pixels
- * square throws it, and room above the box for whatever reaches there.
- */
 export const frameSvg = (name: ClipName, mood: Mood, t: number, size = 200) => {
   const top = room + headroom(mood)
   const width = 200 + room * 2
@@ -309,10 +277,6 @@ export const frameSvg = (name: ClipName, mood: Mood, t: number, size = 200) => {
 </svg>`
 }
 
-/**
- * A clip's frames on one sheet, read left to right, each marked with its time,
- * for checking an animation without running the app.
- */
 export const framesSvg = (name: ClipName, mood: Mood, count = 12) => {
   const columns = 6
   const top = headroom(mood)
@@ -333,7 +297,6 @@ export const framesSvg = (name: ClipName, mood: Mood, count = 12) => {
 </svg>`
 }
 
-/** Kotori facing the viewer as an SVG document, with `mascotSvg`'s background and padding options. */
 export const mascotFrontSvg = (options: { background?: string; padding?: number } = {}) => {
   const pad = options.padding ?? 0
   const size = 200 + pad * 2

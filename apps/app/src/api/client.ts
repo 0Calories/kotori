@@ -17,7 +17,6 @@ import { ApiError, failureContext, toApiError } from "./errors.ts"
 
 export { ApiError } from "./errors.ts"
 
-/** The JWT sent with requests; `call` keeps it fresh. */
 let token: string | null = null
 
 class Api extends Context.Service<Api, HttpApiClient.ForApi<typeof KotoriApi>>()("@kotori/app/Api") {}
@@ -35,7 +34,6 @@ const ApiLive = Layer.effect(
 
 const runtime = ManagedRuntime.make(ApiLive)
 
-/** A JWT from Managed Auth; it being unreachable is offline, as for the API. */
 const bearer = async (get: () => Promise<string | null>) => {
   try {
     return await get()
@@ -55,11 +53,6 @@ const run = <A, E>(request: (api: Api["Service"]) => Effect.Effect<A, E>) =>
     )
   )
 
-/**
- * Runs a typed API call as a promise, for React Query. Failures become `ApiError`s.
- * The JWT is minted or renewed first when needed; if the API still refuses it, one
- * fresh JWT is tried before the 401 stands (which then signs the learner out).
- */
 export const call = async <A, E>(request: (api: Api["Service"]) => Effect.Effect<A, E>): Promise<A> => {
   token = await bearer(tokens.current)
   let exit = await run(request)
@@ -76,7 +69,6 @@ export const call = async <A, E>(request: (api: Api["Service"]) => Effect.Effect
   throw error
 }
 
-/** An `Unexpected` failure is a bug or a wire-shape mismatch (the API deploys first), so Sentry hears of it. */
 const report = (failure: unknown) => {
   const { kind, method, path, status, detail } = failureContext(failure)
   const where = [method, path, status].filter((part) => part !== undefined).join(" ")

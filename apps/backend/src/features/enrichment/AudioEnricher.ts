@@ -12,27 +12,12 @@ import { examplesToCome, sentencesToVoice } from "./voicing.ts"
 export interface AudioSummary {
   readonly clips: number
   readonly characters: number
-  /** Seeded sentences whose casting signals Jev judged on the way. */
   readonly judged: number
 }
 
-/** Voices dictionary entries: their headword, and their example sentences with a reader cast for each. */
 export class AudioEnricher extends Context.Service<
   AudioEnricher,
   {
-    /**
-     * Audio for an entry's headword and example sentences in the entry's language (the one
-     * its learners are learning), voices chosen per sentence. Only what is missing is voiced:
-     * existing clips are left as they are, so re-running fills gaps (a run cut short) without
-     * re-casting or paying twice.
-     *
-     * Seeded sentences are voiced only on a sense with none of Kotori's (`sentencesToVoice`), and
-     * not while Kotori's may still come (`examplesToCome`).
-     * They come with no formality, so it and their speaker are judged first, in one Jev request
-     * for the entry. If Jev fails, every other sentence is still voiced and the job then fails, so
-     * it is retried; a sentence never judged is never voiced. One Jev answers for but gives no
-     * formality is recorded as declined (`declineCasting`) and not asked about again.
-     */
     enrich(entryId: EntryId): Effect.Effect<AudioSummary, TtsError | JevError>
   }
 >()("@kotori/backend/AudioEnricher") {
@@ -54,14 +39,11 @@ export class AudioEnricher extends Context.Service<
           characters += text.length
         }
 
-        // Learners hear the language they're learning: Japanese words and their sentences in
-        // Japanese, English words and theirs in English. A Japanese headword is read from its
-        // kana, which pins down the pronunciation where kanji alone is ambiguous (生, 今日…).
-        // Every dictionary voice reads it, so learners hear the word from more than one speaker.
-        // Clips made before casting (no voice) count as done, so old entries aren't voiced again.
         const language = entry.language
+        // Synthesize Japanese headwords from kana readings to disambiguate heterophonous kanji (e.g. 生, 今日).
         const spoken = language === "ja" ? entry.reading : entry.headword
         const voiced = (yield* entryClips(db, [entryId])).get(entryId) ?? []
+        // Legacy clips stored before voice casting have voice = null; treat the entry as already voiced.
         const uncast = voiced.some((clip) => clip.voice === null)
         for (const voice of pronouncer.headwordVoices(language).slice(0, Math.max(headwordCap, 1))) {
           if (uncast || voiced.some((clip) => clip.voice === voice.id)) continue
@@ -78,9 +60,6 @@ export class AudioEnricher extends Context.Service<
           stored.map((example) => example.id)
         )
 
-        // A seeded sentence has no formality, and a guessed one would cast the wrong voice: Jev
-        // judges it, with its speaker, before the sentence is voiced. Only sentences still to be
-        // voiced and never judged are asked about, so a judgment is paid for once.
         const unjudged = stored.filter((example) => !judgedCasting(example) && !linked.has(`${example.id}:${language}`))
         const judging =
           unjudged.length > 0 && pronouncer.judges
@@ -93,8 +72,6 @@ export class AudioEnricher extends Context.Service<
                   }))
                 )
                 .pipe(
-                  // A sentence Jev gave no usable formality is recorded as declined: it is never
-                  // voiced, and no later run asks about it again.
                   Effect.tap((judged) =>
                     declineCasting(
                       db,
@@ -136,7 +113,7 @@ export class AudioEnricher extends Context.Service<
           { concurrency: 2, discard: true }
         )
 
-        // Everything that could be voiced is; the job fails now so the unjudged sentences get another try.
+        // Fail after voicing everything possible so only unjudged sentences are retried on the next attempt.
         if (Result.isFailure(judging)) return yield* Effect.fail(judging.failure)
         return { clips, characters, judged: judged.size }
       })

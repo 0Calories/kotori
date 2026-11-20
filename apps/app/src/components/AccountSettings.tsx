@@ -15,23 +15,16 @@ import { Input } from "./Input.tsx"
 import { Notice } from "./Notice.tsx"
 import { Text } from "./Text.tsx"
 
-/** Better Auth's default minimum; Managed Auth's own answer wins if it differs. */
 const MIN_PASSWORD = 8
 
 const ACCOUNTS_KEY = ["auth", "accounts"] as const
 
-/** The sign-in methods attached to the learner's account (`"credential"`, `"google"`, …). */
 const useAccounts = () =>
   useQuery({
     queryKey: ACCOUNTS_KEY,
     queryFn: () => managedAuth.listAccounts()
   })
 
-/**
- * Attaching Google to an existing account from Settings, so a learner who signed up
- * with a password can use Google from then on. Once Google is attached (or if they
- * signed up with Google to begin with), shows that it's connected instead.
- */
 export const GoogleAccount = () => {
   const { t } = useSession()
   const queryClient = useQueryClient()
@@ -149,7 +142,6 @@ export const GoogleAccount = () => {
   )
 }
 
-/** Changing the password from Settings. Signs the learner's other devices out, not this one. */
 export const ChangePassword = () => {
   const { t, changePassword } = useSession()
   const accounts = useAccounts()
@@ -162,7 +154,6 @@ export const ChangePassword = () => {
   const nextRef = useRef<TextInput>(null)
   const ready = current.length > 0 && next.length >= MIN_PASSWORD
 
-  // A learner who signed up with Google has no password to change; wait for the check so the button doesn't flash.
   if (accounts.isPending) return null
   if (accounts.data !== undefined && !accounts.data.some((a) => a.providerId === "credential")) return null
 
@@ -248,10 +239,6 @@ export const ChangePassword = () => {
   )
 }
 
-/**
- * Deleting the account, behind a confirmation: the API erases the identity and
- * everything studied in one transaction, and the app lands back on the welcome screen.
- */
 export const DeleteAccount = () => {
   const { t, deleteAccount } = useSession()
   const [confirming, setConfirming] = useState(false)
@@ -263,7 +250,6 @@ export const DeleteAccount = () => {
     setBusy(true)
     setError(null)
     try {
-      // On success the session ends and this screen goes with it.
       await deleteAccount()
     } catch (e) {
       setError(authMessage(t, e))

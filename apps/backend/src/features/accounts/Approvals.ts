@@ -6,34 +6,24 @@ import { Mailer } from "../../integrations/email/Mailer.ts"
 import { templates } from "../../integrations/email/templates.ts"
 import { ensureUser, updateUser, type User, usersByIds } from "./queries.ts"
 
-/** The language Kotori emails a learner in: the one they picked in the app, English until then. */
 export const emailLanguage = (profile: User | undefined): Language =>
   profile === undefined || profile.onboardedAt === null ? "en" : profile.nativeLanguage
 
 export class NoSuchUser extends Schema.TaggedError<NoSuchUser>()("NoSuchUser", { email: Schema.String }) {}
 
-/** A managed auth user together with the approval state and role Kotori keeps on the profile. */
 export interface Account extends AuthUser {
   readonly status: AccountStatus
   readonly role: string
 }
 
-/**
- * The admin's side of the sign-up gate. Approving tells the learner by email;
- * archiving is silent bookkeeping and looks like "pending" to them.
- * Status and role live on Kotori's own `users` row (created here if the
- * learner hasn't opened the app since signing up), never in the auth system.
- */
 export class Approvals extends Context.Service<
   Approvals,
   {
-    /** Pending sign-ups, oldest first; `all` includes archived ones. */
     requests(options?: { readonly all?: boolean }): Effect.Effect<ReadonlyArray<Account>>
     users(): Effect.Effect<ReadonlyArray<Account>>
     approve(email: string): Effect.Effect<Account, NoSuchUser>
     archive(email: string): Effect.Effect<Account, NoSuchUser>
     setRole(email: string, role: "admin" | "user"): Effect.Effect<Account, NoSuchUser>
-    /** Signs the learner out of every device. */
     revoke(email: string): Effect.Effect<Account, NoSuchUser>
   }
 >()("@kotori/backend/Approvals") {

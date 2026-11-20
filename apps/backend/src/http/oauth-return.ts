@@ -4,16 +4,9 @@ import { configuredWebOrigins, webOriginAllowed } from "./cors.ts"
 
 const OAUTH_RETURN_PATH = "/auth/return"
 
-/** The app's own URL scheme (app.json `scheme`), which iOS and Android hand back to Kotori. */
 const APP_SCHEME = "kotori:"
-/** Expo Go's scheme, for development builds run inside it. */
 const EXPO_GO_SCHEME = "exp:"
 
-/**
- * Where a Google sign-in may land: a web app origin the API already trusts with
- * credentials, or the native app's scheme (Expo Go's too, outside production).
- * Anything else is refused, so the verifier Neon appends never reaches another site.
- */
 export const returnTarget = (
   to: string | undefined,
   allowedWebOrigin: (origin: string) => boolean,
@@ -32,14 +25,7 @@ export const returnTarget = (
   return null
 }
 
-/**
- * The page Managed Auth sends a learner back to after Google. Neon only redirects to
- * http(s) URLs on its trusted domains, so the app's sign-in names this route (on the
- * API's one trusted origin) as `callbackURL` and its real destination as `to`; the
- * route forwards Neon's query (`neon_auth_session_verifier`, or `error`) there. The
- * app then trades the verifier, with the challenge cookie `/sign-in/social` set, for
- * a session at `/api/auth/get-session`.
- */
+// Neon Managed Auth only redirects to http(s) URLs on trusted domains, so OAuth callbacks bounce through this route to reach custom app schemes and preview origins.
 export const OAuthReturnRoute = Layer.unwrap(
   Effect.gen(function* () {
     const production = process.env.NODE_ENV === "production"

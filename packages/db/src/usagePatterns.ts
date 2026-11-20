@@ -4,11 +4,6 @@ import { source, table } from "./columns.ts"
 import { entries, type EntryId } from "./entries.ts"
 import { senses } from "./senses.ts"
 
-/**
- * How a sense is used: the dictionary's own notes (JMDict's `s_inf`, the English dictionary's
- * `info`: "usu. to one's subordinate", "usu. in the negative") and context Kotori adds beside
- * them, told apart by `source`. In the learner's language.
- */
 export const usagePatterns = table(
   "usage_patterns",
   {
@@ -18,7 +13,6 @@ export const usagePatterns = table(
     position: integer().notNull(),
     text: text().notNull(),
     source: source().notNull(),
-    /** A word the note compares with (ご苦労様 → お疲れ様), when it names one. */
     aboutEntryId: integer()
       .$type<EntryId>()
       .references(() => entries.id, { onDelete: "set null" })
@@ -28,7 +22,6 @@ export const usagePatterns = table(
       "cascade"
     ),
     index("usage_patterns_sense").on(t.entryId, t.sense, t.position),
-    // Deleting an entry clears the notes that compare with it.
     index("usage_patterns_about")
       .on(t.aboutEntryId)
       .where(sql`${t.aboutEntryId} IS NOT NULL`)

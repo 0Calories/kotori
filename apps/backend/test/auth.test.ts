@@ -17,7 +17,6 @@ import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 
 const BASE_PATH = "/neondb/auth"
 
-/** What the stand-in serves as its key set; null answers 503, as during an outage. */
 let keySet: { keys: Array<JWK> } | null = null
 let upstreamOrigin = ""
 
@@ -29,7 +28,6 @@ const signedInUser = {
   createdAt: "2026-10-01T00:00:00.000Z"
 }
 
-/** A stand-in for Managed Auth's HTTP endpoints, answering by path. */
 const upstream = (req: IncomingMessage, res: ServerResponse) => {
   const path = req.url?.slice(BASE_PATH.length).split("?")[0] ?? ""
   switch (path) {
@@ -89,7 +87,6 @@ const AuthAgainstUpstream = Layer.unwrap(
   })
 ).pipe(Layer.provideMerge(DatabaseMemory))
 
-/** Proxies a request through `Auth.forward` and returns what the client would receive. */
 const forward = (path: string, init?: RequestInit) =>
   Effect.gen(function* () {
     const auth = yield* Auth
@@ -170,9 +167,7 @@ layer(AuthAgainstUpstream)("Auth sessions and tokens", (it) => {
   it.effect("fails instead of rejecting a token when the key set can't be fetched", () =>
     Effect.gen(function* () {
       const auth = yield* Auth
-      // A malformed token is rejected before any key is needed.
       assert.isTrue(Option.isNone(yield* auth.verifyToken("not-a-jwt")))
-      // A well-formed one needs the JWKS, which answers 503 here.
       const { privateKey } = yield* Effect.promise(() => generateKeyPair("EdDSA", { crv: "Ed25519" }))
       const token = yield* Effect.promise(() =>
         new SignJWT({}).setProtectedHeader({ alg: "EdDSA", kid: "k1" }).setSubject(signedInUser.id).sign(privateKey)
@@ -188,7 +183,6 @@ layer(AuthAgainstUpstream)("Auth tokens and sessions", (it) => {
     Effect.gen(function* () {
       const auth = yield* Auth
       const sql = yield* SqlClient.SqlClient
-      // A stand-in for the slice of Managed Auth's schema that the check reads.
       yield* sql`CREATE SCHEMA neon_auth`
       yield* sql`CREATE TABLE neon_auth.session (id TEXT PRIMARY KEY, "userId" UUID NOT NULL)`
       yield* sql`INSERT INTO neon_auth.session (id, "userId") VALUES ('s1', ${signedInUser.id}::uuid)`
@@ -211,14 +205,12 @@ layer(AuthAgainstUpstream)("Auth tokens and sessions", (it) => {
       )
 
       assert.strictEqual(Option.getOrThrow(yield* auth.verifyToken(token)).id, signedInUser.id)
-      // `kotori revoke` and account deletion both remove the sessions.
       yield* auth.revokeSessions(signedInUser.id)
       assert.isTrue(Option.isNone(yield* auth.verifyToken(token)))
     })
   )
 })
 
-/** Managed Auth's webhook signing key, as its key set would publish it. */
 const webhookKeys = await generateKeyPair("EdDSA", { crv: "Ed25519" })
 const webhookJwk: JWK = { ...(await exportJWK(webhookKeys.publicKey)), kid: "wh1", alg: "EdDSA", use: "sig" }
 
@@ -233,7 +225,6 @@ const learner = {
   name: "Learner"
 }
 
-/** A `send.otp` (or other) event as Neon documents it, serialised the way it arrives. */
 const event = (type: string, data: object, id = crypto.randomUUID()) =>
   JSON.stringify({
     event_id: id,
@@ -284,7 +275,6 @@ layer(WebhooksAgainstUpstream)("Managed Auth webhooks", (it) => {
         nativeLanguage: "ja",
         targetLanguage: "en",
         onboardedAt: new Date(),
-        timezone: "Asia/Tokyo",
         createdAt: new Date()
       })
 
@@ -320,15 +310,12 @@ layer(WebhooksAgainstUpstream)("Managed Auth webhooks", (it) => {
         )
 
       assert.strictEqual(yield* rejected({ "content-type": "application/json" }), "missing signature headers")
-      // Signed with some other Ed25519 key that claims Neon's key id.
       const forger = yield* Effect.promise(() => generateKeyPair("EdDSA", { crv: "Ed25519" }))
       assert.strictEqual(yield* rejected(yield* signed(body, { key: forger.privateKey })), "bad signature")
-      // The body changed after signing (one digit of the code).
       assert.strictEqual(yield* rejected(good, body.replace("123456", "123457")), "bad signature")
-      // The timestamp is part of what's signed.
       const timestamp = String(Number(good["x-neon-timestamp"]) + 1)
       assert.strictEqual(yield* rejected({ ...good, "x-neon-timestamp": timestamp }), "bad signature")
-      // A compact JWS with the payload attached is not Neon's detached form.
+      // Neon requires detached JWS (`header..sig`), so splicing in a base64url payload (`e30` = `{}`) must fail.
       const [header, , sig] = good["x-neon-signature"]!.split(".")
       assert.strictEqual(yield* rejected({ ...good, "x-neon-signature": `${header}.e30.${sig}` }), "bad signature")
       assert.strictEqual(
@@ -336,7 +323,7 @@ layer(WebhooksAgainstUpstream)("Managed Auth webhooks", (it) => {
         "no Ed25519 key someone-else in the key set"
       )
       assert.strictEqual(yield* rejected({ ...good, "x-neon-timestamp": "yesterday" }), "malformed timestamp")
-      // Correctly signed, but replayed after Neon's five-minute window (the test clock starts at 0).
+      // Sync `TestClock` (starts at 0) with wall-clock `Date.now()` used by `signed`.
       yield* TestClock.setTime(Date.now())
       assert.strictEqual(yield* rejected(yield* signed(body, { ageMs: 6 * 60_000 })), "timestamp too old")
 
@@ -352,7 +339,6 @@ layer(WebhooksAgainstUpstream)("Managed Auth webhooks", (it) => {
       const created = event("user.created", { auth_provider: "credential" })
       assert.strictEqual(yield* receive(yield* signed(created), created), "ignored")
 
-      // Neon retries with the same event id when it didn't see the first answer.
       const body = otp("email-verification")
       assert.strictEqual(yield* receive(yield* signed(body), body), "sent")
       assert.strictEqual(yield* receive(yield* signed(body), body), "duplicate")

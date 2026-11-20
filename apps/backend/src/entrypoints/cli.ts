@@ -20,8 +20,7 @@ import { WorkerLive } from "../runtime/WorkerLayers.ts"
 
 loadDotEnv()
 
-// Each command builds only the services it uses, so `kotori migrate` (Fly's release command)
-// needs nothing but DATABASE_URL, and a missing API key fails only the command that calls it.
+// Provide layers per subcommand so `kotori migrate` (Fly's release command) only requires DATABASE_URL.
 const kotori = Command.make("kotori").pipe(
   Command.withDescription("Kotori's toolbox: seed and enrich the dictionary, and manage learner sign-ups"),
   Command.withSubcommands([

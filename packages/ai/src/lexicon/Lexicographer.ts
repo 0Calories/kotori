@@ -3,20 +3,15 @@ import { Context, Effect, Layer, Schema } from "effect"
 import { Claude, ClaudeDeadline, type ClaudeError } from "../providers/Claude.ts"
 import { CAUTION_GUIDE, LABELS_SAY, NOT_CAUTIONS } from "./cautionGuide.ts"
 
-/** An existing entry shown to Claude so it links rather than drafts a duplicate. */
 export interface DraftCandidate {
   readonly headword: string
   readonly reading: string
-  /** Its first meanings, in the asker's native language. */
   readonly meanings: ReadonlyArray<string>
 }
 
 export interface DraftRequest {
-  /** The search that found nothing, as typed. */
   readonly query: string
-  /** The language of the word asked about; the asker's native language is the other one. */
   readonly language: Language
-  /** The near misses the search did find, for linking. */
   readonly candidates: ReadonlyArray<DraftCandidate>
 }
 
@@ -30,22 +25,15 @@ const DraftSenseOutput = Schema.Struct({
 const DraftCautionOutput = Schema.Struct({
   kind: Schema.String,
   text: Schema.String,
-  /** The sense it is about, numbered from 1 as listed; null for the whole word. */
   sense: Schema.NullOr(Schema.Int),
   about: Schema.NullOr(Schema.String)
 })
 
 export const DraftOutput = Schema.Struct({
-  /** What the query is: a real expression to draft, one of the candidates, or not real. */
   verdict: Schema.Literals(["entry", "link", "reject"]),
-  /**
-   * For `link`: the candidate's number, as listed. A number rather than the headword, so two
-   * entries written alike (上手 read じょうず or うわて, "Polish" and "polish") can't be confused.
-   */
+  /** 1-based index into `candidates` rather than a headword so homographs (e.g. 上手 じょうず vs うわて) cannot collide. */
   link: Schema.NullOr(Schema.Int),
-  /** For `reject`: why, in the asker's native language, in one or two sentences. */
   reason: Schema.NullOr(Schema.String),
-  /** For `entry`: the draft, checked and trimmed by the caller before it is stored. */
   entry: Schema.NullOr(
     Schema.Struct({
       headword: Schema.String,
@@ -59,11 +47,6 @@ export const DraftOutput = Schema.Struct({
 })
 export type DraftOutput = typeof DraftOutput.Type
 
-/**
- * The label codes a draft may use: the dictionary's label vocabulary, so an approved draft wears
- * the same labels as the dictionary's words. Only what differs from a neutral, current word anyone
- * says; the caller drops any other code.
- */
 const LABELS =
   "col (casual, conversational), sl (slang), net-sl (internet slang), vulg (vulgar), X (offensive), derog (derogatory), joc (humorous), euph (euphemistic), chn (children's), form (formal, written), hon (respectful), hum (humble), pol (polite), male (mostly said by men), fem (mostly said by women), dated, arch (archaic), rare, id (idiom), proverb, abbr (abbreviation), on-mim (onomatopoeia)"
 
@@ -119,7 +102,6 @@ const prompt = (request: DraftRequest) => {
   return `Query: ${JSON.stringify(request.query)}\n\n${candidates}`
 }
 
-/** Judges a query the dictionary couldn't answer and drafts, links or rejects it; see `DraftOutput`. */
 export class Lexicographer extends Context.Service<
   Lexicographer,
   {
@@ -136,7 +118,6 @@ export class Lexicographer extends Context.Service<
           system: system(request.language),
           prompt: prompt(request),
           effort: "medium",
-          // Ask Kotori's stage two: the learner is waiting on it.
           timeout: ClaudeDeadline.interactive
         })
         return { ...output, model: claude.model }

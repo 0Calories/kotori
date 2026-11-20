@@ -3,14 +3,12 @@ import { storage } from "./storage"
 
 const listeners = new Map<string, Set<(value: string | null) => void>>()
 
-/** A small persisted preference shared across screens, and whether the stored value has been read. */
 export const usePreference = <A>(key: string, fallback: A) => {
   const [value, setValue] = useState<A>(fallback)
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     let active = true
-    // An unreadable or corrupt value leaves the default in place.
     storage
       .get(`kotori.pref.${key}`)
       .then((raw) => {

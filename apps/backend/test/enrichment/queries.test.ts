@@ -34,10 +34,7 @@ layer(TestLayer)("enrichment queries", (it) => {
       yield* saveExamples(db, taberu, [{ sense: 0, formality: "neutral", ...example }], new Date(1000))
       const [first] = yield* examplesFor(db, [taberu])
       assert.strictEqual(first?.position, 0)
-      // A word with Kotori's sentences is no longer missing them.
       assert.deepStrictEqual(yield* entriesByPriority(db, { limit: 1, missing: "examples" }), [1269130])
-
-      // Examples written before voice casting carry no casting signals.
       assert.strictEqual(first?.casting, null)
 
       const clip = { key: "a".repeat(64), text: "食べる", language: "ja" as const, voiceId: "v", modelId: "m" }
@@ -49,7 +46,6 @@ layer(TestLayer)("enrichment queries", (it) => {
       assert.strictEqual(yield* audioCharactersSince(db, new Date(500)), 3)
       assert.strictEqual(yield* audioCharactersSince(db, new Date(1500)), 0)
 
-      // A headword has one clip per dictionary voice; relinking the same clip is a no-op.
       const second = { ...clip, key: "b".repeat(64), voiceId: "w" }
       yield* saveAudio(db, { ...second, voice: null, characters: 3, bytes: 10, createdAt: new Date(1200) })
       yield* linkEntryAudio(db, taberu, second.key)
@@ -59,7 +55,6 @@ layer(TestLayer)("enrichment queries", (it) => {
         [clip.key, second.key]
       )
 
-      // Casting signals round-trip when the writer provides them.
       yield* saveExamples(
         db,
         taberu,
@@ -83,7 +78,6 @@ layer(TestLayer)("enrichment queries", (it) => {
       assert.strictEqual(cast?.casting?.speakerGender, "feminine")
       assert.strictEqual(cast?.casting?.variety, "kansai")
 
-      // A judgment fills only a sentence with no formality: Claude's own register stands.
       const judged = {
         formality: "formal" as const,
         casting: { speakerGender: "unspecified", speakerAge: "older", medium: null, variety: null, tone: null } as const
@@ -97,7 +91,6 @@ layer(TestLayer)("enrichment queries", (it) => {
       assert.strictEqual(filled?.formality, "formal")
       assert.deepStrictEqual(filled?.casting, judged.casting)
 
-      // Re-enriching replaces the examples; their audio links go with them.
       yield* saveExamples(db, taberu, [{ sense: 1, formality: "polite", ...example }], new Date(2000))
       const replaced = yield* examplesFor(db, [taberu])
       assert.strictEqual(replaced.length, 1)
@@ -111,7 +104,6 @@ layer(TestLayer)("enrichment queries", (it) => {
     Effect.gen(function* () {
       const db = yield* Database
       const taberu = EntryId.make(1358280)
-      // From the test above: an example on sense 1.
       yield* insertEntries(db, entries)
       assert.strictEqual((yield* examplesFor(db, [taberu])).length, 1)
       const [reseeded] = yield* getEntries(db, [taberu])

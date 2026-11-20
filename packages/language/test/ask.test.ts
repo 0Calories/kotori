@@ -24,7 +24,6 @@ describe("inOtherLanguage", () => {
     expect(inOtherLanguage("matcha", "ja")).toBe(false)
     expect(inOtherLanguage("kon'nichiwa", "ja")).toBe(false)
     expect(inOtherLanguage("それな", "ja")).toBe(false)
-    // Not language at all: another check's business.
     expect(inOtherLanguage("12345", "ja")).toBe(false)
     expect(inOtherLanguage("<b>", "ja")).toBe(false)
   })

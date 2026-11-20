@@ -2,10 +2,9 @@ import { Console, Effect } from "effect"
 import { Command } from "effect/cli"
 import { migrateDatabase, migrationsFolder } from "../db/Migrate.ts"
 
-/** What to do about a database from before the Drizzle rebuild. Its contents don't carry over. */
 const legacyHelp = `
-Nothing was changed. The dictionary and enrichment are rebuilt by seeding, but accounts, notes and
-review history in this database are not carried over. To start again on the new schema:
+Nothing was changed. The dictionary and enrichment are rebuilt by seeding, but accounts and
+saved notes in this database are not carried over. To start again on the new schema:
 
   Local Docker Postgres:  docker compose down -v   (deletes the local database), then pnpm dev:setup
   A Neon branch:          reset the branch, then run kotori migrate and kotori seed again`
@@ -19,7 +18,6 @@ export const migrate = Command.make(
       Effect.andThen(Console.log("The database schema is up to date.")),
       Effect.catchTag("LegacySchemaError", (error) =>
         Console.error(`\n${error.message}\n${legacyHelp}`).pipe(
-          // A clean exit code would let a deploy or `pnpm dev:setup` carry on regardless.
           Effect.andThen(Effect.sync(() => void (process.exitCode = 1)))
         )
       )
