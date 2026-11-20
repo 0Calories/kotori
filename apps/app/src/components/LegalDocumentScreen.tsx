@@ -2,8 +2,10 @@ import type { Language } from "@kotori/contracts"
 import { Link, Stack, useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { View } from "react-native"
+import { brand } from "../i18n/brand.ts"
 import { strings } from "../i18n/strings.ts"
 import { legalDocument, type LegalKind, legalLanguageFromParam } from "../lib/legal.ts"
+import { formatDocumentTitle } from "../lib/webChrome.ts"
 import { homeHrefFor, useSession } from "../session/SessionProvider.tsx"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Card } from "./Card.tsx"
@@ -31,7 +33,7 @@ export const LegalDocumentScreen = ({ kind }: { readonly kind: LegalKind }) => {
 
   return (
     <Screen bottomInset={40} header={<Header onBack={back} title={doc.title} />}>
-      <Stack.Screen options={{ title: `${doc.title} · Kotori` }} />
+      <Stack.Screen options={{ title: formatDocumentTitle(doc.title, brand[language].appName) }} />
       <View style={{ gap: theme.space.lg }}>
         <View style={{ gap: 8, paddingHorizontal: 4 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>

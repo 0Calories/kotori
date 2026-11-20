@@ -4,6 +4,7 @@
     "slug": "kotori",
     "scheme": "kotori",
     "version": "0.1.0",
+    "description": "Your companion for real-world Japanese and English — a usage-first dictionary, Ask Kotori, and a spaced-repetition notebook.",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -12,6 +13,7 @@
       "bundleIdentifier": "app.kotori",
       "supportsTablet": true,
       "infoPlist": {
+        "CFBundleLocalizations": ["en", "ja"],
         "NSAppTransportSecurity": { "NSAllowsLocalNetworking": true }
       }
     },
@@ -29,7 +31,7 @@
       "favicon": "./assets/favicon.png",
       "name": "Kotori",
       "shortName": "Kotori",
-      "description": "Bilingual Japanese and English dictionary, usage guide, and notebook — sound natural, not like a textbook.",
+      "description": "Understand how Japanese and English are really used — with a usage-first dictionary, Ask Kotori for tricky expressions, and a notebook that helps words stick.",
       "themeColor": "#F6FAFC",
       "backgroundColor": "#F6FAFC"
     },

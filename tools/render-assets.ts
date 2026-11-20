@@ -27,7 +27,9 @@ const resolveFontFile = (...segments: ReadonlyArray<string>): string => {
 
 const fontFiles = [
   resolveFontFile("@expo-google-fonts", "gabarito", "800ExtraBold", "Gabarito_800ExtraBold.ttf"),
+  resolveFontFile("@expo-google-fonts", "gabarito", "700Bold", "Gabarito_700Bold.ttf"),
   resolveFontFile("@expo-google-fonts", "gabarito", "500Medium", "Gabarito_500Medium.ttf"),
+  resolveFontFile("@expo-google-fonts", "murecho", "700Bold", "Murecho_700Bold.ttf"),
   resolveFontFile("@expo-google-fonts", "murecho", "500Medium", "Murecho_500Medium.ttf")
 ]
 
@@ -79,9 +81,38 @@ const encodeIco = (images: ReadonlyArray<{ readonly size: number; readonly png: 
 
 const stripXmlSvgWrapper = (svg: string) => svg.replace(/^<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "")
 
+interface OgCardSpec {
+  readonly brandPrimary: string
+  readonly brandPrimaryFont: string
+  readonly brandPrimaryWeight: number
+  readonly brandPrimarySize: number
+  readonly brandSecondary: string
+  readonly brandSecondaryFont: string
+  readonly brandSecondaryWeight: number
+  readonly brandSecondaryX: number
+  readonly line1: string
+  readonly line2: string
+  readonly taglineFont: string
+  readonly taglineSize: number
+  readonly pills: ReadonlyArray<{ readonly label: string; readonly width: number }>
+  readonly pillFont: string
+  readonly pillSize: number
+  readonly domain: string
+}
+
 /** 1200×630 Open Graph / social thumbnail matching the Sora palette. */
-const ogImageSvg = () => {
+const ogImageSvg = (spec: OgCardSpec) => {
   const mascotInner = stripXmlSvgWrapper(mascotSvg({ mood: "happy", padding: 0 }))
+  let pillX = 0
+  const pillsMarkup = spec.pills
+    .map((pill) => {
+      const x = pillX
+      pillX += pill.width + 14
+      return `<rect x="${x}" y="0" width="${pill.width}" height="46" rx="23" fill="#DAEEFE"/>
+    <text x="${x + pill.width / 2}" y="30" text-anchor="middle" font-family="${spec.pillFont}" font-weight="500" font-size="${spec.pillSize}" fill="#223C4F">${pill.label}</text>`
+    })
+    .join("\n    ")
+
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
@@ -101,18 +132,14 @@ const ogImageSvg = () => {
   <svg x="156" y="183" width="264" height="264" viewBox="0 0 200 200">
     ${mascotInner}
   </svg>
-  <text x="504" y="256" font-family="Gabarito" font-weight="800" font-size="96" fill="#131E26">Kotori</text>
-  <text x="796" y="248" font-family="Murecho" font-weight="500" font-size="34" fill="#34576F">ことり</text>
-  <text x="504" y="328" font-family="Gabarito" font-weight="500" font-size="34" fill="#515C64">Sound natural, not like a textbook.</text>
-  <g transform="translate(504, 370)">
-    <rect x="0" y="0" width="236" height="46" rx="23" fill="#DAEEFE"/>
-    <text x="118" y="30" text-anchor="middle" font-family="Gabarito" font-weight="500" font-size="21" fill="#223C4F">Japanese &amp; English</text>
-    <rect x="252" y="0" width="166" height="46" rx="23" fill="#DAEEFE"/>
-    <text x="335" y="30" text-anchor="middle" font-family="Gabarito" font-weight="500" font-size="21" fill="#223C4F">Usage guide</text>
-    <rect x="434" y="0" width="136" height="46" rx="23" fill="#DAEEFE"/>
-    <text x="502" y="30" text-anchor="middle" font-family="Gabarito" font-weight="500" font-size="21" fill="#223C4F">Notebook</text>
+  <text x="504" y="236" font-family="${spec.brandPrimaryFont}" font-weight="${spec.brandPrimaryWeight}" font-size="${spec.brandPrimarySize}" fill="#131E26">${spec.brandPrimary}</text>
+  <text x="${spec.brandSecondaryX}" y="230" font-family="${spec.brandSecondaryFont}" font-weight="${spec.brandSecondaryWeight}" font-size="34" fill="#34576F">${spec.brandSecondary}</text>
+  <text x="504" y="302" font-family="${spec.taglineFont}" font-weight="500" font-size="${spec.taglineSize}" fill="#515C64">${spec.line1}</text>
+  <text x="504" y="344" font-family="${spec.taglineFont}" font-weight="500" font-size="${spec.taglineSize}" fill="#515C64">${spec.line2}</text>
+  <g transform="translate(504, 382)">
+    ${pillsMarkup}
   </g>
-  <text x="504" y="486" font-family="Gabarito" font-weight="500" font-size="24" fill="#666F76">hellokotori.com</text>
+  <text x="504" y="496" font-family="Gabarito" font-weight="500" font-size="24" fill="#666F76">${spec.domain}</text>
 </svg>`
 }
 
@@ -153,4 +180,59 @@ renderPng(publicOut, "apple-touch-icon.png", appIcon, 180)
 renderPng(publicOut, "icon-192.png", appIcon, 192)
 renderPng(publicOut, "icon-512.png", appIcon, 512)
 renderPng(publicOut, "icon-maskable-512.png", mascotSvg({ background: sky, padding: 62 }), 512)
-renderPng(publicOut, "og-image.png", ogImageSvg(), 1200, true)
+renderPng(
+  publicOut,
+  "og-image.png",
+  ogImageSvg({
+    brandPrimary: "Kotori",
+    brandPrimaryFont: "Gabarito",
+    brandPrimaryWeight: 800,
+    brandPrimarySize: 88,
+    brandSecondary: "ことり",
+    brandSecondaryFont: "Murecho",
+    brandSecondaryWeight: 500,
+    brandSecondaryX: 774,
+    line1: "Your companion for real-world",
+    line2: "Japanese and English.",
+    taglineFont: "Gabarito",
+    taglineSize: 32,
+    pills: [
+      { label: "Usage dictionary", width: 204 },
+      { label: "Ask Kotori", width: 146 },
+      { label: "Notebook", width: 136 }
+    ],
+    pillFont: "Gabarito",
+    pillSize: 21,
+    domain: "hellokotori.com"
+  }),
+  1200,
+  true
+)
+renderPng(
+  publicOut,
+  "og-image-ja.png",
+  ogImageSvg({
+    brandPrimary: "ことり",
+    brandPrimaryFont: "Murecho",
+    brandPrimaryWeight: 700,
+    brandPrimarySize: 74,
+    brandSecondary: "Kotori",
+    brandSecondaryFont: "Gabarito",
+    brandSecondaryWeight: 700,
+    brandSecondaryX: 744,
+    line1: "リアルな英語と日本語を",
+    line2: "身につけるための、ことばの相棒。",
+    taglineFont: "Murecho",
+    taglineSize: 30,
+    pills: [
+      { label: "日英・英日辞書", width: 176 },
+      { label: "ことりに聞く", width: 160 },
+      { label: "復習ノート", width: 142 }
+    ],
+    pillFont: "Murecho",
+    pillSize: 20,
+    domain: "hellokotori.com/ja"
+  }),
+  1200,
+  true
+)

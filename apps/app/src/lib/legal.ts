@@ -40,7 +40,7 @@ const documents: Record<Language, Record<LegalKind, LegalDocument>> = {
       title: "Privacy Policy",
       updated: "Last updated: November 11, 2026",
       intro:
-        "Kotori helps English and Japanese learners sound natural. This policy explains what information Kotori collects, how it is used, which service providers process it, and how you can erase everything at any time.",
+        "Kotori is a Japanese–English dictionary and language companion built for real-world usage. This policy explains what information Kotori collects, how it is used, which service providers process it, and how you can erase everything at any time.",
       companionHref: "/terms",
       companionLabel: "Terms of Service",
       sections: [
@@ -103,7 +103,7 @@ const documents: Record<Language, Record<LegalKind, LegalDocument>> = {
           id: "service",
           title: "The Service and Private Beta",
           paragraphs: [
-            "Kotori is a bilingual dictionary, nuance guide, and spaced-repetition notebook for learners of Japanese and English. While Kotori is in private beta, new sign-ups may wait for manual approval before full access is enabled, and features or hourly/daily AI allowances may change as the service develops."
+            "Kotori is a Japanese–English dictionary, usage guide, and spaced-repetition notebook for learners of Japanese and English. While Kotori is in private beta, new sign-ups may wait for manual approval before full access is enabled, and features or hourly/daily AI allowances may change as the service develops."
           ]
         },
         {
@@ -151,7 +151,7 @@ const documents: Record<Language, Record<LegalKind, LegalDocument>> = {
       title: "プライバシーポリシー",
       updated: "最終更新日：2026年11月11日",
       intro:
-        "ことり（Kotori）は、英語と日本語を学ぶ人が自然な表現を身につけるための学習サービスです。本ポリシーでは、ことりが取得する情報、その利用目的、利用する外部サービス、およびデータの削除方法について説明します。",
+        "ことり（Kotori）は、リアルな英語と日本語を身につけるための辞書・学習サービスです。本ポリシーでは、ことりが取得する情報、その利用目的、利用する外部サービス、およびデータの削除方法について説明します。",
       companionHref: "/terms",
       companionLabel: "利用規約",
       sections: [
@@ -213,9 +213,9 @@ const documents: Record<Language, Record<LegalKind, LegalDocument>> = {
       sections: [
         {
           id: "service",
-          title: "サービス内容とプライベートベータ",
+          title: "サービス内容とクローズドベータ",
           paragraphs: [
-            "ことりは、日本語および英語の学習者向けの辞書・ニュアンス解説・間隔反復ノートアプリです。プライベートベータ期間中は、新規登録後に順次承認を行っており、機能や AI 機能の時間・日次の上限は予告なく変更される場合があります。"
+            "ことりは、リアルな英語と日本語のための日英・英日辞書、ニュアンス解説、間隔反復ノートアプリです。クローズドベータ期間中は、新規登録後に順次承認を行っており、機能や AI 機能の時間・日次の上限は予告なく変更される場合があります。"
           ]
         },
         {
