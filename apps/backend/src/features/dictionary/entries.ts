@@ -183,6 +183,7 @@ export const assembleEntry = Effect.fnUntraced(function* (db: DatabaseShape, doc
     id: EntryId.make(entry.id),
     language: entry.language,
     source: entry.source,
+    reviewState: doc.reviewState,
     headword: entry.headword,
     reading: entry.reading,
     romaji: entry.language === "ja" ? romanize(entry.reading) : "",

@@ -23,6 +23,7 @@ import {
   loanChip,
   loanLine,
   resultLabels,
+  reviewStateChip,
   saveDetails,
   senseCautions,
   similarWords,
@@ -87,6 +88,7 @@ const entry = (overrides: Partial<Entry> = {}): Entry => ({
   id: EntryId.make("jmdict:1"),
   language: "ja",
   source: "jmdict",
+  reviewState: "approved",
   headword: "食べる",
   reading: "たべる",
   common: false,
@@ -226,6 +228,24 @@ describe("loan link", () => {
       chips.map((chip) => chip.key),
       ["common", "loan", "en-US"]
     )
+  })
+
+  it("badges unreviewed drafted entries as unverified and discarded entries as not added", () => {
+    assert.equal(reviewStateChip(t, entry({ reviewState: "approved" })), null)
+
+    const unverified = reviewStateChip(t, entry({ reviewState: "unreviewed" }))
+    assert.equal(unverified?.key, "unverified")
+    assert.equal(unverified?.label, t.entry.unverified)
+    assert.equal(unverified?.kotori, true)
+    assert.deepStrictEqual(
+      heroItems(t, entry({ reviewState: "unreviewed", labels: [label("col")] })).map((chip) => chip.key),
+      ["unverified", "col"]
+    )
+
+    const discarded = reviewStateChip(t, entry({ reviewState: "discarded" }))
+    assert.equal(discarded?.key, "discarded")
+    assert.equal(discarded?.label, t.entry.discarded)
+    assert.equal(discarded?.severity, "avoid")
   })
 })
 

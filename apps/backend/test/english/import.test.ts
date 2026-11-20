@@ -5,6 +5,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Database } from "../../src/db/Database.ts"
+import { discardEntry, mergeEntry } from "../../src/features/asks/review.ts"
 import { Dictionary } from "../../src/features/dictionary/Dictionary.ts"
 import * as EnglishDictionary from "../../src/features/dictionary/import/english/EnglishDictionary.ts"
 import { insertEntries } from "../../src/features/dictionary/queries.ts"
@@ -128,11 +129,26 @@ layer(TestLayer)("EnglishDictionary.importFiles", (it) => {
     })
   )
 
-  it.effect("replaces only external en: rows on complete re-import while leaving kotori: entries untouched", () =>
+  it.effect("replaces only external en: rows on complete re-import while leaving all kotori: states untouched", () =>
     Effect.gen(function* () {
       const db = yield* Database
       const dictionary = yield* Dictionary
+      const kotoriUnreviewed = EntryId.make("kotori:unreviewed-en")
+      const kotoriDiscarded = EntryId.make("kotori:discarded-en")
+      const kotoriMerged = EntryId.make("kotori:merged-en")
+
       yield* insertEntries(db, [kotoriEnglish])
+      yield* insertEntries(
+        db,
+        [
+          { ...kotoriEnglish, id: kotoriUnreviewed, headword: "rizz" },
+          { ...kotoriEnglish, id: kotoriDiscarded, headword: "bogus" },
+          { ...kotoriEnglish, id: kotoriMerged, headword: "eat-dup" }
+        ],
+        { reviewState: "unreviewed" }
+      )
+      yield* discardEntry(db, kotoriDiscarded, "rejected")
+      yield* mergeEntry(db, kotoriMerged, EntryId.make("en:eat"))
 
       // A partial import never removes anything.
       assert.strictEqual(
@@ -141,12 +157,18 @@ layer(TestLayer)("EnglishDictionary.importFiles", (it) => {
       )
       assert.isTrue(Option.isSome(yield* dictionary.entry(EntryId.make("en:walk"))))
 
-      // Complete re-import removes stale external "en:walk" but keeps "kotori:delulu" and identical IDs.
+      // Complete re-import removes stale external "en:walk" but keeps all kotori: states untouched.
       const result = yield* EnglishDictionary.importFiles({ files: files(false), jmdict: jmdictFile })
       assert.strictEqual(result.removed, 1)
       assert.isTrue(Option.isNone(yield* dictionary.entry(EntryId.make("en:walk"))))
       assert.isTrue(Option.isSome(yield* dictionary.entry(EntryId.make("en:eat"))))
-      assert.strictEqual(Option.getOrThrow(yield* dictionary.entry(EntryId.make("kotori:delulu"))).headword, "delulu")
+      assert.strictEqual(
+        Option.getOrThrow(yield* dictionary.entry(EntryId.make("kotori:delulu"))).reviewState,
+        "approved"
+      )
+      assert.strictEqual(Option.getOrThrow(yield* dictionary.entry(kotoriUnreviewed)).reviewState, "unreviewed")
+      assert.strictEqual(Option.getOrThrow(yield* dictionary.entry(kotoriDiscarded)).reviewState, "discarded")
+      assert.strictEqual(Option.getOrThrow(yield* dictionary.entry(kotoriMerged)).id, EntryId.make("en:eat"))
     })
   )
 })

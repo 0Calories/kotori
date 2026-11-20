@@ -111,12 +111,38 @@ export const loanLine = (t: Strings, entry: Pick<Entry, "language" | "loanLink">
   }
 }
 
-/** The hero's chips: how often the word is used, its loan, then its labels. */
+/** Badge for an unreviewed AI draft or discarded tombstone; approved entries carry no badge. */
+export const reviewStateChip = (t: Strings, entry: Pick<Entry, "reviewState">): ChipItem | null => {
+  switch (entry.reviewState) {
+    case "approved":
+      return null
+    case "unreviewed":
+      return {
+        key: "unverified",
+        label: t.entry.unverified,
+        help: t.entry.unverifiedHelp,
+        severity: "warning",
+        icon: "auto_awesome",
+        kotori: true
+      }
+    case "discarded":
+      return {
+        key: "discarded",
+        label: t.entry.discarded,
+        help: t.entry.discardedHelp,
+        severity: "avoid"
+      }
+  }
+}
+
+/** The hero's chips: review status (when unverified/discarded), how often the word is used, its loan, then its labels. */
 export const heroItems = (
   t: Strings,
-  entry: Pick<Entry, "common" | "frequency" | "labels" | "language" | "loanLink">
+  entry: Pick<Entry, "reviewState" | "common" | "frequency" | "labels" | "language" | "loanLink">
 ) => [
-  ...[frequencyChip(t, entry), loanChip(t, entry)].filter((chip): chip is ChipItem => chip !== null),
+  ...[reviewStateChip(t, entry), frequencyChip(t, entry), loanChip(t, entry)].filter(
+    (chip): chip is ChipItem => chip !== null
+  ),
   ...labelItems(t, entry.labels)
 ]
 

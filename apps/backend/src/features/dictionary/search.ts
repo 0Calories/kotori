@@ -24,17 +24,19 @@ import {
   toFullwidth,
   uninflect
 } from "@kotori/language"
-import { Effect } from "effect"
+import { Effect, Match } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 import { formClips } from "../audio/index.ts"
 import type { FormMatch, GlossMatch } from "./queries.ts"
 import {
+  documentToRecord,
   entryRanks,
   findFormPrefix,
   findForms,
   findGlossesExact,
   findJapaneseGlosses,
   getEntries,
+  getEntryDocuments,
   searchForms,
   searchFormsFuzzy,
   searchGlosses,
@@ -584,20 +586,41 @@ export const makeSearch = (db: DatabaseShape) => {
     }
   })
 
+  const reviewTier = (state: "approved" | "unreviewed" | "discarded"): number =>
+    Match.value(state).pipe(
+      Match.when("approved", () => 0),
+      Match.when("unreviewed", () => 1),
+      Match.when("discarded", () => 2),
+      Match.exhaustive
+    )
+
   const summaries = Effect.fnUntraced(function* (hits: ReadonlyArray<Hit>) {
     const ids = hits.map((hit) => hit.entryId)
-    const entryRows = yield* getEntries(db, ids)
-    const entries = new Map(entryRows.map((entry) => [entry.id, entry]))
-    const labels = yield* labelsBySense(db, ids)
-    const clips = yield* formClips(db, entryRows)
+    const docs = yield* getEntryDocuments(db, ids)
+    const redirectIds = unique(docs.flatMap((doc) => (doc.redirectTo === null ? [] : [doc.redirectTo])))
+    const redirected = new Map((yield* getEntryDocuments(db, redirectIds)).map((doc) => [doc.id, doc]))
+    const resolvedById = new Map(
+      docs.map((doc) => [doc.id, doc.redirectTo === null ? doc : (redirected.get(doc.redirectTo) ?? doc)])
+    )
+    const resolvedDocs = unique([...resolvedById.values()])
+    const resolvedRecords = resolvedDocs.map(documentToRecord)
+    const recordsById = new Map(resolvedRecords.map((record) => [record.id, record]))
+    const labels = yield* labelsBySense(
+      db,
+      resolvedDocs.map((doc) => doc.id)
+    )
+    const clips = yield* formClips(db, resolvedRecords)
     return hits.flatMap((hit): Array<EntrySummary> => {
-      const entry = entries.get(hit.entryId)
+      const doc = resolvedById.get(hit.entryId)
+      if (doc === undefined) return []
+      const entry = recordsById.get(doc.id)
       if (entry === undefined) return []
-      const firstClip = clips.get(hit.entryId)?.[0]
+      const firstClip = clips.get(doc.id)?.[0]
       return [
         {
           id: EntryId.make(entry.id),
           language: entry.language,
+          reviewState: doc.reviewState,
           headword: entry.headword,
           reading: entry.reading,
           romaji: entry.language === "ja" ? romanize(entry.reading) : "",
@@ -617,7 +640,20 @@ export const makeSearch = (db: DatabaseShape) => {
     if (query.length === 0)
       return { query, mode: "english" as const, reading: null, match: "none" as const, entries: [] }
     const { mode, reading, hits } = language === "ja" ? yield* searchJapanese(query) : yield* searchEnglish(query)
-    const shown = hits.slice(0, limit)
+    const ranks = yield* entryRanks(
+      db,
+      hits.map((hit) => hit.entryId)
+    )
+    const ordered = hits
+      .filter((hit) => (ranks.get(hit.entryId)?.reviewState ?? "approved") !== "discarded")
+      .toSorted((a, b) => {
+        if (a.strong !== b.strong) return a.strong ? -1 : 1
+        const tierDiff =
+          reviewTier(ranks.get(a.entryId)?.reviewState ?? "approved") -
+          reviewTier(ranks.get(b.entryId)?.reviewState ?? "approved")
+        return tierDiff !== 0 ? tierDiff : b.score - a.score
+      })
+    const shown = ordered.slice(0, limit)
     return { query, mode, reading, match: matchOf(shown), entries: yield* summaries(shown) }
   })
 

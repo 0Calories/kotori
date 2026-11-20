@@ -40,7 +40,6 @@ import { easeInOut, easeOut } from "../theme/easing.ts"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Button } from "./Button.tsx"
 import { Card } from "./Card.tsx"
-import { DraftCard } from "./DraftCard.tsx"
 import { Mascot } from "./Mascot.tsx"
 import { ResultRow } from "./ResultRow.tsx"
 import { Text } from "./Text.tsx"
@@ -329,18 +328,15 @@ const LinkedEntry = ({
 
 const AnswerCard = ({
   answer,
-  language,
   live,
   onOpen
 }: {
   readonly answer: AskAnswer
-  readonly language: Language
   readonly live: boolean
   readonly onOpen: (entry: EntrySummary) => void
 }) => {
   switch (answer.kind) {
     case "draft":
-      return <DraftCard draft={answer.draft} language={language} live={live} />
     case "linked":
       return <LinkedEntry entry={answer.entry} live={live} onOpen={onOpen} />
     case "rejected":
@@ -523,9 +519,7 @@ export const AskKotori = ({
               {content}
             </Animated.View>
           </View>
-          {view.phase === "answered" ? (
-            <AnswerCard answer={view.answer} language={language} live={view.live} onOpen={onOpen} />
-          ) : null}
+          {view.phase === "answered" ? <AnswerCard answer={view.answer} live={view.live} onOpen={onOpen} /> : null}
         </View>
       </Resizing>
     </Animated.View>

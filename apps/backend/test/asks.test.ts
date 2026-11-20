@@ -15,12 +15,12 @@ import { EntryId, UserId } from "@kotori/contracts"
 import { proposals } from "@kotori/db"
 import { normalizeAsk } from "@kotori/language"
 import { eq } from "drizzle-orm"
-import { ConfigProvider, Effect, Layer } from "effect"
+import { ConfigProvider, Effect, Layer, Option } from "effect"
 import { TestClock } from "effect/testing"
 import { Database } from "../src/db/Database.ts"
 import { Asks } from "../src/features/asks/Asks.ts"
 import { askable } from "../src/features/asks/garbage.ts"
-import { redoProposal } from "../src/features/asks/review.ts"
+import { discardProposal, redoProposal } from "../src/features/asks/review.ts"
 import { Dictionary } from "../src/features/dictionary/Dictionary.ts"
 import { insertEntries } from "../src/features/dictionary/queries.ts"
 import { ensureUser } from "../src/features/accounts/queries.ts"
@@ -220,21 +220,34 @@ layer(TestLayer)("Asks", (it) => {
     })
   )
 
-  it.effect("drafts an entry once and serves every later ask from the answer", () =>
+  it.effect("drafts an unreviewed kotori: entry directly in entries and shares it across learners", () =>
     Effect.gen(function* () {
       yield* seeded
       const asks = yield* Asks
+      const dictionary = yield* Dictionary
       queued.push(draft("bussin"))
 
       const first = yield* asks.ask(asker, "Bussin")
       assert.strictEqual(first.status, "pending")
       assert.strictEqual(first.query, "bussin")
-      assert.strictEqual(first.draft?.headword, "bussin")
-      assert.strictEqual(first.draft?.senses[0]?.glosses[0], "すごくおいしい")
+      assert.isTrue(first.linked?.id.startsWith("kotori:"))
+      assert.strictEqual(first.linked?.reviewState, "unreviewed")
+      assert.strictEqual(first.linked?.headword, "bussin")
+      assert.strictEqual(first.linked?.meanings[0], "すごくおいしい")
       assert.strictEqual(generated, 1)
 
-      const again = yield* asks.ask(asker, "bussin")
+      // The drafted entry is immediately searchable and viewable via Dictionary.
+      const searched = yield* dictionary.search("bussin", "en", 10)
+      assert.strictEqual(searched.entries[0]?.id, first.linked?.id)
+      assert.strictEqual(searched.entries[0]?.reviewState, "unreviewed")
+      const full = Option.getOrThrow(yield* dictionary.entry(first.linked.id))
+      assert.strictEqual(full.reviewState, "unreviewed")
+      assert.strictEqual(full.source, "kotori")
+
+      // Asking again (same learner or another learner) reuses the same kotori: entry without calling Claude.
+      const again = yield* asks.ask(other, "bussin")
       assert.strictEqual(again.id, first.id)
+      assert.strictEqual(again.linked?.id, first.linked?.id)
       assert.strictEqual(generated, 1)
 
       const mine = yield* asks.asks(asker)
@@ -253,7 +266,6 @@ layer(TestLayer)("Asks", (it) => {
       queued.push({ verdict: "link", link: yield* numberOf("polsh", "en", "Polish"), reason: null, entry: null })
       const linked = yield* asks.ask(asker, "polsh")
       assert.strictEqual(linked.status, "linked")
-      assert.strictEqual(linked.draft, null)
       assert.strictEqual(linked.linked?.id, EntryId.make("en:Polish"))
     })
   )
@@ -425,9 +437,10 @@ layer(TestLayer)("Asks", (it) => {
       const rejected = yield* asks.ask(other, "yoinks")
       assert.strictEqual(rejected.route, "name")
       queued.push(draft("yoinks"))
-      const { proposal } = yield* redoProposal(db, rejected.id)
+      const { proposal, linked } = yield* redoProposal(db, rejected.id)
       assert.strictEqual(proposal.status, "pending")
-      assert.strictEqual(proposal.draft?.headword, "yoinks")
+      assert.strictEqual(linked, "yoinks")
+      assert.isTrue(proposal.linkedEntryId?.startsWith("kotori:"))
       // Claude's answer stands, so the app shows it rather than Jev's pointer.
       assert.strictEqual(proposal.route, "lookup")
       assert.deepInclude(yield* Effect.flip(redoProposal(db, rejected.id)), { _tag: "NotRejected", status: "pending" })
@@ -452,7 +465,8 @@ layer(TestLayer)("Asks", (it) => {
       queued.push({ ...draft("polished off"), verdict: "link", link: 0 })
       const drafted = yield* asks.ask(linker, "polished off")
       assert.strictEqual(drafted.status, "pending")
-      assert.strictEqual(drafted.draft?.headword, "polished off")
+      assert.strictEqual(drafted.linked?.headword, "polished off")
+      assert.strictEqual(drafted.linked?.reviewState, "unreviewed")
     })
   )
 
@@ -465,11 +479,12 @@ layer(TestLayer)("Asks", (it) => {
       const exact = yield* asks.ask(drafter, "polish up nicely")
       assert.strictEqual(exact.status, "linked")
       assert.strictEqual(exact.linked?.id, EntryId.make("en:polish"))
-      // …and without one, neither is chosen, and the draft waits for the admin.
+      // …and without one, neither is chosen, and the draft is saved as an unreviewed kotori: entry.
       queued.push(draft("POLISH"))
       const unsure = yield* asks.ask(drafter, "polishing up")
       assert.strictEqual(unsure.status, "pending")
-      assert.strictEqual(unsure.linked, null)
+      assert.isTrue(unsure.linked?.id.startsWith("kotori:"))
+      assert.strictEqual(unsure.linked?.reviewState, "unreviewed")
 
       // Japanese homographs are told apart by reading, katakana or hiragana.
       queued.push(draft("上手", [], { reading: "ウワテ" }))
@@ -483,7 +498,61 @@ layer(TestLayer)("Asks", (it) => {
       queued.push(draft("上手", [], { reading: "かみて" }))
       const kamite = yield* asks.ask(yomi, "かみてがわ")
       assert.strictEqual(kamite.status, "pending")
-      assert.strictEqual(kamite.draft?.reading, "かみて")
+      assert.strictEqual(kamite.linked?.reading, "かみて")
+      assert.strictEqual(kamite.linked?.reviewState, "unreviewed")
     })
+  )
+
+  it.effect(
+    "ranks unreviewed Drafted entries below approved entries and deinflects conjugated drafts immediately",
+    () =>
+      Effect.gen(function* () {
+        yield* seeded
+        const asks = yield* Asks
+        const dictionary = yield* Dictionary
+        const db = yield* Database
+
+        // Newly drafted Japanese slang verb immediately resolves conjugated forms via deinflection.
+        queued.push(
+          draft("バズる", [], {
+            reading: "ばずる",
+            senses: [{ glosses: ["to go viral"], pos: ["v5r"], labels: ["net-sl"], usagePatterns: [] }]
+          })
+        )
+        const draftedVerb = yield* asks.ask(japanese, "バズる")
+        assert.strictEqual(draftedVerb.status, "pending")
+        const verbId = draftedVerb.linked!.id
+
+        const pastSearch = yield* dictionary.search("バズった", "ja", 10)
+        assert.strictEqual(pastSearch.entries[0]?.id, verbId)
+        assert.strictEqual(pastSearch.entries[0]?.reviewState, "unreviewed")
+        assert.deepStrictEqual(pastSearch.entries[0]?.inflection, ["past"])
+
+        const negPastSearch = yield* dictionary.search("バズらなかった", "ja", 10)
+        assert.strictEqual(negPastSearch.entries[0]?.id, verbId)
+        assert.includeMembers([...(negPastSearch.entries[0]?.inflection ?? [])], ["negative", "past"])
+
+        // Unreviewed entries rank below approved entries for the same match strength.
+        queued.push(
+          draft("うまいこと", [], {
+            reading: "うまいこと",
+            senses: [{ glosses: ["skillful"], pos: ["n"], labels: [], usagePatterns: [] }]
+          })
+        )
+        const unreviewedSkillful = yield* asks.ask(japanese, "うまいこと")
+        const glossSearch = yield* dictionary.search("skillful", "ja", 10)
+        const approvedIdx = glossSearch.entries.findIndex((e) => e.id === jouzu.id)
+        const unreviewedIdx = glossSearch.entries.findIndex((e) => e.id === unreviewedSkillful.linked?.id)
+        assert.isAtLeast(approvedIdx, 0)
+        assert.isAtLeast(unreviewedIdx, 0)
+        assert.isBelow(approvedIdx, unreviewedIdx)
+
+        // Discarded draft stays as a negative cache: re-asking never calls Claude again.
+        yield* discardProposal(db, unreviewedSkillful.id, "duplicate")
+        const beforeGen = generated
+        const cachedDiscarded = yield* asks.ask(yomi, "うまいこと")
+        assert.strictEqual(cachedDiscarded.status, "discarded")
+        assert.strictEqual(generated, beforeGen)
+      })
   )
 })

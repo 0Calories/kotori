@@ -8,6 +8,7 @@ import { HttpApiMiddleware, HttpApiTest } from "effect/http-api"
 import { Database } from "../src/db/Database.ts"
 import { scopedToUser } from "../src/db/scopedToUser.ts"
 import { updateUser, userById } from "../src/features/accounts/queries.ts"
+import { mergeEntry } from "../src/features/asks/review.ts"
 import { insertEntries } from "../src/features/dictionary/queries.ts"
 import { noteById, noteCount, studyDays } from "../src/features/study/queries.ts"
 import { AuthorizationLive } from "../src/http/Authorization.ts"
@@ -501,6 +502,26 @@ layer(TestLayer)("Kotori API", (it) => {
 
       const error = yield* api.coach.naturalness({ payload: { text: "私は学生です。" } }).pipe(Effect.flip)
       assert.strictEqual(error._tag, "AiUnavailable")
+    }).pipe(Effect.provide(Session))
+  )
+
+  it.effect("resolves merged kotori: entry IDs transparently via GET /dictionary/entries/:id", () =>
+    Effect.gen(function* () {
+      yield* signedIn("merged@example.com")
+      const api = yield* client
+      const db = yield* Database
+      const canonical = entry(1900123, "食べる", "たべる", ["to eat"], ["v1"])
+      const dupId = EntryId.make("kotori:dup-taberu")
+      yield* insertEntries(db, [canonical])
+      yield* insertEntries(db, [{ ...canonical, id: dupId, source: "kotori", headword: "たべる重複" }], {
+        reviewState: "unreviewed"
+      })
+      yield* mergeEntry(db, dupId, canonical.id)
+
+      const resolved = yield* api.dictionary.entry({ params: { id: dupId } })
+      assert.strictEqual(resolved.id, canonical.id)
+      assert.strictEqual(resolved.headword, "食べる")
+      assert.strictEqual(resolved.reviewState, "approved")
     }).pipe(Effect.provide(Session))
   )
 })

@@ -16,6 +16,7 @@ import {
   isJapaneseFormSearch,
   isJapaneseGlossDocSearch,
   MAX_CAUTIONS,
+  type ReviewState,
   tags
 } from "@kotori/db"
 import { englishPhraseVariants, nearBest, trigramFloor, trigramTargets } from "@kotori/language"
@@ -45,6 +46,8 @@ export interface InsertOptions {
    * stored entry, those are left as they are.
    */
   readonly seeded?: boolean | undefined
+  /** Initial review state for newly inserted entries (defaults to `approved`, or `unreviewed` for Ask Kotori drafts). */
+  readonly reviewState?: ReviewState | undefined
 }
 
 /** Converts an `ImportEntry` into the JSONB `entries.base` document. */
@@ -160,7 +163,7 @@ export const insertEntries = Effect.fn("dictionary.insertEntries")(function* (
       const values = records.map((entry) => {
         const prev = existing.get(entry.id)
         const base = toEntryBase(entry, prev?.base, seeded)
-        const reviewState = prev?.reviewState ?? "approved"
+        const reviewState = prev?.reviewState ?? options.reviewState ?? "approved"
         const redirectTo = prev?.redirectTo ?? null
         projections.push({
           id: entry.id,
@@ -623,17 +626,24 @@ export const searchJapaneseGlosses = Effect.fn("dictionary.searchJapaneseGlosses
     .limit(limit)
 }, Effect.orDie)
 
-/** Commonness and frequency of entries, for ranking without loading full documents. */
+/** Commonness, frequency, and review state of entries, for ranking without loading full documents. */
 export const entryRanks = Effect.fn("dictionary.entryRanks")(function* (
   db: DatabaseShape,
   ids: ReadonlyArray<EntryId>
 ) {
-  if (ids.length === 0) return new Map<EntryId, { common: boolean; priority: number }>()
+  if (ids.length === 0) return new Map<EntryId, { common: boolean; priority: number; reviewState: ReviewState }>()
   const rows = yield* db
-    .select({ id: entries.id, common: entries.common, priority: entries.priority })
+    .select({
+      id: entries.id,
+      common: entries.common,
+      priority: entries.priority,
+      reviewState: entries.reviewState
+    })
     .from(entries)
     .where(inArray(entries.id, [...ids]))
-  return new Map(rows.map((row) => [row.id, { common: row.common, priority: row.priority }]))
+  return new Map(
+    rows.map((row) => [row.id, { common: row.common, priority: row.priority, reviewState: row.reviewState }])
+  )
 }, Effect.orDie)
 
 const missing = (db: DatabaseShape, kind: EnrichmentKind) => {

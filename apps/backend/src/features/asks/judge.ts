@@ -1,12 +1,14 @@
 import { type ClaudeError, CONTESTED_AT, type DraftCandidate, Lexicographer, type Triage } from "@kotori/ai"
 import { AiUnavailable, type Language, RateLimited } from "@kotori/contracts"
-import type { AskTriage, DraftEntry } from "@kotori/db"
+import { type AskTriage, type DraftEntry, entries, kotoriEntryId } from "@kotori/db"
 import { katakanaToHiragana } from "@kotori/language"
+import { and, eq, isNull } from "drizzle-orm"
 import { Effect, Option } from "effect"
+import { randomUUID } from "node:crypto"
 import type { DatabaseShape } from "../../db/Database.ts"
 import { Dictionary } from "../dictionary/Dictionary.ts"
-import { findForms } from "../dictionary/queries.ts"
-import { checkDraft } from "./draft.ts"
+import { findForms, insertEntries, saveKotoriCautions } from "../dictionary/queries.ts"
+import { checkDraft, draftToEntryRecord } from "./draft.ts"
 import type { Verdict } from "./queries.ts"
 
 /** Jev's routing of a query: as stored with the proposal, and as read (`interpretTriage`). */
@@ -25,7 +27,7 @@ const fromClaude = (error: ClaudeError): AiUnavailable | RateLimited =>
  * (inflections aside) and, for Japanese, read as it is too, since 上手 read うわて isn't 上手 read
  * じょうず. English forms match case-folded, so a spelling that matches exactly wins ("polish" over
  * "Polish"). When that still leaves two or more, nothing says which the draft is: none is chosen,
- * and the draft waits for the admin like any other.
+ * and the draft is written as a new `kotori:` entry.
  */
 const duplicateOf = Effect.fnUntraced(function* (db: DatabaseShape, draft: DraftEntry, language: Language) {
   const texts = [draft.headword, ...draft.spellings]
@@ -44,10 +46,39 @@ const duplicateOf = Effect.fnUntraced(function* (db: DatabaseShape, draft: Draft
 })
 
 /**
+ * Checks whether an admin previously discarded a `kotori:` draft for this same expression
+ * (negative cache tombstone in `entries`).
+ */
+const discardedTombstoneOf = Effect.fnUntraced(function* (db: DatabaseShape, draft: DraftEntry, language: Language) {
+  const tombstones = yield* db
+    .select({ id: entries.id, base: entries.base })
+    .from(entries)
+    .where(
+      and(
+        eq(entries.language, language),
+        eq(entries.source, "kotori"),
+        eq(entries.reviewState, "discarded"),
+        isNull(entries.redirectTo)
+      )
+    )
+    .pipe(Effect.orDie)
+
+  const norm = (text: string) => (language === "en" ? text.toLowerCase() : katakanaToHiragana(text))
+  const wantedHead = norm(draft.headword)
+  const wantedReading = norm(draft.reading)
+  const match = tombstones.find((row) => {
+    if (norm(row.base.headword) !== wantedHead) return false
+    if (language === "en" || wantedReading.length === 0) return true
+    return norm(row.base.reading) === wantedReading
+  })
+  return Option.fromNullishOr(match?.id)
+})
+
+/**
  * Stage two of Ask Kotori: Claude's verdict on a query Jev took for a lookup (or couldn't sort),
- * checked against the dictionary so it can neither invent a link nor duplicate an entry. A link
- * must name one of the lookalikes Claude was shown, by number; one that doesn't is no link. A
- * rejection without Claude's own reason leaves `reason` null for the app to word.
+ * checked against the dictionary so it can neither invent a link nor duplicate an entry. Valid
+ * drafts are written directly into `entries` (and `entry_search`) under a stable `kotori:<id>`
+ * identifier with `review_state = 'unreviewed'`.
  */
 export const judge = Effect.fn("asks.judge")(function* (
   db: DatabaseShape,
@@ -68,7 +99,6 @@ export const judge = Effect.fn("asks.judge")(function* (
   const linkTo = (entryId: Verdict["linkedEntryId"]): Verdict => ({
     ...base,
     status: "linked",
-    draft: null,
     linkedEntryId: entryId,
     reason: null
   })
@@ -80,12 +110,23 @@ export const judge = Effect.fn("asks.judge")(function* (
   if ((output.verdict === "entry" || output.verdict === "link") && draft !== null) {
     const duplicate = yield* duplicateOf(db, draft, language)
     if (Option.isSome(duplicate)) return linkTo(duplicate.value)
-    return { ...base, status: "pending", draft, linkedEntryId: null, reason: null } satisfies Verdict
+    const discarded = yield* discardedTombstoneOf(db, draft, language)
+    if (Option.isSome(discarded)) {
+      return { ...base, status: "discarded", linkedEntryId: discarded.value, reason: null } satisfies Verdict
+    }
+    const entryId = kotoriEntryId(randomUUID())
+    yield* insertEntries(db, [draftToEntryRecord(draft, language, entryId)], {
+      seeded: true,
+      reviewState: "unreviewed"
+    })
+    if (draft.cautions.length > 0) {
+      yield* saveKotoriCautions(db, entryId, language, draft.cautions)
+    }
+    return { ...base, status: "pending", linkedEntryId: entryId, reason: null } satisfies Verdict
   }
   return {
     ...base,
     status: "rejected",
-    draft: null,
     linkedEntryId: null,
     reason: output.reason?.trim() || null,
     // Jev was sure this was a lookup and Claude turned it down: the admin should see it.

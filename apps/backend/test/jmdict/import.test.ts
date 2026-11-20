@@ -2,6 +2,7 @@ import { assert, layer } from "@effect/vitest"
 import { EntryId, type EntryRecord } from "@kotori/contracts"
 import { Effect, FileSystem, Layer, Option } from "effect"
 import { Database } from "../../src/db/Database.ts"
+import { discardEntry, mergeEntry } from "../../src/features/asks/review.ts"
 import { Dictionary } from "../../src/features/dictionary/Dictionary.ts"
 import * as JMDict from "../../src/features/dictionary/import/jmdict/JMDict.ts"
 import { entryCount, insertEntries } from "../../src/features/dictionary/queries.ts"
@@ -133,31 +134,50 @@ layer(TestLayer)("JMDict.importFile", (it) => {
     })
   )
 
-  it.effect("replaces only external jmdict: rows on complete re-import while leaving kotori: rows untouched", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      const dictionary = yield* Dictionary
-      yield* insertEntries(db, [kotoriEntry])
+  it.effect(
+    "replaces only external jmdict: rows on complete re-import while leaving all kotori: states untouched",
+    () =>
+      Effect.gen(function* () {
+        const db = yield* Database
+        const dictionary = yield* Dictionary
+        const kotoriUnreviewed = EntryId.make("kotori:unreviewed-ja")
+        const kotoriDiscarded = EntryId.make("kotori:discarded-ja")
+        const kotoriMerged = EntryId.make("kotori:merged-ja")
 
-      current = release(
-        "<sense><pos>&v1;</pos><gloss>to eat</gloss><gloss>to have a meal</gloss></sense>",
-        "honorific",
-        false
-      )
+        yield* insertEntries(db, [kotoriEntry])
+        yield* insertEntries(
+          db,
+          [
+            { ...kotoriEntry, id: kotoriUnreviewed, headword: "ぴえん", reading: "ぴえん" },
+            { ...kotoriEntry, id: kotoriDiscarded, headword: "ボツ語", reading: "ぼつご" },
+            { ...kotoriEntry, id: kotoriMerged, headword: "たべる重複", reading: "たべる" }
+          ],
+          { reviewState: "unreviewed" }
+        )
+        yield* discardEntry(db, kotoriDiscarded, "rejected")
+        yield* mergeEntry(db, kotoriMerged, taberu)
 
-      yield* JMDict.importFile({ file: "JMdict_e.gz" })
+        current = release(
+          "<sense><pos>&v1;</pos><gloss>to eat</gloss><gloss>to have a meal</gloss></sense>",
+          "honorific",
+          false
+        )
 
-      const updated = Option.getOrThrow(yield* dictionary.entry(taberu))
-      assert.deepStrictEqual(
-        updated.senses.map((s) => s.glosses),
-        [["to eat", "to have a meal"]]
-      )
-      // Stale jmdict: entry removed on complete re-import.
-      assert.isTrue(Option.isNone(yield* dictionary.entry(okashi)))
-      // kotori: entry is completely untouched.
-      const kept = Option.getOrThrow(yield* dictionary.entry(kotoriSlang))
-      assert.strictEqual(kept.headword, "蛙化現象")
-      assert.strictEqual(yield* entryCount(db), 2)
-    })
+        yield* JMDict.importFile({ file: "JMdict_e.gz" })
+
+        const updated = Option.getOrThrow(yield* dictionary.entry(taberu))
+        assert.deepStrictEqual(
+          updated.senses.map((s) => s.glosses),
+          [["to eat", "to have a meal"]]
+        )
+        // Stale jmdict: entry removed on complete re-import.
+        assert.isTrue(Option.isNone(yield* dictionary.entry(okashi)))
+        // Every kotori: entry (approved, unreviewed, discarded, merged redirect) is untouched.
+        assert.strictEqual(Option.getOrThrow(yield* dictionary.entry(kotoriSlang)).reviewState, "approved")
+        assert.strictEqual(Option.getOrThrow(yield* dictionary.entry(kotoriUnreviewed)).reviewState, "unreviewed")
+        assert.strictEqual(Option.getOrThrow(yield* dictionary.entry(kotoriDiscarded)).reviewState, "discarded")
+        assert.strictEqual(Option.getOrThrow(yield* dictionary.entry(kotoriMerged)).id, taberu)
+        assert.strictEqual(yield* entryCount(db), 5)
+      })
   )
 })

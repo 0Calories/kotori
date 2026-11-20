@@ -196,7 +196,7 @@ export type EntryAudio = typeof EntryAudio.Type
  * JMDict for Japanese learners, an English word for English learners.
  */
 export const Entry = Schema.Struct({
-  ...Struct.pick(EntryRow.fields, ["id", "language", "source", "common"]),
+  ...Struct.pick(EntryRow.fields, ["id", "language", "source", "reviewState", "common"]),
   headword: Schema.String,
   reading: Schema.String,
   /** The kana reading in rōmaji; empty for English words. */
@@ -224,7 +224,7 @@ export const Entry = Schema.Struct({
 export type Entry = typeof Entry.Type
 
 export const EntrySummary = Schema.Struct({
-  ...Struct.pick(EntryRow.fields, ["id", "language", "common"]),
+  ...Struct.pick(EntryRow.fields, ["id", "language", "reviewState", "common"]),
   headword: Schema.String,
   reading: Schema.String,
   romaji: Schema.String,
@@ -239,33 +239,6 @@ export const EntrySummary = Schema.Struct({
 })
 export type EntrySummary = typeof EntrySummary.Type
 
-/** A drafted sense, as an entry's sense reads: its labels (only those it adds), usage patterns, all Kotori's. */
-export const DraftSense = Schema.Struct({
-  index: Schema.Int,
-  glosses: Schema.Array(Schema.String),
-  partsOfSpeech: Schema.Array(Tag),
-  labels: Schema.Array(Label),
-  usagePatterns: Schema.Array(UsagePattern)
-})
-export type DraftSense = typeof DraftSense.Type
-
-/**
- * Kotori's draft of an entry, in the entry's own model and read the same way: the word's labels
- * (those every sense carries), senses, and cautions. Unverified until the admin approves it, when it
- * becomes an entry with these same facts.
- */
-export const DraftEntry = Schema.Struct({
-  headword: Schema.String,
-  reading: Schema.String,
-  spellings: Schema.Array(Schema.String),
-  /** How commonly natives use it today, 1–5; a draft has no other frequency signals. */
-  frequency: Schema.Int,
-  labels: Schema.Array(Label),
-  senses: Schema.Array(DraftSense),
-  cautions: Schema.Array(EntryCaution)
-})
-export type DraftEntry = typeof DraftEntry.Type
-
 export const ProposalStatus = createSelectSchema(proposalStatus)
 export type ProposalStatus = typeof ProposalStatus.Type
 
@@ -276,10 +249,10 @@ export const ProposalId = Schema.Int.pipe(Schema.brand("ProposalId"))
 export type ProposalId = typeof ProposalId.Type
 
 /**
- * Kotori's answer to a query the dictionary couldn't: a drafted entry awaiting the admin
- * (`pending`, shown to its askers marked unverified), a `linked` entry the dictionary already
- * had, or a `rejected` query with the reason. `approved` drafts have become the entry `linked`
- * points at; `discarded` ones were turned down by the admin.
+ * Kotori's answer to a query the dictionary couldn't: a drafted `kotori:` entry awaiting the admin
+ * (`pending`, written straight into `entries` with `reviewState = 'unreviewed'` and referenced by
+ * `linked`), a `linked` entry the dictionary already had, an `approved` entry, or a `rejected` /
+ * `discarded` query with the reason.
  */
 export const Proposal = Schema.Struct({
   id: ProposalId,
@@ -287,8 +260,7 @@ export const Proposal = Schema.Struct({
   /** The language of the word asked about. */
   language: Language,
   status: ProposalStatus,
-  draft: Schema.NullOr(DraftEntry),
-  /** The existing entry the query names, when there is one. */
+  /** The entry this ask points at: the drafted `kotori:` entry, an approved entry, or a linked existing entry. */
   linked: Schema.NullOr(EntrySummary),
   /**
    * Claude's own words on why a rejected query isn't a real expression, in the asker's native

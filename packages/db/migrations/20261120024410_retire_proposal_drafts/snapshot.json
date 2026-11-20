@@ -1,0 +1,21 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "975037e0-2315-4322-8ef1-9b97a9eb8ff3",
+  "prevIds": ["9f94235d-2405-4d43-84a2-4aab9d2fb4f9"],
+  "footprints": [
+    {
+      "statementType": "drop_column",
+      "statementTarget": ["column", "public", "proposals", "draft"],
+      "writes": ["s|col|public.proposals.draft", "n|col|public.proposals.draft", "e|col|public.proposals.draft"],
+      "reads": ["n|tbl|public.proposals", "n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"proposals\",\"draft\"]"
+    }
+  ]
+}

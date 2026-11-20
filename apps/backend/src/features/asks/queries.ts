@@ -1,22 +1,14 @@
-import {
-  type AskTriage,
-  type DraftEntry,
-  type EntryId,
-  type Language,
-  proposalAsks,
-  proposals,
-  type UserId
-} from "@kotori/db"
+import { type AskTriage, type EntryId, type Language, proposalAsks, proposals, type UserId } from "@kotori/db"
 import { and, desc, eq } from "drizzle-orm"
 import { Effect, Option } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
+import { deleteEntries } from "../dictionary/queries.ts"
 
 export type ProposalRow = typeof proposals.$inferSelect
 
 /** What an answer settled: the fields Claude's or Jev's verdict writes, on creation and on a redo. */
 export interface Verdict {
   readonly status: ProposalRow["status"]
-  readonly draft: DraftEntry | null
   readonly linkedEntryId: EntryId | null
   readonly reason: string | null
   readonly model: string
@@ -57,7 +49,8 @@ export const findProposal = (db: DatabaseShape, language: Language, query: strin
 
 /**
  * Saves a new proposal. Two learners asking the same new query at once race on the unique
- * (language, query); the loser keeps the winner's row, so one question is one answer.
+ * (language, query); the loser keeps the winner's row and cleans up any redundant `kotori:` draft
+ * it created, so one question is one answer and one shared entry.
  */
 export const insertProposal = Effect.fn("asks.insertProposal")(function* (db: DatabaseShape, proposal: NewProposal) {
   const inserted = yield* db
@@ -66,7 +59,6 @@ export const insertProposal = Effect.fn("asks.insertProposal")(function* (db: Da
       language: proposal.language,
       query: proposal.query,
       status: proposal.status,
-      draft: proposal.draft,
       linkedEntryId: proposal.linkedEntryId,
       reason: proposal.reason,
       model: proposal.model,
@@ -79,6 +71,9 @@ export const insertProposal = Effect.fn("asks.insertProposal")(function* (db: Da
     .onConflictDoNothing({ target: [proposals.language, proposals.query] })
     .returning()
   if (inserted[0] !== undefined) return inserted[0]
+  if (proposal.status === "pending" && proposal.linkedEntryId !== null) {
+    yield* deleteEntries(db, [proposal.linkedEntryId])
+  }
   return Option.getOrThrow(yield* findProposal(db, proposal.language, proposal.query))
 }, Effect.orDie)
 

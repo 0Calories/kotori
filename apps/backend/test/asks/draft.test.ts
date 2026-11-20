@@ -1,18 +1,7 @@
-import { assert, describe, it, layer } from "@effect/vitest"
+import { assert, describe, it } from "@effect/vitest"
 import type { DraftOutput } from "@kotori/ai"
 import { EntryId } from "@kotori/contracts"
-import { type DraftEntry, proposals } from "@kotori/db"
-import { eq, sql } from "drizzle-orm"
-import { Effect } from "effect"
-import { readdirSync, readFileSync } from "node:fs"
-import { join } from "node:path"
-import { Database } from "../../src/db/Database.ts"
-import { migrationsFolder } from "../../src/db/Migrate.ts"
-import { ensureUser } from "../../src/features/accounts/queries.ts"
-import { checkDraft, viewDraft, viewDrafts } from "../../src/features/asks/draft.ts"
-import { insertEntries } from "../../src/features/dictionary/queries.ts"
-import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
-import { english, entries, kana, kanji, sense, U1 } from "../fixtures.ts"
+import { checkDraft, draftToEntryRecord } from "../../src/features/asks/draft.ts"
 
 type Output = NonNullable<DraftOutput["entry"]>
 
@@ -108,145 +97,21 @@ describe("checkDraft", () => {
   })
 })
 
-const stored: DraftEntry = {
-  headword: "ぴえん",
-  reading: "ぴえん",
-  spellings: [],
-  frequency: 4,
-  senses: [
-    { glosses: ["boo-hoo"], pos: ["int"], labels: ["net-sl"], usagePatterns: ["Typed, mostly."] },
-    { glosses: ["so sad"], pos: [], labels: ["net-sl", "joc"], usagePatterns: [] }
-  ],
-  cautions: [
-    { kind: "confusable", text: "Not as strong as crying.", sense: null, about: "食べる" },
-    // 上手 is two words (じょうず, うわて): which one is meant can't be told, so neither is linked.
-    { kind: "confusable", text: "Not 上手.", sense: 0, about: "上手" },
-    { kind: "confusable", text: "Not a word.", sense: 0, about: "ないことば" }
-  ]
-}
-
-layer(DatabaseMemory)("drafts", (it) => {
-  it.effect("reads a stored draft as an entry is read, linking a named word only when one matches", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      yield* insertEntries(db, [
-        ...entries,
-        ...english,
-        {
-          ...entries[0]!,
-          id: EntryId.make("jmdict:1900001"),
-          headword: "上手",
-          reading: "じょうず",
-          forms: [kanji("上手"), kana("じょうず")],
-          senses: [sense(["skillful"])]
-        },
-        {
-          ...entries[0]!,
-          id: EntryId.make("jmdict:1900002"),
-          headword: "上手",
-          reading: "うわて",
-          forms: [kanji("上手"), kana("うわて")],
-          senses: [sense(["upper part"])]
-        }
-      ])
-      const view = yield* viewDraft(db, stored, "ja")
-      assert.deepStrictEqual(view.labels, [{ code: "net-sl", severity: "warning", source: "kotori" }])
-      assert.deepStrictEqual(
-        view.senses.map((own) => own.labels.map((label) => label.code)),
-        [[], ["joc"]]
-      )
-      assert.deepStrictEqual(view.senses[0]?.usagePatterns, [{ text: "Typed, mostly.", source: "kotori", about: null }])
-      assert.deepStrictEqual(
-        view.cautions.map((caution) => caution.about?.headword ?? null),
-        ["食べる", null, null]
-      )
-
-      // A list of drafts in both languages is read at once; each names words in its own language.
-      const naming = (about: string): DraftEntry => ({
-        ...stored,
-        cautions: [{ kind: "confusable", text: "Compare.", sense: null, about }]
-      })
-      const views = yield* viewDrafts(db, [
-        { draft: naming("食べる"), language: "ja" },
-        { draft: naming("Eat"), language: "en" },
-        { draft: naming("eat"), language: "ja" }
-      ])
-      assert.deepStrictEqual(
-        views.map((own) => own.cautions[0]?.about?.headword ?? null),
-        ["食べる", "eat", null]
-      )
-    })
-  )
-
-  it.effect("migrates drafts stored before the entry model, carrying every field over", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      yield* ensureUser(db, { id: U1, displayName: null, createdAt: new Date(0) })
-      yield* insertEntries(db, english)
-      const old = (query: string, draft: object) =>
-        db
-          .insert(proposals)
-          .values({
-            language: "en",
-            query,
-            status: "pending",
-            draft: sql`${JSON.stringify(draft)}::jsonb` as never,
-            linkedEntryId: null,
-            reason: null,
-            model: "test",
-            requestedBy: U1,
-            createdAt: new Date(0)
-          })
-          .returning({ id: proposals.id })
-      const [dated] = yield* old("groovy", {
-        headword: "groovy",
-        reading: "",
-        spellings: ["groovey"],
-        currency: "dated",
-        senses: [
-          { glosses: ["かっこいい"], partOfSpeech: "adj", labels: ["sl", "dated"], note: " 60年代の言葉。 " },
-          { glosses: ["最高"], partOfSpeech: null, labels: [], note: "" }
-        ]
-      })
-      const [trendy] = yield* old("rizz", {
-        headword: "rizz",
-        reading: "/ɹɪz/",
-        spellings: [],
-        currency: "trendy",
-        senses: [{ glosses: ["魅力"], partOfSpeech: "n", labels: ["sl"], note: null }]
-      })
-
-      // The migration as it ships; already-migrated drafts are left alone, so it runs again safely.
-      const folder = readdirSync(migrationsFolder).find((name) => name.endsWith("proposal_drafts_on_entry_model"))!
-      const statement = readFileSync(join(migrationsFolder, folder, "migration.sql"), "utf8")
-      yield* db.execute(sql.raw(statement))
-      yield* db.execute(sql.raw(statement))
-
-      const draftOf = (id: number) =>
-        Effect.map(
-          db.select({ draft: proposals.draft }).from(proposals).where(eq(proposals.id, id)),
-          (rows) => rows[0]?.draft
-        )
-      assert.deepStrictEqual(yield* draftOf(dated!.id), {
-        headword: "groovy",
-        reading: "",
-        spellings: ["groovey"],
-        frequency: 2,
-        senses: [
-          // "dated" was already a label: currency adds it to the senses lacking it, once.
-          { glosses: ["かっこいい"], pos: ["adj"], labels: ["sl", "dated"], usagePatterns: ["60年代の言葉。"] },
-          { glosses: ["最高"], pos: [], labels: ["dated"], usagePatterns: [] }
-        ],
-        cautions: []
-      })
-      assert.deepStrictEqual(yield* draftOf(trendy!.id), {
-        headword: "rizz",
-        reading: "/ɹɪz/",
-        spellings: [],
-        frequency: 4,
-        senses: [{ glosses: ["魅力"], pos: ["n"], labels: ["sl"], usagePatterns: [] }],
-        cautions: []
-      })
-    })
-  )
+describe("draftToEntryRecord", () => {
+  it("maps a validated draft into an ImportEntry with labels, usage patterns, and frequency", () => {
+    const draft = checkDraft(output(), "en")!
+    const record = draftToEntryRecord(draft, "en", EntryId.make("kotori:bussin"))
+    assert.strictEqual(record.source, "kotori")
+    assert.deepStrictEqual(record.frequency, { everyday: false, spokenCount: null, score: 4 })
+    assert.deepStrictEqual(record.senses[0]?.misc, ["sl"])
+    assert.deepStrictEqual(record.senses[0]?.info, ["若者言葉。"])
+    assert.deepStrictEqual(record.senses[0]?.pos, ["adj"])
+    assert.deepStrictEqual(
+      record.forms.map((form) => [form.kind, form.text]),
+      [
+        ["spelling", "bussin"],
+        ["spelling", "bussin'"]
+      ]
+    )
+  })
 })

@@ -1,22 +1,13 @@
 import type { Claude, Lexicographer } from "@kotori/ai"
-import { proposalAsks, proposals } from "@kotori/db"
-import { and, count, desc, eq } from "drizzle-orm"
+import { entries, EntryId, proposalAsks, proposals } from "@kotori/db"
+import { and, count, desc, eq, sql } from "drizzle-orm"
 import { Console, Effect, type Layer, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { Database } from "../db/Database.ts"
-import {
-  APPROVED_EN_FILE,
-  APPROVED_JA_FILE,
-  approveProposal,
-  discardProposal,
-  redoProposal
-} from "../features/asks/review.ts"
+import { approveProposal, discardProposal, mergeProposal, redoProposal } from "../features/asks/review.ts"
 import type { Dictionary } from "../features/dictionary/Dictionary.ts"
-import { resolveFromRoot } from "../runtime/Paths.ts"
 
 const id = Argument.Int("id").pipe(Argument.withDescription("The proposal's id, from `kotori proposals list`"))
-
-const files = { en: resolveFromRoot(APPROVED_EN_FILE), ja: resolveFromRoot(APPROVED_JA_FILE) }
 
 const notFound = (id: number) => Console.error(`No proposal ${id}.`)
 const notPending = (id: number, status: string) => Console.error(`Proposal ${id} is ${status}, not pending.`)
@@ -40,23 +31,28 @@ const list = Command.make(
     const status = Option.getOrElse(chosen, () => (contested ? "rejected" : "pending"))
     const db = yield* Database
     const shown = yield* db
-      .select({ proposal: proposals, asks: count(proposalAsks.userId) })
+      .select({
+        proposal: proposals,
+        asks: count(proposalAsks.userId),
+        headword: sql<string | null>`${entries.base}->>'headword'`
+      })
       .from(proposals)
       .leftJoin(proposalAsks, eq(proposalAsks.proposalId, proposals.id))
+      .leftJoin(entries, eq(entries.id, proposals.linkedEntryId))
       .where(
         and(
           status === "all" ? undefined : eq(proposals.status, status),
           contested ? eq(proposals.contested, true) : undefined
         )
       )
-      .groupBy(proposals.id)
+      .groupBy(proposals.id, entries.id)
       .orderBy(desc(proposals.createdAt))
       .limit(200)
       .pipe(Effect.orDie)
     if (shown.length === 0) {
       return yield* Console.log(status === "pending" && !contested ? "Nothing waiting." : "Nothing there.")
     }
-    for (const { proposal, asks } of shown) {
+    for (const { proposal, asks, headword } of shown) {
       yield* Console.log(
         [
           String(proposal.id).padStart(5),
@@ -68,9 +64,8 @@ const list = Command.make(
           `asks:${String(asks).padEnd(4)}`,
           proposal.createdAt.toISOString().slice(0, 10),
           proposal.query +
-            (proposal.draft !== null && proposal.draft.headword !== proposal.query
-              ? `  → ${proposal.draft.headword}`
-              : "")
+            (headword !== null && headword !== proposal.query ? `  → ${headword}` : "") +
+            (proposal.linkedEntryId !== null ? `  [${proposal.linkedEntryId}]` : "")
         ].join("  ")
       )
     }
@@ -84,39 +79,35 @@ const show = Command.make(
     const db = yield* Database
     const rows = yield* db.select().from(proposals).where(eq(proposals.id, id)).pipe(Effect.orDie)
     if (rows[0] === undefined) return yield* notFound(id)
-    yield* Console.log(JSON.stringify(rows[0], null, 2))
+    const entry =
+      rows[0].linkedEntryId === null
+        ? null
+        : ((yield* db.select().from(entries).where(eq(entries.id, rows[0].linkedEntryId)).pipe(Effect.orDie))[0] ??
+          null)
+    yield* Console.log(JSON.stringify({ proposal: rows[0], entry }, null, 2))
   })
-).pipe(Command.withDescription("Show one proposal in full, draft and all"))
+).pipe(Command.withDescription("Show one proposal and its linked entry in full"))
 
 const approve = Command.make(
   "approve",
   {
     id,
-    aliasOf: Flag.String("alias-of").pipe(
-      Flag.withDescription("Approve as another way the given headword is written, not a new entry"),
-      Flag.optional
-    ),
     headword: Flag.String("headword").pipe(Flag.withDescription("Override the draft's headword"), Flag.optional)
   },
-  Effect.fn(function* ({ id, aliasOf, headword }) {
+  Effect.fn(function* ({ id, headword }) {
     const db = yield* Database
-    yield* approveProposal(db, id, files, {
-      aliasOf: Option.getOrUndefined(aliasOf),
-      headword: Option.getOrUndefined(headword)
-    }).pipe(
-      Effect.flatMap((result) =>
-        Console.log(
-          result.alias === null
-            ? `Approved: entry ${result.entryId} "${result.headword}", saved to the approved file. Commit it.`
-            : `Approved: "${result.alias}" now a form of entry ${result.entryId} "${result.headword}", saved to the approved file. Commit it.`
-        )
-      ),
-      Effect.catchTag("NoSuchProposal", () => notFound(id)),
-      Effect.catchTag("NotPending", (error) => notPending(id, error.status)),
-      Effect.catchTag("NoSuchAlias", (error) => Console.error(`No entry is written "${error.text}".`))
+    yield* approveProposal(db, id, { headword: Option.getOrUndefined(headword) }).pipe(
+      Effect.flatMap((result) => Console.log(`Approved in place: entry ${result.entryId} "${result.headword}".`)),
+      Effect.catchTags({
+        NoSuchProposal: () => notFound(id),
+        NotPending: (error) => notPending(id, error.status),
+        NoSuchEntry: (error) => Console.error(`No entry ${error.entryId}.`),
+        InvalidReviewTransition: (error) =>
+          Console.error(`Entry ${error.entryId} is ${error.from} and cannot be approved.`)
+      })
     )
   })
-).pipe(Command.withDescription("Turn a pending draft into a real entry (or an alias of one)"))
+).pipe(Command.withDescription("Promote an unreviewed Drafted entry to approved in place without changing its ID"))
 
 const discard = Command.make(
   "discard",
@@ -127,12 +118,43 @@ const discard = Command.make(
   Effect.fn(function* ({ id, reason }) {
     const db = yield* Database
     yield* discardProposal(db, id, Option.getOrNull(reason)).pipe(
-      Effect.flatMap((result) => Console.log(`Discarded "${result.query}"; it won't be generated again.`)),
-      Effect.catchTag("NoSuchProposal", () => notFound(id)),
-      Effect.catchTag("NotPending", (error) => notPending(id, error.status))
+      Effect.flatMap((result) =>
+        Console.log(`Discarded "${result.query}" (${result.entryId}); hidden from search and kept as a negative cache.`)
+      ),
+      Effect.catchTags({
+        NoSuchProposal: () => notFound(id),
+        NotPending: (error) => notPending(id, error.status),
+        NoSuchEntry: (error) => Console.error(`No entry ${error.entryId}.`),
+        InvalidReviewTransition: (error) =>
+          Console.error(`Entry ${error.entryId} is ${error.from} and cannot be discarded.`)
+      })
     )
   })
-).pipe(Command.withDescription("Turn a pending draft down, keeping the answer as a negative cache"))
+).pipe(Command.withDescription("Discard an unreviewed Drafted entry, hiding it from search as a negative cache"))
+
+const merge = Command.make(
+  "merge",
+  {
+    id,
+    into: Flag.String("into").pipe(Flag.withDescription("Canonical EntryId to redirect the duplicate draft into"))
+  },
+  Effect.fn(function* ({ id, into }) {
+    const db = yield* Database
+    yield* mergeProposal(db, id, EntryId.make(into)).pipe(
+      Effect.flatMap((result) =>
+        Console.log(`Merged ${result.entryId} → ${result.targetEntryId} ("${result.headword}").`)
+      ),
+      Effect.catchTags({
+        NoSuchProposal: () => notFound(id),
+        NotPending: (error) => notPending(id, error.status),
+        NoSuchEntry: (error) => Console.error(`No entry ${error.entryId}.`),
+        InvalidReviewTransition: (error) =>
+          Console.error(`Entry ${error.entryId} is ${error.from} and cannot be merged.`),
+        InvalidMergeTarget: (error) => Console.error(`Invalid merge target ${error.targetEntryId}: ${error.reason}.`)
+      })
+    )
+  })
+).pipe(Command.withDescription("Merge a duplicate Drafted entry into a canonical Entry via redirect_to"))
 
 const redo = Command.make(
   "redo",
@@ -143,8 +165,7 @@ const redo = Command.make(
       Effect.flatMap(({ proposal, linked }) =>
         Console.log(
           `Asked again: proposal ${id} is now ${proposal.status}` +
-            (proposal.draft !== null ? ` with a draft for "${proposal.draft.headword}"` : "") +
-            (linked !== null ? `, linked to "${linked}"` : "") +
+            (linked !== null ? `, linked to "${linked}" (${proposal.linkedEntryId})` : "") +
             (proposal.reason !== null ? `: ${proposal.reason}` : "") +
             "."
         )
@@ -167,6 +188,6 @@ const redo = Command.make(
  */
 export const proposalsCommand = <E, R>(redoServices: Layer.Layer<Dictionary | Lexicographer | Claude, E, R>) =>
   Command.make("proposals").pipe(
-    Command.withDescription("Review Ask Kotori's drafted entries: the manual gate before the dictionary"),
-    Command.withSubcommands([list, show, approve, discard, redo.pipe(Command.provide(redoServices))])
+    Command.withDescription("Review Ask Kotori's drafted entries: approve in place, discard, or merge into canonical"),
+    Command.withSubcommands([list, show, approve, discard, merge, redo.pipe(Command.provide(redoServices))])
   )

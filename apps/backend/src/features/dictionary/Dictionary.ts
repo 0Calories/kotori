@@ -30,11 +30,14 @@ export class Dictionary extends Context.Service<
       const { search, summarize, lookupWords } = makeSearch(db)
 
       const entry = Effect.fn("Dictionary.entry")(function* (id: EntryId) {
-        const [doc] = yield* getEntryDocuments(db, [id])
-        if (doc === undefined) return Option.none()
-        // Follow a merge redirect once to resolve the canonical target entry (#181 seam).
-        const resolved = doc.redirectTo !== null ? (yield* getEntryDocuments(db, [doc.redirectTo]))[0] : doc
-        return resolved === undefined ? Option.none() : Option.some(yield* assembleEntry(db, resolved))
+        let currentId = id
+        for (let hop = 0; hop < 5; hop++) {
+          const [doc] = yield* getEntryDocuments(db, [currentId])
+          if (doc === undefined) return Option.none()
+          if (doc.redirectTo === null) return Option.some(yield* assembleEntry(db, doc))
+          currentId = doc.redirectTo
+        }
+        return Option.none()
       })
 
       return Dictionary.of({ search, entry, summarize, lookupWords })

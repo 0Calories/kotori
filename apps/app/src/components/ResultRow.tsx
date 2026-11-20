@@ -65,8 +65,15 @@ export const ResultRow = ({
           <Text color="textMuted" numberOfLines={2}>
             {entry.meanings.join(entry.language === "ja" ? "; " : "、")}
           </Text>
-          {entry.inflection.length > 0 || entry.common || pos || labels.length > 0 ? (
+          {entry.reviewState === "unreviewed" ||
+          entry.inflection.length > 0 ||
+          entry.common ||
+          pos ||
+          labels.length > 0 ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+              {entry.reviewState === "unreviewed" ? (
+                <Chip tone="accent" icon="auto_awesome" label={t.entry.unverified} />
+              ) : null}
               {entry.inflection.length > 0 ? (
                 <Chip
                   tone="primary"

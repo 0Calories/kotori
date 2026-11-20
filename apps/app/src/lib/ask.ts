@@ -1,12 +1,4 @@
-import type {
-  AskRefusal,
-  DraftEntry,
-  EntrySummary,
-  Language,
-  Proposal,
-  ProposalRoute,
-  SearchMatch
-} from "@kotori/contracts"
+import type { AskRefusal, EntrySummary, Proposal, ProposalRoute, SearchMatch } from "@kotori/contracts"
 import type { Facing, Mood } from "../mascot/geometry.ts"
 
 /**
@@ -57,8 +49,8 @@ export const formatWait = (ms: number) => {
 
 /** What the answer on record comes to on screen. */
 export type AskAnswer =
-  /** Claude drafted an entry; it's unverified until a person checks it. */
-  | { readonly kind: "draft"; readonly draft: DraftEntry }
+  /** Claude drafted a `kotori:` entry directly in `entries`; it's unverified until a person checks it. */
+  | { readonly kind: "draft"; readonly entry: EntrySummary }
   /** The query names an entry the dictionary has: one it had all along, or a draft since approved. */
   | { readonly kind: "linked"; readonly entry: EntrySummary; readonly approved: boolean }
   /** Not a real expression (Claude's reason, if it gave one), or not a lookup at all (`route`). */
@@ -71,13 +63,13 @@ export type AskAnswer =
   | { readonly kind: "discarded"; readonly reason: string | null }
 
 /**
- * How to show a proposal, or null when there is nothing left to show: a link or approval whose
- * entry has since been deleted.
+ * How to show a proposal, or null when there is nothing left to show: a link, draft, or approval
+ * whose entry has since been deleted.
  */
 export const askAnswer = (proposal: Proposal): AskAnswer | null => {
   switch (proposal.status) {
     case "pending":
-      return proposal.draft === null ? null : { kind: "draft", draft: proposal.draft }
+      return proposal.linked === null ? null : { kind: "draft", entry: proposal.linked }
     case "linked":
     case "approved":
       return proposal.linked === null
@@ -240,14 +232,4 @@ export const askMood = (
     case "failed":
       return front(view.failure.kind === "resting" || view.failure.kind === "napping" ? "sleepy" : "oops")
   }
-}
-
-/**
- * A draft's headword as large as fits the answer card: 36pt for English up to ten letters and
- * 42pt for Japanese up to five characters, shrinking for longer ones.
- */
-export const draftHeadwordSize = (headword: string, language: Language) => {
-  const length = Array.from(headword).length
-  if (language === "en") return length <= 10 ? 36 : Math.max(22, Math.floor(400 / length))
-  return length <= 5 ? 42 : Math.max(24, Math.floor(220 / length))
 }
