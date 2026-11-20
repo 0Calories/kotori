@@ -126,12 +126,16 @@ const splitApostrophes = (words: ReadonlyArray<string>) => words.flatMap((word) 
 
 /**
  * The words of an English query for a full-text search that requires all of them (Postgres's
- * `plainto_tsquery`), with idiom placeholders dropped when other words remain:
- * "get on one's nerves" -> "get on nerves". Null when the query has no words.
+ * `plainto_tsquery`), with idiom placeholders, personal pronouns, articles, and a leading
+ * infinitive "to" dropped when other words remain — while keeping prepositions and phrasal-verb
+ * particles ("into", "up", "off", "on", "out", "with", trailing "to") intact:
+ * "getting on my nerves" -> "getting on nerves", "to run into someone" -> "run into".
+ * Null when the query has no words.
  */
 export const englishSearchTerms = (query: string): string | null => {
   const words = queryWords(query)
-  const content = splitApostrophes(words.filter((word) => !IDIOM_PLACEHOLDERS.has(word)))
+  const withoutInfinitive = words.length > 1 && words[0] === "to" ? words.slice(1) : words
+  const content = splitApostrophes(withoutInfinitive.filter((word) => !PHRASE_FILLERS.has(word)))
   const terms = content.length > 0 ? content : splitApostrophes(words)
   return terms.length === 0 ? null : terms.join(" ")
 }

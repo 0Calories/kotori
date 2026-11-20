@@ -65,9 +65,19 @@ describe("englishPhraseVariants, both ways round", () => {
 })
 
 describe("englishSearchTerms", () => {
-  it("drops idiom placeholders while other words remain", () => {
+  it("drops idiom placeholders and variable fillers while preserving phrasal-verb particles", () => {
     expect(englishSearchTerms("get on one's nerves")).toBe("get on nerves")
     expect(englishSearchTerms("Get on someone’s nerves")).toBe("get on nerves")
+    expect(englishSearchTerms("getting on my nerves")).toBe("getting on nerves")
+    expect(englishSearchTerms("wrapped my head around")).toBe("wrapped head around")
+    expect(englishSearchTerms("a stone's throw")).toBe("stone s throw")
+    expect(englishSearchTerms("run into")).toBe("run into")
+    expect(englishSearchTerms("to run into someone")).toBe("run into")
+    expect(englishSearchTerms("put up with")).toBe("put up with")
+    expect(englishSearchTerms("call off")).toBe("call off")
+    expect(englishSearchTerms("take on")).toBe("take on")
+    expect(englishSearchTerms("find out")).toBe("find out")
+    expect(englishSearchTerms("look forward to")).toBe("look forward to")
     expect(englishSearchTerms("someone")).toBe("someone")
     expect(englishSearchTerms("  ")).toBeNull()
   })
