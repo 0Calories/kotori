@@ -1,7 +1,5 @@
-import { EntryId, type Language, type Source } from "@kotori/contracts"
+import { type EntryId, isEntryId, type Language, type Source } from "@kotori/contracts"
 import type { Strings } from "../i18n/strings.ts"
-
-const ENTRY_ID_PATTERN = /^(jmdict|en|kotori):.+$/
 
 /**
  * Where an entry's Sources control goes. One target on web and native:
@@ -20,7 +18,7 @@ export const entryIdFromParam = (id: string | readonly string[] | undefined): En
   } catch {
     return null
   }
-  return ENTRY_ID_PATTERN.test(decoded) ? EntryId.make(decoded) : null
+  return isEntryId(decoded) ? decoded : null
 }
 
 /** The parts of an entry the sources screen can credit. Narrower than `Entry`, which satisfies it. */

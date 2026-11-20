@@ -12,17 +12,17 @@ import {
   VoiceCasts
 } from "@kotori/ai"
 import { EntryId, type EntryRecord } from "@kotori/contracts"
-import { entries, entrySearch } from "@kotori/db"
-import { eq } from "drizzle-orm"
 import { ConfigProvider, Effect, Layer, Option } from "effect"
 import { Command } from "effect/cli"
 import { enrichCommand } from "../../src/cli/enrich.ts"
 import { searchCommand } from "../../src/cli/search.ts"
 import { Database } from "../../src/db/Database.ts"
+import { discardEntry, mergeEntry } from "../../src/features/asks/review.ts"
 import { AudioStore } from "../../src/features/audio/AudioStore.ts"
 import { Speech } from "../../src/features/audio/Speech.ts"
 import { Dictionary } from "../../src/features/dictionary/Dictionary.ts"
 import { insertEntries, linkLoans, saveKotoriCautions } from "../../src/features/dictionary/queries.ts"
+import { rebuildEntrySearch } from "../../src/features/dictionary/searchProjection.ts"
 import { AudioEnricher } from "../../src/features/enrichment/AudioEnricher.ts"
 import { Enrichers } from "../../src/features/enrichment/Enrichers.ts"
 import { saveExamples } from "../../src/features/enrichment/queries.ts"
@@ -275,22 +275,51 @@ layer(TestLayer)("CLI kotori enrich & kotori search", (it) => {
     })
   )
 
-  it.effect("kotori search rebuild drops and rebuilds entry_search from entries.base without touching enrichment", () =>
+  it.effect("bounded CLI enrichment skips discarded and merged entries", () =>
     Effect.gen(function* () {
       const db = yield* Database
       const dictionary = yield* Dictionary
-      const taberu = EntryId.make("jmdict:1358280")
+      const active = EntryId.make("jmdict:1580640")
+      const discarded = EntryId.make("kotori:discarded-enrich")
+      const merged = EntryId.make("kotori:merged-enrich")
 
-      yield* insertEntries(db, [jaEntry(taberu, "食べる", "たべる", ["to eat"])])
+      yield* insertEntries(db, [{ ...jaEntry(active, "走る", "はしる", ["to run"]), priority: 900 }])
+      yield* insertEntries(
+        db,
+        [
+          { ...jaEntry(discarded, "ボツ語", "ぼつご", ["junk"], { source: "kotori" }), priority: 999 },
+          { ...jaEntry(merged, "重複語", "ちょうふくご", ["dup"], { source: "kotori" }), priority: 998 }
+        ],
+        { reviewState: "unreviewed" }
+      )
+      yield* discardEntry(db, discarded, "not a word")
+      yield* mergeEntry(db, merged, active)
+
+      writtenFor.length = 0
+      yield* runEnrich(["run", "examples", "--dictionary", "jmdict", "--limit", "1"])
+
+      assert.deepStrictEqual(writtenFor, ["走る"])
+      assert.strictEqual(Option.getOrThrow(yield* dictionary.entry(active)).senses[0]?.examples.length, 1)
+      assert.strictEqual(Option.getOrThrow(yield* dictionary.entry(discarded)).senses[0]?.examples.length, 0)
+    })
+  )
+
+  it.effect("kotori search rebuild rebuilds entry_search from entries.base without touching enrichment", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      const oyogu = EntryId.make("jmdict:1580650")
+
+      yield* insertEntries(db, [jaEntry(oyogu, "泳ぐ", "およぐ", ["to swim"])])
       yield* saveExamples(
         db,
-        taberu,
+        oyogu,
         [
           {
             sense: 0,
-            ja: "晩ご飯を食べる。",
-            furigana: "晩ご飯を食べる。",
-            en: "I eat dinner.",
+            ja: "プールで泳ぐ。",
+            furigana: "プールで泳ぐ。",
+            en: "I swim in the pool.",
             formality: "polite",
             note: null,
             model: "test-claude"
@@ -299,16 +328,17 @@ layer(TestLayer)("CLI kotori enrich & kotori search", (it) => {
         new Date(2000)
       )
 
-      // Wipe entry_search manually to prove rebuild restores it purely from entries.base.
-      yield* db.delete(entrySearch)
-      assert.strictEqual((yield* dictionary.search("食べる", "ja", 5)).entries.length, 0)
+      const summary = yield* rebuildEntrySearch(db)
+      assert.isAtLeast(summary.entries, 1)
+      assert.isAtLeast(summary.indexedRows, 1)
 
       yield* runSearchCli(["rebuild"])
 
-      assert.strictEqual((yield* dictionary.search("食べる", "ja", 5)).entries[0]?.id, taberu)
+      assert.strictEqual((yield* dictionary.search("泳ぐ", "ja", 5)).entries[0]?.id, oyogu)
       // Enrichment on entries was untouched by rebuilding entry_search.
-      const [row] = yield* db.select({ enrichment: entries.enrichment }).from(entries).where(eq(entries.id, taberu))
-      assert.strictEqual(row?.enrichment?.examples?.length, 1)
+      const after = Option.getOrThrow(yield* dictionary.entry(oyogu))
+      assert.strictEqual(after.senses[0]?.examples.length, 1)
+      assert.strictEqual(after.senses[0]?.examples[0]?.ja, "プールで泳ぐ。")
     })
   )
 })

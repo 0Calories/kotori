@@ -180,4 +180,72 @@ layer(TestLayer)("JMDict.importFile", (it) => {
         assert.strictEqual(yield* entryCount(db), 5)
       })
   )
+
+  it.effect("does not mutate kotori: English entries when linking JMDict loanwords on re-import", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      const kotoriMansion = EntryId.make("kotori:mansion-en")
+      const mansionJa = EntryId.make("jmdict:1079450")
+
+      yield* insertEntries(db, [
+        {
+          id: kotoriMansion,
+          language: "en",
+          source: "kotori",
+          headword: "mansion",
+          reading: "",
+          common: false,
+          priority: 100,
+          forms: [
+            {
+              kind: "spelling",
+              text: "mansion",
+              common: false,
+              tags: [],
+              priorities: [],
+              restrictions: [],
+              noKanji: false
+            }
+          ],
+          senses: [
+            {
+              glosses: [{ text: "大邸宅", type: null }],
+              pos: ["n"],
+              misc: [],
+              fields: [],
+              dialects: [],
+              info: [],
+              stagk: [],
+              stagr: [],
+              xrefs: [],
+              antonyms: [],
+              origins: [],
+              wasei: false
+            }
+          ]
+        }
+      ])
+
+      current = `<?xml version="1.0"?>
+<!DOCTYPE JMdict [
+<!ENTITY n "noun (common) (futsuumeishi)">
+]>
+<JMdict>
+<entry>
+<ent_seq>1079450</ent_seq>
+<r_ele><reb>マンション</reb></r_ele>
+<sense><pos>&n;</pos><lsource xml:lang="eng">mansion</lsource><gloss>condominium</gloss></sense>
+</entry>
+</JMdict>`
+
+      yield* JMDict.importFile({ file: "JMdict_e.gz" })
+
+      const kotoriAfter = Option.getOrThrow(yield* dictionary.entry(kotoriMansion))
+      assert.isNull(kotoriAfter.loanLink)
+      const jaAfter = Option.getOrThrow(yield* dictionary.entry(mansionJa))
+      assert.strictEqual(jaAfter.loanLink?.english, "mansion")
+      assert.isNull(jaAfter.loanLink?.englishEntryId)
+    })
+  )
 })

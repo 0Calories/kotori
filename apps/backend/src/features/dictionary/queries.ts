@@ -30,6 +30,7 @@ import {
   desc,
   eq,
   inArray,
+  isNull,
   like,
   max,
   min,
@@ -240,7 +241,14 @@ export const linkLoans = Effect.fn("dictionary.linkLoans")(function* (db: Databa
           base: entries.base
         })
         .from(entries)
-        .where(and(eq(entries.language, "ja"), eq(entries.source, "jmdict")))
+        .where(
+          and(
+            eq(entries.language, "ja"),
+            eq(entries.source, "jmdict"),
+            ne(entries.reviewState, "discarded"),
+            isNull(entries.redirectTo)
+          )
+        )
         .orderBy(asc(entries.id))
 
       const enRows = yield* tx
@@ -250,7 +258,15 @@ export const linkLoans = Effect.fn("dictionary.linkLoans")(function* (db: Databa
           base: entries.base
         })
         .from(entries)
-        .where(eq(entries.language, "en"))
+        .where(
+          and(
+            eq(entries.language, "en"),
+            like(entries.id, "en:%"),
+            ne(entries.source, "kotori"),
+            ne(entries.reviewState, "discarded"),
+            isNull(entries.redirectTo)
+          )
+        )
         .orderBy(desc(entries.priority), asc(entries.id))
 
       const enByExact = new Map<string, (typeof enRows)[number]>()
@@ -710,6 +726,8 @@ export const entriesByPriority = Effect.fn("dictionary.entriesByPriority")(funct
     .from(entries)
     .where(
       and(
+        ne(entries.reviewState, "discarded"),
+        isNull(entries.redirectTo),
         query.language ? eq(entries.language, query.language) : undefined,
         query.commonOnly ? eq(entries.common, true) : undefined,
         query.missing ? missing(db, query.missing) : undefined

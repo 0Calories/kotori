@@ -10,12 +10,20 @@ import { Formality, Source } from "./columns.ts"
 export const EntryId = Schema.String.pipe(Schema.brand("EntryId"))
 export type EntryId = typeof EntryId.Type
 
+export const KOTORI_ENTRY_PREFIX = "kotori:"
+const ENTRY_ID_PREFIXES = ["jmdict:", "en:", KOTORI_ENTRY_PREFIX] as const
+
 export const jmdictEntryId = (seq: string | number): EntryId => EntryId.make(`jmdict:${seq}`)
 export const englishEntryId = (headword: string): EntryId => EntryId.make(`en:${headword}`)
-export const kotoriEntryId = (id: string): EntryId => EntryId.make(`kotori:${id}`)
+export const kotoriEntryId = (id: string): EntryId => EntryId.make(`${KOTORI_ENTRY_PREFIX}${id}`)
+export const isEntryId = (value: string): value is EntryId =>
+  ENTRY_ID_PREFIXES.some((prefix) => value.startsWith(prefix) && value.length > prefix.length)
+export const isKotoriEntryId = (value: string): value is EntryId =>
+  value.startsWith(KOTORI_ENTRY_PREFIX) && value.length > KOTORI_ENTRY_PREFIX.length
 export const isExternalEntryId = (id: EntryId): boolean => id.startsWith("jmdict:") || id.startsWith("en:")
 
-export const FormKind = Schema.Literals(["kanji", "kana", "spelling", "inflection"])
+export const FORM_KINDS = ["kanji", "kana", "spelling", "inflection"] as const
+export const FormKind = Schema.Literals(FORM_KINDS)
 export type FormKind = typeof FormKind.Type
 
 /**

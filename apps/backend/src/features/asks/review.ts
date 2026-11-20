@@ -1,7 +1,7 @@
 import { Claude, interpretTriage } from "@kotori/ai"
 import { AiUnavailable } from "@kotori/contracts"
 import { entries, EntryId, proposals, ReviewState } from "@kotori/db"
-import { eq } from "drizzle-orm"
+import { and, eq, inArray, isNull } from "drizzle-orm"
 import { Effect, Match, Schema } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 import { getEntries } from "../dictionary/queries.ts"
@@ -23,6 +23,8 @@ export const REVIEW_MOVES = {
 
 export type ReviewMove = keyof typeof REVIEW_MOVES
 
+const REVIEW_MOVE_NAMES = Object.keys(REVIEW_MOVES) as [ReviewMove, ...Array<ReviewMove>]
+
 const canTransition = (state: EntryReviewState, move: ReviewMove): boolean => {
   const allowed: ReadonlyArray<EntryReviewState> = REVIEW_MOVES[move].from
   return Match.value(state).pipe(
@@ -32,6 +34,14 @@ const canTransition = (state: EntryReviewState, move: ReviewMove): boolean => {
     Match.exhaustive
   )
 }
+
+const isMergeableTarget = (target: Pick<typeof entries.$inferSelect, "reviewState" | "redirectTo">): boolean =>
+  Match.value(target.reviewState).pipe(
+    Match.when("approved", () => true),
+    Match.when("unreviewed", () => true),
+    Match.when("discarded", () => target.redirectTo !== null),
+    Match.exhaustive
+  )
 
 export class NoSuchProposal extends Schema.TaggedError<NoSuchProposal>()("NoSuchProposal", {
   id: Schema.Int
@@ -44,7 +54,7 @@ export class NoSuchEntry extends Schema.TaggedError<NoSuchEntry>()("NoSuchEntry"
 export class InvalidReviewTransition extends Schema.TaggedError<InvalidReviewTransition>()("InvalidReviewTransition", {
   entryId: EntryId,
   from: ReviewState,
-  move: Schema.Literals(["approve", "discard", "merge"])
+  move: Schema.Literals(REVIEW_MOVE_NAMES)
 }) {}
 
 export class InvalidMergeTarget extends Schema.TaggedError<InvalidMergeTarget>()("InvalidMergeTarget", {
@@ -67,6 +77,14 @@ const proposalById = Effect.fn("review.proposalById")(function* (db: DatabaseSha
   const rows = yield* db.select().from(proposals).where(eq(proposals.id, id)).pipe(Effect.orDie)
   if (rows[0] === undefined) return yield* new NoSuchProposal({ id })
   return rows[0]
+})
+
+const requirePendingProposal = Effect.fn("review.requirePendingProposal")(function* (db: DatabaseShape, id: number) {
+  const proposal = yield* proposalById(db, id)
+  if (proposal.status !== "pending" || proposal.linkedEntryId === null) {
+    return yield* new NotPending({ id, status: proposal.status })
+  }
+  return { proposal, entryId: proposal.linkedEntryId }
 })
 
 export interface Approval {
@@ -99,18 +117,26 @@ export const approveEntry = Effect.fn("review.approveEntry")(function* (
               headword: approval.headword,
               forms: doc.base.forms.map((form, index) => (index === 0 ? { ...form, text: approval.headword! } : form))
             }
-      const nextState = REVIEW_MOVES.approve.to
       const [updated] = yield* tx
         .update(entries)
-        .set({ reviewState: nextState, base: nextBase, updatedAt: now })
-        .where(eq(entries.id, entryId))
+        .set({ reviewState: REVIEW_MOVES.approve.to, base: nextBase, updatedAt: now })
+        .where(
+          and(
+            eq(entries.id, entryId),
+            inArray(entries.reviewState, [...REVIEW_MOVES.approve.from]),
+            isNull(entries.redirectTo)
+          )
+        )
         .returning()
-      yield* syncEntrySearch(tx, [updated!])
+      if (updated === undefined) {
+        return yield* new InvalidReviewTransition({ entryId, from: doc.reviewState, move: "approve" })
+      }
+      yield* syncEntrySearch(tx, [updated])
       yield* tx
         .update(proposals)
         .set({ status: "approved", reviewedAt: now })
         .where(eq(proposals.linkedEntryId, entryId))
-      return { entryId, headword: updated!.base.headword }
+      return { entryId, headword: updated.base.headword }
     })
   )
 })
@@ -133,18 +159,26 @@ export const discardEntry = Effect.fn("review.discardEntry")(function* (
       if (doc.redirectTo !== null || !canTransition(doc.reviewState, "discard")) {
         return yield* new InvalidReviewTransition({ entryId, from: doc.reviewState, move: "discard" })
       }
-      const nextState = REVIEW_MOVES.discard.to
       const [updated] = yield* tx
         .update(entries)
-        .set({ reviewState: nextState, updatedAt: now })
-        .where(eq(entries.id, entryId))
+        .set({ reviewState: REVIEW_MOVES.discard.to, updatedAt: now })
+        .where(
+          and(
+            eq(entries.id, entryId),
+            inArray(entries.reviewState, [...REVIEW_MOVES.discard.from]),
+            isNull(entries.redirectTo)
+          )
+        )
         .returning()
-      yield* syncEntrySearch(tx, [updated!])
+      if (updated === undefined) {
+        return yield* new InvalidReviewTransition({ entryId, from: doc.reviewState, move: "discard" })
+      }
+      yield* syncEntrySearch(tx, [updated])
       yield* tx
         .update(proposals)
         .set({ status: "discarded", reason, reviewedAt: now })
         .where(eq(proposals.linkedEntryId, entryId))
-      return { entryId, headword: updated!.base.headword }
+      return { entryId, headword: updated.base.headword }
     })
   )
 })
@@ -173,7 +207,7 @@ export const mergeEntry = Effect.fn("review.mergeEntry")(function* (
       }
       const [target] = yield* tx.select().from(entries).where(eq(entries.id, targetEntryId))
       if (target === undefined) return yield* new NoSuchEntry({ entryId: targetEntryId })
-      if (target.reviewState === "discarded" && target.redirectTo === null) {
+      if (!isMergeableTarget(target)) {
         return yield* new InvalidMergeTarget({
           entryId,
           targetEntryId,
@@ -195,9 +229,18 @@ export const mergeEntry = Effect.fn("review.mergeEntry")(function* (
       const [updated] = yield* tx
         .update(entries)
         .set({ redirectTo: canonical.id, reviewState: REVIEW_MOVES.merge.to, updatedAt: now })
-        .where(eq(entries.id, entryId))
+        .where(
+          and(
+            eq(entries.id, entryId),
+            inArray(entries.reviewState, [...REVIEW_MOVES.merge.from]),
+            isNull(entries.redirectTo)
+          )
+        )
         .returning()
-      yield* syncEntrySearch(tx, [updated!])
+      if (updated === undefined) {
+        return yield* new InvalidReviewTransition({ entryId, from: doc.reviewState, move: "merge" })
+      }
+      yield* syncEntrySearch(tx, [updated])
       yield* tx
         .update(proposals)
         .set({ status: "approved", linkedEntryId: canonical.id, reviewedAt: now })
@@ -213,11 +256,8 @@ export const approveProposal = Effect.fn("review.approveProposal")(function* (
   id: number,
   approval: Approval = {}
 ) {
-  const proposal = yield* proposalById(db, id)
-  if (proposal.status !== "pending" || proposal.linkedEntryId === null) {
-    return yield* new NotPending({ id, status: proposal.status })
-  }
-  return yield* approveEntry(db, proposal.linkedEntryId, approval)
+  const { entryId } = yield* requirePendingProposal(db, id)
+  return yield* approveEntry(db, entryId, approval)
 })
 
 /** Discards a pending proposal's `kotori:` Drafted entry, keeping it as a negative cache. */
@@ -226,11 +266,8 @@ export const discardProposal = Effect.fn("review.discardProposal")(function* (
   id: number,
   reason: string | null
 ) {
-  const proposal = yield* proposalById(db, id)
-  if (proposal.status !== "pending" || proposal.linkedEntryId === null) {
-    return yield* new NotPending({ id, status: proposal.status })
-  }
-  const result = yield* discardEntry(db, proposal.linkedEntryId, reason)
+  const { proposal, entryId } = yield* requirePendingProposal(db, id)
+  const result = yield* discardEntry(db, entryId, reason)
   return { ...result, query: proposal.query }
 })
 
@@ -240,11 +277,8 @@ export const mergeProposal = Effect.fn("review.mergeProposal")(function* (
   id: number,
   targetEntryId: EntryId
 ) {
-  const proposal = yield* proposalById(db, id)
-  if (proposal.status !== "pending" || proposal.linkedEntryId === null) {
-    return yield* new NotPending({ id, status: proposal.status })
-  }
-  return yield* mergeEntry(db, proposal.linkedEntryId, targetEntryId)
+  const { entryId } = yield* requirePendingProposal(db, id)
+  return yield* mergeEntry(db, entryId, targetEntryId)
 })
 
 /**

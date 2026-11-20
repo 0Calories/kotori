@@ -2,10 +2,10 @@ import { sql } from "drizzle-orm"
 import { type AnyPgColumn, boolean, index, integer, pgEnum, text } from "drizzle-orm/pg-core"
 import { bytewiseText, englishDocument, language, simpleDocument, table, textList } from "./columns.ts"
 import { entries, reviewState } from "./entries.ts"
-import type { EntryId } from "./entryDocument.ts"
+import { type EntryId, FORM_KINDS } from "./entryDocument.ts"
 
 /** Form kinds stored in the search projection (matches `FormKind`). */
-export const formKind = pgEnum("form_kind", ["kanji", "kana", "spelling", "inflection"])
+export const formKind = pgEnum("form_kind", FORM_KINDS)
 
 /** Whether an `entry_search` row projects a searchable form or a searchable gloss. */
 export const entrySearchKind = pgEnum("entry_search_kind", ["form", "gloss"])

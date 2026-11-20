@@ -4,6 +4,7 @@ import {
   type EntrySummary,
   type Label,
   type Language,
+  type ReviewState,
   type SearchMatch,
   type SearchResult
 } from "@kotori/contracts"
@@ -615,11 +616,19 @@ export const makeSearch = (db: DatabaseShape) => {
     }
   })
 
-  const reviewTier = (state: "approved" | "unreviewed" | "discarded"): number =>
+  const reviewTier = (state: ReviewState): number =>
     Match.value(state).pipe(
       Match.when("approved", () => 0),
       Match.when("unreviewed", () => 1),
       Match.when("discarded", () => 2),
+      Match.exhaustive
+    )
+
+  const isVisibleInSearch = (state: ReviewState): boolean =>
+    Match.value(state).pipe(
+      Match.when("approved", () => true),
+      Match.when("unreviewed", () => true),
+      Match.when("discarded", () => false),
       Match.exhaustive
     )
 
@@ -674,7 +683,7 @@ export const makeSearch = (db: DatabaseShape) => {
       hits.map((hit) => hit.entryId)
     )
     const ordered = hits
-      .filter((hit) => (ranks.get(hit.entryId)?.reviewState ?? "approved") !== "discarded")
+      .filter((hit) => isVisibleInSearch(ranks.get(hit.entryId)?.reviewState ?? "approved"))
       .toSorted((a, b) => {
         if (a.strong !== b.strong) return a.strong ? -1 : 1
         const tierDiff =

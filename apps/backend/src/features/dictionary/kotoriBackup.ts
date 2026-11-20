@@ -1,4 +1,14 @@
-import { entries, EntryBase, EntryEnrichment, EntryId, Language, ReviewState, Source } from "@kotori/db"
+import {
+  entries,
+  EntryBase,
+  EntryEnrichment,
+  EntryId,
+  isKotoriEntryId,
+  KOTORI_ENTRY_PREFIX,
+  Language,
+  ReviewState,
+  Source
+} from "@kotori/db"
 import { asc, eq, inArray, like, sql } from "drizzle-orm"
 import { Effect, FileSystem, Option, Path, Schema } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
@@ -56,7 +66,7 @@ export const exportKotoriEntries = Effect.fn("dictionary.exportKotoriEntries")(f
       enrichment: entries.enrichment
     })
     .from(entries)
-    .where(like(entries.id, "kotori:%"))
+    .where(like(entries.id, `${KOTORI_ENTRY_PREFIX}%`))
     .orderBy(asc(entries.id))
     .pipe(Effect.orDie)
 
@@ -88,7 +98,7 @@ export const importKotoriEntries = Effect.fn("dictionary.importKotoriEntries")(f
     lineNumber++
     if (line.trim().length === 0) continue
     const decoded = decodeLine(line)
-    if (Option.isNone(decoded) || !decoded.value.id.startsWith("kotori:")) {
+    if (Option.isNone(decoded) || !isKotoriEntryId(decoded.value.id)) {
       skipped.push(lineNumber)
       continue
     }

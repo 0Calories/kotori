@@ -111,7 +111,7 @@ export const loanLine = (t: Strings, entry: Pick<Entry, "language" | "loanLink">
   }
 }
 
-/** Badge for an unreviewed AI draft or discarded tombstone; approved entries carry no badge. */
+/** Badge for an unreviewed drafted entry or discarded tombstone; approved entries carry no badge. */
 export const reviewStateChip = (t: Strings, entry: Pick<Entry, "reviewState">): ChipItem | null => {
   switch (entry.reviewState) {
     case "approved":

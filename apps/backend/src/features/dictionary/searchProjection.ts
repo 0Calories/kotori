@@ -9,7 +9,7 @@ import {
 } from "@kotori/db"
 import { cjkSearchTokens, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
 import { asc, gt, inArray } from "drizzle-orm"
-import { Effect } from "effect"
+import { Effect, Match } from "effect"
 import { chunks } from "../../db/chunks.ts"
 import type { DatabaseShape } from "../../db/Database.ts"
 
@@ -26,13 +26,21 @@ export interface SearchProjectionSource {
 
 export type EntrySearchInsert = typeof entrySearch.$inferInsert
 
+const isSearchableReviewState = (state: ReviewState): boolean =>
+  Match.value(state).pipe(
+    Match.when("approved", () => true),
+    Match.when("unreviewed", () => true),
+    Match.when("discarded", () => false),
+    Match.exhaustive
+  )
+
 /**
  * Projects one `entries` row into its `entry_search` rows purely from `entries.base` and
  * lifecycle scalars. Discarded entries and merged redirects (`redirectTo !== null`) are omitted
  * from search. `entries.enrichment` is never read.
  */
 export const projectEntrySearch = (entry: SearchProjectionSource): Array<EntrySearchInsert> => {
-  if (entry.reviewState === "discarded" || entry.redirectTo !== null) return []
+  if (entry.redirectTo !== null || !isSearchableReviewState(entry.reviewState)) return []
   const shared = {
     entryId: entry.id,
     language: entry.language,
