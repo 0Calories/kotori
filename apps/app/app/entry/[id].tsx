@@ -2,8 +2,8 @@ import type { Entry, Language, Sense, SimilarWord } from "@kotori/contracts"
 import { Link, useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { Platform, Share, View } from "react-native"
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated"
-import { useAddNote, useEnrich, useEntry, useNotes, useRemoveNote } from "../../src/api/queries.ts"
+import Animated, { FadeInDown } from "react-native-reanimated"
+import { useAddNote, useEntry, useNotes, useRemoveNote } from "../../src/api/queries.ts"
 import { AudioButton } from "../../src/components/AudioButton.tsx"
 import { Button, IconButton } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
@@ -13,7 +13,6 @@ import { ExampleRow } from "../../src/components/ExampleRow.tsx"
 import { Headword } from "../../src/components/Headword.tsx"
 import { Icon } from "../../src/components/Icon.tsx"
 import { ChipRow } from "../../src/components/LabelChips.tsx"
-import { Mascot } from "../../src/components/Mascot.tsx"
 import { Notice } from "../../src/components/Notice.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
 import { removalErrorText, RemoveNoteDialog } from "../../src/components/RemoveNote.tsx"
@@ -25,12 +24,10 @@ import { UsagePatterns } from "../../src/components/UsagePatterns.tsx"
 import { posLabel, tagName } from "../../src/i18n/strings.ts"
 import {
   contributors,
-  hasKotoriContent,
   hasKotoriMarks,
   heroItems,
   labelItems,
   loanLine,
-  onItsWay,
   saveDetails,
   senseCautions,
   similarWords,
@@ -243,7 +240,6 @@ export default function EntryScreen() {
   const notes = useNotes()
   const addNote = useAddNote()
   const removeNote = useRemoveNote()
-  const enrich = useEnrich(id ?? 0)
   const [showAll, setShowAll] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [removingSense, setRemovingSense] = useState<number | null>(null)
@@ -327,19 +323,13 @@ export default function EntryScreen() {
   )
   const inflections = data.forms.filter((form) => form.kind === "inflection")
   const senses = showAll ? data.senses : data.senses.slice(0, 3)
-  const waiting = onItsWay(data.enrichment.examples)
   const similar = similarWords(data.senses)
   const firstPos = data.senses[0]?.partsOfSpeech[0]
   const partOfSpeech = firstPos ? (posLabel(t, firstPos.code) ?? firstPos.name) : null
   const forms = [data.headword, ...data.forms.map((form) => form.text), ...(language === "ja" ? [data.reading] : [])]
   const size = headwordSize(data.headword, language)
   const headwordAudio = data.audioUrl
-  // A word with nothing from Kotori yet gets a plain header, with the part of speech among the
-  // details, and an offer to ask for more.
-  const plain = !hasKotoriContent(data) && !waiting
-  const meta = [reading, data.usuallyKana ? t.entry.usuallyKana : null, plain ? partOfSpeech : null].filter(
-    (part): part is string => part !== null
-  )
+  const meta = [reading, data.usuallyKana ? t.entry.usuallyKana : null].filter((part): part is string => part !== null)
   const origin = loanLine(t, data)
   const chips = heroItems(t, data)
 
@@ -401,30 +391,24 @@ export default function EntryScreen() {
       ) : null}
       <Animated.View
         entering={FadeInDown.duration(350)}
-        style={
-          plain
-            ? { paddingHorizontal: 6, paddingTop: 4, marginBottom: 8, gap: 2 }
-            : {
-                borderRadius: theme.radius.xl,
-                overflow: "hidden",
-                backgroundColor: theme.color.primaryTint,
-                paddingHorizontal: 20,
-                paddingTop: 20,
-                paddingBottom: 18,
-                gap: 2
-              }
-        }
+        style={{
+          borderRadius: theme.radius.xl,
+          overflow: "hidden",
+          backgroundColor: theme.color.primaryTint,
+          paddingHorizontal: 20,
+          paddingTop: 20,
+          paddingBottom: 18,
+          gap: 2
+        }}
       >
-        {plain ? null : <Snow />}
+        <Snow />
         <Headword
           language={language}
           size={size}
           style={
             language === "en"
               ? { lineHeight: Math.round(size * 1.15) }
-              : plain
-                ? { lineHeight: size }
-                : { lineHeight: Math.round(size * 1.1), letterSpacing: size * 0.02 }
+              : { lineHeight: Math.round(size * 1.1), letterSpacing: size * 0.02 }
           }
           selectable
           accessibilityRole="header"
@@ -432,12 +416,7 @@ export default function EntryScreen() {
           {data.headword}
         </Headword>
         {meta.length > 0 ? (
-          <Text
-            variant="caption"
-            size={14}
-            color="textMuted"
-            style={{ marginTop: plain ? 16 : 4, lineHeight: plain ? 17 : 18 }}
-          >
+          <Text variant="caption" size={14} color="textMuted" style={{ marginTop: 4, lineHeight: 18 }}>
             {meta.join(" · ")}
           </Text>
         ) : null}
@@ -458,36 +437,25 @@ export default function EntryScreen() {
         ) : null}
         {chips.length > 0 ? (
           <View style={{ marginTop: 10 }}>
-            <ChipRow items={chips} onTint={!plain} />
+            <ChipRow items={chips} onTint />
           </View>
         ) : null}
-        {plain && !headwordAudio ? null : (
+        {headwordAudio || partOfSpeech ? (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12, minHeight: 44 }}>
             {headwordAudio ? <AudioButton url={headwordAudio} label={t.common.listen} /> : null}
             <View style={{ flex: 1 }} />
-            {partOfSpeech && !plain ? (
+            {partOfSpeech ? (
               <Text variant="caption" size={13.5} color="textMuted">
                 {partOfSpeech}
               </Text>
             ) : null}
           </View>
-        )}
+        ) : null}
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(60).duration(350)}>
         <Cautions cautions={wordCautions(data.cautions)} headline />
       </Animated.View>
-
-      {waiting ? (
-        <Animated.View entering={FadeIn}>
-          <Card tone="primary" style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <Mascot size={52} mood="reading" />
-            <Text variant="small" style={{ flex: 1 }}>
-              {t.entry.writing}
-            </Text>
-          </Card>
-        </Animated.View>
-      ) : null}
 
       <Section title={data.senses.length === 1 ? t.entry.meaning : t.entry.meanings}>
         {senses.map((sense, index) => (
@@ -514,50 +482,6 @@ export default function EntryScreen() {
           />
         ) : null}
       </Section>
-
-      {plain ? (
-        <View
-          style={{
-            backgroundColor: theme.color.surfaceMuted,
-            borderRadius: theme.radius.lg,
-            padding: theme.space.lg,
-            gap: 14
-          }}
-        >
-          <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
-            <View
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                backgroundColor: theme.color.surface,
-                alignItems: "center",
-                justifyContent: "center"
-              }}
-            >
-              <Mascot size={36} mood="sleepy" />
-            </View>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text variant="strong" weight="bold" size={15}>
-                {t.entry.dictionaryOnly}
-              </Text>
-              <Text variant="small" color="textMuted">
-                {t.entry.dictionaryOnlyBody(data.headword)}
-              </Text>
-            </View>
-          </View>
-          <View style={{ alignItems: "flex-start" }}>
-            <Button
-              variant="secondary"
-              icon={enrich.isSuccess ? "check" : "add"}
-              label={t.entry.ask}
-              loading={enrich.isPending}
-              disabled={enrich.isSuccess}
-              onPress={() => enrich.mutate()}
-            />
-          </View>
-        </View>
-      ) : null}
 
       {similar.length > 0 ? (
         <Section title={t.entry.similar}>

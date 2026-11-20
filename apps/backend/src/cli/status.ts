@@ -4,7 +4,6 @@ import { Database } from "../db/Database.ts"
 import { AUDIO_BUDGET_WINDOW, audioCharactersSince, DEFAULT_AUDIO_MONTHLY_CHARS } from "../features/audio/index.ts"
 import { countOf, entriesByPriority } from "../features/dictionary/index.ts"
 import { Enrichers } from "../features/enrichment/Enrichers.ts"
-import { jobCounts } from "../features/enrichment/index.ts"
 
 export const status = Command.make(
   "status",
@@ -35,8 +34,5 @@ export const status = Command.make(
     const audioUsed = yield* audioCharactersSince(db, new Date((yield* Clock.currentTimeMillis) - AUDIO_BUDGET_WINDOW))
     yield* Console.log(`Audio (30d): ${audioUsed.toLocaleString()} / ${audioBudget.toLocaleString()} characters`)
     yield* Console.log(`Providers: ${(yield* (yield* Enrichers).available).join(", ") || "none configured"}`)
-    for (const row of yield* jobCounts(db)) {
-      yield* Console.log(`  jobs ${row.kind}/${row.status}: ${row.n}`)
-    }
   })
 ).pipe(Command.withDescription("Show dictionary and enrichment coverage"))

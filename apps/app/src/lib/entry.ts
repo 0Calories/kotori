@@ -1,6 +1,5 @@
 import type {
   CautionKind,
-  EnrichmentStatus,
   Entry,
   EntryCaution,
   Label,
@@ -161,32 +160,6 @@ export const hasKotoriMarks = (entry: SourcedFacts): boolean =>
     ...loanFacts(entry.loanLink),
     ...entry.senses.flatMap((sense) => [...sense.labels, ...sense.usagePatterns])
   ].some((fact) => fact.source === "kotori")
-
-/**
- * Whether a kind of enrichment is on its way, so the page waits and polls for it rather than
- * offering to ask. Every status is named, so a new one doesn't compile until it is placed here.
- */
-export const onItsWay = (status: EnrichmentStatus): boolean => {
-  switch (status) {
-    case "queued":
-      return true
-    case "ready":
-    case "unrequested":
-    case "unavailable":
-      return false
-  }
-}
-
-/**
- * Whether Kotori has added anything to the word: its own sentences, audio, or a label, note or
- * caution. A word with none is the dictionary's alone, and the page offers to ask for more.
- */
-export const hasKotoriContent = (
-  entry: Pick<Entry, "audioUrl" | "labels" | "loanLink" | "cautions" | "senses">
-): boolean =>
-  entry.audioUrl !== null ||
-  hasKotoriMarks(entry) ||
-  entry.senses.some((sense) => sense.examples.some((example) => example.source === "kotori"))
 
 /** Who contributed to the page, primary source first, for the sources line under it. */
 export const contributors = (

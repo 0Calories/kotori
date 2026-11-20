@@ -17,12 +17,10 @@ import { strings } from "../src/i18n/strings.ts"
 import {
   contributors,
   frequencyChip,
-  hasKotoriContent,
   hasKotoriMarks,
   heroItems,
   labelItems,
   loanChip,
-  onItsWay,
   loanLine,
   resultLabels,
   saveDetails,
@@ -102,7 +100,6 @@ const entry = (overrides: Partial<Entry> = {}): Entry => ({
   senses: [sense(0)],
   audioUrl: null,
   audio: [],
-  enrichment: { examples: "ready", audio: "ready" },
   ...overrides
 })
 
@@ -263,15 +260,22 @@ describe("Kotori's mark", () => {
     assert.equal(hasKotoriMarks(entry({ cautions: [caution(1, null)] })), true)
   })
 
-  it("waits and polls only for enrichment that is on its way", () => {
-    assert.deepStrictEqual((["ready", "unrequested", "queued", "unavailable"] as const).filter(onItsWay), ["queued"])
-  })
-
-  it("treats seeded sentences as the dictionary's, so the word still offers to ask Kotori", () => {
-    assert.equal(hasKotoriContent(entry({ senses: [sense(0, { examples: [example(1, "tatoeba")] })] })), false)
-    assert.equal(hasKotoriContent(entry({ senses: [sense(0, { examples: [example(1, "kotori")] })] })), true)
-    assert.equal(hasKotoriContent(entry({ audioUrl: "/audio/1" })), true)
-    assert.equal(hasKotoriContent(entry({ cautions: [caution(1, null)] })), true)
+  it("renders a Source-only entry cleanly with no Kotori marks or AI enrichment", () => {
+    const sourceOnly = entry({
+      common: true,
+      labels: [label("col")],
+      senses: [sense(0, { examples: [example(1, "tatoeba")], usagePatterns: [usagePattern("usu. in speech")] })],
+      audioUrl: "/audio/taberu.mp3",
+      audio: [{ url: "/audio/taberu.mp3", voice: "ja-kyoko", voiceName: "Kyoko" }]
+    })
+    assert.equal(hasKotoriMarks(sourceOnly), false)
+    assert.deepStrictEqual(wordCautions(sourceOnly.cautions), [])
+    assert.deepStrictEqual(senseCautions(sourceOnly.cautions, 0), [])
+    assert.deepStrictEqual(contributors(t, sourceOnly), ["JMDict", "Tatoeba"])
+    assert.deepStrictEqual(
+      heroItems(t, sourceOnly).map((item) => item.key),
+      ["common", "col"]
+    )
   })
 })
 

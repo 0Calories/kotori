@@ -21,7 +21,6 @@ import { ensureUser } from "../../src/features/accounts/queries.ts"
 import { approveProposal, discardProposal, draftToRecord, parseApprovedJa } from "../../src/features/asks/review.ts"
 import { parseApproved } from "../../src/features/dictionary/import/english/approved.ts"
 import { findForms, getEntries, insertEntries } from "../../src/features/dictionary/queries.ts"
-import { jobStatusFor } from "../../src/features/enrichment/jobs.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 import { english, U1 } from "../fixtures.ts"
 
@@ -87,7 +86,7 @@ const seeded = Effect.gen(function* () {
 const TestLayer = Layer.mergeAll(DatabaseMemory, NodeFileSystem.layer, NodePath.layer)
 
 layer(TestLayer)("proposal review", (it) => {
-  it.effect("approving a draft makes a real entry, queues enrichment, and persists to the approved file", () =>
+  it.effect("approving a draft makes a real entry and persists to the approved file", () =>
     Effect.gen(function* () {
       const db = yield* Database
       const fs = yield* FileSystem.FileSystem
@@ -142,8 +141,6 @@ layer(TestLayer)("proposal review", (it) => {
         yield* db.select().from(entryFrequency).where(eq(entryFrequency.entryId, approved.entryId)),
         [{ entryId: approved.entryId, everyday: false, spokenCount: null, score: 4 }]
       )
-      const jobs = yield* jobStatusFor(db, approved.entryId)
-      assert.deepStrictEqual([...jobs.keys()].toSorted(), ["audio", "examples"])
 
       // The approved file replays the entry on the next import, frequency included.
       const parsed = parseApproved((yield* fs.readFileString(files.en)).split("\n"))

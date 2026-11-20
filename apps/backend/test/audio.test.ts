@@ -1,17 +1,13 @@
 import { assert, layer } from "@effect/vitest"
-import { ElevenLabs, ENGLISH_CAST, JAPANESE_CAST, Jev, JevError, Pronouncer, VoiceCasts } from "@kotori/ai"
-import { type Casting, EntryId, type EntryRecord } from "@kotori/contracts"
-import { jobs, labels } from "@kotori/db"
-import { eq } from "drizzle-orm"
+import { ElevenLabs, ENGLISH_CAST, JAPANESE_CAST, Jev, Pronouncer, VoiceCasts } from "@kotori/ai"
+import { EntryId, type EntryRecord } from "@kotori/contracts"
 import { ConfigProvider, Effect, Layer } from "effect"
 import { Database } from "../src/db/Database.ts"
 import { AudioStore, isAudioKey } from "../src/features/audio/AudioStore.ts"
-import { entryClips, exampleClips, linkEntryAudio, linkExampleAudio, saveAudio } from "../src/features/audio/queries.ts"
+import { formClips, saveAudio } from "../src/features/audio/queries.ts"
 import { Speech } from "../src/features/audio/Speech.ts"
-import { insertEntries } from "../src/features/dictionary/queries.ts"
+import { deleteEntries, insertEntries } from "../src/features/dictionary/queries.ts"
 import { AudioEnricher } from "../src/features/enrichment/AudioEnricher.ts"
-import { enqueueJob } from "../src/features/enrichment/jobs.ts"
-import { examplesFor, saveExamples } from "../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../src/testing/DatabaseMemory.ts"
 
 const calls: Array<{ text: string; voiceId: string }> = []
@@ -29,59 +25,7 @@ const FakeElevenLabs = Layer.succeed(
   })
 )
 
-/**
- * Jev always votes for the casual young woman, so tiebreaks are visible in the result. Asked to
- * judge seeded sentences, it calls each one formal, from an older man, as an announcement, or
- * fails when `jevFails` is set.
- */
-const votes: Array<unknown> = []
-const judgments: Array<ReadonlyArray<string>> = []
-let jevFails = false
-/** A sentence whose formality answer Jev leaves out, as a malformed reply would. */
-let jevSkips: string | null = null
-const sure = (choice: string) => ({ type: "choice", choice, confidence: 0.9, probabilities: { [choice]: 0.9 } })
-const FakeJev = Layer.succeed(
-  Jev,
-  Jev.of({
-    configured: true,
-    model: "jev-test",
-    ask: (state, questions) => {
-      if (Object.keys(questions).some((name) => name.endsWith("_formality"))) {
-        if (jevFails) return Effect.fail(new JevError({ message: "Jev is down" }))
-        return Effect.sync(() => {
-          judgments.push(
-            Object.entries(questions)
-              .filter(([name]) => name.endsWith("_formality"))
-              .map(([, question]) => (question.instructions as { sentence: string }).sentence)
-          )
-          const answers = Object.fromEntries(
-            Object.entries(questions).flatMap(([name, question]) => {
-              const kind = name.slice(name.indexOf("_") + 1)
-              const { sentence } = question.instructions as { sentence: string }
-              if (kind === "formality" && sentence === jevSkips) return []
-              const answer =
-                kind === "formality"
-                  ? { type: "score", score: 4, confidence: 0.9, legend: {}, probabilities: { "4": 0.9, "3": 0.1 } }
-                  : sure({ gender: "masculine", age: "older", medium: "announcement", tone: "serious" }[kind]!)
-              return [[name, answer]]
-            })
-          )
-          return { model: "jev-test", answers, usage: { input_tokens: 10, output_tokens: 0 } } as never
-        })
-      }
-      return Effect.sync(() => {
-        votes.push(state)
-        const criteria = Object.keys((Object.values(questions)[0] as { criteria: object }).criteria)
-        const choice = criteria.find((id) => id.includes("casual-f") && !id.includes("f2")) ?? criteria[0]!
-        return {
-          model: "jev-test",
-          answers: { voice: { type: "choice", choice, confidence: 0.9, probabilities: {} } },
-          usage: { input_tokens: 10, output_tokens: 0 }
-        } as never
-      })
-    }
-  })
-)
+const UnusedJev = Layer.succeed(Jev, Jev.of({ configured: false, model: "jev-test", ask: () => Effect.die("unused") }))
 
 /** The real casts with fake provider ids, so tests don't depend on which voices are cast. */
 const FullCasts = Layer.succeed(VoiceCasts, {
@@ -89,86 +33,58 @@ const FullCasts = Layer.succeed(VoiceCasts, {
   en: ENGLISH_CAST.map((voice) => ({ ...voice, providerId: `fake-${voice.id}` }))
 })
 
-const testLayer = (jev: Layer.Layer<Jev>) =>
-  AudioEnricher.layer.pipe(
-    Layer.provideMerge(Speech.layer),
-    Layer.provideMerge(
-      Layer.mergeAll(
-        AudioStore.database,
-        Pronouncer.layer.pipe(Layer.provide(Layer.mergeAll(FakeElevenLabs, jev, FullCasts)))
-      )
-    ),
-    Layer.provideMerge(DatabaseMemory),
-    Layer.provide(
-      ConfigProvider.layer(
-        ConfigProvider.fromUnknown({
-          KOTORI_AUDIO_MONTHLY_CHARS: "5000",
-          KOTORI_HEADWORD_VOICES: "2"
-        })
-      )
+const TestLayer = AudioEnricher.layer.pipe(
+  Layer.provideMerge(Speech.layer),
+  Layer.provideMerge(
+    Layer.mergeAll(
+      AudioStore.database,
+      Pronouncer.layer.pipe(Layer.provide(Layer.mergeAll(FakeElevenLabs, UnusedJev, FullCasts)))
+    )
+  ),
+  Layer.provideMerge(DatabaseMemory),
+  Layer.provide(
+    ConfigProvider.layer(
+      ConfigProvider.fromUnknown({
+        KOTORI_AUDIO_MONTHLY_CHARS: "5000",
+        KOTORI_HEADWORD_VOICES: "2"
+      })
     )
   )
+)
 
-const entry = (id: number, senses: Array<{ dialects?: Array<string>; misc?: Array<string> }>): EntryRecord => ({
+const entry = (id: number, headword = "食べる", reading = "たべる"): EntryRecord => ({
   id: EntryId.make(id),
   language: "ja",
   source: "jmdict",
-  headword: "食べる",
-  reading: "たべる",
+  headword,
+  reading,
   common: true,
   priority: 50,
   forms: [
-    { kind: "kanji", text: "食べる", common: true, tags: [], priorities: [], restrictions: [], noKanji: false },
-    { kind: "kana", text: "たべる", common: true, tags: [], priorities: [], restrictions: [], noKanji: false }
+    { kind: "kanji", text: headword, common: true, tags: [], priorities: [], restrictions: [], noKanji: false },
+    { kind: "kana", text: reading, common: true, tags: [], priorities: [], restrictions: [], noKanji: false }
   ],
-  senses: senses.map((sense) => ({
-    glosses: [{ text: "to eat", type: null }],
-    pos: ["v1"],
-    misc: sense.misc ?? [],
-    fields: [],
-    dialects: sense.dialects ?? [],
-    info: [],
-    stagk: [],
-    stagr: [],
-    xrefs: [],
-    antonyms: [],
-    origins: [],
-    wasei: false
-  }))
+  senses: [
+    {
+      glosses: [{ text: "to eat", type: null }],
+      pos: ["v1"],
+      misc: [],
+      fields: [],
+      dialects: [],
+      info: [],
+      stagk: [],
+      stagr: [],
+      xrefs: [],
+      antonyms: [],
+      origins: [],
+      wasei: false
+    }
+  ]
 })
-
-const example = { furigana: "x", note: null, model: "m" }
-
-const casting = (signals: Partial<Casting>): Casting => ({
-  speakerGender: "unspecified",
-  speakerAge: "unspecified",
-  medium: null,
-  variety: null,
-  tone: null,
-  ...signals
-})
-
-/** The entry with Tatoeba sentences on its first sense, as the seed import gives them. */
-const withSeeded = (record: EntryRecord, sentences: ReadonlyArray<string>) => ({
-  ...record,
-  senses: record.senses.map((sense, index) =>
-    index === 0
-      ? { ...sense, examples: sentences.map((ja) => ({ ja, en: `(${ja})`, source: "tatoeba" as const })) }
-      : sense
-  )
-})
-
-/** The entry's examples job ran and Kotori wrote no sentence: its seeded sentences are the examples learners hear. */
-const triedExamples = (entryId: EntryId) =>
-  Effect.gen(function* () {
-    const db = yield* Database
-    yield* enqueueJob(db, "examples", entryId, 0, new Date(0))
-    yield* db.update(jobs).set({ status: "done" }).where(eq(jobs.entryId, entryId))
-  })
 
 const voiceOf = (text: string) => calls.filter((call) => call.text === text).map((call) => call.voiceId)
 
-layer(testLayer(FakeJev))("Speech and AudioEnricher", (it) => {
+layer(TestLayer)("Speech and AudioEnricher", (it) => {
   it.effect("speaks with the default dictionary voice and caches per voice", () =>
     Effect.gen(function* () {
       calls.length = 0
@@ -190,375 +106,99 @@ layer(testLayer(FakeJev))("Speech and AudioEnricher", (it) => {
     Effect.gen(function* () {
       const db = yield* Database
       calls.length = 0
-      yield* insertEntries(db, [entry(1, [{}])])
-      const summary = yield* (yield* AudioEnricher).enrich(EntryId.make(1))
-      assert.strictEqual(summary.clips, 2)
-      // Kyoko (already cached from the test above) and the announcer, the first two headword voices.
+      const taberu = entry(1)
+      yield* insertEntries(db, [taberu])
+      const summary = yield* (yield* AudioEnricher).enrich(taberu.id)
+      assert.strictEqual(summary.clips, 1)
+      // Kyoko was already cached above, so only the announcer is synthesised.
       assert.deepStrictEqual(voiceOf("たべる"), ["fake-ja-announcer"])
-      const clips = (yield* entryClips(db, [EntryId.make(1)])).get(EntryId.make(1)) ?? []
+      const clips = (yield* formClips(db, [taberu])).get(taberu.id) ?? []
       assert.deepStrictEqual(
-        clips.map((clip) => clip.voice).toSorted((a, b) => String(a).localeCompare(String(b))),
-        ["ja-announcer", "ja-kyoko"]
+        clips.map((clip) => clip.voice),
+        ["ja-kyoko", "ja-announcer", "ja-elder-m"]
       )
     })
   )
 
-  it.effect("voices a Japanese word's sentences in Japanese only", () =>
+  it.effect("preserves spoken form clips across entry rebuilds and identifier changes without a join table", () =>
     Effect.gen(function* () {
-      calls.length = 0
       const db = yield* Database
-      yield* insertEntries(db, [entry(2, [{}])])
-      yield* saveExamples(
-        db,
-        EntryId.make(2),
-        [
-          {
-            ...example,
-            sense: 0,
-            ja: "ニュースをお伝えします。",
-            en: "Here is the news.",
-            formality: "formal" as const,
-            casting: casting({ medium: "announcement" })
-          }
-        ],
-        new Date(1000)
-      )
-      yield* (yield* AudioEnricher).enrich(EntryId.make(2))
-      // The announcer is the lone formal-announcement candidate: no Jev call.
-      assert.deepStrictEqual(voiceOf("ニュースをお伝えします。"), ["fake-ja-announcer"])
-      // English speakers learning the word don't need the translation read to them.
-      assert.deepStrictEqual(voiceOf("Here is the news."), [])
-      const [row] = yield* examplesFor(db, [EntryId.make(2)])
-      assert.deepStrictEqual([...(yield* exampleClips(db, [row!.id])).keys()], [`${row!.id}:ja`])
+      const original = entry(1)
+      const before = (yield* formClips(db, [original])).get(original.id) ?? []
+      assert.isAbove(before.length, 0)
+
+      // Delete the entry and re-insert it under a completely different EntryId.
+      yield* deleteEntries(db, [original.id])
+      const rebuilt = entry(999999)
+      yield* insertEntries(db, [rebuilt])
+
+      const after = (yield* formClips(db, [rebuilt])).get(rebuilt.id) ?? []
+      assert.deepStrictEqual(after, before)
     })
   )
 
-  it.effect("voices an English word and its sentences in English, the headword as written", () =>
+  it.effect("voices an English word by headword (never IPA) and ignores non-headword voices in formClips", () =>
     Effect.gen(function* () {
       const db = yield* Database
       calls.length = 0
-      yield* insertEntries(db, [
-        {
-          ...entry(100000001, [{ dialects: ["en-GB"] }]),
-          language: "en",
-          headword: "flat",
-          reading: "/flæt/",
-          forms: [
-            { kind: "spelling", text: "flat", common: true, tags: [], priorities: [], restrictions: [], noKanji: false }
-          ]
-        }
-      ])
-      yield* saveExamples(
-        db,
-        EntryId.make(100000001),
-        [
-          {
-            ...example,
-            sense: 0,
-            ja: "新しいフラットに引っ越した。",
-            en: "We've moved into a new flat.",
-            formality: "neutral" as const
-          }
-        ],
-        new Date(1000)
-      )
-      const summary = yield* (yield* AudioEnricher).enrich(EntryId.make(100000001))
-      // Two English headword voices read "flat", never its IPA; the sentence goes to the British voice.
-      assert.strictEqual(voiceOf("flat").length, 2)
-      assert.isTrue(voiceOf("flat").every((voice) => voice.startsWith("fake-en-")))
-      assert.deepStrictEqual(voiceOf("/flæt/"), [])
-      assert.deepStrictEqual(voiceOf("We've moved into a new flat."), ["fake-en-british-m"])
-      assert.deepStrictEqual(voiceOf("新しいフラットに引っ越した。"), [])
-      assert.strictEqual(summary.clips, 3)
-    })
-  )
-
-  it.effect("sends ties to Jev and records the casting", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      calls.length = 0
-      votes.length = 0
-      yield* insertEntries(db, [entry(3, [{}])])
-      // Casual with no gender signal: the young casual voices tie, Jev votes casual-f.
-      yield* saveExamples(
-        db,
-        EntryId.make(3),
-        [{ ...example, sense: 0, ja: "まじやばい。", en: "That's crazy.", formality: "casual" as const }],
-        new Date(1000)
-      )
-      yield* (yield* AudioEnricher).enrich(EntryId.make(3))
-      assert.isAbove(votes.length, 0)
-      assert.deepStrictEqual(voiceOf("まじやばい。"), ["fake-ja-casual-f"])
-    })
-  )
-
-  it.effect("falls back to standard voices when the sentence's variety has no cast voice", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      calls.length = 0
-      yield* insertEntries(db, [entry(4, [{ dialects: ["thb"] }])])
-      // Tohoku is a known variety, but nobody in the cast speaks it.
-      yield* saveExamples(
-        db,
-        EntryId.make(4),
-        [
-          {
-            ...example,
-            sense: 0,
-            ja: "んだんだ。",
-            en: "That's right.",
-            formality: "casual" as const,
-            casting: casting({ variety: "tohoku" })
-          }
-        ],
-        new Date(1000)
-      )
-      yield* (yield* AudioEnricher).enrich(EntryId.make(4))
-      assert.strictEqual(voiceOf("んだんだ。").length, 1)
-      assert.isTrue(voiceOf("んだんだ。")[0]!.startsWith("fake-ja-casual"))
-    })
-  )
-
-  it.effect("voices only what is missing, leaving earlier clips and their voices alone", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      yield* insertEntries(db, [entry(5, [{}])])
-      yield* saveExamples(
-        db,
-        EntryId.make(5),
-        [
-          { ...example, sense: 0, ja: "めっちゃうまい。", en: "This is so good.", formality: "casual" as const },
-          { ...example, sense: 0, ja: "もう食べた？", en: "Have you eaten yet?", formality: "casual" as const }
-        ],
-        new Date(1000)
-      )
-      const [first] = yield* examplesFor(db, [EntryId.make(5)])
-      // Voiced before casting: one uncast headword clip, and the first sentence.
-      const old = (key: string, text: string) => ({
-        key,
-        text,
-        language: "ja" as const,
-        voiceId: "kyoko-before-casting",
-        voice: null,
-        modelId: "old-model",
-        characters: text.length,
+      const flat: EntryRecord = {
+        ...entry(100000001, "flat", "/flæt/"),
+        language: "en",
+        forms: [
+          { kind: "spelling", text: "flat", common: true, tags: [], priorities: [], restrictions: [], noKanji: false }
+        ]
+      }
+      yield* insertEntries(db, [flat])
+      // A non-headword voice clip for the same word must not show up as a dictionary headword pronunciation.
+      yield* saveAudio(db, {
+        key: "non-headword-clip",
+        text: "flat",
+        language: "en",
+        voiceId: "fake-en-casual-f",
+        voice: "en-casual-f",
+        modelId: "test-model",
+        characters: 4,
         bytes: 1,
         createdAt: new Date(0)
       })
-      yield* saveAudio(db, old("old-headword", "たべる"))
-      yield* saveAudio(db, old("old-sentence", "めっちゃうまい。"))
-      yield* linkEntryAudio(db, EntryId.make(5), "old-headword")
-      yield* linkExampleAudio(db, first!.id, "ja", "old-sentence")
+
+      const summary = yield* (yield* AudioEnricher).enrich(flat.id)
+      assert.strictEqual(voiceOf("flat").length, 2)
+      assert.isTrue(voiceOf("flat").every((voice) => voice.startsWith("fake-en-")))
+      assert.deepStrictEqual(voiceOf("/flæt/"), [])
+      assert.strictEqual(summary.clips, 2)
+
+      const clips = (yield* formClips(db, [flat])).get(flat.id) ?? []
+      assert.isFalse(clips.some((clip) => clip.voice === "en-casual-f"))
+      assert.strictEqual(clips.length, 2)
+    })
+  )
+
+  it.effect("leaves legacy uncast headword clips alone without re-synthesising", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const nomu = entry(5, "飲む", "のむ")
+      yield* insertEntries(db, [nomu])
+      yield* saveAudio(db, {
+        key: "old-headword",
+        text: "のむ",
+        language: "ja",
+        voiceId: "kyoko-before-casting",
+        voice: null,
+        modelId: "old-model",
+        characters: 2,
+        bytes: 1,
+        createdAt: new Date(0)
+      })
 
       calls.length = 0
       const audio = yield* AudioEnricher
-      const summary = yield* audio.enrich(EntryId.make(5))
+      assert.deepStrictEqual(yield* audio.enrich(nomu.id), { clips: 0, characters: 0 })
+      assert.strictEqual(calls.length, 0)
       assert.deepStrictEqual(
-        calls.map((call) => call.text),
-        ["もう食べた？"]
-      )
-      assert.strictEqual(summary.clips, 1)
-      const linked = yield* exampleClips(db, [first!.id])
-      assert.strictEqual(linked.get(`${first!.id}:ja`), "old-sentence")
-      assert.deepStrictEqual(
-        ((yield* entryClips(db, [EntryId.make(5)])).get(EntryId.make(5)) ?? []).map((clip) => clip.key),
+        ((yield* formClips(db, [nomu])).get(nomu.id) ?? []).map((clip) => clip.key),
         ["old-headword"]
       )
-
-      // Nothing left to voice: no synthesis and no Jev tiebreak.
-      calls.length = 0
-      votes.length = 0
-      assert.deepStrictEqual(yield* audio.enrich(EntryId.make(5)), { clips: 0, characters: 0, judged: 0 })
-      assert.strictEqual(calls.length, 0)
-      assert.strictEqual(votes.length, 0)
-    })
-  )
-
-  it.effect("judges an entry's seeded sentences in one Jev request, then voices them", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      calls.length = 0
-      judgments.length = 0
-      yield* insertEntries(db, [withSeeded(entry(6, [{}, {}]), ["お茶をどうぞ。", "粗茶ですが。"])], { seeded: true })
-      // Kotori's sentence, on the other sense, came with its register: Jev isn't asked about it.
-      yield* saveExamples(
-        db,
-        EntryId.make(6),
-        [{ ...example, sense: 1, ja: "お茶飲む？", en: "Want some tea?", formality: "casual" as const }],
-        new Date(1000)
-      )
-
-      const summary = yield* (yield* AudioEnricher).enrich(EntryId.make(6))
-      assert.deepStrictEqual(judgments, [["お茶をどうぞ。", "粗茶ですが。"]])
-      assert.strictEqual(summary.judged, 2)
-      const stored = yield* examplesFor(db, [EntryId.make(6)])
-      assert.deepStrictEqual(
-        stored.map((row) => [row.ja, row.source, row.formality, row.casting?.speakerAge ?? null]),
-        [
-          ["お茶をどうぞ。", "tatoeba", "formal", "older"],
-          ["粗茶ですが。", "tatoeba", "formal", "older"],
-          ["お茶飲む？", "kotori", "casual", null]
-        ]
-      )
-      assert.deepStrictEqual(stored[0]?.casting, {
-        speakerGender: "masculine",
-        speakerAge: "older",
-        medium: "announcement",
-        variety: null,
-        tone: "serious"
-      })
-      // Every sentence is voiced in Japanese, the seeded ones as the formal announcement they were judged.
-      for (const text of ["お茶飲む？", "お茶をどうぞ。", "粗茶ですが。"]) assert.strictEqual(voiceOf(text).length, 1)
-      assert.deepStrictEqual(voiceOf("お茶をどうぞ。"), ["fake-ja-announcer"])
-
-      // Judged once: running again asks Jev nothing and voices nothing.
-      calls.length = 0
-      yield* (yield* AudioEnricher).enrich(EntryId.make(6))
-      assert.strictEqual(judgments.length, 1)
-      assert.strictEqual(calls.length, 0)
-    })
-  )
-
-  it.effect("casts by the sentence's own sense's labels, Kotori's included, not the word's", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      calls.length = 0
-      // Only the second sense is a man's word: the word as a whole carries no such label.
-      yield* insertEntries(db, [entry(7, [{}, {}])])
-      yield* db.insert(labels).values({ entryId: EntryId.make(7), sense: 1, code: "male", source: "kotori" })
-      yield* saveExamples(
-        db,
-        EntryId.make(7),
-        [
-          { ...example, sense: 0, ja: "うまい。", en: "Tasty.", formality: "casual" as const },
-          { ...example, sense: 1, ja: "食うぞ。", en: "I'm gonna eat.", formality: "casual" as const }
-        ],
-        new Date(1000)
-      )
-      yield* (yield* AudioEnricher).enrich(EntryId.make(7))
-      // Unmarked, the young casual voices tie and Jev picks the woman; the man's word goes to a man.
-      assert.deepStrictEqual(voiceOf("うまい。"), ["fake-ja-casual-f"])
-      const [man] = voiceOf("食うぞ。")
-      assert.strictEqual(JAPANESE_CAST.find((voice) => `fake-${voice.id}` === man)?.tags.gender, "masculine")
-    })
-  )
-
-  it.effect("voices the rest when Jev fails, leaves seeded sentences unjudged and unvoiced, and fails", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      calls.length = 0
-      judgments.length = 0
-      yield* insertEntries(db, [withSeeded(entry(8, [{}, {}]), ["雨が降る。"])], { seeded: true })
-      yield* saveExamples(
-        db,
-        EntryId.make(8),
-        [{ ...example, sense: 1, ja: "雨やばい。", en: "This rain is crazy.", formality: "casual" as const }],
-        new Date(1000)
-      )
-
-      jevFails = true
-      const error = yield* (yield* AudioEnricher).enrich(EntryId.make(8)).pipe(Effect.flip)
-      jevFails = false
-      assert.strictEqual(error._tag, "JevError")
-      assert.strictEqual(voiceOf("雨やばい。").length, 1)
-      assert.deepStrictEqual(voiceOf("雨が降る。"), [])
-      const seeded = (yield* examplesFor(db, [EntryId.make(8)])).find((row) => row.source === "tatoeba")
-      assert.strictEqual(seeded?.formality, null)
-      assert.strictEqual(seeded?.casting, null)
-
-      // The retry judges it and voices it.
-      yield* (yield* AudioEnricher).enrich(EntryId.make(8))
-      assert.strictEqual(voiceOf("雨が降る。").length, 1)
-    })
-  )
-
-  it.effect("voices the sentences Jev answered for when it leaves one out, and never asks about that one again", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      calls.length = 0
-      judgments.length = 0
-      yield* insertEntries(db, [withSeeded(entry(10, [{}]), ["窓を開ける。", "窓を閉める。"])], { seeded: true })
-      yield* triedExamples(EntryId.make(10))
-
-      jevSkips = "窓を閉める。"
-      const summary = yield* (yield* AudioEnricher).enrich(EntryId.make(10))
-      jevSkips = null
-      assert.strictEqual(summary.judged, 1)
-      assert.deepStrictEqual(voiceOf("窓を開ける。"), ["fake-ja-announcer"])
-      assert.deepStrictEqual(voiceOf("窓を閉める。"), [])
-      // Judged and declined: no formality, so it is never voiced, but a casting that says Jev was asked.
-      const stored = yield* examplesFor(db, [EntryId.make(10)])
-      assert.deepStrictEqual(
-        stored.map((row) => [row.ja, row.formality, row.casting?.speakerAge ?? null]),
-        [
-          ["窓を開ける。", "formal", "older"],
-          ["窓を閉める。", null, "unspecified"]
-        ]
-      )
-
-      // A later run doesn't ask about it again, nor voice it.
-      yield* (yield* AudioEnricher).enrich(EntryId.make(10))
-      assert.strictEqual(judgments.length, 1)
-      assert.deepStrictEqual(voiceOf("窓を閉める。"), [])
-    })
-  )
-
-  it.effect("doesn't voice a seeded sentence beside Kotori's, nor while Kotori is still writing", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      calls.length = 0
-      judgments.length = 0
-      // Beside Kotori's sentence on the same sense, the seeded one is shown but not read aloud.
-      yield* insertEntries(db, [withSeeded(entry(9, [{}]), ["傘を持っていく。"])], { seeded: true })
-      yield* saveExamples(
-        db,
-        EntryId.make(9),
-        [{ ...example, sense: 0, ja: "傘ある？", en: "Got an umbrella?", formality: "casual" as const }],
-        new Date(1000)
-      )
-      const beside = yield* (yield* AudioEnricher).enrich(EntryId.make(9))
-      assert.strictEqual(beside.judged, 0)
-      assert.deepStrictEqual(judgments, [])
-      assert.strictEqual(voiceOf("傘ある？").length, 1)
-      assert.deepStrictEqual(voiceOf("傘を持っていく。"), [])
-
-      // With Kotori's sentences on their way, the seeded ones wait: they may not be needed.
-      yield* insertEntries(db, [withSeeded(entry(12, [{}]), ["雪が積もった。"])], { seeded: true })
-      yield* enqueueJob(db, "examples", EntryId.make(12), 0, new Date(0))
-      yield* (yield* AudioEnricher).enrich(EntryId.make(12))
-      assert.deepStrictEqual(judgments, [])
-      assert.deepStrictEqual(voiceOf("雪が積もった。"), [])
-
-      // Kotori couldn't write any (the job gave up): the seeded sentence is the sense's example, so it is voiced.
-      yield* db
-        .update(jobs)
-        .set({ status: "failed" })
-        .where(eq(jobs.entryId, EntryId.make(12)))
-      yield* (yield* AudioEnricher).enrich(EntryId.make(12))
-      assert.deepStrictEqual(judgments, [["雪が積もった。"]])
-      assert.strictEqual(voiceOf("雪が積もった。").length, 1)
-    })
-  )
-
-  it.effect("doesn't voice a seeded sentence before Kotori has tried writing the entry's sentences", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      calls.length = 0
-      judgments.length = 0
-      // No examples job yet (Claude was down when the word was first looked at): Kotori's
-      // sentences may still cover the sense, and would hide this one's clip.
-      yield* insertEntries(db, [withSeeded(entry(11, [{}]), ["靴を履く。"])], { seeded: true })
-      yield* (yield* AudioEnricher).enrich(EntryId.make(11))
-      assert.deepStrictEqual(judgments, [])
-      assert.deepStrictEqual(voiceOf("靴を履く。"), [])
-      // The headword is still voiced.
-      assert.isAbove((yield* entryClips(db, [EntryId.make(11)])).get(EntryId.make(11))?.length ?? 0, 0)
-
-      // Once Kotori has tried and written none for the sense, the seeded sentence is its example.
-      yield* triedExamples(EntryId.make(11))
-      yield* (yield* AudioEnricher).enrich(EntryId.make(11))
-      assert.deepStrictEqual(judgments, [["靴を履く。"]])
-      assert.strictEqual(voiceOf("靴を履く。").length, 1)
     })
   )
 
@@ -569,20 +209,3 @@ layer(testLayer(FakeJev))("Speech and AudioEnricher", (it) => {
     })
   )
 })
-
-layer(testLayer(Layer.succeed(Jev, Jev.of({ configured: false, model: "jev-test", ask: () => Effect.die("unused") }))))(
-  "AudioEnricher without Jev",
-  (it) => {
-    it.effect("never voices a seeded sentence: no register is assumed", () =>
-      Effect.gen(function* () {
-        const db = yield* Database
-        calls.length = 0
-        yield* insertEntries(db, [withSeeded(entry(9, [{}]), ["猫がいる。"])], { seeded: true })
-        const summary = yield* (yield* AudioEnricher).enrich(EntryId.make(9))
-        assert.strictEqual(summary.judged, 0)
-        assert.deepStrictEqual(voiceOf("猫がいる。"), [])
-        assert.strictEqual((yield* examplesFor(db, [EntryId.make(9)]))[0]?.formality, null)
-      })
-    )
-  }
-)

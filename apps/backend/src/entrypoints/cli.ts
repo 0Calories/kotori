@@ -3,7 +3,7 @@ import { NodeRuntime, NodeServices } from "@effect/platform-node"
 import { Effect, Layer } from "effect"
 import { Command } from "effect/cli"
 import { adminCommand, approve, archive, devAccount, requests, revoke, users } from "../cli/accounts.ts"
-import { enrich } from "../cli/enrich.ts"
+import { enrichCommand } from "../cli/enrich.ts"
 import { evaluate } from "../cli/evaluate.ts"
 import { frequency } from "../cli/frequency.ts"
 import { judge } from "../cli/judge.ts"
@@ -28,7 +28,7 @@ const kotori = Command.make("kotori").pipe(
     migrate.pipe(Command.provide(DatabaseLive)),
     proposalsCommand(RedoLive).pipe(Command.provide(DatabaseLive)),
     seed.pipe(Command.provide(SeedLive)),
-    enrich.pipe(Command.provide(WorkerLive)),
+    enrichCommand(WorkerLive).pipe(Command.provide(DatabaseLive)),
     frequency.pipe(Command.provide(FrequencyLive)),
     judge.pipe(Command.provide(JudgeLive)),
     evaluate.pipe(Command.provide(EvalLive)),

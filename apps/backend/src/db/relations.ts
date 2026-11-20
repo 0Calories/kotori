@@ -12,12 +12,10 @@ export const relations = defineRelations(schema, (r) => ({
     forms: r.many.forms({ from: r.entries.id, to: r.forms.entryId }),
     senses: r.many.senses({ from: r.entries.id, to: r.senses.entryId }),
     glosses: r.many.glosses({ from: r.entries.id, to: r.glosses.entryId }),
-    audio: r.one.entryAudio({ from: r.entries.id, to: r.entryAudio.entryId }),
     frequency: r.one.entryFrequency({ from: r.entries.id, to: r.entryFrequency.entryId }),
     cautions: r.many.cautions({ from: r.entries.id, to: r.cautions.entryId }),
     loansFrom: r.many.loanLinks({ from: r.entries.id, to: r.loanLinks.katakanaEntryId }),
-    loansTo: r.many.loanLinks({ from: r.entries.id, to: r.loanLinks.englishEntryId }),
-    jobs: r.many.jobs({ from: r.entries.id, to: r.jobs.entryId })
+    loansTo: r.many.loanLinks({ from: r.entries.id, to: r.loanLinks.englishEntryId })
   },
   forms: {
     entry: r.one.entries({ from: r.forms.entryId, to: r.entries.id, optional: false })
@@ -43,15 +41,6 @@ export const relations = defineRelations(schema, (r) => ({
   },
   cautions: {
     about: r.one.entries({ from: r.cautions.aboutEntryId, to: r.entries.id })
-  },
-  examples: {
-    audio: r.many.exampleAudio({ from: r.examples.id, to: r.exampleAudio.exampleId })
-  },
-  entryAudio: {
-    clip: r.one.audio({ from: r.entryAudio.audioKey, to: r.audio.key, optional: false })
-  },
-  exampleAudio: {
-    clip: r.one.audio({ from: r.exampleAudio.audioKey, to: r.audio.key, optional: false })
   },
   audio: {
     file: r.one.audioFiles({ from: r.audio.key, to: r.audioFiles.key })

@@ -1,5 +1,5 @@
-import { type Casting, type EntryId, examples, type Formality } from "@kotori/db"
-import { and, eq, inArray, isNull, sql } from "drizzle-orm"
+import { cautions, entries, type EntryId, examples, labels, loanLinks, usagePatterns } from "@kotori/db"
+import { and, eq, inArray, isNotNull, ne, or, sql } from "drizzle-orm"
 import { Effect } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
 
@@ -18,7 +18,6 @@ export const saveExamples = Effect.fn("enrichment.saveExamples")(function* (
   yield* db.transaction((tx) =>
     Effect.gen(function* () {
       // Only Kotori's own: the sentences seeded from Tatoeba and Wiktionary are the import's.
-      // Audio links cascade from the examples.
       yield* tx.delete(examples).where(and(eq(examples.entryId, entryId), eq(examples.source, "kotori")))
       if (rows.length === 0) return
       const position = new Map<number, number>()
@@ -61,64 +60,92 @@ export const examplesFor = Effect.fn("enrichment.examplesFor")(function* (
     .orderBy(examples.entryId, examples.sense, sql`${examples.source} <> 'kotori'`, examples.position)
 }, Effect.orDie)
 
-/** A seeded sentence's judged casting signals. */
-export interface JudgedExample {
-  readonly id: number
-  readonly formality: Formality
-  readonly casting: Casting
+/** Counts of AI enrichment rows removed or cleared by `wipeEnrichment`. */
+export interface WipeSummary {
+  readonly examples: number
+  readonly seededCastingCleared: number
+  readonly cautions: number
+  readonly labels: number
+  readonly usagePatterns: number
+  readonly loanLinksDeleted: number
+  readonly loanVerdictsCleared: number
 }
 
 /**
- * Saves the formality and casting judged for sentences that had none. A sentence judged in the
- * meantime keeps its own: what is set is never overwritten.
+ * Clears all AI enrichment across the dictionary (or for specific `entryIds`) in one transaction
+ * without touching external Source facts, Kotori-sourced entries' own facts, or spoken Form audio.
  */
-export const saveCasting = Effect.fn("enrichment.saveCasting")(function* (
+export const wipeEnrichment = Effect.fn("enrichment.wipeEnrichment")(function* (
   db: DatabaseShape,
-  rows: ReadonlyArray<JudgedExample>
+  entryIds?: ReadonlyArray<EntryId>
 ) {
-  if (rows.length === 0) return
-  yield* db.transaction((tx) =>
-    Effect.forEach(
-      rows,
-      (row) =>
-        tx
-          .update(examples)
-          .set({ formality: row.formality, casting: row.casting })
-          .where(and(eq(examples.id, row.id), isNull(examples.formality))),
-      { discard: true }
-    )
+  const scoped = entryIds !== undefined && entryIds.length > 0 ? [...entryIds] : null
+  return yield* db.transaction((tx) =>
+    Effect.gen(function* () {
+      const nonKotoriEntries = tx
+        .select({ id: entries.id })
+        .from(entries)
+        .where(and(ne(entries.source, "kotori"), scoped === null ? undefined : inArray(entries.id, scoped)))
+
+      const deletedExamples = yield* tx
+        .delete(examples)
+        .where(and(eq(examples.source, "kotori"), scoped === null ? undefined : inArray(examples.entryId, scoped)))
+        .returning({ id: examples.id })
+
+      const clearedCasting = yield* tx
+        .update(examples)
+        .set({ formality: null, casting: null })
+        .where(
+          and(
+            or(isNotNull(examples.formality), isNotNull(examples.casting)),
+            scoped === null ? undefined : inArray(examples.entryId, scoped)
+          )
+        )
+        .returning({ id: examples.id })
+
+      const deletedCautions = yield* tx
+        .delete(cautions)
+        .where(and(eq(cautions.source, "kotori"), inArray(cautions.entryId, nonKotoriEntries)))
+        .returning({ id: cautions.id })
+
+      const deletedLabels = yield* tx
+        .delete(labels)
+        .where(and(eq(labels.source, "kotori"), inArray(labels.entryId, nonKotoriEntries)))
+        .returning({ entryId: labels.entryId })
+
+      const deletedUsagePatterns = yield* tx
+        .delete(usagePatterns)
+        .where(and(eq(usagePatterns.source, "kotori"), inArray(usagePatterns.entryId, nonKotoriEntries)))
+        .returning({ id: usagePatterns.id })
+
+      const loanScope =
+        scoped === null
+          ? undefined
+          : or(inArray(loanLinks.katakanaEntryId, scoped), inArray(loanLinks.englishEntryId, scoped))
+
+      const deletedLoans = yield* tx
+        .delete(loanLinks)
+        .where(and(eq(loanLinks.source, "kotori"), loanScope))
+        .returning({ id: loanLinks.id })
+
+      const clearedVerdicts = yield* tx
+        .update(loanLinks)
+        .set({ meaning: null, meaningSource: null })
+        .where(and(eq(loanLinks.meaningSource, "kotori"), loanScope))
+        .returning({ id: loanLinks.id })
+
+      return {
+        examples: deletedExamples.length,
+        seededCastingCleared: clearedCasting.length,
+        cautions: deletedCautions.length,
+        labels: deletedLabels.length,
+        usagePatterns: deletedUsagePatterns.length,
+        loanLinksDeleted: deletedLoans.length,
+        loanVerdictsCleared: clearedVerdicts.length
+      } satisfies WipeSummary
+    })
   )
 }, Effect.orDie)
 
-/**
- * The casting saved on a seeded sentence Jev was asked about and gave no formality: nothing about
- * its speaker is known, and with no formality it is never voiced. A null formality beside a
- * casting is how a sentence says it was judged and declined, so no run asks about it again;
- * a null casting means no run has judged it yet.
- */
-export const DECLINED_CASTING: Casting = {
-  speakerGender: "unspecified",
-  speakerAge: "unspecified",
-  medium: null,
-  variety: null,
-  tone: null
-}
-
-/** Whether Jev has judged a sentence: it has a formality, or a casting saved when Jev declined to give one. */
-export const judgedCasting = (example: { readonly formality: Formality | null; readonly casting: Casting | null }) =>
-  example.formality !== null || example.casting !== null
-
-/** Records that Jev judged these seeded sentences and gave no formality, so they aren't asked about again. */
-export const declineCasting = Effect.fn("enrichment.declineCasting")(function* (
-  db: DatabaseShape,
-  ids: ReadonlyArray<number>
-) {
-  if (ids.length === 0) return
-  yield* db
-    .update(examples)
-    .set({ casting: DECLINED_CASTING })
-    .where(and(inArray(examples.id, [...ids]), isNull(examples.formality), isNull(examples.casting)))
-}, Effect.orDie)
-
-/** An example sentence as stored, with the formality and casting signals voice casting reads. */
+/** An example sentence as stored. */
 export type ExampleRow = Effect.Success<ReturnType<typeof examplesFor>>[number]

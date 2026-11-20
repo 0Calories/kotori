@@ -107,7 +107,7 @@ const approve = Command.make(
       Effect.flatMap((result) =>
         Console.log(
           result.alias === null
-            ? `Approved: entry ${result.entryId} "${result.headword}", enrichment queued, saved to the approved file. Commit it.`
+            ? `Approved: entry ${result.entryId} "${result.headword}", saved to the approved file. Commit it.`
             : `Approved: "${result.alias}" now a form of entry ${result.entryId} "${result.headword}", saved to the approved file. Commit it.`
         )
       ),

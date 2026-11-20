@@ -15,7 +15,6 @@ import type {
 import { keepPreviousData, useMutation, useMutationState, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { AskAttempt } from "../lib/ask.ts"
 import { dueWithoutNote, statsWithoutNote, withoutNote } from "../lib/deck.ts"
-import { onItsWay } from "../lib/entry.ts"
 import { call } from "./client.ts"
 
 export const keys = {
@@ -84,12 +83,7 @@ export const useEntry = (id: number) =>
   useQuery({
     queryKey: keys.entry(id),
     queryFn: () => call((api) => api.dictionary.entry({ params: { id: id as EntryId } })),
-    enabled: Number.isInteger(id) && id > 0,
-    // While Kotori's worker is still enriching the entry, check back every few seconds.
-    refetchInterval: (query) => {
-      const enrichment = query.state.data?.enrichment
-      return enrichment && Object.values(enrichment).some(onItsWay) ? 3000 : false
-    }
+    enabled: Number.isInteger(id) && id > 0
   })
 
 export const useNotes = () => useQuery({ queryKey: keys.notes, queryFn: () => call((api) => api.study.notes()) })
@@ -159,15 +153,6 @@ export const useNaturalness = () =>
 
 export const useHowToSay = () =>
   useMutation({ mutationFn: (request: HowToSayRequest) => call((api) => api.coach.howToSay({ payload: request })) })
-
-/** Asks the worker to add example sentences and audio to an entry that has none yet. */
-export const useEnrich = (id: number) => {
-  const client = useQueryClient()
-  return useMutation({
-    mutationFn: () => call((api) => api.dictionary.enrich({ params: { id: id as EntryId } })),
-    onSuccess: () => client.invalidateQueries({ queryKey: keys.entry(id) })
-  })
-}
 
 export const useSpeak = () =>
   useMutation({ mutationFn: (request: SpeakRequest) => call((api) => api.audio.speak({ payload: request })) })

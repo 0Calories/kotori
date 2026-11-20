@@ -5,19 +5,21 @@ import { Database } from "../../db/Database.ts"
 import * as Sentry from "../../runtime/Sentry.ts"
 import { getEntries, tagNames } from "../dictionary/index.ts"
 import { AudioEnricher } from "./AudioEnricher.ts"
-import type { JobKind } from "./jobs.ts"
 import { saveExamples } from "./queries.ts"
 
 /** Senses that get example sentences; later senses are rarely what learners look for. */
 const EXAMPLE_SENSES = 4
 
+export const ENRICHMENT_KINDS = ["examples", "audio"] as const
+export type EnrichmentKind = (typeof ENRICHMENT_KINDS)[number]
+
 export class Enrichers extends Context.Service<
   Enrichers,
   {
     /** Which kinds of enrichment have a configured provider. */
-    readonly available: Effect.Effect<ReadonlyArray<JobKind>>
+    readonly available: Effect.Effect<ReadonlyArray<EnrichmentKind>>
     /** Runs one kind of enrichment for an entry, returning a short description of what was done. */
-    run(kind: JobKind, entryId: EntryId): Effect.Effect<string, unknown>
+    run(kind: EnrichmentKind, entryId: EntryId): Effect.Effect<string, unknown>
   }
 >()("@kotori/backend/Enrichers") {
   static readonly layer = Layer.effect(
@@ -30,7 +32,7 @@ export class Enrichers extends Context.Service<
       const claude = yield* Claude
 
       const available = Effect.gen(function* () {
-        const kinds: Array<JobKind> = []
+        const kinds: Array<EnrichmentKind> = []
         if (yield* claude.available) kinds.push("examples")
         if (pronouncer.configured) kinds.push("audio")
         return kinds
@@ -71,23 +73,16 @@ export class Enrichers extends Context.Service<
         return `${written.examples.length} examples${dropped}`
       })
 
-      const enrich = (kind: JobKind, entryId: EntryId): Effect.Effect<string, unknown> => {
+      const enrich = (kind: EnrichmentKind, entryId: EntryId): Effect.Effect<string, unknown> => {
         switch (kind) {
           case "examples":
             return examples(entryId)
           case "audio":
-            return audio
-              .enrich(entryId)
-              .pipe(
-                Effect.map(
-                  (s) =>
-                    `${s.clips} clips, ${s.characters} chars${s.judged > 0 ? `, ${s.judged} seeded sentences judged` : ""}`
-                )
-              )
+            return audio.enrich(entryId).pipe(Effect.map((s) => `${s.clips} clips, ${s.characters} chars`))
         }
       }
 
-      const run = (kind: JobKind, entryId: EntryId): Effect.Effect<string, unknown> =>
+      const run = (kind: EnrichmentKind, entryId: EntryId): Effect.Effect<string, unknown> =>
         enrich(kind, entryId).pipe(Sentry.withScope((scope) => scope.setConversationId(`entry:${entryId}`)))
 
       return Enrichers.of({ available, run })

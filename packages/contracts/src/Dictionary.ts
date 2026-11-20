@@ -186,21 +186,6 @@ export const Sense = Schema.Struct({
 })
 export type Sense = typeof Sense.Type
 
-/**
- * Where one kind of enrichment stands for an entry: `ready` (the entry has it), `unrequested`
- * (nobody has asked, so nothing is on its way; `enrich` asks), `queued` (on its way, worth
- * polling for) or `unavailable` (not coming: no provider, or its job settled without it).
- */
-export const EnrichmentStatus = Schema.Literals(["ready", "unrequested", "queued", "unavailable"])
-export type EnrichmentStatus = typeof EnrichmentStatus.Type
-
-/** The status of each kind of enrichment for an entry. */
-export const Enrichment = Schema.Struct({
-  examples: EnrichmentStatus,
-  audio: EnrichmentStatus
-})
-export type Enrichment = typeof Enrichment.Type
-
 /** One spoken headword clip and who reads it. */
 export const EntryAudio = Schema.Struct({
   url: Schema.String,
@@ -236,8 +221,7 @@ export const Entry = Schema.Struct({
   /** The first headword clip; kept until the app plays from `audio`. */
   audioUrl: Schema.NullOr(Schema.String),
   /** Every headword clip, one per dictionary voice. */
-  audio: Schema.Array(EntryAudio),
-  enrichment: Enrichment
+  audio: Schema.Array(EntryAudio)
 })
 export type Entry = typeof Entry.Type
 

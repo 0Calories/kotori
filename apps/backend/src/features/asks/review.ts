@@ -17,7 +17,6 @@ import { APPROVED_EN_FILE, serializeApprovedLine } from "../dictionary/import/en
 import { toConsolidatedWord } from "../dictionary/import/english/words.ts"
 import type { ImportEntry, SeedFrequency } from "../dictionary/import/seedFacts.ts"
 import { findForms, getEntries, insertEntries, saveKotoriCautions } from "../dictionary/queries.ts"
-import { enqueueJob } from "../enrichment/index.ts"
 import { judge } from "./judge.ts"
 import { updateVerdict } from "./queries.ts"
 
@@ -247,7 +246,6 @@ export const approveProposal = Effect.fn("review.approveProposal")(function* (
   // Seeded, so the draft's frequency score is the word's frequency signal from the start.
   yield* insertEntries(db, [{ ...record, frequency: draftFrequency(draft.frequency) }], { seeded: true })
   yield* saveKotoriCautions(db, entryId, language, draft.cautions)
-  for (const kind of ["examples", "audio"] as const) yield* enqueueJob(db, kind, entryId, 500, now)
   yield* appendLine(
     file,
     language === "en"

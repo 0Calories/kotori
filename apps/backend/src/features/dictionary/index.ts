@@ -10,4 +10,3 @@ export {
   saveKotoriCautions,
   tagNames
 } from "./queries.ts"
-export { labelsBySense } from "./usage.ts"

@@ -6,7 +6,6 @@ import { Effect, FileSystem, Layer } from "effect"
 import { Database } from "../../src/db/Database.ts"
 import * as JMDict from "../../src/features/dictionary/import/jmdict/JMDict.ts"
 import { entryCount, getEntries, tagNames } from "../../src/features/dictionary/queries.ts"
-import { enqueueJob, jobStatusFor } from "../../src/features/enrichment/jobs.ts"
 import { examplesFor, saveExamples } from "../../src/features/enrichment/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
@@ -56,7 +55,7 @@ const labelledSenses = Effect.gen(function* () {
 // Dictionary and enrichment are rebuildable, so moving to a new JMDict release is a reseed:
 // the seeder upserts, and enrichment for senses that still exist must survive it.
 layer(TestLayer)("JMDict.importFile", (it) => {
-  it.effect("seeding twice leaves the same dictionary, enrichment and queue", () =>
+  it.effect("seeding twice leaves the same dictionary and enrichment", () =>
     Effect.gen(function* () {
       const db = yield* Database
 
@@ -81,7 +80,6 @@ layer(TestLayer)("JMDict.importFile", (it) => {
         ],
         new Date(1000)
       )
-      yield* enqueueJob(db, "audio", taberu, 10, new Date(1000))
 
       assert.deepStrictEqual(yield* JMDict.importFile({ file: "JMdict_e.gz" }), { entries: 2, tags: 3 })
       assert.strictEqual(yield* entryCount(db), 2)
@@ -89,7 +87,6 @@ layer(TestLayer)("JMDict.importFile", (it) => {
       assert.strictEqual((yield* tagNames(db)).size, 3)
       assert.deepStrictEqual(yield* labelledSenses, [0, 1])
       assert.strictEqual((yield* examplesFor(db, [taberu])).length, 1)
-      assert.strictEqual((yield* jobStatusFor(db, taberu)).get("audio"), "queued")
     })
   )
 

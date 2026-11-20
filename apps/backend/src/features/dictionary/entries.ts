@@ -1,6 +1,5 @@
 import { CASTS } from "@kotori/ai"
 import {
-  type Enrichment,
   type Entry,
   EntryId,
   type EntryRecord,
@@ -13,9 +12,9 @@ import {
 import { normalizeGloss, normalizeJapaneseGloss, romanize } from "@kotori/language"
 import { Effect } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
-import { entryClips, exampleClips } from "../audio/index.ts"
+import { formClips } from "../audio/index.ts"
 import type { ExampleRow } from "../enrichment/index.ts"
-import { examplesFor, sentencesHeard } from "../enrichment/index.ts"
+import { examplesFor } from "../enrichment/index.ts"
 import { findForms, getEntries, tagNames } from "./queries.ts"
 import { audioUrl, firstGlosses, unique } from "./shared.ts"
 import { type Candidate, differenceOf, pickCandidates, senseLabels } from "./similar.ts"
@@ -32,22 +31,18 @@ import {
 // labels, usage patterns, cautions and similar words the enrichment model derives, and its
 // example sentences and audio.
 
-const toExample = (example: ExampleRow, clips: ReadonlyMap<string, string>): Example => {
-  const ja = clips.get(`${example.id}:ja`)
-  const en = clips.get(`${example.id}:en`)
-  return {
-    id: example.id,
-    ja: example.ja,
-    furigana: example.furigana,
-    en: example.en,
-    formality: example.formality,
-    note: example.note,
-    noteJa: example.noteJa,
-    source: example.source,
-    audioUrl: ja === undefined ? null : audioUrl(ja),
-    translationAudioUrl: en === undefined ? null : audioUrl(en)
-  }
-}
+const toExample = (example: ExampleRow): Example => ({
+  id: example.id,
+  ja: example.ja,
+  furigana: example.furigana,
+  en: example.en,
+  formality: example.formality,
+  note: example.note,
+  noteJa: example.noteJa,
+  source: example.source,
+  audioUrl: null,
+  translationAudioUrl: null
+})
 
 /** Glosses run together as each language lists them: "to eat; to dine", "食べる、食事をする". */
 const joinGlosses = (entry: EntryRecord, glosses: ReadonlyArray<string>) =>
@@ -71,22 +66,13 @@ const xrefSense = (xref: string) => {
   return xref.includes("・") && /^\d+$/.test(last) ? Number(last) - 1 : null
 }
 
-/** The entry `entry` as the app shows it, its enrichment status from `enrichment`, read last. */
-export const assembleEntry = Effect.fnUntraced(function* (
-  db: DatabaseShape,
-  entry: EntryRecord,
-  enrichment: Effect.Effect<Enrichment>
-) {
+/** The entry `entry` as the app shows it. */
+export const assembleEntry = Effect.fnUntraced(function* (db: DatabaseShape, entry: EntryRecord) {
   const tags = yield* tagNames(db)
   const tag = (code: string): Tag => ({ code, name: tags.get(code) ?? code })
 
   const examples = yield* examplesFor(db, [entry.id])
-  // A seeded sentence beside Kotori's is shown without the clip it may have from before they came.
-  const exampleAudio = yield* exampleClips(
-    db,
-    sentencesHeard(examples).map((example) => example.id)
-  )
-  const headwordClips = (yield* entryClips(db, [entry.id])).get(entry.id) ?? []
+  const headwordClips = (yield* formClips(db, [entry])).get(entry.id) ?? []
   const voiceName = (voice: string | null) =>
     voice === null ? null : (CASTS[entry.language].find((candidate) => candidate.id === voice)?.name ?? null)
 
@@ -182,7 +168,7 @@ export const assembleEntry = Effect.fnUntraced(function* (
     related: sense.xrefs.map(resolve),
     antonyms: sense.antonyms.map(resolve),
     origins: [...sense.origins],
-    examples: examples.filter((example) => example.sense === index).map((example) => toExample(example, exampleAudio)),
+    examples: examples.filter((example) => example.sense === index).map(toExample),
     labels: stated.senses[index] ?? [],
     usagePatterns: usagePatternRows.get(index) ?? [],
     similarWords: similarWords(index)
@@ -210,7 +196,6 @@ export const assembleEntry = Effect.fnUntraced(function* (
       url: audioUrl(clip.key),
       voice: clip.voice,
       voiceName: voiceName(clip.voice)
-    })),
-    enrichment: yield* enrichment
+    }))
   } satisfies Entry
 })

@@ -1,12 +1,12 @@
 import type { EntryRecord, Language } from "@kotori/contracts"
 import {
+  audio,
   cautions,
   type DraftCaution,
   emptyIfNull,
   englishDocument,
   entries,
   type EntryId,
-  entryAudio,
   entryFrequency,
   examples,
   forms,
@@ -14,7 +14,6 @@ import {
   isEnglishForm,
   isJapaneseEntryId,
   isSpelling,
-  jobKind,
   labels,
   loanLinks,
   type NoteId,
@@ -52,11 +51,9 @@ import {
 import { Effect } from "effect"
 import { chunks } from "../../db/chunks.ts"
 import type { DatabaseShape } from "../../db/Database.ts"
+import type { EnrichmentKind } from "../enrichment/Enrichers.ts"
 import { matchSenses } from "./import/matchSenses.ts"
 import { type ImportEntry, labelsOf, usagePatternsOf, SEED_SOURCES, speaks } from "./import/seedFacts.ts"
-
-/** Enrichment an entry can be missing, used to find work for the worker. */
-export type EnrichmentKind = (typeof jobKind.enumValues)[number]
 
 export interface PriorityQuery {
   readonly limit: number
@@ -608,12 +605,6 @@ export const headwordIds = Effect.fn("dictionary.headwordIds")(function* (db: Da
   return new Map(rows.map((row) => [row.headword, row.id]))
 }, Effect.orDie)
 
-/** An entry's id and language, or undefined when there is none: enough to report its enrichment. */
-export const entryLanguage = Effect.fn("dictionary.entryLanguage")(function* (db: DatabaseShape, id: EntryId) {
-  const [row] = yield* db.select({ id: entries.id, language: entries.language }).from(entries).where(eq(entries.id, id))
-  return row
-}, Effect.orDie)
-
 export const getEntries = Effect.fn("dictionary.getEntries")(function* (
   db: DatabaseShape,
   ids: ReadonlyArray<EntryId>
@@ -954,7 +945,20 @@ const missing = (db: DatabaseShape, kind: EnrichmentKind) => {
           .where(and(eq(examples.entryId, entries.id), eq(examples.source, "kotori")))
       )
     case "audio":
-      return notExists(db.select().from(entryAudio).where(eq(entryAudio.entryId, entries.id)))
+      return notExists(
+        db
+          .select()
+          .from(audio)
+          .where(
+            and(
+              eq(audio.language, entries.language),
+              eq(
+                audio.text,
+                sql`CASE WHEN ${entries.language} = 'ja' THEN ${entries.reading} ELSE ${entries.headword} END`
+              )
+            )
+          )
+      )
   }
 }
 

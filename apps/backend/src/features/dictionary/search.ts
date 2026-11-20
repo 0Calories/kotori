@@ -26,7 +26,7 @@ import {
 } from "@kotori/language"
 import { Effect } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
-import { entryClips } from "../audio/index.ts"
+import { formClips } from "../audio/index.ts"
 import type { FormMatch, GlossMatch } from "./queries.ts"
 import {
   entryRanks,
@@ -585,9 +585,10 @@ export const makeSearch = (db: DatabaseShape) => {
 
   const summaries = Effect.fnUntraced(function* (hits: ReadonlyArray<Hit>) {
     const ids = hits.map((hit) => hit.entryId)
-    const entries = new Map((yield* getEntries(db, ids)).map((entry) => [entry.id, entry]))
+    const entryRows = yield* getEntries(db, ids)
+    const entries = new Map(entryRows.map((entry) => [entry.id, entry]))
     const labels = yield* labelsBySense(db, ids)
-    const clips = yield* entryClips(db, ids)
+    const clips = yield* formClips(db, entryRows)
     return hits.flatMap((hit): Array<EntrySummary> => {
       const entry = entries.get(hit.entryId)
       if (entry === undefined) return []
