@@ -1,66 +1,66 @@
 import { Claude, interpretTriage } from "@kotori/ai"
-import { AiUnavailable, EntryRecord, SenseRecord } from "@kotori/contracts"
-import {
-  DraftCaution,
-  type DraftEntry,
-  type DraftSense,
-  entries,
-  EntryId,
-  FIRST_APPROVED_JA_ID,
-  FIRST_ENGLISH_ID,
-  proposals
-} from "@kotori/db"
-import { and, eq, gte, max } from "drizzle-orm"
-import { Effect, FileSystem, Option, Schema } from "effect"
+import { AiUnavailable } from "@kotori/contracts"
+import { entries, EntryId, proposals, ReviewState } from "@kotori/db"
+import { and, eq, inArray, isNull } from "drizzle-orm"
+import { Effect, Match, Schema } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
-import { APPROVED_EN_FILE, serializeApprovedLine } from "../dictionary/import/english/approved.ts"
-import { toConsolidatedWord } from "../dictionary/import/english/words.ts"
-import type { ImportEntry, SeedFrequency } from "../dictionary/import/seedFacts.ts"
-import { findForms, getEntries, insertEntries, saveKotoriCautions } from "../dictionary/queries.ts"
-import { enqueueJob } from "../enrichment/index.ts"
+import { getEntries } from "../dictionary/queries.ts"
+import { syncEntrySearch } from "../dictionary/searchProjection.ts"
 import { judge } from "./judge.ts"
 import { updateVerdict } from "./queries.ts"
 
 /**
- * `data/approved/ja.jsonl`: Japanese entries and aliases approved out of Ask Kotori proposals,
- * committed so a fresh database gets them too (`kotori seed` applies it after JMDict; a reseed
- * never deletes them, as the JMDict import removes nothing). Entries carry their ids, from
- * 200,000,000 up — above JMDict's sequence numbers and apart from the English dictionary's
- * 100,000,000 block — so every environment numbers them alike.
+ * Review lifecycle for Kotori-drafted entries (`entries.review_state`).
+ * Every move, the states it is made from, and the state it leads to live in `REVIEW_MOVES`.
  */
-export const APPROVED_JA_FILE = "data/approved/ja.jsonl"
+export type EntryReviewState = (typeof entries.$inferSelect)["reviewState"]
 
-const ApprovedJaSense = Schema.Struct({
-  ...SenseRecord.fields,
-  origins: SenseRecord.fields.origins.pipe(Schema.withDecodingDefaultKey(Effect.succeed([] as const)))
-})
+export const REVIEW_MOVES = {
+  approve: { from: ["unreviewed"] as const, to: "approved" as const },
+  discard: { from: ["unreviewed"] as const, to: "discarded" as const },
+  merge: { from: ["unreviewed"] as const, to: "discarded" as const }
+} satisfies Record<string, { readonly from: ReadonlyArray<EntryReviewState>; readonly to: EntryReviewState }>
 
-/**
- * An approved entry as its line stores it. A line written before entries named their source
- * has none, and is an Ask Kotori word like every approved one: Kotori's.
- */
-const ApprovedJaEntry = Schema.Struct({
-  ...EntryRecord.fields,
-  source: EntryRecord.fields.source.pipe(Schema.withDecodingDefaultKey(Effect.succeed("kotori" as const))),
-  senses: Schema.Array(ApprovedJaSense)
-})
+export type ReviewMove = keyof typeof REVIEW_MOVES
 
-export const ApprovedJaLine = Schema.Union([
-  Schema.Struct({
-    entry: ApprovedJaEntry,
-    /** How commonly the word is used today, 1–5, as the draft judged it: its only frequency signal. */
-    frequency: Schema.optional(Schema.Int),
-    cautions: Schema.optional(Schema.Array(DraftCaution))
-  }),
-  Schema.Struct({ alias: Schema.Struct({ text: Schema.String, base: Schema.String }) })
-])
-export type ApprovedJaLine = typeof ApprovedJaLine.Type
+const REVIEW_MOVE_NAMES = Object.keys(REVIEW_MOVES) as [ReviewMove, ...Array<ReviewMove>]
 
-const decodeJaLine = Schema.decodeUnknownOption(Schema.fromJsonString(ApprovedJaLine))
-const encodeJaLine = Schema.encodeSync(Schema.fromJsonString(ApprovedJaLine))
+const canTransition = (state: EntryReviewState, move: ReviewMove): boolean => {
+  const allowed: ReadonlyArray<EntryReviewState> = REVIEW_MOVES[move].from
+  return Match.value(state).pipe(
+    Match.when("unreviewed", () => allowed.includes("unreviewed")),
+    Match.when("approved", () => allowed.includes("approved")),
+    Match.when("discarded", () => allowed.includes("discarded")),
+    Match.exhaustive
+  )
+}
+
+const isMergeableTarget = (target: Pick<typeof entries.$inferSelect, "reviewState" | "redirectTo">): boolean =>
+  Match.value(target.reviewState).pipe(
+    Match.when("approved", () => true),
+    Match.when("unreviewed", () => true),
+    Match.when("discarded", () => target.redirectTo !== null),
+    Match.exhaustive
+  )
 
 export class NoSuchProposal extends Schema.TaggedError<NoSuchProposal>()("NoSuchProposal", {
   id: Schema.Int
+}) {}
+
+export class NoSuchEntry extends Schema.TaggedError<NoSuchEntry>()("NoSuchEntry", {
+  entryId: EntryId
+}) {}
+
+export class InvalidReviewTransition extends Schema.TaggedError<InvalidReviewTransition>()("InvalidReviewTransition", {
+  entryId: EntryId,
+  from: ReviewState,
+  move: Schema.Literals(REVIEW_MOVE_NAMES)
+}) {}
+
+export class InvalidMergeTarget extends Schema.TaggedError<InvalidMergeTarget>()("InvalidMergeTarget", {
+  entryId: EntryId,
+  targetEntryId: EntryId,
+  reason: Schema.String
 }) {}
 
 export class NotPending extends Schema.TaggedError<NotPending>()("NotPending", {
@@ -73,239 +73,212 @@ export class NotRejected extends Schema.TaggedError<NotRejected>()("NotRejected"
   status: Schema.String
 }) {}
 
-export class NoSuchAlias extends Schema.TaggedError<NoSuchAlias>()("NoSuchAlias", {
-  text: Schema.String
-}) {}
-
-const kanaOnly = /^[\u3040-\u30ffー]+$/u
-
-/** A drafted word's frequency signals: the 1–5 score Claude judged, nothing counted. */
-const draftFrequency = (score: number): SeedFrequency => ({ everyday: false, spokenCount: null, score })
-
-/**
- * A draft sense as the dictionary stores senses: its labels as usage codes and its usage patterns as
- * notes, which the import reads back as labels and usage patterns with the entry's source, Kotori.
- */
-const toSense = (sense: DraftSense): SenseRecord => ({
-  glosses: sense.glosses.map((text) => ({ text, type: null })),
-  pos: [...sense.pos],
-  misc: [...sense.labels],
-  fields: [],
-  dialects: [],
-  info: [...sense.usagePatterns],
-  stagk: [],
-  stagr: [],
-  xrefs: [],
-  antonyms: [],
-  origins: [],
-  wasei: false
-})
-
-/** The entry a draft becomes, in the language's record shape, with the given id. */
-export const draftToRecord = (draft: DraftEntry, language: "en" | "ja", id: EntryId): EntryRecord => {
-  const spellings = [...new Set(draft.spellings.filter((text) => text !== draft.headword))]
-  return {
-    id,
-    language,
-    source: "kotori",
-    headword: draft.headword,
-    reading: draft.reading,
-    common: false,
-    priority: 0,
-    forms:
-      language === "en"
-        ? [draft.headword, ...spellings].map((text, index) => ({
-            kind: "spelling" as const,
-            text,
-            common: index === 0,
-            tags: [],
-            priorities: [],
-            restrictions: [],
-            noKanji: false
-          }))
-        : [
-            {
-              kind: kanaOnly.test(draft.headword) ? ("kana" as const) : ("kanji" as const),
-              text: draft.headword,
-              common: false,
-              tags: [],
-              priorities: [],
-              restrictions: [],
-              noKanji: false
-            },
-            ...(draft.reading.length > 0 && draft.reading !== draft.headword
-              ? [
-                  {
-                    kind: "kana" as const,
-                    text: draft.reading,
-                    common: false,
-                    tags: [],
-                    priorities: [],
-                    restrictions: [],
-                    noKanji: false
-                  }
-                ]
-              : []),
-            ...spellings.map((text) => ({
-              kind: kanaOnly.test(text) ? ("kana" as const) : ("kanji" as const),
-              text,
-              common: false,
-              tags: [],
-              priorities: [],
-              restrictions: [],
-              noKanji: false
-            }))
-          ],
-    senses: draft.senses.map(toSense)
-  }
-}
-
 const proposalById = Effect.fn("review.proposalById")(function* (db: DatabaseShape, id: number) {
   const rows = yield* db.select().from(proposals).where(eq(proposals.id, id)).pipe(Effect.orDie)
   if (rows[0] === undefined) return yield* new NoSuchProposal({ id })
   return rows[0]
 })
 
-const nextEntryId = Effect.fn("review.nextEntryId")(function* (db: DatabaseShape, language: "en" | "ja") {
-  const from = EntryId.make(language === "en" ? FIRST_ENGLISH_ID : FIRST_APPROVED_JA_ID)
-  const [row] = yield* db
-    .select({ top: max(entries.id) })
-    .from(entries)
-    .where(and(eq(entries.language, language), gte(entries.id, from)))
-    .pipe(Effect.orDie)
-  return EntryId.make(Math.max(row?.top ?? 0, from) + 1)
+const requirePendingProposal = Effect.fn("review.requirePendingProposal")(function* (db: DatabaseShape, id: number) {
+  const proposal = yield* proposalById(db, id)
+  if (proposal.status !== "pending" || proposal.linkedEntryId === null) {
+    return yield* new NotPending({ id, status: proposal.status })
+  }
+  return { proposal, entryId: proposal.linkedEntryId }
 })
-
-const appendLine = Effect.fnUntraced(function* (file: string, line: string) {
-  const fs = yield* FileSystem.FileSystem
-  const dir = file.slice(0, file.lastIndexOf("/"))
-  yield* fs.makeDirectory(dir, { recursive: true }).pipe(Effect.orDie)
-  const existing = (yield* fs.exists(file).pipe(Effect.orDie)) ? yield* fs.readFileString(file).pipe(Effect.orDie) : ""
-  yield* fs.writeFileString(file, existing + line).pipe(Effect.orDie)
-})
-
-export interface ApprovedFiles {
-  readonly en: string
-  readonly ja: string
-}
 
 export interface Approval {
-  /** Approve as a way an existing entry is written instead of a new entry: the entry's headword. */
-  readonly aliasOf?: string | undefined
-  /** Replace the draft's headword. */
+  /** Override the drafted entry's headword when promoting it in place. */
   readonly headword?: string | undefined
 }
 
 /**
- * Turns a pending draft into a real dictionary entry (or an extra spelling of one), appends it to
- * the language's approved file so reseeds and fresh databases keep it, queues its enrichment, and
- * marks the proposal approved and linked for everyone who asked.
+ * Promotes an `unreviewed` `kotori:` Drafted entry to `approved` in place without changing its
+ * `kotori:` EntryId, updates `entry_search`, and marks linked proposals `approved`.
  */
+export const approveEntry = Effect.fn("review.approveEntry")(function* (
+  db: DatabaseShape,
+  entryId: EntryId,
+  approval: Approval = {}
+) {
+  const now = new Date()
+  return yield* db.transaction((tx) =>
+    Effect.gen(function* () {
+      const [doc] = yield* tx.select().from(entries).where(eq(entries.id, entryId))
+      if (doc === undefined) return yield* new NoSuchEntry({ entryId })
+      if (doc.redirectTo !== null || !canTransition(doc.reviewState, "approve")) {
+        return yield* new InvalidReviewTransition({ entryId, from: doc.reviewState, move: "approve" })
+      }
+      const nextBase =
+        approval.headword === undefined || approval.headword === doc.base.headword
+          ? doc.base
+          : {
+              ...doc.base,
+              headword: approval.headword,
+              forms: doc.base.forms.map((form, index) => (index === 0 ? { ...form, text: approval.headword! } : form))
+            }
+      const [updated] = yield* tx
+        .update(entries)
+        .set({ reviewState: REVIEW_MOVES.approve.to, base: nextBase, updatedAt: now })
+        .where(
+          and(
+            eq(entries.id, entryId),
+            inArray(entries.reviewState, [...REVIEW_MOVES.approve.from]),
+            isNull(entries.redirectTo)
+          )
+        )
+        .returning()
+      if (updated === undefined) {
+        return yield* new InvalidReviewTransition({ entryId, from: doc.reviewState, move: "approve" })
+      }
+      yield* syncEntrySearch(tx, [updated])
+      yield* tx
+        .update(proposals)
+        .set({ status: "approved", reviewedAt: now })
+        .where(eq(proposals.linkedEntryId, entryId))
+      return { entryId, headword: updated.base.headword }
+    })
+  )
+})
+
+/**
+ * Discards an `unreviewed` `kotori:` Drafted entry: sets `review_state = 'discarded'`, removes it
+ * from `entry_search`, retains the row as a negative-cache tombstone in `entries`, and marks linked
+ * proposals `discarded`.
+ */
+export const discardEntry = Effect.fn("review.discardEntry")(function* (
+  db: DatabaseShape,
+  entryId: EntryId,
+  reason: string | null
+) {
+  const now = new Date()
+  return yield* db.transaction((tx) =>
+    Effect.gen(function* () {
+      const [doc] = yield* tx.select().from(entries).where(eq(entries.id, entryId))
+      if (doc === undefined) return yield* new NoSuchEntry({ entryId })
+      if (doc.redirectTo !== null || !canTransition(doc.reviewState, "discard")) {
+        return yield* new InvalidReviewTransition({ entryId, from: doc.reviewState, move: "discard" })
+      }
+      const [updated] = yield* tx
+        .update(entries)
+        .set({ reviewState: REVIEW_MOVES.discard.to, updatedAt: now })
+        .where(
+          and(
+            eq(entries.id, entryId),
+            inArray(entries.reviewState, [...REVIEW_MOVES.discard.from]),
+            isNull(entries.redirectTo)
+          )
+        )
+        .returning()
+      if (updated === undefined) {
+        return yield* new InvalidReviewTransition({ entryId, from: doc.reviewState, move: "discard" })
+      }
+      yield* syncEntrySearch(tx, [updated])
+      yield* tx
+        .update(proposals)
+        .set({ status: "discarded", reason, reviewedAt: now })
+        .where(eq(proposals.linkedEntryId, entryId))
+      return { entryId, headword: updated.base.headword }
+    })
+  )
+})
+
+/**
+ * Merges a duplicate `unreviewed` `kotori:` Drafted entry into an existing canonical Entry:
+ * sets `redirect_to` to the canonical `EntryId`, hides the duplicate from `entry_search`, and
+ * repoints linked proposals to the canonical Entry. Direct lookups of the merged `kotori:` ID
+ * transparently resolve to the canonical Entry.
+ */
+export const mergeEntry = Effect.fn("review.mergeEntry")(function* (
+  db: DatabaseShape,
+  entryId: EntryId,
+  targetEntryId: EntryId
+) {
+  if (entryId === targetEntryId) {
+    return yield* new InvalidMergeTarget({ entryId, targetEntryId, reason: "cannot merge an entry into itself" })
+  }
+  const now = new Date()
+  return yield* db.transaction((tx) =>
+    Effect.gen(function* () {
+      const [doc] = yield* tx.select().from(entries).where(eq(entries.id, entryId))
+      if (doc === undefined) return yield* new NoSuchEntry({ entryId })
+      if (doc.redirectTo !== null || !canTransition(doc.reviewState, "merge")) {
+        return yield* new InvalidReviewTransition({ entryId, from: doc.reviewState, move: "merge" })
+      }
+      const [target] = yield* tx.select().from(entries).where(eq(entries.id, targetEntryId))
+      if (target === undefined) return yield* new NoSuchEntry({ entryId: targetEntryId })
+      if (!isMergeableTarget(target)) {
+        return yield* new InvalidMergeTarget({
+          entryId,
+          targetEntryId,
+          reason: "cannot merge into a discarded entry"
+        })
+      }
+      const canonicalId = target.redirectTo ?? target.id
+      if (canonicalId === entryId) {
+        return yield* new InvalidMergeTarget({
+          entryId,
+          targetEntryId,
+          reason: "merge target redirects back to this entry"
+        })
+      }
+      const [canonical] =
+        canonicalId === target.id ? [target] : yield* tx.select().from(entries).where(eq(entries.id, canonicalId))
+      if (canonical === undefined) return yield* new NoSuchEntry({ entryId: canonicalId })
+
+      const [updated] = yield* tx
+        .update(entries)
+        .set({ redirectTo: canonical.id, reviewState: REVIEW_MOVES.merge.to, updatedAt: now })
+        .where(
+          and(
+            eq(entries.id, entryId),
+            inArray(entries.reviewState, [...REVIEW_MOVES.merge.from]),
+            isNull(entries.redirectTo)
+          )
+        )
+        .returning()
+      if (updated === undefined) {
+        return yield* new InvalidReviewTransition({ entryId, from: doc.reviewState, move: "merge" })
+      }
+      yield* syncEntrySearch(tx, [updated])
+      yield* tx
+        .update(proposals)
+        .set({ status: "approved", linkedEntryId: canonical.id, reviewedAt: now })
+        .where(eq(proposals.linkedEntryId, entryId))
+      return { entryId, targetEntryId: canonical.id, headword: canonical.base.headword }
+    })
+  )
+})
+
+/** Approves a pending proposal's `kotori:` Drafted entry in place without changing its ID. */
 export const approveProposal = Effect.fn("review.approveProposal")(function* (
   db: DatabaseShape,
   id: number,
-  files: ApprovedFiles,
   approval: Approval = {}
 ) {
-  const proposal = yield* proposalById(db, id)
-  if (proposal.status !== "pending" || proposal.draft === null) {
-    return yield* new NotPending({ id, status: proposal.status })
-  }
-  const language = proposal.language
-  const file = language === "en" ? files.en : files.ja
-  const now = new Date()
-
-  if (approval.aliasOf !== undefined) {
-    const matches = yield* findForms(db, [approval.aliasOf], language)
-    const base = matches.find((match) => match.kind !== "inflection")
-    if (base === undefined) return yield* new NoSuchAlias({ text: approval.aliasOf })
-    const alias = approval.headword ?? proposal.draft.headword
-    const [record] = yield* getEntries(db, [base.entryId])
-    if (record === undefined) return yield* new NoSuchAlias({ text: approval.aliasOf })
-    // The alias joins the entry's forms now, and the approved file replays it on every import.
-    const existingForms = yield* findForms(db, [alias], language)
-    if (!existingForms.some((match) => match.entryId === base.entryId)) {
-      yield* appendAliasForm(db, record, alias, language)
-    }
-    yield* appendLine(
-      file,
-      language === "en"
-        ? serializeApprovedLine({ alias: { text: alias, base: approval.aliasOf } })
-        : `${encodeJaLine({ alias: { text: alias, base: approval.aliasOf } })}\n`
-    )
-    yield* db
-      .update(proposals)
-      .set({ status: "approved", linkedEntryId: base.entryId, reviewedAt: now })
-      .where(eq(proposals.id, id))
-      .pipe(Effect.orDie)
-    return { entryId: base.entryId, headword: record.headword, alias }
-  }
-
-  const draft = approval.headword === undefined ? proposal.draft : { ...proposal.draft, headword: approval.headword }
-  const entryId = yield* nextEntryId(db, language)
-  const record = draftToRecord(draft, language, entryId)
-  // Seeded, so the draft's frequency score is the word's frequency signal from the start.
-  yield* insertEntries(db, [{ ...record, frequency: draftFrequency(draft.frequency) }], { seeded: true })
-  yield* saveKotoriCautions(db, entryId, language, draft.cautions)
-  for (const kind of ["examples", "audio"] as const) yield* enqueueJob(db, kind, entryId, 500, now)
-  yield* appendLine(
-    file,
-    language === "en"
-      ? serializeApprovedLine({
-          entry: {
-            ...toConsolidatedWord({
-              headword: draft.headword,
-              ipa: draft.reading.length > 0 ? draft.reading : null,
-              spellings: draft.spellings.filter((text) => text !== draft.headword),
-              inflections: [],
-              senses: record.senses
-            }),
-            frequency: draft.frequency
-          },
-          ...(draft.cautions.length > 0 ? { cautions: draft.cautions } : {})
-        })
-      : `${encodeJaLine({
-          entry: record,
-          frequency: draft.frequency,
-          ...(draft.cautions.length > 0 ? { cautions: draft.cautions } : {})
-        })}\n`
-  )
-  yield* db
-    .update(proposals)
-    .set({ status: "approved", linkedEntryId: entryId, reviewedAt: now })
-    .where(eq(proposals.id, id))
-    .pipe(Effect.orDie)
-  return { entryId, headword: draft.headword, alias: null }
+  const { entryId } = yield* requirePendingProposal(db, id)
+  return yield* approveEntry(db, entryId, approval)
 })
 
-/** Adds a spelling (or kana/kanji form) to an existing entry without touching the rest of it. */
-const appendAliasForm = (db: DatabaseShape, record: EntryRecord, text: string, language: "en" | "ja") => {
-  const kind = language === "en" ? ("spelling" as const) : kanaOnly.test(text) ? ("kana" as const) : ("kanji" as const)
-  return insertEntries(db, [
-    {
-      ...record,
-      forms: [
-        ...record.forms,
-        { kind, text, common: false, tags: [], priorities: [], restrictions: [], noKanji: false }
-      ]
-    }
-  ])
-}
-
-/** Turns a pending draft down; the row stays, so the query isn't generated (or asked about) again. */
+/** Discards a pending proposal's `kotori:` Drafted entry, keeping it as a negative cache. */
 export const discardProposal = Effect.fn("review.discardProposal")(function* (
   db: DatabaseShape,
   id: number,
   reason: string | null
 ) {
-  const proposal = yield* proposalById(db, id)
-  if (proposal.status !== "pending") return yield* new NotPending({ id, status: proposal.status })
-  yield* db
-    .update(proposals)
-    .set({ status: "discarded", reason, reviewedAt: new Date() })
-    .where(eq(proposals.id, id))
-    .pipe(Effect.orDie)
-  return { query: proposal.query }
+  const { proposal, entryId } = yield* requirePendingProposal(db, id)
+  const result = yield* discardEntry(db, entryId, reason)
+  return { ...result, query: proposal.query }
+})
+
+/** Merges a pending proposal's duplicate `kotori:` Drafted entry into an existing canonical Entry. */
+export const mergeProposal = Effect.fn("review.mergeProposal")(function* (
+  db: DatabaseShape,
+  id: number,
+  targetEntryId: EntryId
+) {
+  const { entryId } = yield* requirePendingProposal(db, id)
+  return yield* mergeEntry(db, entryId, targetEntryId)
 })
 
 /**
@@ -324,46 +297,3 @@ export const redoProposal = Effect.fn("review.redoProposal")(function* (db: Data
   const [linked] = updated.linkedEntryId === null ? [] : yield* getEntries(db, [updated.linkedEntryId])
   return { proposal: updated, linked: linked?.headword ?? null }
 })
-
-/** The approved ja file's entries and aliases; see `APPROVED_JA_FILE`. */
-export const parseApprovedJa = (
-  lines: Iterable<string>
-): {
-  /** Entries with the frequency score they were approved with, if their line carries one. */
-  readonly records: Array<ImportEntry>
-  readonly cautions: Array<{
-    readonly entryId: EntryId
-    readonly cautions: ReadonlyArray<DraftCaution>
-  }>
-  readonly aliases: Array<{ text: string; base: string }>
-  /** The numbers (from 1) of the lines that don't decode, which are left out. */
-  readonly skipped: Array<number>
-} => {
-  const records: Array<ImportEntry> = []
-  const cautions: Array<{
-    readonly entryId: EntryId
-    readonly cautions: ReadonlyArray<DraftCaution>
-  }> = []
-  const aliases: Array<{ text: string; base: string }> = []
-  const skipped: Array<number> = []
-  let number = 0
-  for (const line of lines) {
-    number++
-    if (line.trim().length === 0) continue
-    const decoded = decodeJaLine(line)
-    if (Option.isNone(decoded)) {
-      skipped.push(number)
-      continue
-    }
-    if ("entry" in decoded.value) {
-      const { entry, frequency } = decoded.value
-      records.push(frequency === undefined ? entry : { ...entry, frequency: draftFrequency(frequency) })
-      if (decoded.value.cautions !== undefined) {
-        cautions.push({ entryId: decoded.value.entry.id, cautions: decoded.value.cautions })
-      }
-    } else aliases.push(decoded.value.alias)
-  }
-  return { records, cautions, aliases, skipped }
-}
-
-export { APPROVED_EN_FILE }

@@ -1,18 +1,20 @@
 import {
+  BaseFrequency,
+  BaseLoanLink,
   CAUTION_KINDS,
   CautionKind,
   entries,
-  entryFrequency,
   EntryId,
-  examples,
   Formality,
-  forms,
+  FormKind,
+  isEntryId,
   LabelCode,
   LabelSeverity,
   LoanLinkMeaning,
   MAX_CAUTIONS,
   proposalRoute,
   proposalStatus,
+  ReviewState,
   SenseOrigin,
   Source,
   tags
@@ -27,25 +29,27 @@ export {
   CautionKind,
   EntryId,
   Formality,
+  FormKind,
+  isEntryId,
   LabelCode,
   LabelSeverity,
   LoanLinkMeaning,
   MAX_CAUTIONS,
+  ReviewState,
   SenseOrigin,
   Source
 }
 
 const EntryRow = createSelectSchema(entries, { id: EntryId })
-// `text` is a bytewise-collated custom column, which derives as unknown.
-const FormRow = createSelectSchema(forms, { text: Schema.String })
-const ExampleRow = createSelectSchema(examples)
 
 /** A JMDict tag such as `v5r` with its human-readable description. */
 export const Tag = createSelectSchema(tags)
 export type Tag = typeof Tag.Type
 
 export const Form = Schema.Struct({
-  ...Struct.pick(FormRow.fields, ["text", "kind", "common"]),
+  text: Schema.String,
+  kind: FormKind,
+  common: Schema.Boolean,
   /** Usage tags for Japanese forms; what an English inflection is ("past", "plural"). */
   tags: Schema.Array(Tag)
 })
@@ -60,7 +64,8 @@ export type CrossReference = typeof CrossReference.Type
 /** Another entry a fact points at: the word to compare with, or not to confuse it with. */
 export const WordRef = Schema.Struct({
   entryId: EntryId,
-  ...Struct.pick(EntryRow.fields, ["headword", "reading"])
+  headword: Schema.String,
+  reading: Schema.String
 })
 export type WordRef = typeof WordRef.Type
 
@@ -97,25 +102,12 @@ export const EntryCaution = Schema.Struct({
 })
 export type EntryCaution = typeof EntryCaution.Type
 
-/** Multi-signal frequency for an entry; see the `entry_frequency` table. */
-export const EntryFrequency = Schema.Struct(
-  Struct.pick(createSelectSchema(entryFrequency).fields, ["everyday", "spokenCount", "score"])
-)
+/** Multi-signal frequency for an entry; derived from `entries.base.frequency`. */
+export const EntryFrequency = BaseFrequency
 export type EntryFrequency = typeof EntryFrequency.Type
 
 /** A katakana word and the English word it was borrowed from, read the same from both entries. */
-export const LoanLink = Schema.Struct({
-  katakana: Schema.String,
-  katakanaEntryId: Schema.NullOr(EntryId),
-  english: Schema.String,
-  englishEntryId: Schema.NullOr(EntryId),
-  /** Whether the loan is a true loanword or wasei-eigo; null until a source says. */
-  meaning: Schema.NullOr(LoanLinkMeaning),
-  /** Who named the pair: JMDict, or Kotori for a pair JMDict doesn't name. */
-  source: Source,
-  /** Who judged `meaning` (Kotori, for every verdict so far); null with it. */
-  meaningSource: Schema.NullOr(Source)
-})
+export const LoanLink = BaseLoanLink
 export type LoanLink = typeof LoanLink.Type
 
 /**
@@ -151,7 +143,13 @@ export const SimilarWord = Schema.Struct({
 export type SimilarWord = typeof SimilarWord.Type
 
 export const Example = Schema.Struct({
-  ...Struct.pick(ExampleRow.fields, ["id", "ja", "furigana", "en", "formality", "note", "noteJa"]),
+  id: Schema.Int,
+  ja: Schema.String,
+  furigana: Schema.String,
+  en: Schema.String,
+  formality: Schema.NullOr(Formality),
+  note: Schema.NullOr(Schema.String),
+  noteJa: Schema.NullOr(Schema.String),
   /** Kotori wrote it, or it was seeded from Tatoeba or Wiktionary. */
   source: Source,
   /** The Japanese sentence, spoken. */
@@ -186,21 +184,6 @@ export const Sense = Schema.Struct({
 })
 export type Sense = typeof Sense.Type
 
-/**
- * Where one kind of enrichment stands for an entry: `ready` (the entry has it), `unrequested`
- * (nobody has asked, so nothing is on its way; `enrich` asks), `queued` (on its way, worth
- * polling for) or `unavailable` (not coming: no provider, or its job settled without it).
- */
-export const EnrichmentStatus = Schema.Literals(["ready", "unrequested", "queued", "unavailable"])
-export type EnrichmentStatus = typeof EnrichmentStatus.Type
-
-/** The status of each kind of enrichment for an entry. */
-export const Enrichment = Schema.Struct({
-  examples: EnrichmentStatus,
-  audio: EnrichmentStatus
-})
-export type Enrichment = typeof Enrichment.Type
-
 /** One spoken headword clip and who reads it. */
 export const EntryAudio = Schema.Struct({
   url: Schema.String,
@@ -215,7 +198,9 @@ export type EntryAudio = typeof EntryAudio.Type
  * JMDict for Japanese learners, an English word for English learners.
  */
 export const Entry = Schema.Struct({
-  ...Struct.pick(EntryRow.fields, ["id", "language", "source", "headword", "reading", "common"]),
+  ...Struct.pick(EntryRow.fields, ["id", "language", "source", "reviewState", "common"]),
+  headword: Schema.String,
+  reading: Schema.String,
   /** The kana reading in rōmaji; empty for English words. */
   romaji: Schema.String,
   /** Usually written in kana (JMDict's `uk`): a spelling fact, not a register label. */
@@ -236,13 +221,14 @@ export const Entry = Schema.Struct({
   /** The first headword clip; kept until the app plays from `audio`. */
   audioUrl: Schema.NullOr(Schema.String),
   /** Every headword clip, one per dictionary voice. */
-  audio: Schema.Array(EntryAudio),
-  enrichment: Enrichment
+  audio: Schema.Array(EntryAudio)
 })
 export type Entry = typeof Entry.Type
 
 export const EntrySummary = Schema.Struct({
-  ...Struct.pick(EntryRow.fields, ["id", "language", "headword", "reading", "common"]),
+  ...Struct.pick(EntryRow.fields, ["id", "language", "reviewState", "common"]),
+  headword: Schema.String,
+  reading: Schema.String,
   romaji: Schema.String,
   meanings: Schema.Array(Schema.String),
   partOfSpeech: Schema.NullOr(Schema.String),
@@ -255,32 +241,6 @@ export const EntrySummary = Schema.Struct({
 })
 export type EntrySummary = typeof EntrySummary.Type
 
-/** A drafted sense, as an entry's sense reads: its labels (only those it adds), usage patterns, all Kotori's. */
-export const DraftSense = Schema.Struct({
-  index: Schema.Int,
-  glosses: Schema.Array(Schema.String),
-  partsOfSpeech: Schema.Array(Tag),
-  labels: Schema.Array(Label),
-  usagePatterns: Schema.Array(UsagePattern)
-})
-export type DraftSense = typeof DraftSense.Type
-
-/**
- * Kotori's draft of an entry, in the entry's own model and read the same way: the word's labels
- * (those every sense carries), senses, and cautions. Unverified until the admin approves it, when it
- * becomes an entry with these same facts.
- */
-export const DraftEntry = Schema.Struct({
-  ...Struct.pick(EntryRow.fields, ["headword", "reading"]),
-  spellings: Schema.Array(Schema.String),
-  /** How commonly natives use it today, 1–5; a draft has no other frequency signals. */
-  frequency: Schema.Int,
-  labels: Schema.Array(Label),
-  senses: Schema.Array(DraftSense),
-  cautions: Schema.Array(EntryCaution)
-})
-export type DraftEntry = typeof DraftEntry.Type
-
 export const ProposalStatus = createSelectSchema(proposalStatus)
 export type ProposalStatus = typeof ProposalStatus.Type
 
@@ -291,10 +251,10 @@ export const ProposalId = Schema.Int.pipe(Schema.brand("ProposalId"))
 export type ProposalId = typeof ProposalId.Type
 
 /**
- * Kotori's answer to a query the dictionary couldn't: a drafted entry awaiting the admin
- * (`pending`, shown to its askers marked unverified), a `linked` entry the dictionary already
- * had, or a `rejected` query with the reason. `approved` drafts have become the entry `linked`
- * points at; `discarded` ones were turned down by the admin.
+ * Kotori's answer to a query the dictionary couldn't: a drafted `kotori:` entry awaiting the admin
+ * (`pending`, written straight into `entries` with `reviewState = 'unreviewed'` and referenced by
+ * `linked`), a `linked` entry the dictionary already had, an `approved` entry, or a `rejected` /
+ * `discarded` query with the reason.
  */
 export const Proposal = Schema.Struct({
   id: ProposalId,
@@ -302,8 +262,7 @@ export const Proposal = Schema.Struct({
   /** The language of the word asked about. */
   language: Language,
   status: ProposalStatus,
-  draft: Schema.NullOr(DraftEntry),
-  /** The existing entry the query names, when there is one. */
+  /** The entry this ask points at: the drafted `kotori:` entry, an approved entry, or a linked existing entry. */
   linked: Schema.NullOr(EntrySummary),
   /**
    * Claude's own words on why a rejected query isn't a real expression, in the asker's native

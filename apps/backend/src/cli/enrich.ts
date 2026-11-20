@@ -1,17 +1,23 @@
 import { EntryId } from "@kotori/contracts"
-import { Console, Effect, Option } from "effect"
+import { Console, Effect, type Layer } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { Database } from "../db/Database.ts"
 import { entriesByPriority } from "../features/dictionary/index.ts"
-import { Enrichers } from "../features/enrichment/Enrichers.ts"
+import { ENRICHMENT_KINDS, Enrichers } from "../features/enrichment/Enrichers.ts"
+import { wipeEnrichment } from "../features/enrichment/index.ts"
 
-export const enrich = Command.make(
-  "enrich",
+const entryIdsFlag = Flag.String("entry").pipe(
+  Flag.withDescription("Target specific entry id(s), e.g. jmdict:1358280 or en:eat; repeat --entry to target multiple"),
+  Flag.between(0, Number.MAX_SAFE_INTEGER)
+)
+
+const run = Command.make(
+  "run",
   {
-    kind: Argument.Literals("kind", ["examples", "audio"]).pipe(
-      Argument.withDescription("examples (Claude) or audio (ElevenLabs, with Jev judging seeded sentences)")
+    kind: Argument.Literals("kind", ENRICHMENT_KINDS).pipe(
+      Argument.withDescription("examples (Claude) or audio (ElevenLabs headword pronunciations)")
     ),
-    entry: Flag.Int("entry").pipe(Flag.withDescription("Enrich one entry by id"), Flag.optional),
+    entry: entryIdsFlag,
     dictionary: Flag.Literals("dictionary", ["all", "jmdict", "english"]).pipe(
       Flag.withDescription("Japanese words (JMDict), English words, or both, by how often they're used"),
       Flag.withDefault("all")
@@ -34,10 +40,11 @@ export const enrich = Command.make(
       return yield* Console.error(`No provider is configured for ${kind}. See .env.example.`)
     }
 
-    // Most frequent words first, skipping anything already enriched, so runs can be resumed.
-    const ids = Option.isSome(entry)
-      ? [EntryId.make(entry.value)]
-      : yield* entriesByPriority(db, { limit, missing: kind, commonOnly, language })
+    // Explicit --entry targets or most frequent words missing this enrichment.
+    const ids =
+      entry.length > 0
+        ? entry.map((id) => EntryId.make(id))
+        : yield* entriesByPriority(db, { limit, missing: kind, commonOnly, language })
     yield* Console.log(`Enriching ${ids.length} entries with ${kind}…`)
 
     let done = 0
@@ -57,4 +64,33 @@ export const enrich = Command.make(
 
     yield* Console.log(`Done: ${done} enriched, ${failed} failed.`)
   })
-).pipe(Command.withDescription("Backfill example sentences or audio, most common words first"))
+).pipe(Command.withDescription("Run example-sentence or pronunciation-audio enrichment manually"))
+
+const wipe = Command.make(
+  "wipe",
+  {
+    entry: entryIdsFlag
+  },
+  Effect.fn(function* ({ entry }) {
+    const db = yield* Database
+    const ids = entry.length > 0 ? entry.map((id) => EntryId.make(id)) : undefined
+    const summary = yield* wipeEnrichment(db, ids)
+    const scope = ids === undefined ? "all entries" : `${ids.length} targeted entries`
+    yield* Console.log(
+      `Wiped AI enrichment for ${scope}: reset enrichment to null on ${summary.entriesCleared.toLocaleString()} entries.`
+    )
+  })
+).pipe(
+  Command.withDescription(
+    "Clear all AI enrichment (or for targeted --entry ids) without touching Source facts or spoken Form audio"
+  )
+)
+
+/**
+ * `kotori enrich`. `wipe` needs only the database; `run` also needs the AI providers (`runServices`).
+ */
+export const enrichCommand = <E, R>(runServices: Layer.Layer<Enrichers, E, R>) =>
+  Command.make("enrich").pipe(
+    Command.withDescription("Run enrichment manually on targeted entries or wipe AI enrichment across the dictionary"),
+    Command.withSubcommands([run.pipe(Command.provide(runServices)), wipe])
+  )

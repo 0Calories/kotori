@@ -15,7 +15,6 @@ import { scopedToUser } from "../../db/scopedToUser.ts"
 import { reserveUsage } from "../coaching/queries.ts"
 import { Dictionary } from "../dictionary/Dictionary.ts"
 import { turnAway } from "./garbage.ts"
-import { viewDrafts } from "./draft.ts"
 import { judge, type Triaged } from "./judge.ts"
 import { asksFor, findProposal, insertProposal, type ProposalRow, recordAsk, type Verdict } from "./queries.ts"
 
@@ -26,12 +25,11 @@ const DAY = 24 * HOUR
  * "Ask Kotori": answers a search the dictionary couldn't, in three stages that get dearer as
  * they go. Deterministic checks turn mash and the wrong language away for free (`turnAway`);
  * Jev sorts the rest by what kind of input it is (`AskRoute`), and only lookups reach Claude,
- * which drafts an entry, names the existing entry the learner missed, or says the query isn't a
- * real expression (`judge`). A hesitant Jev fails open to Claude: a real question must never be
- * lost to the cheap stage. Answers are kept per normalized query, so a question is only ever
- * paid for once, and drafts wait for the admin (`kotori proposals`) before becoming real entries.
- * Each learner has their own allowances, Jev's and Claude's apart, so no one learner can use up
- * Ask Kotori for everyone.
+ * which writes a Drafted entry directly into `entries` under a stable `kotori:<id>` with
+ * `review_state = 'unreviewed'`, names the existing entry the learner missed, or says the query
+ * isn't a real expression (`judge`). A hesitant Jev fails open to Claude: a real question must
+ * never be lost to the cheap stage. Answers are kept per normalized query, so a question is only
+ * ever paid for once and shared across learners.
  */
 export class Asks extends Context.Service<
   Asks,
@@ -55,22 +53,21 @@ export class Asks extends Context.Service<
 
       /** Proposals as the app reads them; a list of them costs the same few queries as one. */
       const toProposals = Effect.fnUntraced(function* (rows: ReadonlyArray<ProposalRow>) {
-        const linkedIds = [...new Set(rows.flatMap((row) => (row.linkedEntryId === null ? [] : [row.linkedEntryId])))]
+        const linkedIds = [
+          ...new Set(
+            rows.flatMap((row) => (row.linkedEntryId === null || row.status === "discarded" ? [] : [row.linkedEntryId]))
+          )
+        ]
         const linked = new Map(
           (linkedIds.length === 0 ? [] : yield* dictionary.summarize(linkedIds)).map((entry) => [entry.id, entry])
         )
-        const drafted = rows.flatMap((row) =>
-          row.draft === null ? [] : [{ id: row.id, draft: row.draft, language: row.language }]
-        )
-        const views = yield* viewDrafts(db, drafted)
-        const drafts = new Map(drafted.map((stored, index) => [stored.id, views[index]!]))
         return rows.map((row): Proposal => ({
           id: ProposalId.make(row.id),
           query: row.query,
           language: row.language,
           status: row.status,
-          draft: drafts.get(row.id) ?? null,
-          linked: row.linkedEntryId === null ? null : (linked.get(row.linkedEntryId) ?? null),
+          linked:
+            row.linkedEntryId === null || row.status === "discarded" ? null : (linked.get(row.linkedEntryId) ?? null),
           reason: row.reason,
           route: row.route
         }))
@@ -154,7 +151,6 @@ export class Asks extends Context.Service<
           // Not a lookup: the answer is the route itself, which the app turns into a pointer.
           return yield* settle({
             status: "rejected",
-            draft: null,
             linkedEntryId: null,
             reason: null,
             model: jev.model,

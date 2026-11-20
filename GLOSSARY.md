@@ -17,7 +17,7 @@ _Avoid_: Learner of Japanese, English speaker learning Japanese, English learner
 ### Dictionary
 
 **Entry**:
-A single dictionary entry with an English facet, a Japanese facet, or both when two expressions pair as counterparts; each facet holds that language's forms, senses, usage, and cautions.
+A single dictionary entry for a Japanese or English expression, holding its forms, senses, usage, and cautions.
 _Avoid_: Term, lemma, item
 
 **Form**:
@@ -81,6 +81,12 @@ _Avoid_: Exchange, round, message
 **Drafted entry**:
 An entry Kotori drafted in Ask Kotori for an expression the dictionary lacks, shared by every learner who asks for it and shown as unverified until an admin approves it into the dictionary or discards it.
 _Avoid_: Proposal, draft, suggestion, AI entry
+
+### Notebook
+
+**Notebook**:
+A learner's personal collection where they save and manage dictionary entries.
+_Avoid_: Study, deck, flashcards, notes, saved words
 
 ### Audio
 

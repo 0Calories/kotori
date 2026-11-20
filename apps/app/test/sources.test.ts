@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
-import type { Source } from "@kotori/contracts"
+import { EntryId, type Source } from "@kotori/contracts"
 import { assert, describe, it } from "vitest"
 import { strings } from "../src/i18n/strings.ts"
 import { entryAttributions, entryIdFromParam, entrySourcesHref, type SourcedEntry } from "../src/lib/sources.ts"
@@ -38,9 +38,13 @@ const appDir = join(dirname(fileURLToPath(import.meta.url)), "..")
 
 describe("entry sources", () => {
   it("opens this entry's sources screen with its id", () => {
-    assert.deepStrictEqual(entrySourcesHref(1579020), {
+    assert.deepStrictEqual(entrySourcesHref(EntryId.make("jmdict:1579020")), {
       pathname: "/sources/[id]",
-      params: { id: "1579020" }
+      params: { id: "jmdict:1579020" }
+    })
+    assert.deepStrictEqual(entrySourcesHref(EntryId.make("en:run into")), {
+      pathname: "/sources/[id]",
+      params: { id: "en:run into" }
     })
     const screen = readFileSync(join(appDir, "app/entry/[id].tsx"), "utf8")
     const layout = readFileSync(join(appDir, "app/_layout.tsx"), "utf8")
@@ -51,14 +55,18 @@ describe("entry sources", () => {
     assert.match(readFileSync(join(appDir, "app/sources/[id].tsx"), "utf8"), /entryAttributions\(/)
   })
 
-  it("reads the entry id from a web or native route param", () => {
-    assert.equal(entryIdFromParam("100000042"), 100000042)
-    assert.equal(entryIdFromParam(["100000042"]), 100000042)
+  it("reads deterministic string entry ids (including URL-encoded spaces/punctuation) from route params", () => {
+    assert.equal(entryIdFromParam("jmdict:1579020"), "jmdict:1579020")
+    assert.equal(entryIdFromParam(["en:May"]), "en:May")
+    assert.equal(entryIdFromParam("en%3Arun%20into"), "en:run into")
+    assert.equal(entryIdFromParam("en:rock%20'n'%20roll"), "en:rock 'n' roll")
+    assert.equal(entryIdFromParam("kotori:abc-123"), "kotori:abc-123")
     assert.equal(entryIdFromParam(undefined), null)
     assert.equal(entryIdFromParam(""), null)
-    assert.equal(entryIdFromParam("0"), null)
-    assert.equal(entryIdFromParam("nope"), null)
-    assert.equal(entryIdFromParam(["1", "2"]), 1)
+    assert.equal(entryIdFromParam("12345"), null)
+    assert.equal(entryIdFromParam("en:"), null)
+    assert.equal(entryIdFromParam("nope:123"), null)
+    assert.equal(entryIdFromParam(["jmdict:1", "jmdict:2"]), "jmdict:1")
   })
 
   it("credits the dictionary the word comes from, and only the parts the entry has", () => {

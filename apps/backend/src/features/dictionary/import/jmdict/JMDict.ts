@@ -1,9 +1,10 @@
+import { type EntryId } from "@kotori/db"
 import { Effect, FileSystem, Path, Schema, Stream } from "effect"
 import { HttpClient } from "effect/http"
 import { gunzipSync } from "node:zlib"
 import { Database } from "../../../../db/Database.ts"
 import { resolveFromRoot } from "../../../../runtime/Paths.ts"
-import { insertEntries, linkLoans, saveTags } from "../../queries.ts"
+import { deleteEntries, externalEntryIds, insertEntries, linkLoans, saveTags } from "../../queries.ts"
 import type { ImportEntry } from "../seedFacts.ts"
 import { parseEntries, parseTags } from "./parse.ts"
 
@@ -66,6 +67,9 @@ export const importFile = Effect.fn("JMDict.importFile")(function* (options: Imp
   yield* saveTags(db, tags)
   yield* Effect.logInfo(`Loaded ${tags.length} JMDict tags`)
 
+  const complete = !options.commonOnly && options.limit === undefined
+  const existing = complete ? yield* externalEntryIds(db, "jmdict:") : []
+  const importedIds = new Set<EntryId>()
   const batchSize = options.batchSize ?? 500
   const limit = options.limit ?? Number.POSITIVE_INFINITY
   let batch: Array<ImportEntry> = []
@@ -74,6 +78,7 @@ export const importFile = Effect.fn("JMDict.importFile")(function* (options: Imp
   for (const entry of parseEntries(xml)) {
     if (imported >= limit) break
     if (options.commonOnly && !entry.common) continue
+    importedIds.add(entry.id)
     batch.push(entry)
     imported++
     if (batch.length >= batchSize) {
@@ -83,6 +88,8 @@ export const importFile = Effect.fn("JMDict.importFile")(function* (options: Imp
     }
   }
   yield* insertEntries(db, batch, { seeded: true })
+  const stale = complete ? existing.filter((id) => !importedIds.has(id)) : []
+  if (stale.length > 0) yield* deleteEntries(db, stale)
   yield* Effect.logInfo(`Imported ${imported} entries`)
   yield* linkLoans(db)
   return { entries: imported, tags: tags.length }

@@ -1,0 +1,249 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "352d8744-b0cf-4656-a420-7f37cad81bbd",
+  "prevIds": ["6f171f8a-b75c-4d94-82e4-d243473e917c"],
+  "footprints": [
+    {
+      "statementType": "drop_table",
+      "statementTarget": ["table", "public", "entry_audio"],
+      "writes": [
+        "s|tbl|public.entry_audio",
+        "n|tbl|public.entry_audio",
+        "e|tbl|public.entry_audio",
+        "n|rel|public.entry_audio",
+        "n|type|public.entry_audio"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "drop_table",
+      "statementTarget": ["table", "public", "example_audio"],
+      "writes": [
+        "s|tbl|public.example_audio",
+        "n|tbl|public.example_audio",
+        "e|tbl|public.example_audio",
+        "n|rel|public.example_audio",
+        "n|type|public.example_audio"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "drop_table",
+      "statementTarget": ["table", "public", "jobs"],
+      "writes": [
+        "s|tbl|public.jobs",
+        "n|tbl|public.jobs",
+        "e|tbl|public.jobs",
+        "n|rel|public.jobs",
+        "n|type|public.jobs"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": ["index", "public", "audio", "audio_language_text"],
+      "writes": [
+        "s|idx|public.audio_language_text",
+        "n|idx|public.audio_language_text",
+        "e|idx|public.audio_language_text",
+        "n|rel|public.audio_language_text"
+      ],
+      "reads": ["n|tbl|public.audio", "n|sch|public", "n|col|public.audio.language", "n|col|public.audio.text"]
+    },
+    {
+      "statementType": "drop_enum",
+      "statementTarget": ["enum", "public", "job_kind"],
+      "writes": [
+        "s|enum|public.job_kind",
+        "n|enum|public.job_kind",
+        "e|enum|public.job_kind",
+        "n|type|public.job_kind"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "drop_enum",
+      "statementTarget": ["enum", "public", "job_status"],
+      "writes": [
+        "s|enum|public.job_status",
+        "n|enum|public.job_status",
+        "e|enum|public.job_status",
+        "n|type|public.job_status"
+      ],
+      "reads": ["n|sch|public"]
+    },
+    {
+      "statementType": "drop_enum",
+      "statementTarget": ["enum", "public", "cast_by"],
+      "writes": ["s|enum|public.cast_by", "n|enum|public.cast_by", "e|enum|public.cast_by", "n|type|public.cast_by"],
+      "reads": ["n|sch|public"]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "audio",
+        "name": "audio_language_text",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "language",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "text",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "drop",
+      "key": "tables\u0000[\"public\",\"entry_audio\"]"
+    },
+    {
+      "op": "drop",
+      "key": "tables\u0000[\"public\",\"example_audio\"]"
+    },
+    {
+      "op": "drop",
+      "key": "tables\u0000[\"public\",\"jobs\"]"
+    },
+    {
+      "op": "drop",
+      "key": "enums\u0000[\"public\",\"job_kind\"]"
+    },
+    {
+      "op": "drop",
+      "key": "enums\u0000[\"public\",\"job_status\"]"
+    },
+    {
+      "op": "drop",
+      "key": "enums\u0000[\"public\",\"cast_by\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"entry_audio\",\"entry_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"entry_audio\",\"audio_key\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"example_audio\",\"example_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"example_audio\",\"language\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"example_audio\",\"audio_key\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"jobs\",\"id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"jobs\",\"kind\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"jobs\",\"entry_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"jobs\",\"priority\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"jobs\",\"status\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"jobs\",\"attempts\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"jobs\",\"error\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"jobs\",\"run_after\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"jobs\",\"created_at\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"jobs\",\"updated_at\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"example_audio\",\"cast_by\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"example_audio\",\"score\"]"
+    },
+    {
+      "op": "drop",
+      "key": "indexes\u0000[\"public\",\"jobs_pending\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"entry_audio\",\"entry_audio_entry_id_entries_id_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"entry_audio\",\"entry_audio_audio_key_audio_key_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"example_audio\",\"example_audio_example_id_examples_id_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"example_audio\",\"example_audio_audio_key_audio_key_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"jobs\",\"jobs_entry_id_entries_id_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "pks\u0000[\"public\",\"example_audio\",\"example_audio_pkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "pks\u0000[\"public\",\"entry_audio\",\"entry_audio_pkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "pks\u0000[\"public\",\"jobs\",\"jobs_pkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "uniques\u0000[\"public\",\"jobs\",\"jobs_kind_entry\"]"
+    }
+  ]
+}

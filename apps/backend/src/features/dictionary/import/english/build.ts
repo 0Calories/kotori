@@ -1,5 +1,5 @@
-import { EntryId, type FormRecord, type SenseRecord } from "@kotori/contracts"
-import { FIRST_ENGLISH_ID, type Source } from "@kotori/db"
+import { type FormRecord, type SenseRecord } from "@kotori/contracts"
+import { englishEntryId, type Source } from "@kotori/db"
 import { type EnglishInflection, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
 import type { ImportEntry } from "../seedFacts.ts"
 import type { FormOf, InflectedForm, References, Word } from "./words.ts"
@@ -281,14 +281,13 @@ const form = (
 })
 
 /**
- * Entry records for the merged words, most used first. Words already in the database keep
- * their ids, so saved words and enrichment survive a re-import; new words are numbered on.
- * `ratings` are 1–5 frequency ratings by lowercased headword for words whose source has none.
+ * Entry records for the merged words, most used first. Each word receives a deterministic
+ * case-preserving identifier (`en:<headword>`), keeping twins such as `en:may` vs `en:May`
+ * and `en:it` vs `en:IT` distinct across re-imports.
  */
 export const toEntries = (
   words: ReadonlyArray<Built>,
   subtitles: ReadonlyMap<string, number>,
-  existing: ReadonlyMap<string, number>,
   translations: ReadonlyMap<string, ReadonlyMap<string, number>> = new Map(),
   ratings: ReadonlyMap<string, number> = new Map()
 ): Array<ImportEntry & { readonly tier: Tier }> => {
@@ -298,9 +297,6 @@ export const toEntries = (
   const ranked = words
     .map((word) => ({ word, ...usage(word, subtitles, lowercase, translations, ratings) }))
     .sort((a, b) => b.count - a.count || (a.word.headword < b.word.headword ? -1 : 1))
-  let next = FIRST_ENGLISH_ID
-  for (const id of existing.values()) next = Math.max(next, id)
-  next++
   const sensesOf = placeReferences(words)
   let commonSoFar = 0
   return ranked.map(({ word, count, rawCount, score }) => {
@@ -309,7 +305,7 @@ export const toEntries = (
     const spellings = [...word.spellings].filter((spelling) => !word.inflections.has(spelling))
     const placedSenses = sensesOf(word)
     return {
-      id: EntryId.make(existing.get(word.headword) ?? next++),
+      id: englishEntryId(word.headword),
       language: "en" as const,
       tier: word.tier,
       source: word.source,

@@ -2,14 +2,13 @@
   "name": "@kotori/backend",
   "version": "0.1.0",
   "private": true,
-  "description": "Kotori's backend: the HTTP API, the enrichment worker and the kotori CLI, one deployable with three entry points",
+  "description": "Kotori's backend: the HTTP API and the kotori CLI, one deployable with two entry points",
   "bin": {
     "kotori": "./dist/entrypoints/cli.js"
   },
   "type": "module",
   "scripts": {
     "dev:http": "tsx watch --clear-screen=false -C @kotori/source src/entrypoints/http.ts",
-    "dev:worker": "tsx watch --clear-screen=false -C @kotori/source src/entrypoints/worker.ts",
     "cli": "tsx -C @kotori/source src/entrypoints/cli.ts",
     "test": "vitest run"
   },
@@ -40,10 +39,8 @@
         "executor": "nx:run-commands",
         "options": {
           "commands": [
-            "pnpm run dev:http",
-            "pnpm run dev:worker"
+            "pnpm run dev:http"
           ],
-          "parallel": true,
           "cwd": "{projectRoot}"
         }
       },

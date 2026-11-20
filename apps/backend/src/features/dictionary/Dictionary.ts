@@ -1,10 +1,8 @@
-import type { Enrichment, Entry, EntryId, EntrySummary, Language, RateLimited, SearchResult } from "@kotori/contracts"
-import type { UserId } from "@kotori/db"
+import type { Entry, EntryId, EntrySummary, Language, SearchResult } from "@kotori/contracts"
 import { Context, Effect, Layer, Option } from "effect"
 import { Database } from "../../db/Database.ts"
 import { assembleEntry } from "./entries.ts"
-import { makeEnrichmentStatus } from "./enrichmentStatus.ts"
-import { entryLanguage, getEntries } from "./queries.ts"
+import { getEntryDocuments } from "./queries.ts"
 import { makeSearch } from "./search.ts"
 
 export { audioUrl } from "./shared.ts"
@@ -14,15 +12,8 @@ export class Dictionary extends Context.Service<
   {
     /** Searches the dictionary of `language`: Japanese words for Japanese learners, English ones for English learners. */
     search(query: string, language: Language, limit: number): Effect.Effect<SearchResult>
-    /** An entry as the app shows it, with its enrichment status. Reads only; never queues work. */
+    /** An entry as the app shows it, assembled from Source facts and any manually added enrichment. */
     entry(id: EntryId): Effect.Effect<Option.Option<Entry>>
-    /** Whether an entry's example sentences and audio are ready yet. Reads only; never queues work. */
-    enrichment(id: EntryId): Effect.Effect<Option.Option<Enrichment>>
-    /**
-     * Queues whatever enrichment an entry is missing, returning its status. Queuing its example
-     * sentences takes one of the requester's allowance; fails, queuing nothing, once it's used up.
-     */
-    requestEnrichment(id: EntryId, requester: UserId): Effect.Effect<Option.Option<Enrichment>, RateLimited>
     /** Search-result summaries for known entries, for Ask Kotori's links. */
     summarize(ids: ReadonlyArray<EntryId>): Effect.Effect<ReadonlyArray<EntrySummary>>
     /** Entry ids for words in `language`, for linking coach vocabulary to the dictionary. */
@@ -36,27 +27,20 @@ export class Dictionary extends Context.Service<
     Dictionary,
     Effect.gen(function* () {
       const db = yield* Database
-      const { enrichmentOf, requestFor } = yield* makeEnrichmentStatus
       const { search, summarize, lookupWords } = makeSearch(db)
 
       const entry = Effect.fn("Dictionary.entry")(function* (id: EntryId) {
-        const [record] = yield* getEntries(db, [id])
-        return record === undefined
-          ? Option.none()
-          : Option.some(yield* assembleEntry(db, record, enrichmentOf(record)))
+        let currentId = id
+        for (let hop = 0; hop < 5; hop++) {
+          const [doc] = yield* getEntryDocuments(db, [currentId])
+          if (doc === undefined) return Option.none()
+          if (doc.redirectTo === null) return Option.some(yield* assembleEntry(db, doc))
+          currentId = doc.redirectTo
+        }
+        return Option.none()
       })
 
-      const enrichment = Effect.fn("Dictionary.enrichment")(function* (id: EntryId) {
-        const found = yield* entryLanguage(db, id)
-        return found === undefined ? Option.none() : Option.some(yield* enrichmentOf(found))
-      })
-
-      const requestEnrichment = Effect.fn("Dictionary.requestEnrichment")(function* (id: EntryId, requester: UserId) {
-        const found = yield* entryLanguage(db, id)
-        return found === undefined ? Option.none() : Option.some(yield* requestFor(found, requester))
-      })
-
-      return Dictionary.of({ search, entry, enrichment, requestEnrichment, summarize, lookupWords })
+      return Dictionary.of({ search, entry, summarize, lookupWords })
     })
   )
 }

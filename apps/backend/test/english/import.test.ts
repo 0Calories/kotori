@@ -1,16 +1,16 @@
 import { afterAll, assert, layer } from "@effect/vitest"
-import { cautions, labels, usagePatterns } from "@kotori/db"
-import { eq } from "drizzle-orm"
-import { Effect } from "effect"
+import { EntryId, type EntryRecord } from "@kotori/contracts"
+import { Effect, Layer, Option } from "effect"
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Database } from "../../src/db/Database.ts"
+import { discardEntry, mergeEntry } from "../../src/features/asks/review.ts"
+import { Dictionary } from "../../src/features/dictionary/Dictionary.ts"
 import * as EnglishDictionary from "../../src/features/dictionary/import/english/EnglishDictionary.ts"
-import { findForms, getEntries, headwordIds, tagNames } from "../../src/features/dictionary/queries.ts"
+import { insertEntries } from "../../src/features/dictionary/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 
-// The importer streams its sources from disk, so the fixtures are real files.
 const directory = mkdtempSync(join(tmpdir(), "english-"))
 afterAll(() => rmSync(directory, { recursive: true, force: true }))
 const file = (name: string, lines: ReadonlyArray<string>) => {
@@ -25,6 +25,8 @@ const line = (word: string, pos: string, glosses: Array<string>, extra: object =
 const wiktionary = (withWalk: boolean) => [
   line("eat", "verb", ["～を食べる。"], { forms: [{ form: "eats", tags: ["third-person", "singular", "present"] }] }),
   line("ate", "verb", ["eatの過去形"]),
+  line("May", "noun", ["5月"]),
+  line("may", "verb", ["～かもしれない"]),
   ...(withWalk ? [line("walk", "verb", ["歩く。"])] : []),
   JSON.stringify({ word: "eat", lang_code: "de", pos: "verb", senses: [{ glosses: ["食べる。"] }] })
 ]
@@ -62,105 +64,111 @@ const files = (withWalk: boolean) => ({
     JSON.stringify({ phrases: ["on thin ice"], redirects: { "skate on thin ice": "on thin ice" } })
   ]),
   wiktionary: file(`wiktionary-${withWalk}.jsonl`, wiktionary(withWalk)),
-  subtitles: file("en_50k.txt", ["eat 5000", "ate 3000", "walk 2000", "selfie 900"])
+  subtitles: file("en_50k.txt", ["eat 5000", "ate 3000", "walk 2000", "may 4000", "selfie 900"])
 })
 const jmdictFile = file("JMdict.xml", [jmdict])
 
-const TestLayer = DatabaseMemory
+const TestLayer = Dictionary.layer.pipe(Layer.provideMerge(DatabaseMemory))
+
+const kotoriEnglish: EntryRecord = {
+  id: EntryId.make("kotori:delulu"),
+  language: "en",
+  source: "kotori",
+  headword: "delulu",
+  reading: "",
+  common: false,
+  priority: 10,
+  forms: [
+    { kind: "spelling", text: "delulu", common: false, tags: [], priorities: [], restrictions: [], noKanji: false }
+  ],
+  senses: [
+    {
+      glosses: [{ text: "妄想的な", type: null }],
+      pos: ["adj"],
+      misc: ["sl"],
+      fields: [],
+      dialects: [],
+      info: [],
+      stagk: [],
+      stagr: [],
+      xrefs: [],
+      antonyms: [],
+      origins: [],
+      wasei: false
+    }
+  ]
+}
 
 layer(TestLayer)("EnglishDictionary.importFiles", (it) => {
-  it.effect("loads each word from the first source that has it, next to JMDict's", () =>
+  it.effect("assigns deterministic case-preserving en:<headword> IDs and keeps twins distinct", () =>
     Effect.gen(function* () {
+      const dictionary = yield* Dictionary
       const result = yield* EnglishDictionary.importFiles({ files: files(true), jmdict: jmdictFile })
-      assert.deepStrictEqual(result, { removed: 0, entries: 5, curated: 2, wiktionary: 2, jmdict: 1 })
+      assert.deepStrictEqual(result, { removed: 0, entries: 7, curated: 2, wiktionary: 4, jmdict: 1 })
 
-      const db = yield* Database
-      const ids = yield* headwordIds(db, "en")
-      assert.sameMembers([...ids.keys()], ["twerk", "on thin ice", "eat", "walk", "selfie"])
-      // "ate" is eat's past, found through it.
-      const [ate] = yield* findForms(db, ["ate"], "en")
-      assert.deepStrictEqual([ate?.entryId, ate?.kind, ate?.tags], [ids.get("eat"), "inflection", ["past"]])
-      const [walkOnThinIce] = yield* findForms(db, ["walk on thin ice"], "en")
-      assert.strictEqual(walkOnThinIce?.entryId, ids.get("on thin ice"))
-      const [selfie] = yield* getEntries(db, [ids.get("selfie")!])
-      assert.deepStrictEqual(
-        selfie?.senses.map((sense) => sense.glosses[0]?.text),
-        ["自撮り"]
+      const eat = Option.getOrThrow(yield* dictionary.entry(EntryId.make("en:eat")))
+      assert.strictEqual(eat.headword, "eat")
+      const onThinIce = Option.getOrThrow(yield* dictionary.entry(EntryId.make("en:on thin ice")))
+      assert.strictEqual(onThinIce.headword, "on thin ice")
+
+      // Case-preserving twins have distinct IDs and both are discoverable from lowercase search.
+      const lowerMay = Option.getOrThrow(yield* dictionary.entry(EntryId.make("en:may")))
+      const upperMay = Option.getOrThrow(yield* dictionary.entry(EntryId.make("en:May")))
+      assert.strictEqual(lowerMay.senses[0]?.glosses[0], "～かもしれない")
+      assert.strictEqual(upperMay.senses[0]?.glosses[0], "5月")
+      const maySearch = yield* dictionary.search("may", "en", 10)
+      assert.includeMembers(
+        maySearch.entries.map((e) => e.id),
+        [EntryId.make("en:may"), EntryId.make("en:May")]
       )
-      assert.strictEqual((yield* tagNames(db)).get("en-GB"), "British English")
+
+      // Inflections ("ate") resolve to "en:eat".
+      const ateSearch = yield* dictionary.search("ate", "en", 10)
+      assert.strictEqual(ateSearch.entries[0]?.id, EntryId.make("en:eat"))
+      assert.deepStrictEqual(ateSearch.entries[0]?.inflection, ["past"])
     })
   )
 
-  it.effect("imports approved Ask Kotori entries and aliases alongside the sources", () =>
-    Effect.gen(function* () {
-      const approved = file("approved.jsonl", [
-        JSON.stringify({
-          entry: {
-            headword: "rizzler",
-            ipa: "/ˈɹɪzlɚ/",
-            frequency: 4,
-            senses: [{ pos: ["n"], misc: ["sl"], glosses: ["モテる人"], info: ["主に若者が使う。"] }]
-          },
-          cautions: [{ kind: "variety", text: "主にアメリカ英語です。", sense: null, about: null }]
-        }),
-        JSON.stringify({ alias: { text: "walking on thin ice", base: "on thin ice" } })
-      ])
-      const result = yield* EnglishDictionary.importFiles({ files: { ...files(true), approved }, jmdict: jmdictFile })
-      assert.strictEqual(result.curated, 3)
-
-      const db = yield* Database
-      const ids = yield* headwordIds(db, "en")
-      const [rizzler] = yield* findForms(db, ["rizzler"], "en")
-      assert.strictEqual(rizzler?.entryId, ids.get("rizzler"))
-      // Approved words are Kotori's: their labels, usage patterns and cautions come back with them.
-      const rizzlerId = ids.get("rizzler")!
-      const [entry] = yield* getEntries(db, [rizzlerId])
-      assert.strictEqual(entry?.source, "kotori")
-      assert.deepStrictEqual(
-        (yield* db.select().from(labels).where(eq(labels.entryId, rizzlerId))).map((row) => [row.code, row.source]),
-        [["sl", "kotori"]]
-      )
-      assert.deepStrictEqual(
-        (yield* db.select().from(usagePatterns).where(eq(usagePatterns.entryId, rizzlerId))).map((row) => [
-          row.text,
-          row.source
-        ]),
-        [["主に若者が使う。", "kotori"]]
-      )
-      const cautionsOf = Effect.map(db.select().from(cautions).where(eq(cautions.entryId, rizzlerId)), (rows) =>
-        rows.map((row) => [row.rank, row.kind, row.source])
-      )
-      assert.deepStrictEqual(yield* cautionsOf, [[1, "variety", "kotori"]])
-      // A re-import replaces them rather than adding a second copy.
-      yield* EnglishDictionary.importFiles({ files: { ...files(true), approved }, jmdict: jmdictFile })
-      assert.deepStrictEqual(yield* cautionsOf, [[1, "variety", "kotori"]])
-
-      const [walking] = yield* findForms(db, ["walking on thin ice"], "en")
-      assert.strictEqual(walking?.entryId, ids.get("on thin ice"))
-
-      // Without the approved file, its words go the way of any removed source word.
-      const without = yield* EnglishDictionary.importFiles({ files: files(true), jmdict: jmdictFile })
-      assert.strictEqual(without.removed, 1)
-    })
-  )
-
-  it.effect("keeps ids on a re-import and removes words the sources no longer have", () =>
+  it.effect("replaces only external en: rows on complete re-import while leaving all kotori: states untouched", () =>
     Effect.gen(function* () {
       const db = yield* Database
-      const before = yield* headwordIds(db, "en")
+      const dictionary = yield* Dictionary
+      const kotoriUnreviewed = EntryId.make("kotori:unreviewed-en")
+      const kotoriDiscarded = EntryId.make("kotori:discarded-en")
+      const kotoriMerged = EntryId.make("kotori:merged-en")
+
+      yield* insertEntries(db, [kotoriEnglish])
+      yield* insertEntries(
+        db,
+        [
+          { ...kotoriEnglish, id: kotoriUnreviewed, headword: "rizz" },
+          { ...kotoriEnglish, id: kotoriDiscarded, headword: "bogus" },
+          { ...kotoriEnglish, id: kotoriMerged, headword: "eat-dup" }
+        ],
+        { reviewState: "unreviewed" }
+      )
+      yield* discardEntry(db, kotoriDiscarded, "rejected")
+      yield* mergeEntry(db, kotoriMerged, EntryId.make("en:eat"))
 
       // A partial import never removes anything.
       assert.strictEqual(
         (yield* EnglishDictionary.importFiles({ files: files(false), jmdict: jmdictFile, limit: 1 })).removed,
         0
       )
-      assert.strictEqual((yield* headwordIds(db, "en")).size, 5)
+      assert.isTrue(Option.isSome(yield* dictionary.entry(EntryId.make("en:walk"))))
 
+      // Complete re-import removes stale external "en:walk" but keeps all kotori: states untouched.
       const result = yield* EnglishDictionary.importFiles({ files: files(false), jmdict: jmdictFile })
       assert.strictEqual(result.removed, 1)
-      const after = yield* headwordIds(db, "en")
-      assert.isFalse(after.has("walk"))
-      for (const [headword, id] of after) assert.strictEqual(id, before.get(headword))
+      assert.isTrue(Option.isNone(yield* dictionary.entry(EntryId.make("en:walk"))))
+      assert.isTrue(Option.isSome(yield* dictionary.entry(EntryId.make("en:eat"))))
+      assert.strictEqual(
+        Option.getOrThrow(yield* dictionary.entry(EntryId.make("kotori:delulu"))).reviewState,
+        "approved"
+      )
+      assert.strictEqual(Option.getOrThrow(yield* dictionary.entry(kotoriUnreviewed)).reviewState, "unreviewed")
+      assert.strictEqual(Option.getOrThrow(yield* dictionary.entry(kotoriDiscarded)).reviewState, "discarded")
+      assert.strictEqual(Option.getOrThrow(yield* dictionary.entry(kotoriMerged)).id, EntryId.make("en:eat"))
     })
   )
 })

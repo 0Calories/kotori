@@ -48,6 +48,13 @@ export const emptyIfNull = <T = string>(values: ReadonlyArray<T> | null): Readon
 export const englishDocument = (column: AnyPgColumn) =>
   sql`(coalesce(nullif(to_tsvector('english', ${column}), ''::tsvector), to_tsvector('simple', ${column})))`
 
+/**
+ * Stopword-preserving full-text document for English forms (`to_tsvector('simple', column)`),
+ * keeping phrasal-verb particles ("into", "up", "off", "on", "out", "with") intact so searching
+ * "run into", "put up with", or "call off" never collapses to the bare verb.
+ */
+export const simpleDocument = (column: AnyPgColumn) => sql`(to_tsvector('simple', ${column}))`
+
 export const language = pgEnum("language", ["en", "ja"])
 
 /** How far along a note is in being learned. */

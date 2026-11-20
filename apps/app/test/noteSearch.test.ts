@@ -25,7 +25,7 @@ const word = (
 ): Note =>
   note(id, {
     kind: "word",
-    entryId: 1 as EntryId,
+    entryId: "jmdict:1" as EntryId,
     senseIndex: 0,
     ...(language === undefined ? {} : { language }),
     headword,

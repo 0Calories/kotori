@@ -4,6 +4,7 @@ import {
   type EntrySummary,
   type Label,
   type Language,
+  type ReviewState,
   type SearchMatch,
   type SearchResult
 } from "@kotori/contracts"
@@ -24,17 +25,19 @@ import {
   toFullwidth,
   uninflect
 } from "@kotori/language"
-import { Effect } from "effect"
+import { Effect, Match } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
-import { entryClips } from "../audio/index.ts"
+import { formClips } from "../audio/index.ts"
 import type { FormMatch, GlossMatch } from "./queries.ts"
 import {
+  documentToRecord,
   entryRanks,
   findFormPrefix,
   findForms,
   findGlossesExact,
   findJapaneseGlosses,
   getEntries,
+  getEntryDocuments,
   searchForms,
   searchFormsFuzzy,
   searchGlosses,
@@ -91,6 +94,19 @@ const TAG_PENALTY: Record<string, number> = {
 }
 
 const tagPenalty = (misc: ReadonlyArray<string>) => misc.reduce((sum, tag) => sum + (TAG_PENALTY[tag] ?? 0), 0)
+
+/** English phrasal-verb particles and prepositions that Postgres's `english` stemmer drops as stop words. */
+const PHRASAL_PARTICLES = new Set(
+  "about above across after against along among around at away back before behind below beneath beside between beyond by down during except for from in inside into near of off on onto out outside over past round since through throughout to toward towards under underneath until unto up upon with within without".split(
+    " "
+  )
+)
+
+const missingParticleCount = (requiredParticles: ReadonlyArray<string>, text: string) => {
+  if (requiredParticles.length === 0) return 0
+  const words = new Set(normalizeEnglishPhrase(text).split(" "))
+  return requiredParticles.filter((particle) => !words.has(particle)).length
+}
 
 /**
  * The searches an English query falls back on when the searches for all its words found fewer than
@@ -243,8 +259,13 @@ export const makeSearch = (db: DatabaseShape) => {
    */
   const englishGlossHits = Effect.fnUntraced(function* (query: string) {
     const terms = englishSearchTerms(query)
+    const strictQueries = unique(
+      [terms, ...uninflect(query).map((guess) => englishSearchTerms(guess.base))].filter(
+        (term): term is string => term !== null
+      )
+    )
     const exact = yield* findGlossesExact(db, query, 300)
-    const strict = terms === null ? [] : yield* searchGlosses(db, [terms], 600)
+    const strict = strictQueries.length === 0 ? [] : yield* searchGlosses(db, strictQueries, 600)
     const { relaxed, fuzzy } = yield* englishFallback(
       query,
       unique([...exact, ...strict].map((m) => m.entryId)).length,
@@ -271,7 +292,15 @@ export const makeSearch = (db: DatabaseShape) => {
         strong
       }
     }
-    const direct = [...exact.map((m) => score(m, true, true)), ...strict.map((m) => score(m, false, true))]
+    const queryTokens = terms === null ? [] : terms.split(" ")
+    const requiredParticles = queryTokens.length >= 2 ? queryTokens.filter((token) => PHRASAL_PARTICLES.has(token)) : []
+    const direct = [
+      ...exact.map((m) => score(m, true, true)),
+      ...strict.map((m) => {
+        const missing = missingParticleCount(requiredParticles, m.text)
+        return score(m, false, missing === 0, missing * 60)
+      })
+    ]
     return {
       hits: keepBest([
         ...direct,
@@ -412,22 +441,26 @@ export const makeSearch = (db: DatabaseShape) => {
    */
   const englishWordHits = Effect.fnUntraced(function* (query: string) {
     const guesses = uninflect(query)
+    const guessTags = new Map<string, ReadonlyArray<string>>()
+    for (const guess of guesses) {
+      for (const variant of unique([guess.base, ...englishPhraseVariants(guess.base)])) {
+        if (!guessTags.has(variant)) guessTags.set(variant, guess.tags)
+      }
+    }
+    const guessForms = [...guessTags.keys()]
     const variants = unique([query, ...englishPhraseVariants(query)])
     const [matches, guessed] = yield* Effect.all([
       findForms(db, variants, "en"),
-      guesses.length === 0
-        ? Effect.succeed([])
-        : findForms(
-            db,
-            guesses.map((guess) => guess.base),
-            "en"
-          )
+      guessForms.length === 0 ? Effect.succeed([]) : findForms(db, guessForms, "en")
     ])
     const prefixIds = yield* findFormPrefix(db, query, 40, "en")
     const terms = englishSearchTerms(query)
+    const strictQueries = unique(
+      [terms, ...guesses.map((guess) => englishSearchTerms(guess.base))].filter((term): term is string => term !== null)
+    )
     const isPhrase = /\s/.test(query)
     const hasDirect = matches.length > 0 || guessed.length > 0 || prefixIds.length > 0
-    const strict = terms !== null && (isPhrase || !hasDirect) ? yield* searchForms(db, [terms], 60) : []
+    const strict = strictQueries.length > 0 && (isPhrase || !hasDirect) ? yield* searchForms(db, strictQueries, 60) : []
     const found = unique([...matches, ...guessed, ...strict].map((m) => m.entryId).concat(prefixIds))
     const { relaxed, fuzzy } = yield* englishFallback(query, found.length, {
       relaxed: (relaxedTerms) => searchForms(db, relaxedTerms, 40),
@@ -458,11 +491,11 @@ export const makeSearch = (db: DatabaseShape) => {
       // "started" is start's past, not START's.
       .filter((match) => match.kind === "spelling" && !isAcronym(match.text))
       .map((match): Hit => {
-        const guess = guesses.find((candidate) => candidate.base === match.text.toLowerCase())
+        const tags = guessTags.get(match.text.toLowerCase()) ?? []
         return {
           entryId: match.entryId,
           score: formScore(750, false, ranks.get(match.entryId)),
-          inflection: guessedInflection(guess?.tags ?? [], guessedEntries.get(match.entryId)),
+          inflection: guessedInflection(tags, guessedEntries.get(match.entryId)),
           strong: true
         }
       })
@@ -583,19 +616,49 @@ export const makeSearch = (db: DatabaseShape) => {
     }
   })
 
+  const reviewTier = (state: ReviewState): number =>
+    Match.value(state).pipe(
+      Match.when("approved", () => 0),
+      Match.when("unreviewed", () => 1),
+      Match.when("discarded", () => 2),
+      Match.exhaustive
+    )
+
+  const isVisibleInSearch = (state: ReviewState): boolean =>
+    Match.value(state).pipe(
+      Match.when("approved", () => true),
+      Match.when("unreviewed", () => true),
+      Match.when("discarded", () => false),
+      Match.exhaustive
+    )
+
   const summaries = Effect.fnUntraced(function* (hits: ReadonlyArray<Hit>) {
     const ids = hits.map((hit) => hit.entryId)
-    const entries = new Map((yield* getEntries(db, ids)).map((entry) => [entry.id, entry]))
-    const labels = yield* labelsBySense(db, ids)
-    const clips = yield* entryClips(db, ids)
+    const docs = yield* getEntryDocuments(db, ids)
+    const redirectIds = unique(docs.flatMap((doc) => (doc.redirectTo === null ? [] : [doc.redirectTo])))
+    const redirected = new Map((yield* getEntryDocuments(db, redirectIds)).map((doc) => [doc.id, doc]))
+    const resolvedById = new Map(
+      docs.map((doc) => [doc.id, doc.redirectTo === null ? doc : (redirected.get(doc.redirectTo) ?? doc)])
+    )
+    const resolvedDocs = unique([...resolvedById.values()])
+    const resolvedRecords = resolvedDocs.map(documentToRecord)
+    const recordsById = new Map(resolvedRecords.map((record) => [record.id, record]))
+    const labels = yield* labelsBySense(
+      db,
+      resolvedDocs.map((doc) => doc.id)
+    )
+    const clips = yield* formClips(db, resolvedRecords)
     return hits.flatMap((hit): Array<EntrySummary> => {
-      const entry = entries.get(hit.entryId)
+      const doc = resolvedById.get(hit.entryId)
+      if (doc === undefined) return []
+      const entry = recordsById.get(doc.id)
       if (entry === undefined) return []
-      const firstClip = clips.get(hit.entryId)?.[0]
+      const firstClip = clips.get(doc.id)?.[0]
       return [
         {
           id: EntryId.make(entry.id),
           language: entry.language,
+          reviewState: doc.reviewState,
           headword: entry.headword,
           reading: entry.reading,
           romaji: entry.language === "ja" ? romanize(entry.reading) : "",
@@ -615,7 +678,20 @@ export const makeSearch = (db: DatabaseShape) => {
     if (query.length === 0)
       return { query, mode: "english" as const, reading: null, match: "none" as const, entries: [] }
     const { mode, reading, hits } = language === "ja" ? yield* searchJapanese(query) : yield* searchEnglish(query)
-    const shown = hits.slice(0, limit)
+    const ranks = yield* entryRanks(
+      db,
+      hits.map((hit) => hit.entryId)
+    )
+    const ordered = hits
+      .filter((hit) => isVisibleInSearch(ranks.get(hit.entryId)?.reviewState ?? "approved"))
+      .toSorted((a, b) => {
+        if (a.strong !== b.strong) return a.strong ? -1 : 1
+        const tierDiff =
+          reviewTier(ranks.get(a.entryId)?.reviewState ?? "approved") -
+          reviewTier(ranks.get(b.entryId)?.reviewState ?? "approved")
+        return tierDiff !== 0 ? tierDiff : b.score - a.score
+      })
+    const shown = ordered.slice(0, limit)
     return { query, mode, reading, match: matchOf(shown), entries: yield* summaries(shown) }
   })
 

@@ -35,14 +35,6 @@ export interface ImportEntry extends Omit<EntryRecord, "senses"> {
   readonly frequency?: SeedFrequency | null | undefined
 }
 
-/** The sources whose facts a seed import rebuilds; Kotori's and learners' are layered on top. */
-export const SEED_SOURCES = [
-  "jmdict",
-  "jawiktionary",
-  "enwiktionary",
-  "tatoeba"
-] as const satisfies ReadonlyArray<Source>
-
 /**
  * A sense's usage labels, in the label vocabulary: its `misc` codes and dialects that are labels,
  * and `wasei` for JMDict's wasei-eigo mark. Codes outside the vocabulary are left out.

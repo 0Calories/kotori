@@ -1,19 +1,24 @@
-import type { Language, Source } from "@kotori/contracts"
+import { type EntryId, isEntryId, type Language, type Source } from "@kotori/contracts"
 import type { Strings } from "../i18n/strings.ts"
 
 /**
  * Where an entry's Sources control goes. One target on web and native:
- * `/sources/123` is the URL and the stack screen, and `id` is the entry, so
+ * `/sources/<id>` is the URL and the stack screen, and `id` is the entry, so
  * the screen can name that word's dictionary and whatever was added to it.
  */
-export const entrySourcesHref = (id: number) => ({ pathname: "/sources/[id]", params: { id: String(id) } }) as const
+export const entrySourcesHref = (id: EntryId) => ({ pathname: "/sources/[id]", params: { id } }) as const
 
-/** `useLocalSearchParams` may hand back a string or a one-element list. */
-export const entryIdFromParam = (id: string | readonly string[] | undefined): number | null => {
+/** `useLocalSearchParams` may hand back a string or a one-element list, possibly percent-encoded. */
+export const entryIdFromParam = (id: string | readonly string[] | undefined): EntryId | null => {
   const raw = Array.isArray(id) ? id[0] : id
-  if (raw === undefined || !/^[1-9][0-9]*$/.test(raw)) return null
-  const parsed = Number(raw)
-  return Number.isSafeInteger(parsed) ? parsed : null
+  if (raw === undefined || raw.length === 0) return null
+  let decoded = raw
+  try {
+    decoded = decodeURIComponent(raw)
+  } catch {
+    return null
+  }
+  return isEntryId(decoded) ? decoded : null
 }
 
 /** The parts of an entry the sources screen can credit. Narrower than `Entry`, which satisfies it. */

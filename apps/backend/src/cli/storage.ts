@@ -3,7 +3,6 @@ import { Config, Console, Effect, Layer } from "effect"
 import { Command, Flag } from "effect/cli"
 import { compactTables } from "../db/compact.ts"
 import { Database } from "../db/Database.ts"
-import { nullEmptyLists } from "../db/lists.ts"
 import { moveClipsToBucket } from "../features/audio/move.ts"
 import { Bucket } from "../integrations/storage/Bucket.ts"
 
@@ -12,35 +11,6 @@ const MB = 1024 * 1024
 /** A clean exit code would let a script carry on as if the step had finished. */
 const failExitCode = Effect.sync(() => void (process.exitCode = 1))
 const mb = (bytes: number) => `${(bytes / MB).toFixed(1)} MB`
-
-const lists = Command.make(
-  "lists",
-  {
-    batch: Flag.Int("batch").pipe(Flag.withDescription("Entries per UPDATE"), Flag.withDefault(2000)),
-    vacuumEvery: Flag.Int("vacuum-every").pipe(
-      Flag.withDescription("Batches between vacuums; fewer means less growth and more vacuuming"),
-      Flag.withDefault(10)
-    )
-  },
-  Effect.fn(function* ({ batch, vacuumEvery }) {
-    const db = yield* Database
-    const rewritten = yield* nullEmptyLists(db, {
-      batch,
-      vacuumEvery,
-      onProgress: ({ table, entries, rows }) =>
-        Console.log(`${table}: ${entries.toLocaleString()} entries done, ${rows.toLocaleString()} rows rewritten`)
-    })
-    yield* Console.log(
-      `Done: ${Object.entries(rewritten)
-        .map(([table, rows]) => `${rows.toLocaleString()} ${table} rows`)
-        .join(", ")} now store NULL for their empty lists. \`kotori storage compact\` returns the space.`
-    )
-  })
-).pipe(
-  Command.withDescription(
-    "Rewrite the empty lists that senses and forms rows imported before still store as '{}' as NULL, in vacuumed batches"
-  )
-)
 
 /** The bucket `KOTORI_AUDIO_BUCKET` names, which `kotori storage audio` requires. */
 const ConfiguredBucket = Layer.unwrap(Effect.map(Config.String("KOTORI_AUDIO_BUCKET"), Bucket.layer)).pipe(
@@ -126,6 +96,6 @@ const compact = Command.make(
 )
 
 export const storage = Command.make("storage").pipe(
-  Command.withDescription("Keep the database small: leaner rows, clips in the bucket, compacted tables"),
-  Command.withSubcommands([lists, audio, compact])
+  Command.withDescription("Keep the database small: clips in the bucket and compacted tables"),
+  Command.withSubcommands([audio, compact])
 )

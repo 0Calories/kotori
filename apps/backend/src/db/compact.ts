@@ -1,11 +1,11 @@
-import { entries, forms, glosses, senses } from "@kotori/db"
+import { entries, entrySearch } from "@kotori/db"
 import { getTableName, sql } from "drizzle-orm"
 import type { PgTable } from "drizzle-orm/pg-core"
 import { Effect } from "effect"
 import { type DatabaseShape, rawRows } from "./Database.ts"
 
-/** The tables re-imports bloat: they replace forms and glosses wholesale and upsert entries and senses. */
-export const DICTIONARY_TABLES: ReadonlyArray<PgTable> = [entries, senses, glosses, forms]
+/** The tables re-imports bloat: entries and their derived search projection. */
+export const DICTIONARY_TABLES: ReadonlyArray<PgTable> = [entries, entrySearch]
 
 /** This database's size and a table's with its indexes and TOAST, in bytes. */
 const sizes = (db: DatabaseShape, table: PgTable) =>

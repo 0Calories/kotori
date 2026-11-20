@@ -99,7 +99,7 @@ const startFrom = Effect.fnUntraced(function* <L>(
     }
     if (same) for (const line of existing.lines) lines.set((keyOf[pass] as (line: L) => string | number)(line), line)
   }
-  return { file, lines, judged: new Set([...lines.keys()].map(Number)) }
+  return { file, lines, judged: new Set([...lines.keys()].map(String)) }
 })
 
 /** Runs `batches` with a writer that rewrites the file after each, one writer at a time. */

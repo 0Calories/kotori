@@ -191,26 +191,6 @@ export const fromConsolidatedWord = (consolidated: ConsolidatedWord): Word => ({
   }))
 })
 
-export const toConsolidatedWord = (word: Word): ConsolidatedWord => ({
-  headword: word.headword,
-  ipa: word.ipa,
-  ...(word.frequency === undefined ? {} : { frequency: word.frequency }),
-  ...(word.spellings.length > 0 ? { spellings: [...word.spellings] } : {}),
-  ...(word.inflections.length > 0
-    ? { inflections: word.inflections.map((f) => ({ text: f.text, tags: [...f.tags] })) }
-    : {}),
-  senses: word.senses.map((sense) => ({
-    pos: [...sense.pos],
-    ...(sense.misc.length > 0 ? { misc: [...sense.misc] } : {}),
-    ...(sense.fields.length > 0 ? { fields: [...sense.fields] } : {}),
-    ...(sense.dialects.length > 0 ? { dialects: [...sense.dialects] } : {}),
-    glosses: sense.glosses.map((gloss) => gloss.text),
-    ...(sense.info.length > 0 ? { info: [...sense.info] } : {}),
-    ...(sense.xrefs.length > 0 ? { synonyms: [...sense.xrefs] } : {}),
-    ...(sense.antonyms.length > 0 ? { antonyms: [...sense.antonyms] } : {})
-  }))
-})
-
 export const parseConsolidatedLine = (line: string): Word | null => {
   const trimmed = line.trim()
   if (trimmed.length === 0) return null

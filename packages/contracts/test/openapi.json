@@ -554,9 +554,7 @@
                         "type": "object",
                         "properties": {
                           "id": {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991
+                            "type": "string"
                           },
                           "language": {
                             "type": "string",
@@ -565,14 +563,22 @@
                               "ja"
                             ]
                           },
+                          "reviewState": {
+                            "type": "string",
+                            "enum": [
+                              "approved",
+                              "unreviewed",
+                              "discarded"
+                            ]
+                          },
+                          "common": {
+                            "type": "boolean"
+                          },
                           "headword": {
                             "type": "string"
                           },
                           "reading": {
                             "type": "string"
-                          },
-                          "common": {
-                            "type": "boolean"
                           },
                           "romaji": {
                             "type": "string"
@@ -707,9 +713,10 @@
                         "required": [
                           "id",
                           "language",
+                          "reviewState",
+                          "common",
                           "headword",
                           "reading",
-                          "common",
                           "romaji",
                           "meanings",
                           "partOfSpeech",
@@ -777,8 +784,7 @@
             "name": "id",
             "in": "path",
             "schema": {
-              "type": "string",
-              "pattern": "^[+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:[Ee][+-]?\\d+)?$"
+              "type": "string"
             },
             "required": true
           }
@@ -793,9 +799,7 @@
                   "type": "object",
                   "properties": {
                     "id": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
+                      "type": "string"
                     },
                     "language": {
                       "type": "string",
@@ -815,14 +819,22 @@
                         "user"
                       ]
                     },
+                    "reviewState": {
+                      "type": "string",
+                      "enum": [
+                        "approved",
+                        "unreviewed",
+                        "discarded"
+                      ]
+                    },
+                    "common": {
+                      "type": "boolean"
+                    },
                     "headword": {
                       "type": "string"
                     },
                     "reading": {
                       "type": "string"
-                    },
-                    "common": {
-                      "type": "boolean"
                     },
                     "romaji": {
                       "type": "string"
@@ -936,8 +948,8 @@
                               "anyOf": [
                                 {
                                   "type": "integer",
-                                  "minimum": -2147483648,
-                                  "maximum": 2147483647
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
                                 },
                                 {
                                   "type": "null"
@@ -948,8 +960,8 @@
                               "anyOf": [
                                 {
                                   "type": "integer",
-                                  "minimum": -32768,
-                                  "maximum": 32767
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
                                 },
                                 {
                                   "type": "null"
@@ -980,9 +992,7 @@
                             "katakanaEntryId": {
                               "anyOf": [
                                 {
-                                  "type": "integer",
-                                  "minimum": -9007199254740991,
-                                  "maximum": 9007199254740991
+                                  "type": "string"
                                 },
                                 {
                                   "type": "null"
@@ -995,9 +1005,7 @@
                             "englishEntryId": {
                               "anyOf": [
                                 {
-                                  "type": "integer",
-                                  "minimum": -9007199254740991,
-                                  "maximum": 9007199254740991
+                                  "type": "string"
                                 },
                                 {
                                   "type": "null"
@@ -1112,9 +1120,7 @@
                                 "type": "object",
                                 "properties": {
                                   "entryId": {
-                                    "type": "integer",
-                                    "minimum": -9007199254740991,
-                                    "maximum": 9007199254740991
+                                    "type": "string"
                                   },
                                   "headword": {
                                     "type": "string"
@@ -1163,6 +1169,9 @@
                       "items": {
                         "type": "object",
                         "properties": {
+                          "text": {
+                            "type": "string"
+                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -1171,9 +1180,6 @@
                               "spelling",
                               "inflection"
                             ]
-                          },
-                          "text": {
-                            "type": "string"
                           },
                           "common": {
                             "type": "boolean"
@@ -1199,8 +1205,8 @@
                           }
                         },
                         "required": [
-                          "kind",
                           "text",
+                          "kind",
                           "common",
                           "tags"
                         ],
@@ -1284,9 +1290,7 @@
                                 "entryId": {
                                   "anyOf": [
                                     {
-                                      "type": "integer",
-                                      "minimum": -9007199254740991,
-                                      "maximum": 9007199254740991
+                                      "type": "string"
                                     },
                                     {
                                       "type": "null"
@@ -1312,9 +1316,7 @@
                                 "entryId": {
                                   "anyOf": [
                                     {
-                                      "type": "integer",
-                                      "minimum": -9007199254740991,
-                                      "maximum": 9007199254740991
+                                      "type": "string"
                                     },
                                     {
                                       "type": "null"
@@ -1362,8 +1364,8 @@
                               "properties": {
                                 "id": {
                                   "type": "integer",
-                                  "minimum": -2147483648,
-                                  "maximum": 2147483647
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
                                 },
                                 "ja": {
                                   "type": "string"
@@ -1577,9 +1579,7 @@
                                       "type": "object",
                                       "properties": {
                                         "entryId": {
-                                          "type": "integer",
-                                          "minimum": -9007199254740991,
-                                          "maximum": 9007199254740991
+                                          "type": "string"
                                         },
                                         "headword": {
                                           "type": "string"
@@ -1615,9 +1615,7 @@
                               "type": "object",
                               "properties": {
                                 "entryId": {
-                                  "type": "integer",
-                                  "minimum": -9007199254740991,
-                                  "maximum": 9007199254740991
+                                  "type": "string"
                                 },
                                 "headword": {
                                   "type": "string"
@@ -1728,43 +1726,16 @@
                         ],
                         "additionalProperties": false
                       }
-                    },
-                    "enrichment": {
-                      "type": "object",
-                      "properties": {
-                        "examples": {
-                          "type": "string",
-                          "enum": [
-                            "ready",
-                            "unrequested",
-                            "queued",
-                            "unavailable"
-                          ]
-                        },
-                        "audio": {
-                          "type": "string",
-                          "enum": [
-                            "ready",
-                            "unrequested",
-                            "queued",
-                            "unavailable"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "examples",
-                        "audio"
-                      ],
-                      "additionalProperties": false
                     }
                   },
                   "required": [
                     "id",
                     "language",
                     "source",
+                    "reviewState",
+                    "common",
                     "headword",
                     "reading",
-                    "common",
                     "romaji",
                     "usuallyKana",
                     "labels",
@@ -1774,104 +1745,6 @@
                     "forms",
                     "senses",
                     "audioUrl",
-                    "audio",
-                    "enrichment"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UnauthorizedEncoded"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "PendingApproval",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PendingApprovalEncoded"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFound",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotFoundEncoded"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "AuthUnavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthUnavailableEncoded"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/dictionary/entries/{id}/enrichment": {
-      "get": {
-        "tags": [
-          "dictionary"
-        ],
-        "operationId": "dictionary.enrichment",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "schema": {
-              "type": "string",
-              "pattern": "^[+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:[Ee][+-]?\\d+)?$"
-            },
-            "required": true
-          }
-        ],
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "examples": {
-                      "type": "string",
-                      "enum": [
-                        "ready",
-                        "unrequested",
-                        "queued",
-                        "unavailable"
-                      ]
-                    },
-                    "audio": {
-                      "type": "string",
-                      "enum": [
-                        "ready",
-                        "unrequested",
-                        "queued",
-                        "unavailable"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "examples",
                     "audio"
                   ],
                   "additionalProperties": false
@@ -1905,113 +1778,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/NotFoundEncoded"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "AuthUnavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthUnavailableEncoded"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/dictionary/entries/{id}/enrich": {
-      "post": {
-        "tags": [
-          "dictionary"
-        ],
-        "operationId": "dictionary.enrich",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "schema": {
-              "type": "string",
-              "pattern": "^[+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:[Ee][+-]?\\d+)?$"
-            },
-            "required": true
-          }
-        ],
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "examples": {
-                      "type": "string",
-                      "enum": [
-                        "ready",
-                        "unrequested",
-                        "queued",
-                        "unavailable"
-                      ]
-                    },
-                    "audio": {
-                      "type": "string",
-                      "enum": [
-                        "ready",
-                        "unrequested",
-                        "queued",
-                        "unavailable"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "examples",
-                    "audio"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UnauthorizedEncoded"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "PendingApproval",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PendingApprovalEncoded"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFound",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotFoundEncoded"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "RateLimited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RateLimitedEncoded"
                 }
               }
             }
@@ -2070,439 +1836,13 @@
                         "discarded"
                       ]
                     },
-                    "draft": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "headword": {
-                              "type": "string"
-                            },
-                            "reading": {
-                              "type": "string"
-                            },
-                            "spellings": {
-                              "type": "array",
-                              "items": {
-                                "type": "string"
-                              }
-                            },
-                            "frequency": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "labels": {
-                              "type": "array",
-                              "items": {
-                                "type": "object",
-                                "properties": {
-                                  "code": {
-                                    "type": "string",
-                                    "enum": [
-                                      "vulg",
-                                      "X",
-                                      "derog",
-                                      "arch",
-                                      "obs",
-                                      "col",
-                                      "sl",
-                                      "net-sl",
-                                      "fam",
-                                      "joc",
-                                      "euph",
-                                      "male",
-                                      "fem",
-                                      "chn",
-                                      "dated",
-                                      "hist",
-                                      "rare",
-                                      "m-sl",
-                                      "sens",
-                                      "nonstd",
-                                      "hon",
-                                      "hum",
-                                      "pol",
-                                      "form",
-                                      "poet",
-                                      "ksb",
-                                      "osb",
-                                      "ktb",
-                                      "kyb",
-                                      "kyu",
-                                      "hob",
-                                      "thb",
-                                      "tsb",
-                                      "tsug",
-                                      "rkb",
-                                      "nab",
-                                      "bra",
-                                      "en-US",
-                                      "en-GB",
-                                      "en-AU",
-                                      "en-CA",
-                                      "en-NZ",
-                                      "en-IE",
-                                      "en-scotland",
-                                      "en-IN",
-                                      "en-PH",
-                                      "en-SG",
-                                      "en-ZA",
-                                      "id",
-                                      "on-mim",
-                                      "abbr",
-                                      "proverb",
-                                      "yoji",
-                                      "wasei",
-                                      "uncountable"
-                                    ]
-                                  },
-                                  "severity": {
-                                    "type": "string",
-                                    "enum": [
-                                      "avoid",
-                                      "warning",
-                                      "info",
-                                      "quiet"
-                                    ]
-                                  },
-                                  "source": {
-                                    "type": "string",
-                                    "enum": [
-                                      "jmdict",
-                                      "jawiktionary",
-                                      "enwiktionary",
-                                      "tatoeba",
-                                      "kotori",
-                                      "user"
-                                    ]
-                                  }
-                                },
-                                "required": [
-                                  "code",
-                                  "severity",
-                                  "source"
-                                ],
-                                "additionalProperties": false
-                              }
-                            },
-                            "senses": {
-                              "type": "array",
-                              "items": {
-                                "type": "object",
-                                "properties": {
-                                  "index": {
-                                    "type": "integer",
-                                    "minimum": -9007199254740991,
-                                    "maximum": 9007199254740991
-                                  },
-                                  "glosses": {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "string"
-                                    }
-                                  },
-                                  "partsOfSpeech": {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "object",
-                                      "properties": {
-                                        "code": {
-                                          "type": "string"
-                                        },
-                                        "name": {
-                                          "type": "string"
-                                        }
-                                      },
-                                      "required": [
-                                        "code",
-                                        "name"
-                                      ],
-                                      "additionalProperties": false
-                                    }
-                                  },
-                                  "labels": {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "object",
-                                      "properties": {
-                                        "code": {
-                                          "type": "string",
-                                          "enum": [
-                                            "vulg",
-                                            "X",
-                                            "derog",
-                                            "arch",
-                                            "obs",
-                                            "col",
-                                            "sl",
-                                            "net-sl",
-                                            "fam",
-                                            "joc",
-                                            "euph",
-                                            "male",
-                                            "fem",
-                                            "chn",
-                                            "dated",
-                                            "hist",
-                                            "rare",
-                                            "m-sl",
-                                            "sens",
-                                            "nonstd",
-                                            "hon",
-                                            "hum",
-                                            "pol",
-                                            "form",
-                                            "poet",
-                                            "ksb",
-                                            "osb",
-                                            "ktb",
-                                            "kyb",
-                                            "kyu",
-                                            "hob",
-                                            "thb",
-                                            "tsb",
-                                            "tsug",
-                                            "rkb",
-                                            "nab",
-                                            "bra",
-                                            "en-US",
-                                            "en-GB",
-                                            "en-AU",
-                                            "en-CA",
-                                            "en-NZ",
-                                            "en-IE",
-                                            "en-scotland",
-                                            "en-IN",
-                                            "en-PH",
-                                            "en-SG",
-                                            "en-ZA",
-                                            "id",
-                                            "on-mim",
-                                            "abbr",
-                                            "proverb",
-                                            "yoji",
-                                            "wasei",
-                                            "uncountable"
-                                          ]
-                                        },
-                                        "severity": {
-                                          "type": "string",
-                                          "enum": [
-                                            "avoid",
-                                            "warning",
-                                            "info",
-                                            "quiet"
-                                          ]
-                                        },
-                                        "source": {
-                                          "type": "string",
-                                          "enum": [
-                                            "jmdict",
-                                            "jawiktionary",
-                                            "enwiktionary",
-                                            "tatoeba",
-                                            "kotori",
-                                            "user"
-                                          ]
-                                        }
-                                      },
-                                      "required": [
-                                        "code",
-                                        "severity",
-                                        "source"
-                                      ],
-                                      "additionalProperties": false
-                                    }
-                                  },
-                                  "usagePatterns": {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "object",
-                                      "properties": {
-                                        "text": {
-                                          "type": "string"
-                                        },
-                                        "source": {
-                                          "type": "string",
-                                          "enum": [
-                                            "jmdict",
-                                            "jawiktionary",
-                                            "enwiktionary",
-                                            "tatoeba",
-                                            "kotori",
-                                            "user"
-                                          ]
-                                        },
-                                        "about": {
-                                          "anyOf": [
-                                            {
-                                              "type": "object",
-                                              "properties": {
-                                                "entryId": {
-                                                  "type": "integer",
-                                                  "minimum": -9007199254740991,
-                                                  "maximum": 9007199254740991
-                                                },
-                                                "headword": {
-                                                  "type": "string"
-                                                },
-                                                "reading": {
-                                                  "type": "string"
-                                                }
-                                              },
-                                              "required": [
-                                                "entryId",
-                                                "headword",
-                                                "reading"
-                                              ],
-                                              "additionalProperties": false
-                                            },
-                                            {
-                                              "type": "null"
-                                            }
-                                          ]
-                                        }
-                                      },
-                                      "required": [
-                                        "text",
-                                        "source",
-                                        "about"
-                                      ],
-                                      "additionalProperties": false
-                                    }
-                                  }
-                                },
-                                "required": [
-                                  "index",
-                                  "glosses",
-                                  "partsOfSpeech",
-                                  "labels",
-                                  "usagePatterns"
-                                ],
-                                "additionalProperties": false
-                              }
-                            },
-                            "cautions": {
-                              "type": "array",
-                              "items": {
-                                "type": "object",
-                                "properties": {
-                                  "id": {
-                                    "type": "integer",
-                                    "minimum": -9007199254740991,
-                                    "maximum": 9007199254740991
-                                  },
-                                  "kind": {
-                                    "type": "string",
-                                    "enum": [
-                                      "rude_upward",
-                                      "keigo_direction",
-                                      "set_phrase",
-                                      "particle_pattern",
-                                      "gendered_speech",
-                                      "wasei_eigo",
-                                      "textbook_english",
-                                      "directness",
-                                      "variety",
-                                      "confusable",
-                                      "collocation",
-                                      "tone"
-                                    ]
-                                  },
-                                  "text": {
-                                    "type": "string"
-                                  },
-                                  "sense": {
-                                    "anyOf": [
-                                      {
-                                        "type": "integer",
-                                        "minimum": -9007199254740991,
-                                        "maximum": 9007199254740991
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
-                                  },
-                                  "about": {
-                                    "anyOf": [
-                                      {
-                                        "type": "object",
-                                        "properties": {
-                                          "entryId": {
-                                            "type": "integer",
-                                            "minimum": -9007199254740991,
-                                            "maximum": 9007199254740991
-                                          },
-                                          "headword": {
-                                            "type": "string"
-                                          },
-                                          "reading": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "entryId",
-                                          "headword",
-                                          "reading"
-                                        ],
-                                        "additionalProperties": false
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
-                                  },
-                                  "source": {
-                                    "type": "string",
-                                    "enum": [
-                                      "jmdict",
-                                      "jawiktionary",
-                                      "enwiktionary",
-                                      "tatoeba",
-                                      "kotori",
-                                      "user"
-                                    ]
-                                  }
-                                },
-                                "required": [
-                                  "id",
-                                  "kind",
-                                  "text",
-                                  "sense",
-                                  "about",
-                                  "source"
-                                ],
-                                "additionalProperties": false
-                              }
-                            }
-                          },
-                          "required": [
-                            "headword",
-                            "reading",
-                            "spellings",
-                            "frequency",
-                            "labels",
-                            "senses",
-                            "cautions"
-                          ],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
                     "linked": {
                       "anyOf": [
                         {
                           "type": "object",
                           "properties": {
                             "id": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
+                              "type": "string"
                             },
                             "language": {
                               "type": "string",
@@ -2511,14 +1851,22 @@
                                 "ja"
                               ]
                             },
+                            "reviewState": {
+                              "type": "string",
+                              "enum": [
+                                "approved",
+                                "unreviewed",
+                                "discarded"
+                              ]
+                            },
+                            "common": {
+                              "type": "boolean"
+                            },
                             "headword": {
                               "type": "string"
                             },
                             "reading": {
                               "type": "string"
-                            },
-                            "common": {
-                              "type": "boolean"
                             },
                             "romaji": {
                               "type": "string"
@@ -2653,9 +2001,10 @@
                           "required": [
                             "id",
                             "language",
+                            "reviewState",
+                            "common",
                             "headword",
                             "reading",
-                            "common",
                             "romaji",
                             "meanings",
                             "partOfSpeech",
@@ -2703,7 +2052,6 @@
                     "query",
                     "language",
                     "status",
-                    "draft",
                     "linked",
                     "reason",
                     "route"
@@ -2837,439 +2185,13 @@
                           "discarded"
                         ]
                       },
-                      "draft": {
-                        "anyOf": [
-                          {
-                            "type": "object",
-                            "properties": {
-                              "headword": {
-                                "type": "string"
-                              },
-                              "reading": {
-                                "type": "string"
-                              },
-                              "spellings": {
-                                "type": "array",
-                                "items": {
-                                  "type": "string"
-                                }
-                              },
-                              "frequency": {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991
-                              },
-                              "labels": {
-                                "type": "array",
-                                "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "code": {
-                                      "type": "string",
-                                      "enum": [
-                                        "vulg",
-                                        "X",
-                                        "derog",
-                                        "arch",
-                                        "obs",
-                                        "col",
-                                        "sl",
-                                        "net-sl",
-                                        "fam",
-                                        "joc",
-                                        "euph",
-                                        "male",
-                                        "fem",
-                                        "chn",
-                                        "dated",
-                                        "hist",
-                                        "rare",
-                                        "m-sl",
-                                        "sens",
-                                        "nonstd",
-                                        "hon",
-                                        "hum",
-                                        "pol",
-                                        "form",
-                                        "poet",
-                                        "ksb",
-                                        "osb",
-                                        "ktb",
-                                        "kyb",
-                                        "kyu",
-                                        "hob",
-                                        "thb",
-                                        "tsb",
-                                        "tsug",
-                                        "rkb",
-                                        "nab",
-                                        "bra",
-                                        "en-US",
-                                        "en-GB",
-                                        "en-AU",
-                                        "en-CA",
-                                        "en-NZ",
-                                        "en-IE",
-                                        "en-scotland",
-                                        "en-IN",
-                                        "en-PH",
-                                        "en-SG",
-                                        "en-ZA",
-                                        "id",
-                                        "on-mim",
-                                        "abbr",
-                                        "proverb",
-                                        "yoji",
-                                        "wasei",
-                                        "uncountable"
-                                      ]
-                                    },
-                                    "severity": {
-                                      "type": "string",
-                                      "enum": [
-                                        "avoid",
-                                        "warning",
-                                        "info",
-                                        "quiet"
-                                      ]
-                                    },
-                                    "source": {
-                                      "type": "string",
-                                      "enum": [
-                                        "jmdict",
-                                        "jawiktionary",
-                                        "enwiktionary",
-                                        "tatoeba",
-                                        "kotori",
-                                        "user"
-                                      ]
-                                    }
-                                  },
-                                  "required": [
-                                    "code",
-                                    "severity",
-                                    "source"
-                                  ],
-                                  "additionalProperties": false
-                                }
-                              },
-                              "senses": {
-                                "type": "array",
-                                "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "index": {
-                                      "type": "integer",
-                                      "minimum": -9007199254740991,
-                                      "maximum": 9007199254740991
-                                    },
-                                    "glosses": {
-                                      "type": "array",
-                                      "items": {
-                                        "type": "string"
-                                      }
-                                    },
-                                    "partsOfSpeech": {
-                                      "type": "array",
-                                      "items": {
-                                        "type": "object",
-                                        "properties": {
-                                          "code": {
-                                            "type": "string"
-                                          },
-                                          "name": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "code",
-                                          "name"
-                                        ],
-                                        "additionalProperties": false
-                                      }
-                                    },
-                                    "labels": {
-                                      "type": "array",
-                                      "items": {
-                                        "type": "object",
-                                        "properties": {
-                                          "code": {
-                                            "type": "string",
-                                            "enum": [
-                                              "vulg",
-                                              "X",
-                                              "derog",
-                                              "arch",
-                                              "obs",
-                                              "col",
-                                              "sl",
-                                              "net-sl",
-                                              "fam",
-                                              "joc",
-                                              "euph",
-                                              "male",
-                                              "fem",
-                                              "chn",
-                                              "dated",
-                                              "hist",
-                                              "rare",
-                                              "m-sl",
-                                              "sens",
-                                              "nonstd",
-                                              "hon",
-                                              "hum",
-                                              "pol",
-                                              "form",
-                                              "poet",
-                                              "ksb",
-                                              "osb",
-                                              "ktb",
-                                              "kyb",
-                                              "kyu",
-                                              "hob",
-                                              "thb",
-                                              "tsb",
-                                              "tsug",
-                                              "rkb",
-                                              "nab",
-                                              "bra",
-                                              "en-US",
-                                              "en-GB",
-                                              "en-AU",
-                                              "en-CA",
-                                              "en-NZ",
-                                              "en-IE",
-                                              "en-scotland",
-                                              "en-IN",
-                                              "en-PH",
-                                              "en-SG",
-                                              "en-ZA",
-                                              "id",
-                                              "on-mim",
-                                              "abbr",
-                                              "proverb",
-                                              "yoji",
-                                              "wasei",
-                                              "uncountable"
-                                            ]
-                                          },
-                                          "severity": {
-                                            "type": "string",
-                                            "enum": [
-                                              "avoid",
-                                              "warning",
-                                              "info",
-                                              "quiet"
-                                            ]
-                                          },
-                                          "source": {
-                                            "type": "string",
-                                            "enum": [
-                                              "jmdict",
-                                              "jawiktionary",
-                                              "enwiktionary",
-                                              "tatoeba",
-                                              "kotori",
-                                              "user"
-                                            ]
-                                          }
-                                        },
-                                        "required": [
-                                          "code",
-                                          "severity",
-                                          "source"
-                                        ],
-                                        "additionalProperties": false
-                                      }
-                                    },
-                                    "usagePatterns": {
-                                      "type": "array",
-                                      "items": {
-                                        "type": "object",
-                                        "properties": {
-                                          "text": {
-                                            "type": "string"
-                                          },
-                                          "source": {
-                                            "type": "string",
-                                            "enum": [
-                                              "jmdict",
-                                              "jawiktionary",
-                                              "enwiktionary",
-                                              "tatoeba",
-                                              "kotori",
-                                              "user"
-                                            ]
-                                          },
-                                          "about": {
-                                            "anyOf": [
-                                              {
-                                                "type": "object",
-                                                "properties": {
-                                                  "entryId": {
-                                                    "type": "integer",
-                                                    "minimum": -9007199254740991,
-                                                    "maximum": 9007199254740991
-                                                  },
-                                                  "headword": {
-                                                    "type": "string"
-                                                  },
-                                                  "reading": {
-                                                    "type": "string"
-                                                  }
-                                                },
-                                                "required": [
-                                                  "entryId",
-                                                  "headword",
-                                                  "reading"
-                                                ],
-                                                "additionalProperties": false
-                                              },
-                                              {
-                                                "type": "null"
-                                              }
-                                            ]
-                                          }
-                                        },
-                                        "required": [
-                                          "text",
-                                          "source",
-                                          "about"
-                                        ],
-                                        "additionalProperties": false
-                                      }
-                                    }
-                                  },
-                                  "required": [
-                                    "index",
-                                    "glosses",
-                                    "partsOfSpeech",
-                                    "labels",
-                                    "usagePatterns"
-                                  ],
-                                  "additionalProperties": false
-                                }
-                              },
-                              "cautions": {
-                                "type": "array",
-                                "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "id": {
-                                      "type": "integer",
-                                      "minimum": -9007199254740991,
-                                      "maximum": 9007199254740991
-                                    },
-                                    "kind": {
-                                      "type": "string",
-                                      "enum": [
-                                        "rude_upward",
-                                        "keigo_direction",
-                                        "set_phrase",
-                                        "particle_pattern",
-                                        "gendered_speech",
-                                        "wasei_eigo",
-                                        "textbook_english",
-                                        "directness",
-                                        "variety",
-                                        "confusable",
-                                        "collocation",
-                                        "tone"
-                                      ]
-                                    },
-                                    "text": {
-                                      "type": "string"
-                                    },
-                                    "sense": {
-                                      "anyOf": [
-                                        {
-                                          "type": "integer",
-                                          "minimum": -9007199254740991,
-                                          "maximum": 9007199254740991
-                                        },
-                                        {
-                                          "type": "null"
-                                        }
-                                      ]
-                                    },
-                                    "about": {
-                                      "anyOf": [
-                                        {
-                                          "type": "object",
-                                          "properties": {
-                                            "entryId": {
-                                              "type": "integer",
-                                              "minimum": -9007199254740991,
-                                              "maximum": 9007199254740991
-                                            },
-                                            "headword": {
-                                              "type": "string"
-                                            },
-                                            "reading": {
-                                              "type": "string"
-                                            }
-                                          },
-                                          "required": [
-                                            "entryId",
-                                            "headword",
-                                            "reading"
-                                          ],
-                                          "additionalProperties": false
-                                        },
-                                        {
-                                          "type": "null"
-                                        }
-                                      ]
-                                    },
-                                    "source": {
-                                      "type": "string",
-                                      "enum": [
-                                        "jmdict",
-                                        "jawiktionary",
-                                        "enwiktionary",
-                                        "tatoeba",
-                                        "kotori",
-                                        "user"
-                                      ]
-                                    }
-                                  },
-                                  "required": [
-                                    "id",
-                                    "kind",
-                                    "text",
-                                    "sense",
-                                    "about",
-                                    "source"
-                                  ],
-                                  "additionalProperties": false
-                                }
-                              }
-                            },
-                            "required": [
-                              "headword",
-                              "reading",
-                              "spellings",
-                              "frequency",
-                              "labels",
-                              "senses",
-                              "cautions"
-                            ],
-                            "additionalProperties": false
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
                       "linked": {
                         "anyOf": [
                           {
                             "type": "object",
                             "properties": {
                               "id": {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991
+                                "type": "string"
                               },
                               "language": {
                                 "type": "string",
@@ -3278,14 +2200,22 @@
                                   "ja"
                                 ]
                               },
+                              "reviewState": {
+                                "type": "string",
+                                "enum": [
+                                  "approved",
+                                  "unreviewed",
+                                  "discarded"
+                                ]
+                              },
+                              "common": {
+                                "type": "boolean"
+                              },
                               "headword": {
                                 "type": "string"
                               },
                               "reading": {
                                 "type": "string"
-                              },
-                              "common": {
-                                "type": "boolean"
                               },
                               "romaji": {
                                 "type": "string"
@@ -3420,9 +2350,10 @@
                             "required": [
                               "id",
                               "language",
+                              "reviewState",
+                              "common",
                               "headword",
                               "reading",
-                              "common",
                               "romaji",
                               "meanings",
                               "partOfSpeech",
@@ -3470,7 +2401,6 @@
                       "query",
                       "language",
                       "status",
-                      "draft",
                       "linked",
                       "reason",
                       "route"
@@ -3885,9 +2815,7 @@
                           "entryId": {
                             "anyOf": [
                               {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991
+                                "type": "string"
                               },
                               {
                                 "type": "null"
@@ -4080,9 +3008,7 @@
                                 ]
                               },
                               "entryId": {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991
+                                "type": "string"
                               },
                               "senseIndex": {
                                 "type": "integer",
@@ -4412,9 +3338,7 @@
                               ]
                             },
                             "entryId": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
+                              "type": "string"
                             },
                             "senseIndex": {
                               "type": "integer",
@@ -4740,9 +3664,7 @@
                             ]
                           },
                           "entryId": {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991
+                            "type": "string"
                           },
                           "senseIndex": {
                             "type": "integer",
@@ -5068,9 +3990,7 @@
                                         ]
                                       },
                                       "entryId": {
-                                        "type": "integer",
-                                        "minimum": -9007199254740991,
-                                        "maximum": 9007199254740991
+                                        "type": "string"
                                       },
                                       "senseIndex": {
                                         "type": "integer",
@@ -5515,9 +4435,7 @@
                                   ]
                                 },
                                 "entryId": {
-                                  "type": "integer",
-                                  "minimum": -9007199254740991,
-                                  "maximum": 9007199254740991
+                                  "type": "string"
                                 },
                                 "senseIndex": {
                                   "type": "integer",

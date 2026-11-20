@@ -1,8 +1,9 @@
 import { sql } from "drizzle-orm"
-import { boolean, doublePrecision, index, integer, jsonb, pgEnum, uniqueIndex, uuid } from "drizzle-orm/pg-core"
+import { boolean, doublePrecision, index, integer, jsonb, pgEnum, text, uniqueIndex, uuid } from "drizzle-orm/pg-core"
 import * as Schema from "effect/Schema"
 import { createdAt, Language, retentionStage, table, timestamptz } from "./columns.ts"
-import { entries, EntryId } from "./entries.ts"
+import { entries } from "./entries.ts"
+import { EntryId } from "./entryDocument.ts"
 import { type UserId, users } from "./users.ts"
 
 /** How formal a phrase from the coach sounds; the coach never offers a vulgar one. */
@@ -76,7 +77,7 @@ export const notes = table(
     /** What is shown in reviews, frozen at save time so later enrichment changes don't rewrite a learner's note. */
     content: jsonb().$type<NoteContent>().notNull(),
     /** For word notes, the dictionary sense they came from. */
-    entryId: integer()
+    entryId: text()
       .$type<EntryId>()
       .references(() => entries.id, { onDelete: "set null" }),
     sense: integer(),

@@ -6,10 +6,9 @@ import { createInterface } from "node:readline"
 import { createGunzip } from "node:zlib"
 import { Database } from "../../../../db/Database.ts"
 import { resolveFromRoot } from "../../../../runtime/Paths.ts"
-import { deleteEntries, headwordIds, insertEntries, linkLoans, saveKotoriCautions, saveTags } from "../../queries.ts"
+import { deleteEntries, externalEntryIds, insertEntries, linkLoans, saveTags } from "../../queries.ts"
 import { entrySplitter } from "../jmdict/parse.ts"
 import type { ImportEntry } from "../seedFacts.ts"
-import { APPROVED_EN_FILE, parseApproved, skippedLines } from "./approved.ts"
 import { mergeSources, type Tier, toEntries } from "./build.ts"
 import { parseFrequency } from "./frequency.ts"
 import { jmdictReader, type KnownEnglish } from "./jmdict.ts"
@@ -31,8 +30,6 @@ export interface Files {
   readonly phrases?: string | undefined
   /** Frequency ratings for phrases the other sources don't rate (`frequency.json`), optional in tests. */
   readonly frequency?: string | undefined
-  /** Entries and aliases approved out of Ask Kotori proposals (`data/approved/en.jsonl`). */
-  readonly approved?: string | undefined
   /** Wiktextract's extraction of Japanese Wiktionary, gzipped JSON lines (or plain). */
   readonly wiktionary: string
   /** FrequencyWords' OpenSubtitles English list (`en_50k.txt`). */
@@ -52,7 +49,6 @@ export const download = Effect.fn("EnglishDictionary.download")(
       curated: path.join(root, "enwiktionary-ja.jsonl"),
       phrases: path.join(root, "enwiktionary-phrases.json"),
       frequency: path.join(root, "frequency.json"),
-      approved: resolveFromRoot(APPROVED_EN_FILE),
       wiktionary: path.join(root, "ja-wiktionary.jsonl.gz"),
       subtitles: path.join(root, "en_50k.txt")
     }
@@ -155,25 +151,13 @@ export interface ImportOptions {
  * The English dictionary's entries, built from its sources. Its own scope, so everything
  * parsed along the way can be let go before the entries are written.
  */
-const build = Effect.fnUntraced(function* (options: ImportOptions, existing: ReadonlyMap<string, number>) {
+const build = Effect.fnUntraced(function* (options: ImportOptions) {
   const curatedReader = curatedParser()
   const curatedPath = options.files.curated
   if (curatedPath !== undefined && existsSync(resolveFromRoot(curatedPath))) {
     yield* eachLine(curatedPath, curatedReader.add)
   }
   const curated = curatedReader.finish()
-
-  // Approved Ask Kotori entries read as curated words too, after them: on a clash, curation wins.
-  const approvedPath = options.files.approved
-  const approved =
-    approvedPath !== undefined && existsSync(resolveFromRoot(approvedPath))
-      ? parseApproved(yield* readLines(approvedPath))
-      : { words: [], formsOf: [], skipped: [] }
-  if (approved.skipped.length > 0)
-    yield* Effect.logWarning(skippedLines(approvedPath ?? APPROVED_EN_FILE, approved.skipped))
-  const curatedHeadwords = new Set(curated.words.map((word) => word.headword.toLowerCase()))
-  curated.words.push(...approved.words.filter((word) => !curatedHeadwords.has(word.headword.toLowerCase())))
-  curated.formsOf.push(...approved.formsOf)
 
   const phrasesPath = options.files.phrases
   const phraseIndex =
@@ -201,15 +185,12 @@ const build = Effect.fnUntraced(function* (options: ImportOptions, existing: Rea
   let entries = toEntries(
     mergeSources({ curated, wiktionary, jmdict, subtitles }),
     subtitles,
-    existing,
     reader.backTranslations(),
     ratings
   )
   if (options.commonOnly) entries = entries.filter((entry) => entry.common)
   if (options.limit !== undefined) entries = entries.slice(0, options.limit)
-  // Approved words' cautions, by headword; a curated word of the same headword took its place.
-  const cautions = new Map(approved.words.map((word) => [word.headword, word.cautions ?? []] as const))
-  return { entries, cautions }
+  return entries
 })
 
 /**
@@ -218,9 +199,8 @@ const build = Effect.fnUntraced(function* (options: ImportOptions, existing: Rea
  */
 export const importFiles = Effect.fn("EnglishDictionary.importFiles")(function* (options: ImportOptions) {
   const db = yield* Database
-  const existing = yield* headwordIds(db, "en")
-  const built = yield* build(options, existing)
-  const entries: ReadonlyArray<ImportEntry & { readonly tier: Tier }> = built.entries
+  const existing = yield* externalEntryIds(db, "en:")
+  const entries: ReadonlyArray<ImportEntry & { readonly tier: Tier }> = yield* build(options)
 
   yield* saveTags(db, ENGLISH_TAGS)
   const batchSize = options.batchSize ?? 500
@@ -229,16 +209,11 @@ export const importFiles = Effect.fn("EnglishDictionary.importFiles")(function* 
     if (start % 20_000 < batchSize && start > 0) yield* Effect.logInfo(`Imported ${start} English words`)
   }
 
-  // Words the sources no longer have, or that are now another word's inflection ("ate"), go,
-  // with their enrichment; a partial import leaves the rest of the dictionary alone.
+  // Words the external sources no longer have go on a complete import; `kotori:` entries stay untouched.
   const complete = !options.commonOnly && options.limit === undefined
-  const imported = new Set(entries.map((entry) => entry.headword))
-  const stale = complete ? [...existing].filter(([headword]) => !imported.has(headword)).map(([, id]) => id) : []
+  const importedIds = new Set(entries.map((entry) => entry.id))
+  const stale = complete ? existing.filter((id) => !importedIds.has(id)) : []
   yield* deleteEntries(db, stale)
-  for (const entry of entries) {
-    const drafted = entry.source === "kotori" ? built.cautions.get(entry.headword) : undefined
-    if (drafted !== undefined) yield* saveKotoriCautions(db, entry.id, "en", drafted)
-  }
   yield* linkLoans(db)
 
   const byTier = (tier: Tier) => entries.filter((entry) => entry.tier === tier).length

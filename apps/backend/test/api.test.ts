@@ -8,6 +8,7 @@ import { HttpApiMiddleware, HttpApiTest } from "effect/http-api"
 import { Database } from "../src/db/Database.ts"
 import { scopedToUser } from "../src/db/scopedToUser.ts"
 import { updateUser, userById } from "../src/features/accounts/queries.ts"
+import { mergeEntry } from "../src/features/asks/review.ts"
 import { insertEntries } from "../src/features/dictionary/queries.ts"
 import { noteById, noteCount, studyDays } from "../src/features/study/queries.ts"
 import { AuthorizationLive } from "../src/http/Authorization.ts"
@@ -106,13 +107,13 @@ const sense = (glosses: Array<string>, pos: Array<string>) => ({
 })
 
 const entry = (
-  id: number,
+  id: number | string,
   headword: string,
   reading: string,
   glosses: Array<string>,
   pos: Array<string>
 ): EntryRecord => ({
-  id: EntryId.make(id),
+  id: EntryId.make(typeof id === "number" ? `jmdict:${id}` : id),
   language: "ja",
   source: "jmdict",
   headword,
@@ -221,29 +222,51 @@ layer(TestLayer)("Kotori API", (it) => {
 
       const detail = yield* api.dictionary.entry({ params: { id: english.entries[0]!.id } })
       assert.deepStrictEqual(detail.senses[0]?.glosses, ["to eat"])
-      assert.deepStrictEqual(detail.enrichment, {
-        examples: "unavailable",
-        audio: "unavailable"
-      })
+      assert.deepStrictEqual(detail.cautions, [])
+      assert.deepStrictEqual(detail.senses[0]?.examples, [])
+      assert.strictEqual(detail.audioUrl, null)
+      assert.deepStrictEqual(detail.audio, [])
 
-      const missing = yield* api.dictionary.entry({ params: { id: 999 as never } }).pipe(Effect.flip)
+      const missing = yield* api.dictionary.entry({ params: { id: EntryId.make("jmdict:999") } }).pipe(Effect.flip)
       assert.strictEqual(missing._tag, "NotFound")
 
-      // The progress the app polls, on its own.
-      assert.deepStrictEqual(yield* api.dictionary.enrichment({ params: { id: english.entries[0]!.id } }), {
-        examples: "unavailable",
-        audio: "unavailable"
-      })
-      const missingProgress = yield* api.dictionary.enrichment({ params: { id: 999 as never } }).pipe(Effect.flip)
-      assert.strictEqual(missingProgress._tag, "NotFound")
-
-      // English learners search the English dictionary the same way round.
+      // English learners search the English dictionary the same way round, including deterministic
+      // string IDs with spaces and case-preserving twins (en:May vs en:may).
       yield* insertEntries(db, [
         {
-          ...entry(100000001, "eat", "/iːt/", ["～を食べる"], ["v"]),
+          ...entry("en:eat", "eat", "/iːt/", ["～を食べる"], ["v"]),
           language: "en",
           forms: [
             { kind: "spelling", text: "eat", common: true, tags: [], priorities: [], restrictions: [], noKanji: false }
+          ]
+        },
+        {
+          ...entry("en:run into", "run into", "", ["偶然出会う"], ["v"]),
+          language: "en",
+          forms: [
+            {
+              kind: "spelling",
+              text: "run into",
+              common: true,
+              tags: [],
+              priorities: [],
+              restrictions: [],
+              noKanji: false
+            }
+          ]
+        },
+        {
+          ...entry("en:May", "May", "", ["5月"], ["n"]),
+          language: "en",
+          forms: [
+            { kind: "spelling", text: "May", common: true, tags: [], priorities: [], restrictions: [], noKanji: false }
+          ]
+        },
+        {
+          ...entry("en:may", "may", "", ["～かもしれない"], ["v"]),
+          language: "en",
+          forms: [
+            { kind: "spelling", text: "may", common: true, tags: [], priorities: [], restrictions: [], noKanji: false }
           ]
         }
       ])
@@ -254,6 +277,15 @@ layer(TestLayer)("Kotori API", (it) => {
         [["eat", "en"]]
       )
       assert.strictEqual((yield* api.dictionary.search({ query: { q: "食べる" } })).entries[0]?.headword, "eat")
+
+      // Multi-word and case-preserving English EntryIds round-trip cleanly over HTTP path params.
+      const runInto = yield* api.dictionary.entry({ params: { id: EntryId.make("en:run into") } })
+      assert.strictEqual(runInto.id, EntryId.make("en:run into"))
+      assert.strictEqual(runInto.headword, "run into")
+      const upperMay = yield* api.dictionary.entry({ params: { id: EntryId.make("en:May") } })
+      const lowerMay = yield* api.dictionary.entry({ params: { id: EntryId.make("en:may") } })
+      assert.strictEqual(upperMay.senses[0]?.glosses[0], "5月")
+      assert.strictEqual(lowerMay.senses[0]?.glosses[0], "～かもしれない")
     }).pipe(Effect.provide(Session))
   )
 
@@ -265,7 +297,7 @@ layer(TestLayer)("Kotori API", (it) => {
         payload: {
           content: {
             kind: "word",
-            entryId: 1 as never,
+            entryId: EntryId.make("jmdict:1"),
             senseIndex: 0,
             headword: "食べる",
             reading: "たべる",
@@ -470,6 +502,26 @@ layer(TestLayer)("Kotori API", (it) => {
 
       const error = yield* api.coach.naturalness({ payload: { text: "私は学生です。" } }).pipe(Effect.flip)
       assert.strictEqual(error._tag, "AiUnavailable")
+    }).pipe(Effect.provide(Session))
+  )
+
+  it.effect("resolves merged kotori: entry IDs transparently via GET /dictionary/entries/:id", () =>
+    Effect.gen(function* () {
+      yield* signedIn("merged@example.com")
+      const api = yield* client
+      const db = yield* Database
+      const canonical = entry(1900123, "食べる", "たべる", ["to eat"], ["v1"])
+      const dupId = EntryId.make("kotori:dup-taberu")
+      yield* insertEntries(db, [canonical])
+      yield* insertEntries(db, [{ ...canonical, id: dupId, source: "kotori", headword: "たべる重複" }], {
+        reviewState: "unreviewed"
+      })
+      yield* mergeEntry(db, dupId, canonical.id)
+
+      const resolved = yield* api.dictionary.entry({ params: { id: dupId } })
+      assert.strictEqual(resolved.id, canonical.id)
+      assert.strictEqual(resolved.headword, "食べる")
+      assert.strictEqual(resolved.reviewState, "approved")
     }).pipe(Effect.provide(Session))
   )
 })

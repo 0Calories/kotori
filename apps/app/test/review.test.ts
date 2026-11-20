@@ -15,7 +15,7 @@ const item = (id: string, good = "1d"): ReviewItem => ({
     leech: false,
     content: {
       kind: "word",
-      entryId: 1 as EntryId,
+      entryId: "jmdict:1" as EntryId,
       senseIndex: 0,
       headword: id,
       reading: id,
