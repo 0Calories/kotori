@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from "expo-router"
+import { Stack, useLocalSearchParams, useRouter } from "expo-router"
 import { View } from "react-native"
 import { useEntry } from "../../src/api/queries.ts"
 import { Card } from "../../src/components/Card.tsx"
@@ -9,6 +9,7 @@ import { Skeleton, SkeletonCard, SkeletonGroup } from "../../src/components/Skel
 import { ErrorState } from "../../src/components/States.tsx"
 import { Text } from "../../src/components/Text.tsx"
 import { entryAttributions, entryIdFromParam } from "../../src/lib/sources.ts"
+import { formatDocumentTitle } from "../../src/lib/webChrome.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
 
@@ -50,6 +51,7 @@ export default function SourcesScreen() {
   const rows = entryAttributions(t, data)
   return (
     <Screen bottomInset={40} header={header}>
+      <Stack.Screen options={{ title: formatDocumentTitle([data.headword, t.entry.sources], t.appName) }} />
       {entry.isRefetchError ? (
         <Notice
           message={t.common.notRefreshed}

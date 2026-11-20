@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="%LANG_ISO_CODE%">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <title>%WEB_TITLE%</title>
+    <meta name="color-scheme" content="light" />
+    <meta name="application-name" content="Kotori" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Kotori" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Kotori" />
+    <meta property="og:title" content="Kotori — Sound natural in Japanese &amp; English" />
+    <meta
+      property="og:description"
+      content="Bilingual Japanese and English dictionary, usage guide, and notebook — sound natural, not like a textbook."
+    />
+    <meta property="og:image" content="https://hellokotori.com/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Kotori — shima-enaga mascot and Japanese &amp; English usage guide" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="ja_JP" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Kotori — Sound natural in Japanese &amp; English" />
+    <meta
+      name="twitter:description"
+      content="Bilingual Japanese and English dictionary, usage guide, and notebook — sound natural, not like a textbook."
+    />
+    <meta name="twitter:image" content="https://hellokotori.com/og-image.png" />
+    <meta name="twitter:image:alt" content="Kotori — shima-enaga mascot and Japanese &amp; English usage guide" />
+
+    <!-- The `react-native-web` reset plus mobile web polish so the app feels installed. -->
+    <style id="expo-reset">
+      html,
+      body {
+        height: 100%;
+        height: 100dvh;
+        margin: 0;
+        background-color: #f6fafc;
+        overscroll-behavior: none;
+      }
+      html {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        overflow: hidden;
+      }
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+      button,
+      a,
+      [role="button"],
+      [role="tab"] {
+        touch-action: manipulation;
+      }
+      .kotori-noscript {
+        display: flex;
+        min-height: 100%;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        font-family: system-ui, -apple-system, sans-serif;
+        color: #131e26;
+        text-align: center;
+      }
+    </style>
+  </head>
+
+  <body>
+    <noscript>
+      <div class="kotori-noscript">
+        <div>
+          <h1>Kotori</h1>
+          <p>Please enable JavaScript to use Kotori.</p>
+        </div>
+      </div>
+    </noscript>
+    <div id="root"></div>
+  </body>
+</html>

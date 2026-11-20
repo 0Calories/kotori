@@ -1,5 +1,6 @@
 import type { Language, Profile, UpdateProfileRequest } from "@kotori/contracts"
 import { useQueryClient } from "@tanstack/react-query"
+import * as Match from "effect/Match"
 import { getLocales } from "expo-localization"
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { ApiError, call } from "../api/client.ts"
@@ -18,7 +19,19 @@ import { storage } from "./storage"
  * or Managed Auth being unreachable, and `unavailable` the API answering with something
  * unexpected (a bug, or a response this build can't read); neither throws credentials away.
  */
-type Status = "loading" | "signedOut" | "pending" | "onboarding" | "ready" | "offline" | "unavailable"
+export type SessionStatus = "loading" | "signedOut" | "pending" | "onboarding" | "ready" | "offline" | "unavailable"
+
+type Status = SessionStatus
+
+/** The home route for each session status, used by public/fallback screens (`+not-found`, legal pages). */
+export const homeHrefFor = (status: SessionStatus): "/" | "/onboarding" | "/pending" | "/welcome" =>
+  Match.value(status).pipe(
+    Match.when("ready", () => "/" as const),
+    Match.when("onboarding", () => "/onboarding" as const),
+    Match.when("pending", () => "/pending" as const),
+    Match.whenOr("loading", "signedOut", "offline", "unavailable", () => "/welcome" as const),
+    Match.exhaustive
+  )
 
 export interface SignUp {
   readonly email: string
@@ -58,7 +71,7 @@ interface Session {
 
 const SessionContext = createContext<Session | null>(null)
 
-const deviceLanguage = (): Language => (getLocales()[0]?.languageCode === "ja" ? "ja" : "en")
+export const deviceLanguage = (): Language => (getLocales()[0]?.languageCode === "ja" ? "ja" : "en")
 
 const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC"
 

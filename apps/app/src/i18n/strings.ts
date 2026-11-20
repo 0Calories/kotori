@@ -561,6 +561,11 @@ const en = {
     privacy: "Privacy Policy",
     terms: "Terms of Service"
   },
+  notFound: {
+    title: "Page not found",
+    body: "Kotori flew around looking for that page, but there's nothing here.",
+    home: "Go home"
+  },
   pos: {
     n: "noun",
     v1: "verb (ichidan)",
@@ -1149,6 +1154,11 @@ const ja: Strings = {
   legal: {
     privacy: "プライバシーポリシー",
     terms: "利用規約"
+  },
+  notFound: {
+    title: "ページが見つかりません",
+    body: "コトリがあちこち探しましたが、このページは見つかりませんでした。",
+    home: "ホームに戻る"
   },
   pos: {
     n: "名詞",

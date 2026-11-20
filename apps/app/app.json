@@ -25,9 +25,11 @@
     "web": {
       "bundler": "metro",
       "output": "single",
+      "lang": "en",
       "favicon": "./assets/favicon.png",
       "name": "Kotori",
       "shortName": "Kotori",
+      "description": "Bilingual Japanese and English dictionary, usage guide, and notebook — sound natural, not like a textbook.",
       "themeColor": "#F6FAFC",
       "backgroundColor": "#F6FAFC"
     },
