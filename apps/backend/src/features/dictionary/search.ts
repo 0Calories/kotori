@@ -412,16 +412,17 @@ export const makeSearch = (db: DatabaseShape) => {
    */
   const englishWordHits = Effect.fnUntraced(function* (query: string) {
     const guesses = uninflect(query)
+    const guessTags = new Map<string, ReadonlyArray<string>>()
+    for (const guess of guesses) {
+      for (const variant of unique([guess.base, ...englishPhraseVariants(guess.base)])) {
+        if (!guessTags.has(variant)) guessTags.set(variant, guess.tags)
+      }
+    }
+    const guessForms = [...guessTags.keys()]
     const variants = unique([query, ...englishPhraseVariants(query)])
     const [matches, guessed] = yield* Effect.all([
       findForms(db, variants, "en"),
-      guesses.length === 0
-        ? Effect.succeed([])
-        : findForms(
-            db,
-            guesses.map((guess) => guess.base),
-            "en"
-          )
+      guessForms.length === 0 ? Effect.succeed([]) : findForms(db, guessForms, "en")
     ])
     const prefixIds = yield* findFormPrefix(db, query, 40, "en")
     const terms = englishSearchTerms(query)
@@ -458,11 +459,11 @@ export const makeSearch = (db: DatabaseShape) => {
       // "started" is start's past, not START's.
       .filter((match) => match.kind === "spelling" && !isAcronym(match.text))
       .map((match): Hit => {
-        const guess = guesses.find((candidate) => candidate.base === match.text.toLowerCase())
+        const tags = guessTags.get(match.text.toLowerCase()) ?? []
         return {
           entryId: match.entryId,
           score: formScore(750, false, ranks.get(match.entryId)),
-          inflection: guessedInflection(guess?.tags ?? [], guessedEntries.get(match.entryId)),
+          inflection: guessedInflection(tags, guessedEntries.get(match.entryId)),
           strong: true
         }
       })

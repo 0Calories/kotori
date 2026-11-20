@@ -38,7 +38,7 @@ interface Rule {
   /** Types the inflected word must have; empty means it can only be the original input. */
   readonly inTypes: ReadonlyArray<WordType>
   readonly outType: WordType
-  readonly reason: Inflection
+  readonly reasons: ReadonlyArray<Inflection>
 }
 
 export interface Deinflection {
@@ -54,8 +54,8 @@ const rule = (
   to: string,
   inTypes: ReadonlyArray<WordType>,
   outType: WordType,
-  reason: Inflection
-): Rule => ({ from, to, inTypes, outType, reason })
+  reason: Inflection | ReadonlyArray<Inflection>
+): Rule => ({ from, to, inTypes, outType, reasons: Array.isArray(reason) ? reason : [reason] })
 
 /** Godan rows: dictionary ending, a/i/e/o stems, て-form and た-form endings. */
 const GODAN = [
@@ -94,7 +94,8 @@ const verbRules = (
   rule(stems.te, dict, ["iru"], type, "te"),
   rule(`${stems.ta}ら`, dict, [], type, "conditional"),
   rule(`${stems.ta}り`, dict, [], type, "tari"),
-  rule(`${stems.i}たい`, dict, ["adj-i"], type, "want")
+  rule(`${stems.i}たい`, dict, ["adj-i"], type, "want"),
+  rule(`${stems.i}すぎる`, dict, ["v1"], type, "too-much")
 ]
 
 const ichidan: Array<Rule> = [
@@ -103,6 +104,8 @@ const ichidan: Array<Rule> = [
   rule("よう", "る", [], "v1", "volitional"),
   rule("ろ", "る", [], "v1", "imperative"),
   rule("られる", "る", ["v1"], "v1", "passive"),
+  // Colloquial ra-nuki potential (食べれる -> 食べる).
+  rule("れる", "る", ["v1"], "v1", "potential"),
   rule("させる", "る", ["v1"], "v1", "causative"),
   rule("ちゃう", "る", ["v5"], "v1", "completed")
 ]
@@ -115,6 +118,8 @@ const godan: Array<Rule> = GODAN.flatMap(([dict, a, i, e, o, te, ta]) => [
   rule(`${e}る`, dict, ["v1"], "v5", "potential"),
   rule(`${a}れる`, dict, ["v1"], "v5", "passive"),
   rule(`${a}せる`, dict, ["v1"], "v5", "causative"),
+  // Short godan causative-passive (書かされる -> 書く, 飲まされる -> 飲む).
+  ...(dict === "す" ? [] : [rule(`${a}される`, dict, ["v1"], "v5", ["passive", "causative"])]),
   rule(`${te.slice(0, -1)}${te.endsWith("で") ? "じゃう" : "ちゃう"}`, dict, ["v5"], "v5", "completed")
 ])
 
@@ -122,7 +127,8 @@ const godan: Array<Rule> = GODAN.flatMap(([dict, a, i, e, o, te, ta]) => [
 const iku: Array<Rule> = ["行", "い"].flatMap((stem) => [
   rule(`${stem}って`, `${stem}く`, ["iru"], "v5", "te"),
   rule(`${stem}った`, `${stem}く`, [], "v5", "past"),
-  rule(`${stem}ったら`, `${stem}く`, [], "v5", "conditional")
+  rule(`${stem}ったら`, `${stem}く`, [], "v5", "conditional"),
+  rule(`${stem}っちゃう`, `${stem}く`, ["v5"], "v5", "completed")
 ])
 
 const kuru: Array<Rule> = [
@@ -130,10 +136,13 @@ const kuru: Array<Rule> = [
   ...verbRules("vk", "くる", { a: "こ", i: "き", e: "く", o: "こ", te: "きて", ta: "きた" }),
   ...["来", "こ"].flatMap((stem) => [
     rule(`${stem}られる`, stem === "来" ? "来る" : "くる", ["v1"], "vk", "potential"),
+    rule(`${stem}れる`, stem === "来" ? "来る" : "くる", ["v1"], "vk", "potential"),
     rule(`${stem}させる`, stem === "来" ? "来る" : "くる", ["v1"], "vk", "causative"),
     rule(`${stem}よう`, stem === "来" ? "来る" : "くる", [], "vk", "volitional"),
     rule(`${stem}い`, stem === "来" ? "来る" : "くる", [], "vk", "imperative")
   ]),
+  rule("来ちゃう", "来る", ["v5"], "vk", "completed"),
+  rule("きちゃう", "くる", ["v5"], "vk", "completed"),
   rule("来れば", "来る", [], "vk", "conditional"),
   rule("くれば", "くる", [], "vk", "conditional")
 ]
@@ -142,6 +151,7 @@ const suru: Array<Rule> = [
   ...verbRules("vs", "する", { a: "し", i: "し", e: "す", o: "し", te: "して", ta: "した" }),
   rule("される", "する", ["v1"], "vs", "passive"),
   rule("させる", "する", ["v1"], "vs", "causative"),
+  rule("しちゃう", "する", ["v5"], "vs", "completed"),
   rule("しよう", "する", [], "vs", "volitional"),
   rule("しろ", "する", [], "vs", "imperative"),
   rule("せよ", "する", [], "vs", "imperative"),
@@ -157,6 +167,9 @@ const adjectives: Array<Rule> = [
   rule("くて", "い", [], "adj-i", "te"),
   rule("ければ", "い", [], "adj-i", "conditional"),
   rule("かったら", "い", [], "adj-i", "conditional"),
+  // Colloquial conditional contractions of 〜なければ (食べなきゃ, 行かなくちゃ).
+  rule("なきゃ", "ない", [], "adj-i", "conditional"),
+  rule("なくちゃ", "ない", [], "adj-i", "conditional"),
   rule("く", "い", [], "adj-i", "adverb"),
   rule("さ", "い", [], "adj-i", "noun"),
   rule("そう", "い", [], "adj-i", "seems"),
@@ -165,12 +178,14 @@ const adjectives: Array<Rule> = [
   rule("よかった", "いい", [], "adj-i", "past"),
   rule("よくない", "いい", ["adj-i"], "adj-i", "negative"),
   rule("よくて", "いい", [], "adj-i", "te"),
-  rule("よければ", "いい", [], "adj-i", "conditional")
+  rule("よければ", "いい", [], "adj-i", "conditional"),
+  rule("よかったら", "いい", [], "adj-i", "conditional")
 ]
 
 const progressive: Array<Rule> = [
   rule("いる", "", ["v1"], "iru", "progressive"),
-  rule("る", "", ["v1"], "iru", "progressive")
+  rule("る", "", ["v1"], "iru", "progressive"),
+  rule("しまう", "", ["v5"], "iru", "completed")
 ]
 
 const RULES: ReadonlyArray<Rule> = [...ichidan, ...godan, ...iku, ...kuru, ...suru, ...adjectives, ...progressive]
@@ -180,19 +195,19 @@ export const deinflect = (word: string): Array<Deinflection> => {
   const results: Array<Deinflection> = [{ term: word, type: null, reasons: [] }]
   const seen = new Set([`${word}|`])
 
-  for (let index = 0; index < results.length && results.length < 200; index++) {
+  for (let index = 0; index < results.length && results.length < 300; index++) {
     const current = results[index]!
     for (const candidate of RULES) {
       if (current.type !== null && !candidate.inTypes.includes(current.type)) continue
       if (!current.term.endsWith(candidate.from)) continue
       const term = current.term.slice(0, current.term.length - candidate.from.length) + candidate.to
       if (term.length === 0) continue
-      // 〜て(い)る only follows a て-form.
+      // 〜て(い)る / 〜てしまう only follow a て-form.
       if (candidate.outType === "iru" && !/[てで]$/.test(term)) continue
       const key = `${term}|${candidate.outType}`
       if (seen.has(key)) continue
       seen.add(key)
-      results.push({ term, type: candidate.outType, reasons: [...current.reasons, candidate.reason] })
+      results.push({ term, type: candidate.outType, reasons: [...current.reasons, ...candidate.reasons] })
     }
   }
 

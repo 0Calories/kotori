@@ -21,9 +21,49 @@ describe("deinflect", () => {
     ["勉強しています", "勉強", ["polite", "progressive", "te", "suru"]],
     ["高くなかった", "高い", ["past", "negative"]],
     ["よかった", "いい", ["past"]],
-    ["書いちゃった", "書く", ["past", "completed"]]
+    ["よかったら", "いい", ["conditional"]],
+    ["書いちゃった", "書く", ["past", "completed"]],
+    ["食べちゃった", "食べる", ["past", "completed"]],
+    ["飲んじゃった", "飲む", ["past", "completed"]],
+    ["行っちゃった", "行く", ["past", "completed"]],
+    ["来ちゃった", "来る", ["past", "completed"]],
+    ["しちゃった", "する", ["past", "completed"]],
+    ["勉強しちゃった", "勉強", ["past", "completed", "suru"]],
+    ["食べてしまった", "食べる", ["past", "completed", "te"]],
+    ["食べさせられた", "食べる", ["past", "passive", "causative"]],
+    ["食べさせられなかった", "食べる", ["past", "negative", "passive", "causative"]],
+    ["書かせられた", "書く", ["past", "passive", "causative"]],
+    ["書かされた", "書く", ["past", "passive", "causative"]],
+    ["飲まされた", "飲む", ["past", "passive", "causative"]],
+    ["食べれる", "食べる", ["potential"]],
+    ["食べれなかった", "食べる", ["past", "negative", "potential"]],
+    ["見れた", "見る", ["past", "potential"]],
+    ["来れる", "来る", ["potential"]],
+    ["これなかった", "くる", ["past", "negative", "potential"]],
+    ["食べすぎちゃった", "食べる", ["past", "completed", "too-much"]],
+    ["食べなきゃ", "食べる", ["conditional", "negative"]],
+    ["行かなくちゃ", "行く", ["conditional", "negative"]],
+    ["ググっちゃった", "ググる", ["past", "completed"]],
+    ["バズってる", "バズる", ["progressive", "te"]],
+    ["エモすぎた", "エモい", ["past", "too-much"]]
   ])("%s -> %s", (word, term, reasons) => {
     expect(find(word, term)?.reasons).toEqual(reasons)
+  })
+
+  it("tags ra-nuki potentials and 来る contractions with the right verb class", () => {
+    expect(deinflect("食べれる")).toContainEqual({ term: "食べる", type: "v1", reasons: ["potential"] })
+    expect(deinflect("食べれなかった")).toContainEqual({
+      term: "食べる",
+      type: "v1",
+      reasons: ["past", "negative", "potential"]
+    })
+    expect(deinflect("来れる")).toContainEqual({ term: "来る", type: "vk", reasons: ["potential"] })
+    expect(deinflect("これなかった")).toContainEqual({
+      term: "くる",
+      type: "vk",
+      reasons: ["past", "negative", "potential"]
+    })
+    expect(deinflect("来ちゃった")).toContainEqual({ term: "来る", type: "vk", reasons: ["past", "completed"] })
   })
 
   it("always includes the query itself, untyped", () => {

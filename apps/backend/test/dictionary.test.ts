@@ -644,6 +644,98 @@ layer(TestLayer)("Dictionary", (it) => {
       )
     })
   )
+
+  it.effect("deinflects Japanese multi-auxiliary chains, colloquialisms, ra-nuki, romaji, katakana and slang", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      yield* insertEntries(db, [
+        entry(1358280, "食べる", "たべる", [sense(["to eat"], ["v1", "vt"])]),
+        entry(1349050, "書く", "かく", [sense(["to write"], ["v5k", "vt"])]),
+        entry(1578850, "行く", "いく", [sense(["to go"], ["v5k-s", "vi"])]),
+        entry(2850001, "ググる", "ぐぐる", [sense(["to Google"], ["v5r", "vt"], ["sl"])], false)
+      ])
+
+      const check = (query: string, expectedHeadword: string, expectedInflection: ReadonlyArray<string>) =>
+        Effect.gen(function* () {
+          const result = yield* dictionary.search(query, "ja", 10)
+          assert.strictEqual(result.match, "exact", `expected exact match for "${query}"`)
+          assert.strictEqual(
+            result.entries[0]?.headword,
+            expectedHeadword,
+            `expected ${expectedHeadword} for "${query}"`
+          )
+          assert.deepStrictEqual(
+            result.entries[0]?.inflection,
+            expectedInflection,
+            `expected inflection for "${query}"`
+          )
+          return result
+        })
+
+      yield* check("食べさせられなかった", "食べる", ["past", "negative", "passive", "causative"])
+      yield* check("書かされた", "書く", ["past", "passive", "causative"])
+      yield* check("食べちゃった", "食べる", ["past", "completed"])
+      yield* check("行っちゃった", "行く", ["past", "completed"])
+      yield* check("食べれる", "食べる", ["potential"])
+      yield* check("食べれなかった", "食べる", ["past", "negative", "potential"])
+      yield* check("ググっちゃった", "ググる", ["past", "completed"])
+
+      const romaji = yield* check("tabechatta", "食べる", ["past", "completed"])
+      assert.strictEqual(romaji.mode, "romaji")
+      assert.strictEqual(romaji.reading, "たべちゃった")
+      assert.strictEqual(romaji.entries[0]?.reading, "たべる")
+
+      const katakana = yield* check("タベレナカッタ", "食べる", ["past", "negative", "potential"])
+      assert.strictEqual(katakana.mode, "japanese")
+      assert.strictEqual(katakana.entries[0]?.reading, "たべる")
+    })
+  )
+
+  it.effect(
+    "lemmatizes irregular English inflections and multi-word phrasal verbs and idioms without stored forms",
+    () =>
+      Effect.gen(function* () {
+        const db = yield* Database
+        const dictionary = yield* Dictionary
+        yield* insertEntries(db, [
+          word(100020001, "run", [sense(["走る"], ["v"])]),
+          word(100020002, "go", [sense(["行く"], ["v"])]),
+          word(100020003, "mouse", [sense(["ネズミ"], ["n"])]),
+          word(100020004, "good", [sense(["良い"], ["adj"])]),
+          word(100020005, "bad", [sense(["悪い"], ["adj"])]),
+          word(100020006, "run into", [sense(["偶然出会う"], ["v"])]),
+          word(100020007, "bite the bullet", [sense(["歯を食いしばって耐える"], ["v"])]),
+          word(100020008, "pull one's leg", [sense(["からかう"], ["v"])])
+        ])
+
+        const check = (query: string, expectedHeadword: string, expectedInflection: ReadonlyArray<string>) =>
+          Effect.gen(function* () {
+            const result = yield* dictionary.search(query, "en", 10)
+            assert.strictEqual(result.match, "exact", `expected exact match for "${query}"`)
+            assert.strictEqual(
+              result.entries[0]?.headword,
+              expectedHeadword,
+              `expected ${expectedHeadword} for "${query}"`
+            )
+            assert.deepStrictEqual(
+              result.entries[0]?.inflection,
+              expectedInflection,
+              `expected inflection for "${query}"`
+            )
+          })
+
+        yield* check("ran", "run", ["past"])
+        yield* check("went", "go", ["past"])
+        yield* check("gone", "go", ["past-participle"])
+        yield* check("mice", "mouse", ["plural"])
+        yield* check("better", "good", ["comparative"])
+        yield* check("worst", "bad", ["superlative"])
+        yield* check("ran into", "run into", ["past"])
+        yield* check("biting the bullet", "bite the bullet", ["present-participle"])
+        yield* check("pulling my leg", "pull one's leg", ["present-participle"])
+      })
+  )
 })
 
 // The enrichment model as the entry page reads it: the dictionary's labels stated once, usage patterns
