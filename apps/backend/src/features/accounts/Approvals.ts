@@ -18,6 +18,16 @@ export interface Account extends AuthUser {
   readonly role: string
 }
 
+/** Outcome of the approval email step when approving a learner. */
+export type ApprovalEmailStatus = "sent" | "logged" | "failed" | "skipped"
+
+/** The approved account, whether it was already approved, and what happened to the welcome email. */
+export interface ApprovalResult {
+  readonly account: Account
+  readonly alreadyApproved: boolean
+  readonly emailStatus: ApprovalEmailStatus
+}
+
 /**
  * The admin's side of the sign-up gate. Approving tells the learner by email;
  * archiving is silent bookkeeping and looks like "pending" to them.
@@ -30,7 +40,7 @@ export class Approvals extends Context.Service<
     /** Pending sign-ups, oldest first; `all` includes archived ones. */
     requests(options?: { readonly all?: boolean }): Effect.Effect<ReadonlyArray<Account>>
     users(): Effect.Effect<ReadonlyArray<Account>>
-    approve(email: string): Effect.Effect<Account, NoSuchUser>
+    approve(email: string, options?: { readonly resend?: boolean }): Effect.Effect<ApprovalResult, NoSuchUser>
     archive(email: string): Effect.Effect<Account, NoSuchUser>
     setRole(email: string, role: "admin" | "user"): Effect.Effect<Account, NoSuchUser>
     /** Signs the learner out of every device. */
@@ -73,25 +83,46 @@ export class Approvals extends Context.Service<
         return account!
       })
 
-      const setStatus = (status: AccountStatus) =>
-        Effect.fn(`Approvals.${status}`)(function* (email: string) {
-          const account = yield* find(email)
-          if (account.status === status) return account
-          const profile = yield* profileFor(account)
-          yield* updateUser(db, account.id, { status })
-          if (status === "approved") {
-            yield* mailer
-              .send(
-                templates.approved({
-                  to: account.email,
-                  name: account.name.trim() || null,
-                  language: emailLanguage(profile)
-                })
-              )
-              .pipe(Effect.catchCause((cause) => Effect.logWarning("Could not send approval email", cause)))
-          }
-          return { ...account, status }
-        })
+      const sendApprovalEmail = (account: Account, profile: User) =>
+        mailer
+          .send(
+            templates.approved({
+              to: account.email,
+              name: account.name.trim() || null,
+              language: emailLanguage(profile)
+            })
+          )
+          .pipe(
+            Effect.as<ApprovalEmailStatus>(mailer.configured ? "sent" : "logged"),
+            Effect.catchCause((cause) =>
+              Effect.logWarning("Could not send approval email", cause).pipe(Effect.as<ApprovalEmailStatus>("failed"))
+            )
+          )
+
+      const approve = Effect.fn("Approvals.approved")(function* (
+        email: string,
+        options?: { readonly resend?: boolean }
+      ) {
+        const account = yield* find(email)
+        const alreadyApproved = account.status === "approved"
+        if (alreadyApproved && options?.resend !== true) {
+          return { account, alreadyApproved: true, emailStatus: "skipped" as const }
+        }
+        const profile = yield* profileFor(account)
+        if (!alreadyApproved) {
+          yield* updateUser(db, account.id, { status: "approved" })
+        }
+        const emailStatus = yield* sendApprovalEmail(account, profile)
+        return { account: { ...account, status: "approved" as const }, alreadyApproved, emailStatus }
+      })
+
+      const archive = Effect.fn("Approvals.archived")(function* (email: string) {
+        const account = yield* find(email)
+        if (account.status === "archived") return account
+        yield* profileFor(account)
+        yield* updateUser(db, account.id, { status: "archived" })
+        return { ...account, status: "archived" as const }
+      })
 
       return Approvals.of({
         requests: (options) =>
@@ -102,8 +133,8 @@ export class Approvals extends Context.Service<
             )
           ),
         users: () => auth.users.pipe(Effect.flatMap(combine)),
-        approve: setStatus("approved"),
-        archive: setStatus("archived"),
+        approve,
+        archive,
         setRole: Effect.fn("Approvals.setRole")(function* (email: string, role: "admin" | "user") {
           const account = yield* find(email)
           yield* profileFor(account)

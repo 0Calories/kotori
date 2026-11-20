@@ -1,7 +1,20 @@
-import * as Sentry from "@sentry/effect/server"
+import type * as Sentry from "@sentry/effect/server"
 import { Context, Effect, Layer, Logger, Tracer } from "effect"
 
+type SentrySdk = typeof Sentry
+
 const production = process.env.NODE_ENV === "production"
+
+// `@sentry/effect/server` pulls in `@sentry/node` and OpenTelemetry (~300ms on cold start),
+// so load it on demand only when Sentry is actually enabled (`SENTRY_DSN` or test overrides).
+let sdk: SentrySdk | undefined
+const loadSdk = (): Promise<SentrySdk> =>
+  sdk !== undefined
+    ? Promise.resolve(sdk)
+    : import("@sentry/effect/server").then((loaded) => {
+        sdk = loaded
+        return loaded
+      })
 
 /**
  * The Sentry isolation scope of the work a fiber belongs to — one request, job or evaluation — or
@@ -20,17 +33,18 @@ const evaluate = "~effect/Effect/evaluate"
  * what makes `withScope` per fiber. The tracer's `context` hook runs synchronously around each step,
  * and errors (`ErrorReporter`), logs and spans are all captured synchronously within one.
  */
-const ScopedSentryTracer = Tracer.make({
-  span: (options) => Sentry.SentryEffectTracer.span(options),
-  context: (primitive, fiber) => {
-    const run = () =>
-      Sentry.SentryEffectTracer.context === undefined
-        ? primitive[evaluate](fiber)
-        : Sentry.SentryEffectTracer.context(primitive, fiber)
-    const scope = fiber.getRef(CurrentScope)
-    return scope === undefined ? run() : Sentry.withIsolationScope(scope, run)
-  }
-})
+const makeScopedSentryTracer = (sentry: SentrySdk) =>
+  Tracer.make({
+    span: (options) => sentry.SentryEffectTracer.span(options),
+    context: (primitive, fiber) => {
+      const run = () =>
+        sentry.SentryEffectTracer.context === undefined
+          ? primitive[evaluate](fiber)
+          : sentry.SentryEffectTracer.context(primitive, fiber)
+      const scope = fiber.getRef(CurrentScope)
+      return scope === undefined ? run() : sentry.withIsolationScope(scope, run)
+    }
+  })
 
 /**
  * Runs `effect` with its own Sentry isolation scope, a copy of the enclosing one changed by
@@ -42,7 +56,8 @@ export const withScope =
   (configure: (scope: Sentry.Scope) => void) =>
   <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
     Effect.suspend(() => {
-      const scope = Sentry.getIsolationScope().clone()
+      if (sdk === undefined) return effect
+      const scope = sdk.getIsolationScope().clone()
       configure(scope)
       return Effect.provideService(effect, CurrentScope, scope)
     })
@@ -50,23 +65,44 @@ export const withScope =
 /**
  * Error reporting, tracing and logs to Sentry (project `sparkwright/kotori-backend`). Failures that
  * reach Effect's HTTP boundary or `ErrorReporter.report` become issues; Effect spans become traces.
- * Without `SENTRY_DSN` (tests, and local development unless you set it) nothing is sent. `overrides`
- * is for tests, to capture what would be sent.
+ * Without `SENTRY_DSN` (tests, and local development unless you set it) nothing is loaded or sent.
+ * `overrides` is for tests, to capture what would be sent.
  */
 export const SentryLive = (service: "api" | "worker" | "cli", overrides: Sentry.EffectServerLayerOptions = {}) =>
-  Layer.mergeAll(
-    Sentry.effectLayer({
-      dsn: process.env.SENTRY_DSN,
-      environment: process.env.SENTRY_ENVIRONMENT ?? (production ? "production" : "development"),
-      // The commit, set by the deploy (see the backend's `deploy` target).
-      release: process.env.SENTRY_RELEASE,
-      tracesSampleRate: production ? 0.1 : 1,
-      initialScope: { tags: { service } },
-      ...overrides
-    }),
-    Layer.succeed(Tracer.Tracer, ScopedSentryTracer)
+  Layer.unwrap(
+    Effect.suspend(() => {
+      const dsn = overrides.dsn ?? process.env.SENTRY_DSN
+      if (!dsn) return Effect.succeed(Layer.empty)
+      return Effect.promise(() =>
+        loadSdk().then((sentry) =>
+          Layer.mergeAll(
+            sentry.effectLayer({
+              dsn,
+              environment: process.env.SENTRY_ENVIRONMENT ?? (production ? "production" : "development"),
+              // The commit, set by the deploy (see the backend's `deploy` target).
+              release: process.env.SENTRY_RELEASE,
+              tracesSampleRate: production ? 0.1 : 1,
+              initialScope: { tags: { service } },
+              ...overrides
+            }),
+            Layer.succeed(Tracer.Tracer, makeScopedSentryTracer(sentry))
+          )
+        )
+      )
+    })
   )
 
 /** Sends Effect logs to Sentry Logs alongside `loggers`, or alongside the default logger when none are given. */
 export const loggerLayer = (loggers: ReadonlyArray<Logger.Logger<unknown, unknown>> = []) =>
-  Logger.layer([...loggers, Sentry.SentryEffectLogger], { mergeWithExisting: loggers.length === 0 })
+  Layer.unwrap(
+    Effect.suspend(() => {
+      if (!process.env.SENTRY_DSN) {
+        return Effect.succeed(loggers.length === 0 ? Layer.empty : Logger.layer(loggers, { mergeWithExisting: false }))
+      }
+      return Effect.promise(() =>
+        loadSdk().then((sentry) =>
+          Logger.layer([...loggers, sentry.SentryEffectLogger], { mergeWithExisting: loggers.length === 0 })
+        )
+      )
+    })
+  )
