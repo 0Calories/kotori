@@ -73,13 +73,15 @@ describe("web metadata and production assets", () => {
       assert.isTrue(existsSync(join(publicDir, filePath)), `missing public asset: ${filePath}`)
     }
 
-    // OG thumbnail must contain rendered text (textless fallback is ~31 KB; full card with Gabarito + Murecho is >50 KB).
+    // OG thumbnails must contain rendered text (textless fallback is ~31 KB; full card with Gabarito + Murecho is >50 KB).
     assert.isAbove(statSync(join(publicDir, "og-image.png")).size, 45_000)
+    assert.isAbove(statSync(join(publicDir, "og-image-ja.png")).size, 45_000)
   })
 
   it("uses GLOSSARY.md terminology ('usage', never 'nuance') across web metadata", () => {
     for (const file of [
       join(appDir, "app.json"),
+      join(appDir, "src/i18n/brand.ts"),
       join(publicDir, "index.html"),
       join(publicDir, "site.webmanifest"),
       join(repoDir, "tools/render-assets.ts")
@@ -118,6 +120,7 @@ describe("web metadata and production assets", () => {
 
     const sitemap = readFileSync(join(publicDir, "sitemap.xml"), "utf8")
     assert.include(sitemap, "<loc>https://hellokotori.com/</loc>")
+    assert.include(sitemap, "<loc>https://hellokotori.com/ja</loc>")
     assert.include(sitemap, "<loc>https://hellokotori.com/privacy</loc>")
     assert.include(sitemap, "<loc>https://hellokotori.com/terms</loc>")
   })
@@ -148,7 +151,10 @@ describe("web metadata and production assets", () => {
     const staticCache = allHeaders.find(([source, key]) => source === "/_expo/static/(.*)" && key === "Cache-Control")
     assert.include(staticCache?.[2] ?? "", "immutable")
 
-    const rewrite = vercel.rewrites?.[0]
+    const jaRewrite = vercel.rewrites?.find((rule) => rule.source === "/ja")
+    assert.strictEqual(jaRewrite?.destination, "/ja/index.html")
+
+    const rewrite = vercel.rewrites?.at(-1)
     assert.isDefined(rewrite)
     assert.strictEqual(rewrite.destination, "/index.html")
     assert.include(rewrite.source, "_expo/")

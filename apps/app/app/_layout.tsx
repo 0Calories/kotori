@@ -25,6 +25,7 @@ import { Button } from "../src/components/Button.tsx"
 import { iconFonts } from "../src/components/Icon.tsx"
 import { Screen } from "../src/components/Screen.tsx"
 import { MascotMessage } from "../src/components/States.tsx"
+import { brand } from "../src/i18n/brand.ts"
 import { strings } from "../src/i18n/strings.ts"
 import { isUnguardedRoute } from "../src/lib/legal.ts"
 import { sentryRedaction } from "../src/lib/sentryRedaction.ts"
@@ -130,6 +131,7 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
         {/* Unguarded: public legal pages and 404 open without signing in. */}
         <Stack.Screen name="privacy" />
         <Stack.Screen name="terms" />
+        <Stack.Screen name="ja" options={{ animation: "none", title: brand.ja.appName }} />
         <Stack.Screen name="+not-found" />
         <Stack.Protected guard={status === "ready"}>
           <Stack.Screen name="(tabs)" options={{ title: t.appName }} />
