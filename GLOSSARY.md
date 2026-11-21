@@ -88,6 +88,10 @@ _Avoid_: Proposal, draft, suggestion, AI entry
 A learner's personal collection where they save and manage dictionary entries.
 _Avoid_: Study, deck, flashcards, notes, saved words
 
+**Note**:
+One dictionary entry saved to a learner's notebook.
+_Avoid_: Card, flashcard, bookmark, saved word
+
 ### Audio
 
 **Voice**:

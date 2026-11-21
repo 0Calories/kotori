@@ -9,9 +9,6 @@
       "path": "./packages/db"
     },
     {
-      "path": "./packages/srs"
-    },
-    {
       "path": "./tools/local-auth"
     },
     {

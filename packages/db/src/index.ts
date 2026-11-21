@@ -17,10 +17,9 @@ export * from "./entries.ts"
 export * from "./entrySearch.ts"
 export * from "./tags.ts"
 
-// The learner: who they are, what they study and how it went. Everything cascades from `users`.
+// The learner: who they are and what they saved. Everything cascades from `users`.
 export * from "./users.ts"
 export * from "./notes.ts"
-export * from "./reviewLogs.ts"
 export * from "./coachCache.ts"
 export * from "./coachUsage.ts"
 export * from "./proposals.ts"

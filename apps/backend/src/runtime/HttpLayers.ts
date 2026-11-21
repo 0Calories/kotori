@@ -9,7 +9,7 @@ import { AudioStore } from "../features/audio/AudioStore.ts"
 import { Speech } from "../features/audio/Speech.ts"
 import { Coaching } from "../features/coaching/Coaching.ts"
 import { Dictionary } from "../features/dictionary/Dictionary.ts"
-import { Study } from "../features/study/Study.ts"
+import { Notebook } from "../features/notebook/Notebook.ts"
 import { Auth } from "../integrations/auth/Auth.ts"
 import { MailerLive } from "../integrations/email/live.ts"
 
@@ -17,7 +17,13 @@ import { MailerLive } from "../integrations/email/live.ts"
 const ProvidersLive = Layer.merge(AiProviders, MailerLive)
 
 /** Application services on top of the AI capabilities, the providers and the clip store. */
-const ServicesLive = Layer.mergeAll(Accounts.layer, Study.layer, Coaching.layer, Asks.layer, AuthWebhooks.layer).pipe(
+const ServicesLive = Layer.mergeAll(
+  Accounts.layer,
+  Notebook.layer,
+  Coaching.layer,
+  Asks.layer,
+  AuthWebhooks.layer
+).pipe(
   Layer.provideMerge(Dictionary.layer),
   Layer.provideMerge(Speech.layer),
   Layer.provideMerge(Layer.mergeAll(Coach.layer, Pronouncer.layer, Lexicographer.layer))

@@ -16,18 +16,7 @@ const User = createSelectSchema(users, { id: UserId })
 
 /** The learner's profile: Managed Auth's identity joined with Kotori's own learner fields. */
 export const Profile = Schema.Struct({
-  ...Struct.pick(User.fields, [
-    "id",
-    "status",
-    "role",
-    "nativeLanguage",
-    "targetLanguage",
-    "displayName",
-    "timezone",
-    "dailyNewLimit",
-    "dailyReviewLimit",
-    "createdAt"
-  ]),
+  ...Struct.pick(User.fields, ["id", "status", "role", "nativeLanguage", "targetLanguage", "displayName", "createdAt"]),
   email: Schema.String,
   emailVerified: Schema.Boolean,
   /** Whether the learner has picked a language yet; the app shows the picker until they do. */
@@ -35,13 +24,8 @@ export const Profile = Schema.Struct({
 })
 export type Profile = typeof Profile.Type
 
-const UserUpdate = createUpdateSchema(users, {
-  dailyNewLimit: (limit) => limit.check(Schema.isBetween({ minimum: 0, maximum: 9999 })),
-  dailyReviewLimit: (limit) => limit.check(Schema.isBetween({ minimum: 0, maximum: 9999 }))
-})
+const UserUpdate = createUpdateSchema(users)
 
 /** What a learner may change about their own profile. */
-export const UpdateProfileRequest = Schema.Struct(
-  Struct.pick(UserUpdate.fields, ["nativeLanguage", "displayName", "timezone", "dailyNewLimit", "dailyReviewLimit"])
-)
+export const UpdateProfileRequest = Schema.Struct(Struct.pick(UserUpdate.fields, ["nativeLanguage", "displayName"]))
 export type UpdateProfileRequest = typeof UpdateProfileRequest.Type

@@ -1,6 +1,6 @@
 import { Claude, Jev, Pronouncer } from "@kotori/ai"
-import { CurrentUser, InvalidRequest, KotoriApi, NotFound } from "@kotori/contracts"
-import { Effect, Layer, Option } from "effect"
+import { CurrentUser, KotoriApi, NotFound } from "@kotori/contracts"
+import { Effect, Layer, Match, Option } from "effect"
 import { HttpApiBuilder } from "effect/http-api"
 import { Database } from "../db/Database.ts"
 import { Accounts } from "../features/accounts/Accounts.ts"
@@ -8,7 +8,7 @@ import { Asks } from "../features/asks/Asks.ts"
 import { Coaching } from "../features/coaching/Coaching.ts"
 import { Dictionary } from "../features/dictionary/Dictionary.ts"
 import { entryCount } from "../features/dictionary/index.ts"
-import { Study } from "../features/study/Study.ts"
+import { Notebook } from "../features/notebook/Notebook.ts"
 import { Mailer } from "../integrations/email/Mailer.ts"
 
 const VERSION = "0.1.0"
@@ -101,41 +101,26 @@ const AudioHandlers = HttpApiBuilder.group(
   })
 )
 
-const StudyHandlers = HttpApiBuilder.group(
+const NotebookHandlers = HttpApiBuilder.group(
   KotoriApi,
-  "study",
+  "notebook",
   Effect.fn(function* (handlers) {
-    const study = yield* Study
+    const notebook = yield* Notebook
     return handlers.handleAll({
-      notes: () => Effect.flatMap(CurrentUser, (user) => study.notes(user.profile)),
-      addNote: ({ payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          if (payload.content.kind === "phrase" && payload.content.text.trim().length === 0) {
-            return yield* new InvalidRequest({ message: "A phrase needs some text" })
-          }
-          return yield* study.addNote(user.profile, payload)
-        }),
+      notes: () => Effect.flatMap(CurrentUser, (user) => notebook.notes(user.profile)),
+      addNote: ({ payload }) => Effect.flatMap(CurrentUser, (user) => notebook.addNote(user.profile, payload)),
       removeNote: ({ params }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           // Already gone is success, so deleting twice does not fail. Someone else's
           // note is NotFound and is left in place.
-          if ((yield* study.removeNote(user.profile, params.id)) === "forbidden") {
-            return yield* new NotFound({ message: "No such note" })
-          }
-        }),
-      due: ({ query }) =>
-        Effect.flatMap(CurrentUser, (user) =>
-          study.dueNotes(user.profile, Math.min(Math.max(query.limit ?? 50, 1), 200))
-        ),
-      answer: ({ params, payload }) =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const result = yield* study.answer(user.profile, params.id, payload.rating, payload.durationMs)
-          return yield* orNotFound<typeof result extends Option.Option<infer A> ? A : never>("No such note")(result)
-        }),
-      stats: () => Effect.flatMap(CurrentUser, (user) => study.stats(user.profile))
+          return yield* Match.value(yield* notebook.removeNote(user.profile, params.id)).pipe(
+            Match.when("deleted", () => Effect.void),
+            Match.when("absent", () => Effect.void),
+            Match.when("forbidden", () => Effect.fail(new NotFound({ message: "No such note" }))),
+            Match.exhaustive
+          )
+        })
     })
   })
 )
@@ -146,5 +131,5 @@ export const AllHandlers = Layer.mergeAll(
   DictionaryHandlers,
   CoachHandlers,
   AudioHandlers,
-  StudyHandlers
+  NotebookHandlers
 )

@@ -20,10 +20,6 @@ export const relations = defineRelations(schema, (r) => ({
   },
   notes: {
     user: r.one.users({ from: r.notes.userId, to: r.users.id, optional: false }),
-    entry: r.one.entries({ from: r.notes.entryId, to: r.entries.id }),
-    reviews: r.many.reviewLogs({ from: r.notes.id, to: r.reviewLogs.noteId })
-  },
-  reviewLogs: {
-    note: r.one.notes({ from: r.reviewLogs.noteId, to: r.notes.id, optional: false })
+    entry: r.one.entries({ from: r.notes.entryId, to: r.entries.id, optional: false })
   }
 }))

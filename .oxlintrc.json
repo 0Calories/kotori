@@ -159,7 +159,6 @@
         "packages/db/src/**",
         "packages/contracts/src/**",
         "packages/language/src/**",
-        "packages/srs/src/**",
         "apps/app/app/**",
         "apps/app/src/**"
       ],

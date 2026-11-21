@@ -5,7 +5,7 @@ import * as Schema from "effect/Schema"
 /** Table constructor for every table in this schema: camelCase fields, snake_case columns. */
 export const { table } = snakeCase
 
-/** A moment in time. Millisecond precision is plenty, and Study converts for the SRS code, which works in epoch milliseconds. */
+/** A moment in time, at millisecond precision. */
 export const timestamptz = () => timestamp({ withTimezone: true, precision: 3 })
 
 /** `created_at`, set by the database when a row is inserted. */
@@ -56,9 +56,6 @@ export const englishDocument = (column: AnyPgColumn) =>
 export const simpleDocument = (column: AnyPgColumn) => sql`(to_tsvector('simple', ${column}))`
 
 export const language = pgEnum("language", ["en", "ja"])
-
-/** How far along a note is in being learned. */
-export const retentionStage = pgEnum("retention_stage", ["new", "learning", "review", "relearning"])
 
 export const formality = pgEnum("formality", ["vulgar", "casual", "neutral", "polite", "formal"])
 

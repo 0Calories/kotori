@@ -14,7 +14,6 @@ import { Icon } from "../../src/components/Icon.tsx"
 import { ChipRow } from "../../src/components/LabelChips.tsx"
 import { Notice } from "../../src/components/Notice.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
-import { removalErrorText, RemoveNoteDialog } from "../../src/components/RemoveNote.tsx"
 import { Header, Screen, Section } from "../../src/components/Screen.tsx"
 import { Snow } from "../../src/components/Snow.tsx"
 import { Skeleton, SkeletonCard, SkeletonGroup } from "../../src/components/Skeleton.tsx"
@@ -28,16 +27,26 @@ import {
   heroItems,
   labelItems,
   loanLine,
-  saveDetails,
   senseCautions,
   similarWords,
   wordCautions
 } from "../../src/lib/entry.ts"
 import { findForm } from "../../src/lib/forms.ts"
-import { wordNote } from "../../src/lib/notes.ts"
+import { noteErrorText, noteOn } from "../../src/lib/notes.ts"
 import { entryIdFromParam, entrySourcesHref } from "../../src/lib/sources.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
+
+/** Whether an entry in this review state can be newly saved to the learner's notebook. */
+const isSaveable = (state: Entry["reviewState"]): boolean => {
+  switch (state) {
+    case "approved":
+    case "unreviewed":
+      return true
+    case "discarded":
+      return false
+  }
+}
 
 /** Web browsers without the Web Share API can't share, so the button is left out there. */
 const canShare = Platform.OS !== "web" || (typeof navigator !== "undefined" && "share" in navigator)
@@ -55,12 +64,7 @@ const SenseCard = ({
   sense,
   number,
   forms,
-  partOfSpeech,
-  saved,
-  onSave,
-  saving,
-  removing,
-  onRemove
+  partOfSpeech
 }: {
   readonly entry: Entry
   readonly sense: Sense
@@ -69,11 +73,6 @@ const SenseCard = ({
   readonly forms: ReadonlyArray<string>
   /** Already shown in the hero; repeated only when this sense differs. */
   readonly partOfSpeech: string | null
-  readonly saved: boolean
-  readonly onSave: () => void
-  readonly saving: boolean
-  readonly removing: boolean
-  readonly onRemove: () => void
 }) => {
   const theme = useTheme()
   const { t } = useSession()
@@ -109,22 +108,11 @@ const SenseCard = ({
         </Text>
       </View>
       <View style={{ flex: 1, gap: theme.space.sm + 2 }}>
-        <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
-          <View style={{ flex: 1, gap: 4, paddingTop: 1 }}>
-            <Text variant="heading" selectable>
-              {second ? `${first}${separator}${second}` : first}
-            </Text>
-            {rest.length > 0 ? <Text color="textMuted">{rest.join(separator)}</Text> : null}
-          </View>
-          <View style={{ marginTop: -9, marginRight: -8 }}>
-            <IconButton
-              icon="bookmark"
-              filled={saved}
-              size={40}
-              label={saved ? t.saved.remove : t.entry.save}
-              onPress={removing ? undefined : saved ? onRemove : saving ? undefined : onSave}
-            />
-          </View>
+        <View style={{ gap: 4, paddingTop: 1 }}>
+          <Text variant="heading" selectable>
+            {second ? `${first}${separator}${second}` : first}
+          </Text>
+          {rest.length > 0 ? <Text color="textMuted">{rest.join(separator)}</Text> : null}
         </View>
         <ChipRow items={labelItems(t, sense.labels)} plain={[...pos, ...fields]} />
         {sense.appliesTo.length > 0 ? (
@@ -271,8 +259,7 @@ export default function EntryScreen() {
   const removeNote = useRemoveNote()
   const [showAll, setShowAll] = useState(false)
   const [scrolled, setScrolled] = useState(false)
-  const [removingSense, setRemovingSense] = useState<number | null>(null)
-  const [removeError, setRemoveError] = useState<string | null>(null)
+  const [noteError, setNoteError] = useState<string | null>(null)
   const back = () => (router.canGoBack() ? router.back() : router.replace("/"))
 
   // A failed refetch (one of the polls while the entry is being enriched, say) keeps the entry
@@ -294,49 +281,27 @@ export default function EntryScreen() {
 
   const data = entry.data
   const language = data.language
-  const savedSenses = new Set(
-    (notes.data ?? []).flatMap((note) =>
-      note.content.kind === "word" && note.content.entryId === data.id ? [note.content.senseIndex] : []
-    )
-  )
-  const savedNote = (senseIndex: number) =>
-    (notes.data ?? []).find(
-      (note) =>
-        note.content.kind === "word" && note.content.entryId === data.id && note.content.senseIndex === senseIndex
-    )
-  const beginRemove = (senseIndex: number) => {
-    setRemoveError(null)
-    setRemovingSense(senseIndex)
-  }
-  const confirmRemove = async () => {
-    if (removingSense === null || removeNote.isPending) return
-    const note = savedNote(removingSense)
-    if (note === undefined) {
-      setRemovingSense(null)
+  const saved = noteOn(notes.data, data.id)
+  const saveable = isSaveable(data.reviewState)
+  const busy = addNote.isPending || removeNote.isPending
+  const toggleNote = async () => {
+    if (busy) return
+    setNoteError(null)
+    if (saved !== undefined) {
+      try {
+        await removeNote.mutateAsync(saved.id)
+      } catch (error) {
+        setNoteError(noteErrorText(t, error, "remove"))
+      }
       return
     }
-    setRemoveError(null)
+    if (!saveable) return
     try {
-      await removeNote.mutateAsync(note.id)
-      setRemovingSense(null)
+      await addNote.mutateAsync({ entryId: data.id })
     } catch (error) {
-      setRemoveError(removalErrorText(t, error))
+      setNoteError(noteErrorText(t, error, "save"))
     }
   }
-  const save = (sense: Sense) =>
-    addNote.mutate({
-      content: wordNote({
-        entryId: data.id,
-        language,
-        sense: sense.index,
-        headword: data.headword,
-        reading: data.reading,
-        glosses: sense.glosses,
-        ...saveDetails(t, data, sense),
-        example: sense.examples[0],
-        audioUrl: data.audioUrl
-      })
-    })
   const reading = data.reading.length > 0 && data.reading !== data.headword ? data.reading : null
   const share = () =>
     Share.share({
@@ -377,18 +342,14 @@ export default function EntryScreen() {
           }
           actions={
             <>
-              <IconButton
-                icon="bookmark"
-                filled={savedSenses.has(0)}
-                label={savedSenses.has(0) ? t.saved.remove : t.entry.save}
-                onPress={
-                  removeNote.isPending || addNote.isPending || !data.senses[0]
-                    ? undefined
-                    : savedSenses.has(0)
-                      ? () => beginRemove(0)
-                      : () => save(data.senses[0]!)
-                }
-              />
+              {saveable || saved !== undefined ? (
+                <IconButton
+                  icon="bookmark"
+                  filled={saved !== undefined}
+                  label={saved !== undefined ? t.notebook.remove : t.entry.save}
+                  onPress={busy ? undefined : () => void toggleNote()}
+                />
+              ) : null}
               {canShare ? (
                 <IconButton
                   icon={Platform.OS === "android" ? "share" : "ios_share"}
@@ -401,16 +362,7 @@ export default function EntryScreen() {
         />
       }
     >
-      <RemoveNoteDialog
-        note={removingSense === null ? undefined : savedNote(removingSense)}
-        busy={removeNote.isPending}
-        error={removeError}
-        onConfirm={() => void confirmRemove()}
-        onCancel={() => {
-          setRemovingSense(null)
-          setRemoveError(null)
-        }}
-      />
+      <Notice message={noteError} />
       {entry.isRefetchError ? (
         <Notice
           message={t.common.notRefreshed}
@@ -491,11 +443,6 @@ export default function EntryScreen() {
             number={index + 1}
             forms={forms}
             partOfSpeech={partOfSpeech}
-            saved={savedSenses.has(sense.index)}
-            saving={addNote.isPending}
-            removing={removeNote.isPending}
-            onSave={() => save(sense)}
-            onRemove={() => beginRemove(sense.index)}
           />
         ))}
         {data.senses.length > 3 ? (

@@ -8,7 +8,6 @@ The app runs on iOS, Android, and the web from a single Expo codebase, with the 
   <img src="docs/screenshots/onboarding.jpg" width="200" alt="Choosing a language during onboarding">
   <img src="docs/screenshots/search.jpg" width="200" alt="Searching “eat”, with formality tags on each result">
   <img src="docs/screenshots/entry.jpg" width="200" alt="食べる with its register scales, example sentence, and similar words">
-  <img src="docs/screenshots/review.jpg" width="200" alt="A note under review, with Anki intervals on the rating buttons">
 </p>
 
 ## What's inside
@@ -18,7 +17,7 @@ The app runs on iOS, Android, and the web from a single Expo codebase, with the 
 - **Examples and audio** — Natural example sentences with furigana (written by **Claude**) and spoken headword audio (voiced by **ElevenLabs**), added on demand from the `kotori` CLI.
 - **Naturalness check** — Write a sentence in the language you're learning to see how it comes across to a native speaker, what to fix, and natural ways to phrase it.
 - **How do I say…** — Describe what you want to say in your own language and get idiomatic ways natives actually say it, with tone, literal meaning, key vocabulary, and pitfalls to avoid.
-- **Spaced repetition** — Save any word or phrase to your deck. Reviews are scheduled with Anki's SM-2 (v3) algorithm, including learning steps, ease, lapses, interval fuzz, and leech detection.
+- **Notebook** — Save any dictionary entry to your notebook and search your saved words across devices.
 
 ## Monorepo layout
 
@@ -33,7 +32,6 @@ packages/
   contracts/  The HTTP contract (KotoriApi), its schemas derived from the tables
   ai/         Claude, Jev and ElevenLabs: coaching, Ask Kotori, examples, speech, golden evals
   language/   Japanese and English text: rōmaji ↔ kana, deinflection, furigana, glosses
-  srs/        Pure, fully tested implementation of Anki's SM-2 scheduler
 tools/
   local-auth/ Local development stand-in for Neon Managed Better Auth
   *.ts        Local setup script; mascot asset and animation renderers
@@ -95,7 +93,7 @@ In development, the app automatically signs in as `dev@kotori.test` on launch an
 
 ### API keys (optional for local dev)
 
-Dictionary search and reviews work without any API keys. To enable coaching and enrichment, add keys to `.env`:
+Dictionary search and your notebook work without any API keys. To enable coaching and enrichment, add keys to `.env`:
 
 | Variable | Powers | Behavior without key |
 | --- | --- | --- |

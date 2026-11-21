@@ -19,6 +19,8 @@ describe("disabled speak and check tabs", () => {
 
     assert.match(layout, /Tabs\.Screen name="say"/)
     assert.match(layout, /Tabs\.Screen name="check"/)
+    assert.match(layout, /Tabs\.Screen name="notebook"/)
+    assert.match(tabBar, /notebook: t\.tabs\.notebook/)
     assert.match(tabBar, /DISABLED_TABS.*new Set\(\["say", "check"\]\)/)
     assert.match(tabBar, /tooltip=\{disabled \? t\.tabs\.notReady : undefined\}/)
     assert.match(tabBar, /role="tooltip"/)
