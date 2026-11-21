@@ -14,15 +14,7 @@ export type User = typeof users.$inferSelect
 export type UserPatch = Partial<
   Pick<
     typeof users.$inferInsert,
-    | "status"
-    | "role"
-    | "nativeLanguage"
-    | "targetLanguage"
-    | "onboardedAt"
-    | "displayName"
-    | "timezone"
-    | "dailyNewLimit"
-    | "dailyReviewLimit"
+    "status" | "role" | "nativeLanguage" | "targetLanguage" | "onboardedAt" | "displayName"
   >
 >
 
@@ -58,6 +50,6 @@ export const updateUser = Effect.fn("accounts.updateUser")(function* (db: Databa
   return yield* userById(db, id)
 })
 
-/** Removes the profile; notes, review logs and coach usage all cascade from it. */
+/** Removes the profile; notes and coach usage all cascade from it. */
 export const deleteUser = (db: DatabaseShape, id: UserId) =>
   db.delete(users).where(eq(users.id, id)).pipe(Effect.asVoid, Effect.orDie)

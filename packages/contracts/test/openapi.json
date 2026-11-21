@@ -3,7 +3,7 @@
   "info": {
     "title": "Kotori API",
     "version": "0.0.1",
-    "description": "Dictionary, coaching and spaced repetition for Japanese and English learners."
+    "description": "Dictionary, coaching and notebook for Japanese and English learners."
   },
   "paths": {
     "/health": {
@@ -139,19 +139,6 @@
                         }
                       ]
                     },
-                    "timezone": {
-                      "type": "string"
-                    },
-                    "dailyNewLimit": {
-                      "type": "integer",
-                      "minimum": -2147483648,
-                      "maximum": 2147483647
-                    },
-                    "dailyReviewLimit": {
-                      "type": "integer",
-                      "minimum": -2147483648,
-                      "maximum": 2147483647
-                    },
                     "createdAt": {
                       "type": "string"
                     },
@@ -172,9 +159,6 @@
                     "nativeLanguage",
                     "targetLanguage",
                     "displayName",
-                    "timezone",
-                    "dailyNewLimit",
-                    "dailyReviewLimit",
                     "createdAt",
                     "email",
                     "emailVerified",
@@ -274,19 +258,6 @@
                         }
                       ]
                     },
-                    "timezone": {
-                      "type": "string"
-                    },
-                    "dailyNewLimit": {
-                      "type": "integer",
-                      "minimum": -2147483648,
-                      "maximum": 2147483647
-                    },
-                    "dailyReviewLimit": {
-                      "type": "integer",
-                      "minimum": -2147483648,
-                      "maximum": 2147483647
-                    },
                     "createdAt": {
                       "type": "string"
                     },
@@ -307,9 +278,6 @@
                     "nativeLanguage",
                     "targetLanguage",
                     "displayName",
-                    "timezone",
-                    "dailyNewLimit",
-                    "dailyReviewLimit",
                     "createdAt",
                     "email",
                     "emailVerified",
@@ -381,49 +349,6 @@
                       },
                       {
                         "type": "null"
-                      },
-                      {
-                        "type": "null"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "timezone": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "dailyNewLimit": {
-                    "anyOf": [
-                      {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9999
-                      },
-                      {
-                        "type": "null"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "dailyReviewLimit": {
-                    "anyOf": [
-                      {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9999
                       },
                       {
                         "type": "null"
@@ -2975,12 +2900,12 @@
         }
       }
     },
-    "/study/notes": {
+    "/notebook/notes": {
       "get": {
         "tags": [
-          "study"
+          "notebook"
         ],
-        "operationId": "study.notes",
+        "operationId": "notebook.notes",
         "parameters": [],
         "security": [],
         "responses": {
@@ -2996,279 +2921,82 @@
                       "id": {
                         "type": "string"
                       },
-                      "content": {
-                        "anyOf": [
-                          {
-                            "type": "object",
-                            "properties": {
-                              "kind": {
-                                "type": "string",
-                                "enum": [
-                                  "word"
-                                ]
-                              },
-                              "entryId": {
-                                "type": "string"
-                              },
-                              "senseIndex": {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991
-                              },
-                              "language": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "enum": [
-                                      "en",
-                                      "ja"
-                                    ]
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
-                              },
-                              "headword": {
-                                "type": "string"
-                              },
-                              "reading": {
-                                "type": "string"
-                              },
-                              "meaning": {
-                                "type": "string"
-                              },
-                              "hint": {
-                                "anyOf": [
-                                  {
-                                    "type": "string"
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
-                              },
-                              "note": {
-                                "anyOf": [
-                                  {
-                                    "type": "string"
-                                  },
-                                  {
-                                    "type": "null"
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
-                              },
-                              "example": {
-                                "anyOf": [
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "ja": {
-                                        "type": "string"
-                                      },
-                                      "furigana": {
-                                        "type": "string"
-                                      },
-                                      "en": {
-                                        "type": "string"
-                                      },
-                                      "audioUrl": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string"
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
-                                        ]
-                                      },
-                                      "translationAudioUrl": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string"
-                                          },
-                                          {
-                                            "type": "null"
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
-                                        ]
-                                      }
-                                    },
-                                    "required": [
-                                      "ja",
-                                      "furigana",
-                                      "en",
-                                      "audioUrl"
-                                    ],
-                                    "additionalProperties": false
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
-                              },
-                              "audioUrl": {
-                                "anyOf": [
-                                  {
-                                    "type": "string"
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
-                              }
-                            },
-                            "required": [
-                              "kind",
-                              "entryId",
-                              "senseIndex",
-                              "headword",
-                              "reading",
-                              "meaning",
-                              "hint",
-                              "example",
-                              "audioUrl"
-                            ],
-                            "additionalProperties": false
-                          },
-                          {
-                            "type": "object",
-                            "properties": {
-                              "kind": {
-                                "type": "string",
-                                "enum": [
-                                  "phrase"
-                                ]
-                              },
-                              "text": {
-                                "type": "string"
-                              },
-                              "furigana": {
-                                "anyOf": [
-                                  {
-                                    "type": "string"
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
-                              },
-                              "meaning": {
-                                "type": "string"
-                              },
-                              "note": {
-                                "anyOf": [
-                                  {
-                                    "type": "string"
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
-                              },
-                              "register": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "enum": [
-                                      "casual",
-                                      "neutral",
-                                      "polite",
-                                      "formal"
-                                    ]
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
-                              },
-                              "source": {
-                                "type": "string",
-                                "enum": [
-                                  "how-to-say",
-                                  "naturalness",
-                                  "manual"
-                                ]
-                              }
-                            },
-                            "required": [
-                              "kind",
-                              "text",
-                              "furigana",
-                              "meaning",
-                              "note",
-                              "register",
-                              "source"
-                            ],
-                            "additionalProperties": false
-                          }
-                        ]
-                      },
                       "createdAt": {
                         "type": "string"
                       },
-                      "retentionStage": {
-                        "type": "string",
-                        "enum": [
-                          "new",
-                          "learning",
-                          "review",
-                          "relearning"
-                        ]
-                      },
-                      "due": {
-                        "type": "string"
-                      },
-                      "interval": {
-                        "type": "integer",
-                        "minimum": -2147483648,
-                        "maximum": 2147483647
-                      },
-                      "ease": {
-                        "anyOf": [
-                          {
-                            "type": "number"
+                      "entry": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
                           },
-                          {
+                          "language": {
                             "type": "string",
                             "enum": [
-                              "Infinity",
-                              "-Infinity",
-                              "NaN"
+                              "en",
+                              "ja"
                             ]
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "jmdict",
+                              "jawiktionary",
+                              "enwiktionary",
+                              "tatoeba",
+                              "kotori",
+                              "user"
+                            ]
+                          },
+                          "reviewState": {
+                            "type": "string",
+                            "enum": [
+                              "approved",
+                              "unreviewed",
+                              "discarded"
+                            ]
+                          },
+                          "headword": {
+                            "type": "string"
+                          },
+                          "reading": {
+                            "type": "string"
                           }
-                        ]
+                        },
+                        "required": [
+                          "id",
+                          "language",
+                          "source",
+                          "reviewState",
+                          "headword",
+                          "reading"
+                        ],
+                        "additionalProperties": false
                       },
-                      "reps": {
-                        "type": "integer",
-                        "minimum": -2147483648,
-                        "maximum": 2147483647
-                      },
-                      "lapses": {
-                        "type": "integer",
-                        "minimum": -2147483648,
-                        "maximum": 2147483647
-                      },
-                      "leech": {
-                        "type": "boolean"
+                      "senses": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "glosses": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "glosses"
+                          ],
+                          "additionalProperties": false
+                        }
                       }
                     },
                     "required": [
                       "id",
-                      "content",
                       "createdAt",
-                      "retentionStage",
-                      "due",
-                      "interval",
-                      "ease",
-                      "reps",
-                      "lapses",
-                      "leech"
+                      "entry",
+                      "senses"
                     ],
                     "additionalProperties": false
                   }
@@ -3310,9 +3038,9 @@
       },
       "post": {
         "tags": [
-          "study"
+          "notebook"
         ],
-        "operationId": "study.addNote",
+        "operationId": "notebook.addNote",
         "parameters": [],
         "security": [],
         "responses": {
@@ -3326,279 +3054,82 @@
                     "id": {
                       "type": "string"
                     },
-                    "content": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "kind": {
-                              "type": "string",
-                              "enum": [
-                                "word"
-                              ]
-                            },
-                            "entryId": {
-                              "type": "string"
-                            },
-                            "senseIndex": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "language": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "enum": [
-                                    "en",
-                                    "ja"
-                                  ]
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "headword": {
-                              "type": "string"
-                            },
-                            "reading": {
-                              "type": "string"
-                            },
-                            "meaning": {
-                              "type": "string"
-                            },
-                            "hint": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "note": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "type": "null"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "example": {
-                              "anyOf": [
-                                {
-                                  "type": "object",
-                                  "properties": {
-                                    "ja": {
-                                      "type": "string"
-                                    },
-                                    "furigana": {
-                                      "type": "string"
-                                    },
-                                    "en": {
-                                      "type": "string"
-                                    },
-                                    "audioUrl": {
-                                      "anyOf": [
-                                        {
-                                          "type": "string"
-                                        },
-                                        {
-                                          "type": "null"
-                                        }
-                                      ]
-                                    },
-                                    "translationAudioUrl": {
-                                      "anyOf": [
-                                        {
-                                          "type": "string"
-                                        },
-                                        {
-                                          "type": "null"
-                                        },
-                                        {
-                                          "type": "null"
-                                        }
-                                      ]
-                                    }
-                                  },
-                                  "required": [
-                                    "ja",
-                                    "furigana",
-                                    "en",
-                                    "audioUrl"
-                                  ],
-                                  "additionalProperties": false
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "audioUrl": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "entryId",
-                            "senseIndex",
-                            "headword",
-                            "reading",
-                            "meaning",
-                            "hint",
-                            "example",
-                            "audioUrl"
-                          ],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "object",
-                          "properties": {
-                            "kind": {
-                              "type": "string",
-                              "enum": [
-                                "phrase"
-                              ]
-                            },
-                            "text": {
-                              "type": "string"
-                            },
-                            "furigana": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "meaning": {
-                              "type": "string"
-                            },
-                            "note": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "register": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "enum": [
-                                    "casual",
-                                    "neutral",
-                                    "polite",
-                                    "formal"
-                                  ]
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "source": {
-                              "type": "string",
-                              "enum": [
-                                "how-to-say",
-                                "naturalness",
-                                "manual"
-                              ]
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "text",
-                            "furigana",
-                            "meaning",
-                            "note",
-                            "register",
-                            "source"
-                          ],
-                          "additionalProperties": false
-                        }
-                      ]
-                    },
                     "createdAt": {
                       "type": "string"
                     },
-                    "retentionStage": {
-                      "type": "string",
-                      "enum": [
-                        "new",
-                        "learning",
-                        "review",
-                        "relearning"
-                      ]
-                    },
-                    "due": {
-                      "type": "string"
-                    },
-                    "interval": {
-                      "type": "integer",
-                      "minimum": -2147483648,
-                      "maximum": 2147483647
-                    },
-                    "ease": {
-                      "anyOf": [
-                        {
-                          "type": "number"
+                    "entry": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
                         },
-                        {
+                        "language": {
                           "type": "string",
                           "enum": [
-                            "Infinity",
-                            "-Infinity",
-                            "NaN"
+                            "en",
+                            "ja"
                           ]
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "jmdict",
+                            "jawiktionary",
+                            "enwiktionary",
+                            "tatoeba",
+                            "kotori",
+                            "user"
+                          ]
+                        },
+                        "reviewState": {
+                          "type": "string",
+                          "enum": [
+                            "approved",
+                            "unreviewed",
+                            "discarded"
+                          ]
+                        },
+                        "headword": {
+                          "type": "string"
+                        },
+                        "reading": {
+                          "type": "string"
                         }
-                      ]
+                      },
+                      "required": [
+                        "id",
+                        "language",
+                        "source",
+                        "reviewState",
+                        "headword",
+                        "reading"
+                      ],
+                      "additionalProperties": false
                     },
-                    "reps": {
-                      "type": "integer",
-                      "minimum": -2147483648,
-                      "maximum": 2147483647
-                    },
-                    "lapses": {
-                      "type": "integer",
-                      "minimum": -2147483648,
-                      "maximum": 2147483647
-                    },
-                    "leech": {
-                      "type": "boolean"
+                    "senses": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "glosses": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "glosses"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
                     "id",
-                    "content",
                     "createdAt",
-                    "retentionStage",
-                    "due",
-                    "interval",
-                    "ease",
-                    "reps",
-                    "lapses",
-                    "leech"
+                    "entry",
+                    "senses"
                   ],
                   "additionalProperties": false
                 }
@@ -3635,6 +3166,16 @@
               }
             }
           },
+          "404": {
+            "description": "NotFound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundEncoded"
+                }
+              }
+            }
+          },
           "503": {
             "description": "AuthUnavailable",
             "content": {
@@ -3652,222 +3193,12 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "content": {
-                    "anyOf": [
-                      {
-                        "type": "object",
-                        "properties": {
-                          "kind": {
-                            "type": "string",
-                            "enum": [
-                              "word"
-                            ]
-                          },
-                          "entryId": {
-                            "type": "string"
-                          },
-                          "senseIndex": {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991
-                          },
-                          "language": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "enum": [
-                                  "en",
-                                  "ja"
-                                ]
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "headword": {
-                            "type": "string"
-                          },
-                          "reading": {
-                            "type": "string"
-                          },
-                          "meaning": {
-                            "type": "string"
-                          },
-                          "hint": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "note": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "example": {
-                            "anyOf": [
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "ja": {
-                                    "type": "string"
-                                  },
-                                  "furigana": {
-                                    "type": "string"
-                                  },
-                                  "en": {
-                                    "type": "string"
-                                  },
-                                  "audioUrl": {
-                                    "anyOf": [
-                                      {
-                                        "type": "string"
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
-                                  },
-                                  "translationAudioUrl": {
-                                    "anyOf": [
-                                      {
-                                        "type": "string"
-                                      },
-                                      {
-                                        "type": "null"
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
-                                  }
-                                },
-                                "required": [
-                                  "ja",
-                                  "furigana",
-                                  "en",
-                                  "audioUrl"
-                                ],
-                                "additionalProperties": false
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "audioUrl": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          }
-                        },
-                        "required": [
-                          "kind",
-                          "entryId",
-                          "senseIndex",
-                          "headword",
-                          "reading",
-                          "meaning",
-                          "hint",
-                          "example",
-                          "audioUrl"
-                        ],
-                        "additionalProperties": false
-                      },
-                      {
-                        "type": "object",
-                        "properties": {
-                          "kind": {
-                            "type": "string",
-                            "enum": [
-                              "phrase"
-                            ]
-                          },
-                          "text": {
-                            "type": "string"
-                          },
-                          "furigana": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "meaning": {
-                            "type": "string"
-                          },
-                          "note": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "register": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "enum": [
-                                  "casual",
-                                  "neutral",
-                                  "polite",
-                                  "formal"
-                                ]
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "source": {
-                            "type": "string",
-                            "enum": [
-                              "how-to-say",
-                              "naturalness",
-                              "manual"
-                            ]
-                          }
-                        },
-                        "required": [
-                          "kind",
-                          "text",
-                          "furigana",
-                          "meaning",
-                          "note",
-                          "register",
-                          "source"
-                        ],
-                        "additionalProperties": false
-                      }
-                    ]
+                  "entryId": {
+                    "type": "string"
                   }
                 },
                 "required": [
-                  "content"
+                  "entryId"
                 ],
                 "additionalProperties": false
               }
@@ -3877,12 +3208,12 @@
         }
       }
     },
-    "/study/notes/{id}": {
+    "/notebook/notes/{id}": {
       "delete": {
         "tags": [
-          "study"
+          "notebook"
         ],
-        "operationId": "study.removeNote",
+        "operationId": "notebook.removeNote",
         "parameters": [
           {
             "name": "id",
@@ -3924,1005 +3255,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/NotFoundEncoded"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "AuthUnavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthUnavailableEncoded"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/study/due": {
-      "get": {
-        "tags": [
-          "study"
-        ],
-        "operationId": "study.due",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "pattern": "^[+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:[Ee][+-]?\\d+)?$"
-            },
-            "required": false
-          }
-        ],
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "items": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "note": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string"
-                              },
-                              "content": {
-                                "anyOf": [
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "kind": {
-                                        "type": "string",
-                                        "enum": [
-                                          "word"
-                                        ]
-                                      },
-                                      "entryId": {
-                                        "type": "string"
-                                      },
-                                      "senseIndex": {
-                                        "type": "integer",
-                                        "minimum": -9007199254740991,
-                                        "maximum": 9007199254740991
-                                      },
-                                      "language": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "en",
-                                              "ja"
-                                            ]
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
-                                        ]
-                                      },
-                                      "headword": {
-                                        "type": "string"
-                                      },
-                                      "reading": {
-                                        "type": "string"
-                                      },
-                                      "meaning": {
-                                        "type": "string"
-                                      },
-                                      "hint": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string"
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
-                                        ]
-                                      },
-                                      "note": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string"
-                                          },
-                                          {
-                                            "type": "null"
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
-                                        ]
-                                      },
-                                      "example": {
-                                        "anyOf": [
-                                          {
-                                            "type": "object",
-                                            "properties": {
-                                              "ja": {
-                                                "type": "string"
-                                              },
-                                              "furigana": {
-                                                "type": "string"
-                                              },
-                                              "en": {
-                                                "type": "string"
-                                              },
-                                              "audioUrl": {
-                                                "anyOf": [
-                                                  {
-                                                    "type": "string"
-                                                  },
-                                                  {
-                                                    "type": "null"
-                                                  }
-                                                ]
-                                              },
-                                              "translationAudioUrl": {
-                                                "anyOf": [
-                                                  {
-                                                    "type": "string"
-                                                  },
-                                                  {
-                                                    "type": "null"
-                                                  },
-                                                  {
-                                                    "type": "null"
-                                                  }
-                                                ]
-                                              }
-                                            },
-                                            "required": [
-                                              "ja",
-                                              "furigana",
-                                              "en",
-                                              "audioUrl"
-                                            ],
-                                            "additionalProperties": false
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
-                                        ]
-                                      },
-                                      "audioUrl": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string"
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
-                                        ]
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "entryId",
-                                      "senseIndex",
-                                      "headword",
-                                      "reading",
-                                      "meaning",
-                                      "hint",
-                                      "example",
-                                      "audioUrl"
-                                    ],
-                                    "additionalProperties": false
-                                  },
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "kind": {
-                                        "type": "string",
-                                        "enum": [
-                                          "phrase"
-                                        ]
-                                      },
-                                      "text": {
-                                        "type": "string"
-                                      },
-                                      "furigana": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string"
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
-                                        ]
-                                      },
-                                      "meaning": {
-                                        "type": "string"
-                                      },
-                                      "note": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string"
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
-                                        ]
-                                      },
-                                      "register": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "casual",
-                                              "neutral",
-                                              "polite",
-                                              "formal"
-                                            ]
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
-                                        ]
-                                      },
-                                      "source": {
-                                        "type": "string",
-                                        "enum": [
-                                          "how-to-say",
-                                          "naturalness",
-                                          "manual"
-                                        ]
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "text",
-                                      "furigana",
-                                      "meaning",
-                                      "note",
-                                      "register",
-                                      "source"
-                                    ],
-                                    "additionalProperties": false
-                                  }
-                                ]
-                              },
-                              "createdAt": {
-                                "type": "string"
-                              },
-                              "retentionStage": {
-                                "type": "string",
-                                "enum": [
-                                  "new",
-                                  "learning",
-                                  "review",
-                                  "relearning"
-                                ]
-                              },
-                              "due": {
-                                "type": "string"
-                              },
-                              "interval": {
-                                "type": "integer",
-                                "minimum": -2147483648,
-                                "maximum": 2147483647
-                              },
-                              "ease": {
-                                "anyOf": [
-                                  {
-                                    "type": "number"
-                                  },
-                                  {
-                                    "type": "string",
-                                    "enum": [
-                                      "Infinity",
-                                      "-Infinity",
-                                      "NaN"
-                                    ]
-                                  }
-                                ]
-                              },
-                              "reps": {
-                                "type": "integer",
-                                "minimum": -2147483648,
-                                "maximum": 2147483647
-                              },
-                              "lapses": {
-                                "type": "integer",
-                                "minimum": -2147483648,
-                                "maximum": 2147483647
-                              },
-                              "leech": {
-                                "type": "boolean"
-                              }
-                            },
-                            "required": [
-                              "id",
-                              "content",
-                              "createdAt",
-                              "retentionStage",
-                              "due",
-                              "interval",
-                              "ease",
-                              "reps",
-                              "lapses",
-                              "leech"
-                            ],
-                            "additionalProperties": false
-                          },
-                          "labels": {
-                            "type": "object",
-                            "properties": {
-                              "again": {
-                                "type": "string"
-                              },
-                              "hard": {
-                                "type": "string"
-                              },
-                              "good": {
-                                "type": "string"
-                              },
-                              "easy": {
-                                "type": "string"
-                              }
-                            },
-                            "required": [
-                              "again",
-                              "hard",
-                              "good",
-                              "easy"
-                            ],
-                            "additionalProperties": false
-                          }
-                        },
-                        "required": [
-                          "note",
-                          "labels"
-                        ],
-                        "additionalProperties": false
-                      }
-                    },
-                    "counts": {
-                      "type": "object",
-                      "properties": {
-                        "new": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
-                        },
-                        "learning": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
-                        },
-                        "review": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
-                        }
-                      },
-                      "required": [
-                        "new",
-                        "learning",
-                        "review"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "all": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "retentionStage": {
-                            "type": "string",
-                            "enum": [
-                              "new",
-                              "learning",
-                              "review",
-                              "relearning"
-                            ]
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "retentionStage"
-                        ],
-                        "additionalProperties": false
-                      }
-                    },
-                    "nextDue": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    }
-                  },
-                  "required": [
-                    "items",
-                    "counts",
-                    "all",
-                    "nextDue"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UnauthorizedEncoded"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "PendingApproval",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PendingApprovalEncoded"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "AuthUnavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthUnavailableEncoded"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/study/notes/{id}/answer": {
-      "post": {
-        "tags": [
-          "study"
-        ],
-        "operationId": "study.answer",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "schema": {
-              "type": "string"
-            },
-            "required": true
-          }
-        ],
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "note": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "content": {
-                          "anyOf": [
-                            {
-                              "type": "object",
-                              "properties": {
-                                "kind": {
-                                  "type": "string",
-                                  "enum": [
-                                    "word"
-                                  ]
-                                },
-                                "entryId": {
-                                  "type": "string"
-                                },
-                                "senseIndex": {
-                                  "type": "integer",
-                                  "minimum": -9007199254740991,
-                                  "maximum": 9007199254740991
-                                },
-                                "language": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string",
-                                      "enum": [
-                                        "en",
-                                        "ja"
-                                      ]
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                },
-                                "headword": {
-                                  "type": "string"
-                                },
-                                "reading": {
-                                  "type": "string"
-                                },
-                                "meaning": {
-                                  "type": "string"
-                                },
-                                "hint": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string"
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                },
-                                "note": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string"
-                                    },
-                                    {
-                                      "type": "null"
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                },
-                                "example": {
-                                  "anyOf": [
-                                    {
-                                      "type": "object",
-                                      "properties": {
-                                        "ja": {
-                                          "type": "string"
-                                        },
-                                        "furigana": {
-                                          "type": "string"
-                                        },
-                                        "en": {
-                                          "type": "string"
-                                        },
-                                        "audioUrl": {
-                                          "anyOf": [
-                                            {
-                                              "type": "string"
-                                            },
-                                            {
-                                              "type": "null"
-                                            }
-                                          ]
-                                        },
-                                        "translationAudioUrl": {
-                                          "anyOf": [
-                                            {
-                                              "type": "string"
-                                            },
-                                            {
-                                              "type": "null"
-                                            },
-                                            {
-                                              "type": "null"
-                                            }
-                                          ]
-                                        }
-                                      },
-                                      "required": [
-                                        "ja",
-                                        "furigana",
-                                        "en",
-                                        "audioUrl"
-                                      ],
-                                      "additionalProperties": false
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                },
-                                "audioUrl": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string"
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                }
-                              },
-                              "required": [
-                                "kind",
-                                "entryId",
-                                "senseIndex",
-                                "headword",
-                                "reading",
-                                "meaning",
-                                "hint",
-                                "example",
-                                "audioUrl"
-                              ],
-                              "additionalProperties": false
-                            },
-                            {
-                              "type": "object",
-                              "properties": {
-                                "kind": {
-                                  "type": "string",
-                                  "enum": [
-                                    "phrase"
-                                  ]
-                                },
-                                "text": {
-                                  "type": "string"
-                                },
-                                "furigana": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string"
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                },
-                                "meaning": {
-                                  "type": "string"
-                                },
-                                "note": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string"
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                },
-                                "register": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string",
-                                      "enum": [
-                                        "casual",
-                                        "neutral",
-                                        "polite",
-                                        "formal"
-                                      ]
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                },
-                                "source": {
-                                  "type": "string",
-                                  "enum": [
-                                    "how-to-say",
-                                    "naturalness",
-                                    "manual"
-                                  ]
-                                }
-                              },
-                              "required": [
-                                "kind",
-                                "text",
-                                "furigana",
-                                "meaning",
-                                "note",
-                                "register",
-                                "source"
-                              ],
-                              "additionalProperties": false
-                            }
-                          ]
-                        },
-                        "createdAt": {
-                          "type": "string"
-                        },
-                        "retentionStage": {
-                          "type": "string",
-                          "enum": [
-                            "new",
-                            "learning",
-                            "review",
-                            "relearning"
-                          ]
-                        },
-                        "due": {
-                          "type": "string"
-                        },
-                        "interval": {
-                          "type": "integer",
-                          "minimum": -2147483648,
-                          "maximum": 2147483647
-                        },
-                        "ease": {
-                          "anyOf": [
-                            {
-                              "type": "number"
-                            },
-                            {
-                              "type": "string",
-                              "enum": [
-                                "Infinity",
-                                "-Infinity",
-                                "NaN"
-                              ]
-                            }
-                          ]
-                        },
-                        "reps": {
-                          "type": "integer",
-                          "minimum": -2147483648,
-                          "maximum": 2147483647
-                        },
-                        "lapses": {
-                          "type": "integer",
-                          "minimum": -2147483648,
-                          "maximum": 2147483647
-                        },
-                        "leech": {
-                          "type": "boolean"
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "content",
-                        "createdAt",
-                        "retentionStage",
-                        "due",
-                        "interval",
-                        "ease",
-                        "reps",
-                        "lapses",
-                        "leech"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "leech": {
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [
-                    "note",
-                    "leech"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UnauthorizedEncoded"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "PendingApproval",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PendingApprovalEncoded"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFound",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotFoundEncoded"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "AuthUnavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthUnavailableEncoded"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "rating": {
-                    "type": "string",
-                    "enum": [
-                      "again",
-                      "hard",
-                      "good",
-                      "easy"
-                    ]
-                  },
-                  "durationMs": {
-                    "anyOf": [
-                      {
-                        "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "required": [
-                  "rating"
-                ],
-                "additionalProperties": false
-              }
-            }
-          },
-          "required": true
-        }
-      }
-    },
-    "/study/stats": {
-      "get": {
-        "tags": [
-          "study"
-        ],
-        "operationId": "study.stats",
-        "parameters": [],
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "due": {
-                      "type": "object",
-                      "properties": {
-                        "new": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
-                        },
-                        "learning": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
-                        },
-                        "review": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
-                        }
-                      },
-                      "required": [
-                        "new",
-                        "learning",
-                        "review"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "reviewedToday": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
-                    "streak": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
-                    "notes": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
-                    "unseen": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
-                    "young": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
-                    "mature": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
-                    "retention": {
-                      "anyOf": [
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "string",
-                          "enum": [
-                            "Infinity",
-                            "-Infinity",
-                            "NaN"
-                          ]
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "forecast": {
-                      "type": "array",
-                      "items": {
-                        "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991
-                      }
-                    }
-                  },
-                  "required": [
-                    "due",
-                    "reviewedToday",
-                    "streak",
-                    "notes",
-                    "unseen",
-                    "young",
-                    "mature",
-                    "retention",
-                    "forecast"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UnauthorizedEncoded"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "PendingApproval",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PendingApprovalEncoded"
                 }
               }
             }
@@ -5233,7 +3565,7 @@
       "name": "coach"
     },
     {
-      "name": "study"
+      "name": "notebook"
     },
     {
       "name": "audio"

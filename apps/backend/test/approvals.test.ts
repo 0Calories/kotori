@@ -59,9 +59,6 @@ layer(TestLayer)("Approvals", (it) => {
         targetLanguage: "en",
         onboardedAt: new Date(1),
         displayName: null,
-        timezone: "Asia/Tokyo",
-        dailyNewLimit: 20,
-        dailyReviewLimit: 200,
         createdAt: new Date(1)
       })
       const approved = yield* approvals.approve("Second@Example.com")

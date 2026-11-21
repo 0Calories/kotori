@@ -20,7 +20,7 @@ import {
   Unauthorized
 } from "./Errors.ts"
 import { Language } from "./Language.ts"
-import { AddNoteRequest, AnswerRequest, AnswerResult, DueNotes, Note, NoteId, StudyStats } from "./Study.ts"
+import { AddNoteRequest, Note, NoteId } from "./Notebook.ts"
 
 export class CurrentUser extends Context.Service<
   CurrentUser,
@@ -124,33 +124,22 @@ export class CoachApi extends HttpApiGroup.make("coach")
   .middleware(Authorization)
   .prefix("/coach") {}
 
-export class StudyApi extends HttpApiGroup.make("study")
+export class NotebookApi extends HttpApiGroup.make("notebook")
   .add(
     HttpApiEndpoint.get("notes", "/notes", { success: Schema.Array(Note) }),
     HttpApiEndpoint.post("addNote", "/notes", {
       payload: AddNoteRequest,
       success: Note,
-      error: InvalidRequest
+      error: [NotFound, InvalidRequest]
     }),
     HttpApiEndpoint.delete("removeNote", "/notes/:id", {
       params: { id: NoteId },
       success: HttpApiSchema.NoContent,
       error: NotFound
-    }),
-    HttpApiEndpoint.get("due", "/due", {
-      query: { limit: Schema.optional(Schema.Int) },
-      success: DueNotes
-    }),
-    HttpApiEndpoint.post("answer", "/notes/:id/answer", {
-      params: { id: NoteId },
-      payload: AnswerRequest,
-      success: AnswerResult,
-      error: NotFound
-    }),
-    HttpApiEndpoint.get("stats", "/stats", { success: StudyStats })
+    })
   )
   .middleware(Authorization)
-  .prefix("/study") {}
+  .prefix("/notebook") {}
 
 export const SpeakRequest = Schema.Struct({
   text: Schema.String.pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(200))),
@@ -178,11 +167,11 @@ export class KotoriApi extends HttpApi.make("kotori")
   .add(AccountApi)
   .add(DictionaryApi)
   .add(CoachApi)
-  .add(StudyApi)
+  .add(NotebookApi)
   .add(AudioApi)
   .annotateMerge(
     OpenApi.annotations({
       title: "Kotori API",
-      description: "Dictionary, coaching and spaced repetition for Japanese and English learners."
+      description: "Dictionary, coaching and notebook for Japanese and English learners."
     })
   ) {}

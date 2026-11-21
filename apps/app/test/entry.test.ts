@@ -24,7 +24,6 @@ import {
   loanLine,
   resultLabels,
   reviewStateChip,
-  saveDetails,
   senseCautions,
   similarWords,
   wordCautions
@@ -334,27 +333,6 @@ describe("similar words", () => {
     assert.deepStrictEqual(
       words.map((word) => word.entryId),
       ["jmdict:5", "jmdict:6", "jmdict:7"]
-    )
-  })
-})
-
-describe("saving a sense", () => {
-  it("carries the usage labels as the hint, and a caution before a usage pattern", () => {
-    const word = entry({
-      labels: [label("col"), label("id")],
-      cautions: [caution(1, null), caution(2, 1)]
-    })
-    const second = sense(1, { labels: [label("male")], usagePatterns: [usagePattern("usu. as 〜ですが")] })
-    assert.deepStrictEqual(saveDetails(t, word, second), {
-      hint: `${t.labels.name.col} · ${t.labels.name.male}`,
-      note: "caution 2"
-    })
-    assert.deepStrictEqual(
-      saveDetails(t, entry(), sense(0, { usagePatterns: [usagePattern("usu. in the negative")] })),
-      {
-        hint: null,
-        note: "usu. in the negative"
-      }
     )
   })
 })

@@ -1,4 +1,4 @@
-import { EntryId, type EntryRecord, NoteId, UserId } from "@kotori/contracts"
+import { EntryId, type EntryRecord, UserId } from "@kotori/contracts"
 import type { users } from "@kotori/db"
 
 // Dictionary entries and learner ids shared by the PGlite query suites.
@@ -137,13 +137,10 @@ export const english: Array<EntryRecord> = [
   }
 ]
 
-// Study ids are uuids, as Better Auth's user ids and the API's note ids are.
+// Learner ids are uuids, as Better Auth's user ids are.
 export const U1 = UserId.make("00000000-0000-4000-8000-000000000001")
-export const N1 = NoteId.make("00000000-0000-4000-8000-00000000000a")
-export const N2 = NoteId.make("00000000-0000-4000-8000-00000000000b")
-export const N3 = NoteId.make("00000000-0000-4000-8000-00000000000c")
 
-/** A learner profile to hang study data on; the database's defaults fill in the rest. */
+/** A learner profile to hang learner data on; the database's defaults fill in the rest. */
 export const learner = {
   id: U1,
   status: "approved",
@@ -152,8 +149,5 @@ export const learner = {
   targetLanguage: "ja",
   onboardedAt: null,
   displayName: null,
-  timezone: "Asia/Tokyo",
-  dailyNewLimit: 20,
-  dailyReviewLimit: 200,
   createdAt: new Date(0)
 } satisfies typeof users.$inferInsert
