@@ -1,6 +1,6 @@
 # Kotori ことり
 
-Kotori helps intermediate and advanced language learners **sound natural** — in Japanese if you speak English, or in English if you speak Japanese. Its mascot is a shima enaga (シマエナガ), Hokkaido's tiny snowball of a bird.
+Kotori is your companion for **real-world Japanese and English** — in Japanese if you speak English, or in English if you speak Japanese. It pairs a usage-first dictionary with Ask Kotori for tricky expressions and a spaced-repetition notebook so words stick. Its mascot is a shima enaga (シマエナガ), Hokkaido's tiny snowball of a bird.
 
 The app runs on iOS, Android, and the web from a single Expo codebase, with the interface in English or Japanese depending on who is learning.
 

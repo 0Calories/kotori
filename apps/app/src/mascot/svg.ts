@@ -251,16 +251,19 @@ const drawing = (mood: Mood, pose: (part: Part) => Pose, size = 200, facing: Fac
       : sideDrawing(mood, pose, size, facing)
 
 /** The mascot as an SVG document, for generating icons and splash images. In moods that reach above the box, the image grows taller to fit. */
-export const mascotSvg = (options: { mood?: Mood; facing?: Facing; background?: string; padding?: number } = {}) => {
+export const mascotSvg = (
+  options: { mood?: Mood; facing?: Facing; background?: string; padding?: number; radius?: number } = {}
+) => {
   const mood = options.mood ?? "neutral"
   const facing = options.facing ?? "left"
   const pad = options.padding ?? 0
   const size = 200 + pad * 2
   const top = -pad - headroom(mood)
   const height = size + headroom(mood)
+  const rx = options.radius ? ` rx="${options.radius}"` : ""
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-pad} ${top} ${size} ${height}" width="${size}" height="${height}">
-  ${options.background ? `<rect x="${-pad}" y="${top}" width="${size}" height="${height}" fill="${options.background}"/>` : ""}
+  ${options.background ? `<rect x="${-pad}" y="${top}" width="${size}" height="${height}"${rx} fill="${options.background}"/>` : ""}
   ${drawing(mood, (part) => settled(mood, part), 200, facing)}
 </svg>`
 }

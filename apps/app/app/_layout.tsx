@@ -12,12 +12,12 @@ import * as Sentry from "@sentry/react-native"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { setAudioModeAsync } from "expo-audio"
 import { FontDisplay, useFonts } from "expo-font"
-import { Stack, usePathname } from "expo-router"
+import { type ErrorBoundaryProps, Stack, usePathname } from "expo-router"
 import * as SplashScreen from "expo-splash-screen"
 import { StatusBar } from "expo-status-bar"
 import { isRunningInExpoGo } from "expo"
 import { useEffect } from "react"
-import { Platform } from "react-native"
+import { Platform, View } from "react-native"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
 import { SafeAreaProvider } from "react-native-safe-area-context"
 import { retryOffline } from "../src/api/errors.ts"
@@ -25,10 +25,14 @@ import { Button } from "../src/components/Button.tsx"
 import { iconFonts } from "../src/components/Icon.tsx"
 import { Screen } from "../src/components/Screen.tsx"
 import { MascotMessage } from "../src/components/States.tsx"
+import { brand } from "../src/i18n/brand.ts"
+import { strings } from "../src/i18n/strings.ts"
 import { isUnguardedRoute } from "../src/lib/legal.ts"
 import { sentryRedaction } from "../src/lib/sentryRedaction.ts"
-import { SessionProvider, useSession } from "../src/session/SessionProvider.tsx"
+import { formatDocumentTitle, syncWebLanguage } from "../src/lib/webChrome.ts"
+import { deviceLanguage, SessionProvider, useInterfaceLanguage, useSession } from "../src/session/SessionProvider.tsx"
 import { ThemeProvider, useTheme } from "../src/theme/ThemeProvider.tsx"
+import { defaultTheme, themes } from "../src/theme/tokens.ts"
 
 // Errors and traces go to Sentry (project `sparkwright/kotori-app`). The DSN only allows sending
 // events, and every shipped bundle contains it anyway. Development builds stay quiet unless
@@ -37,20 +41,39 @@ import { ThemeProvider, useTheme } from "../src/theme/ThemeProvider.tsx"
 Sentry.init({
   dsn: "https://545a5bb03825fe26735e49c85aa3fbff@o4511310091124736.ingest.us.sentry.io/4512368599564288",
   enabled: !__DEV__ || process.env.EXPO_PUBLIC_SENTRY_IN_DEV === "on",
-  environment: __DEV__ ? "development" : "production",
+  environment: process.env.EXPO_PUBLIC_SENTRY_ENVIRONMENT ?? (__DEV__ ? "development" : "production"),
   // The commit for web builds (set by CI); native builds default to the app version and build number.
   release: process.env.EXPO_PUBLIC_SENTRY_RELEASE,
   tracesSampleRate: __DEV__ ? 1 : 0.2,
   // Native replay of the moments before an error, with all text and images masked.
   replaysOnErrorSampleRate: 1,
   replaysSessionSampleRate: 0,
-  integrations: [Sentry.mobileReplayIntegration()],
-  enableNativeFramesTracking: !isRunningInExpoGo(),
+  integrations: Platform.OS === "web" ? [] : [Sentry.mobileReplayIntegration()],
+  enableNativeFramesTracking: Platform.OS !== "web" && !isRunningInExpoGo(),
   // Blanks Google sign-in's return parameters in any URL Sentry records.
   beforeBreadcrumb: sentryRedaction.beforeBreadcrumb,
   beforeSend: sentryRedaction.beforeSend,
   beforeSendTransaction: sentryRedaction.beforeSendTransaction,
   beforeSendSpan: sentryRedaction.beforeSendSpan
+})
+
+/**
+ * Catches uncaught render errors anywhere below the root layout and reports them
+ * to Sentry via `wrapExpoRouterErrorBoundary`. Renders outside `ThemeProvider`
+ * and `SessionProvider`, so it relies on default theme tokens and device locale.
+ */
+export const ErrorBoundary = Sentry.wrapExpoRouterErrorBoundary(function RootErrorBoundary({
+  retry
+}: ErrorBoundaryProps) {
+  const palette = themes[defaultTheme].color
+  const t = strings[deviceLanguage()]
+  return (
+    <View style={{ flex: 1, backgroundColor: palette.background, justifyContent: "center", padding: 24 }}>
+      <MascotMessage mood="oops" title={t.appName} body={t.common.errors.trouble} size={140}>
+        <Button label={t.common.retry} icon="refresh" onPress={retry} />
+      </MascotMessage>
+    </View>
+  )
 })
 
 SplashScreen.preventAutoHideAsync().catch(() => {})
@@ -71,6 +94,7 @@ const statusBarStyle = "dark" as const
 const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
   const theme = useTheme()
   const { status, t, retry } = useSession()
+  const language = useInterfaceLanguage()
   // Public legal pages (/privacy, /terms) need neither a session nor the API.
   const unguarded = isUnguardedRoute(usePathname())
   const ready = fontsLoaded && (unguarded || status !== "loading")
@@ -78,6 +102,10 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
   useEffect(() => {
     if (ready) SplashScreen.hideAsync().catch(() => {})
   }, [ready])
+
+  useEffect(() => {
+    if (Platform.OS === "web") syncWebLanguage(language)
+  }, [language])
 
   if (!ready) return null
 
@@ -100,28 +128,43 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
     <>
       <StatusBar style={statusBarStyle} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.color.background } }}>
-        {/* Unguarded: public legal pages open without signing in. */}
+        {/* Unguarded: public legal pages and 404 open without signing in. */}
         <Stack.Screen name="privacy" />
         <Stack.Screen name="terms" />
+        <Stack.Screen name="ja" options={{ animation: "none", title: brand.ja.appName }} />
+        <Stack.Screen name="+not-found" />
         <Stack.Protected guard={status === "ready"}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="entry/[id]" />
-          <Stack.Screen name="sources/[id]" />
-          <Stack.Screen name="saved" />
-          <Stack.Screen name="settings" options={{ presentation: "modal" }} />
-          <Stack.Screen name="review/session" options={{ presentation: "fullScreenModal", gestureEnabled: false }} />
+          <Stack.Screen name="(tabs)" options={{ title: t.appName }} />
+          <Stack.Screen name="entry/[id]" options={{ title: t.appName }} />
+          <Stack.Screen name="sources/[id]" options={{ title: formatDocumentTitle(t.entry.sources, t.appName) }} />
+          <Stack.Screen name="saved" options={{ title: formatDocumentTitle(t.saved.title, t.appName) }} />
+          <Stack.Screen
+            name="settings"
+            options={{ presentation: "modal", title: formatDocumentTitle(t.settings.title, t.appName) }}
+          />
+          <Stack.Screen
+            name="review/session"
+            options={{
+              presentation: "fullScreenModal",
+              gestureEnabled: false,
+              title: formatDocumentTitle(t.tabs.review, t.appName)
+            }}
+          />
         </Stack.Protected>
         <Stack.Protected guard={status === "onboarding"}>
-          <Stack.Screen name="onboarding" options={{ animation: "fade" }} />
+          <Stack.Screen name="onboarding" options={{ animation: "fade", title: t.appName }} />
         </Stack.Protected>
         <Stack.Protected guard={status === "pending"}>
-          <Stack.Screen name="pending" options={{ animation: "fade" }} />
+          <Stack.Screen name="pending" options={{ animation: "fade", title: t.appName }} />
         </Stack.Protected>
         <Stack.Protected guard={status === "signedOut"}>
-          <Stack.Screen name="welcome" options={{ animation: "fade" }} />
-          <Stack.Screen name="sign-in" />
-          <Stack.Screen name="sign-up" />
-          <Stack.Screen name="forgot-password" />
+          <Stack.Screen name="welcome" options={{ animation: "fade", title: t.appName }} />
+          <Stack.Screen name="sign-in" options={{ title: formatDocumentTitle(t.auth.signIn, t.appName) }} />
+          <Stack.Screen name="sign-up" options={{ title: formatDocumentTitle(t.auth.signUp, t.appName) }} />
+          <Stack.Screen
+            name="forgot-password"
+            options={{ title: formatDocumentTitle(t.auth.forgotTitle, t.appName) }}
+          />
         </Stack.Protected>
       </Stack>
     </>

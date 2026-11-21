@@ -1,6 +1,6 @@
 # Kotori
 
-Kotori helps intermediate and advanced learners sound natural in Japanese or English. It pairs a dictionary grounded in how native speakers actually use words with Ask Kotori for questions, phrasing, and naturalness.
+Kotori is a companion for real-world Japanese and English. It pairs a usage-first dictionary grounded in how native speakers actually use words with Ask Kotori for tricky expressions, phrasing, and usage, plus a spaced-repetition notebook to help words stick.
 
 ## Language
 
