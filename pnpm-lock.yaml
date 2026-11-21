@@ -165,8 +165,8 @@ settings:
 catalogs:
   default:
     '@anthropic-ai/sdk':
-      specifier: ^0.133.0
-      version: 0.133.0
+      specifier: ^1.10.0
+      version: 1.10.0
     '@effect/platform-node':
       specifier: 4.1.4
       version: 4.1.4
@@ -476,7 +476,7 @@ importers:
     dependencies:
       '@anthropic-ai/sdk':
         specifier: 'catalog:'
-        version: 0.133.0(zod@4.6.7)
+        version: 1.10.0(zod@4.6.7)
       '@kotori/contracts':
         specifier: workspace:*
         version: link:../contracts
@@ -521,12 +521,6 @@ importers:
         specifier: 'catalog:'
         version: 5.3.1
 
-  packages/srs:
-    dependencies:
-      '@kotori/contracts':
-        specifier: workspace:*
-        version: link:../contracts
-
   tools/local-auth:
     dependencies:
       better-auth:
@@ -551,8 +545,8 @@ packages:
       typescript:
         optional: true
 
-  '@anthropic-ai/sdk@0.133.0':
-    resolution: {integrity: sha512-jlqUN8p8ESTJj+GJnA4KjzbEfF1waEoGzRT8jwytlYGFFgv+/DUQOxlYGvYw10UzhD1kwLqYzxvA3FrTB2YWuQ==}
+  '@anthropic-ai/sdk@1.10.0':
+    resolution: {integrity: sha512-j4uVct5p3aGIz/BU4K8VU5vt2A6AueHTvx2gfF3xr4mVpwH9IJMWEAUKNwSwdZSJOHQq1Za2tv5huYc5v02D0w==}
     hasBin: true
     peerDependencies:
       zod: ^3.25.0 || ^4.0.0
@@ -7949,8 +7943,9 @@ snapshots:
     optionalDependencies:
       typescript: 6.0.3
 
-  '@anthropic-ai/sdk@0.133.0(zod@4.6.7)':
+  '@anthropic-ai/sdk@1.10.0(zod@4.6.7)':
     dependencies:
+      '@opentelemetry/api': 1.10.0
       json-schema-to-ts: 3.1.1
       standardwebhooks: 1.1.1
     optionalDependencies:
