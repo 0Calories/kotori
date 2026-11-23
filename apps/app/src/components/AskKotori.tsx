@@ -381,8 +381,9 @@ const feedbackFor = (view: AskView) => {
 
 /**
  * Ask Kotori, under a search with no exact match. Kotori offers to look into the query, thinks
- * out loud while Claude works (a line at a time, over a filling bar), and then celebrates a
- * fresh draft, points to the entry the learner missed, says why the query isn't a word, or
+ * out loud while Claude works (a line at a time, over a filling bar), reading its dictionary and
+ * then writing an entry out, and then closes the book and celebrates a fresh draft, points to
+ * the entry the learner missed, says why the query isn't a word, or
  * shakes its head at a failure, with a way to ask again whenever that could help. The ask's
  * state lives in the query cache under the query, so typing away and back finds it as it was.
  */
@@ -422,7 +423,7 @@ export const AskKotori = ({
     now,
     toError: (error) => (error instanceof ApiError ? error : null)
   })
-  // The status line and Kotori's pose move on together: reading through the first lines, then thinking.
+  // The status line and Kotori's pose move on together: reading through the first lines, then writing.
   const stage = useAskStage(view.phase === "thinking" ? view.since : null)
   const { mood, facing } = askMood(view, match, stage)
   const live = (view.phase === "answered" || view.phase === "failed") && view.live

@@ -1,4 +1,14 @@
-import { type ComponentProps, createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react"
+import {
+  type ComponentProps,
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react"
 import { StyleSheet, View } from "react-native"
 import Animated, {
   cancelAnimation,
@@ -12,6 +22,7 @@ import Animated, {
   withTiming
 } from "react-native-reanimated"
 import Svg, { Circle, Ellipse, G, Path } from "react-native-svg"
+import { scheduleOnRN, scheduleOnUI } from "react-native-worklets"
 import {
   catchlightDx,
   confetti,
@@ -25,7 +36,8 @@ import {
   shapes,
   sparklePath,
   thinkingShapes,
-  trailPath
+  trailPath,
+  writingShapes
 } from "../mascot/geometry.ts"
 import {
   type ClipName,
@@ -34,8 +46,10 @@ import {
   confettiFor,
   entrances,
   idles,
+  inkParts,
   type LandingPart,
   loops,
+  moveBetween,
   type Part,
   type Piece,
   pieceAt,
@@ -48,6 +62,7 @@ import {
   sparkParts,
   sparklesFor,
   trailParts,
+  unwrittenParts,
   viewTransform,
   type ZPart,
   zParts
@@ -126,27 +141,132 @@ const useChannel = (clip: ClipName | null, time: number): Channel => {
 }
 
 /**
- * Plays a clip from the start, or skips to its last frame. The clock moves
- * first, so no frame shows the new clip at the old clip's time.
+ * Plays a clip from the start, or skips to its last frame, and calls `done`
+ * on the UI thread once it has played to the end. The clock moves first, so
+ * no frame shows the new clip at the old clip's time.
  */
-const play = (channel: Channel, name: ClipName | null, animate: boolean) => {
+const play = (channel: Channel, name: ClipName | null, animate: boolean, done?: () => void) => {
+  "worklet"
   const duration = name === null ? 0 : clips[name].duration
   channel.time.set(animate ? 0 : duration)
   channel.clip.set(name)
-  if (animate && name !== null) channel.time.set(withTiming(duration, { duration, easing: Easing.linear }))
+  if (animate && name !== null) {
+    channel.time.set(
+      withTiming(duration, { duration, easing: Easing.linear }, (finished) => {
+        if (finished === true && done !== undefined) done()
+      })
+    )
+  }
 }
 
 /** Plays a clip over and over, `delay` ms from now; `null` stops it. */
 const repeat = (channel: Channel, name: ClipName | null, delay: number) => {
+  "worklet"
   channel.time.set(0)
   channel.clip.set(name)
   if (name === null) return
-  const { duration } = clips[name]
+  const duration = clips[name].duration
   channel.time.set(withDelay(delay, withRepeat(withTiming(duration, { duration, easing: Easing.linear }), -1)))
 }
 
 /** What Kotori is playing: the mood's entrance, then its loop over the entrance's last frame, and its idle clip over both. */
 type Motion = { readonly entrance: Channel; readonly loop: Channel; readonly idle: Channel }
+
+/**
+ * Plays `channel`'s clip on from where it is to its end, `length`, and calls
+ * `then` on the UI thread as it gets there. What was playing is stopped
+ * first: a new timing to the same end would otherwise take on the old one's
+ * start, and get there early.
+ */
+const playOn = (channel: Channel, length: number, then: () => void) => {
+  "worklet"
+  cancelAnimation(channel.time)
+  const at = channel.time.get()
+  channel.time.set(
+    withTiming(length, { duration: length - at, easing: Easing.linear }, (finished) => {
+      if (finished === true) then()
+    })
+  )
+}
+
+/**
+ * Calls `then` on the UI thread the moment Kotori is next on its mood's
+ * drawing: as its entrance ends, if that's still playing, or else as its loop
+ * comes round. Whatever's playing carries on until then, and the loop stops
+ * there; a loop yet to start never does. Called again before then, it takes
+ * over: only the latest `then` is called.
+ */
+const onceOnDrawing = (motion: Motion, then: () => void) => {
+  "worklet"
+  const entrance = motion.entrance
+  const loop = motion.loop
+  const entering = entrance.clip.get()
+  const length = entering === null ? 0 : clips[entering].duration
+  if (entrance.time.get() < length) {
+    cancelAnimation(loop.time)
+    loop.time.set(0)
+    loop.clip.set(null)
+    playOn(entrance, length, then)
+    return
+  }
+  const looping = loop.clip.get()
+  if (looping === null) {
+    then()
+    return
+  }
+  playOn(loop, clips[looping].duration, () => {
+    "worklet"
+    loop.time.set(0)
+    loop.clip.set(null)
+    then()
+  })
+}
+
+/** Takes a mood once Kotori is on the drawing of the one before: its entrance from there, then its loop. */
+const carryOn = (motion: Motion, entrance: ClipName | null, loop: ClipName | null) => {
+  "worklet"
+  onceOnDrawing(motion, () => {
+    "worklet"
+    play(motion.entrance, entrance, true)
+    repeat(motion.loop, loop, entrance === null ? 0 : clips[entrance].duration)
+  })
+}
+
+/**
+ * Plays Kotori out of its mood with `clip` once it's on the mood's drawing,
+ * and calls `done` on the JS thread as that ends. If it hasn't yet started
+ * the mood's entrance, `entered`, it's still carrying on from the mood before
+ * (see `carryOn`): it takes that over, and plays the entrance before `clip`,
+ * so the mood it's leaving shows before it goes. If it's already playing
+ * `clip`, that will call `done`.
+ */
+const playOut = (motion: Motion, entered: ClipName | null, clip: ClipName, done: () => void) => {
+  "worklet"
+  const playing = motion.entrance.clip.get()
+  if (playing === clip) return
+  const leave = () => {
+    "worklet"
+    play(motion.entrance, clip, true, () => {
+      "worklet"
+      scheduleOnRN(done)
+    })
+  }
+  if (playing === entered) {
+    onceOnDrawing(motion, leave)
+    return
+  }
+  if (entered === null) {
+    scheduleOnRN(done)
+    return
+  }
+  onceOnDrawing(motion, () => {
+    "worklet"
+    play(motion.entrance, entered, true, leave)
+  })
+}
+
+/** How Kotori leaves the mood it's in for the one asked for: the clip it plays out of it, and what's to happen once that ends. */
+type Leaving = { readonly clip: ClipName; readonly done: () => void }
 
 /** Set by `Mascot` when the screen asks Kotori to keep `still`. */
 const StillContext = createContext(false)
@@ -162,23 +282,49 @@ const useStill = () => {
  * Plays `mood`'s entrance and loop, and its idle clip now and then; with
  * reduced motion, holds the mood's pose and plays no idle. A view starts on the
  * entrance's first frame (or its last, when it won't play), so a view that
- * appears with the mood doesn't jump.
+ * appears with the mood doesn't jump. Going on from a mood the same view shows
+ * by one of `moves`, it lets that mood's loop come round first, as the new
+ * entrance starts from its drawing; `leaving`, it plays the move's clip out
+ * of the mood once its loop comes round.
  */
-const useMotion = (mood: Mood): Motion => {
+const useMotion = (mood: Mood, leaving: Leaving | null = null): Motion => {
   const reduceMotion = useStill()
   const enter = entrances[mood] ?? null
   const entrance = useChannel(enter, reduceMotion && enter !== null ? clips[enter].duration : 0)
   const loop = useChannel(null, 0)
   const idle = useChannel(null, 0)
+  const motion = useMemo(() => ({ entrance, loop, idle }), [entrance, loop, idle])
+  // The mood the channels last took, for telling a move from a plain change.
+  const taken = useRef<Mood | null>(null)
 
   useEffect(() => {
+    const from = taken.current
+    taken.current = mood
+    const after = reduceMotion ? null : (loops[mood] ?? null)
+    if (!reduceMotion && from !== null && from !== mood && moveBetween(from, mood) !== undefined) {
+      scheduleOnUI(carryOn, motion, enter, after)
+      return
+    }
     play(entrance, enter, !reduceMotion)
-  }, [entrance, enter, reduceMotion])
+    repeat(loop, after, enter === null ? 0 : clips[enter].duration)
+  }, [motion, entrance, loop, mood, enter, reduceMotion])
 
+  const leavingClip = leaving?.clip ?? null
+  const leavingDone = leaving?.done ?? null
   useEffect(() => {
-    repeat(loop, reduceMotion ? null : (loops[mood] ?? null), enter === null ? 0 : clips[enter].duration)
-    return () => cancelAnimation(loop.time)
-  }, [loop, mood, enter, reduceMotion])
+    if (leavingClip === null || leavingDone === null) return
+    if (reduceMotion) leavingDone()
+    else scheduleOnUI(playOut, motion, enter, leavingClip, leavingDone)
+  }, [motion, enter, leavingClip, leavingDone, reduceMotion])
+
+  // Stop whatever's running once the view is gone.
+  useEffect(
+    () => () => {
+      cancelAnimation(entrance.time)
+      cancelAnimation(loop.time)
+    },
+    [entrance, loop]
+  )
 
   const fidget = idles[mood] ?? null
   useEffect(() => {
@@ -197,7 +343,7 @@ const useMotion = (mood: Mood): Motion => {
     return () => clearTimeout(timer)
   }, [idle, fidget, reduceMotion])
 
-  return useMemo(() => ({ entrance, loop, idle }), [entrance, loop, idle])
+  return motion
 }
 
 /**
@@ -557,22 +703,104 @@ const Front = ({ size, mood }: { readonly size: number; readonly mood: Mood }) =
   )
 }
 
-/** A page of Kotori's dictionary, its far edge and its print. */
-const Page = ({ side }: { readonly side: 0 | 1 }) => {
+/** A page of Kotori's dictionary and its far edge, with its print unless it's `blank`. */
+const Page = ({ side, blank = false }: { readonly side: 0 | 1; readonly blank?: boolean }) => {
   const { book } = readingShapes
   return (
     <>
       <Path d={book.pages[side]} fill={palette.paper} />
       <Path d={book.edges[side]} stroke={palette.shade} strokeWidth={2.2} strokeLinecap="round" fill="none" />
-      <Path
-        d={book.print[side]}
-        stroke={palette.ink}
-        strokeOpacity={0.45}
-        strokeWidth={2.4}
-        strokeLinecap="round"
-        fill="none"
-      />
+      {blank ? null : (
+        <Path d={book.print[side]} stroke={palette.print} strokeWidth={2.4} strokeLinecap="round" fill="none" />
+      )}
     </>
+  )
+}
+
+/** The crease down the dictionary's spine. */
+const Gutter = () => <Path d={readingShapes.book.gutter} stroke={palette.shade} strokeWidth={2.6} fill="none" />
+
+/** Kotori's quill: the bare quill and its nib, the feather, and the shaft down it. */
+const Quill = () => {
+  const { barrel, point, vane, shaft, shaftWidth } = writingShapes.quill
+  return (
+    <>
+      <Path d={barrel} fill={palette.quill} />
+      <Path d={point} fill={palette.ink} />
+      <Path d={vane} fill={palette.quill} />
+      <Path d={shaft} stroke={palette.quillShaft} strokeWidth={shaftWidth} strokeLinecap="round" fill="none" />
+    </>
+  )
+}
+
+/** A stroke of Kotori's handwriting. */
+const Ink = ({ d, stroke }: { readonly d: string; readonly stroke: number }) => (
+  <Path d={d} stroke={palette.print} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+)
+
+/** Half of the dictionary, either side of its spine: the back cover's top and edge, the stacked pages and the page over them. */
+const BookHalf = ({ side }: { readonly side: 0 | 1 }) => {
+  const { book } = readingShapes
+  return (
+    <>
+      <Path d={book.coverTop[side]} fill={palette.leatherDark} />
+      <Path d={book.stacks[side]} fill={palette.paperEdge} />
+      <Path d={book.stackLines[side]} stroke={palette.paperLine} strokeWidth={1.8} strokeLinecap="round" fill="none" />
+      <Path d={book.coverEdge[side]} fill={palette.leather} />
+      <Page side={side} />
+    </>
+  )
+}
+
+/**
+ * The back of the dictionary's left half, which shows as it closes over the
+ * right: the book shut, drawn mirrored on the left, so that as the half turns
+ * over the spine and lands, the shut book lies where the right half was.
+ */
+const BookBack = () => {
+  const { coverEdge, closed } = readingShapes.book
+  return (
+    <G transform="matrix(-1 0 0 1 200 0)">
+      <Path d={coverEdge[1]} fill={palette.leather} />
+      <Path d={closed.pages} fill={palette.paperEdge} />
+      <Path d={closed.pageLines} stroke={palette.paperLine} strokeWidth={1.8} strokeLinecap="round" fill="none" />
+      <Path d={closed.coverEdge} fill={palette.leatherDark} />
+      <Path
+        d={closed.cover}
+        fill={palette.leather}
+        stroke={palette.leatherDark}
+        strokeWidth={1.6}
+        strokeLinejoin="round"
+      />
+      <Path d={closed.band} fill={palette.gold} />
+      <Path
+        d={closed.spine}
+        fill={palette.leather}
+        stroke={palette.leatherDark}
+        strokeWidth={1.6}
+        strokeLinejoin="round"
+      />
+    </G>
+  )
+}
+
+/** A part of Kotori that moves through `motion`, on a layer of its own. */
+const Moving = ({
+  part,
+  size,
+  motion,
+  children
+}: {
+  readonly part: Part
+  readonly size: number
+  readonly motion: Motion
+  readonly children: ReactNode
+}) => {
+  const style = usePartStyle(part, size, motion)
+  return (
+    <Layer style={style} size={size}>
+      {children}
+    </Layer>
   )
 }
 
@@ -621,16 +849,34 @@ const Landing = ({
 const Wing = ({ d }: { readonly d: string }) => <Path d={d} fill={palette.ink} />
 
 /**
- * Kotori reading, facing the viewer in round glasses over an open dictionary.
- * Taking up the book, it puts its glasses on and the book drops in front of
- * it (see `startReading`), puffing out dust from under its spine as sparks
- * fly out from there; then its eyes run along the lines and now and then
- * blink, and its left wing turns the pages. Every part that moves as it does
- * is a layer of its own, the page it turns and that wing over the book and
- * under the other wing, the dust behind the spine and the sparks over it all.
+ * Kotori at its dictionary, facing the viewer in round glasses over the open
+ * book, reading or writing. Taking up the book, it puts its glasses on and
+ * the book drops in front of it (see `startReading`), puffing out dust from
+ * under its spine as sparks fly out from there; then its eyes run along the
+ * lines and now and then blink, and its left wing turns the pages. Taking up
+ * its quill from there (see `startWriting`), it turns to a fresh page and
+ * writes an entry out, the quill in its right wing, page after page; leaving
+ * to celebrate, it puts the quill away, closes the book and takes its
+ * glasses off first (see `finishWriting`).
+ * Every part that moves as it does is a layer of its own: the page it turns
+ * and that wing over the book and under the other wing, what Kotori writes
+ * on the fresh page under the page it turns, the quill in the wing that
+ * holds it, the dust behind the spine and the sparks over it all; and the
+ * book's left half, under the page it turns, and that half's back, over all
+ * Kotori writes, so it can close the book. The quill, all it writes and the
+ * book's back are there only while Kotori writes.
  */
-const Reading = ({ size }: { readonly size: number }) => {
-  const motion = useMotion("reading")
+const Book = ({
+  size,
+  mood,
+  leaving
+}: {
+  readonly size: number
+  readonly mood: "reading" | "writing"
+  readonly leaving: Leaving | null
+}) => {
+  const motion = useMotion(mood, leaving)
+  const writing = mood === "writing"
   const foldedWing0 = usePartStyle("foldedWing0", size, motion)
   const foldedWing1 = usePartStyle("foldedWing1", size, motion)
   const cheeks = usePartStyle("cheeks", size, motion)
@@ -639,7 +885,8 @@ const Reading = ({ size }: { readonly size: number }) => {
   const lookingEyes = usePartStyle("lookingEyes", size, motion)
   const glassesStyle = usePartStyle("glasses", size, motion)
   const bookStyle = usePartStyle("book", size, motion)
-  const spineStyle = usePartStyle("book", size, motion)
+  const bookLeft = usePartStyle("bookLeft", size, motion)
+  const spineStyle = usePartStyle("spine", size, motion)
   const page = usePartStyle("page", size, motion)
   const pageWing = usePartStyle("pageWing", size, motion)
   const bookWing = usePartStyle("bookWing", size, motion)
@@ -700,26 +947,56 @@ const Reading = ({ size }: { readonly size: number }) => {
           fill="none"
         />
       </Layer>
-      <Layer style={bookStyle} size={size}>
-        <Path d={book.coverTop} fill={palette.leatherDark} />
-        {book.stacks.map((d) => (
-          <Path key={d} d={d} fill={palette.paperEdge} />
-        ))}
-        <Path d={book.stackLines} stroke={palette.paperLine} strokeWidth={1.8} strokeLinecap="round" fill="none" />
-        <Path d={book.coverEdge} fill={palette.leather} />
-        <Page side={0} />
-        <Page side={1} />
-        <Path d={book.gutter} stroke={palette.shade} strokeWidth={2.6} fill="none" />
+      <Layer style={bookLeft} size={size}>
+        <BookHalf side={0} />
       </Layer>
+      <Layer style={bookStyle} size={size}>
+        <BookHalf side={1} />
+        <Gutter />
+      </Layer>
+      {writing ? (
+        <>
+          <Moving part="freshPage" size={size} motion={motion}>
+            <Page side={1} blank />
+            <Gutter />
+          </Moving>
+          {inkParts.map((part) => (
+            <Moving key={part} part={part} size={size} motion={motion}>
+              <Ink {...writingShapes.words[part]} />
+            </Moving>
+          ))}
+          {unwrittenParts.map((part) => (
+            <Moving key={part} part={part} size={size} motion={motion}>
+              <Path d={writingShapes.slip.d} fill={palette.paper} />
+            </Moving>
+          ))}
+          <Moving part="leaf" size={size} motion={motion}>
+            <Page side={0} blank />
+          </Moving>
+        </>
+      ) : null}
       <Layer style={page} size={size}>
         <Page side={0} />
       </Layer>
+      {writing ? (
+        <Moving part="bookBack" size={size} motion={motion}>
+          <BookBack />
+        </Moving>
+      ) : null}
       <Layer style={pageWing} size={size}>
         <Wing d={wings[0]} />
       </Layer>
-      <Layer style={bookWing} size={size}>
-        <Wing d={wings[1]} />
-      </Layer>
+      {/* The quill moves with the wing that holds it, and sways about its nib besides. */}
+      <Animated.View style={[StyleSheet.absoluteFill, bookWing]}>
+        <Canvas size={size}>
+          <Wing d={wings[1]} />
+        </Canvas>
+        {writing ? (
+          <Moving part="quill" size={size} motion={motion}>
+            <Quill />
+          </Moving>
+        ) : null}
+      </Animated.View>
       {puffParts.map((part) => (
         <Landing key={part} part={part} size={size} entrance={motion.entrance} />
       ))}
@@ -750,19 +1027,45 @@ const Reading = ({ size }: { readonly size: number }) => {
 }
 
 /**
+ * The mood and facing Kotori shows: the ones asked for, except while it plays
+ * its way out of the mood it's in with a move's clip (see `moves`), when it
+ * holds on to that mood, in its own view, until the clip has played. Holding
+ * still, it takes each mood at once.
+ */
+const useShown = (mood: Mood, facing: Facing, still: boolean) => {
+  const [shown, setShown] = useState({ mood, facing })
+  // Whether Kotori has played its way out of the mood it shows.
+  const [out, setOut] = useState(false)
+  const clip = moveBetween(shown.mood, mood)?.clip
+  const leaving = !still && !out && shown.mood !== mood && clip !== undefined
+  if (!leaving && (shown.mood !== mood || shown.facing !== facing)) {
+    setShown({ mood, facing })
+    setOut(false)
+  }
+  // Asked to stay after all: the next move out plays in full.
+  if (out && shown.mood === mood) setOut(false)
+  const done = useCallback(() => setOut(true), [])
+  return leaving ? { ...shown, leaving: { clip, done } } : { mood, facing, leaving: null }
+}
+
+/**
  * Kotori, the shima enaga. Changes expression with `mood` and angle with
  * `facing`, plays the mood's entrance and loop from `motion.ts`, confetti and
  * all, and now and then blinks; with reduced motion it holds each mood's pose,
- * and doesn't blink, throw confetti or glint.
+ * and doesn't blink, throw confetti or glint. Some changes of mood it plays
+ * out rather than cutting to the new one (see `moves`).
  * Thinking, it faces the viewer and holds still under a thought bubble that
  * rises above its `size` box. Reading, it faces the viewer: it puts on its
  * glasses and a dictionary drops open in front of it, then its eyes run along
- * the lines as its wing turns the pages.
+ * the lines as its wing turns the pages. Writing, it goes on from there: it
+ * turns to a fresh page, takes up its quill and writes an entry out, page
+ * after page, and closes the book and takes its glasses off before it celebrates.
  *
  * Kotori reads whenever it is fetching, looking up or writing something for
  * the learner: a slow dictionary search, example sentences being written, and
- * the first part of an ask. It thinks when working something out, as an ask runs on,
- * and over a verdict that needs a second look.
+ * the first part of an ask. It writes as an ask runs on, drafting an entry for
+ * the dictionary, and celebrates once a fresh one comes. It thinks when
+ * working something out, and over a verdict that needs a second look.
  *
  * `still` holds every mood's pose as reduced motion does, for a place where
  * movement would distract, such as the search field while a search runs.
@@ -780,20 +1083,24 @@ export const Mascot = ({
   readonly mood?: Mood
   readonly facing?: Facing
   readonly still?: boolean
-}) => (
-  <StillContext value={still}>
-    <View
-      style={{ width: size, height: size }}
-      accessibilityRole="image"
-      accessibilityLabel="Kotori the long-tailed tit"
-    >
-      {mood === "reading" ? (
-        <Reading size={size} />
-      ) : facing === "front" || frontMoods.has(mood) ? (
-        <Front size={size} mood={mood} />
-      ) : (
-        <Side size={size} mood={mood} facing={facing} />
-      )}
-    </View>
-  </StillContext>
-)
+}) => {
+  const reduceMotion = useReducedMotion()
+  const shown = useShown(mood, facing, still || reduceMotion)
+  return (
+    <StillContext value={still}>
+      <View
+        style={{ width: size, height: size }}
+        accessibilityRole="image"
+        accessibilityLabel="Kotori the long-tailed tit"
+      >
+        {shown.mood === "reading" || shown.mood === "writing" ? (
+          <Book size={size} mood={shown.mood} leaving={shown.leaving} />
+        ) : shown.facing === "front" || frontMoods.has(shown.mood) ? (
+          <Front size={size} mood={shown.mood} />
+        ) : (
+          <Side size={size} mood={shown.mood} facing={shown.facing} />
+        )}
+      </View>
+    </StillContext>
+  )
+}

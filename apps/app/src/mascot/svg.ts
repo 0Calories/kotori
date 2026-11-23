@@ -1,4 +1,5 @@
 import {
+  bookMoods,
   catchlightDx,
   confetti,
   type Facing,
@@ -12,7 +13,8 @@ import {
   shapes,
   sparklePath,
   thinkingShapes,
-  trailPath
+  trailPath,
+  writingShapes
 } from "./geometry.ts"
 import {
   type ClipName,
@@ -20,6 +22,8 @@ import {
   combine,
   confettiFor,
   entrances,
+  inkParts,
+  moves,
   type Part,
   pieceAt,
   pieceSvgTransform,
@@ -34,6 +38,7 @@ import {
   sparkParts,
   svgTransform,
   trailParts,
+  unwrittenParts,
   type ZPart,
   zParts
 } from "./motion.ts"
@@ -85,21 +90,54 @@ const eyesSvg = (mood: Mood, face: Face) => {
     .join("")
 }
 
-/** A page, its far edge and its print. */
-const pageSvg = (side: 0 | 1) => {
+/** A page and its far edge, with its print unless it's `blank`. */
+const pageSvg = (side: 0 | 1, blank = false) => {
   const { book } = readingShapes
-  return `<path d="${book.pages[side]}" fill="${palette.paper}"/><path d="${book.edges[side]}" fill="none" stroke="${palette.shade}" stroke-width="2.2" stroke-linecap="round"/><path d="${book.print[side]}" fill="none" stroke="${palette.ink}" stroke-opacity="0.45" stroke-width="2.4" stroke-linecap="round"/>`
+  const print = blank
+    ? ""
+    : `<path d="${book.print[side]}" fill="none" stroke="${palette.print}" stroke-width="2.4" stroke-linecap="round"/>`
+  return `<path d="${book.pages[side]}" fill="${palette.paper}"/><path d="${book.edges[side]}" fill="none" stroke="${palette.shade}" stroke-width="2.2" stroke-linecap="round"/>${print}`
+}
+
+/** The crease down the dictionary's spine. */
+const gutterSvg = `<path d="${readingShapes.book.gutter}" fill="none" stroke="${palette.shade}" stroke-width="2.6"/>`
+
+/** Kotori's quill: the bare quill and its nib, the feather, and the shaft down it. */
+const quillSvg = () => {
+  const { barrel, point, vane, shaft, shaftWidth } = writingShapes.quill
+  return `<path d="${barrel}" fill="${palette.quill}"/><path d="${point}" fill="${palette.ink}"/><path d="${vane}" fill="${palette.quill}"/><path d="${shaft}" fill="none" stroke="${palette.quillShaft}" stroke-width="${shaftWidth}" stroke-linecap="round"/>`
+}
+
+/** A stroke of Kotori's handwriting. */
+const inkSvg = ({ d, stroke }: { readonly d: string; readonly stroke: number }) =>
+  `<path d="${d}" fill="none" stroke="${palette.print}" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round"/>`
+
+/** Half of the dictionary, either side of its spine: the back cover's top and edge, the stacked pages and the page over them. */
+const bookHalfSvg = (side: 0 | 1) => {
+  const { book } = readingShapes
+  return `<path d="${book.coverTop[side]}" fill="${palette.leatherDark}"/><path d="${book.stacks[side]}" fill="${palette.paperEdge}"/><path d="${book.stackLines[side]}" fill="none" stroke="${palette.paperLine}" stroke-width="1.8" stroke-linecap="round"/><path d="${book.coverEdge[side]}" fill="${palette.leather}"/>${pageSvg(side)}`
 }
 
 /**
- * Kotori reading, facing the viewer in its 200×200 box, with every part that
- * moves as it takes up the book and reads placed by `pose`. In the drawing,
- * the front view's wings and eyes are there too, under the ones it reads
- * with, and the book is in place; `startReading` fades them in and out. The
- * dust and sparks the book throws up as it lands grow beside a Kotori
- * `size` pixels square as celebrate's sparkles do.
+ * The back of the dictionary's left half, which shows as it closes over the
+ * right: the book shut, drawn mirrored on the left, so that as the half turns
+ * over the spine and lands, the shut book lies where the right half was.
  */
-const readingDrawing = (pose: (part: Part) => Pose, size: number) => {
+const bookBackSvg = () => {
+  const { coverEdge, closed } = readingShapes.book
+  return `<g transform="matrix(-1 0 0 1 200 0)"><path d="${coverEdge[1]}" fill="${palette.leather}"/><path d="${closed.pages}" fill="${palette.paperEdge}"/><path d="${closed.pageLines}" fill="none" stroke="${palette.paperLine}" stroke-width="1.8" stroke-linecap="round"/><path d="${closed.coverEdge}" fill="${palette.leatherDark}"/><path d="${closed.cover}" fill="${palette.leather}" stroke="${palette.leatherDark}" stroke-width="1.6" stroke-linejoin="round"/><path d="${closed.band}" fill="${palette.gold}"/><path d="${closed.spine}" fill="${palette.leather}" stroke="${palette.leatherDark}" stroke-width="1.6" stroke-linejoin="round"/></g>`
+}
+
+/**
+ * Kotori at its dictionary, facing the viewer in its 200×200 box, with every
+ * part that moves as it takes up the book, reads, takes up its quill and
+ * writes placed by `pose`. In the drawing, the front view's wings and eyes are
+ * there too, under the ones it reads with, and the book is in place, and so
+ * are the quill and all it writes; `startReading` and `startWriting` fade
+ * them in and out. The dust and sparks the book throws up as it lands grow
+ * beside a Kotori `size` pixels square as celebrate's sparkles do.
+ */
+const bookDrawing = (pose: (part: Part) => Pose, size: number) => {
   const part = placed(pose)
   const { origin, puff, sparks } = readingShapes.landing
   const grown = (name: Part) => combine(pose(name), sparklesFor(size))
@@ -127,21 +165,18 @@ const readingDrawing = (pose: (part: Part) => Pose, size: number) => {
     `${glasses.lenses.map((l) => `<circle cx="${l.cx}" cy="${l.cy}" r="${l.r}" ${stroke}/>`).join("")}
   <path d="${glasses.bridge}" ${stroke} stroke-linecap="round"/>`
   )}
-  ${part(
-    "book",
-    `<path d="${book.coverTop}" fill="${palette.leatherDark}"/>
-  ${book.stacks.map((d) => `<path d="${d}" fill="${palette.paperEdge}"/>`).join("")}
-  <path d="${book.stackLines}" fill="none" stroke="${palette.paperLine}" stroke-width="1.8" stroke-linecap="round"/>
-  <path d="${book.coverEdge}" fill="${palette.leather}"/>
-  ${pageSvg(0)}
-  ${pageSvg(1)}
-  <path d="${book.gutter}" fill="none" stroke="${palette.shade}" stroke-width="2.6"/>`
-  )}
+  ${part("bookLeft", bookHalfSvg(0))}
+  ${part("book", `${bookHalfSvg(1)}${gutterSvg}`)}
+  ${part("freshPage", `${pageSvg(1, true)}${gutterSvg}`)}
+  ${inkParts.map((name) => part(name, inkSvg(writingShapes.words[name]))).join("")}
+  ${unwrittenParts.map((name) => part(name, `<path d="${writingShapes.slip.d}" fill="${palette.paper}"/>`)).join("")}
+  ${part("leaf", pageSvg(0, true))}
   ${part("page", pageSvg(0))}
+  ${part("bookBack", bookBackSvg())}
   ${part("pageWing", `<path d="${wings[0]}" fill="${palette.ink}"/>`)}
-  ${part("bookWing", `<path d="${wings[1]}" fill="${palette.ink}"/>`)}
+  ${part("bookWing", `<path d="${wings[1]}" fill="${palette.ink}"/>${part("quill", quillSvg())}`)}
   ${puffParts.map((name) => part(name, `<path d="${puffPath({ cx: origin.x, cy: origin.y, r: puff })}" fill="${palette.white}" stroke="${palette.paperLine}" stroke-width="1.6" stroke-linejoin="round"/>`, grown(name))).join("")}
-  ${part("book", `<path d="${book.spine}" fill="${palette.leather}"/><path d="${book.spineHollow}" fill="${palette.leatherDark}"/>`)}
+  ${part("spine", `<path d="${book.spine}" fill="${palette.leather}"/><path d="${book.spineHollow}" fill="${palette.leatherDark}"/>`)}
   ${sparkParts.map((name, i) => part(trailParts[i] ?? name, `<path d="${trailPath(origin)}" fill="${palette[sparks[name].color]}" fill-opacity="0.6"/>`, grown(trailParts[i] ?? name))).join("")}
   ${sparkParts.map((name) => part(name, `<path d="${sparklePath({ cx: origin.x, cy: origin.y, r: sparks[name].r })}" fill="${palette[sparks[name].color]}"/>`, grown(name))).join("")}`
 }
@@ -244,8 +279,8 @@ const frontDrawing = (mood: Mood, pose: (part: Part) => Pose) => {
 
 /** Kotori in `mood` and `facing`, as a Kotori `size` pixels square draws it. */
 const drawing = (mood: Mood, pose: (part: Part) => Pose, size = 200, facing: Facing = "left") =>
-  mood === "reading"
-    ? readingDrawing(pose, size)
+  bookMoods.has(mood)
+    ? bookDrawing(pose, size)
     : facing === "front" || frontMoods.has(mood)
       ? frontDrawing(mood, pose)
       : sideDrawing(mood, pose, size, facing)
@@ -265,9 +300,15 @@ export const mascotSvg = (options: { mood?: Mood; facing?: Facing; background?: 
 </svg>`
 }
 
-/** Where `part` is `t` ms into a clip played in `mood`; a clip that isn't the mood's entrance plays over the mood's pose, as in the app. */
+/**
+ * Where `part` is `t` ms into a clip played in `mood`. The mood's entrance,
+ * and a move out of it, place every part themselves; any other clip plays
+ * over the mood's pose, as in the app.
+ */
 const clipPose = (name: ClipName, mood: Mood, t: number) => (part: Part) =>
-  entrances[mood] === name ? poseAt(name, part, t) : combine(settled(mood, part), poseAt(name, part, t))
+  entrances[mood] === name || moves.some((move) => move.from === mood && move.clip === name)
+    ? poseAt(name, part, t)
+    : combine(settled(mood, part), poseAt(name, part, t))
 
 /** The confetti a clip has thrown `t` ms in, as a Kotori `size` pixels square throws it; it goes behind Kotori. */
 const thrown = (name: ClipName, t: number, size: number) => {

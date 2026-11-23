@@ -2,7 +2,7 @@ import { EntryId, type EntrySummary, type Proposal, type ProposalId } from "@kot
 import { assert, describe, it } from "vitest"
 import {
   ASK_MIN_THINKING_MS,
-  ASK_PONDER_STAGE,
+  ASK_WRITING_STAGE,
   ASK_STAGE_STARTS,
   type AskAttempt,
   type AskError,
@@ -293,12 +293,12 @@ describe("Kotori's pose in the panel", () => {
     assert.deepStrictEqual(askMood({ phase: "thinking", since: 0 }, "none"), { mood: "reading", facing: "front" })
   })
 
-  it("reads through the first status lines, then thinks it over", () => {
+  it("reads through the first status lines, then writes an entry out, facing the viewer", () => {
     const thinking = { phase: "thinking", since: 0 } as const
     ASK_STAGE_STARTS.forEach((_, stage) => {
-      assert.strictEqual(
-        askMood(thinking, "none", stage).mood,
-        stage < ASK_PONDER_STAGE ? "reading" : "thinking",
+      assert.deepStrictEqual(
+        askMood(thinking, "none", stage),
+        { mood: stage < ASK_WRITING_STAGE ? "reading" : "writing", facing: "front" },
         `status line ${stage}`
       )
     })
