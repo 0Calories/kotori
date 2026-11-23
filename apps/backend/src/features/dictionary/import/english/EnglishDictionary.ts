@@ -110,7 +110,6 @@ const eachJmdictEntry = (file: string, read: (entry: ImportEntry) => void) =>
 const knownEnglish = (
   sources: ReadonlyArray<{ readonly words: ReadonlyArray<Word>; readonly formsOf: ReadonlyArray<FormOf> }>,
   phrases: ReadonlySet<string>,
-  subtitles: ReadonlyMap<string, number>,
   redirects?: ReadonlyMap<string, string>
 ): KnownEnglish => {
   const words = new Set<string>()
@@ -140,7 +139,7 @@ const knownEnglish = (
       spelled.add(form.text)
     }
   }
-  return { words, verbs, gradable, spelled, phrases: allPhrases, redirects: allRedirects, subtitles }
+  return { words, verbs, gradable, spelled, phrases: allPhrases, redirects: allRedirects }
 }
 
 export interface ImportOptions {
@@ -185,7 +184,7 @@ const build = Effect.fnUntraced(function* (options: ImportOptions) {
   yield* Effect.logInfo(`Read ${curated.words.length} curated words and ${wiktionary.words.length} from Wiktionary`)
 
   const phrases = new Set([...wiktionary.phrases, ...phraseIndex.phrases])
-  const reader = jmdictReader(knownEnglish([curated, wiktionary], phrases, subtitles, phraseIndex.redirects))
+  const reader = jmdictReader(knownEnglish([curated, wiktionary], phrases, phraseIndex.redirects))
   yield* eachJmdictEntry(options.jmdict, reader.add)
   const jmdict = { words: reader.finish(), formsOf: reader.formsOf() }
 

@@ -359,15 +359,7 @@ describe("wordsFromJmdict", () => {
     verbs: new Set(["hang", "eat"]),
     gradable: new Set<string>(),
     spelled: new Set<string>(),
-    phrases: new Set(["eat out"]),
-    subtitles: new Map([
-      ["selfie", 900],
-      ["teams", 500],
-      ["kata", 300],
-      ["website", 800],
-      ["kim", 5000],
-      ["ex-wife", 600]
-    ])
+    phrases: new Set(["eat out"])
   }
   const words = wordsFromJmdict(
     [
@@ -389,10 +381,13 @@ describe("wordsFromJmdict", () => {
 
   it("reads attested words and phrases backwards, grouping same-POS Japanese candidates into one sense", () => {
     expect(words.map((word) => [word.headword, word.senses.map((sense) => sense.glosses.map((g) => g.text))])).toEqual([
+      ["play", [["遊ぶ"]]],
       ["hang out", [["遊ぶ", "たむろする"]]],
       ["selfie", [["自撮り"]]],
       ["eat out", [["外食"]]],
+      ["Disney", [["ディズニー"]]],
       ["website", [["ウェブサイト"]]],
+      ["gim", [["韓国海苔"]]],
       ["kim", [["韓国海苔"]]],
       ["ex-wife", [["元妻"]]]
     ])
@@ -422,8 +417,7 @@ describe("wordsFromJmdict", () => {
         "to make matters worse",
         "the die is cast"
       ]),
-      redirects: new Map([["skate on thin ice", "on thin ice"]]),
-      subtitles: new Map()
+      redirects: new Map([["skate on thin ice", "on thin ice"]])
     })
     for (const item of [
       jmdictEntry(
@@ -492,8 +486,7 @@ describe("wordsFromJmdict", () => {
       verbs: new Set(["serve", "hold", "make"]),
       gradable: new Set(),
       spelled: new Set<string>(),
-      phrases: new Set(["serve someone right", "hold one's horses"]),
-      subtitles: new Map()
+      phrases: new Set(["serve someone right", "hold one's horses"])
     })
     reader.add(jmdictEntry(30, "ざまあみろ", "ざまあみろ", ["serves you right!"], true, ["int", "exp"]))
     reader.add(jmdictEntry(31, "落ち着け", "おちつけ", ["hold your horses"], false, ["exp"]))
@@ -523,8 +516,7 @@ describe("wordsFromJmdict", () => {
       gradable: new Set(),
       spelled: new Set<string>(),
       // "on the" and "of a": fragments the phrase index lists too.
-      phrases: new Set(["stone's throw", "on the", "of a"]),
-      subtitles: new Map()
+      phrases: new Set(["stone's throw", "on the", "of a"])
     })
     reader.add(
       jmdictEntry(
@@ -552,36 +544,55 @@ describe("wordsFromJmdict", () => {
     expect(built.map((w) => w.headword)).toEqual(["stone's throw"])
   })
 
-  it("takes words ending in -er that only look like comparatives, and still drops real inflections", () => {
+  it("takes words that only look inflected, and makes real inflections forms of their word", () => {
+    const reader = jmdictReader({
+      words: new Set(["sin", "sing", "big", "fast", "run", "build", "interest", "american"]),
+      verbs: new Set(["sin", "sing", "run", "build", "interest"]),
+      gradable: new Set(["big", "fast"]),
+      spelled: new Set(["sin", "sing", "big", "fast", "run", "build", "interest", "American"]),
+      phrases: new Set()
+    })
+    // "sinner" and "singer" are no comparatives: neither "sin" nor "sing" is an adjective.
+    reader.add(jmdictEntry(50, "罪人", "つみびと", ["sinner"], true, ["n"]))
+    reader.add(jmdictEntry(51, "歌手", "かしゅ", ["singer"], true, ["n"]))
+    // A noun or an adjective in -ing or -ed is a word of its own.
+    reader.add(jmdictEntry(52, "建物", "たてもの", ["building"], true, ["n"]))
+    reader.add(jmdictEntry(53, "面白い", "おもしろい", ["interesting"], true, ["adj-i"]))
+    reader.add(jmdictEntry(54, "より大きい", "よりおおきい", ["bigger"], false, ["adj-i"]))
+    reader.add(jmdictEntry(55, "より速く", "よりはやく", ["faster"], false, ["adv"]))
+    reader.add(jmdictEntry(56, "最も大きい", "もっともおおきい", ["biggest"], false, ["adj-i"]))
+    reader.add(jmdictEntry(57, "走っている", "はしっている", ["running"], false, ["v1"]))
+    reader.add(jmdictEntry(58, "罪", "つみ", ["sins"], true, ["n"]))
+    reader.add(jmdictEntry(59, "アメリカ人", "アメリカじん", ["Americans"], true, ["n"]))
+
+    expect(reader.finish().map((word) => word.headword)).toEqual(["sinner", "singer", "building", "interesting"])
+    expect(reader.formsOf()).toEqual([
+      { text: "bigger", base: "big", tags: ["comparative"] },
+      { text: "biggest", base: "big", tags: ["superlative"] },
+      { text: "faster", base: "fast", tags: ["comparative"] },
+      { text: "running", base: "run", tags: ["present-participle"] },
+      { text: "sins", base: "sin", tags: ["plural"] },
+      { text: "Americans", base: "american", tags: ["plural"] }
+    ])
+    // An inflection says nothing of which of its word's senses are in use.
+    expect(reader.backTranslations().size).toBe(0)
+  })
+
+  it("takes words the subtitles never counted, as only ranking reads the counts", () => {
     const built = wordsFromJmdict(
       [
-        jmdictEntry(50, "罪人", "つみびと", ["sinner"], true, ["n"]),
-        jmdictEntry(51, "歌手", "かしゅ", ["singer"], true, ["n"]),
-        jmdictEntry(52, "より大きい", "よりおおきい", ["bigger"], false, ["adj-i"]),
-        jmdictEntry(53, "より速く", "よりはやく", ["faster"], false, ["adv"]),
-        jmdictEntry(54, "最も大きい", "もっともおおきい", ["biggest"], false, ["adj-i"]),
-        jmdictEntry(55, "走っている", "はしっている", ["running"], false, ["v1"]),
-        jmdictEntry(56, "罪", "つみ", ["sins"], true, ["n"])
+        jmdictEntry(80, "ディアスポラ", "ディアスポラ", ["diaspora"], false, ["n"]),
+        jmdictEntry(81, "ノルディック", "ノルディック", ["Nordic"], false, ["adj-f"])
       ],
       {
-        words: new Set(["sin", "sing", "big", "fast", "run"]),
-        verbs: new Set(["sin", "sing", "run"]),
-        gradable: new Set(["big", "fast"]),
-        spelled: new Set<string>(),
-        phrases: new Set(),
-        subtitles: new Map([
-          ["sinner", 400],
-          ["singer", 900],
-          ["bigger", 2000],
-          ["faster", 1500],
-          ["biggest", 800],
-          ["running", 3000],
-          ["sins", 300]
-        ])
+        words: new Set(),
+        verbs: new Set(),
+        gradable: new Set(),
+        spelled: new Set(),
+        phrases: new Set()
       }
     )
-    // "sinner" and "singer" are no comparatives: neither "sin" nor "sing" is an adjective.
-    expect(built.map((word) => word.headword)).toEqual(["sinner", "singer"])
+    expect(built.map((word) => word.headword)).toEqual(["diaspora", "Nordic"])
   })
 
   it("takes capitalised words and acronyms with their casing, and still skips sentences and titles", () => {
@@ -591,19 +602,7 @@ describe("wordsFromJmdict", () => {
       gradable: new Set(),
       // Islam is in already, as written; "polish" and "us" only in lowercase.
       spelled: new Set(["polish", "us", "Islam", "good morning"]),
-      phrases: new Set(["good morning", "new year's eve"]),
-      subtitles: new Map([
-        ["nordic", 300],
-        ["viennese", 200],
-        ["boston", 900],
-        ["ramadan", 150],
-        ["lexus", 400],
-        ["nhk", 100],
-        ["ipod", 150],
-        ["us", 9000],
-        ["islam", 500],
-        ["polish", 700]
-      ])
+      phrases: new Set(["good morning", "new year's eve"])
     })
     reader.add(jmdictEntry(60, "ノルディック", "ノルディック", ["Nordic"], false, ["adj-f"]))
     reader.add(jmdictEntry(61, "ウィーン風", "ウィーンふう", ["Viennese (of Vienna)"], false, ["adj-no"]))
@@ -646,8 +645,7 @@ describe("wordsFromJmdict", () => {
         verbs: new Set(),
         gradable: new Set(),
         spelled: new Set<string>(),
-        phrases: new Set(),
-        subtitles: new Map([["nordic", 300]])
+        phrases: new Set()
       })
     }
     const [nordic] = toEntries(
@@ -1024,8 +1022,7 @@ describe("jmdictReader backTranslations", () => {
       verbs: new Set(),
       gradable: new Set(),
       spelled: new Set<string>(),
-      phrases: new Set(),
-      subtitles: new Map()
+      phrases: new Set()
     })
     reader.add(entry(1, "賢い", ["wise", "clever", "smart"]))
     reader.add(entry(2, "粋", ["chic", "stylish", "refined", "elegant", "smart"]))
@@ -1044,8 +1041,7 @@ describe("jmdictReader backTranslations", () => {
       verbs: new Set(),
       gradable: new Set(),
       spelled: new Set<string>(),
-      phrases: new Set(["on thin ice", "cut corners"]),
-      subtitles: new Map()
+      phrases: new Set(["on thin ice", "cut corners"])
     })
     reader.add(entry(6, "薄氷を踏む", ["to tread on thin ice"], false, 0, ["exp", "v5m"], ["id"]))
     reader.add(entry(7, "手を抜く", ["to cut corners"], false, 0, ["exp", "v5k"], ["id"]))

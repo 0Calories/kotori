@@ -172,3 +172,51 @@ layer(TestLayer)("EnglishDictionary.importFiles", (it) => {
     })
   )
 })
+
+// Words the reverse JMdict pass admits though the subtitles never counted them, beside common ones.
+const rareJmdict = `<?xml version="1.0"?>
+<!DOCTYPE JMdict [
+<!ENTITY n "noun (common) (futsuumeishi)">
+]>
+<JMdict>
+<entry><ent_seq>2000010</ent_seq><k_ele><keb>罪人</keb></k_ele><r_ele><reb>つみびと</reb></r_ele><sense><pos>&n;</pos><gloss>sinner</gloss></sense></entry>
+<entry><ent_seq>2000020</ent_seq><k_ele><keb>罪</keb></k_ele><r_ele><reb>つみ</reb></r_ele><sense><pos>&n;</pos><gloss>sins</gloss></sense></entry>
+<entry><ent_seq>2000030</ent_seq><k_ele><keb>シノロジー</keb></k_ele><r_ele><reb>シノロジー</reb></r_ele><sense><pos>&n;</pos><gloss>Sinology</gloss></sense></entry>
+<entry><ent_seq>2000040</ent_seq><k_ele><keb>行進者</keb></k_ele><r_ele><reb>こうしんしゃ</reb></r_ele><sense><pos>&n;</pos><gloss>marcher</gloss></sense></entry>
+<entry><ent_seq>2000050</ent_seq><k_ele><keb>離散</keb></k_ele><r_ele><reb>りさん</reb></r_ele><sense><pos>&n;</pos><gloss>diaspora</gloss></sense></entry>
+</JMdict>`
+
+const rareFiles = {
+  wiktionary: file("wiktionary-rare.jsonl", [
+    line("sin", "noun", ["罪。"]),
+    line("march", "verb", ["行進する。"]),
+    line("March", "noun", ["3月。"])
+  ]),
+  subtitles: file("en_50k-rare.txt", ["sin 3000", "march 1500"])
+}
+
+layer(TestLayer)("EnglishDictionary.importFiles with words the subtitles never counted", (it) => {
+  it.effect("admits them, ranked below the common words they resemble", () =>
+    Effect.gen(function* () {
+      const dictionary = yield* Dictionary
+      yield* EnglishDictionary.importFiles({ files: rareFiles, jmdict: file("JMdict-rare.xml", [rareJmdict]) })
+      const headwords = (query: string) =>
+        Effect.map(dictionary.search(query, "en", 10), (result) => result.entries.map((entry) => entry.headword))
+
+      assert.strictEqual((yield* headwords("diaspora"))[0], "diaspora")
+      // The words people use lead, however many rare ones share their letters.
+      const sin = yield* headwords("sin")
+      assert.strictEqual(sin[0], "sin")
+      assert.includeMembers(sin, ["sinner", "Sinology"])
+      const march = yield* headwords("march")
+      assert.deepStrictEqual(march.slice(0, 2), ["march", "March"])
+      assert.includeMembers(march, ["marcher"])
+      // An inflection JMdict glosses is a form of its word, not a word of its own.
+      const sins = yield* dictionary.search("sins", "en", 10)
+      assert.deepStrictEqual(
+        sins.entries.map((entry) => [entry.headword, entry.inflection]),
+        [["sin", ["plural"]]]
+      )
+    })
+  )
+})

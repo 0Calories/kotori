@@ -1,5 +1,5 @@
 import type { EntryRecord } from "@kotori/contracts"
-import { isEnglishFunctionWord, normalizeGloss, romanize, uninflect } from "@kotori/language"
+import { type EnglishInflection, isEnglishFunctionWord, normalizeGloss, romanize, uninflect } from "@kotori/language"
 import { addRedirect, emptySense, type FormOf, isEnglish, type Word } from "./words.ts"
 
 /**
@@ -7,9 +7,10 @@ import { addRedirect, emptySense, type FormOf, isEnglish, type Word } from "./wo
  * 自撮り, "hang out" of 遊ぶ, たむろする and 入り浸る. Synonymous Japanese words sharing a
  * part of speech are grouped into shared senses, most likely first.
  *
- * JMDict's glosses include descriptions as well as words ("clear autumnal weather"), so
- * only English that is attested as a word or phrase is taken: single words people use
- * (in the frequency list), phrases Wiktionary lists, and phrasal verbs.
+ * JMDict's glosses include descriptions as well as words ("clear autumnal weather"), so of
+ * glosses of several words only attested ones are taken: phrases Wiktionary lists, and phrasal
+ * verbs. Every single word is taken, as a word or as a form of the word it inflects; how often
+ * the subtitles count it only ranks it.
  */
 
 /** Senses kept for a word, and glosses kept per sense: the most likely Japanese words for it. */
@@ -221,14 +222,23 @@ export interface KnownEnglish {
   readonly phrases: ReadonlySet<string>
   /** Variant idiom phrasings mapped to their canonical headword ("skate on thin ice" -> "on thin ice"). */
   readonly redirects?: ReadonlyMap<string, string> | undefined
-  readonly subtitles: ReadonlyMap<string, number>
 }
 
-/** The headword a gloss names, and the gloss as a way of writing it when the two differ. */
+/**
+ * The headword a gloss names, and the gloss as a way of writing it when the two differ. With
+ * `inflection`, the gloss is that inflection of the headword ("sins" of "sin"), not a spelling.
+ */
 interface Resolved {
   readonly headword: string
   readonly variant?: string
+  readonly inflection?: ReadonlyArray<EnglishInflection>
 }
+
+/** Whether a JMDict sense is a noun's: "n", "n-adv", "vs" (a noun taking する)… */
+const isNominal = (pos: ReadonlyArray<string>) => pos.some((code) => code.startsWith("n") || code === "vs")
+/** Whether a JMDict sense is a verb's, as `partOfSpeech` reads it. */
+const isVerbal = (pos: ReadonlyArray<string>) => pos.some((code) => /^v(?!s$)/.test(code))
+const isAdjectival = (pos: ReadonlyArray<string>) => pos.some((code) => code.startsWith("adj"))
 
 /** Reads JMDict an entry at a time, collecting the English words its glosses name; see `wordsFromJmdict`. */
 export const jmdictReader = (known: KnownEnglish) => {
@@ -248,33 +258,61 @@ export const jmdictReader = (known: KnownEnglish) => {
   }
 
   /**
-   * Whether a single word is an inflection of a word already in: "sins" of "sin", "bigger" of
-   * "big". Only adjectives and adverbs compare, so "sinner" and "singer" are words of their own.
+   * The word already in that a single word inflects, read as the sense glossing it uses it:
+   * "sins" of "sin" (plural, for a noun), "bigger" of "big". Only adjectives and adverbs compare,
+   * so "sinner" and "singer" are words of their own, and a noun or adjective in -ing or -ed
+   * ("building", "interesting") is one too. Null when it inflects no word in.
    */
-  const inflectsKnown = (term: string) =>
-    uninflect(term).some(
-      ({ base, tags }) =>
-        known.words.has(base) &&
-        (known.gradable.has(base) || tags.some((tag) => tag !== "comparative" && tag !== "superlative"))
-    )
+  const inflectionOf = (
+    term: string,
+    pos: ReadonlyArray<string>
+  ): { readonly base: string; readonly tags: ReadonlyArray<EnglishInflection> } | null => {
+    const nominal = isNominal(pos)
+    const verbal = isVerbal(pos)
+    for (const { base, tags } of uninflect(term)) {
+      if (!known.words.has(base)) continue
+      const kept = tags.filter((tag) => {
+        switch (tag) {
+          case "comparative":
+          case "superlative":
+            return known.gradable.has(base)
+          case "past":
+          case "past-participle":
+          case "present-participle":
+            return !nominal && !isAdjectival(pos)
+          case "plural":
+            return nominal || !verbal
+          case "third-person":
+            return verbal || !nominal
+        }
+      })
+      if (kept.length > 0) return { base, tags: kept }
+    }
+    return null
+  }
 
-  /** Single words: ones people use, and not inflections of words already in. */
-  const isNewWord = (term: string) => known.subtitles.has(term) && !inflectsKnown(term)
+  /**
+   * A single word: a new one, whether or not the subtitles counted it (the counts only rank), or
+   * an inflection of a word already in, which becomes a form of that word.
+   */
+  const resolveWord = (written: string, pos: ReadonlyArray<string>): Resolved => {
+    const inflection = inflectionOf(written.toLowerCase(), pos)
+    return inflection === null
+      ? { headword: written }
+      : { headword: inflection.base, variant: written, inflection: inflection.tags }
+  }
 
   /**
    * A capitalised word keeps its case ("Nordic"), as Wiktionary's do, and is its own word beside
    * a lowercase twin: "Polish", the nationality, is not "polish", the verb, and "US" is not "us".
    * One already in as written is left to its source.
    */
-  const resolveProper = (word: string): Resolved | null =>
-    !known.spelled.has(word) && isNewWord(word.toLowerCase()) ? { headword: word } : null
+  const resolveProper = (word: string, pos: ReadonlyArray<string>): Resolved | null =>
+    known.spelled.has(word) ? null : resolveWord(word, pos)
 
-  const resolveHeadword = (term: string): Resolved | null => {
+  const resolveHeadword = (term: string, pos: ReadonlyArray<string>): Resolved | null => {
     const words = term.split(" ")
-    if (words.length === 1) {
-      if (known.words.has(term)) return { headword: term }
-      return isNewWord(term) ? { headword: term } : null
-    }
+    if (words.length === 1) return known.words.has(term) ? { headword: term } : resolveWord(term, pos)
     const redirected = redirects.get(term)
     if (words.length > 7) {
       const candidate = redirected ?? term
@@ -315,6 +353,8 @@ export const jmdictReader = (known: KnownEnglish) => {
 
   const candidates = new Map<string, Array<Candidate>>()
   const variants = new Map<string, Set<string>>()
+  // Inflections of words already in that JMDict glosses: "sins" of "sin".
+  const inflections = new Map<string, Map<string, Set<EnglishInflection>>>()
   // Per English word already in the dictionary: the spellings of the common Japanese words that
   // JMDict translates with it, each with its best weight as a candidate, as evidence of which
   // of the English word's senses are in common use.
@@ -330,9 +370,17 @@ export const jmdictReader = (known: KnownEnglish) => {
         if (proper === null && !/^[a-z]/.test(gloss.text)) return
         const term = normalizeGloss(gloss.text)
         if (term.length < 2 || !isEnglish(term) || term === romaji) return
-        const resolved = proper === null ? resolveHeadword(term) : resolveProper(proper)
+        const resolved = proper === null ? resolveHeadword(term, sense.pos) : resolveProper(proper, sense.pos)
         if (resolved === null) return
-        const { headword, variant } = resolved
+        const { headword, variant, inflection } = resolved
+        if (inflection !== undefined && variant !== undefined) {
+          const forms = inflections.get(headword) ?? new Map<string, Set<EnglishInflection>>()
+          inflections.set(headword, forms)
+          const tags = forms.get(variant) ?? new Set<EnglishInflection>()
+          for (const tag of inflection) tags.add(tag)
+          forms.set(variant, tags)
+          return
+        }
         if (variant !== undefined && variant !== headword && !known.words.has(variant)) {
           const set = variants.get(headword) ?? new Set<string>()
           set.add(variant)
@@ -402,8 +450,12 @@ export const jmdictReader = (known: KnownEnglish) => {
       }
     })
 
-  const formsOf = (): Array<FormOf> =>
-    [...variants].flatMap(([base, set]) => [...set].map((text): FormOf => ({ text, base, tags: [] })))
+  const formsOf = (): Array<FormOf> => [
+    ...[...variants].flatMap(([base, set]) => [...set].map((text): FormOf => ({ text, base, tags: [] }))),
+    ...[...inflections].flatMap(([base, forms]) =>
+      [...forms].map(([text, tags]): FormOf => ({ text, base, tags: [...tags] }))
+    )
+  ]
 
   /**
    * Per English word the dictionary already has (normalised), the spellings of the common
