@@ -703,6 +703,58 @@ describe("toEntries", () => {
     expect(merged.find((word) => word.headword === "tire")?.inflections.has("tired")).toBe(true)
   })
 
+  it("merges case twins that mean the same, under the fuller of the two, and keeps twins that differ apart", () => {
+    const glossed = (headword: string, glosses: Array<string>, spellings: Array<string> = [], pos = ["n"]): Word => ({
+      headword,
+      ipa: null,
+      spellings,
+      inflections: [],
+      senses: [{ ...emptySense(), glosses: glosses.map((text) => ({ text, type: null })), pos }],
+      mayBeName: false
+    })
+    const twins = mergeSources({
+      wiktionary: {
+        words: [
+          glossed("spartan", ["スパルタ式"]),
+          glossed("mediterranean", ["地中海"]),
+          glossed("Mediterranean", ["地中海", "地中海沿岸地方"]),
+          glossed("polish", ["磨く", "つや"]),
+          glossed("Polish", ["ポーランドの", "ポーランド語"]),
+          glossed("march", ["行進する", "マーチ"]),
+          glossed("March", ["三月"]),
+          // Glossed alike, a proper noun leads.
+          glossed("mediterranean sea", ["地中海"]),
+          glossed("Mediterranean Sea", ["地中海"], [], ["n-pr"])
+        ],
+        formsOf: [{ text: "Spartans", base: "Spartan", tags: ["plural"] }]
+      },
+      jmdict: {
+        words: [
+          glossed("Spartan", ["スパルタ式"], ["Spartiate"]),
+          // Sharing only a transliteration: the carmaker and the unit sound alike.
+          glossed("tesla", ["テスラ"]),
+          glossed("Tesla", ["テスラ"])
+        ]
+      }
+    })
+    const headwords = twins.map((word) => word.headword)
+    expect(headwords).toEqual([
+      "spartan",
+      "Mediterranean",
+      "polish",
+      "Polish",
+      "march",
+      "March",
+      "Mediterranean Sea",
+      "tesla",
+      "Tesla"
+    ])
+    const spartan = twins.find((word) => word.headword === "spartan")
+    expect([...(spartan?.spellings ?? [])]).toEqual(["Spartan", "Spartiate"])
+    expect(spartan?.inflections.get("Spartans")).toEqual(new Set(["plural"]))
+    expect([...(twins.find((word) => word.headword === "Mediterranean")?.spellings ?? [])]).toEqual(["mediterranean"])
+  })
+
   it("prefers curated entries over wiktionary, inherits lower-tier variant spellings, and scales priority by frequency and back-translations", () => {
     const curated = parseCurated([
       JSON.stringify({

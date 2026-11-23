@@ -71,9 +71,58 @@ export interface Sources {
   readonly subtitles?: ReadonlyMap<string, number> | undefined
 }
 
+/** A gloss in katakana alone: a transliteration, which says two words sound alike, not that they mean alike. */
+const isTransliteration = (gloss: string) => /^[゠-ヿ]+$/u.test(gloss)
+
+/** Whether a source files the word as a proper noun, as Wiktionary does its names. */
+const isProperNoun = (word: Built) => word.senses.some((sense) => sense.pos.includes("n-pr"))
+
+const glossesOf = (word: Built) => new Set(word.senses.flatMap((sense) => [...meanings(sense)]))
+
+/**
+ * Whether case twins are one word: every Japanese gloss of one is a gloss of the other, and one
+ * they share translates rather than transliterates. "Spartan" and "spartan" (スパルタ式) are one
+ * word; "Polish" and "polish" share no gloss, and "Tesla" and "tesla", the carmaker and the unit,
+ * only the sound テスラ.
+ */
+const sameWord = (a: ReadonlySet<string>, b: ReadonlySet<string>) => {
+  const [fewer, more] = a.size <= b.size ? [a, b] : [b, a]
+  const shared = [...fewer]
+  return (
+    shared.length > 0 && shared.every((gloss) => more.has(gloss)) && shared.some((gloss) => !isTransliteration(gloss))
+  )
+}
+
+/**
+ * Folds each capitalised word into its lowercase twin when the two are one word, the other
+ * casing becoming a spelling. The twin whose glosses hold the other's leads ("Mediterranean"
+ * over "mediterranean"), so no meaning is lost; when they gloss alike, a proper noun ("Mediterranean
+ * Sea"), and otherwise the lowercase one, which the subtitles' lowercase counts already rank.
+ * Twins that differ stay apart ("Polish", "polish").
+ */
+const mergeTwins = (words: Map<string, Built>) => {
+  // A Map skips the entries deleted while it is iterated, so a folded twin is never visited.
+  for (const word of words.values()) {
+    const twin = words.get(word.headword.toLowerCase())
+    if (twin === undefined || twin === word) continue
+    const own = glossesOf(word)
+    const theirs = glossesOf(twin)
+    if (!sameWord(own, theirs)) continue
+    const leads = own.size > theirs.size || (own.size === theirs.size && isProperNoun(word) && !isProperNoun(twin))
+    const [kept, gone] = leads ? [word, twin] : [twin, word]
+    words.delete(gone.headword)
+    kept.ipa ??= gone.ipa
+    for (const spelling of [gone.headword, ...gone.spellings]) {
+      if (spelling !== kept.headword) kept.spellings.add(spelling)
+    }
+    for (const [text, tags] of gone.inflections) addInflection(kept, { text, tags: [...tags] })
+  }
+}
+
 /**
  * One dictionary from the sources: each headword from the first source that has it,
- * with the forms the others point at it. Case tells words apart ("Polish", "polish").
+ * with the forms the others point at it. Case tells words apart ("Polish", "polish"),
+ * unless the two mean the same (`mergeTwins`).
  */
 export const mergeSources = (sources: Sources): Array<Built> => {
   const words = new Map<string, Built>()
@@ -92,6 +141,7 @@ export const mergeSources = (sources: Sources): Array<Built> => {
   for (const word of sources.curated?.words ?? []) add(word, "curated")
   for (const word of sources.wiktionary.words) add(word, "wiktionary")
   for (const word of sources.jmdict.words) add(word, "jmdict")
+  mergeTwins(words)
 
   const folded = new Map<string, Built>()
   for (const word of words.values())
