@@ -357,6 +357,7 @@ describe("wordsFromJmdict", () => {
   const known = {
     words: new Set(["hang", "eat", "team"]),
     verbs: new Set(["hang", "eat"]),
+    gradable: new Set<string>(),
     phrases: new Set(["eat out"]),
     subtitles: new Map([
       ["selfie", 900],
@@ -410,6 +411,7 @@ describe("wordsFromJmdict", () => {
     const reader = jmdictReader({
       words: new Set(["on the fence", "a lot of"]),
       verbs: new Set(),
+      gradable: new Set(),
       phrases: new Set([
         "on thin ice",
         "on the fence",
@@ -486,6 +488,7 @@ describe("wordsFromJmdict", () => {
     const reader = jmdictReader({
       words: new Set(["make oneself at home"]),
       verbs: new Set(["serve", "hold", "make"]),
+      gradable: new Set(),
       phrases: new Set(["serve someone right", "hold one's horses"]),
       subtitles: new Map()
     })
@@ -514,6 +517,7 @@ describe("wordsFromJmdict", () => {
     const reader = jmdictReader({
       words: new Set(["police station"]),
       verbs: new Set(),
+      gradable: new Set(),
       // "on the" and "of a": fragments the phrase index lists too.
       phrases: new Set(["stone's throw", "on the", "of a"]),
       subtitles: new Map()
@@ -542,6 +546,88 @@ describe("wordsFromJmdict", () => {
       { text: "stone's throw away", base: "stone's throw", tags: [] }
     ])
     expect(built.map((w) => w.headword)).toEqual(["stone's throw"])
+  })
+
+  it("takes words ending in -er that only look like comparatives, and still drops real inflections", () => {
+    const built = wordsFromJmdict(
+      [
+        jmdictEntry(50, "罪人", "つみびと", ["sinner"], true, ["n"]),
+        jmdictEntry(51, "歌手", "かしゅ", ["singer"], true, ["n"]),
+        jmdictEntry(52, "より大きい", "よりおおきい", ["bigger"], false, ["adj-i"]),
+        jmdictEntry(53, "より速く", "よりはやく", ["faster"], false, ["adv"]),
+        jmdictEntry(54, "最も大きい", "もっともおおきい", ["biggest"], false, ["adj-i"]),
+        jmdictEntry(55, "走っている", "はしっている", ["running"], false, ["v1"]),
+        jmdictEntry(56, "罪", "つみ", ["sins"], true, ["n"])
+      ],
+      {
+        words: new Set(["sin", "sing", "big", "fast", "run"]),
+        verbs: new Set(["sin", "sing", "run"]),
+        gradable: new Set(["big", "fast"]),
+        phrases: new Set(),
+        subtitles: new Map([
+          ["sinner", 400],
+          ["singer", 900],
+          ["bigger", 2000],
+          ["faster", 1500],
+          ["biggest", 800],
+          ["running", 3000],
+          ["sins", 300]
+        ])
+      }
+    )
+    // "sinner" and "singer" are no comparatives: neither "sin" nor "sing" is an adjective.
+    expect(built.map((word) => word.headword)).toEqual(["sinner", "singer"])
+  })
+
+  it("takes capitalised proper adjectives with their casing, and still skips names, acronyms and sentences", () => {
+    const reader = jmdictReader({
+      words: new Set(["polish", "good morning"]),
+      verbs: new Set(["polish"]),
+      gradable: new Set(),
+      phrases: new Set(["good morning", "new year's eve"]),
+      subtitles: new Map([
+        ["nordic", 300],
+        ["viennese", 200],
+        ["boston", 900],
+        ["us", 9000],
+        ["polish", 700]
+      ])
+    })
+    reader.add(jmdictEntry(60, "ノルディック", "ノルディック", ["Nordic"], false, ["adj-f"]))
+    reader.add(jmdictEntry(61, "ウィーン風", "ウィーンふう", ["Viennese (of Vienna)"], false, ["adj-no"]))
+    // Names JMDict leaves untagged, and acronyms, even adjectival ones.
+    reader.add(jmdictEntry(62, "ボストン", "ボストン", ["Boston"], true, ["n"]))
+    reader.add(jmdictEntry(63, "米国", "べいこく", ["US"], true, ["n", "adj-no"]))
+    reader.add(jmdictEntry(64, "お早う", "おはよう", ["Good morning!"], true, ["int"]))
+    reader.add(jmdictEntry(65, "大晦日", "おおみそか", ["New Year's Eve"], true, ["n"]))
+    reader.add(jmdictEntry(66, "ポーランドの", "ポーランドの", ["Polish"], true, ["adj-no"]))
+
+    const built = reader.finish()
+    expect(built.map((word) => [word.headword, word.senses.map((sense) => sense.glosses.map((g) => g.text))])).toEqual([
+      ["Nordic", [["ノルディック"]]],
+      ["Viennese", [["ウィーン風"]]]
+    ])
+    expect(built[0]?.senses[0]?.pos).toEqual(["adj"])
+    // "Polish" is not "polish": the verb gains no back-translation from the nationality.
+    expect(reader.backTranslations().has("polish")).toBe(false)
+    expect(reader.backTranslations().has("good morning")).toBe(false)
+  })
+
+  it("stores a capitalised word under its own case-preserving id, counted by its lowercase use", () => {
+    const jmdict = {
+      words: wordsFromJmdict([jmdictEntry(70, "ノルディック", "ノルディック", ["Nordic"], true, ["adj-f"])], {
+        words: new Set(),
+        verbs: new Set(),
+        gradable: new Set(),
+        phrases: new Set(),
+        subtitles: new Map([["nordic", 300]])
+      })
+    }
+    const [nordic] = toEntries(
+      mergeSources({ wiktionary: { words: [], formsOf: [] }, jmdict }),
+      new Map([["nordic", 300]])
+    )
+    expect(nordic).toMatchObject({ id: "en:Nordic", headword: "Nordic", frequency: { spokenCount: 300 } })
   })
 })
 
@@ -909,6 +995,7 @@ describe("jmdictReader backTranslations", () => {
     const reader = jmdictReader({
       words: new Set(["smart", "kid"]),
       verbs: new Set(),
+      gradable: new Set(),
       phrases: new Set(),
       subtitles: new Map()
     })
@@ -927,6 +1014,7 @@ describe("jmdictReader backTranslations", () => {
     const reader = jmdictReader({
       words: new Set(["on thin ice"]),
       verbs: new Set(),
+      gradable: new Set(),
       phrases: new Set(["on thin ice", "cut corners"]),
       subtitles: new Map()
     })

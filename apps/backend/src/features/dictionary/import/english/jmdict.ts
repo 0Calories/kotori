@@ -167,6 +167,16 @@ const placeholderForms = (term: string): Array<string> => {
   return [...results]
 }
 
+/**
+ * The word a capitalised gloss names when it is one word written as proper adjectives are, a
+ * capital and then lowercase letters: "Nordic", "Viennese (of Vienna)". Null for the rest:
+ * acronyms ("NHK"), and sentences and titles ("Good morning!", "New Year's Eve").
+ */
+const properWord = (text: string): string | null => {
+  const word = text.replace(/\([^)]*\)/g, " ").trim()
+  return /^[A-Z][a-z]+$/.test(word) ? word : null
+}
+
 /** Explanations, literal renderings and trademarks aren't English words. */
 const SKIPPED_TYPES = new Set(["expl", "lit", "tm"])
 
@@ -203,11 +213,19 @@ export interface KnownEnglish {
   readonly words: ReadonlySet<string>
   /** Lowercased verbs, for recognising phrasal verbs. */
   readonly verbs: ReadonlySet<string>
+  /** Lowercased adjectives and adverbs, the words with comparatives and superlatives ("bigger", "faster"). */
+  readonly gradable: ReadonlySet<string>
   /** Lowercased phrases Wiktionary lists under a word. */
   readonly phrases: ReadonlySet<string>
   /** Variant idiom phrasings mapped to their canonical headword ("skate on thin ice" -> "on thin ice"). */
   readonly redirects?: ReadonlyMap<string, string> | undefined
   readonly subtitles: ReadonlyMap<string, number>
+}
+
+/** The headword a gloss names, and the gloss as a way of writing it when the two differ. */
+interface Resolved {
+  readonly headword: string
+  readonly variant?: string
 }
 
 /** Reads JMDict an entry at a time, collecting the English words its glosses name; see `wordsFromJmdict`. */
@@ -227,14 +245,34 @@ export const jmdictReader = (known: KnownEnglish) => {
     if (addRedirect(redirects, from, to)) addPhrase(to)
   }
 
-  const resolveHeadword = (term: string): { readonly headword: string; readonly variant?: string } | null => {
+  /**
+   * Whether a single word is an inflection of a word already in: "sins" of "sin", "bigger" of
+   * "big". Only adjectives and adverbs compare, so "sinner" and "singer" are words of their own.
+   */
+  const inflectsKnown = (term: string) =>
+    uninflect(term).some(
+      ({ base, tags }) =>
+        known.words.has(base) &&
+        (known.gradable.has(base) || tags.some((tag) => tag !== "comparative" && tag !== "superlative"))
+    )
+
+  /** Single words: ones people use, and not inflections of words already in. */
+  const isNewWord = (term: string) => known.subtitles.has(term) && !inflectsKnown(term)
+
+  /**
+   * A capitalised word keeps its case ("Nordic"), as Wiktionary's do. One already in under any
+   * case is left alone: "Polish", the language, says nothing of "polish", the verb.
+   */
+  const resolveProper = (word: string): Resolved | null => {
+    const term = word.toLowerCase()
+    return !known.words.has(term) && isNewWord(term) ? { headword: word } : null
+  }
+
+  const resolveHeadword = (term: string): Resolved | null => {
     const words = term.split(" ")
     if (words.length === 1) {
       if (known.words.has(term)) return { headword: term }
-      // Single words: ones people use, and not inflections of words already in.
-      return known.subtitles.has(term) && !uninflect(term).some(({ base }) => known.words.has(base))
-        ? { headword: term }
-        : null
+      return isNewWord(term) ? { headword: term } : null
     }
     const redirected = redirects.get(term)
     if (words.length > 7) {
@@ -285,11 +323,14 @@ export const jmdictReader = (known: KnownEnglish) => {
     const romaji = romanize(entry.reading)
     entry.senses.forEach((sense, senseIndex) => {
       sense.glosses.forEach((gloss, position) => {
-        // Capitalised glosses are names ("Disney"); lowercase ones are words.
-        if ((gloss.type !== null && SKIPPED_TYPES.has(gloss.type)) || !/^[a-z]/.test(gloss.text)) return
+        if (gloss.type !== null && SKIPPED_TYPES.has(gloss.type)) return
+        // Lowercase glosses are words. Capitalised nouns are mostly names ("Boston", "Alan"), which
+        // JMDict often leaves untagged, so of capitalised glosses only proper adjectives are taken.
+        const proper = sense.pos.some((code) => code.startsWith("adj")) ? properWord(gloss.text) : null
+        if (proper === null && !/^[a-z]/.test(gloss.text)) return
         const term = normalizeGloss(gloss.text)
         if (term.length < 2 || !isEnglish(term) || term === romaji) return
-        const resolved = resolveHeadword(term)
+        const resolved = proper === null ? resolveHeadword(term) : resolveProper(proper)
         if (resolved === null) return
         const { headword, variant } = resolved
         if (variant !== undefined && variant !== headword && !known.words.has(variant)) {
