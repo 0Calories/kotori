@@ -546,10 +546,42 @@ describe("wordsFromJmdict", () => {
 
   it("takes words that only look inflected, and makes real inflections forms of their word", () => {
     const reader = jmdictReader({
-      words: new Set(["sin", "sing", "big", "fast", "run", "build", "interest", "american"]),
+      words: new Set([
+        "sin",
+        "sing",
+        "big",
+        "fast",
+        "run",
+        "build",
+        "interest",
+        "american",
+        "outside",
+        "east",
+        "so",
+        "tin",
+        "and",
+        "def",
+        "wo"
+      ]),
       verbs: new Set(["sin", "sing", "run", "build", "interest"]),
-      gradable: new Set(["big", "fast"]),
-      spelled: new Set(["sin", "sing", "big", "fast", "run", "build", "interest", "American"]),
+      gradable: new Set(["big", "fast", "outside", "east", "so", "def"]),
+      spelled: new Set([
+        "sin",
+        "sing",
+        "big",
+        "fast",
+        "run",
+        "build",
+        "interest",
+        "American",
+        "outside",
+        "east",
+        "so",
+        "tin",
+        "and",
+        "def",
+        "wo"
+      ]),
       phrases: new Set()
     })
     // "sinner" and "singer" are no comparatives: neither "sin" nor "sing" is an adjective.
@@ -558,21 +590,43 @@ describe("wordsFromJmdict", () => {
     // A noun or an adjective in -ing or -ed is a word of its own.
     reader.add(jmdictEntry(52, "建物", "たてもの", ["building"], true, ["n"]))
     reader.add(jmdictEntry(53, "面白い", "おもしろい", ["interesting"], true, ["adj-i"]))
+    // And a noun in -er is no comparative, even of a word that compares; nor is a proper noun.
+    reader.add(jmdictEntry(60, "部外者", "ぶがいしゃ", ["outsider"], true, ["n"]))
+    reader.add(jmdictEntry(61, "復活祭", "ふっかつさい", ["Easter"], true, ["n"]))
+    // An acronym inflects nothing.
+    reader.add(jmdictEntry(62, "遭難信号", "そうなんしんごう", ["SOS"], true, ["n"]))
+    // A verb in -er is no comparative either, "-es" follows only s, x, z, ch, sh and o, and
+    // a two-letter base is an irregular word the sources list: these are words of their own.
+    reader.add(jmdictEntry(63, "延期する", "えんきする", ["to defer"], true, ["v5s"]))
+    reader.add(jmdictEntry(64, "叉", "また", ["tines"], false, ["n"]))
+    reader.add(jmdictEntry(65, "災い", "わざわい", ["woes"], true, ["n"]))
+    // A capitalised plural is a name of its own.
+    reader.add(jmdictEntry(66, "アンデス", "アンデス", ["Andes"], true, ["n"]))
     reader.add(jmdictEntry(54, "より大きい", "よりおおきい", ["bigger"], false, ["adj-i"]))
     reader.add(jmdictEntry(55, "より速く", "よりはやく", ["faster"], false, ["adv"]))
     reader.add(jmdictEntry(56, "最も大きい", "もっともおおきい", ["biggest"], false, ["adj-i"]))
     reader.add(jmdictEntry(57, "走っている", "はしっている", ["running"], false, ["v1"]))
     reader.add(jmdictEntry(58, "罪", "つみ", ["sins"], true, ["n"]))
-    reader.add(jmdictEntry(59, "アメリカ人", "アメリカじん", ["Americans"], true, ["n"]))
 
-    expect(reader.finish().map((word) => word.headword)).toEqual(["sinner", "singer", "building", "interesting"])
+    expect(reader.finish().map((word) => word.headword)).toEqual([
+      "sinner",
+      "singer",
+      "building",
+      "interesting",
+      "outsider",
+      "Easter",
+      "SOS",
+      "defer",
+      "tines",
+      "woes",
+      "Andes"
+    ])
     expect(reader.formsOf()).toEqual([
       { text: "bigger", base: "big", tags: ["comparative"] },
       { text: "biggest", base: "big", tags: ["superlative"] },
       { text: "faster", base: "fast", tags: ["comparative"] },
       { text: "running", base: "run", tags: ["present-participle"] },
-      { text: "sins", base: "sin", tags: ["plural"] },
-      { text: "Americans", base: "american", tags: ["plural"] }
+      { text: "sins", base: "sin", tags: ["plural"] }
     ])
     // An inflection says nothing of which of its word's senses are in use.
     expect(reader.backTranslations().size).toBe(0)

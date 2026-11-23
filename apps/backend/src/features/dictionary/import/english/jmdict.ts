@@ -240,6 +240,14 @@ const isNominal = (pos: ReadonlyArray<string>) => pos.some((code) => code.starts
 const isVerbal = (pos: ReadonlyArray<string>) => pos.some((code) => /^v(?!s$)/.test(code))
 const isAdjectival = (pos: ReadonlyArray<string>) => pos.some((code) => code.startsWith("adj"))
 
+/**
+ * Whether the regular rules could make `word` from `base`, as `uninflect` guesses more widely:
+ * "-es" follows only s, x, z, ch, sh and o ("tines" is not "tin" + "es", nor "Hades" "had"), and
+ * a base of two letters is an irregular word the sources list ("woes" is not "wo" + "es").
+ */
+const isRegularBase = (word: string, base: string) =>
+  base.length > 2 && (word !== `${base}es` || /(?:s|x|z|ch|sh|o)$/.test(base))
+
 /** Reads JMDict an entry at a time, collecting the English words its glosses name; see `wordsFromJmdict`. */
 export const jmdictReader = (known: KnownEnglish) => {
   const phrases = new Set<string>()
@@ -260,22 +268,27 @@ export const jmdictReader = (known: KnownEnglish) => {
   /**
    * The word already in that a single word inflects, read as the sense glossing it uses it:
    * "sins" of "sin" (plural, for a noun), "bigger" of "big". Only adjectives and adverbs compare,
-   * so "sinner" and "singer" are words of their own, and a noun or adjective in -ing or -ed
-   * ("building", "interesting") is one too. Null when it inflects no word in.
+   * and only as adjectives or adverbs, so "sinner", "singer" and "outsider" are words of their
+   * own, and a noun or adjective in -ing or -ed ("building", "interesting") is one too. Null when
+   * it inflects no word in.
    */
   const inflectionOf = (
-    term: string,
+    written: string,
     pos: ReadonlyArray<string>
   ): { readonly base: string; readonly tags: ReadonlyArray<EnglishInflection> } | null => {
+    // Names and acronyms are words of their own: "Andes" is not the plural of "and", nor "SOS" of "so".
+    if (written !== written.toLowerCase()) return null
     const nominal = isNominal(pos)
     const verbal = isVerbal(pos)
-    for (const { base, tags } of uninflect(term)) {
-      if (!known.words.has(base)) continue
+    // Only adjectives and adverbs compare: "outsider" and "defer" are words of their own.
+    const compares = isAdjectival(pos) || pos.some((code) => code.startsWith("adv"))
+    for (const { base, tags } of uninflect(written)) {
+      if (!known.words.has(base) || !isRegularBase(written, base)) continue
       const kept = tags.filter((tag) => {
         switch (tag) {
           case "comparative":
           case "superlative":
-            return known.gradable.has(base)
+            return compares && known.gradable.has(base)
           case "past":
           case "past-participle":
           case "present-participle":
@@ -296,7 +309,7 @@ export const jmdictReader = (known: KnownEnglish) => {
    * an inflection of a word already in, which becomes a form of that word.
    */
   const resolveWord = (written: string, pos: ReadonlyArray<string>): Resolved => {
-    const inflection = inflectionOf(written.toLowerCase(), pos)
+    const inflection = inflectionOf(written, pos)
     return inflection === null
       ? { headword: written }
       : { headword: inflection.base, variant: written, inflection: inflection.tags }
