@@ -168,13 +168,13 @@ const placeholderForms = (term: string): Array<string> => {
 }
 
 /**
- * The word a capitalised gloss names when it is one word written as proper adjectives are, a
- * capital and then lowercase letters: "Nordic", "Viennese (of Vienna)". Null for the rest:
- * acronyms ("NHK"), and sentences and titles ("Good morning!", "New Year's Eve").
+ * The word a gloss with capitals in it names, as written, when it is one word: "Nordic",
+ * "Ramadan", "Viennese (of Vienna)", "NHK", "iPod". Null for glosses of several words, which
+ * are sentences and titles ("Good morning!", "New Year's Eve") rather than words.
  */
 const properWord = (text: string): string | null => {
   const word = text.replace(/\([^)]*\)/g, " ").trim()
-  return /^[A-Z][a-z]+$/.test(word) ? word : null
+  return /^[A-Za-z][A-Za-z0-9'-]*$/.test(word) && /[A-Z]/.test(word) ? word : null
 }
 
 /** Explanations, literal renderings and trademarks aren't English words. */
@@ -215,6 +215,8 @@ export interface KnownEnglish {
   readonly verbs: ReadonlySet<string>
   /** Lowercased adjectives and adverbs, the words with comparatives and superlatives ("bigger", "faster"). */
   readonly gradable: ReadonlySet<string>
+  /** Headwords and spellings of the words already in, as written: "Polish" and "polish" are two words. */
+  readonly spelled: ReadonlySet<string>
   /** Lowercased phrases Wiktionary lists under a word. */
   readonly phrases: ReadonlySet<string>
   /** Variant idiom phrasings mapped to their canonical headword ("skate on thin ice" -> "on thin ice"). */
@@ -260,13 +262,12 @@ export const jmdictReader = (known: KnownEnglish) => {
   const isNewWord = (term: string) => known.subtitles.has(term) && !inflectsKnown(term)
 
   /**
-   * A capitalised word keeps its case ("Nordic"), as Wiktionary's do. One already in under any
-   * case is left alone: "Polish", the language, says nothing of "polish", the verb.
+   * A capitalised word keeps its case ("Nordic"), as Wiktionary's do, and is its own word beside
+   * a lowercase twin: "Polish", the nationality, is not "polish", the verb, and "US" is not "us".
+   * One already in as written is left to its source.
    */
-  const resolveProper = (word: string): Resolved | null => {
-    const term = word.toLowerCase()
-    return !known.words.has(term) && isNewWord(term) ? { headword: word } : null
-  }
+  const resolveProper = (word: string): Resolved | null =>
+    !known.spelled.has(word) && isNewWord(word.toLowerCase()) ? { headword: word } : null
 
   const resolveHeadword = (term: string): Resolved | null => {
     const words = term.split(" ")
@@ -324,9 +325,8 @@ export const jmdictReader = (known: KnownEnglish) => {
     entry.senses.forEach((sense, senseIndex) => {
       sense.glosses.forEach((gloss, position) => {
         if (gloss.type !== null && SKIPPED_TYPES.has(gloss.type)) return
-        // Lowercase glosses are words. Capitalised nouns are mostly names ("Boston", "Alan"), which
-        // JMDict often leaves untagged, so of capitalised glosses only proper adjectives are taken.
-        const proper = sense.pos.some((code) => code.startsWith("adj")) ? properWord(gloss.text) : null
+        // Lowercase glosses are words, and so is a capitalised one of a single word.
+        const proper = properWord(gloss.text)
         if (proper === null && !/^[a-z]/.test(gloss.text)) return
         const term = normalizeGloss(gloss.text)
         if (term.length < 2 || !isEnglish(term) || term === romaji) return

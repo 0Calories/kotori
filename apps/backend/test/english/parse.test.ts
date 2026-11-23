@@ -358,6 +358,7 @@ describe("wordsFromJmdict", () => {
     words: new Set(["hang", "eat", "team"]),
     verbs: new Set(["hang", "eat"]),
     gradable: new Set<string>(),
+    spelled: new Set<string>(),
     phrases: new Set(["eat out"]),
     subtitles: new Map([
       ["selfie", 900],
@@ -412,6 +413,7 @@ describe("wordsFromJmdict", () => {
       words: new Set(["on the fence", "a lot of"]),
       verbs: new Set(),
       gradable: new Set(),
+      spelled: new Set<string>(),
       phrases: new Set([
         "on thin ice",
         "on the fence",
@@ -489,6 +491,7 @@ describe("wordsFromJmdict", () => {
       words: new Set(["make oneself at home"]),
       verbs: new Set(["serve", "hold", "make"]),
       gradable: new Set(),
+      spelled: new Set<string>(),
       phrases: new Set(["serve someone right", "hold one's horses"]),
       subtitles: new Map()
     })
@@ -518,6 +521,7 @@ describe("wordsFromJmdict", () => {
       words: new Set(["police station"]),
       verbs: new Set(),
       gradable: new Set(),
+      spelled: new Set<string>(),
       // "on the" and "of a": fragments the phrase index lists too.
       phrases: new Set(["stone's throw", "on the", "of a"]),
       subtitles: new Map()
@@ -563,6 +567,7 @@ describe("wordsFromJmdict", () => {
         words: new Set(["sin", "sing", "big", "fast", "run"]),
         verbs: new Set(["sin", "sing", "run"]),
         gradable: new Set(["big", "fast"]),
+        spelled: new Set<string>(),
         phrases: new Set(),
         subtitles: new Map([
           ["sinner", 400],
@@ -579,33 +584,54 @@ describe("wordsFromJmdict", () => {
     expect(built.map((word) => word.headword)).toEqual(["sinner", "singer"])
   })
 
-  it("takes capitalised proper adjectives with their casing, and still skips names, acronyms and sentences", () => {
+  it("takes capitalised words and acronyms with their casing, and still skips sentences and titles", () => {
     const reader = jmdictReader({
-      words: new Set(["polish", "good morning"]),
+      words: new Set(["polish", "us", "islam", "good morning"]),
       verbs: new Set(["polish"]),
       gradable: new Set(),
+      // Islam is in already, as written; "polish" and "us" only in lowercase.
+      spelled: new Set(["polish", "us", "Islam", "good morning"]),
       phrases: new Set(["good morning", "new year's eve"]),
       subtitles: new Map([
         ["nordic", 300],
         ["viennese", 200],
         ["boston", 900],
+        ["ramadan", 150],
+        ["lexus", 400],
+        ["nhk", 100],
+        ["ipod", 150],
         ["us", 9000],
+        ["islam", 500],
         ["polish", 700]
       ])
     })
     reader.add(jmdictEntry(60, "ノルディック", "ノルディック", ["Nordic"], false, ["adj-f"]))
     reader.add(jmdictEntry(61, "ウィーン風", "ウィーンふう", ["Viennese (of Vienna)"], false, ["adj-no"]))
-    // Names JMDict leaves untagged, and acronyms, even adjectival ones.
     reader.add(jmdictEntry(62, "ボストン", "ボストン", ["Boston"], true, ["n"]))
-    reader.add(jmdictEntry(63, "米国", "べいこく", ["US"], true, ["n", "adj-no"]))
-    reader.add(jmdictEntry(64, "お早う", "おはよう", ["Good morning!"], true, ["int"]))
-    reader.add(jmdictEntry(65, "大晦日", "おおみそか", ["New Year's Eve"], true, ["n"]))
-    reader.add(jmdictEntry(66, "ポーランドの", "ポーランドの", ["Polish"], true, ["adj-no"]))
+    reader.add(jmdictEntry(63, "ラマダーン", "ラマダーン", ["Ramadan"], false, ["n"]))
+    // A name JMDict tags as one is a word too.
+    reader.add(jmdictEntry(64, "レクサス", "レクサス", ["Lexus"], false, ["n"], ["company"]))
+    reader.add(jmdictEntry(65, "日本放送協会", "にっぽんほうそうきょうかい", ["NHK"], true, ["n"]))
+    reader.add(jmdictEntry(66, "アイポッド", "アイポッド", ["iPod"], false, ["n"]))
+    // An acronym is not its lowercase twin, the pronoun.
+    reader.add(jmdictEntry(67, "米国", "べいこく", ["US"], true, ["n", "adj-no"]))
+    reader.add(jmdictEntry(68, "ポーランドの", "ポーランドの", ["Polish"], true, ["adj-no"]))
+    reader.add(jmdictEntry(69, "回教", "かいきょう", ["Islam"], false, ["n"]))
+    // Sentences and titles: a capitalised gloss of several words.
+    reader.add(jmdictEntry(70, "お早う", "おはよう", ["Good morning!"], true, ["int"]))
+    reader.add(jmdictEntry(71, "大晦日", "おおみそか", ["New Year's Eve"], true, ["n"]))
 
     const built = reader.finish()
     expect(built.map((word) => [word.headword, word.senses.map((sense) => sense.glosses.map((g) => g.text))])).toEqual([
       ["Nordic", [["ノルディック"]]],
-      ["Viennese", [["ウィーン風"]]]
+      ["Viennese", [["ウィーン風"]]],
+      ["Boston", [["ボストン"]]],
+      ["Ramadan", [["ラマダーン"]]],
+      ["Lexus", [["レクサス"]]],
+      ["NHK", [["日本放送協会"]]],
+      ["iPod", [["アイポッド"]]],
+      ["US", [["米国"]]],
+      ["Polish", [["ポーランドの"]]]
     ])
     expect(built[0]?.senses[0]?.pos).toEqual(["adj"])
     // "Polish" is not "polish": the verb gains no back-translation from the nationality.
@@ -619,6 +645,7 @@ describe("wordsFromJmdict", () => {
         words: new Set(),
         verbs: new Set(),
         gradable: new Set(),
+        spelled: new Set<string>(),
         phrases: new Set(),
         subtitles: new Map([["nordic", 300]])
       })
@@ -996,6 +1023,7 @@ describe("jmdictReader backTranslations", () => {
       words: new Set(["smart", "kid"]),
       verbs: new Set(),
       gradable: new Set(),
+      spelled: new Set<string>(),
       phrases: new Set(),
       subtitles: new Map()
     })
@@ -1015,6 +1043,7 @@ describe("jmdictReader backTranslations", () => {
       words: new Set(["on thin ice"]),
       verbs: new Set(),
       gradable: new Set(),
+      spelled: new Set<string>(),
       phrases: new Set(["on thin ice", "cut corners"]),
       subtitles: new Map()
     })

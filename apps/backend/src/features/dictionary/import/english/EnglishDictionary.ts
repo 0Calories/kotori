@@ -116,12 +116,14 @@ const knownEnglish = (
   const words = new Set<string>()
   const verbs = new Set<string>()
   const gradable = new Set<string>()
+  const spelled = new Set<string>()
   const allPhrases = new Set<string>(phrases)
   const allRedirects = new Map<string, string>(redirects)
   for (const source of sources) {
     for (const word of source.words) {
       for (const text of [word.headword, ...word.spellings, ...word.inflections.map((form) => form.text)]) {
         words.add(text.toLowerCase())
+        spelled.add(text)
       }
       const canonical = word.headword.toLowerCase()
       if (canonical.includes(" ")) {
@@ -133,9 +135,12 @@ const knownEnglish = (
       if (word.senses.some((sense) => sense.pos.includes("v"))) verbs.add(canonical)
       if (word.senses.some((sense) => sense.pos.includes("adj") || sense.pos.includes("adv"))) gradable.add(canonical)
     }
-    for (const form of source.formsOf) words.add(form.text.toLowerCase())
+    for (const form of source.formsOf) {
+      words.add(form.text.toLowerCase())
+      spelled.add(form.text)
+    }
   }
-  return { words, verbs, gradable, phrases: allPhrases, redirects: allRedirects, subtitles }
+  return { words, verbs, gradable, spelled, phrases: allPhrases, redirects: allRedirects, subtitles }
 }
 
 export interface ImportOptions {
