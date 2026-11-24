@@ -290,7 +290,7 @@ const isAcronym = (headword: string) =>
  * spelled alike but for case only one takes them: never a name ("Toyota") or an acronym ("MOP"
  * beside "mop"), then the word from the fuller source ("China" from Wiktionary over "china", a
  * gloss JMDict alone gives), then the lowercase one ("may", not the month). The pronoun "I"
- * counts beside the letter "i". A name never counts, even alone.
+ * counts beside the letter "i". A name never counts, even alone; an acronym alone does ("FBI").
  */
 const countedTwins = (words: ReadonlyArray<Built>): ReadonlySet<Built> => {
   const groups = new Map<string, Set<Built>>()

@@ -886,6 +886,34 @@ describe("wordsFromJmdict", () => {
     expect(entry("may")).toMatchObject({ frequency: { spokenCount: 8000 } })
     expect(entry("May")).toMatchObject({ priority: 0 })
   })
+
+  it("gives an acronym the count of its text when no lowercase word is spelled like it", () => {
+    const acronym = (headword: string): Word => ({
+      headword,
+      ipa: null,
+      spellings: [],
+      inflections: [],
+      senses: [{ ...emptySense(), glosses: [{ text: "略語", type: null }], pos: ["n"], misc: ["abbr"] }]
+    })
+    const mop: Word = {
+      ...acronym("mop"),
+      senses: [{ ...emptySense(), glosses: [{ text: "モップ", type: null }], pos: ["n"] }]
+    }
+    const built = toEntries(
+      mergeSources({
+        wiktionary: { words: [acronym("FBI"), acronym("MOP"), mop], formsOf: [] },
+        jmdict: { words: [] }
+      }),
+      new Map([
+        ["fbi", 25000],
+        ["mop", 2000]
+      ])
+    )
+    const entry = (headword: string) => built.find((candidate) => candidate.headword === headword)
+    expect(entry("FBI")).toMatchObject({ common: true, frequency: { spokenCount: 25000 } })
+    expect(entry("MOP")).toMatchObject({ priority: 0 })
+    expect(entry("mop")).toMatchObject({ frequency: { spokenCount: 2000 } })
+  })
 })
 
 describe("toEntries", () => {
