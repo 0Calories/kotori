@@ -711,6 +711,22 @@ describe("wordsFromJmdict", () => {
     expect(nordic).toMatchObject({ id: "en:Nordic", headword: "Nordic", frequency: { spokenCount: 300 } })
   })
 
+  it("takes words written with accented Latin letters, and still no Japanese", () => {
+    const words = wordsFromJmdict(
+      [
+        jmdictEntry(120, "喫茶店", "きっさてん", ["café"], true, ["n"]),
+        jmdictEntry(121, "ポケモン", "ポケモン", ["Pokémon"], true, ["n"], ["product"]),
+        jmdictEntry(122, "うぶ", "うぶ", ["naïve"], true, ["adj-na"]),
+        jmdictEntry(123, "寿司", "すし", ["すし"], true, ["n"])
+      ],
+      { words: new Set(), verbs: new Set(), gradable: new Set(), spelled: new Set(), phrases: new Set() }
+    )
+    expect(words.map((word) => word.headword)).toEqual(["café", "Pokémon", "naïve"])
+    expect(
+      parseWiktionary([line({ word: "fiancée", pos: "noun", senses: [{ glosses: ["婚約者"] }] })]).words
+    ).toHaveLength(1)
+  })
+
   it("takes loanwords that are the Japanese word's own romanisation", () => {
     const words = wordsFromJmdict(
       [

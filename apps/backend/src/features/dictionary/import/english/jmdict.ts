@@ -175,7 +175,7 @@ const placeholderForms = (term: string): Array<string> => {
  */
 const properWord = (text: string): string | null => {
   const word = text.replace(/\([^)]*\)/g, " ").trim()
-  return /^[A-Za-z][A-Za-z0-9'-]*$/.test(word) && /[A-Z]/.test(word) ? word : null
+  return /^\p{Script=Latin}[\p{Script=Latin}\p{M}0-9'-]*$/u.test(word) && /\p{Lu}/u.test(word) ? word : null
 }
 
 /**
@@ -434,7 +434,7 @@ export const jmdictReader = (known: KnownEnglish) => {
         if (gloss.type !== null && SKIPPED_TYPES.has(gloss.type)) return
         // Lowercase glosses are words, and so is a capitalised one of a single word.
         const proper = properWord(gloss.text)
-        if (proper === null && !/^[a-z]/.test(gloss.text)) return
+        if (proper === null && !/^\p{Ll}/u.test(gloss.text)) return
         const term = normalizeGloss(gloss.text)
         // A gloss that is the reading's romanisation is a loanword ("tsunami", "sushi") or a
         // romanisation few use in English; the subtitles' count tells them apart in ranking.

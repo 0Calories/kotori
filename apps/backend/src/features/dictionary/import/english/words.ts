@@ -127,8 +127,11 @@ export const formOf = (
   return tags.length === 0 ? null : { base: inflection[1]!.trim(), tags }
 }
 
-/** Words made only of English letters, digits and the punctuation inside English words and phrases. */
-export const isEnglish = (text: string) => /^[A-Za-z0-9][A-Za-z0-9 '’.\-&/]*$/.test(text)
+/**
+ * Words made only of Latin letters, accented ones too ("café", "Pokémon", "naïve"), digits and
+ * the punctuation inside English words and phrases: not Japanese, nor any other script.
+ */
+export const isEnglish = (text: string) => /^[\p{Script=Latin}0-9][\p{Script=Latin}\p{M}0-9 '’.\-&/]*$/u.test(text)
 
 export const addRedirect = (redirects: Map<string, string>, variant: string, target: string): boolean => {
   const from = normalizeGloss(variant)
