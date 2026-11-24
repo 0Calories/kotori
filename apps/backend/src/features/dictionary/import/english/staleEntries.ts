@@ -42,9 +42,10 @@ const whatChanged = (stage: RefusalStage) => {
 
 /**
  * The entry each stale word lives on as a form, a spelling or an inflection, when exactly one
- * does: "en:Spartan" in "en:spartan" once the twins fold, "en:sins" in "en:sin". Failing a form, the one entry whose headword differs
- * from it only by case: "en:ipod" is now "en:iPod". A form several entries share, or a
- * word several entries are spelled like but for case ("en:ev": "EV", "eV"), names none.
+ * does: "en:Spartan" in "en:spartan" once the twins fold, "en:sins" in "en:sin". Failing a
+ * form, the one entry with a headword or form differing from it only by case: "en:ipod" is now
+ * "en:iPod", "en:abcs" the plural "ABCs" of "en:ABC". A form several entries share, or a word
+ * several entries are spelled like but for case ("en:ev": "EV", "eV"), names none.
  */
 export const successorsOf = (
   entries: ReadonlyArray<ImportEntry>,
@@ -52,11 +53,12 @@ export const successorsOf = (
 ): ReadonlyMap<EntryId, EntryId> => {
   // By the id each form (spelling or inflection) would have as a headword of its own.
   const owners = new Map<EntryId, Set<EntryId>>()
-  // By the headword lowercased: "en:ipod" is "en:iPod" written in another case.
+  // By the headword or a form lowercased: "en:ipod" is "en:iPod", "en:abcs" the form "ABCs" of "ABC".
   const recased = new Map<string, Set<EntryId>>()
   for (const entry of entries) {
     addTo(recased, englishEntryId(entry.headword).toLowerCase(), entry.id)
     for (const form of entry.forms) {
+      addTo(recased, englishEntryId(form.text).toLowerCase(), entry.id)
       if (form.text !== entry.headword) addTo(owners, englishEntryId(form.text), entry.id)
     }
   }

@@ -62,7 +62,7 @@ describe("successorsOf", () => {
     forms: [form("spelling", headword), ...forms]
   })
 
-  it("follows any form of exactly one entry, then a headword differing only by case", () => {
+  it("follows any form of exactly one entry, then a headword or form differing only by case", () => {
     const successors = successorsOf(
       [
         entry("sin", [form("inflection", "sins")]),
@@ -72,14 +72,17 @@ describe("successorsOf", () => {
         entry("lead", [form("inflection", "leads")]),
         entry("Lead", [form("inflection", "leads")]),
         entry("EV", []),
-        entry("eV", [])
+        entry("eV", []),
+        // A form written in another case: "abcs" is now the plural of "ABC", "ABCs".
+        entry("ABC", [form("inflection", "ABCs")])
       ],
-      ["sins", "Spartan", "ipod", "leads", "ev", "gone"].map((headword) => EntryId.make(`en:${headword}`))
+      ["sins", "Spartan", "ipod", "leads", "ev", "abcs", "gone"].map((headword) => EntryId.make(`en:${headword}`))
     )
     expect(Object.fromEntries(successors)).toEqual({
       "en:sins": "en:sin",
       "en:Spartan": "en:spartan",
-      "en:ipod": "en:iPod"
+      "en:ipod": "en:iPod",
+      "en:abcs": "en:ABC"
     })
   })
 })
