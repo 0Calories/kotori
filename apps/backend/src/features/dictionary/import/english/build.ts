@@ -37,6 +37,8 @@ interface Built {
   readonly senses: Word["senses"]
   readonly references: ReadonlyArray<References>
   readonly mayBeName: boolean
+  /** Only ever a name (`Word.name`): ranked last, whatever the subtitles count. */
+  readonly name: boolean
   readonly frequency?: number | undefined
   readonly source: Source
 }
@@ -50,6 +52,7 @@ const built = (word: Word, tier: Tier): Built => ({
   senses: word.senses,
   references: word.references ?? [],
   mayBeName: word.mayBeName ?? false,
+  name: word.name ?? false,
   frequency: word.frequency,
   source: word.source ?? SOURCE[tier]
 })
@@ -270,6 +273,46 @@ export const commonestFirst = <S extends SenseRecord>(
 
 const pronoun = (word: Built) => word.senses.some((sense) => sense.pos.includes("pn"))
 
+const TIER_ORDER: Readonly<Record<Tier, number>> = { curated: 0, wiktionary: 1, jmdict: 2 }
+
+/** An acronym: capitals only ("MOP", "US"), never what the subtitles' lowercase text says. */
+const isAcronym = (headword: string) =>
+  headword.length > 1 && headword === headword.toUpperCase() && /[A-Z]/.test(headword)
+
+/**
+ * The words the subtitles' counts belong to. The counts are of lowercased text, so of words
+ * spelled alike but for case only one takes them: never a name ("Toyota") or an acronym ("MOP"
+ * beside "mop"), then the word from the fuller source ("China" from Wiktionary over "china", a
+ * gloss JMDict alone gives), then the lowercase one ("may", not the month). The pronoun "I"
+ * counts beside the letter "i". A name never counts, even alone.
+ */
+const countedTwins = (words: ReadonlyArray<Built>): ReadonlySet<Built> => {
+  const groups = new Map<string, Array<Built>>()
+  for (const word of words) {
+    const key = word.headword.toLowerCase()
+    groups.set(key, [...(groups.get(key) ?? []), word])
+  }
+  const order = (word: Built) => [
+    word.name ? 1 : 0,
+    isAcronym(word.headword) ? 1 : 0,
+    TIER_ORDER[word.tier],
+    word.headword === word.headword.toLowerCase() ? 0 : 1
+  ]
+  const before = (a: Built, b: Built) => {
+    const [x, y] = [order(a), order(b)]
+    const index = x.findIndex((value, i) => value !== y[i])
+    return index === -1 ? 0 : x[index]! - y[index]!
+  }
+  const counted = new Set<Built>()
+  for (const group of groups.values()) {
+    const [first] = group.toSorted(before)
+    if (first !== undefined && !first.name) counted.add(first)
+    for (const word of group)
+      if (pronoun(word) && !group.some((other) => other !== word && pronoun(other))) counted.add(word)
+  }
+  return counted
+}
+
 const attestedTranslations = (
   headword: string,
   translations: ReadonlyMap<string, ReadonlyMap<string, number>>
@@ -278,22 +321,20 @@ const attestedTranslations = (
 
 /**
  * How often a word is used: its own count and its inflections', since "ate" is "eat" being
- * used. The counts are of lowercased text, so where a capitalised word has a lowercase twin
- * the count is the twin's: "a", not the letter "A"; "may", not the month. Only the pronoun
- * "I" outranks its twin, the letter "i". A rated word (curated, or in the frequency file)
+ * used. The counts are of lowercased text, so of twins spelled alike but for case only one
+ * takes them (`countedTwins`): "a", not the letter "A"; "may", not the month; none for a name.
+ * A rated word (curated, or in the frequency file)
  * counts at least its rating's floor, unless the rating says it is little used and the
  * subtitles counted it anyway.
  */
 const usage = (
   word: Built,
   subtitles: ReadonlyMap<string, number>,
-  lowercase: ReadonlyMap<string, Built>,
+  counted: ReadonlySet<Built>,
   translations: ReadonlyMap<string, ReadonlyMap<string, number>>,
   ratings: ReadonlyMap<string, number>
 ) => {
-  const twin = lowercase.get(word.headword.toLowerCase())
-  if (twin !== undefined && twin !== word && !(pronoun(word) && !pronoun(twin)))
-    return { count: 0, rawCount: 0, score: undefined }
+  if (!counted.has(word)) return { count: 0, rawCount: 0, score: undefined }
   const forms = new Set([word.headword, ...word.inflections.keys()].map((form) => form.toLowerCase()))
   let rawCount = 0
   for (const form of forms) rawCount += subtitles.get(form) ?? 0
@@ -341,11 +382,9 @@ export const toEntries = (
   translations: ReadonlyMap<string, ReadonlyMap<string, number>> = new Map(),
   ratings: ReadonlyMap<string, number> = new Map()
 ): Array<ImportEntry & { readonly tier: Tier }> => {
-  const lowercase = new Map(
-    words.filter((word) => word.headword === word.headword.toLowerCase()).map((word) => [word.headword, word])
-  )
+  const counted = countedTwins(words)
   const ranked = words
-    .map((word) => ({ word, ...usage(word, subtitles, lowercase, translations, ratings) }))
+    .map((word) => ({ word, ...usage(word, subtitles, counted, translations, ratings) }))
     .sort((a, b) => b.count - a.count || (a.word.headword < b.word.headword ? -1 : 1))
   const sensesOf = placeReferences(words)
   let commonSoFar = 0

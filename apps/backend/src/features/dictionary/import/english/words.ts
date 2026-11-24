@@ -43,6 +43,11 @@ export interface Word {
    * can't say the word is common.
    */
   readonly mayBeName?: boolean
+  /**
+   * JMDict names it only as a name: a company, product, work, character… ("Toyota"). The
+   * subtitles' count of the lowercase text is not its use, so it ranks last.
+   */
+  readonly name?: boolean
 }
 
 /**

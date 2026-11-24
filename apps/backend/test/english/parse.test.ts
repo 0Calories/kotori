@@ -358,7 +358,7 @@ describe("wordsFromJmdict", () => {
     words: new Set(["hang", "eat", "team"]),
     verbs: new Set(["hang", "eat"]),
     gradable: new Set<string>(),
-    spelled: new Set<string>(),
+    spelled: new Set(["hang", "eat", "team"]),
     phrases: new Set(["eat out"])
   }
   const words = wordsFromJmdict(
@@ -408,7 +408,7 @@ describe("wordsFromJmdict", () => {
       words: new Set(["on the fence", "a lot of"]),
       verbs: new Set(),
       gradable: new Set(),
-      spelled: new Set<string>(),
+      spelled: new Set(["on the fence", "a lot of"]),
       phrases: new Set([
         "on thin ice",
         "on the fence",
@@ -485,7 +485,7 @@ describe("wordsFromJmdict", () => {
       words: new Set(["make oneself at home"]),
       verbs: new Set(["serve", "hold", "make"]),
       gradable: new Set(),
-      spelled: new Set<string>(),
+      spelled: new Set(["make oneself at home"]),
       phrases: new Set(["serve someone right", "hold one's horses"])
     })
     reader.add(jmdictEntry(30, "ざまあみろ", "ざまあみろ", ["serves you right!"], true, ["int", "exp"]))
@@ -514,7 +514,7 @@ describe("wordsFromJmdict", () => {
       words: new Set(["police station"]),
       verbs: new Set(),
       gradable: new Set(),
-      spelled: new Set<string>(),
+      spelled: new Set(["police station"]),
       // "on the" and "of a": fragments the phrase index lists too.
       phrases: new Set(["stone's throw", "on the", "of a"])
     })
@@ -707,6 +707,96 @@ describe("wordsFromJmdict", () => {
       new Map([["nordic", 300]])
     )
     expect(nordic).toMatchObject({ id: "en:Nordic", headword: "Nordic", frequency: { spokenCount: 300 } })
+  })
+
+  it("ranks a word JMdict names only as a name last, never borrowing the count of the word spelled alike", () => {
+    const counts = new Map([
+      ["toyota", 5000],
+      ["boston", 4000],
+      ["amazon", 3000],
+      ["mop", 2000]
+    ])
+    const reader = jmdictReader({
+      // Wiktionary has the acronym "MOP", but not the word "mop".
+      words: new Set(["mop"]),
+      verbs: new Set(),
+      gradable: new Set(),
+      spelled: new Set(["MOP"]),
+      phrases: new Set()
+    })
+    reader.add(jmdictEntry(90, "トヨタ", "トヨタ", ["Toyota Motor"], false, ["n"], ["company"]))
+    reader.add(jmdictEntry(91, "トヨタ自動車", "トヨタじどうしゃ", ["Toyota"], false, ["n"], ["company"]))
+    reader.add(jmdictEntry(92, "ボストン", "ボストン", ["Boston"], true, ["n"]))
+    // A name in one sense and a word in another is not only a name.
+    reader.add(jmdictEntry(93, "アマゾン", "アマゾン", ["Amazon"], false, ["n"], ["company"]))
+    reader.add(jmdictEntry(94, "密林", "みつりん", ["jungle", "Amazon"], true, ["n"]))
+    reader.add(jmdictEntry(96, "女武者", "おんなむしゃ", ["amazon"], false, ["n"]))
+    reader.add(jmdictEntry(95, "モップ", "モップ", ["mop"], true, ["n"]))
+    const words = reader.finish()
+    expect(words.find((word) => word.headword === "Toyota")?.name).toBe(true)
+    expect(words.find((word) => word.headword === "Amazon")?.name).toBe(false)
+
+    const built = toEntries(
+      mergeSources({
+        wiktionary: {
+          words: [
+            {
+              headword: "MOP",
+              ipa: null,
+              spellings: [],
+              inflections: [],
+              senses: [{ ...emptySense(), glosses: [{ text: "締約国会合", type: null }], pos: [], misc: ["abbr"] }]
+            }
+          ],
+          formsOf: []
+        },
+        jmdict: { words }
+      }),
+      counts
+    )
+    const entry = (headword: string) => built.find((candidate) => candidate.headword === headword)
+    expect(entry("Toyota")).toMatchObject({ priority: 0, common: false, frequency: { spokenCount: null } })
+    expect(entry("Boston")).toMatchObject({ frequency: { spokenCount: 4000 } })
+    // "mop", the word, takes its own count, and the acronym spelled like it takes none.
+    expect(entry("mop")).toMatchObject({ common: true, frequency: { spokenCount: 2000 } })
+    expect(entry("MOP")).toMatchObject({ priority: 0, common: false })
+    expect(entry("amazon")).toMatchObject({ frequency: { spokenCount: 3000 } })
+    expect(entry("Amazon")).toMatchObject({ priority: 0, common: false })
+  })
+
+  it("counts twins' shared text for the word a fuller source has, not a lowercase gloss JMdict alone gives", () => {
+    const sense = (gloss: string, pos: Array<string>) => ({
+      ...emptySense(),
+      glosses: [{ text: gloss, type: null }],
+      pos
+    })
+    const word = (headword: string, gloss: string, pos: Array<string>): Word => ({
+      headword,
+      ipa: null,
+      spellings: [],
+      inflections: [],
+      senses: [sense(gloss, pos)]
+    })
+    const built = toEntries(
+      mergeSources({
+        wiktionary: {
+          words: [word("China", "中国", ["n-pr"]), word("may", "かもしれない", ["v"]), word("May", "五月", ["n-pr"])],
+          formsOf: []
+        },
+        // JMdict glosses 磁器 "china", a word of its own, but the subtitles' "china" is mostly the country.
+        jmdict: { words: [word("china", "磁器", ["n"])] }
+      }),
+      new Map([
+        ["china", 9000],
+        ["may", 8000]
+      ])
+    )
+    const entry = (headword: string) => built.find((candidate) => candidate.headword === headword)
+    expect(entry("China")).toMatchObject({ common: true, frequency: { spokenCount: 9000 } })
+    expect(entry("china")).toMatchObject({ priority: 0, common: false })
+    // Twins from one source: the lowercase word takes the count, as before.
+    expect(entry("may")).toMatchObject({ frequency: { spokenCount: 8000 } })
+    expect(entry("May")).toMatchObject({ priority: 0 })
   })
 })
 
@@ -1127,7 +1217,7 @@ describe("jmdictReader backTranslations", () => {
       words: new Set(["smart", "kid"]),
       verbs: new Set(),
       gradable: new Set(),
-      spelled: new Set<string>(),
+      spelled: new Set(["smart", "kid"]),
       phrases: new Set()
     })
     reader.add(entry(1, "賢い", ["wise", "clever", "smart"]))
@@ -1146,7 +1236,7 @@ describe("jmdictReader backTranslations", () => {
       words: new Set(["on thin ice"]),
       verbs: new Set(),
       gradable: new Set(),
-      spelled: new Set<string>(),
+      spelled: new Set(["on thin ice"]),
       phrases: new Set(["on thin ice", "cut corners"])
     })
     reader.add(entry(6, "薄氷を踏む", ["to tread on thin ice"], false, 0, ["exp", "v5m"], ["id"]))

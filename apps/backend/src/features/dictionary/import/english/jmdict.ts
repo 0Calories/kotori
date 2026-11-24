@@ -195,6 +195,13 @@ const partOfSpeech = (codes: ReadonlyArray<string>): Array<string> => {
 
 /** The same ranking search uses: common words, early senses and first glosses go first. */
 const SENSE_BONUS = [40, 25, 15, 10, 5]
+/** JMDict's tags for names: a company, product, work, character, surname, place… */
+const NAME_TAGS = new Set(
+  "char company creat dei doc ev fem fict given group leg male masc myth obj organization oth person place product relig serv ship station surname unclass work".split(
+    " "
+  )
+)
+
 const RARE = new Set(["arch", "obs", "obsc", "rare", "hist", "vulg", "X", "derog"])
 
 interface Candidate {
@@ -203,6 +210,8 @@ interface Candidate {
   readonly common: boolean
   readonly pos: ReadonlyArray<string>
   readonly score: number
+  /** Whether JMDict tags the sense glossing it as a name's. */
+  readonly name: boolean
 }
 
 /** Back-translations are read from a Japanese word's leading senses and glosses, where JMDict puts the common ones. */
@@ -283,7 +292,7 @@ export const jmdictReader = (known: KnownEnglish) => {
     // Only adjectives and adverbs compare: "outsider" and "defer" are words of their own.
     const compares = isAdjectival(pos) || pos.some((code) => code.startsWith("adv"))
     for (const { base, tags } of uninflect(written)) {
-      if (!known.words.has(base) || !isRegularBase(written, base)) continue
+      if (!known.spelled.has(base) || !isRegularBase(written, base)) continue
       const kept = tags.filter((tag) => {
         switch (tag) {
           case "comparative":
@@ -323,9 +332,16 @@ export const jmdictReader = (known: KnownEnglish) => {
   const resolveProper = (word: string, pos: ReadonlyArray<string>): Resolved | null =>
     known.spelled.has(word) ? null : resolveWord(word, pos)
 
+  /**
+   * Whether a headword is in already: a single word as written ("mop" is not in because the
+   * acronym "MOP" is), a phrase by its lowercased text, as phrases are kept.
+   */
+  const isKnown = (headword: string) =>
+    headword.includes(" ") ? known.words.has(headword) : known.spelled.has(headword)
+
   const resolveHeadword = (term: string, pos: ReadonlyArray<string>): Resolved | null => {
     const words = term.split(" ")
-    if (words.length === 1) return known.words.has(term) ? { headword: term } : resolveWord(term, pos)
+    if (words.length === 1) return known.spelled.has(term) ? { headword: term } : resolveWord(term, pos)
     const redirected = redirects.get(term)
     if (words.length > 7) {
       const candidate = redirected ?? term
@@ -414,14 +430,20 @@ export const jmdictReader = (known: KnownEnglish) => {
           const forms = entry.forms.length > 0 ? entry.forms.map((form) => form.text) : [entry.headword]
           for (const text of forms) spellings.set(text, Math.max(spellings.get(text) ?? 0, score))
         }
-        if (known.words.has(headword)) {
+        if (isKnown(headword)) {
           if (isIdiomOrCommon) recordTranslation()
           return
         }
         if (headword.includes(" ") && isIdiomOrCommon) recordTranslation()
         const list = candidates.get(headword) ?? []
         candidates.set(headword, list)
-        list.push({ japanese: entry.headword, common: entry.common, pos: partOfSpeech(sense.pos), score })
+        list.push({
+          japanese: entry.headword,
+          common: entry.common,
+          pos: partOfSpeech(sense.pos),
+          score,
+          name: sense.misc.some((tag) => NAME_TAGS.has(tag))
+        })
       })
     })
   }
@@ -459,6 +481,7 @@ export const jmdictReader = (known: KnownEnglish) => {
         })),
         // A common Japanese word for it vouches for the count, and names are rarely hyphenated
         // ("ex-wife") or multi-word phrases. Otherwise the count may be a name's: 韓国海苔 is glossed "kim".
+        name: list.every((candidate) => candidate.name),
         mayBeName: !headword.includes(" ") && !headword.includes("-") && !list.some((candidate) => candidate.common)
       }
     })
