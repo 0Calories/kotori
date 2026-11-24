@@ -2,7 +2,7 @@ import { type FormRecord, type SenseRecord } from "@kotori/contracts"
 import { englishEntryId, type Source } from "@kotori/db"
 import { type EnglishInflection, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
 import type { ImportEntry } from "../seedFacts.ts"
-import type { FormOf, InflectedForm, References, Word } from "./words.ts"
+import { addTo, type FormOf, type InflectedForm, type Naming, type References, type Word } from "./words.ts"
 
 /** How many of the most used words count as common, as JMDict's markers make about a tenth of its words common. */
 const COMMON_WORDS = 10_000
@@ -36,7 +36,7 @@ interface Built {
   readonly inflections: Map<string, Set<EnglishInflection>>
   readonly senses: Word["senses"]
   readonly references: ReadonlyArray<References>
-  readonly mayBeName: boolean
+  readonly naming: Naming
   readonly frequency?: number | undefined
   readonly source: Source
 }
@@ -49,16 +49,13 @@ const built = (word: Word, tier: Tier): Built => ({
   inflections: new Map(word.inflections.map((form) => [form.text, new Set(form.tags)])),
   senses: word.senses,
   references: word.references ?? [],
-  mayBeName: word.mayBeName ?? false,
+  naming: word.naming ?? "word",
   frequency: word.frequency,
   source: word.source ?? SOURCE[tier]
 })
 
 const addInflection = (word: Built, form: InflectedForm) => {
-  if (form.text === word.headword) return
-  const tags = word.inflections.get(form.text) ?? new Set<EnglishInflection>()
-  for (const tag of form.tags) tags.add(tag)
-  word.inflections.set(form.text, tags)
+  if (form.text !== word.headword) addTo(word.inflections, form.text, ...form.tags)
 }
 
 export interface Sources {
@@ -71,9 +68,70 @@ export interface Sources {
   readonly subtitles?: ReadonlyMap<string, number> | undefined
 }
 
+/** A gloss in katakana alone: a transliteration, which says two words sound alike, not that they mean alike. */
+const isTransliteration = (gloss: string) => /^[゠-ヿ]+$/u.test(gloss)
+
+/** Whether a source files the word as a proper noun, as Wiktionary does its names. */
+const isProperNoun = (word: Built) => word.senses.some((sense) => sense.pos.includes("n-pr"))
+
+/** Every Japanese gloss of a word, as looked up. */
+const allMeanings = (word: Built) => new Set(word.senses.flatMap((sense) => [...meanings(sense)]))
+
+/** Whether every sense of `word` shares a Japanese gloss with `glosses`: it has no meaning they lack. */
+const allSensesIn = (word: Built, glosses: ReadonlySet<string>) =>
+  word.senses.every((sense) => [...meanings(sense)].some((gloss) => glosses.has(gloss)))
+
+/**
+ * Whether case twins are one word: every Japanese gloss of one is a gloss of the other, one they
+ * share translates rather than transliterates, and neither has a sense the other has no gloss
+ * of. "Spartan" and "spartan" (スパルタ式) are one word. "Polish" and "polish" share no gloss;
+ * "Tesla" and "tesla", the carmaker and the unit, only the sound テスラ; and "RN", "yuan" and
+ * "diet" each have a meaning their twin lacks (Registered Nurse, 院, food).
+ */
+const sameWord = (a: Built, b: Built) => {
+  const [ownA, ownB] = [allMeanings(a), allMeanings(b)]
+  const [fewer, more] = ownA.size <= ownB.size ? [ownA, ownB] : [ownB, ownA]
+  const shared = [...fewer]
+  return (
+    shared.length > 0 &&
+    shared.every((gloss) => more.has(gloss)) &&
+    shared.some((gloss) => !isTransliteration(gloss)) &&
+    allSensesIn(a, ownB) &&
+    allSensesIn(b, ownA)
+  )
+}
+
+/**
+ * Folds each capitalised word into its lowercase twin when the two are one word, the other
+ * casing becoming a spelling. The twin whose glosses hold the other's leads ("Mediterranean"
+ * over "mediterranean"), so no meaning is lost; when they gloss alike, a proper noun ("Mediterranean
+ * Sea"), and otherwise the lowercase one, which the subtitles' lowercase counts already rank.
+ * Twins that differ stay apart ("Polish", "polish").
+ */
+const mergeTwins = (words: Map<string, Built>) => {
+  // A Map skips the entries deleted while it is iterated, so a folded twin is never visited.
+  for (const word of words.values()) {
+    const twin = words.get(word.headword.toLowerCase())
+    if (twin === undefined || twin === word) continue
+    if (!sameWord(word, twin)) continue
+    const own = allMeanings(word)
+    const theirs = allMeanings(twin)
+    // The twin with more meanings leads, so the other's are all on the kept entry (Mediterranean, Messiah).
+    const leads = own.size > theirs.size || (own.size === theirs.size && isProperNoun(word) && !isProperNoun(twin))
+    const [kept, gone] = leads ? [word, twin] : [twin, word]
+    words.delete(gone.headword)
+    kept.ipa ??= gone.ipa
+    for (const spelling of [gone.headword, ...gone.spellings]) {
+      if (spelling !== kept.headword) kept.spellings.add(spelling)
+    }
+    for (const [text, tags] of gone.inflections) addInflection(kept, { text, tags: [...tags] })
+  }
+}
+
 /**
  * One dictionary from the sources: each headword from the first source that has it,
- * with the forms the others point at it. Case tells words apart ("Polish", "polish").
+ * with the forms the others point at it. Case tells words apart ("Polish", "polish"),
+ * unless the two mean the same (`mergeTwins`).
  */
 export const mergeSources = (sources: Sources): Array<Built> => {
   const words = new Map<string, Built>()
@@ -92,6 +150,7 @@ export const mergeSources = (sources: Sources): Array<Built> => {
   for (const word of sources.curated?.words ?? []) add(word, "curated")
   for (const word of sources.wiktionary.words) add(word, "wiktionary")
   for (const word of sources.jmdict.words) add(word, "jmdict")
+  mergeTwins(words)
 
   const folded = new Map<string, Built>()
   for (const word of words.values())
@@ -145,9 +204,9 @@ const placeReferences = (words: ReadonlyArray<Built>) => {
     const folded = word.headword.toLowerCase()
     if (!byHeadword.has(folded)) byHeadword.set(folded, word)
   }
-  const glossesOf = (headword: string) => {
+  const meaningsOfHeadword = (headword: string) => {
     const word = byHeadword.get(headword) ?? byHeadword.get(headword.toLowerCase())
-    return new Set(word?.senses.flatMap((sense) => [...meanings(sense)]) ?? [])
+    return word === undefined ? new Set<string>() : allMeanings(word)
   }
 
   return (word: Built): Built["senses"] => {
@@ -160,7 +219,7 @@ const placeReferences = (words: ReadonlyArray<Built>) => {
       const place = (other: string, into: Array<Array<string>>, byMeaning: boolean) => {
         let best = to - from === 1 ? from : -1
         if (byMeaning && best === -1) {
-          const theirs = glossesOf(other)
+          const theirs = meaningsOfHeadword(other)
           const theirPairs = bigrams(theirs)
           const scores = [...Array(to - from).keys()].map(
             (offset) => 10 * overlap(own[from + offset]!, theirs) + overlap(ownPairs[from + offset]!, theirPairs)
@@ -220,6 +279,45 @@ export const commonestFirst = <S extends SenseRecord>(
 
 const pronoun = (word: Built) => word.senses.some((sense) => sense.pos.includes("pn"))
 
+const TIER_ORDER: Readonly<Record<Tier, number>> = { curated: 0, wiktionary: 1, jmdict: 2 }
+
+/** An acronym: capitals only ("MOP", "US"), never what the subtitles' lowercase text says. */
+const isAcronym = (headword: string) =>
+  headword.length > 1 && headword === headword.toUpperCase() && /[A-Z]/.test(headword)
+
+/**
+ * The words the subtitles' counts belong to. The counts are of lowercased text, so of words
+ * spelled alike but for case only one takes them: never a name ("Toyota") or an acronym ("MOP"
+ * beside "mop"), then the word from the fuller source ("China" from Wiktionary over "china", a
+ * gloss JMDict alone gives), then the lowercase one ("may", not the month). The pronoun "I"
+ * counts beside the letter "i". A name never counts, even alone; an acronym alone does ("FBI").
+ */
+const countedTwins = (words: ReadonlyArray<Built>): ReadonlySet<Built> => {
+  const groups = new Map<string, Set<Built>>()
+  for (const word of words) addTo(groups, word.headword.toLowerCase(), word)
+  // What decides which twin's the count is, most telling first; lower takes it.
+  const countClaim = (word: Built) => [
+    word.naming === "name" ? 1 : 0,
+    isAcronym(word.headword) ? 1 : 0,
+    TIER_ORDER[word.tier],
+    word.headword === word.headword.toLowerCase() ? 0 : 1
+  ]
+  const byCountClaim = (a: Built, b: Built) => {
+    const [x, y] = [countClaim(a), countClaim(b)]
+    const index = x.findIndex((value, i) => value !== y[i])
+    return index === -1 ? 0 : x[index]! - y[index]!
+  }
+  const counted = new Set<Built>()
+  for (const members of groups.values()) {
+    const group = [...members]
+    const [first] = group.toSorted(byCountClaim)
+    if (first !== undefined && first.naming !== "name") counted.add(first)
+    for (const word of group)
+      if (pronoun(word) && !group.some((other) => other !== word && pronoun(other))) counted.add(word)
+  }
+  return counted
+}
+
 const attestedTranslations = (
   headword: string,
   translations: ReadonlyMap<string, ReadonlyMap<string, number>>
@@ -228,22 +326,20 @@ const attestedTranslations = (
 
 /**
  * How often a word is used: its own count and its inflections', since "ate" is "eat" being
- * used. The counts are of lowercased text, so where a capitalised word has a lowercase twin
- * the count is the twin's: "a", not the letter "A"; "may", not the month. Only the pronoun
- * "I" outranks its twin, the letter "i". A rated word (curated, or in the frequency file)
+ * used. The counts are of lowercased text, so of twins spelled alike but for case only one
+ * takes them (`countedTwins`): "a", not the letter "A"; "may", not the month; none for a name.
+ * A rated word (curated, or in the frequency file)
  * counts at least its rating's floor, unless the rating says it is little used and the
  * subtitles counted it anyway.
  */
 const usage = (
   word: Built,
   subtitles: ReadonlyMap<string, number>,
-  lowercase: ReadonlyMap<string, Built>,
+  counted: ReadonlySet<Built>,
   translations: ReadonlyMap<string, ReadonlyMap<string, number>>,
   ratings: ReadonlyMap<string, number>
 ) => {
-  const twin = lowercase.get(word.headword.toLowerCase())
-  if (twin !== undefined && twin !== word && !(pronoun(word) && !pronoun(twin)))
-    return { count: 0, rawCount: 0, score: undefined }
+  if (!counted.has(word)) return { count: 0, rawCount: 0, score: undefined }
   const forms = new Set([word.headword, ...word.inflections.keys()].map((form) => form.toLowerCase()))
   let rawCount = 0
   for (const form of forms) rawCount += subtitles.get(form) ?? 0
@@ -291,16 +387,14 @@ export const toEntries = (
   translations: ReadonlyMap<string, ReadonlyMap<string, number>> = new Map(),
   ratings: ReadonlyMap<string, number> = new Map()
 ): Array<ImportEntry & { readonly tier: Tier }> => {
-  const lowercase = new Map(
-    words.filter((word) => word.headword === word.headword.toLowerCase()).map((word) => [word.headword, word])
-  )
+  const counted = countedTwins(words)
   const ranked = words
-    .map((word) => ({ word, ...usage(word, subtitles, lowercase, translations, ratings) }))
+    .map((word) => ({ word, ...usage(word, subtitles, counted, translations, ratings) }))
     .sort((a, b) => b.count - a.count || (a.word.headword < b.word.headword ? -1 : 1))
   const sensesOf = placeReferences(words)
   let commonSoFar = 0
   return ranked.map(({ word, count, rawCount, score }) => {
-    const common = !word.mayBeName && (rawCount > 0 || count >= 2_500) && count > 0 && commonSoFar < COMMON_WORDS
+    const common = word.naming === "word" && (rawCount > 0 || count >= 2_500) && count > 0 && commonSoFar < COMMON_WORDS
     if (common) commonSoFar++
     const spellings = [...word.spellings].filter((spelling) => !word.inflections.has(spelling))
     const placedSenses = sensesOf(word)

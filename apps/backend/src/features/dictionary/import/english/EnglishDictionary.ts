@@ -6,13 +6,14 @@ import { createInterface } from "node:readline"
 import { createGunzip } from "node:zlib"
 import { Database } from "../../../../db/Database.ts"
 import { resolveFromRoot } from "../../../../runtime/Paths.ts"
-import { deleteEntries, externalEntryIds, insertEntries, linkLoans, saveTags } from "../../queries.ts"
+import { externalEntryIds, insertEntries, linkLoans, saveTags } from "../../queries.ts"
 import { entrySplitter } from "../jmdict/parse.ts"
 import type { ImportEntry } from "../seedFacts.ts"
 import { mergeSources, type Tier, toEntries } from "./build.ts"
 import { parseFrequency } from "./frequency.ts"
 import { jmdictReader, type KnownEnglish } from "./jmdict.ts"
 import { parseSubtitles, SUBTITLES_URL } from "./subtitles.ts"
+import { refuseBeforeWriting, removeStale, successorsOf } from "./staleEntries.ts"
 import { ENGLISH_TAGS } from "./tags.ts"
 import { curatedParser, parsePhraseIndex, WIKTIONARY_URL, wiktionaryParser } from "./wiktionary.ts"
 import { addRedirect, type FormOf, type Word } from "./words.ts"
@@ -110,17 +111,19 @@ const eachJmdictEntry = (file: string, read: (entry: ImportEntry) => void) =>
 const knownEnglish = (
   sources: ReadonlyArray<{ readonly words: ReadonlyArray<Word>; readonly formsOf: ReadonlyArray<FormOf> }>,
   phrases: ReadonlySet<string>,
-  subtitles: ReadonlyMap<string, number>,
   redirects?: ReadonlyMap<string, string>
 ): KnownEnglish => {
   const words = new Set<string>()
   const verbs = new Set<string>()
+  const gradable = new Set<string>()
+  const spelled = new Set<string>()
   const allPhrases = new Set<string>(phrases)
   const allRedirects = new Map<string, string>(redirects)
   for (const source of sources) {
     for (const word of source.words) {
       for (const text of [word.headword, ...word.spellings, ...word.inflections.map((form) => form.text)]) {
         words.add(text.toLowerCase())
+        spelled.add(text)
       }
       const canonical = word.headword.toLowerCase()
       if (canonical.includes(" ")) {
@@ -130,10 +133,14 @@ const knownEnglish = (
         }
       }
       if (word.senses.some((sense) => sense.pos.includes("v"))) verbs.add(canonical)
+      if (word.senses.some((sense) => sense.pos.includes("adj") || sense.pos.includes("adv"))) gradable.add(canonical)
     }
-    for (const form of source.formsOf) words.add(form.text.toLowerCase())
+    for (const form of source.formsOf) {
+      words.add(form.text.toLowerCase())
+      spelled.add(form.text)
+    }
   }
-  return { words, verbs, phrases: allPhrases, redirects: allRedirects, subtitles }
+  return { words, verbs, gradable, spelled, phrases: allPhrases, redirects: allRedirects }
 }
 
 export interface ImportOptions {
@@ -178,7 +185,7 @@ const build = Effect.fnUntraced(function* (options: ImportOptions) {
   yield* Effect.logInfo(`Read ${curated.words.length} curated words and ${wiktionary.words.length} from Wiktionary`)
 
   const phrases = new Set([...wiktionary.phrases, ...phraseIndex.phrases])
-  const reader = jmdictReader(knownEnglish([curated, wiktionary], phrases, subtitles, phraseIndex.redirects))
+  const reader = jmdictReader(knownEnglish([curated, wiktionary], phrases, phraseIndex.redirects))
   yield* eachJmdictEntry(options.jmdict, reader.add)
   const jmdict = { words: reader.finish(), formsOf: reader.formsOf() }
 
@@ -196,11 +203,26 @@ const build = Effect.fnUntraced(function* (options: ImportOptions) {
 /**
  * Builds the English dictionary from its sources and loads it alongside JMDict. Re-importing
  * updates words in place, keeping their ids, so enrichment and saved words survive.
+ *
+ * A complete import then deletes the words its sources no longer have, moving their notes to
+ * the word each now is (`successorsOf`). It refuses with `NotedEntriesWouldBeDeleted` rather
+ * than delete a word a note is still saved on: before writing anything, or, for a note saved
+ * while it wrote, after its words are written and only the deletion is refused. The words are
+ * written in batches of their own transactions, not one: see `removeStale`.
  */
 export const importFiles = Effect.fn("EnglishDictionary.importFiles")(function* (options: ImportOptions) {
   const db = yield* Database
   const existing = yield* externalEntryIds(db, "en:")
   const entries: ReadonlyArray<ImportEntry & { readonly tier: Tier }> = yield* build(options)
+
+  // Words the external sources no longer have go on a complete import; `kotori:` entries stay untouched.
+  const complete = !options.commonOnly && options.limit === undefined
+  const importedIds = new Set(entries.map((entry) => entry.id))
+  const stale = complete ? existing.filter((id) => !importedIds.has(id)) : []
+  // A word that is now another's spelling ("Spartan" of "spartan") takes its notes there; a
+  // note on any other word going stops the import before anything is written.
+  const successors = successorsOf(entries, stale)
+  yield* refuseBeforeWriting(db, stale, successors)
 
   yield* saveTags(db, ENGLISH_TAGS)
   const batchSize = options.batchSize ?? 500
@@ -209,11 +231,7 @@ export const importFiles = Effect.fn("EnglishDictionary.importFiles")(function* 
     if (start % 20_000 < batchSize && start > 0) yield* Effect.logInfo(`Imported ${start} English words`)
   }
 
-  // Words the external sources no longer have go on a complete import; `kotori:` entries stay untouched.
-  const complete = !options.commonOnly && options.limit === undefined
-  const importedIds = new Set(entries.map((entry) => entry.id))
-  const stale = complete ? existing.filter((id) => !importedIds.has(id)) : []
-  yield* deleteEntries(db, stale)
+  yield* removeStale(db, stale, successors)
   yield* linkLoans(db)
 
   const byTier = (tier: Tier) => entries.filter((entry) => entry.tier === tier).length

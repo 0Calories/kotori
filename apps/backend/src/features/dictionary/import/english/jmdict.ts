@@ -1,15 +1,16 @@
 import type { EntryRecord } from "@kotori/contracts"
-import { isEnglishFunctionWord, normalizeGloss, romanize, uninflect } from "@kotori/language"
-import { addRedirect, emptySense, type FormOf, isEnglish, type Word } from "./words.ts"
+import { type EnglishInflection, isEnglishFunctionWord, normalizeGloss, romanize, uninflect } from "@kotori/language"
+import { addRedirect, addTo, emptySense, type FormOf, isEnglish, type Word } from "./words.ts"
 
 /**
  * English words the other sources lack, read backwards from JMDict: "selfie" is a gloss of
  * 自撮り, "hang out" of 遊ぶ, たむろする and 入り浸る. Synonymous Japanese words sharing a
  * part of speech are grouped into shared senses, most likely first.
  *
- * JMDict's glosses include descriptions as well as words ("clear autumnal weather"), so
- * only English that is attested as a word or phrase is taken: single words people use
- * (in the frequency list), phrases Wiktionary lists, and phrasal verbs.
+ * JMDict's glosses include descriptions as well as words ("clear autumnal weather"), so of
+ * glosses of several words only attested ones are taken: phrases Wiktionary lists, and phrasal
+ * verbs. Every single word is taken, as a word or as a form of the word it inflects; how often
+ * the subtitles count it only ranks it.
  */
 
 /** Senses kept for a word, and glosses kept per sense: the most likely Japanese words for it. */
@@ -167,16 +168,46 @@ const placeholderForms = (term: string): Array<string> => {
   return [...results]
 }
 
-/** Explanations, literal renderings and trademarks aren't English words. */
-const SKIPPED_TYPES = new Set(["expl", "lit", "tm"])
+/**
+ * The word a gloss with capitals in it names, as written, when it is one word: "Nordic",
+ * "Ramadan", "Viennese (of Vienna)", "NHK", "iPod". Null for glosses of several words, which
+ * `resolveGloss` reads as phrases and names.
+ */
+const properWord = (text: string): string | null => {
+  const word = text.replace(/\([^)]*\)/g, " ").trim()
+  return /^\p{Script=Latin}[\p{Script=Latin}\p{M}0-9'-]*$/u.test(word) && /\p{Lu}/u.test(word) ? word : null
+}
+
+/**
+ * Glosses that describe the Japanese word rather than name an English one: explanations
+ * ("cherry blossom viewing" for 花見) and literal renderings ("cat tongue" for 猫舌). A
+ * trademark ("Sellotape") is a word, taken as a name.
+ */
+const SKIPPED_TYPES = new Set(["expl", "lit"])
+
+/** The English word class one JMDict part of speech names: "v5k" a verb, "vs" (a noun taking する) a noun… */
+const wordClass = (code: string): "v" | "n" | "adj" | "adv" | null =>
+  /^v(?!s$)/.test(code)
+    ? "v"
+    : code.startsWith("n") || code === "vs"
+      ? "n"
+      : code.startsWith("adj")
+        ? "adj"
+        : code.startsWith("adv")
+          ? "adv"
+          : null
+
+/** The word classes a JMDict sense's parts of speech name. */
+const wordClasses = (pos: ReadonlyArray<string>) => {
+  const classes = new Set(pos.map(wordClass))
+  return { noun: classes.has("n"), verb: classes.has("v"), adjective: classes.has("adj"), adverb: classes.has("adv") }
+}
 
 /** JMDict parts of speech → the English codes a Japanese word lends the English one. */
 const partOfSpeech = (codes: ReadonlyArray<string>): Array<string> => {
   for (const code of codes) {
-    if (/^v(?!s$)/.test(code)) return ["v"]
-    if (code.startsWith("n") || code === "vs") return ["n"]
-    if (code.startsWith("adj")) return ["adj"]
-    if (code.startsWith("adv")) return ["adv"]
+    const english = wordClass(code)
+    if (english !== null) return [english]
     if (["int", "exp", "pn", "conj", "num", "pref", "suf"].includes(code)) return [code]
   }
   return []
@@ -184,6 +215,37 @@ const partOfSpeech = (codes: ReadonlyArray<string>): Array<string> => {
 
 /** The same ranking search uses: common words, early senses and first glosses go first. */
 const SENSE_BONUS = [40, 25, 15, 10, 5]
+/** JMDict's tags for names: a company, product, work, character, surname, place… */
+const NAME_TAGS: ReadonlySet<string> = new Set([
+  "char",
+  "company",
+  "creat",
+  "dei",
+  "doc",
+  "ev",
+  "fem",
+  "fict",
+  "given",
+  "group",
+  "leg",
+  "male",
+  "masc",
+  "myth",
+  "obj",
+  "organization",
+  "oth",
+  "person",
+  "place",
+  "product",
+  "relig",
+  "serv",
+  "ship",
+  "station",
+  "surname",
+  "unclass",
+  "work"
+] as const)
+
 const RARE = new Set(["arch", "obs", "obsc", "rare", "hist", "vulg", "X", "derog"])
 
 interface Candidate {
@@ -192,6 +254,10 @@ interface Candidate {
   readonly common: boolean
   readonly pos: ReadonlyArray<string>
   readonly score: number
+  /** Whether JMDict tags the sense glossing it as a name's, or the gloss as a trademark. */
+  readonly name: boolean
+  /** Whether the gloss is the Japanese word's own romanisation ("sushi" for すし). */
+  readonly romanised: boolean
 }
 
 /** Back-translations are read from a Japanese word's leading senses and glosses, where JMDict puts the common ones. */
@@ -203,12 +269,68 @@ export interface KnownEnglish {
   readonly words: ReadonlySet<string>
   /** Lowercased verbs, for recognising phrasal verbs. */
   readonly verbs: ReadonlySet<string>
+  /** Lowercased adjectives and adverbs, the words with comparatives and superlatives ("bigger", "faster"). */
+  readonly gradable: ReadonlySet<string>
+  /** Headwords and spellings of the words already in, as written: "Polish" and "polish" are two words. */
+  readonly spelled: ReadonlySet<string>
   /** Lowercased phrases Wiktionary lists under a word. */
   readonly phrases: ReadonlySet<string>
   /** Variant idiom phrasings mapped to their canonical headword ("skate on thin ice" -> "on thin ice"). */
   readonly redirects?: ReadonlyMap<string, string> | undefined
-  readonly subtitles: ReadonlyMap<string, number>
 }
+
+/**
+ * The headword a gloss names, and the gloss as a way of writing it when the two differ. With
+ * `inflection`, the gloss is that inflection of the headword ("sins" of "sin"), not a spelling.
+ */
+interface Resolved {
+  readonly headword: string
+  readonly variant?: string
+  readonly inflection?: ReadonlyArray<EnglishInflection>
+  /** The gloss names something ("Sea of Japan"), though JMDict doesn't tag it as a name. */
+  readonly name?: boolean
+}
+
+/** Words a name of several words may leave lowercase: "Sea of Japan", "Leonardo da Vinci". */
+const NAME_PARTICLES = new Set([
+  "a",
+  "an",
+  "and",
+  "at",
+  "by",
+  "da",
+  "de",
+  "del",
+  "der",
+  "des",
+  "di",
+  "du",
+  "for",
+  "in",
+  "la",
+  "le",
+  "les",
+  "of",
+  "on",
+  "the",
+  "to",
+  "upon",
+  "van",
+  "von",
+  "y"
+])
+
+/** Whether a gloss of several words is written as a name is: every word capitalised but `NAME_PARTICLES`. */
+const isTitleCase = (written: string) =>
+  written.split(" ").every((word, index) => /^[\p{Lu}0-9]/u.test(word) || (index > 0 && NAME_PARTICLES.has(word)))
+
+/**
+ * Whether the regular rules could make `word` from `base`, as `uninflect` guesses more widely:
+ * "-es" follows only s, x, z, ch, sh and o ("tines" is not "tin" + "es", nor "Hades" "had"), and
+ * a base of two letters is an irregular word the sources list ("woes" is not "wo" + "es").
+ */
+const isRegularBase = (word: string, base: string) =>
+  base.length > 2 && (word !== `${base}es` || /(?:s|x|z|ch|sh|o)$/.test(base))
 
 /** Reads JMDict an entry at a time, collecting the English words its glosses name; see `wordsFromJmdict`. */
 export const jmdictReader = (known: KnownEnglish) => {
@@ -227,15 +349,73 @@ export const jmdictReader = (known: KnownEnglish) => {
     if (addRedirect(redirects, from, to)) addPhrase(to)
   }
 
-  const resolveHeadword = (term: string): { readonly headword: string; readonly variant?: string } | null => {
-    const words = term.split(" ")
-    if (words.length === 1) {
-      if (known.words.has(term)) return { headword: term }
-      // Single words: ones people use, and not inflections of words already in.
-      return known.subtitles.has(term) && !uninflect(term).some(({ base }) => known.words.has(base))
-        ? { headword: term }
-        : null
+  /**
+   * The word already in that a single word inflects, read as the sense glossing it uses it:
+   * "sins" of "sin" (plural, for a noun), "bigger" of "big". Only adjectives and adverbs compare,
+   * and only as adjectives or adverbs, so "sinner", "singer" and "outsider" are words of their
+   * own, and a noun or adjective in -ing or -ed ("building", "interesting") is one too. Null when
+   * it inflects no word in.
+   */
+  const inflectionOf = (
+    written: string,
+    pos: ReadonlyArray<string>
+  ): { readonly base: string; readonly tags: ReadonlyArray<EnglishInflection> } | null => {
+    // Names and acronyms are words of their own: "Andes" is not the plural of "and", nor "SOS" of "so".
+    if (written !== written.toLowerCase()) return null
+    const { noun, verb, adjective, adverb } = wordClasses(pos)
+    // Only adjectives and adverbs compare: "outsider" and "defer" are words of their own.
+    const compares = adjective || adverb
+    for (const { base, tags } of uninflect(written)) {
+      if (!known.spelled.has(base) || !isRegularBase(written, base)) continue
+      const kept = tags.filter((tag) => {
+        switch (tag) {
+          case "comparative":
+          case "superlative":
+            return compares && known.gradable.has(base)
+          case "past":
+          case "past-participle":
+          case "present-participle":
+            return !noun && !adjective
+          case "plural":
+            return noun || !verb
+          case "third-person":
+            return verb || !noun
+        }
+      })
+      if (kept.length > 0) return { base, tags: kept }
     }
+    return null
+  }
+
+  /**
+   * A single word: a new one, whether or not the subtitles counted it (the counts only rank), or
+   * an inflection of a word already in, which becomes a form of that word.
+   */
+  const resolveWord = (written: string, pos: ReadonlyArray<string>): Resolved => {
+    const inflection = inflectionOf(written, pos)
+    return inflection === null
+      ? { headword: written }
+      : { headword: inflection.base, variant: written, inflection: inflection.tags }
+  }
+
+  /**
+   * A capitalised word keeps its case ("Nordic"), as Wiktionary's do, and is its own word beside
+   * a lowercase twin: "Polish", the nationality, is not "polish", the verb, and "US" is not "us".
+   * One already in as written is left to its source.
+   */
+  const resolveProper = (word: string, pos: ReadonlyArray<string>): Resolved | null =>
+    known.spelled.has(word) ? null : resolveWord(word, pos)
+
+  /**
+   * Whether a headword is in already: a single word as written ("mop" is not in because the
+   * acronym "MOP" is), a phrase by its lowercased text, as phrases are kept.
+   */
+  const isKnown = (headword: string) =>
+    headword.includes(" ") ? known.words.has(headword) : known.spelled.has(headword)
+
+  const resolveHeadword = (term: string, pos: ReadonlyArray<string>): Resolved | null => {
+    const words = term.split(" ")
+    if (words.length === 1) return known.spelled.has(term) ? { headword: term } : resolveWord(term, pos)
     const redirected = redirects.get(term)
     if (words.length > 7) {
       const candidate = redirected ?? term
@@ -274,28 +454,63 @@ export const jmdictReader = (known: KnownEnglish) => {
     return null
   }
 
+  /**
+   * The headword a gloss names. A gloss with no capitals is resolved as a word or phrase. With
+   * capitals, one word is a proper word ("Nordic", "NHK"); several are kept when a source
+   * attests them, in the gloss's casing when the phrase is new ("New Year's Eve"), or when they
+   * name something: a name JMDict tags, a trademark, or words written as a name is ("Sea of
+   * Japan"). The rest describe the Japanese word ("Japanese cedar" for 杉) or are sentences no
+   * source lists ("Nice to meet you!"), as unattested lowercase glosses of several words are.
+   */
+  const resolveGloss = (text: string, term: string, pos: ReadonlyArray<string>, named: boolean): Resolved | null => {
+    // Capitals in an aside ("daifuku (Japanese sweet)") don't make the gloss a name.
+    // Nor does a lowercase article before it ("the Alps"), which glosses lose as `normalizeGloss` does.
+    const written = text
+      .replace(/\([^)]*\)/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/^(?:the|a|an) /, "")
+    if (!/\p{Lu}/u.test(written)) return resolveHeadword(term, pos)
+    const proper = properWord(written)
+    if (proper !== null) return resolveProper(proper, pos)
+    const attested = term.includes(" ") ? resolveHeadword(term, pos) : null
+    if (attested !== null) {
+      const isNew = attested.headword === term && attested.variant === undefined && !isKnown(term)
+      return isNew && normalizeGloss(written) === term && isEnglish(written) ? { headword: written } : attested
+    }
+    return isEnglish(written) && (named || isTitleCase(written)) ? { headword: written, name: true } : null
+  }
+
   const candidates = new Map<string, Array<Candidate>>()
   const variants = new Map<string, Set<string>>()
+  // Inflections of words already in that JMDict glosses: "sins" of "sin".
+  const inflections = new Map<string, Map<string, Set<EnglishInflection>>>()
   // Per English word already in the dictionary: the spellings of the common Japanese words that
   // JMDict translates with it, each with its best weight as a candidate, as evidence of which
   // of the English word's senses are in common use.
   const translations = new Map<string, Map<string, number>>()
 
   const add = (entry: EntryRecord) => {
-    const romaji = romanize(entry.reading)
     entry.senses.forEach((sense, senseIndex) => {
       sense.glosses.forEach((gloss, position) => {
-        // Capitalised glosses are names ("Disney"); lowercase ones are words.
-        if ((gloss.type !== null && SKIPPED_TYPES.has(gloss.type)) || !/^[a-z]/.test(gloss.text)) return
+        if (gloss.type !== null && SKIPPED_TYPES.has(gloss.type)) return
+        const named = gloss.type === "tm" || sense.misc.some((tag) => NAME_TAGS.has(tag))
         const term = normalizeGloss(gloss.text)
-        if (term.length < 2 || !isEnglish(term) || term === romaji) return
-        const resolved = resolveHeadword(term)
+        // A gloss that is the reading's romanisation is a loanword ("tsunami", "sushi") or a
+        // romanisation few use in English; the subtitles' count tells them apart in ranking.
+        if (term.length < 2 || !isEnglish(term)) return
+        const romanised = term === romanize(entry.reading)
+        const resolved = resolveGloss(gloss.text, term, sense.pos, named)
         if (resolved === null) return
-        const { headword, variant } = resolved
+        const { headword, variant, inflection } = resolved
+        if (inflection !== undefined && variant !== undefined) {
+          const forms = inflections.get(headword) ?? new Map<string, Set<EnglishInflection>>()
+          inflections.set(headword, forms)
+          addTo(forms, variant, ...inflection)
+          return
+        }
         if (variant !== undefined && variant !== headword && !known.words.has(variant)) {
-          const set = variants.get(headword) ?? new Set<string>()
-          set.add(variant)
-          variants.set(headword, set)
+          addTo(variants, headword, variant)
         }
         const score =
           (entry.common ? 30 : 0) +
@@ -312,14 +527,21 @@ export const jmdictReader = (known: KnownEnglish) => {
           const forms = entry.forms.length > 0 ? entry.forms.map((form) => form.text) : [entry.headword]
           for (const text of forms) spellings.set(text, Math.max(spellings.get(text) ?? 0, score))
         }
-        if (known.words.has(headword)) {
+        if (isKnown(headword)) {
           if (isIdiomOrCommon) recordTranslation()
           return
         }
         if (headword.includes(" ") && isIdiomOrCommon) recordTranslation()
         const list = candidates.get(headword) ?? []
         candidates.set(headword, list)
-        list.push({ japanese: entry.headword, common: entry.common, pos: partOfSpeech(sense.pos), score })
+        list.push({
+          japanese: entry.headword,
+          common: entry.common,
+          pos: partOfSpeech(sense.pos),
+          score,
+          name: named || resolved.name === true,
+          romanised
+        })
       })
     })
   }
@@ -355,14 +577,25 @@ export const jmdictReader = (known: KnownEnglish) => {
           glosses: group.glosses,
           pos: group.pos
         })),
-        // A common Japanese word for it vouches for the count, and names are rarely hyphenated
-        // ("ex-wife") or multi-word phrases. Otherwise the count may be a name's: 韓国海苔 is glossed "kim".
-        mayBeName: !headword.includes(" ") && !headword.includes("-") && !list.some((candidate) => candidate.common)
+        // Only ever glossed on name senses, it is a name. Otherwise a common Japanese word for it
+        // vouches for the count, and names are rarely hyphenated ("ex-wife") or multi-word
+        // phrases; failing both, the count may be a name's: 韓国海苔 is glossed "kim". So may a
+        // romanisation's, however common its Japanese word: 厘's "rin" is counted as Rin.
+        naming: list.every((candidate) => candidate.name)
+          ? "name"
+          : list.every((candidate) => candidate.romanised) ||
+              (!headword.includes(" ") && !headword.includes("-") && !list.some((candidate) => candidate.common))
+            ? "possible-name"
+            : "word"
       }
     })
 
-  const formsOf = (): Array<FormOf> =>
-    [...variants].flatMap(([base, set]) => [...set].map((text): FormOf => ({ text, base, tags: [] })))
+  const formsOf = (): Array<FormOf> => [
+    ...[...variants].flatMap(([base, set]) => [...set].map((text): FormOf => ({ text, base, tags: [] }))),
+    ...[...inflections].flatMap(([base, forms]) =>
+      [...forms].map(([text, tags]): FormOf => ({ text, base, tags: [...tags] }))
+    )
+  ]
 
   /**
    * Per English word the dictionary already has (normalised), the spellings of the common

@@ -10,7 +10,7 @@ import {
   parsePhraseIndex,
   parseWiktionary
 } from "../../src/features/dictionary/import/english/wiktionary.ts"
-import { emptySense, formOf, type Word } from "../../src/features/dictionary/import/english/words.ts"
+import { emptySense, formOf, type Naming, type Word } from "../../src/features/dictionary/import/english/words.ts"
 
 // Lines as Wiktextract writes them for Japanese Wiktionary, trimmed to the fields read.
 const line = (entry: object) => JSON.stringify({ lang_code: "en", lang: "英語", ...entry })
@@ -357,15 +357,9 @@ describe("wordsFromJmdict", () => {
   const known = {
     words: new Set(["hang", "eat", "team"]),
     verbs: new Set(["hang", "eat"]),
-    phrases: new Set(["eat out"]),
-    subtitles: new Map([
-      ["selfie", 900],
-      ["teams", 500],
-      ["kata", 300],
-      ["website", 800],
-      ["kim", 5000],
-      ["ex-wife", 600]
-    ])
+    gradable: new Set<string>(),
+    spelled: new Set(["hang", "eat", "team"]),
+    phrases: new Set(["eat out"])
   }
   const words = wordsFromJmdict(
     [
@@ -387,10 +381,15 @@ describe("wordsFromJmdict", () => {
 
   it("reads attested words and phrases backwards, grouping same-POS Japanese candidates into one sense", () => {
     expect(words.map((word) => [word.headword, word.senses.map((sense) => sense.glosses.map((g) => g.text))])).toEqual([
+      ["play", [["遊ぶ"]]],
       ["hang out", [["遊ぶ", "たむろする"]]],
       ["selfie", [["自撮り"]]],
       ["eat out", [["外食"]]],
+      // "kata" is 型's romanisation, a loanword in English.
+      ["kata", [["型"]]],
+      ["Disney", [["ディズニー"]]],
       ["website", [["ウェブサイト"]]],
+      ["gim", [["韓国海苔"]]],
       ["kim", [["韓国海苔"]]],
       ["ex-wife", [["元妻"]]]
     ])
@@ -398,18 +397,20 @@ describe("wordsFromJmdict", () => {
   })
 
   it("trusts a word's count when a common Japanese word glosses it, it is hyphenated, or it is a multi-word phrase", () => {
-    expect(word("website")?.mayBeName).toBe(false)
-    expect(word("ex-wife")?.mayBeName).toBe(false)
-    expect(word("eat out")?.mayBeName).toBe(false)
+    expect(word("website")?.naming).not.toBe("possible-name")
+    expect(word("ex-wife")?.naming).not.toBe("possible-name")
+    expect(word("eat out")?.naming).not.toBe("possible-name")
     // The subtitles count Kim, the name.
-    expect(word("kim")?.mayBeName).toBe(true)
-    expect(word("selfie")?.mayBeName).toBe(true)
+    expect(word("kim")?.naming).toBe("possible-name")
+    expect(word("selfie")?.naming).toBe("possible-name")
   })
 
   it("collapses verb-variant and redirected idioms onto their canonical headword", () => {
     const reader = jmdictReader({
       words: new Set(["on the fence", "a lot of"]),
       verbs: new Set(),
+      gradable: new Set(),
+      spelled: new Set(["on the fence", "a lot of"]),
       phrases: new Set([
         "on thin ice",
         "on the fence",
@@ -418,8 +419,7 @@ describe("wordsFromJmdict", () => {
         "to make matters worse",
         "the die is cast"
       ]),
-      redirects: new Map([["skate on thin ice", "on thin ice"]]),
-      subtitles: new Map()
+      redirects: new Map([["skate on thin ice", "on thin ice"]])
     })
     for (const item of [
       jmdictEntry(
@@ -467,7 +467,7 @@ describe("wordsFromJmdict", () => {
       "skate on thin ice",
       "find oneself on thin ice"
     ])
-    expect(onThinIce?.mayBeName).toBe(false)
+    expect(onThinIce?.naming).not.toBe("possible-name")
     expect(onThinIce?.senses.map((s) => [s.pos, s.glosses.map((g) => g.text)])).toEqual([
       [["n"], ["綱渡り"]],
       [["exp"], ["薄氷を踏む", "危ない橋を渡る"]]
@@ -486,8 +486,9 @@ describe("wordsFromJmdict", () => {
     const reader = jmdictReader({
       words: new Set(["make oneself at home"]),
       verbs: new Set(["serve", "hold", "make"]),
-      phrases: new Set(["serve someone right", "hold one's horses"]),
-      subtitles: new Map()
+      gradable: new Set(),
+      spelled: new Set(["make oneself at home"]),
+      phrases: new Set(["serve someone right", "hold one's horses"])
     })
     reader.add(jmdictEntry(30, "ざまあみろ", "ざまあみろ", ["serves you right!"], true, ["int", "exp"]))
     reader.add(jmdictEntry(31, "落ち着け", "おちつけ", ["hold your horses"], false, ["exp"]))
@@ -514,9 +515,10 @@ describe("wordsFromJmdict", () => {
     const reader = jmdictReader({
       words: new Set(["police station"]),
       verbs: new Set(),
+      gradable: new Set(),
+      spelled: new Set(["police station"]),
       // "on the" and "of a": fragments the phrase index lists too.
-      phrases: new Set(["stone's throw", "on the", "of a"]),
-      subtitles: new Map()
+      phrases: new Set(["stone's throw", "on the", "of a"])
     })
     reader.add(
       jmdictEntry(
@@ -542,6 +544,375 @@ describe("wordsFromJmdict", () => {
       { text: "stone's throw away", base: "stone's throw", tags: [] }
     ])
     expect(built.map((w) => w.headword)).toEqual(["stone's throw"])
+  })
+
+  it("takes words that only look inflected, and makes real inflections forms of their word", () => {
+    const reader = jmdictReader({
+      words: new Set([
+        "sin",
+        "sing",
+        "big",
+        "fast",
+        "run",
+        "build",
+        "interest",
+        "american",
+        "outside",
+        "east",
+        "so",
+        "tin",
+        "and",
+        "def",
+        "wo"
+      ]),
+      verbs: new Set(["sin", "sing", "run", "build", "interest"]),
+      gradable: new Set(["big", "fast", "outside", "east", "so", "def"]),
+      spelled: new Set([
+        "sin",
+        "sing",
+        "big",
+        "fast",
+        "run",
+        "build",
+        "interest",
+        "American",
+        "outside",
+        "east",
+        "so",
+        "tin",
+        "and",
+        "def",
+        "wo"
+      ]),
+      phrases: new Set()
+    })
+    // "sinner" and "singer" are no comparatives: neither "sin" nor "sing" is an adjective.
+    reader.add(jmdictEntry(50, "罪人", "つみびと", ["sinner"], true, ["n"]))
+    reader.add(jmdictEntry(51, "歌手", "かしゅ", ["singer"], true, ["n"]))
+    // A noun or an adjective in -ing or -ed is a word of its own.
+    reader.add(jmdictEntry(52, "建物", "たてもの", ["building"], true, ["n"]))
+    reader.add(jmdictEntry(53, "面白い", "おもしろい", ["interesting"], true, ["adj-i"]))
+    // And a noun in -er is no comparative, even of a word that compares; nor is a proper noun.
+    reader.add(jmdictEntry(60, "部外者", "ぶがいしゃ", ["outsider"], true, ["n"]))
+    reader.add(jmdictEntry(61, "復活祭", "ふっかつさい", ["Easter"], true, ["n"]))
+    // An acronym inflects nothing.
+    reader.add(jmdictEntry(62, "遭難信号", "そうなんしんごう", ["SOS"], true, ["n"]))
+    // A verb in -er is no comparative either, "-es" follows only s, x, z, ch, sh and o, and
+    // a two-letter base is an irregular word the sources list: these are words of their own.
+    reader.add(jmdictEntry(63, "延期する", "えんきする", ["to defer"], true, ["v5s"]))
+    reader.add(jmdictEntry(64, "叉", "また", ["tines"], false, ["n"]))
+    reader.add(jmdictEntry(65, "災い", "わざわい", ["woes"], true, ["n"]))
+    // A capitalised plural is a name of its own.
+    reader.add(jmdictEntry(66, "アンデス", "アンデス", ["Andes"], true, ["n"]))
+    reader.add(jmdictEntry(54, "より大きい", "よりおおきい", ["bigger"], false, ["adj-i"]))
+    reader.add(jmdictEntry(55, "より速く", "よりはやく", ["faster"], false, ["adv"]))
+    reader.add(jmdictEntry(56, "最も大きい", "もっともおおきい", ["biggest"], false, ["adj-i"]))
+    reader.add(jmdictEntry(57, "走っている", "はしっている", ["running"], false, ["v1"]))
+    reader.add(jmdictEntry(58, "罪", "つみ", ["sins"], true, ["n"]))
+
+    expect(reader.finish().map((word) => word.headword)).toEqual([
+      "sinner",
+      "singer",
+      "building",
+      "interesting",
+      "outsider",
+      "Easter",
+      "SOS",
+      "defer",
+      "tines",
+      "woes",
+      "Andes"
+    ])
+    expect(reader.formsOf()).toEqual([
+      { text: "bigger", base: "big", tags: ["comparative"] },
+      { text: "biggest", base: "big", tags: ["superlative"] },
+      { text: "faster", base: "fast", tags: ["comparative"] },
+      { text: "running", base: "run", tags: ["present-participle"] },
+      { text: "sins", base: "sin", tags: ["plural"] }
+    ])
+    // An inflection says nothing of which of its word's senses are in use.
+    expect(reader.backTranslations().size).toBe(0)
+  })
+
+  it("takes words the subtitles never counted, as only ranking reads the counts", () => {
+    const built = wordsFromJmdict(
+      [
+        jmdictEntry(80, "ディアスポラ", "ディアスポラ", ["diaspora"], false, ["n"]),
+        jmdictEntry(81, "ノルディック", "ノルディック", ["Nordic"], false, ["adj-f"])
+      ],
+      {
+        words: new Set(),
+        verbs: new Set(),
+        gradable: new Set(),
+        spelled: new Set(),
+        phrases: new Set()
+      }
+    )
+    expect(built.map((word) => word.headword)).toEqual(["diaspora", "Nordic"])
+  })
+
+  it("takes capitalised words and acronyms with their casing, and attested sentences and titles", () => {
+    const reader = jmdictReader({
+      words: new Set(["polish", "us", "islam", "good morning"]),
+      verbs: new Set(["polish"]),
+      gradable: new Set(),
+      // Islam is in already, as written; "polish" and "us" only in lowercase.
+      spelled: new Set(["polish", "us", "Islam", "good morning"]),
+      phrases: new Set(["good morning", "new year's eve"])
+    })
+    reader.add(jmdictEntry(60, "ノルディック", "ノルディック", ["Nordic"], false, ["adj-f"]))
+    reader.add(jmdictEntry(61, "ウィーン風", "ウィーンふう", ["Viennese (of Vienna)"], false, ["adj-no"]))
+    reader.add(jmdictEntry(62, "ボストン", "ボストン", ["Boston"], true, ["n"]))
+    reader.add(jmdictEntry(63, "ラマダーン", "ラマダーン", ["Ramadan"], false, ["n"]))
+    // A name JMDict tags as one is a word too.
+    reader.add(jmdictEntry(64, "レクサス", "レクサス", ["Lexus"], false, ["n"], ["company"]))
+    reader.add(jmdictEntry(65, "日本放送協会", "にっぽんほうそうきょうかい", ["NHK"], true, ["n"]))
+    reader.add(jmdictEntry(66, "アイポッド", "アイポッド", ["iPod"], false, ["n"]))
+    // An acronym is not its lowercase twin, the pronoun.
+    reader.add(jmdictEntry(67, "米国", "べいこく", ["US"], true, ["n", "adj-no"]))
+    reader.add(jmdictEntry(68, "ポーランドの", "ポーランドの", ["Polish"], true, ["adj-no"]))
+    reader.add(jmdictEntry(69, "回教", "かいきょう", ["Islam"], false, ["n"]))
+    // Sentences and titles a source attests: a word in already, and a phrase Wiktionary lists.
+    reader.add(jmdictEntry(70, "お早う", "おはよう", ["Good morning!"], true, ["int"]))
+    reader.add(jmdictEntry(71, "大晦日", "おおみそか", ["New Year's Eve"], true, ["n"]))
+
+    const built = reader.finish()
+    expect(built.map((word) => [word.headword, word.senses.map((sense) => sense.glosses.map((g) => g.text))])).toEqual([
+      ["Nordic", [["ノルディック"]]],
+      ["Viennese", [["ウィーン風"]]],
+      ["Boston", [["ボストン"]]],
+      ["Ramadan", [["ラマダーン"]]],
+      ["Lexus", [["レクサス"]]],
+      ["NHK", [["日本放送協会"]]],
+      ["iPod", [["アイポッド"]]],
+      ["US", [["米国"]]],
+      ["Polish", [["ポーランドの"]]],
+      ["New Year's Eve", [["大晦日"]]]
+    ])
+    expect(built[0]?.senses[0]?.pos).toEqual(["adj"])
+    // "Polish" is not "polish": the verb gains no back-translation from the nationality.
+    expect(reader.backTranslations().has("polish")).toBe(false)
+    expect([...(reader.backTranslations().get("good morning")?.keys() ?? [])]).toEqual(["お早う"])
+  })
+
+  it("takes capitalised glosses of several words that name something, as written, and leaves out descriptions", () => {
+    const reader = jmdictReader({
+      words: new Set(),
+      verbs: new Set(),
+      gradable: new Set(),
+      spelled: new Set(),
+      phrases: new Set()
+    })
+    const typed = (id: number, headword: string, text: string, type: string): EntryRecord => {
+      const entry = jmdictEntry(id, headword, headword, [text], false, ["n"])
+      return { ...entry, senses: [{ ...entry.senses[0]!, glosses: [{ text, type }] }] }
+    }
+    reader.add(jmdictEntry(130, "ニューヨーク", "ニューヨーク", ["New York (USA)"], true, ["n"], ["place"]))
+    reader.add(typed(131, "サランラップ", "Saran Wrap", "tm"))
+    // Every word capitalised but the small ones: a name, tagged or not.
+    reader.add(jmdictEntry(132, "日本海", "にほんかい", ["Sea of Japan"], true, ["n"]))
+    // A description of the Japanese word, and a sentence, that no source attests.
+    reader.add(jmdictEntry(133, "杉", "すぎ", ["Japanese cedar"], true, ["n"]))
+    reader.add(jmdictEntry(134, "初めまして", "はじめまして", ["Nice to meet you!"], true, ["exp"]))
+    // A leading article is not part of the name, as glosses lose it ("the Alps").
+    reader.add(jmdictEntry(136, "アルプス", "アルプス", ["the Alps"], true, ["n"]))
+    reader.add(jmdictEntry(137, "ハーグ", "ハーグ", ["The Hague"], true, ["n"], ["place"]))
+    // Capitals in an aside leave a lowercase word lowercase.
+    reader.add(jmdictEntry(135, "大福", "だいふく", ["daifuku (Japanese sweet)"], true, ["n"]))
+    expect(reader.finish().map((word) => [word.headword, word.naming])).toEqual([
+      ["New York", "name"],
+      ["Saran Wrap", "name"],
+      ["Sea of Japan", "name"],
+      ["Alps", "word"],
+      ["The Hague", "name"],
+      ["daifuku", "possible-name"]
+    ])
+  })
+
+  it("stores a capitalised word under its own case-preserving id, counted by its lowercase use", () => {
+    const jmdict = {
+      words: wordsFromJmdict([jmdictEntry(70, "ノルディック", "ノルディック", ["Nordic"], true, ["adj-f"])], {
+        words: new Set(),
+        verbs: new Set(),
+        gradable: new Set(),
+        spelled: new Set<string>(),
+        phrases: new Set()
+      })
+    }
+    const [nordic] = toEntries(
+      mergeSources({ wiktionary: { words: [], formsOf: [] }, jmdict }),
+      new Map([["nordic", 300]])
+    )
+    expect(nordic).toMatchObject({ id: "en:Nordic", headword: "Nordic", frequency: { spokenCount: 300 } })
+  })
+
+  it("takes words written with accented Latin letters, and still no Japanese", () => {
+    const words = wordsFromJmdict(
+      [
+        jmdictEntry(120, "喫茶店", "きっさてん", ["café"], true, ["n"]),
+        jmdictEntry(121, "ポケモン", "ポケモン", ["Pokémon"], true, ["n"], ["product"]),
+        jmdictEntry(122, "うぶ", "うぶ", ["naïve"], true, ["adj-na"]),
+        jmdictEntry(123, "寿司", "すし", ["すし"], true, ["n"])
+      ],
+      { words: new Set(), verbs: new Set(), gradable: new Set(), spelled: new Set(), phrases: new Set() }
+    )
+    expect(words.map((word) => word.headword)).toEqual(["café", "Pokémon", "naïve"])
+    expect(
+      parseWiktionary([line({ word: "fiancée", pos: "noun", senses: [{ glosses: ["婚約者"] }] })]).words
+    ).toHaveLength(1)
+  })
+
+  it("takes loanwords that are the Japanese word's own romanisation", () => {
+    const words = wordsFromJmdict(
+      [
+        jmdictEntry(110, "津波", "つなみ", ["tsunami", "tidal wave"], true, ["n"]),
+        jmdictEntry(111, "寿司", "すし", ["sushi"], true, ["n"]),
+        jmdictEntry(112, "東京", "とうきょう", ["Tokyo"], true, ["n"], ["place"])
+      ],
+      { words: new Set(), verbs: new Set(), gradable: new Set(), spelled: new Set(), phrases: new Set() }
+    )
+    expect(words.map((word) => word.headword)).toEqual(["tsunami", "sushi", "Tokyo"])
+    // The subtitles may count a Japanese name spelled alike ("Rin" for 厘's "rin"), so a
+    // romanisation ranks by the count but is never marked common.
+    expect(words.find((word) => word.headword === "sushi")?.naming).toBe("possible-name")
+  })
+
+  it("takes trademarks as names, and still skips explanations and literal renderings", () => {
+    const typed = (id: number, headword: string, text: string, type: string): EntryRecord => {
+      const entry = jmdictEntry(id, headword, headword, [text], false, ["n"])
+      return { ...entry, senses: [{ ...entry.senses[0]!, glosses: [{ text, type }] }] }
+    }
+    const words = wordsFromJmdict(
+      [
+        typed(100, "セロテープ", "Sellotape", "tm"),
+        typed(101, "リップクリーム", "chapstick", "tm"),
+        typed(102, "花見", "cherry blossom viewing", "expl"),
+        typed(103, "猫舌", "cat tongue", "lit")
+      ],
+      { words: new Set(), verbs: new Set(), gradable: new Set(), spelled: new Set(), phrases: new Set() }
+    )
+    expect(words.map((word) => [word.headword, word.naming])).toEqual([
+      ["Sellotape", "name"],
+      ["chapstick", "name"]
+    ])
+  })
+
+  it("ranks a word JMdict names only as a name last, never borrowing the count of the word spelled alike", () => {
+    const counts = new Map([
+      ["toyota", 5000],
+      ["boston", 4000],
+      ["amazon", 3000],
+      ["mop", 2000]
+    ])
+    const reader = jmdictReader({
+      // Wiktionary has the acronym "MOP", but not the word "mop".
+      words: new Set(["mop"]),
+      verbs: new Set(),
+      gradable: new Set(),
+      spelled: new Set(["MOP"]),
+      phrases: new Set()
+    })
+    reader.add(jmdictEntry(90, "トヨタ", "トヨタ", ["Toyota Motor"], false, ["n"], ["company"]))
+    reader.add(jmdictEntry(91, "トヨタ自動車", "トヨタじどうしゃ", ["Toyota"], false, ["n"], ["company"]))
+    reader.add(jmdictEntry(92, "ボストン", "ボストン", ["Boston"], true, ["n"]))
+    // A name in one sense and a word in another is not only a name.
+    reader.add(jmdictEntry(93, "アマゾン", "アマゾン", ["Amazon"], false, ["n"], ["company"]))
+    reader.add(jmdictEntry(94, "密林", "みつりん", ["jungle", "Amazon"], true, ["n"]))
+    reader.add(jmdictEntry(96, "女武者", "おんなむしゃ", ["amazon"], false, ["n"]))
+    reader.add(jmdictEntry(95, "モップ", "モップ", ["mop"], true, ["n"]))
+    const words = reader.finish()
+    expect(words.find((word) => word.headword === "Toyota")?.naming).toBe("name")
+    expect(words.find((word) => word.headword === "Amazon")?.naming).not.toBe("name")
+
+    const built = toEntries(
+      mergeSources({
+        wiktionary: {
+          words: [
+            {
+              headword: "MOP",
+              ipa: null,
+              spellings: [],
+              inflections: [],
+              senses: [{ ...emptySense(), glosses: [{ text: "締約国会合", type: null }], pos: [], misc: ["abbr"] }]
+            }
+          ],
+          formsOf: []
+        },
+        jmdict: { words }
+      }),
+      counts
+    )
+    const entry = (headword: string) => built.find((candidate) => candidate.headword === headword)
+    expect(entry("Toyota")).toMatchObject({ priority: 0, common: false, frequency: { spokenCount: null } })
+    expect(entry("Boston")).toMatchObject({ frequency: { spokenCount: 4000 } })
+    // "mop", the word, takes its own count, and the acronym spelled like it takes none.
+    expect(entry("mop")).toMatchObject({ common: true, frequency: { spokenCount: 2000 } })
+    expect(entry("MOP")).toMatchObject({ priority: 0, common: false })
+    expect(entry("amazon")).toMatchObject({ frequency: { spokenCount: 3000 } })
+    expect(entry("Amazon")).toMatchObject({ priority: 0, common: false })
+  })
+
+  it("counts twins' shared text for the word a fuller source has, not a lowercase gloss JMdict alone gives", () => {
+    const sense = (gloss: string, pos: Array<string>) => ({
+      ...emptySense(),
+      glosses: [{ text: gloss, type: null }],
+      pos
+    })
+    const word = (headword: string, gloss: string, pos: Array<string>): Word => ({
+      headword,
+      ipa: null,
+      spellings: [],
+      inflections: [],
+      senses: [sense(gloss, pos)]
+    })
+    const built = toEntries(
+      mergeSources({
+        wiktionary: {
+          words: [word("China", "中国", ["n-pr"]), word("may", "かもしれない", ["v"]), word("May", "五月", ["n-pr"])],
+          formsOf: []
+        },
+        // JMdict glosses 磁器 "china", a word of its own, but the subtitles' "china" is mostly the country.
+        jmdict: { words: [word("china", "磁器", ["n"])] }
+      }),
+      new Map([
+        ["china", 9000],
+        ["may", 8000]
+      ])
+    )
+    const entry = (headword: string) => built.find((candidate) => candidate.headword === headword)
+    expect(entry("China")).toMatchObject({ common: true, frequency: { spokenCount: 9000 } })
+    expect(entry("china")).toMatchObject({ priority: 0, common: false })
+    // Twins from one source: the lowercase word takes the count, as before.
+    expect(entry("may")).toMatchObject({ frequency: { spokenCount: 8000 } })
+    expect(entry("May")).toMatchObject({ priority: 0 })
+  })
+
+  it("gives an acronym the count of its text when no lowercase word is spelled like it", () => {
+    const acronym = (headword: string): Word => ({
+      headword,
+      ipa: null,
+      spellings: [],
+      inflections: [],
+      senses: [{ ...emptySense(), glosses: [{ text: "略語", type: null }], pos: ["n"], misc: ["abbr"] }]
+    })
+    const mop: Word = {
+      ...acronym("mop"),
+      senses: [{ ...emptySense(), glosses: [{ text: "モップ", type: null }], pos: ["n"] }]
+    }
+    const built = toEntries(
+      mergeSources({
+        wiktionary: { words: [acronym("FBI"), acronym("MOP"), mop], formsOf: [] },
+        jmdict: { words: [] }
+      }),
+      new Map([
+        ["fbi", 25000],
+        ["mop", 2000]
+      ])
+    )
+    const entry = (headword: string) => built.find((candidate) => candidate.headword === headword)
+    expect(entry("FBI")).toMatchObject({ common: true, frequency: { spokenCount: 25000 } })
+    expect(entry("MOP")).toMatchObject({ priority: 0 })
+    expect(entry("mop")).toMatchObject({ frequency: { spokenCount: 2000 } })
   })
 })
 
@@ -576,7 +947,7 @@ describe("toEntries", () => {
           spellings: [],
           inflections: [],
           senses: [{ ...emptySense(), glosses: [{ text: "チーム", type: null }], pos: ["n"] }],
-          mayBeName: false
+          naming: "word"
         }
       ]
     },
@@ -590,6 +961,82 @@ describe("toEntries", () => {
     expect(tiers.get("team")).toBe("jmdict")
     expect(merged.find((word) => word.headword === "be")?.inflections.get("was")).toEqual(new Set(["past"]))
     expect(merged.find((word) => word.headword === "tire")?.inflections.has("tired")).toBe(true)
+  })
+
+  it("merges case twins that mean the same, under the fuller of the two, and keeps twins that differ apart", () => {
+    const glossed = (headword: string, glosses: Array<string>, spellings: Array<string> = [], pos = ["n"]): Word => ({
+      headword,
+      ipa: null,
+      spellings,
+      inflections: [],
+      senses: [{ ...emptySense(), glosses: glosses.map((text) => ({ text, type: null })), pos }],
+      naming: "word"
+    })
+    const senses = (headword: string, glosses: Array<Array<string>>): Word => ({
+      ...glossed(headword, []),
+      senses: glosses.map((sense) => ({
+        ...emptySense(),
+        glosses: sense.map((text) => ({ text, type: null })),
+        pos: ["n"]
+      }))
+    })
+    const twins = mergeSources({
+      wiktionary: {
+        words: [
+          glossed("spartan", ["スパルタ式"]),
+          glossed("mediterranean", ["地中海"]),
+          glossed("Mediterranean", ["地中海", "地中海沿岸地方"]),
+          glossed("polish", ["磨く", "つや"]),
+          glossed("Polish", ["ポーランドの", "ポーランド語"]),
+          glossed("march", ["行進する", "マーチ"]),
+          glossed("March", ["三月"]),
+          // Glossed alike, a proper noun leads.
+          glossed("mediterranean sea", ["地中海"]),
+          glossed("Mediterranean Sea", ["地中海"], [], ["n-pr"])
+        ],
+        formsOf: [{ text: "Spartans", base: "Spartan", tags: ["plural"] }]
+      },
+      jmdict: {
+        words: [
+          glossed("Spartan", ["スパルタ式"], ["Spartiate"]),
+          // Sharing only a transliteration: the carmaker and the unit sound alike.
+          glossed("tesla", ["テスラ"]),
+          glossed("Tesla", ["テスラ"]),
+          // Each twin has a meaning the other lacks: Registered Nurse, the Yuan dynasty's 院, food.
+          senses("rn", [["たった今", "今すぐ"]]),
+          senses("RN", [["たった今", "今すぐ"], ["正看護師"]]),
+          senses("yuan", [["元", "人民元"], ["院"]]),
+          senses("Yuan", [["元"]]),
+          senses("diet", [
+            ["飲食", "食事"],
+            ["会合", "議会", "国会"]
+          ]),
+          senses("Diet", [["国会"]])
+        ]
+      }
+    })
+    const headwords = twins.map((word) => word.headword)
+    expect(headwords).toEqual([
+      "spartan",
+      "Mediterranean",
+      "polish",
+      "Polish",
+      "march",
+      "March",
+      "Mediterranean Sea",
+      "tesla",
+      "Tesla",
+      "rn",
+      "RN",
+      "yuan",
+      "Yuan",
+      "diet",
+      "Diet"
+    ])
+    const spartan = twins.find((word) => word.headword === "spartan")
+    expect([...(spartan?.spellings ?? [])]).toEqual(["Spartan", "Spartiate"])
+    expect(spartan?.inflections.get("Spartans")).toEqual(new Set(["plural"]))
+    expect([...(twins.find((word) => word.headword === "Mediterranean")?.spellings ?? [])]).toEqual(["mediterranean"])
   })
 
   it("prefers curated entries over wiktionary, inherits lower-tier variant spellings, and scales priority by frequency and back-translations", () => {
@@ -645,7 +1092,7 @@ describe("toEntries", () => {
             spellings: [],
             inflections: [],
             senses: [{ ...emptySense(), glosses: [{ text: "手を抜く", type: null }], pos: ["exp"] }],
-            mayBeName: false
+            naming: "word"
           }
         ],
         formsOf: [
@@ -786,18 +1233,18 @@ describe("toEntries", () => {
 
   it("marks a word common only when its count can be trusted", () => {
     const counts = parseSubtitles(["kim 5000", "website 800"])
-    const jmdictOnly = (headword: string, mayBeName: boolean) => ({
+    const jmdictOnly = (headword: string, naming: Naming) => ({
       headword,
       ipa: null,
       spellings: [],
       inflections: [],
       senses: [{ ...emptySense(), glosses: [{ text: "ウェブサイト", type: null }] }],
-      mayBeName
+      naming
     })
     const entries = toEntries(
       mergeSources({
         wiktionary: { words: [], formsOf: [] },
-        jmdict: { words: [jmdictOnly("kim", true), jmdictOnly("website", false)] },
+        jmdict: { words: [jmdictOnly("kim", "possible-name"), jmdictOnly("website", "word")] },
         subtitles: counts
       }),
       counts
@@ -815,7 +1262,7 @@ describe("toEntries", () => {
       spellings: [],
       inflections: [],
       senses: [{ ...emptySense(), glosses: [{ text: "意味", type: null }], pos: ["exp"] }],
-      mayBeName: false
+      naming: "word"
     })
     const entries = toEntries(
       mergeSources({
@@ -909,8 +1356,9 @@ describe("jmdictReader backTranslations", () => {
     const reader = jmdictReader({
       words: new Set(["smart", "kid"]),
       verbs: new Set(),
-      phrases: new Set(),
-      subtitles: new Map()
+      gradable: new Set(),
+      spelled: new Set(["smart", "kid"]),
+      phrases: new Set()
     })
     reader.add(entry(1, "賢い", ["wise", "clever", "smart"]))
     reader.add(entry(2, "粋", ["chic", "stylish", "refined", "elegant", "smart"]))
@@ -927,8 +1375,9 @@ describe("jmdictReader backTranslations", () => {
     const reader = jmdictReader({
       words: new Set(["on thin ice"]),
       verbs: new Set(),
-      phrases: new Set(["on thin ice", "cut corners"]),
-      subtitles: new Map()
+      gradable: new Set(),
+      spelled: new Set(["on thin ice"]),
+      phrases: new Set(["on thin ice", "cut corners"])
     })
     reader.add(entry(6, "薄氷を踏む", ["to tread on thin ice"], false, 0, ["exp", "v5m"], ["id"]))
     reader.add(entry(7, "手を抜く", ["to cut corners"], false, 0, ["exp", "v5k"], ["id"]))
