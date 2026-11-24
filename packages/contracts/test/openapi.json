@@ -3,7 +3,7 @@
   "info": {
     "title": "Kotori API",
     "version": "0.0.1",
-    "description": "Dictionary, coaching and notebook for Japanese and English learners."
+    "description": "Bilingual Japanese–English dictionary, Ask Kotori, and notebook."
   },
   "paths": {
     "/health": {

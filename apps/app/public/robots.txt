@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Disallow: /say
+Disallow: /check
+Disallow: /notebook
+Disallow: /entry/
+Disallow: /sources/
+Disallow: /settings
+Disallow: /onboarding
+Disallow: /pending
+Disallow: /sign-in
+Disallow: /sign-up
+Disallow: /forgot-password
+
+Sitemap: https://hellokotori.com/sitemap.xml

@@ -4,7 +4,8 @@ import { useState } from "react"
 import { View } from "react-native"
 import { strings } from "../i18n/strings.ts"
 import { legalDocument, type LegalKind, legalLanguageFromParam } from "../lib/legal.ts"
-import { useSession } from "../session/SessionProvider.tsx"
+import { formatDocumentTitle } from "../lib/webChrome.ts"
+import { homeHrefFor, useSession } from "../session/SessionProvider.tsx"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Card } from "./Card.tsx"
 import { PressableScale } from "./PressableScale.tsx"
@@ -27,13 +28,11 @@ export const LegalDocumentScreen = ({ kind }: { readonly kind: LegalKind }) => {
   const [language, setLanguage] = useState<Language>(() => legalLanguageFromParam(lang, defaultLanguage))
   const doc = legalDocument(kind, language)
 
-  const fallbackHref =
-    status === "ready" ? "/" : status === "onboarding" ? "/onboarding" : status === "pending" ? "/pending" : "/welcome"
-  const back = () => (router.canGoBack() ? router.back() : router.replace(fallbackHref))
+  const back = () => (router.canGoBack() ? router.back() : router.replace(homeHrefFor(status)))
 
   return (
     <Screen bottomInset={40} header={<Header onBack={back} title={doc.title} />}>
-      <Stack.Screen options={{ title: `${doc.title} · Kotori` }} />
+      <Stack.Screen options={{ title: formatDocumentTitle(doc.title, strings[language].appName) }} />
       <View style={{ gap: theme.space.lg }}>
         <View style={{ gap: 8, paddingHorizontal: 4 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>

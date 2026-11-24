@@ -1,7 +1,9 @@
 import type { Language, Profile, UpdateProfileRequest } from "@kotori/contracts"
 import { useQueryClient } from "@tanstack/react-query"
+import * as Match from "effect/Match"
 import { getLocales } from "expo-localization"
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { Platform } from "react-native"
 import { ApiError, call } from "../api/client.ts"
 import { AuthError, managedAuth } from "../auth/client.ts"
 import { devCredentials } from "../auth/dev.ts"
@@ -10,6 +12,7 @@ import { authMessage } from "../auth/messages.ts"
 import { tokens } from "../auth/tokens.ts"
 import { transport } from "../auth/transport"
 import { strings, type Strings } from "../i18n/strings.ts"
+import { webLanguageFromLocation } from "../lib/webLanguage.ts"
 import { storage } from "./storage"
 
 /**
@@ -18,7 +21,20 @@ import { storage } from "./storage"
  * or Managed Auth being unreachable, and `unavailable` the API answering with something
  * unexpected (a bug, or a response this build can't read); neither throws credentials away.
  */
-type Status = "loading" | "signedOut" | "pending" | "onboarding" | "ready" | "offline" | "unavailable"
+export type SessionStatus = "loading" | "signedOut" | "pending" | "onboarding" | "ready" | "offline" | "unavailable"
+
+/** The home route for each session status, used by public/fallback screens (`+not-found`, legal pages). */
+export const homeHrefFor = (status: SessionStatus): "/" | "/onboarding" | "/pending" | "/welcome" =>
+  Match.value(status).pipe(
+    Match.when("ready", () => "/" as const),
+    Match.when("onboarding", () => "/onboarding" as const),
+    Match.when("pending", () => "/pending" as const),
+    Match.when("loading", () => "/welcome" as const),
+    Match.when("signedOut", () => "/welcome" as const),
+    Match.when("offline", () => "/welcome" as const),
+    Match.when("unavailable", () => "/welcome" as const),
+    Match.exhaustive
+  )
 
 export interface SignUp {
   readonly email: string
@@ -28,7 +44,7 @@ export interface SignUp {
 }
 
 interface Session {
-  readonly status: Status
+  readonly status: SessionStatus
   readonly profile: Profile | null
   /** Interface copy in the learner's native language. */
   readonly t: Strings
@@ -58,9 +74,14 @@ interface Session {
 
 const SessionContext = createContext<Session | null>(null)
 
-const deviceLanguage = (): Language => (getLocales()[0]?.languageCode === "ja" ? "ja" : "en")
+export const deviceLanguage = (): Language => (getLocales()[0]?.languageCode === "ja" ? "ja" : "en")
 
-const statusOf = (profile: Profile): Status =>
+const initialWebLanguage = (): Language | null => {
+  if (Platform.OS !== "web" || typeof window === "undefined") return null
+  return webLanguageFromLocation(window.location.pathname, window.location.search)
+}
+
+const statusOf = (profile: Profile): SessionStatus =>
   profile.status !== "approved" && profile.role !== "admin" ? "pending" : profile.onboarded ? "ready" : "onboarding"
 
 /** A JWT for the session just created, or the reason there isn't one. */
@@ -101,10 +122,11 @@ const signInAsDeveloper = async (): Promise<boolean> => {
 
 export const SessionProvider = ({ children }: { readonly children: ReactNode }) => {
   const queryClient = useQueryClient()
-  const [status, setStatus] = useState<Status>("loading")
+  const [status, setStatus] = useState<SessionStatus>("loading")
   const [profile, setProfile] = useState<Profile | null>(null)
   const [attempt, setAttempt] = useState(0)
   const [googleError, setGoogleError] = useState<AuthError | null>(null)
+  const [urlLanguage] = useState<Language | null>(initialWebLanguage)
   const pendingVerifier = useRef<string | null>(null)
 
   const clearGoogleError = useCallback(() => setGoogleError(null), [])
@@ -301,7 +323,7 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
       status,
       profile,
       // Until the learner picks a language (onboarding), follow the device rather than the table's `"en"` default.
-      t: strings[profile?.onboarded ? profile.nativeLanguage : deviceLanguage()],
+      t: strings[profile?.onboarded ? profile.nativeLanguage : (urlLanguage ?? deviceLanguage())],
       signIn,
       signUp,
       signInWithGoogle,
@@ -322,6 +344,7 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
     [
       status,
       profile,
+      urlLanguage,
       signIn,
       signUp,
       signInWithGoogle,
