@@ -172,6 +172,6 @@ export class KotoriApi extends HttpApi.make("kotori")
   .annotateMerge(
     OpenApi.annotations({
       title: "Kotori API",
-      description: "Dictionary, coaching and notebook for Japanese and English learners."
+      description: "Bilingual Japanese–English dictionary, Ask Kotori, and notebook."
     })
   ) {}

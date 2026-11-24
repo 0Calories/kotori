@@ -1,4 +1,5 @@
 import type { AskRefusal, CautionKind, LabelCode, SimilarDifference, Source } from "@kotori/contracts"
+import { brand } from "./brand.ts"
 
 /** Tab labels, named here once so copy that points to a tab can't drift from it. */
 const enTabs = {
@@ -18,7 +19,7 @@ const enWrongLanguage =
  * learners get English, English learners get Japanese.
  */
 const en = {
-  appName: "Kotori",
+  appName: brand.en.appName,
   tabs: enTabs,
   greeting: { morning: "Good morning", afternoon: "Good afternoon", evening: "Good evening" },
   common: {
@@ -61,7 +62,7 @@ const en = {
   },
   onboarding: {
     title: "Hi, I'm Kotori!",
-    subtitle: "I help you sound natural — not like a textbook.",
+    subtitle: "Your companion for real-world Japanese and English.",
     question: "What are you learning?",
     learnJapanese: "Japanese",
     learnJapaneseHint: "I speak English",
@@ -498,7 +499,7 @@ const en = {
     wakatake: "Wakatake",
     about: "About",
     aboutBody:
-      "Dictionary data from JMDict by the Electronic Dictionary Research and Development Group (CC BY-SA 4.0), with example sentences from the Tatoeba Project (CC BY 2.0 FR). English words from English and Japanese Wiktionary via Wiktextract (CC BY-SA 4.0) and JMDict (CC BY-SA 4.0); how often they're used from OpenSubtitles via FrequencyWords (CC BY-SA 4.0). Formality readings by TypeSafe's Jev. Coaching and example sentences by Claude. Voices by ElevenLabs.",
+      "Dictionary data from JMDict by the Electronic Dictionary Research and Development Group (CC BY-SA 4.0), with example sentences from the Tatoeba Project (CC BY 2.0 FR). English words from English and Japanese Wiktionary via Wiktextract (CC BY-SA 4.0) and JMDict (CC BY-SA 4.0); how often they're used from OpenSubtitles via FrequencyWords (CC BY-SA 4.0). Formality readings by TypeSafe's Jev. Ask Kotori, cautions, and example sentences by Claude. Voices by ElevenLabs.",
     account: "Account",
     signOut: "Sign out",
     server: "Server",
@@ -521,6 +522,11 @@ const en = {
   legal: {
     privacy: "Privacy Policy",
     terms: "Terms of Service"
+  },
+  notFound: {
+    title: "Page not found",
+    body: "Kotori flew around looking for that page, but there's nothing here.",
+    home: "Go home"
   },
   pos: {
     n: "noun",
@@ -596,13 +602,13 @@ const jaTabs: Strings["tabs"] = {
 const jaWrongLanguage = "英語ではないようです。ここでは英語の単語や表現だけを調べられます。"
 
 const ja: Strings = {
-  appName: "ことり",
+  appName: brand.ja.appName,
   tabs: jaTabs,
   greeting: { morning: "おはよう", afternoon: "こんにちは", evening: "こんばんは" },
   common: {
     retry: "もう一度",
     loading: "読み込み中",
-    notRefreshed: "コトリが新しい情報を見に行ったけど、手ぶらで戻ってきました。表示が少し古いかもしれません。",
+    notRefreshed: "ことりが新しい情報を見に行ったけど、手ぶらで戻ってきました。表示が少し古いかもしれません。",
     cancel: "キャンセル",
     done: "完了",
     save: "保存",
@@ -613,25 +619,25 @@ const ja: Strings = {
     more: "もっと見る",
     less: "閉じる",
     close: "閉じる",
-    offline: "コトリが迷子になって、サーバーにたどり着けませんでした。インターネットにつながっていますか？",
+    offline: "ことりが迷子になって、サーバーにたどり着けませんでした。インターネットにつながっていますか？",
     somethingWrong: "エラーが発生しました。",
     back: "戻る",
     errors: {
-      trouble: "コトリのほうでつまずいてしまいました。あなたのせいではありません！少ししてから、もう一度どうぞ。",
-      notFound: "コトリがあちこち探しましたが、見つかりませんでした。削除されたのかもしれません。",
+      trouble: "ことりのほうでつまずいてしまいました。あなたのせいではありません！少ししてから、もう一度どうぞ。",
+      notFound: "ことりがあちこち探しましたが、見つかりませんでした。削除されたのかもしれません。",
       signedOut: "ログアウトされました。もう一度ログインしてください。",
       pendingApproval: "アカウントはまだ承認待ちです。承認されたら、メールでお知らせします。",
-      invalid: "コトリにはうまく読み取れませんでした。内容を確かめて、もう一度お試しください。",
-      thinkingUnavailable: "コトリは今、考えごとができないようです。少ししてから、もう一度お試しください。",
+      invalid: "ことりにはうまく読み取れませんでした。内容を確かめて、もう一度お試しください。",
+      thinkingUnavailable: "ことりは今、考えごとができないようです。少ししてから、もう一度お試しください。",
       rateLimited: (minutes: number) =>
         minutes < 60
-          ? `コトリはひと休み中です。${Math.max(1, minutes)}分ほどしてから、もう一度お試しください。`
-          : `コトリはひと休み中です。${Math.ceil(minutes / 60)}時間ほどしてから、もう一度お試しください。`
+          ? `ことりはひと休み中です。${Math.max(1, minutes)}分ほどしてから、もう一度お試しください。`
+          : `ことりはひと休み中です。${Math.ceil(minutes / 60)}時間ほどしてから、もう一度お試しください。`
     }
   },
   onboarding: {
     title: "こんにちは、ことりです！",
-    subtitle: "教科書っぽくない、自然な話し方をお手伝いします。",
+    subtitle: "リアルな英語と日本語を身につけるための、ことばの相棒。",
     question: "何を勉強していますか？",
     learnJapanese: "日本語",
     learnJapaneseHint: "I speak English",
@@ -689,7 +695,7 @@ const ja: Strings = {
       googleNotLinked:
         "このメールアドレスにはパスワードが登録されています。まずはパスワードでログインして、設定からGoogleを連携してください。",
       googleEmailMismatch: "このメールアドレスと同じGoogleアカウントを選んでください。",
-      googleAlreadyLinked: "そのGoogleアカウントは、別のKotoriアカウントに連携されています。"
+      googleAlreadyLinked: "そのGoogleアカウントは、別のことりアカウントに連携されています。"
     }
   },
   pending: {
@@ -709,27 +715,27 @@ const ja: Strings = {
     noResults: "見つかりませんでした。別の書き方で試してみてください。",
     noExactMatch: (query: string) => `「${query}」にぴったりの項目はありませんでした。`,
     similarResults: "似ている語",
-    askKotori: "コトリに聞く",
-    askExplain: "コトリが調べて、辞書の下書きを作ります。",
+    askKotori: "ことりに聞く",
+    askExplain: "ことりが調べて、辞書の下書きを作ります。",
     askThinking: [
-      "コトリが調べています…",
+      "ことりが調べています…",
       "辞書をめくっています…",
       "実際の使われ方を考えています…",
       "もう少しです。じっくり考えています…"
     ],
     askDraft: "AIによる下書き・未確認",
     // Both broken at the comma: Japanese wraps between any two characters, which left "り！" and "す。" alone at 320 px.
-    askDrafted: "コトリ特製の新しい項目、\nできあがり！",
+    askDrafted: "ことり特製の新しい項目、\nできあがり！",
     askDraftedBody: "辞書に載せる前に、\n内容をしっかり確認します。",
     askLinked: "お探しのものはこちらかもしれません：",
-    askApproved: "コトリの下書きが辞書に加わりました：",
-    askDiscarded: "コトリの下書きは、確認の結果見送りになりました。",
+    askApproved: "ことりの下書きが辞書に加わりました：",
+    askDiscarded: "ことりの下書きは、確認の結果見送りになりました。",
     askAgain: "もう一度聞く",
     askAgainIn: (wait: string) => `もう一度聞く（あと${wait}）`,
-    askBusy: "コトリは今ちょっと忙しいようです。",
-    askResting: "たくさん質問したので、コトリは休憩中です。",
-    askNapping: "今日はここまで。コトリは明日までお昼寝中です。",
-    askUnavailable: "コトリは今、調べものができないようです。",
+    askBusy: "ことりは今ちょっと忙しいようです。",
+    askResting: "たくさん質問したので、ことりは休憩中です。",
+    askNapping: "今日はここまで。ことりは明日までお昼寝中です。",
+    askUnavailable: "ことりは今、調べものができないようです。",
     askRoute: {
       sentence: `文章のようです。「${jaTabs.check}」タブで自然かどうかを確かめたり、「${jaTabs.say}」タブで言い方を探したりできます。`,
       name: "固有名詞のようです。辞書で調べる単語や表現を入力してください。",
@@ -737,7 +743,7 @@ const ja: Strings = {
       garbage: "単語や表現には見えませんでした。"
     },
     askRefused: {
-      not_askable: "これはコトリが調べられるものではないようです。",
+      not_askable: "これはことりが調べられるものではないようです。",
       wrong_language: jaWrongLanguage,
       repetition: "同じ文字の連打のようです。",
       keyboard: "キーボードの並びをなぞったような文字列のようです。",
@@ -767,7 +773,7 @@ const ja: Strings = {
     commonWord: "よく使う言葉",
     commonHelp: "特によく出会う言葉のひとつです。",
     unverified: "未確認",
-    unverifiedHelp: "コトリの AI が作成した下書きで、まだ人の確認を受けていません。",
+    unverifiedHelp: "ことりの AI が作成した下書きで、まだ人の確認を受けていません。",
     discarded: "未収録",
     discardedHelp: "この作成エントリーは確認の結果見送りとなり、検索には表示されません。",
     rareWord: "今はあまり聞かない",
@@ -779,7 +785,7 @@ const ja: Strings = {
     loanSameHelp: (word: string) => `カタカナ語の「${word}」も同じ意味で使えます。`,
     cautions: "注意点",
     compare: (word: string) => `${word} と比べる`,
-    kotoriLegend: "✦ はコトリの AI が加えた情報です。それ以外は辞書の情報です。",
+    kotoriLegend: "✦ はことりの AI が加えた情報です。それ以外は辞書の情報です。",
     similarIntro: (word: string) => `${word} に近い言葉と、それぞれの違いです。`,
     difference: {
       respectful: "尊敬語",
@@ -802,7 +808,7 @@ const ja: Strings = {
       jawiktionary: "日本語版ウィクショナリー",
       enwiktionary: "ウィクショナリー",
       tatoeba: "Tatoeba",
-      kotori: "コトリ",
+      kotori: "ことり",
       user: "学習者"
     },
     sourceDictionary: "辞書",
@@ -810,12 +816,12 @@ const ja: Strings = {
       "意味、品詞、ラベル、用法は JMDict（Electronic Dictionary Research and Development Group、CC BY-SA 4.0）によります。",
     sourceDictionaryEn:
       "意味とラベルは、その単語を載せている出典によります。ウィクショナリー英語版・日本語版（Wiktextract 経由、CC BY-SA 4.0）、または JMDict の逆引き（CC BY-SA 4.0）をもとに編集・翻訳しています。使用頻度は OpenSubtitles（FrequencyWords、CC BY-SA 4.0）によります。",
-    sourceDictionaryKotori: "学習者の質問をもとにコトリが下書きし、人が確認してから辞書に加えた項目です。",
-    sourceKotori: "コトリの注記",
+    sourceDictionaryKotori: "学習者の質問をもとにことりが下書きし、人が確認してから辞書に加えた項目です。",
+    sourceKotori: "ことりの注記",
     sourceKotoriBody:
-      "✦ の付いたラベルや用法と「注意点」の内容は、コトリのために Claude が書いたものです。辞書には載っていません。",
+      "✦ の付いたラベルや用法と「注意点」の内容は、ことりのために Claude が書いたものです。辞書には載っていません。",
     sourceExamples: "例文",
-    sourceExamplesBody: "コトリの例文は Claude が書いています。",
+    sourceExamplesBody: "ことりの例文は Claude が書いています。",
     sourceTatoeba: "Tatoeba の例文",
     sourceTatoebaBody: "Tatoeba と記された例文は Tatoeba プロジェクト（CC BY 2.0 FR）によります。",
     sourceWiktionary: "ウィクショナリー",
@@ -828,9 +834,9 @@ const ja: Strings = {
     sourceAudioBody: "読み上げは ElevenLabs によるものです。",
     sourceLoan: "カタカナ語",
     sourceLoanDictionary: "カタカナ語の元になった英語は JMDict（CC BY-SA 4.0）によります。",
-    sourceLoanKotori: "カタカナ語が同じ意味かどうかは、コトリの AI が判定しています。",
+    sourceLoanKotori: "カタカナ語が同じ意味かどうかは、ことりの AI が判定しています。",
     sourceLoanBoth:
-      "カタカナ語の元になった英語は JMDict（CC BY-SA 4.0）によります。同じ意味かどうかは、コトリの AI が判定しています。",
+      "カタカナ語の元になった英語は JMDict（CC BY-SA 4.0）によります。同じ意味かどうかは、ことりの AI が判定しています。",
     dictionaryOnly: "辞書の情報のみ",
     dictionaryOnlyBody: (word: string) =>
       `例文と音声は、よく使われる単語から順に追加しています。${word} はまだ対象外です。`,
@@ -951,7 +957,7 @@ const ja: Strings = {
       wasei: "英語に見えますが日本で作られた言葉で、英語話者には通じません。",
       uncountable: "数えられない名詞です。複数形にせず、a も付けません。数えるときは some や a piece of を使います。"
     },
-    kotori: "辞書にはない情報で、コトリの AI が加えました。"
+    kotori: "辞書にはない情報で、ことりの AI が加えました。"
   },
   caution: {
     rude_upward: "目上には失礼",
@@ -1049,7 +1055,7 @@ const ja: Strings = {
     wakatake: "若竹",
     about: "このアプリについて",
     aboutBody:
-      "辞書データ：JMDict（Electronic Dictionary Research and Development Group、CC BY-SA 4.0）。例文：Tatoeba プロジェクト（CC BY 2.0 FR）。英単語：ウィクショナリー英語版・日本語版（Wiktextract経由、CC BY-SA 4.0）、JMDict（CC BY-SA 4.0）。使用頻度：OpenSubtitles（FrequencyWords、CC BY-SA 4.0）。丁寧さの判定：TypeSafe Jev。添削と例文：Claude。音声：ElevenLabs。",
+      "辞書データ：JMDict（Electronic Dictionary Research and Development Group、CC BY-SA 4.0）。例文：Tatoeba プロジェクト（CC BY 2.0 FR）。英単語：ウィクショナリー英語版・日本語版（Wiktextract経由、CC BY-SA 4.0）、JMDict（CC BY-SA 4.0）。使用頻度：OpenSubtitles（FrequencyWords、CC BY-SA 4.0）。丁寧さの判定：TypeSafe Jev。ことりに聞く・注意点・例文：Claude。音声：ElevenLabs。",
     account: "アカウント",
     signOut: "ログアウト",
     server: "サーバー",
@@ -1071,6 +1077,11 @@ const ja: Strings = {
   legal: {
     privacy: "プライバシーポリシー",
     terms: "利用規約"
+  },
+  notFound: {
+    title: "ページが見つかりません",
+    body: "ことりがあちこち探しましたが、このページは見つかりませんでした。",
+    home: "ホームに戻る"
   },
   pos: {
     n: "名詞",

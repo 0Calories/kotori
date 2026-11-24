@@ -1,5 +1,5 @@
 import type { Entry, Language, Sense, SimilarWord } from "@kotori/contracts"
-import { Link, useLocalSearchParams, useRouter } from "expo-router"
+import { Link, Stack, useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { Platform, Share, View } from "react-native"
 import { useAddNote, useEntry, useNotes, useRemoveNote } from "../../src/api/queries.ts"
@@ -34,6 +34,7 @@ import {
 import { findForm } from "../../src/lib/forms.ts"
 import { noteErrorText, noteOn } from "../../src/lib/notes.ts"
 import { entryIdFromParam, entrySourcesHref } from "../../src/lib/sources.ts"
+import { formatDocumentTitle } from "../../src/lib/webChrome.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
 
@@ -362,6 +363,7 @@ export default function EntryScreen() {
         />
       }
     >
+      <Stack.Screen options={{ title: formatDocumentTitle(data.headword, t.appName) }} />
       <Notice message={noteError} />
       {entry.isRefetchError ? (
         <Notice

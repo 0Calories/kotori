@@ -31,7 +31,16 @@ export const palette = {
   /** The dictionary's pages, the edges of its stacked pages, and the lines between them. */
   paper: "#FAF4DF",
   paperEdge: "#E3D1B0",
-  paperLine: "#C9B48F"
+  paperLine: "#C9B48F",
+  /** Kotori's quill: the feather, a warm brown that shows against its wing, and the shaft down it. */
+  quill: "#7A4A35",
+  quillShaft: "#F3E3C8",
+  /**
+   * The dictionary's print, and the ink Kotori writes with: the ink, faded
+   * to 45% over the paper, as a colour of its own so the slips of paper that
+   * hide what Kotori hasn't yet written can lie over it.
+   */
+  print: "#9D978A"
 }
 
 /** Kotori in three-quarter view, facing left. */
@@ -164,6 +173,41 @@ export const puffPath = ({ cx, cy, r }: { readonly cx: number; readonly cy: numb
 }
 
 /**
+ * The entry Kotori writes on a fresh page of its dictionary, a word at a
+ * time, top line first: the headword, bolder, then what it means on the lines
+ * below. Facing the viewer, Kotori writes from its left to its right, as it
+ * reads, so each word starts at its right end, `from`, and runs leftward on
+ * screen to `to`: humps on the baseline `y`, each `height` tall times its
+ * share in `humps`, some taller where a letter rises (see `scribblePath`).
+ * The last word ends where the quill's nib rests once the page is written.
+ */
+const words = {
+  ink0: { from: 145, to: 120, y: 147, height: 2, humps: [1, 1.5, 1, 1, 1.6, 1], stroke: 1.8 },
+  ink1: { from: 146, to: 134, y: 152, height: 1.7, humps: [1, 1.6, 1], stroke: 1.4 },
+  ink2: { from: 131, to: 117, y: 152, height: 1.7, humps: [1, 1, 1.5], stroke: 1.4 },
+  ink3: { from: 145, to: 137, y: 157, height: 1.7, humps: [1.5, 1], stroke: 1.4 },
+  ink4: { from: 134, to: 128, y: 157, height: 1.7, humps: [1, 1], stroke: 1.4 },
+  ink5: { from: 125, to: 120, y: 157, height: 1.7, humps: [1.6], stroke: 1.4 }
+} as const
+
+/**
+ * The slips of paper, as plain as the fresh page, that hide what Kotori has
+ * yet to write: each lies over the rest of a word, left of the nib, as the
+ * nib runs along it, so the word comes out of the nib whole rather than
+ * stretching out from where it began. Hiding nothing, a slip lies as drawn,
+ * in the blank above the headword, `width` wide and `height` tall from its
+ * top left, `x`, `y`.
+ */
+const slip = { x: 119, y: 138.5, width: 26.5, height: 3 } as const
+
+/**
+ * Kotori's quill as drawn, in the tip of the wing that rests on the book: its
+ * nib at `nib`, the feather pointing up and right `angle` degrees above level
+ * to its tip, `length` along, past the wing's edge.
+ */
+const quill = { nib: { x: 125.2, y: 151.4 }, angle: 54, length: 82 } as const
+
+/**
  * The parts that move, and the point each one turns and scales about. `bird`
  * is the whole of Kotori, standing where its feet meet the ground; `face`
  * carries the cheeks, beak and eyes, and `eyes` moves within it. As the eyes
@@ -186,6 +230,16 @@ export const puffPath = ({ cx, cy, r }: { readonly cx: number; readonly cy: numb
  * other moods. As the book lands, the `puff`s of dust and the `spark`s it
  * throws up, and the sparks' `trail`s, all start from the foot of its spine,
  * where they're drawn, and turn and scale about it.
+ * Writing adds the `quill`, held in `bookWing` and moving with it, which
+ * turns about its nib; a `freshPage` over the right one; the `leaf` of the
+ * page Kotori turns, the blank side the `page` shows once it's over, turning
+ * with it; the words Kotori writes, `ink0` to `ink5`, which only ever fade;
+ * and the slips over them, `unwritten0` to `unwritten5`, which move and
+ * stretch about their top left. The `book`'s left half, `bookLeft`, is a
+ * part of its own about the same joint, so Kotori can close the book, and
+ * `bookBack`, the back of that half, shows as it lands over the right one,
+ * the book shut; and so is the end of its `spine`, which turns on its side
+ * as the book shuts.
  */
 export const joints = {
   bird: { x: 92, y: 180 },
@@ -211,6 +265,9 @@ export const joints = {
   bookWing: { x: 159.5, y: 86 },
   glasses: { x: 100, y: 74.5 },
   book: { x: 100, y: 195 },
+  spine: { x: 100, y: 195 },
+  bookLeft: { x: 100, y: 195 },
+  bookBack: { x: 100, y: 195 },
   cheeks: { x: 100, y: 88.8 },
   foldedWing0: { x: 36.1, y: 83 },
   foldedWing1: { x: 163.9, y: 83 },
@@ -226,7 +283,22 @@ export const joints = {
   trail1: landing.origin,
   trail2: landing.origin,
   trail3: landing.origin,
-  trail4: landing.origin
+  trail4: landing.origin,
+  quill: quill.nib,
+  freshPage: { x: 100, y: 179 },
+  leaf: { x: 100, y: 179 },
+  ink0: { x: words.ink0.from, y: words.ink0.y },
+  ink1: { x: words.ink1.from, y: words.ink1.y },
+  ink2: { x: words.ink2.from, y: words.ink2.y },
+  ink3: { x: words.ink3.from, y: words.ink3.y },
+  ink4: { x: words.ink4.from, y: words.ink4.y },
+  ink5: { x: words.ink5.from, y: words.ink5.y },
+  unwritten0: slip,
+  unwritten1: slip,
+  unwritten2: slip,
+  unwritten3: slip,
+  unwritten4: slip,
+  unwritten5: slip
 } as const
 
 /** Kotori facing the viewer, symmetric about x = 100. */
@@ -334,19 +406,27 @@ export const readingShapes = {
     "M162.6 82.7 C 153.7 82.7, 133.7 124.7, 133.7 131.9 C 133.7 137.9, 139 140.6, 144.3 140.6 C 159.8 140.6, 176.7 128.8, 176.7 114.7 C 176.7 104.6, 169 82.7, 162.6 82.7 Z"
   ],
   book: {
-    /** The top of the back cover, past the pages at either side. */
-    coverTop: "M21 179 L 179 179 L 185.5 189 L 14.5 189 Z",
+    /**
+     * The top of the back cover, past the pages, either side of the spine:
+     * each half the other mirrored, as are the rest of the book's halves, so
+     * the left one closes exactly over the right.
+     */
+    coverTop: ["M21 179 L 100 179 L 100 189 L 14.5 189 Z", "M179 179 L 100 179 L 100 189 L 185.5 189 Z"],
     /** The back cover's front edge, below the pages, rising a little towards the spine. */
-    coverEdge:
-      "M13.2 188.6 C 40 187.6, 70 186.2, 100 185.6 C 130 186.2, 160 187.6, 186.8 188.6 C 188.6 188.7, 189.2 191.6, 187.4 193.4 C 186.6 194.2, 185.6 194.6, 184.4 194.6 C 156 193.4, 128 192.2, 100 192 C 72 192.2, 44 193.4, 15.6 194.6 C 14.4 194.6, 13.4 194.2, 12.6 193.4 C 10.8 191.6, 11.4 188.7, 13.2 188.6 Z",
+    coverEdge: [
+      "M13.2 188.6 C 40 187.6, 70 186.2, 100 185.6 L 100 192 C 72 192.2, 44 193.4, 15.6 194.6 C 14.4 194.6, 13.4 194.2, 12.6 193.4 C 10.8 191.6, 11.4 188.7, 13.2 188.6 Z",
+      "M186.8 188.6 C 160 187.6, 130 186.2, 100 185.6 L 100 192 C 128 192.2, 156 193.4, 184.4 194.6 C 185.6 194.6, 186.6 194.2, 187.4 193.4 C 189.2 191.6, 188.6 188.7, 186.8 188.6 Z"
+    ],
     /** The thick stacks of pages either side of the spine, edges towards the viewer. */
     stacks: [
       "M19.9 165.9 C 35 161.5, 52 160.5, 62 161.8 C 76 163.5, 89 170, 100 179 L 100 188 C 72 187.4, 44 188.4, 19.9 189.6 Z",
       "M180.1 165.9 C 165 161.5, 148 160.5, 138 161.8 C 124 163.5, 111 170, 100 179 L 100 188 C 128 187.4, 156 188.4, 180.1 189.6 Z"
     ],
     /** Lines between the stacked pages' edges. */
-    stackLines:
-      "M19.9 171.6 C 38 167.2, 58 166.4, 70 168.2 C 82 170, 91 175, 97.5 180.6 M180.1 171.6 C 162 167.2, 142 166.4, 130 168.2 C 118 170, 109 175, 102.5 180.6 M19.9 177.4 C 38 173.4, 58 172.8, 70 174.4 C 82 176, 90 179.4, 96 182.8 M180.1 177.4 C 162 173.4, 142 172.8, 130 174.4 C 118 176, 110 179.4, 104 182.8 M19.9 183.2 C 38 179.8, 58 179.4, 70 180.6 C 82 181.8, 89 183.6, 93 185 M180.1 183.2 C 162 179.8, 142 179.4, 130 180.6 C 118 181.8, 111 183.6, 107 185",
+    stackLines: [
+      "M19.9 171.6 C 38 167.2, 58 166.4, 70 168.2 C 82 170, 91 175, 97.5 180.6 M19.9 177.4 C 38 173.4, 58 172.8, 70 174.4 C 82 176, 90 179.4, 96 182.8 M19.9 183.2 C 38 179.8, 58 179.4, 70 180.6 C 82 181.8, 89 183.6, 93 185",
+      "M180.1 171.6 C 162 167.2, 142 166.4, 130 168.2 C 118 170, 109 175, 102.5 180.6 M180.1 177.4 C 162 173.4, 142 172.8, 130 174.4 C 118 176, 110 179.4, 104 182.8 M180.1 183.2 C 162 179.8, 142 179.4, 130 180.6 C 118 181.8, 111 183.6, 107 185"
+    ],
     /**
      * The open pages, curving down into the spine at x = 100. Each is the
      * other mirrored, so the page Kotori turns, drawn as the left one, lands
@@ -373,9 +453,129 @@ export const readingShapes = {
       "M85.4 191.4 C 85.8 182.4, 92 177, 100 177 C 108 177, 114.2 182.4, 114.6 191.4 C 110 194.6, 105 195.6, 100 195.6 C 95 195.6, 90 194.6, 85.4 191.4 Z",
     /** The hollow inside the spine's end, in shadow. */
     spineHollow:
-      "M89.6 189.4 C 90 183.2, 94.6 179.8, 100 179.8 C 105.4 179.8, 110 183.2, 110.4 189.4 C 107 191.4, 103.5 192, 100 192 C 96.5 192, 93 191.4, 89.6 189.4 Z"
+      "M89.6 189.4 C 90 183.2, 94.6 179.8, 100 179.8 C 105.4 179.8, 110 183.2, 110.4 189.4 C 107 191.4, 103.5 192, 100 192 C 96.5 192, 93 191.4, 89.6 189.4 Z",
+    /**
+     * The book shut, where it lies once its left half has closed over the
+     * right, before it slides to the middle: the front cover's flat top,
+     * running back from its near edge to its far one, narrower with distance
+     * as the pages' far edges are; the cover's own edge below that; the
+     * edges of the pages shut between the covers, and lines between them;
+     * and the spine's back along the cover's left edge, running away from
+     * its end (the open book's `spine`, turned to stand on its side). The
+     * back cover's edge, `coverEdge[1]`, is under it all, as it is open.
+     */
+    closed: {
+      cover:
+        "M100 143 L 167.4 143 C 169.8 143, 171.4 143.9, 172.4 145.6 L 184.6 165.6 C 185.6 167.2, 184.8 168.4, 183 168.3 C 156 167.5, 128 166.7, 100 166.5 Z",
+      coverEdge:
+        "M100 166.5 C 128 166.7, 156 167.5, 183 168.3 C 184.8 168.4, 185.6 169.4, 185.1 170.8 L 184.8 171.6 C 156 170.8, 128 170, 100 169.8 Z",
+      pages: "M100 169.8 C 128 170, 156 170.8, 184.6 171.6 L 184.6 188.5 C 156 187.4, 128 186.3, 100 185.7 Z",
+      pageLines:
+        "M106 174.2 C 130 174.4, 156 175.1, 182 175.8 M106 178.4 C 130 178.6, 156 179.3, 182 180 M106 182.4 C 130 182.7, 156 183.4, 182 184.1",
+      spine: "M100 143 C 96.6 143, 94.2 145, 94 148.4 L 92.6 172 L 100 172 Z",
+      /** A band tooled across the front cover, in gold. */
+      band: "M120.8 152.4 L 164.6 152.4 L 166.2 155.2 L 119.6 155.2 Z"
+    }
   },
   landing
+} as const
+
+/**
+ * A handwritten word on the baseline `y`, from its right end, `from`, leftward
+ * to `to`: humps joined at the baseline, each `height` tall times its share in
+ * `humps`. It ends on the baseline at its left end, where the nib leaves it.
+ */
+export const scribblePath = ({
+  from,
+  to,
+  y,
+  height,
+  humps
+}: {
+  readonly from: number
+  readonly to: number
+  readonly y: number
+  readonly height: number
+  readonly humps: readonly number[]
+}) => {
+  const w = (from - to) / humps.length
+  // A cubic whose handles reach four thirds of the way up peaks at the height.
+  const hump = (share: number, i: number) => {
+    const x = from - i * w
+    const top = hundredths(y - (height * share * 4) / 3)
+    return `C ${hundredths(x - w * 0.08)} ${top}, ${hundredths(x - w * 0.92)} ${top}, ${hundredths(x - w)} ${y}`
+  }
+  return `M${from} ${y} ${humps.map(hump).join(" ")}`
+}
+
+/** A point `along` the quill from its nib towards its tip and `across` it, right of its shaft (down and right on screen). */
+const onQuill = ([along, across]: readonly [number, number]) => {
+  const a = (quill.angle * Math.PI) / 180
+  const x = quill.nib.x + along * Math.cos(a) + across * Math.sin(a)
+  const y = quill.nib.y - along * Math.sin(a) + across * Math.cos(a)
+  return `${hundredths(x)} ${hundredths(y)}`
+}
+
+/** Path data along the quill: each command with its points as `[along, across]`. */
+const traced = (steps: readonly (readonly [command: string, ...points: (readonly [number, number])[]])[]) =>
+  steps.map(([command, ...points]) => `${command}${points.map(onQuill).join(", ")}`).join(" ")
+
+/**
+ * Kotori writing: the reading pose with a quill in the wing that rests on the
+ * book, writing an entry on a fresh page over the right one, which hides its
+ * print (`readingShapes.book.pages[1]`, its far edge and the crease down the
+ * spine, drawn again on top). When it turns that page over, the page's back
+ * is blank: the `leaf`, the left page with no print, mirrored onto the right
+ * as it lands.
+ */
+export const writingShapes = {
+  quill: {
+    ...quill,
+    /** The feather, broadest a little below its middle, with a notch on each side where its barbs part. */
+    vane: traced([
+      ["M", [16, 0]],
+      ["C", [20, 2.6], [26, 3.8], [34, 4.4]],
+      ["C", [42, 4.9], [50, 4.8], [57, 4.3]],
+      ["L", [59.5, 1.9]],
+      ["L", [61.5, 3.9]],
+      ["C", [69, 3.1], [77, 1.6], [82, 0]],
+      ["C", [76, -1.9], [68, -3.5], [60, -4]],
+      ["C", [54, -4.3], [49, -4.2], [46, -4]],
+      ["L", [44, -1.7]],
+      ["L", [42, -3.8]],
+      ["C", [34, -3.6], [24, -2.9], [16, 0]],
+      ["Z"]
+    ]),
+    /** The shaft down the feather, a stroke `shaftWidth` wide. */
+    shaft: traced([
+      ["M", [12, 0.1]],
+      ["C", [30, 0.6], [55, 0.7], [79, 0.3]]
+    ]),
+    shaftWidth: 0.9,
+    /** The bare quill below the feather, narrowing to the nib. */
+    barrel: traced([["M", [3.5, -0.55]], ["L", [17, -0.9]], ["L", [17, 0.9]], ["L", [3.5, 0.55]], ["Z"]]),
+    /** The nib, inked, coming to a point where it meets the page. */
+    point: traced([["M", [0, 0]], ["L", [4.5, -0.9]], ["L", [4.5, 0.9]], ["Z"]])
+  },
+  /** The entry's words, in the order Kotori writes them (see `words`), each a stroke `stroke` wide. */
+  words: Object.fromEntries(
+    Object.entries(words).map(([part, word]) => [part, { ...word, d: scribblePath(word) }])
+  ) as { readonly [P in keyof typeof words]: (typeof words)[P] & { readonly d: string } },
+  /**
+   * The slip that hides what Kotori has yet to write (see `slip`), and how
+   * far each word's ink reaches past its baseline and its left end, which
+   * the slip covers as it lies over the word: up to its tallest hump, and
+   * half a stroke and a little more below and beyond.
+   */
+  slip: { ...slip, d: `M${slip.x} ${slip.y} h ${slip.width} v ${slip.height} h ${-slip.width} Z` },
+  reach: Object.fromEntries(
+    Object.entries(words).map(([part, word]) => {
+      const edge = word.stroke / 2 + 0.3
+      return [part, { above: word.height * Math.max(...word.humps) + edge, below: edge, beyond: edge }]
+    })
+  ) as {
+    readonly [P in keyof typeof words]: { readonly above: number; readonly below: number; readonly beyond: number }
+  }
 } as const
 
 /**
@@ -385,12 +585,15 @@ export const readingShapes = {
 export const catchlightDx = (catchlight: { readonly dx: number; readonly inward?: boolean }, cx: number) =>
   catchlight.inward === true && cx > 100 ? -catchlight.dx : catchlight.dx
 
-export type Mood = "neutral" | "happy" | "thinking" | "reading" | "sleepy" | "celebrate" | "oops"
+export type Mood = "neutral" | "happy" | "thinking" | "reading" | "writing" | "sleepy" | "celebrate" | "oops"
 
 export type Facing = "left" | "right" | "front"
 
 /** Moods Kotori takes facing the viewer. It shows the rest in three-quarter view unless `facing` is `"front"`. */
-export const frontMoods: ReadonlySet<Mood> = new Set(["thinking", "reading"])
+export const frontMoods: ReadonlySet<Mood> = new Set(["thinking", "reading", "writing"])
+
+/** Moods Kotori takes at its dictionary, in its glasses with the book open in front of it. */
+export const bookMoods: ReadonlySet<Mood> = new Set(["reading", "writing"])
 
 /** How far above the box Kotori's drawing reaches in `mood`, in box units. */
 export const headroom = (mood: Mood) => (mood === "thinking" ? thinkingShapes.headroom : 0)

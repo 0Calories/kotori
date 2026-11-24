@@ -1,5 +1,6 @@
 import { assert, describe, it } from "vitest"
 import {
+  bookMoods,
   catchlightDx,
   confetti,
   frontMoods,
@@ -13,16 +14,22 @@ import {
   puffPath,
   sparklePath,
   trailPath,
-  thinkingShapes
+  thinkingShapes,
+  writingShapes
 } from "../src/mascot/geometry.ts"
 import {
   type ClipName,
   clips,
+  combine,
   confettiFor,
   entrances,
   idles,
+  type InkPart,
+  inkParts,
   loops,
   landingParts,
+  moveBetween,
+  moves,
   type Part,
   pieceAt,
   pieceSvgTransform,
@@ -39,6 +46,9 @@ import {
   svgTransform,
   trailParts,
   viewTransform,
+  unwrittenOf,
+  unwrittenParts,
+  writingParts,
   type ZPart,
   zParts
 } from "../src/mascot/motion.ts"
@@ -99,8 +109,8 @@ const throughSvg = (transform: string, point: Point): Point => {
 }
 
 describe("Kotori's clips", () => {
-  it("start each mood's entrance from the drawing, so no part jumps as the mood changes, but reading's, which starts from the front view", () => {
-    for (const name of Object.values(entrances).filter((name) => name !== "startReading")) {
+  it("start each mood's entrance from the drawing, so no part jumps as the mood changes, but reading's, which starts from the front view, and writing's, which carries on from reading", () => {
+    for (const name of Object.values(entrances).filter((name) => name !== "startReading" && name !== "startWriting")) {
       for (const part of kotori) assert.deepStrictEqual(poseAt(name, part, 0), rest, `${name}: ${part}`)
     }
     // The sparkles come with the mood, so they start out of sight.
@@ -451,6 +461,20 @@ const pointsOf = (d: string) => {
   return Array.from({ length: n.length / 2 }, (_, i): Point => [n[2 * i] ?? 0, n[2 * i + 1] ?? 0])
 }
 
+/** That eye `i` of the ones Kotori reads with, moved `x`, `y` from where it's drawn, is inside its lens, clear of the rim. */
+const assertInGlasses = (i: 0 | 1, x: number, y: number, label: string) => {
+  const { glasses } = readingShapes
+  const eye = readingShapes.eyes[i]
+  const lens = glasses.lenses[i]
+  const far = Math.max(
+    ...Array.from({ length: 72 }, (_, k) => {
+      const a = (k * Math.PI) / 36
+      return Math.hypot(eye.cx + x + eye.rx * Math.cos(a) - lens.cx, eye.cy + y + eye.ry * Math.sin(a) - lens.cy)
+    })
+  )
+  assert.isBelow(far, lens.r - glasses.stroke / 2 - 0.5, label)
+}
+
 describe("reading", () => {
   const { duration } = clips.reading
   const every10ms = Array.from({ length: duration / 10 + 1 }, (_, i) => i * 10)
@@ -509,16 +533,7 @@ describe("reading", () => {
   it("keeps its eyes inside its glasses wherever they look, clear of the rims", () => {
     for (const t of every10ms) {
       const { x, y } = eyes(t)
-      for (const [i, eye] of readingShapes.eyes.entries()) {
-        const lens = glasses.lenses[i] ?? assert.fail(`no lens for eye ${i}`)
-        const far = Math.max(
-          ...Array.from({ length: 72 }, (_, k) => {
-            const a = (k * Math.PI) / 36
-            return Math.hypot(eye.cx + x + eye.rx * Math.cos(a) - lens.cx, eye.cy + y + eye.ry * Math.sin(a) - lens.cy)
-          })
-        )
-        assert.isBelow(far, lens.r - glasses.stroke / 2 - 0.5, `eye ${i} at ${t} ms`)
-      }
+      for (const i of [0, 1] as const) assertInGlasses(i, x, y, `eye ${i} at ${t} ms`)
     }
   })
 
@@ -654,9 +669,11 @@ describe("taking up a book to read", () => {
       assert.include(first, `cx="${eye.cx + frontShapes.catchlight.dx}" cy="${eye.cy + frontShapes.catchlight.dy}"`)
   })
 
-  it("ends on the drawing Kotori reads in, with the wings and eyes it had before gone, so the loop plays on from there", () => {
+  it("ends on the drawing Kotori reads in, with the wings and eyes it had before gone, no quill out and the book open, so the loop plays on from there", () => {
     for (const part of kotori) {
-      const expected = (before as readonly Part[]).includes(part) ? { ...rest, opacity: 0 } : rest
+      const expected = ([...before, ...writingParts, "bookBack"] as readonly Part[]).includes(part)
+        ? { ...rest, opacity: 0 }
+        : rest
       assert.deepStrictEqual(settled("reading", part), expected, part)
     }
     for (const part of landingParts) assert.strictEqual(settled("reading", part).opacity, 0, part)
@@ -1003,6 +1020,468 @@ describe("the book landing", () => {
   })
 })
 
+/** Points along a path of straight lines and cubic curves, close enough together to stand for its outline. */
+const traced = (d: string) => {
+  const tokens = d.match(/[MLCZ]|-?[\d.]+/g) ?? []
+  const points: Point[] = []
+  let at: Point = [0, 0]
+  for (let i = 0; i < tokens.length;) {
+    const command = tokens[i++]
+    if (command === "Z") continue
+    const count = command === "C" ? 6 : 2
+    const [x1 = 0, y1 = 0, x2 = 0, y2 = 0, x = x1, y = y1] = tokens.slice(i, (i += count)).map(Number)
+    if (command === "C") {
+      for (let k = 1; k <= 16; k++) {
+        const u = k / 16
+        const v = 1 - u
+        points.push([
+          v * v * v * at[0] + 3 * v * v * u * x1 + 3 * v * u * u * x2 + u * u * u * x,
+          v * v * v * at[1] + 3 * v * v * u * y1 + 3 * v * u * u * y2 + u * u * u * y
+        ])
+      }
+      at = [x, y]
+    } else {
+      at = [x1, y1]
+      points.push(at)
+    }
+  }
+  return points
+}
+
+describe("writing", () => {
+  const { words, quill, slip, reach } = writingShapes
+  /** The clips Kotori writes in: taking up its quill, and the loop. */
+  const writes = ["startWriting", "writing"] as const satisfies readonly ClipName[]
+  /** Where `part` is `t` ms into `clip`, as the app places it: the loop over the writing drawing, other clips on their own. */
+  const at = (clip: ClipName, part: Part, t: number) =>
+    clip === "writing" ? combine(settled("writing", part), poseAt(clip, part, t)) : poseAt(clip, part, t)
+  /** Where the quill's nib is. The quill moves with the wing that holds it, and turns about its nib, so the nib goes where the wing takes it. */
+  const nib = (clip: ClipName, t: number) =>
+    throughSvg(svgTransform(at(clip, "bookWing", t), "bookWing"), [joints.quill.x, joints.quill.y])
+  const times = (clip: ClipName, step = 10) =>
+    Array.from({ length: Math.floor(clips[clip].duration / step) + 1 }, (_, i) => i * step).concat(clips[clip].duration)
+  /** The words being written `t` ms into `clip`: begun, with a slip still over the rest of them. */
+  const inking = (clip: ClipName, t: number) =>
+    inkParts.filter((part) => {
+      const { x, y, scaleX, scaleY } = at(clip, unwrittenOf(part), t)
+      return at(clip, part, t).opacity > 0 && (x !== 0 || y !== 0 || scaleX !== 1 || scaleY !== 1)
+    })
+  /** Where the slip `part` covers `t` ms into `clip`: its left, right, top and bottom. */
+  const covered = (clip: ClipName, part: Part, t: number) => {
+    const pose = at(clip, part, t)
+    const [left, top] = [slip.x + pose.x, slip.y + pose.y]
+    return { left, right: left + slip.width * pose.scaleX, top, bottom: top + slip.height * pose.scaleY }
+  }
+
+  it("takes up its quill from reading, then writes on a loop, blinking now and then", () => {
+    assert.strictEqual(entrances.writing, "startWriting")
+    assert.strictEqual(loops.writing, "writing")
+    assert.strictEqual(idles.writing, "blink")
+    assert.deepStrictEqual(moveBetween("reading", "writing"), { from: "reading", to: "writing" })
+  })
+
+  it("writes an entry from its left to its right, as it reads: each word leftward on screen, a line at a time down the page, the headword first and boldest", () => {
+    const order = inkParts.map((part) => words[part])
+    for (const word of order) assert.isAbove(word.from, word.to)
+    for (const [i, word] of order.slice(1).entries()) {
+      const before = order[i] ?? assert.fail(`no word before ${i + 1}`)
+      if (word.y === before.y) assert.isBelow(word.from, before.to, "the next word on a line is further left")
+      else assert.isAbove(word.y, before.y, "the next line is below")
+    }
+    const [headword, ...rest] = order
+    for (const word of rest) assert.isAbove(headword?.stroke ?? 0, word.stroke)
+  })
+
+  it("writes one word at a time, the word coming out of the nib as the nib runs along it: the rest of it, left of the nib, under a slip", () => {
+    for (const clip of writes) {
+      const written = new Set<Part>()
+      for (const t of times(clip, 5)) {
+        const now = inking(clip, t)
+        assert.isAtMost(now.length, 1, `${clip} at ${t} ms`)
+        for (const part of now) {
+          written.add(part)
+          const word = words[part]
+          const { left, right, top, bottom } = covered(clip, unwrittenOf(part), t)
+          const [x, y] = nib(clip, t)
+          assert.isBelow(Math.hypot(x - right, y - word.y), 0.05, `${clip}: ${part} at ${t} ms`)
+          assert.isAtMost(left, word.to - word.stroke / 2, `${clip}: ${part} covered to its left end`)
+          assert.isAtMost(top, word.y - word.height * Math.max(...word.humps) - word.stroke / 2)
+          assert.isAtLeast(bottom, word.y + word.stroke / 2)
+          // The ink is whole: it doesn't stretch.
+          assert.deepStrictEqual(at(clip, part, t), rest, `${clip}: ${part} at ${t} ms`)
+        }
+      }
+      assert.sameMembers([...written], [...inkParts], `${clip} writes every word`)
+    }
+  })
+
+  it("lays each slip over nothing written: over the rest of its own word as Kotori writes it, and otherwise in the blank above the headword", () => {
+    const page = traced(readingShapes.book.pages[1])
+    const edges = traced(readingShapes.book.edges[1])
+    const corners = (box: { left: number; right: number; top: number; bottom: number }): Point[] => [
+      [box.left, box.top],
+      [box.right, box.top],
+      [box.left, box.bottom],
+      [box.right, box.bottom]
+    ]
+    // Hiding nothing, a slip lies on the fresh page, clear of its far edge and of the headword.
+    const resting = covered("writing", "unwritten0", 0)
+    for (const point of corners(resting)) assert.isTrue(inside(point, page))
+    for (const [x, y] of edges) if (x >= resting.left && x <= resting.right) assert.isBelow(y + 1.1, resting.top)
+    assert.isBelow(resting.bottom, words.ink0.y - reach.ink0.above + 0.3)
+    for (const clip of writes) {
+      for (const t of times(clip, 5)) {
+        for (const [i, part] of unwrittenParts.entries()) {
+          const box = covered(clip, part, t)
+          for (const other of inkParts.filter((other, j) => j !== i && at(clip, other, t).opacity > 0)) {
+            const word = words[other]
+            const apart =
+              box.right <= word.to - word.stroke / 2 ||
+              box.left >= word.from + word.stroke / 2 ||
+              box.bottom <= word.y - word.height * Math.max(...word.humps) - word.stroke / 2 ||
+              box.top >= word.y + word.stroke / 2
+            assert.isTrue(apart, `${clip}: ${part} over ${other} at ${t} ms`)
+          }
+        }
+      }
+    }
+  })
+
+  it("writes in the dictionary's print", () => {
+    const still = mascotSvg({ mood: "writing" })
+    assert.include(still, `stroke="${palette.print}" stroke-width="${words.ink0.stroke}"`)
+    assert.include(still, `stroke="${palette.print}" stroke-width="2.4"`)
+  })
+
+  it("writes on the fresh page, clear of its edges", () => {
+    const page = traced(readingShapes.book.pages[1])
+    for (const stroke of inkParts.map((part) => words[part])) {
+      for (const point of outline(stroke.d)) {
+        assert.isTrue(inside(point, page), stroke.d)
+        const edge = Math.min(...page.map(([x, y]) => Math.hypot(x - point[0], y - point[1])))
+        assert.isAbove(edge, stroke.stroke / 2 + 0.5, stroke.d)
+      }
+    }
+  })
+
+  it("keeps its eyes on the nib as it writes: right of the middle of its glasses, as the nib is right of the spine, and the further right the further out the nib is", () => {
+    for (const clip of writes) {
+      const looks = times(clip)
+        .filter((t) => inking(clip, t).length > 0)
+        .map((t) => ({ eyes: at(clip, "eyes", t).x, nib: nib(clip, t)[0] }))
+      assert.isNotEmpty(looks)
+      for (const look of looks) assert.isAbove(look.eyes, 0, `${clip}: nib at ${look.nib}`)
+      for (const a of looks) for (const b of looks) if (a.nib > b.nib + 2) assert.isAtLeast(a.eyes, b.eyes, clip)
+    }
+  })
+
+  it("keeps its eyes inside its glasses wherever they look, clear of the rims", () => {
+    for (const clip of [...writes, "finishWriting"] as const) {
+      for (const t of times(clip)) {
+        const { x, y } = at(clip, "eyes", t)
+        for (const i of [0, 1] as const) assertInGlasses(i, x, y, `${clip}: eye ${i} at ${t} ms`)
+      }
+    }
+  })
+
+  it("turns the page over to a fresh one as it turns pages reading, the page showing its blank back once it's past upright", () => {
+    for (const clip of writes) {
+      for (const t of times(clip)) {
+        const page = at(clip, "page", t)
+        const leaf = at(clip, "leaf", t)
+        assert.deepStrictEqual(
+          [leaf.scaleX, leaf.scaleY, leaf.y],
+          [page.scaleX, page.scaleY, page.y],
+          `${clip} at ${t} ms`
+        )
+        if (page.scaleX > 0) assert.strictEqual(page.opacity, 1, `${clip} at ${t} ms`)
+        if (page.scaleX < 0) assert.strictEqual(page.opacity, 0, `${clip} at ${t} ms`)
+      }
+      assert.isTrue(
+        times(clip).some((t) => at(clip, "page", t).scaleX === -1),
+        `${clip} turns a page`
+      )
+    }
+    // The page Kotori turns writing is the one it turns reading, back and front.
+    const still = mascotSvg({ mood: "writing" })
+    assert.include(still, readingShapes.book.print[0])
+  })
+
+  it("lets the words on the page go only under the page's blank back, once it has landed over them", () => {
+    let gone = 0
+    for (const t of times("writing", 1)) {
+      for (const part of inkParts) {
+        if (at("writing", part, t - 1).opacity > 0 && at("writing", part, t).opacity === 0) {
+          gone++
+          const leaf = at("writing", "leaf", t - 1)
+          assert.deepStrictEqual([leaf.scaleX, leaf.scaleY, leaf.y], [-1, 1, 0], `${part} at ${t} ms`)
+        }
+      }
+    }
+    assert.strictEqual(gone, inkParts.length)
+  })
+
+  it("holds the quill in the tip of the wing that rests on the book, the nib below it on the page and the feather past its edge", () => {
+    const a = (quill.angle * Math.PI) / 180
+    const along = (s: number): Point => [quill.nib.x + s * Math.cos(a), quill.nib.y - s * Math.sin(a)]
+    const wing = outline(readingShapes.wings[1])
+    assert.isTrue(inside(along(24), wing), "held in the wing's tip")
+    assert.isFalse(inside(along(0), wing), "the nib below it")
+    assert.isTrue(inside(along(0), traced(readingShapes.book.pages[1])), "on the page")
+    assert.isFalse(inside(along(quill.length), wing), "the feather past its edge")
+  })
+
+  it("keeps the quill, the wing that holds it, and the page it turns inside the box", () => {
+    const quillPoints = [quill.vane, quill.barrel, quill.point].flatMap(pointsOf)
+    const moving = [
+      ["bookWing", pointsOf(readingShapes.wings[1])],
+      ["page", pointsOf(readingShapes.book.pages[0])],
+      ["leaf", pointsOf(readingShapes.book.pages[0])]
+    ] as const
+    for (const clip of [...writes, "finishWriting"] as const) {
+      for (const t of times(clip, 20)) {
+        const wing = svgTransform(at(clip, "bookWing", t), "bookWing")
+        const held = svgTransform(at(clip, "quill", t), "quill")
+        const placed = [
+          ...quillPoints.map((point) => throughSvg(wing, throughSvg(held, point))),
+          ...moving.flatMap(([part, points]) =>
+            points.map((point) => throughSvg(svgTransform(at(clip, part, t), part), point))
+          )
+        ]
+        for (const [x, y] of placed) {
+          assert.isAtLeast(Math.min(x, y), 0, `${clip} at ${t} ms`)
+          assert.isAtMost(Math.max(x, y), 200, `${clip} at ${t} ms`)
+        }
+      }
+    }
+    assert.strictEqual(headroom("writing"), 0)
+  })
+
+  it("stretches the wing that writes only a little, raising its shoulder to reach the lines higher up", () => {
+    for (const clip of writes) {
+      const begun = Math.min(...times(clip, 5).filter((t) => inking(clip, t).length > 0))
+      for (const t of times(clip, 5).filter((t) => t >= begun)) {
+        const { scaleX, scaleY } = at(clip, "bookWing", t)
+        assert.strictEqual(scaleX, scaleY, `${clip} at ${t} ms`)
+        assert.isAtLeast(scaleX, 0.88, `${clip} at ${t} ms`)
+        assert.isAtMost(scaleX, 1.12, `${clip} at ${t} ms`)
+      }
+      const writingOf = (part: InkPart) => times(clip, 5).filter((t) => inking(clip, t).includes(part))
+      const shoulder = (part: InkPart) => Math.max(...writingOf(part).map((t) => at(clip, "bookWing", t).y))
+      assert.isBelow(shoulder("ink0"), shoulder("ink5"), `${clip}: higher for the headword than the last line`)
+    }
+  })
+
+  it("sways the quill about its nib as the nib runs along a word, and holds it still between words", () => {
+    for (const clip of writes) {
+      const swaying = times(clip, 5).filter((t) => at(clip, "quill", t).rotate !== 0)
+      assert.isNotEmpty(swaying)
+      for (const t of swaying) {
+        assert.lengthOf(inking(clip, t), 1, `${clip} at ${t} ms`)
+        assert.isAtMost(Math.abs(at(clip, "quill", t).rotate), 3, `${clip} at ${t} ms`)
+      }
+    }
+  })
+})
+
+describe("taking up the quill", () => {
+  const { duration } = clips.startWriting
+  const every10ms = Array.from({ length: Math.floor(duration / 10) + 1 }, (_, i) => i * 10)
+  const at = (part: Part, t: number) => poseAt("startWriting", part, t)
+
+  it("starts from the drawing Kotori reads in, so it carries on from reading without a jump", () => {
+    for (const part of parts) assert.deepStrictEqual(at(part, 0), settled("reading", part), part)
+    assert.strictEqual(frameSvg("startWriting", "writing", 0), frameSvg("reading", "reading", 0))
+  })
+
+  it("has no quill out, and nothing written, while Kotori only reads", () => {
+    for (const part of writingParts) assert.strictEqual(settled("reading", part).opacity, 0, part)
+    for (const name of ["startReading", "reading"] as const) {
+      for (const t of [0, clips[name].duration / 2, clips[name].duration]) {
+        const frame = frameSvg(name, "reading", t)
+        assert.notInclude(frame, writingShapes.quill.vane, `${name} at ${t} ms`)
+        assert.notInclude(frame, writingShapes.words.ink0.d, `${name} at ${t} ms`)
+      }
+    }
+  })
+
+  it("turns to a fresh page before it writes: the blank page shows once the page's blank back has landed over the right one, and the first word comes after", () => {
+    const fresh = every10ms.find((t) => at("freshPage", t).opacity > 0) ?? assert.fail("no fresh page")
+    assert.strictEqual(at("leaf", fresh - 10).scaleX, -1, "the page's back has landed on the right")
+    assert.strictEqual(at("freshPage", duration).opacity, 1)
+    const first = every10ms.find((t) => at("ink0", t).opacity > 0) ?? assert.fail("nothing written")
+    assert.isAbove(first, fresh)
+  })
+
+  it("goes round behind Kotori for its quill, the wing that rests on the book giving way to the folded one as it would before Kotori reads, and comes back with the quill", () => {
+    for (const t of every10ms)
+      assert.strictEqual(at("foldedWing1", t).opacity + at("bookWing", t).opacity, 1, `${t} ms`)
+    const behind = every10ms.find((t) => at("foldedWing1", t).opacity === 1) ?? assert.fail("never goes behind")
+    const back = every10ms.find((t) => t > behind && at("bookWing", t).opacity === 1) ?? assert.fail("never comes back")
+    // Tucked in at its side, just as it comes round before Kotori reads, where it looks like the folded one.
+    const swap = every10ms.find((t) => poseAt("startReading", "bookWing", t).opacity === 1) ?? assert.fail("no swap")
+    const { rotate, scaleX, scaleY } = poseAt("startReading", "bookWing", swap)
+    for (const t of [behind, back]) {
+      const wing = at("bookWing", t)
+      assert.deepStrictEqual([wing.rotate, wing.scaleX, wing.scaleY], [rotate, scaleX, scaleY], `${t} ms`)
+    }
+    for (const t of every10ms.filter((t) => t < back)) assert.strictEqual(at("quill", t).opacity, 0, `${t} ms`)
+    assert.strictEqual(at("quill", back + 100).opacity, 1)
+  })
+
+  it("ends on the writing drawing, the entry written and the nib at rest where it ends, so the loop plays on from there", () => {
+    assert.strictEqual(
+      frameSvg("startWriting", "writing", duration),
+      frameSvg("writing", "writing", 0),
+      "the entrance's last frame is the loop's first"
+    )
+    for (const part of [...inkParts, ...unwrittenParts, "freshPage", "leaf", "quill"] as const)
+      assert.deepStrictEqual(settled("writing", part), rest, part)
+    assert.strictEqual(settled("writing", "bookBack").opacity, 0)
+    const nib = throughSvg(svgTransform(settled("writing", "bookWing"), "bookWing"), [joints.quill.x, joints.quill.y])
+    near(
+      [Math.round(nib[0] * 100) / 100, Math.round(nib[1] * 100) / 100],
+      [writingShapes.words.ink5.to, writingShapes.words.ink5.y]
+    )
+  })
+})
+
+describe("finishing writing", () => {
+  const { duration } = clips.finishWriting
+  const every10ms = Array.from({ length: Math.floor(duration / 10) + 1 }, (_, i) => i * 10)
+  const at = (part: Part, t: number) => poseAt("finishWriting", part, t)
+
+  it("starts from the writing drawing, and is how Kotori leaves writing to celebrate", () => {
+    for (const part of parts) assert.deepStrictEqual(at(part, 0), settled("writing", part), part)
+    assert.deepStrictEqual(moveBetween("writing", "celebrate"), {
+      from: "writing",
+      to: "celebrate",
+      clip: "finishWriting"
+    })
+  })
+
+  it("puts the quill away behind it, the wing that held it giving way to the folded one", () => {
+    for (const t of every10ms)
+      assert.strictEqual(at("foldedWing1", t).opacity + at("bookWing", t).opacity, 1, `${t} ms`)
+    const behind = every10ms.find((t) => at("foldedWing1", t).opacity === 1) ?? assert.fail("never goes behind")
+    assert.strictEqual(at("quill", behind).opacity, 0)
+    // Tucked in at its side, as it comes round before Kotori reads, where it looks like the folded one.
+    const swap = every10ms.find((t) => poseAt("startReading", "bookWing", t).opacity === 1) ?? assert.fail("no swap")
+    const tucked = poseAt("startReading", "bookWing", swap)
+    const wing = at("bookWing", behind)
+    assert.deepStrictEqual([wing.rotate, wing.scaleX, wing.scaleY], [tucked.rotate, tucked.scaleX, tucked.scaleY])
+  })
+
+  it("closes the book over what it has written: the left half turns over the spine, showing its back past upright, and lands on the right", () => {
+    for (const t of every10ms) {
+      const left = at("bookLeft", t)
+      const back = at("bookBack", t)
+      assert.deepStrictEqual([back.scaleX, back.scaleY, back.y], [left.scaleX, left.scaleY, left.y], `${t} ms`)
+      if (left.scaleX > 0) assert.deepStrictEqual([left.opacity, back.opacity], [1, 0], `${t} ms`)
+      if (left.scaleX < 0) assert.deepStrictEqual([left.opacity, back.opacity], [0, 1], `${t} ms`)
+    }
+    // The page Kotori turns, and the leaf under it, lie on the left half, so they go as it starts to close.
+    const closing = every10ms.find((t) => at("bookLeft", t).scaleX < 1) ?? assert.fail("never closes")
+    for (const part of ["page", "leaf"] as const) assert.strictEqual(at(part, closing).opacity, 0, part)
+    assert.deepStrictEqual(
+      [at("bookBack", duration).scaleX, at("bookBack", duration).opacity],
+      [-1, 1],
+      "closed as it ends"
+    )
+    // The halves are each other mirrored, so closed, the back lies exactly over the right one.
+    const { book } = readingShapes
+    const mirrored = (d: string) => pointsOf(d).map(([x, y]): Point => [200 - x, y])
+    for (const half of [book.pages, book.stacks, book.coverTop, book.stackLines] as const) {
+      const right = pointsOf(half[1])
+      assert.lengthOf(right, pointsOf(half[0]).length)
+      for (const [i, point] of mirrored(half[0]).entries()) near(point, right[i] ?? assert.fail(half[1]))
+    }
+  })
+
+  it("slides the book to the middle as it shuts, in front of Kotori, the end of its spine turned on its side against the pages", () => {
+    const landed = every10ms.find((t) => at("bookBack", t).scaleX === -1) ?? assert.fail("never closes")
+    const { closed, coverEdge, spine } = readingShapes.book
+    const shut = at("bookBack", duration)
+    // Shut, the book is drawn where the right half lay, and has slid over from there.
+    const xs = [closed.cover, closed.pages, closed.spine, coverEdge[1]].flatMap((d) => pointsOf(d).map(([x]) => x))
+    const middle = (Math.min(...xs) + Math.max(...xs)) / 2 + shut.x
+    assert.closeTo(middle, 100, 2, "in the middle of the box, as Kotori is")
+    for (const part of ["bookLeft", "book", "spine"] as const)
+      assert.closeTo(at(part, landed).x - shut.x, part === "spine" ? 10 : 0, 0.01, part)
+    // The open right half, and all Kotori wrote on it, are gone under the cover.
+    for (const part of ["book", "freshPage", ...inkParts] as const)
+      assert.strictEqual(at(part, landed).opacity, 0, part)
+    // The spine's end stands on its side, its round back outward, against the left of the pages' edges.
+    const end = at("spine", duration)
+    assert.strictEqual(end.rotate, -90)
+    const turned = pointsOf(spine).map((point) => throughSvg(svgTransform(end, "spine"), point))
+    const left = Math.min(...pointsOf(closed.pages).map(([x]) => x)) + shut.x
+    assert.isBelow(Math.min(...turned.map(([x]) => x)), left, "sticks out past the pages")
+    assert.isAbove(Math.max(...turned.map(([x]) => x)), left, "against them")
+  })
+
+  it("puffs dust out from under the book to each side as it shuts, and throws up sparks, all gone before it ends", () => {
+    const landed = every10ms.find((t) => at("bookBack", t).scaleX === -1) ?? assert.fail("never closes")
+    for (const part of landingParts) {
+      for (const t of every10ms.filter((t) => t < landed))
+        assert.strictEqual(at(part, t).opacity, 0, `${part} at ${t} ms`)
+      assert.isTrue(
+        every10ms.some((t) => at(part, t).opacity > 0),
+        `${part} shows`
+      )
+      assert.strictEqual(at(part, duration).opacity, 0, `${part} gone`)
+    }
+    for (const part of puffParts) assert.strictEqual(at(part, landed).opacity, 1, part)
+    const [left, right] = puffParts.map((part) => at(part, landed + 300).x)
+    assert.isBelow(left ?? assert.fail(), -40)
+    assert.isAbove(right ?? assert.fail(), 40)
+  })
+
+  it("takes its glasses off once the book is closed, blinking, and opens the eyes it looks with, both wings at its sides as it ends", () => {
+    const landed = every10ms.find((t) => at("bookBack", t).scaleX === -1) ?? assert.fail("never closes")
+    const moved = every10ms.find((t) => at("glasses", t).x !== 0 || at("glasses", t).y !== 0) ?? assert.fail()
+    assert.isAbove(moved, landed)
+    assert.strictEqual(at("glasses", duration).opacity, 0)
+    // It shuts its eyes as the glasses come off: the open ones gone and the shut ones, placed with them, showing.
+    const shut = every10ms.filter((t) => at("eyes", t).opacity === 0 && at("eyes", t).scaleX === 1)
+    assert.isAtLeast(shut.length * 10, 100, "a blink, not a flicker")
+    const opened = every10ms.find((t) => at("lookingEyes", t).opacity === 1) ?? assert.fail("never opens its eyes")
+    assert.isAbove(opened, Math.max(...shut))
+    for (const t of every10ms.filter((t) => t >= opened))
+      assert.deepStrictEqual([at("eyes", t).scaleX, at("eyes", t).scaleY], [0, 0], `${t} ms`)
+    for (const part of ["foldedWing0", "foldedWing1", "lookingEyes"] as const)
+      assert.strictEqual(at(part, duration).opacity, 1, part)
+    for (const part of ["pageWing", "bookWing", "glasses"] as const)
+      assert.strictEqual(at(part, duration).opacity, 0, part)
+    assert.deepStrictEqual(
+      [at("cheeks", duration).y, at("cheeks", duration).scaleX, at("cheeks", duration).scaleY],
+      [-0.5, 1.06, 1.15],
+      "the cheeks as they are without glasses"
+    )
+    assert.isAtLeast(duration - opened, 300, "holds it a moment")
+  })
+})
+
+describe("Kotori's moves", () => {
+  it("lists each change of mood it plays out once, each starting from the drawing of the mood it leaves", () => {
+    const listed = new Set(moves.map((move) => `${move.from} to ${move.to}`))
+    assert.strictEqual(listed.size, moves.length)
+    for (const move of moves) {
+      // The move's own clip, or else the next mood's entrance, which carries on from there.
+      const next = move.clip ?? entrances[move.to] ?? assert.fail(`nothing to play from ${move.from} to ${move.to}`)
+      for (const part of parts)
+        assert.deepStrictEqual(poseAt(next, part, 0), settled(move.from, part), `${next}: ${part}`)
+      assert.strictEqual(moveBetween(move.from, move.to), move)
+    }
+    assert.isUndefined(moveBetween("writing", "reading"))
+  })
+
+  it("keeps a move's clip apart from the moods' own clips: it's no entrance, loop or idle", () => {
+    const own = [...Object.values(entrances), ...Object.values(loops), ...Object.values(idles)]
+    for (const move of moves) if (move.clip !== undefined) assert.notInclude(own, move.clip)
+  })
+})
+
 describe("a pose", () => {
   const stretched: Pose = { x: 3, y: -4, rotate: -90, scaleX: 2, scaleY: 0.5, opacity: 1 }
   const skewed: Pose = { x: -7.5, y: 12.25, rotate: 37, scaleX: 0.8, scaleY: 1.35, opacity: 1 }
@@ -1062,8 +1541,9 @@ describe("a pose", () => {
 })
 
 describe("Kotori's views and facing", () => {
-  it("uses the side view by default for all moods except thinking and reading, and switches view or mirrors with facing", () => {
-    assert.sameMembers([...frontMoods], ["thinking", "reading"])
+  it("uses the side view by default for all moods except thinking, reading and writing, and switches view or mirrors with facing", () => {
+    assert.sameMembers([...frontMoods], ["thinking", "reading", "writing"])
+    assert.sameMembers([...bookMoods], ["reading", "writing"])
     for (const mood of ["neutral", "happy", "sleepy", "celebrate", "oops"] as const) {
       const left = mascotSvg({ mood })
       assert.include(left, shapes.body, mood)
@@ -1074,13 +1554,14 @@ describe("Kotori's views and facing", () => {
       assert.include(right, shapes.body, mood)
       assert.include(right, 'transform="translate(200 0) scale(-1 1)"', mood)
     }
-    for (const mood of ["neutral", "oops", "thinking", "reading"] as const) {
+    for (const mood of ["neutral", "oops", "thinking", "reading", "writing"] as const) {
       const front = mascotSvg({ mood, facing: "front" })
       assert.include(front, frontShapes.body, mood)
       assert.notInclude(front, shapes.body, mood)
     }
     assert.include(mascotSvg({ mood: "thinking" }), frontShapes.body)
     assert.include(mascotSvg({ mood: "reading" }), frontShapes.body)
+    assert.include(mascotSvg({ mood: "writing" }), frontShapes.body)
   })
 
   it("draws Kotori reading in glasses over the open book, with its own beak, and its wings over the book in place of the ones at its sides", () => {
@@ -1090,7 +1571,7 @@ describe("Kotori's views and facing", () => {
       glasses.bridge,
       frontShapes.beak,
       ...readingShapes.wings,
-      book.coverEdge,
+      ...book.coverEdge,
       book.spine,
       ...book.pages
     ])
