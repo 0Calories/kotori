@@ -291,6 +291,7 @@ layer(TestLayer)("EnglishDictionary.importFiles with a note on a word the source
         { entryId: walk, notes: 1 }
       ])
       assert.include(error.message, "en:walk (1 note)")
+      assert.include(error.message, "Nothing was written")
 
       // Nothing was written: the word and its note are still there, and the new word is not.
       const dictionary = yield* Dictionary

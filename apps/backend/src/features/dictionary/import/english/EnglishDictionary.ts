@@ -6,7 +6,6 @@ import { createInterface } from "node:readline"
 import { createGunzip } from "node:zlib"
 import { Database } from "../../../../db/Database.ts"
 import { resolveFromRoot } from "../../../../runtime/Paths.ts"
-import { noteCountsOn } from "../../../notebook/queries.ts"
 import { externalEntryIds, insertEntries, linkLoans, saveTags } from "../../queries.ts"
 import { entrySplitter } from "../jmdict/parse.ts"
 import type { ImportEntry } from "../seedFacts.ts"
@@ -14,7 +13,7 @@ import { mergeSources, type Tier, toEntries } from "./build.ts"
 import { parseFrequency } from "./frequency.ts"
 import { jmdictReader, type KnownEnglish } from "./jmdict.ts"
 import { parseSubtitles, SUBTITLES_URL } from "./subtitles.ts"
-import { refuseNoted, removeStale, successorsOf } from "./staleEntries.ts"
+import { refuseBeforeWriting, removeStale, successorsOf } from "./staleEntries.ts"
 import { ENGLISH_TAGS } from "./tags.ts"
 import { curatedParser, parsePhraseIndex, WIKTIONARY_URL, wiktionaryParser } from "./wiktionary.ts"
 import { addRedirect, type FormOf, type Word } from "./words.ts"
@@ -204,6 +203,12 @@ const build = Effect.fnUntraced(function* (options: ImportOptions) {
 /**
  * Builds the English dictionary from its sources and loads it alongside JMDict. Re-importing
  * updates words in place, keeping their ids, so enrichment and saved words survive.
+ *
+ * A complete import then deletes the words its sources no longer have, moving their notes to
+ * the word each now is (`successorsOf`). It refuses with `NotedEntriesWouldBeDeleted` rather
+ * than delete a word a note is still saved on: before writing anything, or, for a note saved
+ * while it wrote, after its words are written and only the deletion is refused. The words are
+ * written in batches of their own transactions, not one: see `removeStale`.
  */
 export const importFiles = Effect.fn("EnglishDictionary.importFiles")(function* (options: ImportOptions) {
   const db = yield* Database
@@ -217,7 +222,7 @@ export const importFiles = Effect.fn("EnglishDictionary.importFiles")(function* 
   // A word that is now another's spelling ("Spartan" of "spartan") takes its notes there; a
   // note on any other word going stops the import before anything is written.
   const successors = successorsOf(entries, stale)
-  yield* refuseNoted(yield* noteCountsOn(db, stale), successors)
+  yield* refuseBeforeWriting(db, stale, successors)
 
   yield* saveTags(db, ENGLISH_TAGS)
   const batchSize = options.batchSize ?? 500

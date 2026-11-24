@@ -2,12 +2,12 @@ import { assert, layer } from "@effect/vitest"
 import { EntryId, NoteId } from "@kotori/contracts"
 import { PgliteClient } from "@effect/sql-pglite"
 import * as PgliteDrizzle from "drizzle-orm/effect-pglite"
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Option } from "effect"
 import { Database } from "../../src/db/Database.ts"
 import { relations } from "../../src/db/relations.ts"
 import { scopedToUser } from "../../src/db/scopedToUser.ts"
 import { ensureUser } from "../../src/features/accounts/queries.ts"
-import { removeStale } from "../../src/features/dictionary/import/english/staleEntries.ts"
+import { NotedEntriesWouldBeDeleted, removeStale } from "../../src/features/dictionary/import/english/staleEntries.ts"
 import { insertEntries } from "../../src/features/dictionary/queries.ts"
 import { allNotes, insertNote } from "../../src/features/notebook/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
@@ -71,6 +71,23 @@ layer(LoggedDatabase)("removeStale", (it) => {
         (yield* allNotes(scopedToUser(db, U1))).map((note) => note.entryId),
         [EntryId.make("en:spartan")]
       )
+    })
+  )
+
+  it.effect("refuses a deletion a note was saved in the way of, saying the import's words were written", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      yield* insertEntries(db, [word("run")])
+      yield* insertNote(scopedToUser(db, U1), {
+        id: NoteId.make("00000000-0000-4000-8000-0000000000e2"),
+        entryId: EntryId.make("en:run")
+      })
+      const error = yield* Effect.flip(removeStale(db, [EntryId.make("en:run")], new Map()))
+      assert.instanceOf(error, NotedEntriesWouldBeDeleted)
+      assert.strictEqual(error.stage, "after-writing")
+      assert.include(error.message, "en:run (1 note)")
+      assert.include(error.message, "The import's words were written; the words it no longer has were kept")
+      assert.isTrue(Option.isSome(Option.fromNullishOr((yield* allNotes(scopedToUser(db, U1)))[0])))
     })
   )
 })
