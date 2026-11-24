@@ -29,6 +29,7 @@ export const noteCountsOn = Effect.fn("notebook.noteCountsOn")(function* (
  */
 export const moveNotes = Effect.fn("notebook.moveNotes")(function* (db: DatabaseShape, from: EntryId, to: EntryId) {
   const savedOnTo = db.select({ userId: notes.userId }).from(notes).where(eq(notes.entryId, to))
+  // (userId, entryId) is unique, so a learner's second note on the same word can't move; it goes, the word stays saved.
   const dropped = yield* db
     .delete(notes)
     .where(and(eq(notes.entryId, from), inArray(notes.userId, savedOnTo)))

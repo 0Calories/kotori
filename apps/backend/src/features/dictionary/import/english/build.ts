@@ -2,7 +2,7 @@ import { type FormRecord, type SenseRecord } from "@kotori/contracts"
 import { englishEntryId, type Source } from "@kotori/db"
 import { type EnglishInflection, normalizeGloss, normalizeJapaneseGloss } from "@kotori/language"
 import type { ImportEntry } from "../seedFacts.ts"
-import type { FormOf, InflectedForm, References, Word } from "./words.ts"
+import { addTo, type FormOf, type InflectedForm, type Naming, type References, type Word } from "./words.ts"
 
 /** How many of the most used words count as common, as JMDict's markers make about a tenth of its words common. */
 const COMMON_WORDS = 10_000
@@ -36,9 +36,7 @@ interface Built {
   readonly inflections: Map<string, Set<EnglishInflection>>
   readonly senses: Word["senses"]
   readonly references: ReadonlyArray<References>
-  readonly mayBeName: boolean
-  /** Only ever a name (`Word.name`): ranked last, whatever the subtitles count. */
-  readonly name: boolean
+  readonly naming: Naming
   readonly frequency?: number | undefined
   readonly source: Source
 }
@@ -51,17 +49,13 @@ const built = (word: Word, tier: Tier): Built => ({
   inflections: new Map(word.inflections.map((form) => [form.text, new Set(form.tags)])),
   senses: word.senses,
   references: word.references ?? [],
-  mayBeName: word.mayBeName ?? false,
-  name: word.name ?? false,
+  naming: word.naming ?? "word",
   frequency: word.frequency,
   source: word.source ?? SOURCE[tier]
 })
 
 const addInflection = (word: Built, form: InflectedForm) => {
-  if (form.text === word.headword) return
-  const tags = word.inflections.get(form.text) ?? new Set<EnglishInflection>()
-  for (const tag of form.tags) tags.add(tag)
-  word.inflections.set(form.text, tags)
+  if (form.text !== word.headword) addTo(word.inflections, form.text, ...form.tags)
 }
 
 export interface Sources {
@@ -80,7 +74,8 @@ const isTransliteration = (gloss: string) => /^[゠-ヿ]+$/u.test(gloss)
 /** Whether a source files the word as a proper noun, as Wiktionary does its names. */
 const isProperNoun = (word: Built) => word.senses.some((sense) => sense.pos.includes("n-pr"))
 
-const glossesOf = (word: Built) => new Set(word.senses.flatMap((sense) => [...meanings(sense)]))
+/** Every Japanese gloss of a word, as looked up. */
+const allMeanings = (word: Built) => new Set(word.senses.flatMap((sense) => [...meanings(sense)]))
 
 /** Whether every sense of `word` shares a Japanese gloss with `glosses`: it has no meaning they lack. */
 const allSensesIn = (word: Built, glosses: ReadonlySet<string>) =>
@@ -94,7 +89,7 @@ const allSensesIn = (word: Built, glosses: ReadonlySet<string>) =>
  * "diet" each have a meaning their twin lacks (Registered Nurse, 院, food).
  */
 const sameWord = (a: Built, b: Built) => {
-  const [ownA, ownB] = [glossesOf(a), glossesOf(b)]
+  const [ownA, ownB] = [allMeanings(a), allMeanings(b)]
   const [fewer, more] = ownA.size <= ownB.size ? [ownA, ownB] : [ownB, ownA]
   const shared = [...fewer]
   return (
@@ -119,8 +114,9 @@ const mergeTwins = (words: Map<string, Built>) => {
     const twin = words.get(word.headword.toLowerCase())
     if (twin === undefined || twin === word) continue
     if (!sameWord(word, twin)) continue
-    const own = glossesOf(word)
-    const theirs = glossesOf(twin)
+    const own = allMeanings(word)
+    const theirs = allMeanings(twin)
+    // The twin with more meanings leads, so the other's are all on the kept entry (Mediterranean, Messiah).
     const leads = own.size > theirs.size || (own.size === theirs.size && isProperNoun(word) && !isProperNoun(twin))
     const [kept, gone] = leads ? [word, twin] : [twin, word]
     words.delete(gone.headword)
@@ -208,9 +204,9 @@ const placeReferences = (words: ReadonlyArray<Built>) => {
     const folded = word.headword.toLowerCase()
     if (!byHeadword.has(folded)) byHeadword.set(folded, word)
   }
-  const glossesOf = (headword: string) => {
+  const meaningsOfHeadword = (headword: string) => {
     const word = byHeadword.get(headword) ?? byHeadword.get(headword.toLowerCase())
-    return new Set(word?.senses.flatMap((sense) => [...meanings(sense)]) ?? [])
+    return word === undefined ? new Set<string>() : allMeanings(word)
   }
 
   return (word: Built): Built["senses"] => {
@@ -223,7 +219,7 @@ const placeReferences = (words: ReadonlyArray<Built>) => {
       const place = (other: string, into: Array<Array<string>>, byMeaning: boolean) => {
         let best = to - from === 1 ? from : -1
         if (byMeaning && best === -1) {
-          const theirs = glossesOf(other)
+          const theirs = meaningsOfHeadword(other)
           const theirPairs = bigrams(theirs)
           const scores = [...Array(to - from).keys()].map(
             (offset) => 10 * overlap(own[from + offset]!, theirs) + overlap(ownPairs[from + offset]!, theirPairs)
@@ -297,26 +293,25 @@ const isAcronym = (headword: string) =>
  * counts beside the letter "i". A name never counts, even alone.
  */
 const countedTwins = (words: ReadonlyArray<Built>): ReadonlySet<Built> => {
-  const groups = new Map<string, Array<Built>>()
-  for (const word of words) {
-    const key = word.headword.toLowerCase()
-    groups.set(key, [...(groups.get(key) ?? []), word])
-  }
-  const order = (word: Built) => [
-    word.name ? 1 : 0,
+  const groups = new Map<string, Set<Built>>()
+  for (const word of words) addTo(groups, word.headword.toLowerCase(), word)
+  // What decides which twin's the count is, most telling first; lower takes it.
+  const countClaim = (word: Built) => [
+    word.naming === "name" ? 1 : 0,
     isAcronym(word.headword) ? 1 : 0,
     TIER_ORDER[word.tier],
     word.headword === word.headword.toLowerCase() ? 0 : 1
   ]
-  const before = (a: Built, b: Built) => {
-    const [x, y] = [order(a), order(b)]
+  const byCountClaim = (a: Built, b: Built) => {
+    const [x, y] = [countClaim(a), countClaim(b)]
     const index = x.findIndex((value, i) => value !== y[i])
     return index === -1 ? 0 : x[index]! - y[index]!
   }
   const counted = new Set<Built>()
-  for (const group of groups.values()) {
-    const [first] = group.toSorted(before)
-    if (first !== undefined && !first.name) counted.add(first)
+  for (const members of groups.values()) {
+    const group = [...members]
+    const [first] = group.toSorted(byCountClaim)
+    if (first !== undefined && first.naming !== "name") counted.add(first)
     for (const word of group)
       if (pronoun(word) && !group.some((other) => other !== word && pronoun(other))) counted.add(word)
   }
@@ -399,7 +394,7 @@ export const toEntries = (
   const sensesOf = placeReferences(words)
   let commonSoFar = 0
   return ranked.map(({ word, count, rawCount, score }) => {
-    const common = !word.mayBeName && (rawCount > 0 || count >= 2_500) && count > 0 && commonSoFar < COMMON_WORDS
+    const common = word.naming === "word" && (rawCount > 0 || count >= 2_500) && count > 0 && commonSoFar < COMMON_WORDS
     if (common) commonSoFar++
     const spellings = [...word.spellings].filter((spelling) => !word.inflections.has(spelling))
     const placedSenses = sensesOf(word)

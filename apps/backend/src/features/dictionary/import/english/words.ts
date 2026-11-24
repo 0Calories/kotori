@@ -38,16 +38,26 @@ export interface Word {
   readonly source?: Source | undefined
   /** Kotori's cautions on an approved Ask Kotori word, written once the word has its id. */
   readonly cautions?: ReadonlyArray<DraftCaution> | undefined
-  /**
-   * The subtitles may count a name spelled the same way ("kim", "erica"), so the count
-   * can't say the word is common.
-   */
-  readonly mayBeName?: boolean
-  /**
-   * JMDict names it only as a name: a company, product, work, character… ("Toyota"). The
-   * subtitles' count of the lowercase text is not its use, so it ranks last.
-   */
-  readonly name?: boolean
+  /** How far the subtitles' count of its text is its own use (`Naming`); a word's when absent. */
+  readonly naming?: Naming
+}
+
+/**
+ * Whether a word is a name, which decides what the subtitles' count of its lowercased text says:
+ * - `name`: JMDict gives it only as a name, a company, product, work, character… ("Toyota"). The
+ *   count is not its use, so it takes none and ranks last.
+ * - `possible-name`: no common word vouches for it, and the count may be a name's spelled the
+ *   same way ("kim", "erica"). It ranks by the count but is never marked common.
+ * - `word`: the count is its use.
+ */
+export type Naming = "name" | "possible-name" | "word"
+
+/** Adds `values` to the set `map` holds under `key`, making the set when there is none. */
+export const addTo = <K, V>(map: Map<K, Set<V>>, key: K, ...values: ReadonlyArray<V>): Set<V> => {
+  const set = map.get(key) ?? new Set<V>()
+  for (const value of values) set.add(value)
+  map.set(key, set)
+  return set
 }
 
 /**

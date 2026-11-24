@@ -1,5 +1,3 @@
-import { EntryId } from "@kotori/contracts"
-import { englishEntryId } from "@kotori/db"
 import { normalizeGloss } from "@kotori/language"
 import { Effect, FileSystem, Path, Schema, Stream } from "effect"
 import { HttpClient } from "effect/http"
@@ -8,14 +6,15 @@ import { createInterface } from "node:readline"
 import { createGunzip } from "node:zlib"
 import { Database } from "../../../../db/Database.ts"
 import { resolveFromRoot } from "../../../../runtime/Paths.ts"
-import { moveNotes, noteCountsOn } from "../../../notebook/queries.ts"
-import { deleteEntries, externalEntryIds, insertEntries, linkLoans, saveTags } from "../../queries.ts"
+import { noteCountsOn } from "../../../notebook/queries.ts"
+import { externalEntryIds, insertEntries, linkLoans, saveTags } from "../../queries.ts"
 import { entrySplitter } from "../jmdict/parse.ts"
 import type { ImportEntry } from "../seedFacts.ts"
 import { mergeSources, type Tier, toEntries } from "./build.ts"
 import { parseFrequency } from "./frequency.ts"
 import { jmdictReader, type KnownEnglish } from "./jmdict.ts"
 import { parseSubtitles, SUBTITLES_URL } from "./subtitles.ts"
+import { refuseNoted, removeStale, successorsOf } from "./staleEntries.ts"
 import { ENGLISH_TAGS } from "./tags.ts"
 import { curatedParser, parsePhraseIndex, WIKTIONARY_URL, wiktionaryParser } from "./wiktionary.ts"
 import { addRedirect, type FormOf, type Word } from "./words.ts"
@@ -203,71 +202,6 @@ const build = Effect.fnUntraced(function* (options: ImportOptions) {
 })
 
 /**
- * Words a complete import would delete though learners have notes saved on them. The import
- * stops instead, before deleting anything (a note cascades with its word).
- */
-export class NotedEntriesWouldBeDeleted extends Schema.TaggedError<NotedEntriesWouldBeDeleted>()(
-  "NotedEntriesWouldBeDeleted",
-  {
-    message: Schema.String,
-    entries: Schema.Array(Schema.Struct({ entryId: EntryId, notes: Schema.Number }))
-  }
-) {}
-
-/**
- * The entry each stale word lives on as a spelling, when exactly one does: "en:Spartan" in
- * "en:spartan" once the twins fold. Failing a spelling, the one entry whose headword differs
- * from it only by case: "en:ipod" is now "en:iPod". A spelling several entries share, or a
- * word several entries are spelled like but for case ("en:ev": "EV", "eV"), names none.
- */
-const successorsOf = (
-  entries: ReadonlyArray<ImportEntry>,
-  stale: ReadonlyArray<EntryId>
-): ReadonlyMap<EntryId, EntryId> => {
-  // By the id the spelling would have as a headword of its own.
-  const owners = new Map<EntryId, Set<EntryId>>()
-  for (const entry of entries) {
-    for (const form of entry.forms) {
-      if (form.kind !== "spelling" || form.text === entry.headword) continue
-      const id = englishEntryId(form.text)
-      const set = owners.get(id) ?? new Set<EntryId>()
-      set.add(entry.id)
-      owners.set(id, set)
-    }
-  }
-  // By the headword lowercased: "en:ipod" is "en:iPod" written in another case.
-  const recased = new Map<string, Set<EntryId>>()
-  for (const entry of entries) {
-    const key = englishEntryId(entry.headword).toLowerCase()
-    const set = recased.get(key) ?? new Set<EntryId>()
-    set.add(entry.id)
-    recased.set(key, set)
-  }
-  const successors = new Map<EntryId, EntryId>()
-  for (const id of stale) {
-    const [only, ...others] = owners.get(id) ?? recased.get(id.toLowerCase()) ?? []
-    if (only !== undefined && others.length === 0) successors.set(id, only)
-  }
-  return successors
-}
-
-/** Fails when a note is saved on a word about to go that no successor takes the notes of. */
-const refuseNoted = (counts: ReadonlyMap<EntryId, number>, successors: ReadonlyMap<EntryId, EntryId>) => {
-  const noted = [...counts]
-    .filter(([entryId]) => !successors.has(entryId))
-    .map(([entryId, notes]) => ({ entryId, notes }))
-    .toSorted((a, b) => (a.entryId < b.entryId ? -1 : 1))
-  if (noted.length === 0) return Effect.void
-  const list = noted.map(({ entryId, notes }) => `${entryId} (${notes} ${notes === 1 ? "note" : "notes"})`)
-  return Effect.fail(
-    new NotedEntriesWouldBeDeleted({
-      message: `The English import would delete ${noted.length} words learners saved: ${list.join(", ")}`,
-      entries: noted
-    })
-  )
-}
-
-/**
  * Builds the English dictionary from its sources and loads it alongside JMDict. Re-importing
  * updates words in place, keeping their ids, so enrichment and saved words survive.
  */
@@ -292,21 +226,7 @@ export const importFiles = Effect.fn("EnglishDictionary.importFiles")(function* 
     if (start % 20_000 < batchSize && start > 0) yield* Effect.logInfo(`Imported ${start} English words`)
   }
 
-  yield* db.transaction(() =>
-    Effect.gen(function* () {
-      for (const [from, to] of successors) {
-        const { moved, dropped } = yield* moveNotes(db, from, to)
-        if (moved + dropped > 0) {
-          yield* Effect.logInfo(
-            `Moved ${moved} notes from ${from} to ${to}; ${dropped} dropped, already saved on ${to}`
-          )
-        }
-      }
-      // Notes saved while the words were written are checked again, with the deletion.
-      yield* refuseNoted(yield* noteCountsOn(db, stale), new Map())
-      yield* deleteEntries(db, stale)
-    })
-  )
+  yield* removeStale(db, stale, successors)
   yield* linkLoans(db)
 
   const byTier = (tier: Tier) => entries.filter((entry) => entry.tier === tier).length

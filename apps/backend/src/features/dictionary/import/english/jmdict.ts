@@ -1,6 +1,6 @@
 import type { EntryRecord } from "@kotori/contracts"
 import { type EnglishInflection, isEnglishFunctionWord, normalizeGloss, romanize, uninflect } from "@kotori/language"
-import { addRedirect, emptySense, type FormOf, isEnglish, type Word } from "./words.ts"
+import { addRedirect, addTo, emptySense, type FormOf, isEnglish, type Word } from "./words.ts"
 
 /**
  * English words the other sources lack, read backwards from JMDict: "selfie" is a gloss of
@@ -181,13 +181,29 @@ const properWord = (text: string): string | null => {
 /** Explanations, literal renderings and trademarks aren't English words. */
 const SKIPPED_TYPES = new Set(["expl", "lit", "tm"])
 
+/** The English word class one JMDict part of speech names: "v5k" a verb, "vs" (a noun taking する) a noun… */
+const wordClass = (code: string): "v" | "n" | "adj" | "adv" | null =>
+  /^v(?!s$)/.test(code)
+    ? "v"
+    : code.startsWith("n") || code === "vs"
+      ? "n"
+      : code.startsWith("adj")
+        ? "adj"
+        : code.startsWith("adv")
+          ? "adv"
+          : null
+
+/** The word classes a JMDict sense's parts of speech name. */
+const wordClasses = (pos: ReadonlyArray<string>) => {
+  const classes = new Set(pos.map(wordClass))
+  return { noun: classes.has("n"), verb: classes.has("v"), adjective: classes.has("adj"), adverb: classes.has("adv") }
+}
+
 /** JMDict parts of speech → the English codes a Japanese word lends the English one. */
 const partOfSpeech = (codes: ReadonlyArray<string>): Array<string> => {
   for (const code of codes) {
-    if (/^v(?!s$)/.test(code)) return ["v"]
-    if (code.startsWith("n") || code === "vs") return ["n"]
-    if (code.startsWith("adj")) return ["adj"]
-    if (code.startsWith("adv")) return ["adv"]
+    const english = wordClass(code)
+    if (english !== null) return [english]
     if (["int", "exp", "pn", "conj", "num", "pref", "suf"].includes(code)) return [code]
   }
   return []
@@ -196,11 +212,35 @@ const partOfSpeech = (codes: ReadonlyArray<string>): Array<string> => {
 /** The same ranking search uses: common words, early senses and first glosses go first. */
 const SENSE_BONUS = [40, 25, 15, 10, 5]
 /** JMDict's tags for names: a company, product, work, character, surname, place… */
-const NAME_TAGS = new Set(
-  "char company creat dei doc ev fem fict given group leg male masc myth obj organization oth person place product relig serv ship station surname unclass work".split(
-    " "
-  )
-)
+const NAME_TAGS: ReadonlySet<string> = new Set([
+  "char",
+  "company",
+  "creat",
+  "dei",
+  "doc",
+  "ev",
+  "fem",
+  "fict",
+  "given",
+  "group",
+  "leg",
+  "male",
+  "masc",
+  "myth",
+  "obj",
+  "organization",
+  "oth",
+  "person",
+  "place",
+  "product",
+  "relig",
+  "serv",
+  "ship",
+  "station",
+  "surname",
+  "unclass",
+  "work"
+] as const)
 
 const RARE = new Set(["arch", "obs", "obsc", "rare", "hist", "vulg", "X", "derog"])
 
@@ -243,12 +283,6 @@ interface Resolved {
   readonly inflection?: ReadonlyArray<EnglishInflection>
 }
 
-/** Whether a JMDict sense is a noun's: "n", "n-adv", "vs" (a noun taking する)… */
-const isNominal = (pos: ReadonlyArray<string>) => pos.some((code) => code.startsWith("n") || code === "vs")
-/** Whether a JMDict sense is a verb's, as `partOfSpeech` reads it. */
-const isVerbal = (pos: ReadonlyArray<string>) => pos.some((code) => /^v(?!s$)/.test(code))
-const isAdjectival = (pos: ReadonlyArray<string>) => pos.some((code) => code.startsWith("adj"))
-
 /**
  * Whether the regular rules could make `word` from `base`, as `uninflect` guesses more widely:
  * "-es" follows only s, x, z, ch, sh and o ("tines" is not "tin" + "es", nor "Hades" "had"), and
@@ -287,10 +321,9 @@ export const jmdictReader = (known: KnownEnglish) => {
   ): { readonly base: string; readonly tags: ReadonlyArray<EnglishInflection> } | null => {
     // Names and acronyms are words of their own: "Andes" is not the plural of "and", nor "SOS" of "so".
     if (written !== written.toLowerCase()) return null
-    const nominal = isNominal(pos)
-    const verbal = isVerbal(pos)
+    const { noun, verb, adjective, adverb } = wordClasses(pos)
     // Only adjectives and adverbs compare: "outsider" and "defer" are words of their own.
-    const compares = isAdjectival(pos) || pos.some((code) => code.startsWith("adv"))
+    const compares = adjective || adverb
     for (const { base, tags } of uninflect(written)) {
       if (!known.spelled.has(base) || !isRegularBase(written, base)) continue
       const kept = tags.filter((tag) => {
@@ -301,11 +334,11 @@ export const jmdictReader = (known: KnownEnglish) => {
           case "past":
           case "past-participle":
           case "present-participle":
-            return !nominal && !isAdjectival(pos)
+            return !noun && !adjective
           case "plural":
-            return nominal || !verbal
+            return noun || !verb
           case "third-person":
-            return verbal || !nominal
+            return verb || !noun
         }
       })
       if (kept.length > 0) return { base, tags: kept }
@@ -405,15 +438,11 @@ export const jmdictReader = (known: KnownEnglish) => {
         if (inflection !== undefined && variant !== undefined) {
           const forms = inflections.get(headword) ?? new Map<string, Set<EnglishInflection>>()
           inflections.set(headword, forms)
-          const tags = forms.get(variant) ?? new Set<EnglishInflection>()
-          for (const tag of inflection) tags.add(tag)
-          forms.set(variant, tags)
+          addTo(forms, variant, ...inflection)
           return
         }
         if (variant !== undefined && variant !== headword && !known.words.has(variant)) {
-          const set = variants.get(headword) ?? new Set<string>()
-          set.add(variant)
-          variants.set(headword, set)
+          addTo(variants, headword, variant)
         }
         const score =
           (entry.common ? 30 : 0) +
@@ -479,10 +508,14 @@ export const jmdictReader = (known: KnownEnglish) => {
           glosses: group.glosses,
           pos: group.pos
         })),
-        // A common Japanese word for it vouches for the count, and names are rarely hyphenated
-        // ("ex-wife") or multi-word phrases. Otherwise the count may be a name's: 韓国海苔 is glossed "kim".
-        name: list.every((candidate) => candidate.name),
-        mayBeName: !headword.includes(" ") && !headword.includes("-") && !list.some((candidate) => candidate.common)
+        // Only ever glossed on name senses, it is a name. Otherwise a common Japanese word for it
+        // vouches for the count, and names are rarely hyphenated ("ex-wife") or multi-word
+        // phrases; failing both, the count may be a name's: 韓国海苔 is glossed "kim".
+        naming: list.every((candidate) => candidate.name)
+          ? "name"
+          : !headword.includes(" ") && !headword.includes("-") && !list.some((candidate) => candidate.common)
+            ? "possible-name"
+            : "word"
       }
     })
 

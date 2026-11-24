@@ -8,6 +8,7 @@ import { Database } from "../../src/db/Database.ts"
 import { discardEntry, mergeEntry } from "../../src/features/asks/review.ts"
 import { Dictionary } from "../../src/features/dictionary/Dictionary.ts"
 import * as EnglishDictionary from "../../src/features/dictionary/import/english/EnglishDictionary.ts"
+import { NotedEntriesWouldBeDeleted } from "../../src/features/dictionary/import/english/staleEntries.ts"
 import { insertEntries } from "../../src/features/dictionary/queries.ts"
 import { allNotes, insertNote } from "../../src/features/notebook/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
@@ -285,8 +286,8 @@ layer(TestLayer)("EnglishDictionary.importFiles with a note on a word the source
 
       const withoutWalk = noteFiles("no-walk", [line("eat", "verb", ["食べる。"]), line("run", "verb", ["走る。"])])
       const error = yield* Effect.flip(EnglishDictionary.importFiles({ files: withoutWalk, jmdict: noJmdict }))
-      assert.instanceOf(error, EnglishDictionary.NotedEntriesWouldBeDeleted)
-      assert.deepStrictEqual(error instanceof EnglishDictionary.NotedEntriesWouldBeDeleted ? error.entries : [], [
+      assert.instanceOf(error, NotedEntriesWouldBeDeleted)
+      assert.deepStrictEqual(error instanceof NotedEntriesWouldBeDeleted ? error.entries : [], [
         { entryId: walk, notes: 1 }
       ])
       assert.include(error.message, "en:walk (1 note)")
@@ -342,7 +343,7 @@ layer(TestLayer)("EnglishDictionary.importFiles with a note on a word now writte
 
       const twoCases = noteFiles("EV-eV", [line("EV", "noun", ["電気自動車"]), line("eV", "noun", ["電子ボルト"])])
       const error = yield* Effect.flip(EnglishDictionary.importFiles({ files: twoCases, jmdict: noJmdict }))
-      assert.instanceOf(error, EnglishDictionary.NotedEntriesWouldBeDeleted)
+      assert.instanceOf(error, NotedEntriesWouldBeDeleted)
       assert.include(error.message, "en:ev (1 note)")
       assert.lengthOf(yield* allNotes(scopedToUser(db, U1)), 1)
     })

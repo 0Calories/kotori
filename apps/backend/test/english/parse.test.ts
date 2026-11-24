@@ -10,7 +10,7 @@ import {
   parsePhraseIndex,
   parseWiktionary
 } from "../../src/features/dictionary/import/english/wiktionary.ts"
-import { emptySense, formOf, type Word } from "../../src/features/dictionary/import/english/words.ts"
+import { emptySense, formOf, type Naming, type Word } from "../../src/features/dictionary/import/english/words.ts"
 
 // Lines as Wiktextract writes them for Japanese Wiktionary, trimmed to the fields read.
 const line = (entry: object) => JSON.stringify({ lang_code: "en", lang: "英語", ...entry })
@@ -395,12 +395,12 @@ describe("wordsFromJmdict", () => {
   })
 
   it("trusts a word's count when a common Japanese word glosses it, it is hyphenated, or it is a multi-word phrase", () => {
-    expect(word("website")?.mayBeName).toBe(false)
-    expect(word("ex-wife")?.mayBeName).toBe(false)
-    expect(word("eat out")?.mayBeName).toBe(false)
+    expect(word("website")?.naming).not.toBe("possible-name")
+    expect(word("ex-wife")?.naming).not.toBe("possible-name")
+    expect(word("eat out")?.naming).not.toBe("possible-name")
     // The subtitles count Kim, the name.
-    expect(word("kim")?.mayBeName).toBe(true)
-    expect(word("selfie")?.mayBeName).toBe(true)
+    expect(word("kim")?.naming).toBe("possible-name")
+    expect(word("selfie")?.naming).toBe("possible-name")
   })
 
   it("collapses verb-variant and redirected idioms onto their canonical headword", () => {
@@ -465,7 +465,7 @@ describe("wordsFromJmdict", () => {
       "skate on thin ice",
       "find oneself on thin ice"
     ])
-    expect(onThinIce?.mayBeName).toBe(false)
+    expect(onThinIce?.naming).not.toBe("possible-name")
     expect(onThinIce?.senses.map((s) => [s.pos, s.glosses.map((g) => g.text)])).toEqual([
       [["n"], ["綱渡り"]],
       [["exp"], ["薄氷を踏む", "危ない橋を渡る"]]
@@ -733,8 +733,8 @@ describe("wordsFromJmdict", () => {
     reader.add(jmdictEntry(96, "女武者", "おんなむしゃ", ["amazon"], false, ["n"]))
     reader.add(jmdictEntry(95, "モップ", "モップ", ["mop"], true, ["n"]))
     const words = reader.finish()
-    expect(words.find((word) => word.headword === "Toyota")?.name).toBe(true)
-    expect(words.find((word) => word.headword === "Amazon")?.name).toBe(false)
+    expect(words.find((word) => word.headword === "Toyota")?.naming).toBe("name")
+    expect(words.find((word) => word.headword === "Amazon")?.naming).not.toBe("name")
 
     const built = toEntries(
       mergeSources({
@@ -831,7 +831,7 @@ describe("toEntries", () => {
           spellings: [],
           inflections: [],
           senses: [{ ...emptySense(), glosses: [{ text: "チーム", type: null }], pos: ["n"] }],
-          mayBeName: false
+          naming: "word"
         }
       ]
     },
@@ -854,7 +854,7 @@ describe("toEntries", () => {
       spellings,
       inflections: [],
       senses: [{ ...emptySense(), glosses: glosses.map((text) => ({ text, type: null })), pos }],
-      mayBeName: false
+      naming: "word"
     })
     const senses = (headword: string, glosses: Array<Array<string>>): Word => ({
       ...glossed(headword, []),
@@ -976,7 +976,7 @@ describe("toEntries", () => {
             spellings: [],
             inflections: [],
             senses: [{ ...emptySense(), glosses: [{ text: "手を抜く", type: null }], pos: ["exp"] }],
-            mayBeName: false
+            naming: "word"
           }
         ],
         formsOf: [
@@ -1117,18 +1117,18 @@ describe("toEntries", () => {
 
   it("marks a word common only when its count can be trusted", () => {
     const counts = parseSubtitles(["kim 5000", "website 800"])
-    const jmdictOnly = (headword: string, mayBeName: boolean) => ({
+    const jmdictOnly = (headword: string, naming: Naming) => ({
       headword,
       ipa: null,
       spellings: [],
       inflections: [],
       senses: [{ ...emptySense(), glosses: [{ text: "ウェブサイト", type: null }] }],
-      mayBeName
+      naming
     })
     const entries = toEntries(
       mergeSources({
         wiktionary: { words: [], formsOf: [] },
-        jmdict: { words: [jmdictOnly("kim", true), jmdictOnly("website", false)] },
+        jmdict: { words: [jmdictOnly("kim", "possible-name"), jmdictOnly("website", "word")] },
         subtitles: counts
       }),
       counts
@@ -1146,7 +1146,7 @@ describe("toEntries", () => {
       spellings: [],
       inflections: [],
       senses: [{ ...emptySense(), glosses: [{ text: "意味", type: null }], pos: ["exp"] }],
-      mayBeName: false
+      naming: "word"
     })
     const entries = toEntries(
       mergeSources({
