@@ -1,7 +1,41 @@
 import { type EntryId, type NoteId, notes } from "@kotori/db"
-import { desc, eq } from "drizzle-orm"
+import { and, count, desc, eq, inArray } from "drizzle-orm"
 import { Effect, Option } from "effect"
+import { chunks } from "../../db/chunks.ts"
+import type { DatabaseShape } from "../../db/Database.ts"
 import type { Learner } from "../../db/scopedToUser.ts"
+
+/** How many notes each of `entryIds` is saved in, for those saved in any, across learners. */
+export const noteCountsOn = Effect.fn("notebook.noteCountsOn")(function* (
+  db: DatabaseShape,
+  entryIds: ReadonlyArray<EntryId>
+) {
+  const counts = new Map<EntryId, number>()
+  for (const chunk of chunks(entryIds, 5000)) {
+    const rows = yield* db
+      .select({ entryId: notes.entryId, notes: count() })
+      .from(notes)
+      .where(inArray(notes.entryId, [...chunk]))
+      .groupBy(notes.entryId)
+    for (const row of rows) counts.set(row.entryId, row.notes)
+  }
+  return counts
+}, Effect.orDie)
+
+/**
+ * Moves every learner's note on `from` to `to`, as when a word becomes another's spelling. A
+ * learner with a note on `to` already keeps that one, and the note on `from` goes: the word
+ * stays saved. Returns how many notes moved and how many went.
+ */
+export const moveNotes = Effect.fn("notebook.moveNotes")(function* (db: DatabaseShape, from: EntryId, to: EntryId) {
+  const savedOnTo = db.select({ userId: notes.userId }).from(notes).where(eq(notes.entryId, to))
+  const dropped = yield* db
+    .delete(notes)
+    .where(and(eq(notes.entryId, from), inArray(notes.userId, savedOnTo)))
+    .returning({ id: notes.id })
+  const moved = yield* db.update(notes).set({ entryId: to }).where(eq(notes.entryId, from)).returning({ id: notes.id })
+  return { moved: moved.length, dropped: dropped.length }
+}, Effect.orDie)
 
 export type NoteRow = typeof notes.$inferSelect
 

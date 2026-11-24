@@ -1,3 +1,5 @@
+import { EntryId } from "@kotori/contracts"
+import { englishEntryId } from "@kotori/db"
 import { normalizeGloss } from "@kotori/language"
 import { Effect, FileSystem, Path, Schema, Stream } from "effect"
 import { HttpClient } from "effect/http"
@@ -6,6 +8,7 @@ import { createInterface } from "node:readline"
 import { createGunzip } from "node:zlib"
 import { Database } from "../../../../db/Database.ts"
 import { resolveFromRoot } from "../../../../runtime/Paths.ts"
+import { moveNotes, noteCountsOn } from "../../../notebook/queries.ts"
 import { deleteEntries, externalEntryIds, insertEntries, linkLoans, saveTags } from "../../queries.ts"
 import { entrySplitter } from "../jmdict/parse.ts"
 import type { ImportEntry } from "../seedFacts.ts"
@@ -200,6 +203,61 @@ const build = Effect.fnUntraced(function* (options: ImportOptions) {
 })
 
 /**
+ * Words a complete import would delete though learners have notes saved on them. The import
+ * stops instead, before deleting anything (a note cascades with its word).
+ */
+export class NotedEntriesWouldBeDeleted extends Schema.TaggedError<NotedEntriesWouldBeDeleted>()(
+  "NotedEntriesWouldBeDeleted",
+  {
+    message: Schema.String,
+    entries: Schema.Array(Schema.Struct({ entryId: EntryId, notes: Schema.Number }))
+  }
+) {}
+
+/**
+ * The entry each stale word lives on as a spelling, when exactly one does: "en:Spartan" in
+ * "en:spartan" once the twins fold. A spelling several entries share names none of them.
+ */
+const successorsOf = (
+  entries: ReadonlyArray<ImportEntry>,
+  stale: ReadonlyArray<EntryId>
+): ReadonlyMap<EntryId, EntryId> => {
+  // By the id the spelling would have as a headword of its own.
+  const owners = new Map<EntryId, Set<EntryId>>()
+  for (const entry of entries) {
+    for (const form of entry.forms) {
+      if (form.kind !== "spelling" || form.text === entry.headword) continue
+      const id = englishEntryId(form.text)
+      const set = owners.get(id) ?? new Set<EntryId>()
+      set.add(entry.id)
+      owners.set(id, set)
+    }
+  }
+  const successors = new Map<EntryId, EntryId>()
+  for (const id of stale) {
+    const [only, ...others] = owners.get(id) ?? []
+    if (only !== undefined && others.length === 0) successors.set(id, only)
+  }
+  return successors
+}
+
+/** Fails when a note is saved on a word about to go that no successor takes the notes of. */
+const refuseNoted = (counts: ReadonlyMap<EntryId, number>, successors: ReadonlyMap<EntryId, EntryId>) => {
+  const noted = [...counts]
+    .filter(([entryId]) => !successors.has(entryId))
+    .map(([entryId, notes]) => ({ entryId, notes }))
+    .toSorted((a, b) => (a.entryId < b.entryId ? -1 : 1))
+  if (noted.length === 0) return Effect.void
+  const list = noted.map(({ entryId, notes }) => `${entryId} (${notes} ${notes === 1 ? "note" : "notes"})`)
+  return Effect.fail(
+    new NotedEntriesWouldBeDeleted({
+      message: `The English import would delete ${noted.length} words learners saved: ${list.join(", ")}`,
+      entries: noted
+    })
+  )
+}
+
+/**
  * Builds the English dictionary from its sources and loads it alongside JMDict. Re-importing
  * updates words in place, keeping their ids, so enrichment and saved words survive.
  */
@@ -208,6 +266,15 @@ export const importFiles = Effect.fn("EnglishDictionary.importFiles")(function* 
   const existing = yield* externalEntryIds(db, "en:")
   const entries: ReadonlyArray<ImportEntry & { readonly tier: Tier }> = yield* build(options)
 
+  // Words the external sources no longer have go on a complete import; `kotori:` entries stay untouched.
+  const complete = !options.commonOnly && options.limit === undefined
+  const importedIds = new Set(entries.map((entry) => entry.id))
+  const stale = complete ? existing.filter((id) => !importedIds.has(id)) : []
+  // A word that is now another's spelling ("Spartan" of "spartan") takes its notes there; a
+  // note on any other word going stops the import before anything is written.
+  const successors = successorsOf(entries, stale)
+  yield* refuseNoted(yield* noteCountsOn(db, stale), successors)
+
   yield* saveTags(db, ENGLISH_TAGS)
   const batchSize = options.batchSize ?? 500
   for (let start = 0; start < entries.length; start += batchSize) {
@@ -215,11 +282,21 @@ export const importFiles = Effect.fn("EnglishDictionary.importFiles")(function* 
     if (start % 20_000 < batchSize && start > 0) yield* Effect.logInfo(`Imported ${start} English words`)
   }
 
-  // Words the external sources no longer have go on a complete import; `kotori:` entries stay untouched.
-  const complete = !options.commonOnly && options.limit === undefined
-  const importedIds = new Set(entries.map((entry) => entry.id))
-  const stale = complete ? existing.filter((id) => !importedIds.has(id)) : []
-  yield* deleteEntries(db, stale)
+  yield* db.transaction(() =>
+    Effect.gen(function* () {
+      for (const [from, to] of successors) {
+        const { moved, dropped } = yield* moveNotes(db, from, to)
+        if (moved + dropped > 0) {
+          yield* Effect.logInfo(
+            `Moved ${moved} notes from ${from} to ${to}; ${dropped} dropped, already saved on ${to}`
+          )
+        }
+      }
+      // Notes saved while the words were written are checked again, with the deletion.
+      yield* refuseNoted(yield* noteCountsOn(db, stale), new Map())
+      yield* deleteEntries(db, stale)
+    })
+  )
   yield* linkLoans(db)
 
   const byTier = (tier: Tier) => entries.filter((entry) => entry.tier === tier).length
