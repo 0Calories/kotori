@@ -120,7 +120,7 @@ const ogImageSvg = (spec: OgCardSpec) => {
   const meta = brand[spec.language]
   const [line1, line2] = taglineLines(meta.tagline, spec.taglineBreakAfter)
   const domain = meta.url.replace(/^https:\/\//, "").replace(/\/$/, "")
-  const mascotInner = stripXmlSvgWrapper(mascotSvg({ mood: "happy", padding: 0 }))
+  const mascotInner = stripXmlSvgWrapper(mascotSvg({ mood: "happy", facing: "right", padding: 0 }))
   let pillX = 0
   const pillsMarkup = spec.pills
     .map((pill) => {
