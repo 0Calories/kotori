@@ -385,6 +385,8 @@ describe("wordsFromJmdict", () => {
       ["hang out", [["遊ぶ", "たむろする"]]],
       ["selfie", [["自撮り"]]],
       ["eat out", [["外食"]]],
+      // "kata" is 型's romanisation, a loanword in English.
+      ["kata", [["型"]]],
       ["Disney", [["ディズニー"]]],
       ["website", [["ウェブサイト"]]],
       ["gim", [["韓国海苔"]]],
@@ -707,6 +709,21 @@ describe("wordsFromJmdict", () => {
       new Map([["nordic", 300]])
     )
     expect(nordic).toMatchObject({ id: "en:Nordic", headword: "Nordic", frequency: { spokenCount: 300 } })
+  })
+
+  it("takes loanwords that are the Japanese word's own romanisation", () => {
+    const words = wordsFromJmdict(
+      [
+        jmdictEntry(110, "津波", "つなみ", ["tsunami", "tidal wave"], true, ["n"]),
+        jmdictEntry(111, "寿司", "すし", ["sushi"], true, ["n"]),
+        jmdictEntry(112, "東京", "とうきょう", ["Tokyo"], true, ["n"], ["place"])
+      ],
+      { words: new Set(), verbs: new Set(), gradable: new Set(), spelled: new Set(), phrases: new Set() }
+    )
+    expect(words.map((word) => word.headword)).toEqual(["tsunami", "sushi", "Tokyo"])
+    // The subtitles may count a Japanese name spelled alike ("Rin" for 厘's "rin"), so a
+    // romanisation ranks by the count but is never marked common.
+    expect(words.find((word) => word.headword === "sushi")?.naming).toBe("possible-name")
   })
 
   it("takes trademarks as names, and still skips explanations and literal renderings", () => {

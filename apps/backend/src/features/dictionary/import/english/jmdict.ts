@@ -256,6 +256,8 @@ interface Candidate {
   readonly score: number
   /** Whether JMDict tags the sense glossing it as a name's, or the gloss as a trademark. */
   readonly name: boolean
+  /** Whether the gloss is the Japanese word's own romanisation ("sushi" for すし). */
+  readonly romanised: boolean
 }
 
 /** Back-translations are read from a Japanese word's leading senses and glosses, where JMDict puts the common ones. */
@@ -427,7 +429,6 @@ export const jmdictReader = (known: KnownEnglish) => {
   const translations = new Map<string, Map<string, number>>()
 
   const add = (entry: EntryRecord) => {
-    const romaji = romanize(entry.reading)
     entry.senses.forEach((sense, senseIndex) => {
       sense.glosses.forEach((gloss, position) => {
         if (gloss.type !== null && SKIPPED_TYPES.has(gloss.type)) return
@@ -435,7 +436,10 @@ export const jmdictReader = (known: KnownEnglish) => {
         const proper = properWord(gloss.text)
         if (proper === null && !/^[a-z]/.test(gloss.text)) return
         const term = normalizeGloss(gloss.text)
-        if (term.length < 2 || !isEnglish(term) || term === romaji) return
+        // A gloss that is the reading's romanisation is a loanword ("tsunami", "sushi") or a
+        // romanisation few use in English; the subtitles' count tells them apart in ranking.
+        if (term.length < 2 || !isEnglish(term)) return
+        const romanised = term === romanize(entry.reading)
         const resolved = proper === null ? resolveHeadword(term, sense.pos) : resolveProper(proper, sense.pos)
         if (resolved === null) return
         const { headword, variant, inflection } = resolved
@@ -475,7 +479,8 @@ export const jmdictReader = (known: KnownEnglish) => {
           common: entry.common,
           pos: partOfSpeech(sense.pos),
           score,
-          name: gloss.type === "tm" || sense.misc.some((tag) => NAME_TAGS.has(tag))
+          name: gloss.type === "tm" || sense.misc.some((tag) => NAME_TAGS.has(tag)),
+          romanised
         })
       })
     })
@@ -514,10 +519,12 @@ export const jmdictReader = (known: KnownEnglish) => {
         })),
         // Only ever glossed on name senses, it is a name. Otherwise a common Japanese word for it
         // vouches for the count, and names are rarely hyphenated ("ex-wife") or multi-word
-        // phrases; failing both, the count may be a name's: 韓国海苔 is glossed "kim".
+        // phrases; failing both, the count may be a name's: 韓国海苔 is glossed "kim". So may a
+        // romanisation's, however common its Japanese word: 厘's "rin" is counted as Rin.
         naming: list.every((candidate) => candidate.name)
           ? "name"
-          : !headword.includes(" ") && !headword.includes("-") && !list.some((candidate) => candidate.common)
+          : list.every((candidate) => candidate.romanised) ||
+              (!headword.includes(" ") && !headword.includes("-") && !list.some((candidate) => candidate.common))
             ? "possible-name"
             : "word"
       }
