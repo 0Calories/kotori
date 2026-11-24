@@ -3,7 +3,7 @@ import { englishEntryId } from "@kotori/db"
 import { Effect, Schema } from "effect"
 import type { DatabaseShape } from "../../../../db/Database.ts"
 import { moveNotes, noteCountsOn } from "../../../notebook/queries.ts"
-import { deleteEntries } from "../../queries.ts"
+import { deleteEntries, lockEntries } from "../../queries.ts"
 import type { ImportEntry } from "../seedFacts.ts"
 import { addTo } from "./words.ts"
 
@@ -77,6 +77,9 @@ export const removeStale = Effect.fn("EnglishDictionary.removeStale")(function* 
 ) {
   yield* db.transaction(() =>
     Effect.gen(function* () {
+      // A note saved on one of these words now waits for the transaction, so none is saved
+      // between the count and the deletion, nor onto a successor while notes move to it.
+      yield* lockEntries(db, [...new Set([...stale, ...successors.values()])])
       for (const [from, to] of successors) {
         const { moved, dropped } = yield* moveNotes(db, from, to)
         if (moved + dropped > 0) {
@@ -85,7 +88,7 @@ export const removeStale = Effect.fn("EnglishDictionary.removeStale")(function* 
           )
         }
       }
-      // Notes saved since the first check are counted again, with the deletion.
+      // Notes saved since the first check, before the lock, are counted again.
       yield* refuseAnyNoted(yield* noteCountsOn(db, stale))
       yield* deleteEntries(db, stale)
     })

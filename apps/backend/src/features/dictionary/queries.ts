@@ -344,6 +344,24 @@ export const deleteEntries = Effect.fn("dictionary.deleteEntries")(function* (
   for (const chunk of chunks(ids, 5000)) yield* db.delete(entries).where(inArray(entries.id, [...chunk]))
 }, Effect.orDie)
 
+/**
+ * Locks entry rows until the transaction ends (`FOR UPDATE`), in id order so two lockers can't
+ * deadlock. Saving a note takes a KEY SHARE lock on its entry, so it waits until then.
+ */
+export const lockEntries = Effect.fn("dictionary.lockEntries")(function* (
+  db: DatabaseShape,
+  ids: ReadonlyArray<EntryId>
+) {
+  for (const chunk of chunks(ids.toSorted(), 5000)) {
+    yield* db
+      .select({ id: entries.id })
+      .from(entries)
+      .where(inArray(entries.id, [...chunk]))
+      .orderBy(entries.id)
+      .for("update")
+  }
+}, Effect.orDie)
+
 /** Adds tag names, replacing those of codes already known; codes the other dictionary uses are kept. */
 export const saveTags = Effect.fn("dictionary.saveTags")(function* (
   db: DatabaseShape,
