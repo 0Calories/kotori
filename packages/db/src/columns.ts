@@ -5,7 +5,7 @@ import * as Schema from "effect/Schema"
 /** Table constructor for every table in this schema: camelCase fields, snake_case columns. */
 export const { table } = snakeCase
 
-/** A moment in time. Millisecond precision is plenty, and Study converts for the SRS code, which works in epoch milliseconds. */
+/** A moment in time, at millisecond precision. */
 export const timestamptz = () => timestamp({ withTimezone: true, precision: 3 })
 
 /** `created_at`, set by the database when a row is inserted. */
@@ -48,10 +48,14 @@ export const emptyIfNull = <T = string>(values: ReadonlyArray<T> | null): Readon
 export const englishDocument = (column: AnyPgColumn) =>
   sql`(coalesce(nullif(to_tsvector('english', ${column}), ''::tsvector), to_tsvector('simple', ${column})))`
 
-export const language = pgEnum("language", ["en", "ja"])
+/**
+ * Stopword-preserving full-text document for English forms (`to_tsvector('simple', column)`),
+ * keeping phrasal-verb particles ("into", "up", "off", "on", "out", "with") intact so searching
+ * "run into", "put up with", or "call off" never collapses to the bare verb.
+ */
+export const simpleDocument = (column: AnyPgColumn) => sql`(to_tsvector('simple', ${column}))`
 
-/** How far along a note is in being learned. */
-export const retentionStage = pgEnum("retention_stage", ["new", "learning", "review", "relearning"])
+export const language = pgEnum("language", ["en", "ja"])
 
 export const formality = pgEnum("formality", ["vulgar", "casual", "neutral", "polite", "formal"])
 

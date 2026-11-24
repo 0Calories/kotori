@@ -81,8 +81,6 @@ const initialWebLanguage = (): Language | null => {
   return webLanguageFromLocation(window.location.pathname, window.location.search)
 }
 
-const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC"
-
 const statusOf = (profile: Profile): SessionStatus =>
   profile.status !== "approved" && profile.role !== "admin" ? "pending" : profile.onboarded ? "ready" : "onboarding"
 
@@ -94,15 +92,12 @@ const sessionToken = async () => {
 /** The sign-up screen's language, kept across the web's round trip to Google. */
 const GOOGLE_LANGUAGE = "kotori.googleSignUpLanguage"
 
-/** Applies any pending Google sign-up language (for an un-onboarded account) and current timezone. */
+/** Applies any pending Google sign-up language (for an un-onboarded account). */
 const syncSignInProfile = async (me: Profile): Promise<Profile> => {
   const stored = await storage.get(GOOGLE_LANGUAGE).catch(() => null)
   const nativeLanguage: Language | undefined = stored === "en" || stored === "ja" ? stored : undefined
   // Only a learner who hasn't picked yet: signing up with an existing Google account just signs in.
-  const patch: UpdateProfileRequest = {
-    ...(nativeLanguage !== undefined && !me.onboarded ? { nativeLanguage } : {}),
-    ...(me.timezone !== timeZone() ? { timezone: timeZone() } : {})
-  }
+  const patch: UpdateProfileRequest = nativeLanguage !== undefined && !me.onboarded ? { nativeLanguage } : {}
   const updated = Object.keys(patch).length > 0 ? await call((api) => api.account.update({ payload: patch })) : me
   if (stored !== null) await storage.remove(GOOGLE_LANGUAGE).catch(() => {})
   return updated
@@ -218,10 +213,6 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
         return
       }
       enter(me)
-      // Keep study days aligned with wherever the learner is now.
-      if (me.timezone !== timeZone()) {
-        call((api) => api.account.update({ payload: { timezone: timeZone() } })).then(setProfile, () => {})
-      }
     }
     load().catch((error: unknown) => {
       if (cancelled) return
@@ -253,11 +244,7 @@ export const SessionProvider = ({ children }: { readonly children: ReactNode }) 
       await managedAuth.signUp({ email: address, password, name: name.trim() || address.split("@")[0] || address })
       await sessionToken()
       // The language first, so the verification code, and later the approval email, arrive in it.
-      enter(
-        await call((api) =>
-          api.account.update({ payload: { nativeLanguage, timezone: timeZone(), displayName: name.trim() || null } })
-        )
-      )
+      enter(await call((api) => api.account.update({ payload: { nativeLanguage, displayName: name.trim() || null } })))
       // The pending screen offers a new code if this one doesn't arrive.
       await managedAuth.sendVerificationCode(address).catch(() => {})
     },

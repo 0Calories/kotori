@@ -2,10 +2,9 @@ User-agent: *
 Allow: /
 Disallow: /say
 Disallow: /check
-Disallow: /review
+Disallow: /notebook
 Disallow: /entry/
 Disallow: /sources/
-Disallow: /saved
 Disallow: /settings
 Disallow: /onboarding
 Disallow: /pending

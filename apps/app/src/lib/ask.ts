@@ -1,12 +1,4 @@
-import type {
-  AskRefusal,
-  DraftEntry,
-  EntrySummary,
-  Language,
-  Proposal,
-  ProposalRoute,
-  SearchMatch
-} from "@kotori/contracts"
+import type { AskRefusal, EntrySummary, Proposal, ProposalRoute, SearchMatch } from "@kotori/contracts"
 import type { Facing, Mood } from "../mascot/geometry.ts"
 
 /**
@@ -24,11 +16,12 @@ export const ASK_MIN_THINKING_MS = 900
 export const ASK_STAGE_STARTS = [0, 3000, 7500, 14_000] as const
 
 /**
- * The status line from which Kotori stops reading and thinks it over ("Thinking about how people
- * really use it…"). Until a progress signal comes from the server, the timed lines stand in for
- * how far along it is, so the pose follows them.
+ * The status line from which Kotori stops flipping through its dictionary and writes an entry out
+ * ("Thinking about how people really use it…"), as Claude drafts one. Until a progress signal
+ * comes from the server, the timed lines stand in for how far along it is, so the pose follows
+ * them; a quick answer finds Kotori still reading.
  */
-export const ASK_PONDER_STAGE = 2
+export const ASK_WRITING_STAGE = 2
 
 /** Which status line shows `elapsed` ms into an ask. */
 export const askStage = (elapsed: number) => {
@@ -57,8 +50,8 @@ export const formatWait = (ms: number) => {
 
 /** What the answer on record comes to on screen. */
 export type AskAnswer =
-  /** Claude drafted an entry; it's unverified until a person checks it. */
-  | { readonly kind: "draft"; readonly draft: DraftEntry }
+  /** Claude drafted a `kotori:` entry directly in `entries`; it's unverified until a person checks it. */
+  | { readonly kind: "draft"; readonly entry: EntrySummary }
   /** The query names an entry the dictionary has: one it had all along, or a draft since approved. */
   | { readonly kind: "linked"; readonly entry: EntrySummary; readonly approved: boolean }
   /** Not a real expression (Claude's reason, if it gave one), or not a lookup at all (`route`). */
@@ -71,13 +64,13 @@ export type AskAnswer =
   | { readonly kind: "discarded"; readonly reason: string | null }
 
 /**
- * How to show a proposal, or null when there is nothing left to show: a link or approval whose
- * entry has since been deleted.
+ * How to show a proposal, or null when there is nothing left to show: a link, draft, or approval
+ * whose entry has since been deleted.
  */
 export const askAnswer = (proposal: Proposal): AskAnswer | null => {
   switch (proposal.status) {
     case "pending":
-      return proposal.draft === null ? null : { kind: "draft", draft: proposal.draft }
+      return proposal.linked === null ? null : { kind: "draft", entry: proposal.linked }
     case "linked":
     case "approved":
       return proposal.linked === null
@@ -219,9 +212,10 @@ const answerMood = (answer: AskAnswer, live: boolean): { readonly mood: Mood; re
 
 /**
  * Kotori's pose for each moment: unsure over a search that came back empty, curious over
- * lookalikes, reading while asked and then thinking it over from `ASK_PONDER_STAGE` on, overjoyed at a fresh draft (side on, so its confetti flies)
- * and glad on seeing one again, flustered at a refusal or failure, and asleep once the
- * learner's allowance is spent.
+ * lookalikes, reading while asked and then writing an entry out from `ASK_WRITING_STAGE` on,
+ * overjoyed at a fresh draft (side on, so its confetti flies; writing, it puts the quill away
+ * and closes the book first, see `moves`) and glad on seeing one again, flustered at a refusal or
+ * failure, and asleep once the learner's allowance is spent.
  */
 export const askMood = (
   view: AskView,
@@ -234,20 +228,10 @@ export const askMood = (
     case "offer":
       return front(match === "weak" ? "neutral" : "oops")
     case "thinking":
-      return front(stage >= ASK_PONDER_STAGE ? "thinking" : "reading")
+      return front(stage >= ASK_WRITING_STAGE ? "writing" : "reading")
     case "answered":
       return answerMood(view.answer, view.live)
     case "failed":
       return front(view.failure.kind === "resting" || view.failure.kind === "napping" ? "sleepy" : "oops")
   }
-}
-
-/**
- * A draft's headword as large as fits the answer card: 36pt for English up to ten letters and
- * 42pt for Japanese up to five characters, shrinking for longer ones.
- */
-export const draftHeadwordSize = (headword: string, language: Language) => {
-  const length = Array.from(headword).length
-  if (language === "en") return length <= 10 ? 36 : Math.max(22, Math.floor(400 / length))
-  return length <= 5 ? 42 : Math.max(24, Math.floor(220 / length))
 }

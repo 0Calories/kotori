@@ -8,7 +8,6 @@ Kotori is an Nx + `pnpm` TypeScript monorepo built on [Effect](https://effect.we
 packages/db         → Drizzle tables, JSONB schemas, and forward-only migrations (`packages/db/migrations`)
 packages/contracts  → HTTP contract (`KotoriApi`), request/response schemas derived from `@kotori/db`, public errors
 packages/language   → Japanese/English text utilities (rōmaji ↔ kana, deinflection, furigana, phrase normalization)
-packages/srs        → Pure Anki SM-2 (v3) spaced-repetition scheduler
 packages/ai         → Claude, Jev, and ElevenLabs integrations + golden evaluations
 apps/backend        → HTTP API, enrichment worker, and `kotori` CLI (`src/entrypoints/{http,worker,cli}.ts`)
 apps/app            → Expo Router app for iOS, Android, and web
@@ -16,7 +15,7 @@ tools/local-auth    → Local stand-in for Neon Managed Better Auth (:4001)
 ```
 
 - **Schema-first flow**: Queries in `@kotori/backend` and wire schemas in `@kotori/contracts` derive from `@kotori/db` tables, and `@kotori/app` is typed by `@kotori/contracts`. After changing `packages/db/src`, generate migrations with `pnpm --filter @kotori/db generate` (verified in CI by `pnpm nx run @kotori/db:check`).
-- **Module boundaries**: Enforced by `@nx/enforce-module-boundaries` in `.oxlintrc.json`. Shared and client packages (`packages/db`, `packages/contracts`, `packages/language`, `packages/srs`, `apps/app`) must stay runtime-agnostic — no Node.js built-ins (`import/no-nodejs-modules`) or database drivers (`pg`, `@effect/sql-*`).
+- **Module boundaries**: Enforced by `@nx/enforce-module-boundaries` in `.oxlintrc.json`. Shared and client packages (`packages/db`, `packages/contracts`, `packages/language`, `apps/app`) must stay runtime-agnostic — no Node.js built-ins (`import/no-nodejs-modules`) or database drivers (`pg`, `@effect/sql-*`).
 
 ## Running Tasks with Nx
 

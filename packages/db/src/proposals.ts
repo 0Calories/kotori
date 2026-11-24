@@ -1,8 +1,8 @@
 import { boolean, index, integer, jsonb, pgEnum, primaryKey, text, unique, uuid } from "drizzle-orm/pg-core"
 import * as Schema from "effect/Schema"
 import { createdAt, language, table, timestamptz } from "./columns.ts"
-import { entries, type EntryId } from "./entries.ts"
-import { CautionKind } from "./cautions.ts"
+import { entries } from "./entries.ts"
+import { CautionKind, type EntryId } from "./entryDocument.ts"
 import { type UserId, users } from "./users.ts"
 
 /**
@@ -77,10 +77,11 @@ export const DraftEntry = Schema.Struct({
 export type DraftEntry = typeof DraftEntry.Type
 
 /**
- * Dictionary entries Claude drafted on request ("Ask Kotori"), one per normalized query and
- * language. Never served as real entries: a draft is shown, marked unverified, only to learners
- * who asked for it, until the admin approves or discards it. Discarded and rejected rows stay as
- * a negative cache, so a query Claude or the admin turned down isn't paid for again.
+ * Lightweight per-learner Ask Kotori query history, routing metadata, and rejection cache, one per
+ * normalized query and language. Drafted entries themselves live directly in `entries` under
+ * `kotori:<id>` with `review_state = 'unreviewed'` (ADR-0002 / ADR-0003) and are referenced via
+ * `linkedEntryId`. Discarded and rejected rows stay as a negative cache, so a query Claude or the
+ * admin turned down isn't paid for again.
  */
 export const proposals = table(
   "proposals",
@@ -91,10 +92,8 @@ export const proposals = table(
     /** The query, normalized (NFKC, trimmed, lowercased for English), the cache key. */
     query: text().notNull(),
     status: proposalStatus().notNull(),
-    /** What Claude drafted; null when it linked or rejected instead. */
-    draft: jsonb().$type<DraftEntry>(),
-    /** The existing entry the query names, for `linked` and alias-approved proposals. */
-    linkedEntryId: integer()
+    /** The `entries.id` this ask points at: the drafted `kotori:` entry, an approved entry, or a linked existing entry. */
+    linkedEntryId: text()
       .$type<EntryId>()
       .references(() => entries.id, { onDelete: "set null" }),
     /** Why it was rejected (in the asker's native language) or discarded (the admin's words). */

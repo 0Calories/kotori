@@ -19,10 +19,9 @@ layer(DatabaseMemory)("accounts queries", (it) => {
       assert.strictEqual(again.status, "approved")
       assert.isNull(again.displayName)
 
-      const updated = yield* updateUser(db, U1, { displayName: "Ash", onboardedAt: new Date(5000), dailyNewLimit: 10 })
+      const updated = yield* updateUser(db, U1, { displayName: "Ash", onboardedAt: new Date(5000) })
       assert.strictEqual(Option.getOrThrow(updated).displayName, "Ash")
       assert.deepStrictEqual(Option.getOrThrow(updated).onboardedAt, new Date(5000))
-      assert.strictEqual(Option.getOrThrow(updated).dailyNewLimit, 10)
       assert.deepStrictEqual((yield* usersByIds(db, [U1])).length, 1)
 
       const own = scopedToUser(db, U1)

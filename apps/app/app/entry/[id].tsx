@@ -2,7 +2,7 @@ import type { Entry, Language, Sense, SimilarWord } from "@kotori/contracts"
 import { Link, Stack, useLocalSearchParams, useRouter } from "expo-router"
 import { useState } from "react"
 import { Platform, Share, View } from "react-native"
-import { useAddNote, useEnrich, useEntry, useNotes, useRemoveNote } from "../../src/api/queries.ts"
+import { useAddNote, useEntry, useNotes, useRemoveNote } from "../../src/api/queries.ts"
 import { AudioButton } from "../../src/components/AudioButton.tsx"
 import { Button, IconButton } from "../../src/components/Button.tsx"
 import { Card } from "../../src/components/Card.tsx"
@@ -12,10 +12,8 @@ import { ExampleRow } from "../../src/components/ExampleRow.tsx"
 import { Headword } from "../../src/components/Headword.tsx"
 import { Icon } from "../../src/components/Icon.tsx"
 import { ChipRow } from "../../src/components/LabelChips.tsx"
-import { Mascot } from "../../src/components/Mascot.tsx"
 import { Notice } from "../../src/components/Notice.tsx"
 import { PressableScale } from "../../src/components/PressableScale.tsx"
-import { removalErrorText, RemoveNoteDialog } from "../../src/components/RemoveNote.tsx"
 import { Header, Screen, Section } from "../../src/components/Screen.tsx"
 import { Snow } from "../../src/components/Snow.tsx"
 import { Skeleton, SkeletonCard, SkeletonGroup } from "../../src/components/Skeleton.tsx"
@@ -25,23 +23,31 @@ import { UsagePatterns } from "../../src/components/UsagePatterns.tsx"
 import { posLabel, tagName } from "../../src/i18n/strings.ts"
 import {
   contributors,
-  hasKotoriContent,
   hasKotoriMarks,
   heroItems,
   labelItems,
   loanLine,
-  onItsWay,
-  saveDetails,
   senseCautions,
   similarWords,
   wordCautions
 } from "../../src/lib/entry.ts"
 import { findForm } from "../../src/lib/forms.ts"
-import { wordNote } from "../../src/lib/notes.ts"
+import { noteErrorText, noteOn } from "../../src/lib/notes.ts"
 import { entryIdFromParam, entrySourcesHref } from "../../src/lib/sources.ts"
 import { formatDocumentTitle } from "../../src/lib/webChrome.ts"
 import { useSession } from "../../src/session/SessionProvider.tsx"
 import { useTheme } from "../../src/theme/ThemeProvider.tsx"
+
+/** Whether an entry in this review state can be newly saved to the learner's notebook. */
+const isSaveable = (state: Entry["reviewState"]): boolean => {
+  switch (state) {
+    case "approved":
+    case "unreviewed":
+      return true
+    case "discarded":
+      return false
+  }
+}
 
 /** Web browsers without the Web Share API can't share, so the button is left out there. */
 const canShare = Platform.OS !== "web" || (typeof navigator !== "undefined" && "share" in navigator)
@@ -59,12 +65,7 @@ const SenseCard = ({
   sense,
   number,
   forms,
-  partOfSpeech,
-  saved,
-  onSave,
-  saving,
-  removing,
-  onRemove
+  partOfSpeech
 }: {
   readonly entry: Entry
   readonly sense: Sense
@@ -73,11 +74,6 @@ const SenseCard = ({
   readonly forms: ReadonlyArray<string>
   /** Already shown in the hero; repeated only when this sense differs. */
   readonly partOfSpeech: string | null
-  readonly saved: boolean
-  readonly onSave: () => void
-  readonly saving: boolean
-  readonly removing: boolean
-  readonly onRemove: () => void
 }) => {
   const theme = useTheme()
   const { t } = useSession()
@@ -113,22 +109,11 @@ const SenseCard = ({
         </Text>
       </View>
       <View style={{ flex: 1, gap: theme.space.sm + 2 }}>
-        <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
-          <View style={{ flex: 1, gap: 4, paddingTop: 1 }}>
-            <Text variant="heading" selectable>
-              {second ? `${first}${separator}${second}` : first}
-            </Text>
-            {rest.length > 0 ? <Text color="textMuted">{rest.join(separator)}</Text> : null}
-          </View>
-          <View style={{ marginTop: -9, marginRight: -8 }}>
-            <IconButton
-              icon="bookmark"
-              filled={saved}
-              size={40}
-              label={saved ? t.saved.remove : t.entry.save}
-              onPress={removing ? undefined : saved ? onRemove : saving ? undefined : onSave}
-            />
-          </View>
+        <View style={{ gap: 4, paddingTop: 1 }}>
+          <Text variant="heading" selectable>
+            {second ? `${first}${separator}${second}` : first}
+          </Text>
+          {rest.length > 0 ? <Text color="textMuted">{rest.join(separator)}</Text> : null}
         </View>
         <ChipRow items={labelItems(t, sense.labels)} plain={[...pos, ...fields]} />
         {sense.appliesTo.length > 0 ? (
@@ -269,15 +254,13 @@ export default function EntryScreen() {
   const router = useRouter()
   const { id: rawId } = useLocalSearchParams<{ id?: string | string[] }>()
   const id = entryIdFromParam(rawId)
-  const entry = useEntry(id ?? 0)
+  const entry = useEntry(id)
   const notes = useNotes()
   const addNote = useAddNote()
   const removeNote = useRemoveNote()
-  const enrich = useEnrich(id ?? 0)
   const [showAll, setShowAll] = useState(false)
   const [scrolled, setScrolled] = useState(false)
-  const [removingSense, setRemovingSense] = useState<number | null>(null)
-  const [removeError, setRemoveError] = useState<string | null>(null)
+  const [noteError, setNoteError] = useState<string | null>(null)
   const back = () => (router.canGoBack() ? router.back() : router.replace("/"))
 
   // A failed refetch (one of the polls while the entry is being enriched, say) keeps the entry
@@ -299,49 +282,27 @@ export default function EntryScreen() {
 
   const data = entry.data
   const language = data.language
-  const savedSenses = new Set(
-    (notes.data ?? []).flatMap((note) =>
-      note.content.kind === "word" && note.content.entryId === data.id ? [note.content.senseIndex] : []
-    )
-  )
-  const savedNote = (senseIndex: number) =>
-    (notes.data ?? []).find(
-      (note) =>
-        note.content.kind === "word" && note.content.entryId === data.id && note.content.senseIndex === senseIndex
-    )
-  const beginRemove = (senseIndex: number) => {
-    setRemoveError(null)
-    setRemovingSense(senseIndex)
-  }
-  const confirmRemove = async () => {
-    if (removingSense === null || removeNote.isPending) return
-    const note = savedNote(removingSense)
-    if (note === undefined) {
-      setRemovingSense(null)
+  const saved = noteOn(notes.data, data.id)
+  const saveable = isSaveable(data.reviewState)
+  const busy = addNote.isPending || removeNote.isPending
+  const toggleNote = async () => {
+    if (busy) return
+    setNoteError(null)
+    if (saved !== undefined) {
+      try {
+        await removeNote.mutateAsync(saved.id)
+      } catch (error) {
+        setNoteError(noteErrorText(t, error, "remove"))
+      }
       return
     }
-    setRemoveError(null)
+    if (!saveable) return
     try {
-      await removeNote.mutateAsync(note.id)
-      setRemovingSense(null)
+      await addNote.mutateAsync({ entryId: data.id })
     } catch (error) {
-      setRemoveError(removalErrorText(t, error))
+      setNoteError(noteErrorText(t, error, "save"))
     }
   }
-  const save = (sense: Sense) =>
-    addNote.mutate({
-      content: wordNote({
-        entryId: data.id,
-        language,
-        sense: sense.index,
-        headword: data.headword,
-        reading: data.reading,
-        glosses: sense.glosses,
-        ...saveDetails(t, data, sense),
-        example: sense.examples[0],
-        audioUrl: data.audioUrl
-      })
-    })
   const reading = data.reading.length > 0 && data.reading !== data.headword ? data.reading : null
   const share = () =>
     Share.share({
@@ -356,19 +317,13 @@ export default function EntryScreen() {
   )
   const inflections = data.forms.filter((form) => form.kind === "inflection")
   const senses = showAll ? data.senses : data.senses.slice(0, 3)
-  const waiting = onItsWay(data.enrichment.examples)
   const similar = similarWords(data.senses)
   const firstPos = data.senses[0]?.partsOfSpeech[0]
   const partOfSpeech = firstPos ? (posLabel(t, firstPos.code) ?? firstPos.name) : null
   const forms = [data.headword, ...data.forms.map((form) => form.text), ...(language === "ja" ? [data.reading] : [])]
   const size = headwordSize(data.headword, language)
   const headwordAudio = data.audioUrl
-  // A word with nothing from Kotori yet gets a plain header, with the part of speech among the
-  // details, and an offer to ask for more.
-  const plain = !hasKotoriContent(data) && !waiting
-  const meta = [reading, data.usuallyKana ? t.entry.usuallyKana : null, plain ? partOfSpeech : null].filter(
-    (part): part is string => part !== null
-  )
+  const meta = [reading, data.usuallyKana ? t.entry.usuallyKana : null].filter((part): part is string => part !== null)
   const origin = loanLine(t, data)
   const chips = heroItems(t, data)
 
@@ -388,18 +343,14 @@ export default function EntryScreen() {
           }
           actions={
             <>
-              <IconButton
-                icon="bookmark"
-                filled={savedSenses.has(0)}
-                label={savedSenses.has(0) ? t.saved.remove : t.entry.save}
-                onPress={
-                  removeNote.isPending || addNote.isPending || !data.senses[0]
-                    ? undefined
-                    : savedSenses.has(0)
-                      ? () => beginRemove(0)
-                      : () => save(data.senses[0]!)
-                }
-              />
+              {saveable || saved !== undefined ? (
+                <IconButton
+                  icon="bookmark"
+                  filled={saved !== undefined}
+                  label={saved !== undefined ? t.notebook.remove : t.entry.save}
+                  onPress={busy ? undefined : () => void toggleNote()}
+                />
+              ) : null}
               {canShare ? (
                 <IconButton
                   icon={Platform.OS === "android" ? "share" : "ios_share"}
@@ -413,16 +364,7 @@ export default function EntryScreen() {
       }
     >
       <Stack.Screen options={{ title: formatDocumentTitle(data.headword, t.appName) }} />
-      <RemoveNoteDialog
-        note={removingSense === null ? undefined : savedNote(removingSense)}
-        busy={removeNote.isPending}
-        error={removeError}
-        onConfirm={() => void confirmRemove()}
-        onCancel={() => {
-          setRemovingSense(null)
-          setRemoveError(null)
-        }}
-      />
+      <Notice message={noteError} />
       {entry.isRefetchError ? (
         <Notice
           message={t.common.notRefreshed}
@@ -430,30 +372,24 @@ export default function EntryScreen() {
         />
       ) : null}
       <View
-        style={
-          plain
-            ? { paddingHorizontal: 6, paddingTop: 4, marginBottom: 8, gap: 2 }
-            : {
-                borderRadius: theme.radius.xl,
-                overflow: "hidden",
-                backgroundColor: theme.color.primaryTint,
-                paddingHorizontal: 20,
-                paddingTop: 20,
-                paddingBottom: 18,
-                gap: 2
-              }
-        }
+        style={{
+          borderRadius: theme.radius.xl,
+          overflow: "hidden",
+          backgroundColor: theme.color.primaryTint,
+          paddingHorizontal: 20,
+          paddingTop: 20,
+          paddingBottom: 18,
+          gap: 2
+        }}
       >
-        {plain ? null : <Snow />}
+        <Snow />
         <Headword
           language={language}
           size={size}
           style={
             language === "en"
               ? { lineHeight: Math.round(size * 1.15) }
-              : plain
-                ? { lineHeight: size }
-                : { lineHeight: Math.round(size * 1.1), letterSpacing: size * 0.02 }
+              : { lineHeight: Math.round(size * 1.1), letterSpacing: size * 0.02 }
           }
           selectable
           accessibilityRole="header"
@@ -461,12 +397,7 @@ export default function EntryScreen() {
           {data.headword}
         </Headword>
         {meta.length > 0 ? (
-          <Text
-            variant="caption"
-            size={14}
-            color="textMuted"
-            style={{ marginTop: plain ? 16 : 4, lineHeight: plain ? 17 : 18 }}
-          >
+          <Text variant="caption" size={14} color="textMuted" style={{ marginTop: 4, lineHeight: 18 }}>
             {meta.join(" · ")}
           </Text>
         ) : null}
@@ -487,32 +418,23 @@ export default function EntryScreen() {
         ) : null}
         {chips.length > 0 ? (
           <View style={{ marginTop: 10 }}>
-            <ChipRow items={chips} onTint={!plain} />
+            <ChipRow items={chips} onTint />
           </View>
         ) : null}
-        {plain && !headwordAudio ? null : (
+        {headwordAudio || partOfSpeech ? (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12, minHeight: 44 }}>
             {headwordAudio ? <AudioButton url={headwordAudio} label={t.common.listen} /> : null}
             <View style={{ flex: 1 }} />
-            {partOfSpeech && !plain ? (
+            {partOfSpeech ? (
               <Text variant="caption" size={13.5} color="textMuted">
                 {partOfSpeech}
               </Text>
             ) : null}
           </View>
-        )}
+        ) : null}
       </View>
 
       <Cautions cautions={wordCautions(data.cautions)} headline />
-
-      {waiting ? (
-        <Card tone="primary" style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <Mascot size={52} mood="reading" />
-          <Text variant="small" style={{ flex: 1 }}>
-            {t.entry.writing}
-          </Text>
-        </Card>
-      ) : null}
 
       <Section title={data.senses.length === 1 ? t.entry.meaning : t.entry.meanings}>
         {senses.map((sense, index) => (
@@ -523,11 +445,6 @@ export default function EntryScreen() {
             number={index + 1}
             forms={forms}
             partOfSpeech={partOfSpeech}
-            saved={savedSenses.has(sense.index)}
-            saving={addNote.isPending}
-            removing={removeNote.isPending}
-            onSave={() => save(sense)}
-            onRemove={() => beginRemove(sense.index)}
           />
         ))}
         {data.senses.length > 3 ? (
@@ -538,50 +455,6 @@ export default function EntryScreen() {
           />
         ) : null}
       </Section>
-
-      {plain ? (
-        <View
-          style={{
-            backgroundColor: theme.color.surfaceMuted,
-            borderRadius: theme.radius.lg,
-            padding: theme.space.lg,
-            gap: 14
-          }}
-        >
-          <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
-            <View
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                backgroundColor: theme.color.surface,
-                alignItems: "center",
-                justifyContent: "center"
-              }}
-            >
-              <Mascot size={36} mood="sleepy" />
-            </View>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text variant="strong" weight="bold" size={15}>
-                {t.entry.dictionaryOnly}
-              </Text>
-              <Text variant="small" color="textMuted">
-                {t.entry.dictionaryOnlyBody(data.headword)}
-              </Text>
-            </View>
-          </View>
-          <View style={{ alignItems: "flex-start" }}>
-            <Button
-              variant="secondary"
-              icon={enrich.isSuccess ? "check" : "add"}
-              label={t.entry.ask}
-              loading={enrich.isPending}
-              disabled={enrich.isSuccess}
-              onPress={() => enrich.mutate()}
-            />
-          </View>
-        </View>
-      ) : null}
 
       {similar.length > 0 ? (
         <Section title={t.entry.similar}>

@@ -1,4 +1,4 @@
-import { EntryId, type EntryRecord, NoteId, UserId } from "@kotori/contracts"
+import { EntryId, type EntryRecord, UserId } from "@kotori/contracts"
 import type { users } from "@kotori/db"
 
 // Dictionary entries and learner ids shared by the PGlite query suites.
@@ -33,7 +33,7 @@ export const kana = (text: string, common = true) => ({ ...kanji(text, common), 
 /** Japanese words, from JMDict. */
 export const entries: Array<EntryRecord> = [
   {
-    id: EntryId.make(1358280),
+    id: EntryId.make("jmdict:1358280"),
     language: "ja",
     source: "jmdict",
     headword: "食べる",
@@ -44,7 +44,7 @@ export const entries: Array<EntryRecord> = [
     senses: [sense(["to eat"]), sense(["to live on (e.g. a salary)", "to subsist on"])]
   },
   {
-    id: EntryId.make(1269130),
+    id: EntryId.make("jmdict:1269130"),
     language: "ja",
     source: "jmdict",
     headword: "食う",
@@ -55,7 +55,7 @@ export const entries: Array<EntryRecord> = [
     senses: [sense(["to eat"], { misc: ["male"] }), sense(["to bite"])]
   },
   {
-    id: EntryId.make(1594790),
+    id: EntryId.make("jmdict:1594790"),
     language: "ja",
     source: "jmdict",
     headword: "召し上がる",
@@ -66,7 +66,7 @@ export const entries: Array<EntryRecord> = [
     senses: [sense(["to eat", "to drink"], { misc: ["hon"] })]
   },
   {
-    id: EntryId.make(1000000),
+    id: EntryId.make("jmdict:1000000"),
     language: "ja",
     source: "jmdict",
     headword: "鯛焼き",
@@ -92,7 +92,7 @@ const inflection = (text: string, tags: Array<string>) => ({
 /** English words, with Japanese glosses. */
 export const english: Array<EntryRecord> = [
   {
-    id: EntryId.make(100000001),
+    id: EntryId.make("en:eat"),
     language: "en",
     source: "enwiktionary",
     headword: "eat",
@@ -103,7 +103,7 @@ export const english: Array<EntryRecord> = [
     senses: [sense(["～を食べる。"], { pos: ["v", "vt"] }), sense(["食事をする"], { pos: ["v", "vi"] })]
   },
   {
-    id: EntryId.make(100000002),
+    id: EntryId.make("en:Polish"),
     language: "en",
     source: "enwiktionary",
     headword: "Polish",
@@ -114,7 +114,7 @@ export const english: Array<EntryRecord> = [
     senses: [sense(["ポーランドの"], { pos: ["adj"] })]
   },
   {
-    id: EntryId.make(100000003),
+    id: EntryId.make("en:polish"),
     language: "en",
     source: "enwiktionary",
     headword: "polish",
@@ -125,7 +125,7 @@ export const english: Array<EntryRecord> = [
     senses: [sense(["磨く"], { pos: ["v"] })]
   },
   {
-    id: EntryId.make(100000004),
+    id: EntryId.make("en:dine"),
     language: "en",
     source: "enwiktionary",
     headword: "dine",
@@ -137,13 +137,10 @@ export const english: Array<EntryRecord> = [
   }
 ]
 
-// Study ids are uuids, as Better Auth's user ids and the API's note ids are.
+// Learner ids are uuids, as Better Auth's user ids are.
 export const U1 = UserId.make("00000000-0000-4000-8000-000000000001")
-export const N1 = NoteId.make("00000000-0000-4000-8000-00000000000a")
-export const N2 = NoteId.make("00000000-0000-4000-8000-00000000000b")
-export const N3 = NoteId.make("00000000-0000-4000-8000-00000000000c")
 
-/** A learner profile to hang study data on; the database's defaults fill in the rest. */
+/** A learner profile to hang learner data on; the database's defaults fill in the rest. */
 export const learner = {
   id: U1,
   status: "approved",
@@ -152,8 +149,5 @@ export const learner = {
   targetLanguage: "ja",
   onboardedAt: null,
   displayName: null,
-  timezone: "Asia/Tokyo",
-  dailyNewLimit: 20,
-  dailyReviewLimit: 200,
   createdAt: new Date(0)
 } satisfies typeof users.$inferInsert

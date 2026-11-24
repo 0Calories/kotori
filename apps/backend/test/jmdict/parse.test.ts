@@ -41,7 +41,7 @@ describe("JMDict parser", () => {
 
   it("parses forms, senses and priorities", () => {
     const [taberu] = Array.from(parseEntries(xml))
-    expect(taberu).toMatchObject({ id: 1358280, headword: "食べる", reading: "たべる", common: true })
+    expect(taberu).toMatchObject({ id: "jmdict:1358280", headword: "食べる", reading: "たべる", common: true })
     expect(taberu?.priority).toBe(Math.round(40 + 20 + 29 * 1.5))
     expect(taberu?.forms.map((form) => [form.text, form.tags])).toEqual([
       ["食べる", []],

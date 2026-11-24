@@ -37,7 +37,6 @@ import { easeInOut, easeOut } from "../theme/easing.ts"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { Button } from "./Button.tsx"
 import { Card } from "./Card.tsx"
-import { DraftCard } from "./DraftCard.tsx"
 import { Mascot } from "./Mascot.tsx"
 import { ResultRow } from "./ResultRow.tsx"
 import { Text } from "./Text.tsx"
@@ -322,18 +321,15 @@ const LinkedEntry = ({
 
 const AnswerCard = ({
   answer,
-  language,
   live,
   onOpen
 }: {
   readonly answer: AskAnswer
-  readonly language: Language
   readonly live: boolean
   readonly onOpen: (entry: EntrySummary) => void
 }) => {
   switch (answer.kind) {
     case "draft":
-      return <DraftCard draft={answer.draft} language={language} live={live} />
     case "linked":
       return <LinkedEntry entry={answer.entry} live={live} onOpen={onOpen} />
     case "rejected":
@@ -385,8 +381,9 @@ const feedbackFor = (view: AskView) => {
 
 /**
  * Ask Kotori, under a search with no exact match. Kotori offers to look into the query, thinks
- * out loud while Claude works (a line at a time, over a filling bar), and then celebrates a
- * fresh draft, points to the entry the learner missed, says why the query isn't a word, or
+ * out loud while Claude works (a line at a time, over a filling bar), reading its dictionary and
+ * then writing an entry out, and then closes the book and celebrates a fresh draft, points to
+ * the entry the learner missed, says why the query isn't a word, or
  * shakes its head at a failure, with a way to ask again whenever that could help. The ask's
  * state lives in the query cache under the query, so typing away and back finds it as it was.
  */
@@ -426,7 +423,7 @@ export const AskKotori = ({
     now,
     toError: (error) => (error instanceof ApiError ? error : null)
   })
-  // The status line and Kotori's pose move on together: reading through the first lines, then thinking.
+  // The status line and Kotori's pose move on together: reading through the first lines, then writing.
   const stage = useAskStage(view.phase === "thinking" ? view.since : null)
   const { mood, facing } = askMood(view, match, stage)
   const live = (view.phase === "answered" || view.phase === "failed") && view.live
@@ -515,9 +512,7 @@ export const AskKotori = ({
               {content}
             </View>
           </View>
-          {view.phase === "answered" ? (
-            <AnswerCard answer={view.answer} language={language} live={view.live} onOpen={onOpen} />
-          ) : null}
+          {view.phase === "answered" ? <AnswerCard answer={view.answer} live={view.live} onOpen={onOpen} /> : null}
         </View>
       </Resizing>
     </View>

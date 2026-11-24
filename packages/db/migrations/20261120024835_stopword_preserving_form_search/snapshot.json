@@ -1,0 +1,39 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "3f022a72-aa14-4896-86cb-ce9cc279e62d",
+  "prevIds": ["9f94235d-2405-4d43-84a2-4aab9d2fb4f9"],
+  "footprints": [
+    {
+      "statementType": "recreate_index",
+      "statementTarget": ["index", "public", "entry_search", "entry_search_form_doc"],
+      "writes": [
+        "s|idx|public.entry_search_form_doc",
+        "n|idx|public.entry_search_form_doc",
+        "e|idx|public.entry_search_form_doc",
+        "n|rel|public.entry_search_form_doc"
+      ],
+      "reads": ["n|tbl|public.entry_search", "n|sch|public"],
+      "sharedWrites": [],
+      "sqlHash": "281a8c20276a98e0"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "alter",
+      "key": "indexes\u0000[\"public\",\"entry_search_form_doc\"]",
+      "set": {
+        "columns": [
+          {
+            "value": "(to_tsvector('simple', \"text\"))",
+            "isExpression": true,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ]
+      }
+    }
+  ]
+}

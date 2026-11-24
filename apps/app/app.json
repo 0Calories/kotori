@@ -4,7 +4,7 @@
     "slug": "kotori",
     "scheme": "kotori",
     "version": "0.1.0",
-    "description": "Your companion for real-world Japanese and English — a usage-first dictionary, Ask Kotori, and a spaced-repetition notebook.",
+    "description": "Your companion for real-world Japanese and English — a usage-first dictionary, Ask Kotori, and a notebook.",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

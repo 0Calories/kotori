@@ -1,14 +1,12 @@
 import type {
   CautionKind,
-  EnrichmentStatus,
   Entry,
   EntryCaution,
   Label,
   LabelCode,
   LabelSeverity,
   Sense,
-  Source,
-  UsagePattern
+  Source
 } from "@kotori/contracts"
 import type { IconName } from "../components/Icon.tsx"
 import type { Strings } from "../i18n/strings.ts"
@@ -112,12 +110,38 @@ export const loanLine = (t: Strings, entry: Pick<Entry, "language" | "loanLink">
   }
 }
 
-/** The hero's chips: how often the word is used, its loan, then its labels. */
+/** Badge for an unreviewed drafted entry or discarded tombstone; approved entries carry no badge. */
+export const reviewStateChip = (t: Strings, entry: Pick<Entry, "reviewState">): ChipItem | null => {
+  switch (entry.reviewState) {
+    case "approved":
+      return null
+    case "unreviewed":
+      return {
+        key: "unverified",
+        label: t.entry.unverified,
+        help: t.entry.unverifiedHelp,
+        severity: "warning",
+        icon: "auto_awesome",
+        kotori: true
+      }
+    case "discarded":
+      return {
+        key: "discarded",
+        label: t.entry.discarded,
+        help: t.entry.discardedHelp,
+        severity: "avoid"
+      }
+  }
+}
+
+/** The hero's chips: review status (when unverified/discarded), how often the word is used, its loan, then its labels. */
 export const heroItems = (
   t: Strings,
-  entry: Pick<Entry, "common" | "frequency" | "labels" | "language" | "loanLink">
+  entry: Pick<Entry, "reviewState" | "common" | "frequency" | "labels" | "language" | "loanLink">
 ) => [
-  ...[frequencyChip(t, entry), loanChip(t, entry)].filter((chip): chip is ChipItem => chip !== null),
+  ...[reviewStateChip(t, entry), frequencyChip(t, entry), loanChip(t, entry)].filter(
+    (chip): chip is ChipItem => chip !== null
+  ),
   ...labelItems(t, entry.labels)
 ]
 
@@ -162,32 +186,6 @@ export const hasKotoriMarks = (entry: SourcedFacts): boolean =>
     ...entry.senses.flatMap((sense) => [...sense.labels, ...sense.usagePatterns])
   ].some((fact) => fact.source === "kotori")
 
-/**
- * Whether a kind of enrichment is on its way, so the page waits and polls for it rather than
- * offering to ask. Every status is named, so a new one doesn't compile until it is placed here.
- */
-export const onItsWay = (status: EnrichmentStatus): boolean => {
-  switch (status) {
-    case "queued":
-      return true
-    case "ready":
-    case "unrequested":
-    case "unavailable":
-      return false
-  }
-}
-
-/**
- * Whether Kotori has added anything to the word: its own sentences, audio, or a label, note or
- * caution. A word with none is the dictionary's alone, and the page offers to ask for more.
- */
-export const hasKotoriContent = (
-  entry: Pick<Entry, "audioUrl" | "labels" | "loanLink" | "cautions" | "senses">
-): boolean =>
-  entry.audioUrl !== null ||
-  hasKotoriMarks(entry) ||
-  entry.senses.some((sense) => sense.examples.some((example) => example.source === "kotori"))
-
 /** Who contributed to the page, primary source first, for the sources line under it. */
 export const contributors = (
   t: Strings,
@@ -224,23 +222,4 @@ export const CAUTION_ICON: Record<CautionKind, IconName> = {
   confusable: "call_split",
   collocation: "link",
   tone: "monitoring"
-}
-
-/**
- * What a saved word carries into its reviews: the usage labels worth a hint (the labels that
- * aren't grammar facts, word's then the sense's), and the one note most worth remembering: a
- * caution on that sense or the word, else its first usage pattern.
- */
-export const saveDetails = (
-  t: Strings,
-  entry: Pick<Entry, "labels" | "cautions">,
-  sense: Pick<Sense, "index" | "labels" | "usagePatterns">
-): { readonly hint: string | null; readonly note: string | null } => {
-  const hint = [...entry.labels, ...sense.labels]
-    .filter((label) => label.severity !== "quiet")
-    .map((label) => t.labels.name[label.code])
-    .join(" · ")
-  const caution = senseCautions(entry.cautions, sense.index)[0] ?? wordCautions(entry.cautions)[0]
-  const usagePattern: UsagePattern | undefined = sense.usagePatterns[0]
-  return { hint: hint.length > 0 ? hint : null, note: caution?.text ?? usagePattern?.text ?? null }
 }

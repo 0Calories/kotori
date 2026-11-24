@@ -1,4 +1,4 @@
-import { CautionKind, LoanLinkMeaning } from "@kotori/db"
+import { CautionKind, EntryId, LoanLinkMeaning } from "@kotori/db"
 import { Effect, FileSystem, Option, Schema } from "effect"
 import { resolveFromRoot } from "../../../runtime/Paths.ts"
 
@@ -33,14 +33,14 @@ export const LICENCE = "Quotes JMdict and Wiktionary glosses: CC BY-SA 4.0, see 
 
 /** A Japanese word's senses Jev judged formal, by first gloss, with its probability; empty for none. */
 export const FormalLabelLine = Schema.Struct({
-  entryId: Schema.Int,
+  entryId: EntryId,
   headword: Schema.String,
   form: Schema.Array(Schema.Struct({ gloss: Schema.String, p: Schema.Number }))
 })
 export type FormalLabelLine = typeof FormalLabelLine.Type
 
 export const CautionLine = Schema.Struct({
-  entryId: Schema.Int,
+  entryId: EntryId,
   headword: Schema.String,
   cautions: Schema.Array(
     Schema.Struct({
@@ -61,9 +61,9 @@ export type CautionLine = typeof CautionLine.Type
  */
 export const LoanLine = Schema.Struct({
   english: Schema.String,
-  englishId: Schema.Int,
+  englishId: EntryId,
   katakana: Schema.NullOr(Schema.String),
-  katakanaId: Schema.NullOr(Schema.Int),
+  katakanaId: Schema.NullOr(EntryId),
   meaning: Schema.NullOr(LoanLinkMeaning),
   /** The probability of the likeliest meaning, both option orders averaged. */
   p: Schema.NullOr(Schema.Number)

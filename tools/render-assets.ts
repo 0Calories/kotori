@@ -175,6 +175,7 @@ renderPng(assetsOut, "mascot-celebrate.png", mascotSvg({ mood: "celebrate", back
 renderPng(assetsOut, "mascot-front.png", mascotFrontSvg({ background: sky, padding: 20 }), 400)
 renderPng(assetsOut, "mascot-thinking.png", mascotSvg({ mood: "thinking", background: sky, padding: 20 }), 400)
 renderPng(assetsOut, "mascot-reading.png", mascotSvg({ mood: "reading", background: sky, padding: 20 }), 400)
+renderPng(assetsOut, "mascot-writing.png", mascotSvg({ mood: "writing", background: sky, padding: 20 }), 400)
 
 // Web favicons, PWA icons, and social preview thumbnail
 writeSvg(publicOut, "favicon.svg", webFavicon)

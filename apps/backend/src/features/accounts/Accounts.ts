@@ -4,7 +4,6 @@ import { SqlClient } from "effect/sql"
 import { Database } from "../../db/Database.ts"
 import { Auth, type AuthUser } from "../../integrations/auth/Auth.ts"
 import { deleteUser, ensureUser, updateUser, type User } from "./queries.ts"
-import { isTimeZone } from "./timeZone.ts"
 
 /** What the profile shows from the auth user: contact details the row doesn't duplicate. */
 type Identity = Pick<AuthUser, "email" | "emailVerified">
@@ -19,9 +18,6 @@ const toProfile = (who: Identity, row: User): Profile => ({
   targetLanguage: row.targetLanguage,
   onboarded: row.onboardedAt !== null,
   displayName: row.displayName,
-  timezone: row.timezone,
-  dailyNewLimit: row.dailyNewLimit,
-  dailyReviewLimit: row.dailyReviewLimit,
   createdAt: row.createdAt
 })
 
@@ -60,10 +56,7 @@ export class Accounts extends Context.Service<
           targetLanguage: request.nativeLanguage === undefined ? undefined : otherLanguage(request.nativeLanguage),
           // Picking a language is what completes onboarding.
           onboardedAt: request.nativeLanguage === undefined ? undefined : now,
-          displayName: request.displayName === undefined ? undefined : request.displayName?.trim() || null,
-          timezone: request.timezone !== undefined && isTimeZone(request.timezone) ? request.timezone : undefined,
-          dailyNewLimit: request.dailyNewLimit,
-          dailyReviewLimit: request.dailyReviewLimit
+          displayName: request.displayName === undefined ? undefined : request.displayName?.trim() || null
         })
         return Option.match(updated, { onNone: () => current, onSome: (row) => toProfile(current, row) })
       })

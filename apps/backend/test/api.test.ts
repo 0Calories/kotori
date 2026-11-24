@@ -8,8 +8,9 @@ import { HttpApiMiddleware, HttpApiTest } from "effect/http-api"
 import { Database } from "../src/db/Database.ts"
 import { scopedToUser } from "../src/db/scopedToUser.ts"
 import { updateUser, userById } from "../src/features/accounts/queries.ts"
+import { mergeEntry } from "../src/features/asks/review.ts"
 import { insertEntries } from "../src/features/dictionary/queries.ts"
-import { noteById, noteCount, studyDays } from "../src/features/study/queries.ts"
+import { noteByEntry, noteCount } from "../src/features/notebook/queries.ts"
 import { AuthorizationLive } from "../src/http/Authorization.ts"
 import { AllHandlers } from "../src/http/handlers.ts"
 import { Auth, TestAuth } from "../src/integrations/auth/Auth.ts"
@@ -72,7 +73,7 @@ const Session = HttpApiMiddleware.layerClient(Authorization, ({ next, request })
   )
 )
 
-const client = HttpApiTest.groups(KotoriApi, ["system", "account", "dictionary", "coach", "study", "audio"])
+const client = HttpApiTest.groups(KotoriApi, ["system", "account", "dictionary", "coach", "notebook", "audio"])
 
 /** Signs up against the (in-memory) managed auth server and returns the user's id and session cookie. */
 const signUp = (email: string) => Effect.flatMap(TestAuth, (auth) => auth.signUp(email, "Test Learner"))
@@ -106,13 +107,13 @@ const sense = (glosses: Array<string>, pos: Array<string>) => ({
 })
 
 const entry = (
-  id: number,
+  id: number | string,
   headword: string,
   reading: string,
   glosses: Array<string>,
   pos: Array<string>
 ): EntryRecord => ({
-  id: EntryId.make(id),
+  id: EntryId.make(typeof id === "number" ? `jmdict:${id}` : id),
   language: "ja",
   source: "jmdict",
   headword,
@@ -152,16 +153,16 @@ layer(TestLayer)("Kotori API", (it) => {
       // Everything else is closed until an admin approves.
       const gated = yield* api.dictionary.search({ query: { q: "eat" } }).pipe(Effect.flip)
       assert.strictEqual(gated._tag, "PendingApproval")
-      const gatedStudy = yield* api.study.notes().pipe(Effect.flip)
-      assert.strictEqual(gatedStudy._tag, "PendingApproval")
+      const gatedNotebook = yield* api.notebook.notes().pipe(Effect.flip)
+      assert.strictEqual(gatedNotebook._tag, "PendingApproval")
 
       // Archiving changes nothing for the learner.
       yield* updateUser(db, user.id, { status: "archived" })
       assert.strictEqual((yield* api.account.me()).status, "archived")
-      assert.strictEqual((yield* api.study.notes().pipe(Effect.flip))._tag, "PendingApproval")
+      assert.strictEqual((yield* api.notebook.notes().pipe(Effect.flip))._tag, "PendingApproval")
 
       yield* updateUser(db, user.id, { status: "approved" })
-      assert.deepStrictEqual(yield* api.study.notes(), [])
+      assert.deepStrictEqual(yield* api.notebook.notes(), [])
 
       // The app authenticates with a managed JWT instead of the cookie.
       cookie = null
@@ -184,14 +185,13 @@ layer(TestLayer)("Kotori API", (it) => {
       bearer = null
       cookie = user.cookie
 
-      // Picking a language completes onboarding; bad time zones are ignored.
+      // Picking a language completes onboarding.
       const updated = yield* api.account.update({
-        payload: { nativeLanguage: "ja", dailyNewLimit: 5, timezone: "Not/AZone" }
+        payload: { nativeLanguage: "ja", displayName: "Updated Learner" }
       })
       assert.strictEqual(updated.targetLanguage, "en")
       assert.strictEqual(updated.onboarded, true)
-      assert.strictEqual(updated.dailyNewLimit, 5)
-      assert.strictEqual(updated.timezone, "UTC")
+      assert.strictEqual(updated.displayName, "Updated Learner")
     }).pipe(Effect.provide(Session))
   )
 
@@ -221,29 +221,51 @@ layer(TestLayer)("Kotori API", (it) => {
 
       const detail = yield* api.dictionary.entry({ params: { id: english.entries[0]!.id } })
       assert.deepStrictEqual(detail.senses[0]?.glosses, ["to eat"])
-      assert.deepStrictEqual(detail.enrichment, {
-        examples: "unavailable",
-        audio: "unavailable"
-      })
+      assert.deepStrictEqual(detail.cautions, [])
+      assert.deepStrictEqual(detail.senses[0]?.examples, [])
+      assert.strictEqual(detail.audioUrl, null)
+      assert.deepStrictEqual(detail.audio, [])
 
-      const missing = yield* api.dictionary.entry({ params: { id: 999 as never } }).pipe(Effect.flip)
+      const missing = yield* api.dictionary.entry({ params: { id: EntryId.make("jmdict:999") } }).pipe(Effect.flip)
       assert.strictEqual(missing._tag, "NotFound")
 
-      // The progress the app polls, on its own.
-      assert.deepStrictEqual(yield* api.dictionary.enrichment({ params: { id: english.entries[0]!.id } }), {
-        examples: "unavailable",
-        audio: "unavailable"
-      })
-      const missingProgress = yield* api.dictionary.enrichment({ params: { id: 999 as never } }).pipe(Effect.flip)
-      assert.strictEqual(missingProgress._tag, "NotFound")
-
-      // English learners search the English dictionary the same way round.
+      // English learners search the English dictionary the same way round, including deterministic
+      // string IDs with spaces and case-preserving twins (en:May vs en:may).
       yield* insertEntries(db, [
         {
-          ...entry(100000001, "eat", "/iːt/", ["～を食べる"], ["v"]),
+          ...entry("en:eat", "eat", "/iːt/", ["～を食べる"], ["v"]),
           language: "en",
           forms: [
             { kind: "spelling", text: "eat", common: true, tags: [], priorities: [], restrictions: [], noKanji: false }
+          ]
+        },
+        {
+          ...entry("en:run into", "run into", "", ["偶然出会う"], ["v"]),
+          language: "en",
+          forms: [
+            {
+              kind: "spelling",
+              text: "run into",
+              common: true,
+              tags: [],
+              priorities: [],
+              restrictions: [],
+              noKanji: false
+            }
+          ]
+        },
+        {
+          ...entry("en:May", "May", "", ["5月"], ["n"]),
+          language: "en",
+          forms: [
+            { kind: "spelling", text: "May", common: true, tags: [], priorities: [], restrictions: [], noKanji: false }
+          ]
+        },
+        {
+          ...entry("en:may", "may", "", ["～かもしれない"], ["v"]),
+          language: "en",
+          forms: [
+            { kind: "spelling", text: "may", common: true, tags: [], priorities: [], restrictions: [], noKanji: false }
           ]
         }
       ])
@@ -254,191 +276,107 @@ layer(TestLayer)("Kotori API", (it) => {
         [["eat", "en"]]
       )
       assert.strictEqual((yield* api.dictionary.search({ query: { q: "食べる" } })).entries[0]?.headword, "eat")
+
+      // Multi-word and case-preserving English EntryIds round-trip cleanly over HTTP path params.
+      const runInto = yield* api.dictionary.entry({ params: { id: EntryId.make("en:run into") } })
+      assert.strictEqual(runInto.id, EntryId.make("en:run into"))
+      assert.strictEqual(runInto.headword, "run into")
+      const upperMay = yield* api.dictionary.entry({ params: { id: EntryId.make("en:May") } })
+      const lowerMay = yield* api.dictionary.entry({ params: { id: EntryId.make("en:may") } })
+      assert.strictEqual(upperMay.senses[0]?.glosses[0], "5月")
+      assert.strictEqual(lowerMay.senses[0]?.glosses[0], "～かもしれない")
     }).pipe(Effect.provide(Session))
   )
 
-  it.effect("schedules saved words with Anki's algorithm", () =>
+  it.effect("saves and removes entries in the notebook idempotently", () =>
     Effect.gen(function* () {
-      yield* signedIn("study@example.com")
+      const db = yield* Database
+      yield* signedIn("notebook@example.com")
+      const eat = entry(101, "食べる", "たべる", ["to eat"], ["v1", "vt"])
+      const discarded = entry("kotori:discarded-note-test", "ボツ", "ぼつ", ["discarded"], ["n"])
+      yield* insertEntries(db, [eat])
+      yield* insertEntries(db, [discarded], { reviewState: "discarded" })
       const api = yield* client
-      const note = yield* api.study.addNote({
-        payload: {
-          content: {
-            kind: "word",
-            entryId: 1 as never,
-            senseIndex: 0,
-            headword: "食べる",
-            reading: "たべる",
-            meaning: "to eat",
-            hint: null,
-            example: null,
-            audioUrl: null
-          }
-        }
-      })
-      assert.strictEqual(note.retentionStage, "new")
 
-      // Saving the same sense again is idempotent.
-      const again = yield* api.study.addNote({ payload: { content: note.content } })
+      const note = yield* api.notebook.addNote({ payload: { entryId: eat.id } })
+      assert.strictEqual(note.entry.id, eat.id)
+      assert.strictEqual(note.entry.headword, "食べる")
+      assert.deepStrictEqual(note.senses, [{ glosses: ["to eat"] }])
+
+      // Saving the same entry again is idempotent.
+      const again = yield* api.notebook.addNote({ payload: { entryId: eat.id } })
       assert.strictEqual(again.id, note.id)
 
-      const due = yield* api.study.due({ query: {} })
-      assert.deepStrictEqual(due.counts, { new: 1, learning: 0, review: 0 })
-      assert.strictEqual(due.items.length, 1)
-      const first = due.items[0]!
-      assert.strictEqual(first.note.id, note.id)
-      assert.strictEqual(first.labels.again, "1m")
+      const missing = yield* api.notebook
+        .addNote({ payload: { entryId: EntryId.make("jmdict:999999") } })
+        .pipe(Effect.flip)
+      assert.strictEqual(missing._tag, "NotFound")
 
-      const answered = yield* api.study.answer({ params: { id: first.note.id }, payload: { rating: "easy" } })
-      assert.strictEqual(answered.note.retentionStage, "review")
-      assert.isAtLeast(answered.note.interval, 3)
+      const rejected = yield* api.notebook.addNote({ payload: { entryId: discarded.id } }).pipe(Effect.flip)
+      assert.strictEqual(rejected._tag, "InvalidRequest")
 
-      const stats = yield* api.study.stats()
-      assert.strictEqual(stats.reviewedToday, 1)
-      assert.strictEqual(stats.streak, 1)
-      assert.strictEqual(stats.notes, 1)
-      assert.strictEqual(stats.unseen, 0)
+      assert.strictEqual((yield* api.notebook.notes()).length, 1)
 
-      yield* api.study.removeNote({ params: { id: note.id } })
-      assert.deepStrictEqual(yield* api.study.notes(), [])
+      yield* api.notebook.removeNote({ params: { id: note.id } })
+      assert.deepStrictEqual(yield* api.notebook.notes(), [])
     }).pipe(Effect.provide(Session))
   )
 
-  it.effect("returns every counted due note even when the page is smaller", () =>
-    Effect.gen(function* () {
-      yield* signedIn("due-membership@example.com")
-      const api = yield* client
-      yield* api.account.update({ payload: { dailyNewLimit: 2 } })
-      const saved = []
-      for (const text of ["first", "second", "limited out"]) {
-        saved.push(
-          yield* api.study.addNote({
-            payload: {
-              content: {
-                kind: "phrase",
-                text,
-                meaning: text,
-                furigana: null,
-                note: null,
-                register: null,
-                source: "manual"
-              }
-            }
-          })
-        )
-      }
-      const due = yield* api.study.due({ query: { limit: 1 } })
-      assert.strictEqual(due.items.length, 1)
-      assert.deepStrictEqual(due.counts, { new: 2, learning: 0, review: 0 })
-      assert.deepStrictEqual(
-        due.all,
-        saved.slice(0, 2).map((note) => ({ id: note.id, retentionStage: "new" }))
-      )
-    }).pipe(Effect.provide(Session))
-  )
-
-  it.effect("deletes a note for its owner only, along with its review log", () =>
+  it.effect("deletes a note for its owner only", () =>
     Effect.gen(function* () {
       const owner = yield* signedIn("remove-owner@example.com")
       const api = yield* client
       const db = yield* Database
       const own = scopedToUser(db, owner.id)
-      const phrase = {
-        kind: "phrase" as const,
-        text: "お邪魔します",
-        furigana: null,
-        meaning: "excuse me",
-        note: null,
-        register: "polite" as const,
-        source: "manual" as const
-      }
-      const note = yield* api.study.addNote({ payload: { content: phrase } })
-      yield* api.study.answer({ params: { id: note.id }, payload: { rating: "good" } })
-      assert.isAtLeast((yield* studyDays(own)).length, 1)
+      const first = entry(201, "お邪魔します", "おじゃまします", ["excuse me"], ["exp"])
+      const second = entry(202, "失礼します", "しつれいします", ["excuse me"], ["exp"])
+      yield* insertEntries(db, [first, second])
+      const note = yield* api.notebook.addNote({ payload: { entryId: first.id } })
 
       // No session: refused before the note is looked up.
       const ownerCookie = owner.cookie
       cookie = null
       bearer = null
       assert.strictEqual(
-        (yield* api.study.removeNote({ params: { id: note.id } }).pipe(Effect.flip))._tag,
+        (yield* api.notebook.removeNote({ params: { id: note.id } }).pipe(Effect.flip))._tag,
         "Unauthorized"
       )
 
       // A different learner gets NotFound, and the note is still there.
       const other = yield* signedIn("remove-other@example.com")
-      const denied = yield* api.study.removeNote({ params: { id: note.id } }).pipe(Effect.flip)
+      const denied = yield* api.notebook.removeNote({ params: { id: note.id } }).pipe(Effect.flip)
       assert.strictEqual(denied._tag, "NotFound")
-      const kept = yield* api.study.addNote({ payload: { content: { ...phrase, text: "失礼します" } } })
+      const kept = yield* api.notebook.addNote({ payload: { entryId: second.id } })
 
       cookie = ownerCookie
-      assert.strictEqual((yield* api.study.notes()).map((row) => row.id).join(), note.id)
-      yield* api.study.removeNote({ params: { id: note.id } })
-      assert.deepStrictEqual(yield* api.study.notes(), [])
-      assert.deepStrictEqual((yield* api.study.due({ query: {} })).counts, { new: 0, learning: 0, review: 0 })
-      const stats = yield* api.study.stats()
-      assert.strictEqual(stats.notes, 0)
-      assert.deepStrictEqual(stats.due, { new: 0, learning: 0, review: 0 })
-      assert.isTrue(Option.isNone(yield* noteById(own, note.id)))
-      assert.deepStrictEqual(yield* studyDays(own), [])
+      assert.strictEqual((yield* api.notebook.notes()).map((row) => row.id).join(), note.id)
+      yield* api.notebook.removeNote({ params: { id: note.id } })
+      assert.deepStrictEqual(yield* api.notebook.notes(), [])
+      assert.isTrue(Option.isNone(yield* noteByEntry(own, first.id)))
       assert.strictEqual(yield* noteCount(own), 0)
 
       // Deleting again, or deleting an id that was never saved, is a success.
-      yield* api.study.removeNote({ params: { id: note.id } })
-      yield* api.study.removeNote({ params: { id: "00000000-0000-4000-8000-000000000099" as typeof note.id } })
+      yield* api.notebook.removeNote({ params: { id: note.id } })
+      yield* api.notebook.removeNote({ params: { id: "00000000-0000-4000-8000-000000000099" as typeof note.id } })
 
       cookie = other.cookie
       assert.deepStrictEqual(
-        (yield* api.study.notes()).map((row) => row.id),
+        (yield* api.notebook.notes()).map((row) => row.id),
         [kept.id]
       )
-      assert.isTrue(Option.isSome(yield* noteById(scopedToUser(db, other.id), kept.id)))
+      assert.isTrue(Option.isSome(yield* noteByEntry(scopedToUser(db, other.id), second.id)))
     }).pipe(Effect.provide(Session))
   )
 
-  it.effect("saves a note as new and due at once", () =>
-    Effect.gen(function* () {
-      yield* signedIn("new-note@example.com")
-      const api = yield* client
-      const note = yield* api.study.addNote({
-        payload: {
-          content: {
-            kind: "phrase",
-            text: "いってきます",
-            furigana: null,
-            meaning: "I'm off",
-            note: null,
-            register: null,
-            source: "manual"
-          }
-        }
-      })
-      assert.strictEqual(note.retentionStage, "new")
-      const due = yield* api.study.due({ query: {} })
-      assert.deepStrictEqual(due.counts, { new: 1, learning: 0, review: 0 })
-      assert.strictEqual(due.items[0]?.note.id, note.id)
-    }).pipe(Effect.provide(Session))
-  )
-
-  it.effect("deleting the account removes the profile and study data", () =>
+  it.effect("deleting the account removes the profile and notebook data", () =>
     Effect.gen(function* () {
       const db = yield* Database
       const user = yield* signedIn("leaving@example.com")
       const api = yield* client
       const auth = yield* Auth
-      yield* api.study.addNote({
-        payload: {
-          content: {
-            kind: "phrase",
-            text: "お疲れ様でした",
-            furigana: null,
-            meaning: "good work today",
-            note: null,
-            register: null,
-            source: "manual"
-          }
-        }
-      })
+      const saved = entry(301, "お疲れ様でした", "おつかれさまでした", ["good work today"], ["exp"])
+      yield* insertEntries(db, [saved])
+      yield* api.notebook.addNote({ payload: { entryId: saved.id } })
       assert.isTrue(Option.isSome(yield* userById(db, user.id)))
 
       const token = yield* Effect.flatMap(TestAuth, (testAuth) => testAuth.token(user.cookie))
@@ -470,6 +408,26 @@ layer(TestLayer)("Kotori API", (it) => {
 
       const error = yield* api.coach.naturalness({ payload: { text: "私は学生です。" } }).pipe(Effect.flip)
       assert.strictEqual(error._tag, "AiUnavailable")
+    }).pipe(Effect.provide(Session))
+  )
+
+  it.effect("resolves merged kotori: entry IDs transparently via GET /dictionary/entries/:id", () =>
+    Effect.gen(function* () {
+      yield* signedIn("merged@example.com")
+      const api = yield* client
+      const db = yield* Database
+      const canonical = entry(1900123, "食べる", "たべる", ["to eat"], ["v1"])
+      const dupId = EntryId.make("kotori:dup-taberu")
+      yield* insertEntries(db, [canonical])
+      yield* insertEntries(db, [{ ...canonical, id: dupId, source: "kotori", headword: "たべる重複" }], {
+        reviewState: "unreviewed"
+      })
+      yield* mergeEntry(db, dupId, canonical.id)
+
+      const resolved = yield* api.dictionary.entry({ params: { id: dupId } })
+      assert.strictEqual(resolved.id, canonical.id)
+      assert.strictEqual(resolved.headword, "食べる")
+      assert.strictEqual(resolved.reviewState, "approved")
     }).pipe(Effect.provide(Session))
   )
 })

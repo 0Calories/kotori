@@ -1,33 +1,23 @@
 import { NodeFileSystem, NodePath } from "@effect/platform-node"
-import { assert, describe, it, layer } from "@effect/vitest"
-import {
-  cautions,
-  type DraftEntry,
-  entryFrequency,
-  EntryId,
-  FIRST_APPROVED_JA_ID,
-  labels,
-  proposals,
-  usagePatterns
-} from "@kotori/db"
-import { asc, eq } from "drizzle-orm"
-import { Effect, FileSystem, Layer } from "effect"
+import { assert, layer } from "@effect/vitest"
+import { type DraftEntry, EntryId, kotoriEntryId, proposals } from "@kotori/db"
+import { Effect, FileSystem, Layer, Option } from "effect"
 import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterAll } from "vitest"
 import { Database } from "../../src/db/Database.ts"
 import { ensureUser } from "../../src/features/accounts/queries.ts"
-import { approveProposal, discardProposal, draftToRecord, parseApprovedJa } from "../../src/features/asks/review.ts"
-import { parseApproved } from "../../src/features/dictionary/import/english/approved.ts"
-import { findForms, getEntries, insertEntries } from "../../src/features/dictionary/queries.ts"
-import { jobStatusFor } from "../../src/features/enrichment/jobs.ts"
+import { draftToEntryRecord } from "../../src/features/asks/draft.ts"
+import { approveProposal, discardProposal, mergeProposal } from "../../src/features/asks/review.ts"
+import { Dictionary } from "../../src/features/dictionary/Dictionary.ts"
+import { exportKotoriEntries, importKotoriEntries } from "../../src/features/dictionary/kotoriBackup.ts"
+import { deleteEntries, insertEntries, saveKotoriCautions } from "../../src/features/dictionary/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
 import { english, U1 } from "../fixtures.ts"
 
-const directory = mkdtempSync(join(tmpdir(), "approved-"))
+const directory = mkdtempSync(join(tmpdir(), "kotori-backup-"))
 afterAll(() => rmSync(directory, { recursive: true, force: true }))
-const files = { en: join(directory, "en.jsonl"), ja: join(directory, "ja.jsonl") }
 
 const draft: DraftEntry = {
   headword: "bussin",
@@ -53,30 +43,38 @@ const jaDraft: DraftEntry = {
   cautions: [{ kind: "set_phrase", text: "Mostly said of a crush, not a partner.", sense: 0, about: null }]
 }
 
-const propose = (
+/** Inserts an unreviewed `kotori:` entry directly in `entries` + `entry_search` and links a pending proposal. */
+const proposeDraft = Effect.fnUntraced(function* (
   db: Parameters<typeof approveProposal>[0],
   language: "en" | "ja",
   query: string,
-  entry: DraftEntry | null
-) =>
-  db
+  entry: DraftEntry,
+  idSuffix: string
+) {
+  const entryId = kotoriEntryId(idSuffix)
+  yield* insertEntries(db, [draftToEntryRecord(entry, language, entryId)], {
+    seeded: true,
+    reviewState: "unreviewed"
+  })
+  if (entry.cautions.length > 0) {
+    yield* saveKotoriCautions(db, entryId, language, entry.cautions)
+  }
+  const [row] = yield* db
     .insert(proposals)
     .values({
       language,
       query,
       status: "pending",
-      draft: entry,
-      linkedEntryId: null,
+      linkedEntryId: entryId,
       reason: null,
       model: "test",
       requestedBy: U1,
       createdAt: new Date(0)
     })
     .returning()
-    .pipe(
-      Effect.map((rows) => rows[0]!.id),
-      Effect.orDie
-    )
+    .pipe(Effect.orDie)
+  return { proposalId: row!.id, entryId }
+})
 
 const seeded = Effect.gen(function* () {
   const db = yield* Database
@@ -84,176 +82,183 @@ const seeded = Effect.gen(function* () {
   yield* insertEntries(db, english)
 })
 
-const TestLayer = Layer.mergeAll(DatabaseMemory, NodeFileSystem.layer, NodePath.layer)
+const TestLayer = Layer.mergeAll(Dictionary.layer, NodeFileSystem.layer, NodePath.layer).pipe(
+  Layer.provideMerge(DatabaseMemory)
+)
 
-layer(TestLayer)("proposal review", (it) => {
-  it.effect("approving a draft makes a real entry, queues enrichment, and persists to the approved file", () =>
+layer(TestLayer)("admin review lifecycle and kotori: CLI export/import", (it) => {
+  it.effect("approves an unreviewed Drafted entry in place without changing its kotori: ID", () =>
     Effect.gen(function* () {
       const db = yield* Database
-      const fs = yield* FileSystem.FileSystem
+      const dictionary = yield* Dictionary
       yield* seeded
 
-      const id = yield* propose(db, "en", "bussin", draft)
-      const approved = yield* approveProposal(db, id, files)
+      const { proposalId, entryId } = yield* proposeDraft(db, "en", "bussin", draft, "bussin-1")
+
+      // Before approval: searchable and flagged unreviewed.
+      const before = yield* dictionary.search("bussin'", "en", 10)
+      assert.strictEqual(before.entries[0]?.id, entryId)
+      assert.strictEqual(before.entries[0]?.reviewState, "unreviewed")
+
+      // Approve in place: same kotori: ID, promoted to approved.
+      const approved = yield* approveProposal(db, proposalId)
+      assert.strictEqual(approved.entryId, entryId)
       assert.strictEqual(approved.headword, "bussin")
 
-      // The entry is searchable by headword and spelling, with the draft's labels, usage patterns and
-      // cautions as Kotori's, the caution linked to the word it names.
-      const [match] = yield* findForms(db, ["bussin'"], "en")
-      assert.strictEqual(match?.entryId, approved.entryId)
-      const [entry] = yield* getEntries(db, [approved.entryId])
-      assert.strictEqual(entry?.source, "kotori")
-      assert.deepStrictEqual(
-        yield* db
-          .select({ sense: labels.sense, code: labels.code, source: labels.source })
-          .from(labels)
-          .where(eq(labels.entryId, approved.entryId))
-          .orderBy(asc(labels.sense)),
-        [
-          { sense: 0, code: "sl", source: "kotori" },
-          { sense: 1, code: "sl", source: "kotori" }
-        ]
-      )
-      assert.deepStrictEqual(
-        yield* db
-          .select({ sense: usagePatterns.sense, text: usagePatterns.text, source: usagePatterns.source })
-          .from(usagePatterns)
-          .where(eq(usagePatterns.entryId, approved.entryId)),
-        [{ sense: 0, text: "若者のスラングです。", source: "kotori" }]
-      )
-      assert.deepStrictEqual(
-        yield* db
-          .select({
-            rank: cautions.rank,
-            kind: cautions.kind,
-            sense: cautions.sense,
-            about: cautions.aboutEntryId
-          })
-          .from(cautions)
-          .where(eq(cautions.entryId, approved.entryId))
-          .orderBy(asc(cautions.rank)),
-        [
-          { rank: 1, kind: "collocation", sense: 0, about: english[0]!.id },
-          { rank: 2, kind: "variety", sense: null, about: null }
-        ]
-      )
-      // The draft's frequency score is stored from the moment it is approved.
-      assert.deepStrictEqual(
-        yield* db.select().from(entryFrequency).where(eq(entryFrequency.entryId, approved.entryId)),
-        [{ entryId: approved.entryId, everyday: false, spokenCount: null, score: 4 }]
-      )
-      const jobs = yield* jobStatusFor(db, approved.entryId)
-      assert.deepStrictEqual([...jobs.keys()].toSorted(), ["audio", "examples"])
+      const after = yield* dictionary.search("bussin'", "en", 10)
+      assert.strictEqual(after.entries[0]?.id, entryId)
+      assert.strictEqual(after.entries[0]?.reviewState, "approved")
 
-      // The approved file replays the entry on the next import, frequency included.
-      const parsed = parseApproved((yield* fs.readFileString(files.en)).split("\n"))
-      assert.strictEqual(parsed.words[0]?.headword, "bussin")
-      assert.strictEqual(parsed.words[0]?.frequency, 4)
-      assert.strictEqual(parsed.words[0]?.senses[0]?.misc.includes("sl"), true)
-      assert.deepStrictEqual(parsed.words[0]?.senses[0]?.info, ["若者のスラングです。"])
-      assert.deepStrictEqual(parsed.words[0]?.cautions, draft.cautions)
+      const entry = Option.getOrThrow(yield* dictionary.entry(entryId))
+      assert.strictEqual(entry.source, "kotori")
+      assert.strictEqual(entry.reviewState, "approved")
+      assert.deepStrictEqual(
+        entry.labels.map((l) => [l.code, l.source]),
+        [["sl", "kotori"]]
+      )
+      assert.deepStrictEqual(entry.senses[0]?.usagePatterns, [
+        { text: "若者のスラングです。", source: "kotori", about: null }
+      ])
+      assert.deepStrictEqual(
+        entry.cautions.map((c) => [c.kind, c.sense, c.about?.entryId ?? null]),
+        [
+          ["collocation", 0, english[0]!.id],
+          ["variety", null, null]
+        ]
+      )
+      assert.deepStrictEqual(entry.frequency, { everyday: false, spokenCount: null, score: 4 })
 
       // Approving twice is refused.
-      const again = yield* Effect.flip(approveProposal(db, id, files))
+      const again = yield* Effect.flip(approveProposal(db, proposalId))
       assert.strictEqual(again._tag, "NotPending")
     })
   )
 
-  it.effect("an alias approval adds a spelling to the entry instead of a new one", () =>
+  it.effect("discards an unreviewed Drafted entry, hides it from search, and keeps a tombstone", () =>
     Effect.gen(function* () {
       const db = yield* Database
-      const fs = yield* FileSystem.FileSystem
+      const dictionary = yield* Dictionary
       yield* seeded
 
-      const id = yield* propose(db, "en", "it be like it be", {
-        ...draft,
-        headword: "it be like it be",
-        spellings: []
-      })
-      const approved = yield* approveProposal(db, id, files, { aliasOf: "eat" })
-      assert.strictEqual(approved.alias, "it be like it be")
-      const matches = yield* findForms(db, ["it be like it be"], "en")
-      assert.strictEqual(matches[0]?.entryId, approved.entryId)
-      assert.strictEqual(approved.headword, "eat")
-
-      const parsed = parseApproved((yield* fs.readFileString(files.en)).split("\n"))
-      assert.deepStrictEqual(parsed.formsOf.at(-1), { text: "it be like it be", base: "eat", tags: [] })
-    })
-  )
-
-  it.effect("a Japanese draft gets an id in the approved range and comes back from its file", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      const fs = yield* FileSystem.FileSystem
-      yield* seeded
-
-      const id = yield* propose(db, "ja", "蛙化現象", jaDraft)
-      const approved = yield* approveProposal(db, id, files)
-      assert.isAtLeast(approved.entryId, FIRST_APPROVED_JA_ID + 1)
-      const [entry] = yield* getEntries(db, [approved.entryId])
-      // getEntries lists forms kanji first, as the dictionary does.
-      assert.deepStrictEqual(
-        entry?.forms.map((form) => [form.kind, form.text]),
-        [
-          ["kanji", "蛙化現象"],
-          ["kanji", "カエル化現象"],
-          ["kana", "かえるかげんしょう"]
-        ]
+      const { proposalId, entryId } = yield* proposeDraft(
+        db,
+        "en",
+        "slopword",
+        { ...draft, headword: "slopword", spellings: [] },
+        "slopword-1"
       )
+      assert.strictEqual((yield* dictionary.search("slopword", "en", 10)).entries[0]?.id, entryId)
 
-      const parsed = parseApprovedJa((yield* fs.readFileString(files.ja)).split("\n"))
-      assert.strictEqual(parsed.records[0]?.id, approved.entryId)
-      assert.strictEqual(parsed.records[0]?.senses[0]?.glosses[0]?.text, "the ick")
-      assert.deepStrictEqual(parsed.records[0]?.frequency, { everyday: false, spokenCount: null, score: 3 })
-      assert.deepStrictEqual(
-        yield* db
-          .select({ score: entryFrequency.score })
-          .from(entryFrequency)
-          .where(eq(entryFrequency.entryId, approved.entryId)),
-        [{ score: 3 }]
-      )
-      assert.deepStrictEqual(parsed.cautions, [{ entryId: approved.entryId, cautions: jaDraft.cautions }])
-    })
-  )
-
-  it.effect("discarding keeps the row as a negative cache", () =>
-    Effect.gen(function* () {
-      const db = yield* Database
-      yield* seeded
-      const id = yield* propose(db, "en", "slopword", draft)
-      const discarded = yield* discardProposal(db, id, "not established usage")
+      const discarded = yield* discardProposal(db, proposalId, "not established usage")
       assert.strictEqual(discarded.query, "slopword")
-      const again = yield* Effect.flip(discardProposal(db, id, null))
+      assert.strictEqual(discarded.entryId, entryId)
+
+      // Hidden from search.
+      const searchAfter = yield* dictionary.search("slopword", "en", 10)
+      assert.isFalse(searchAfter.entries.some((e) => e.id === entryId))
+
+      // Tombstone stays in entries so direct lookups know it was discarded.
+      const direct = Option.getOrThrow(yield* dictionary.entry(entryId))
+      assert.strictEqual(direct.reviewState, "discarded")
+
+      const again = yield* Effect.flip(discardProposal(db, proposalId, null))
       assert.strictEqual(again._tag, "NotPending")
     })
   )
 
-  it.effect("draftToRecord stores labels and usage patterns where the import reads them", () =>
-    Effect.sync(() => {
-      const record = draftToRecord(draft, "en", 100_900_000 as never)
-      assert.deepStrictEqual(record.senses[0]?.misc, ["sl"])
-      assert.deepStrictEqual(record.senses[0]?.info, ["若者のスラングです。"])
-      assert.deepStrictEqual(record.senses[0]?.pos, ["adj"])
+  it.effect("merges a duplicate Drafted entry into a canonical Entry via redirect_to", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      yield* seeded
+
+      const { proposalId, entryId } = yield* proposeDraft(
+        db,
+        "en",
+        "eatin good",
+        { ...draft, headword: "eatin good", spellings: [] },
+        "dup-eat"
+      )
+      const canonicalId = EntryId.make("en:eat")
+      const merged = yield* mergeProposal(db, proposalId, canonicalId)
+      assert.strictEqual(merged.entryId, entryId)
+      assert.strictEqual(merged.targetEntryId, canonicalId)
+      assert.strictEqual(merged.headword, "eat")
+
+      // Duplicate row is hidden from search.
+      const search = yield* dictionary.search("eatin good", "en", 10)
+      assert.isFalse(search.entries.some((e) => e.id === entryId))
+
+      // Direct lookup of the merged kotori: ID transparently resolves to the canonical Entry.
+      const resolved = Option.getOrThrow(yield* dictionary.entry(entryId))
+      assert.strictEqual(resolved.id, canonicalId)
+      assert.strictEqual(resolved.headword, "eat")
+      assert.strictEqual(resolved.reviewState, "approved")
     })
   )
-})
 
-describe("approved files", () => {
-  it("loads a Japanese line written before entries named their source, as an Ask Kotori word", () => {
-    const { source: _, ...old } = draftToRecord(jaDraft, "ja", EntryId.make(FIRST_APPROVED_JA_ID))
-    const parsed = parseApprovedJa([JSON.stringify({ entry: old })])
-    assert.deepStrictEqual(parsed.skipped, [])
-    assert.strictEqual(parsed.records[0]?.id, FIRST_APPROVED_JA_ID)
-    assert.strictEqual(parsed.records[0]?.source, "kotori")
-  })
+  it.effect("exports and restores kotori: entries across all states without touching external rows", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      const dictionary = yield* Dictionary
+      const fs = yield* FileSystem.FileSystem
+      yield* seeded
 
-  it("names the lines it can't read, by line number, instead of losing them silently", () => {
-    const line = JSON.stringify({ entry: draftToRecord(jaDraft, "ja", EntryId.make(FIRST_APPROVED_JA_ID)) })
-    const ja = parseApprovedJa([line, "", "{not json", JSON.stringify({ entry: { id: "x" } }), line])
-    assert.deepStrictEqual(ja.skipped, [3, 4])
-    assert.strictEqual(ja.records.length, 2)
+      const unreviewed = yield* proposeDraft(db, "ja", "蛙化現象", jaDraft, "export-unreviewed")
+      const approved = yield* proposeDraft(
+        db,
+        "en",
+        "rizz",
+        { ...draft, headword: "rizz", spellings: [] },
+        "export-approved"
+      )
+      yield* approveProposal(db, approved.proposalId)
 
-    const en = parseApproved(["", "{not json"])
-    assert.deepStrictEqual(en.skipped, [2])
-  })
+      const discarded = yield* proposeDraft(
+        db,
+        "en",
+        "bogusword",
+        { ...draft, headword: "bogusword", spellings: [] },
+        "export-discarded"
+      )
+      yield* discardProposal(db, discarded.proposalId, "nope")
+
+      const merged = yield* proposeDraft(
+        db,
+        "en",
+        "eatdup",
+        { ...draft, headword: "eatdup", spellings: [] },
+        "export-merged"
+      )
+      yield* mergeProposal(db, merged.proposalId, EntryId.make("en:eat"))
+
+      const dumpFile = join(directory, "kotori-entries.jsonl")
+      const exported = yield* exportKotoriEntries(db, dumpFile)
+      assert.isAtLeast(exported.exported, 4)
+
+      // Append an invalid line and an external entry line to verify import skips them cleanly.
+      const existingText = yield* fs.readFileString(dumpFile)
+      yield* fs.writeFileString(dumpFile, existingText + "{not json\n" + JSON.stringify({ id: "en:eat" }) + "\n")
+
+      // Delete all 4 kotori: rows from the DB, then restore from dumpFile.
+      const kotoriIds = [unreviewed.entryId, approved.entryId, discarded.entryId, merged.entryId]
+      yield* deleteEntries(db, kotoriIds)
+      for (const id of kotoriIds) {
+        assert.isTrue(Option.isNone(yield* dictionary.entry(id)))
+      }
+
+      const imported = yield* importKotoriEntries(db, dumpFile)
+      assert.isAtLeast(imported.imported, 4)
+      assert.strictEqual(imported.skipped.length, 2)
+
+      // All 4 states and search projections are restored accurately.
+      assert.strictEqual(Option.getOrThrow(yield* dictionary.entry(unreviewed.entryId)).reviewState, "unreviewed")
+      assert.strictEqual((yield* dictionary.search("蛙化現象", "ja", 10)).entries[0]?.id, unreviewed.entryId)
+      assert.strictEqual(Option.getOrThrow(yield* dictionary.entry(approved.entryId)).reviewState, "approved")
+      assert.strictEqual(Option.getOrThrow(yield* dictionary.entry(discarded.entryId)).reviewState, "discarded")
+      assert.isFalse((yield* dictionary.search("bogusword", "en", 10)).entries.some((e) => e.id === discarded.entryId))
+      assert.strictEqual(Option.getOrThrow(yield* dictionary.entry(merged.entryId)).id, EntryId.make("en:eat"))
+      assert.isFalse((yield* dictionary.search("eatdup", "en", 10)).entries.some((e) => e.id === merged.entryId))
+    })
+  )
 })

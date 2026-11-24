@@ -1,8 +1,8 @@
-import type { DraftEntry, EntryId, EntrySummary, Proposal, ProposalId } from "@kotori/contracts"
+import { EntryId, type EntrySummary, type Proposal, type ProposalId } from "@kotori/contracts"
 import { assert, describe, it } from "vitest"
 import {
   ASK_MIN_THINKING_MS,
-  ASK_PONDER_STAGE,
+  ASK_WRITING_STAGE,
   ASK_STAGE_STARTS,
   type AskAttempt,
   type AskError,
@@ -13,32 +13,29 @@ import {
   askRevealAt,
   askStage,
   askView,
-  draftHeadwordSize,
   formatWait,
   retryable
 } from "../src/lib/ask.ts"
 
-const draft: DraftEntry = {
+const draftEntry: EntrySummary = {
+  id: EntryId.make("kotori:pien"),
+  language: "ja",
+  reviewState: "unreviewed",
   headword: "ぴえん",
   reading: "ぴえん",
-  spellings: [],
-  frequency: 4,
+  common: false,
+  romaji: "pien",
+  meanings: ["boo-hoo (crying sound)"],
+  partOfSpeech: "int",
   labels: [{ code: "net-sl", severity: "warning", source: "kotori" }],
-  senses: [
-    {
-      index: 0,
-      glosses: ["boo-hoo (crying sound)"],
-      partsOfSpeech: [{ code: "int", name: "interjection" }],
-      labels: [],
-      usagePatterns: []
-    }
-  ],
-  cautions: []
+  inflection: [],
+  audioUrl: null
 }
 
 const entry: EntrySummary = {
-  id: 1 as EntryId,
+  id: EntryId.make("en:it is what it is"),
   language: "en",
+  reviewState: "approved",
   headword: "it is what it is",
   reading: "",
   common: false,
@@ -55,7 +52,6 @@ const proposal = (fields: Partial<Proposal>): Proposal => ({
   query: "ぴえん",
   language: "ja",
   status: "pending",
-  draft: null,
   linked: null,
   reason: null,
   route: null,
@@ -137,8 +133,11 @@ describe("the wait before asking again", () => {
 })
 
 describe("an answer on record", () => {
-  it("shows a pending proposal as its draft", () => {
-    assert.deepStrictEqual(askAnswer(proposal({ status: "pending", draft })), { kind: "draft", draft })
+  it("shows a pending proposal as its unreviewed drafted entry", () => {
+    assert.deepStrictEqual(askAnswer(proposal({ status: "pending", linked: draftEntry })), {
+      kind: "draft",
+      entry: draftEntry
+    })
   })
 
   it("shows a link, and a draft since approved, as the entry it names", () => {
@@ -147,7 +146,7 @@ describe("an answer on record", () => {
       entry,
       approved: false
     })
-    assert.deepStrictEqual(askAnswer(proposal({ status: "approved", draft, linked: entry })), {
+    assert.deepStrictEqual(askAnswer(proposal({ status: "approved", linked: entry })), {
       kind: "linked",
       entry,
       approved: true
@@ -171,7 +170,7 @@ describe("an answer on record", () => {
   })
 
   it("never shows a discarded draft as if it were still waiting for review", () => {
-    assert.deepStrictEqual(askAnswer(proposal({ status: "discarded", draft, reason: "Too rare" })), {
+    assert.deepStrictEqual(askAnswer(proposal({ status: "discarded", linked: null, reason: "Too rare" })), {
       kind: "discarded",
       reason: "Too rare"
     })
@@ -229,7 +228,7 @@ describe("what the Ask Kotori panel shows", () => {
   })
 
   it("keeps thinking a moment when an answer it watched comes back at once, then shows it with a flourish", () => {
-    const answered = attempt({ status: "success", data: proposal({ draft }) })
+    const answered = attempt({ status: "success", data: proposal({ linked: draftEntry }) })
     const early = 10_000 + ASK_MIN_THINKING_MS - 1
     assert.deepStrictEqual(view({ attempt: answered, watched: true, now: early }), {
       phase: "thinking",
@@ -237,17 +236,17 @@ describe("what the Ask Kotori panel shows", () => {
     })
     assert.deepStrictEqual(view({ attempt: answered, watched: true, now: early + 1 }), {
       phase: "answered",
-      answer: { kind: "draft", draft },
+      answer: { kind: "draft", entry: draftEntry },
       live: true
     })
     assert.strictEqual(askRevealAt(answered, true), early + 1)
   })
 
   it("shows an answer it didn't watch arrive at once, without a flourish", () => {
-    const answered = attempt({ status: "success", data: proposal({ draft }) })
+    const answered = attempt({ status: "success", data: proposal({ linked: draftEntry }) })
     assert.deepStrictEqual(view({ attempt: answered, now: 10_001 }), {
       phase: "answered",
-      answer: { kind: "draft", draft },
+      answer: { kind: "draft", entry: draftEntry },
       live: false
     })
     assert.isNull(askRevealAt(answered, false))
@@ -272,9 +271,9 @@ describe("what the Ask Kotori panel shows", () => {
 
   it("prefers an answer on record to a failure, since a dropped connection may have been answered anyway", () => {
     const failed = attempt({ status: "error", error: apiError({ tag: "Offline" }) })
-    assert.deepStrictEqual(view({ attempt: failed, proposal: proposal({ draft }), now: 20_000 }), {
+    assert.deepStrictEqual(view({ attempt: failed, proposal: proposal({ linked: draftEntry }), now: 20_000 }), {
       phase: "answered",
-      answer: { kind: "draft", draft },
+      answer: { kind: "draft", entry: draftEntry },
       live: false
     })
   })
@@ -294,19 +293,19 @@ describe("Kotori's pose in the panel", () => {
     assert.deepStrictEqual(askMood({ phase: "thinking", since: 0 }, "none"), { mood: "reading", facing: "front" })
   })
 
-  it("reads through the first status lines, then thinks it over", () => {
+  it("reads through the first status lines, then writes an entry out, facing the viewer", () => {
     const thinking = { phase: "thinking", since: 0 } as const
     ASK_STAGE_STARTS.forEach((_, stage) => {
-      assert.strictEqual(
-        askMood(thinking, "none", stage).mood,
-        stage < ASK_PONDER_STAGE ? "reading" : "thinking",
+      assert.deepStrictEqual(
+        askMood(thinking, "none", stage),
+        { mood: stage < ASK_WRITING_STAGE ? "reading" : "writing", facing: "front" },
         `status line ${stage}`
       )
     })
   })
 
   it("celebrates side on (so its confetti flies) at a fresh draft, and is glad to see one again", () => {
-    const answer = { kind: "draft", draft } as const
+    const answer = { kind: "draft", entry: draftEntry } as const
     assert.deepStrictEqual(askMood({ phase: "answered", answer, live: true }, "none"), {
       mood: "celebrate",
       facing: "left"
@@ -324,15 +323,5 @@ describe("Kotori's pose in the panel", () => {
       "sleepy"
     )
     assert.strictEqual(askMood({ phase: "failed", failure: { kind: "napping" }, live: true }, "none").mood, "sleepy")
-  })
-})
-
-describe("a draft's headword size", () => {
-  it("is large for short words and shrinks for long ones, but stays readable", () => {
-    assert.strictEqual(draftHeadwordSize("bussin", "en"), 36)
-    assert.strictEqual(draftHeadwordSize("ぴえん", "ja"), 42)
-    assert.isBelow(draftHeadwordSize("it is what it is", "en"), 36)
-    assert.isAtLeast(draftHeadwordSize("a very long english idiom indeed", "en"), 22)
-    assert.isAtLeast(draftHeadwordSize("とても長い日本語の慣用句です", "ja"), 24)
   })
 })

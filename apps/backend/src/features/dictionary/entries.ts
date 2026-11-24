@@ -1,6 +1,5 @@
 import { CASTS } from "@kotori/ai"
 import {
-  type Enrichment,
   type Entry,
   EntryId,
   type EntryRecord,
@@ -13,41 +12,18 @@ import {
 import { normalizeGloss, normalizeJapaneseGloss, romanize } from "@kotori/language"
 import { Effect } from "effect"
 import type { DatabaseShape } from "../../db/Database.ts"
-import { entryClips, exampleClips } from "../audio/index.ts"
-import type { ExampleRow } from "../enrichment/index.ts"
-import { examplesFor, sentencesHeard } from "../enrichment/index.ts"
-import { findForms, getEntries, tagNames } from "./queries.ts"
+import { formClips } from "../audio/index.ts"
+import { documentToRecord, type EntryDocument, findForms, getEntryDocuments, tagNames } from "./queries.ts"
 import { audioUrl, firstGlosses, unique } from "./shared.ts"
 import { type Candidate, differenceOf, pickCandidates, senseLabels } from "./similar.ts"
 import {
   cautionsFor,
-  frequencyFor,
-  labelsBySense,
-  loanLinkFor,
+  extractLabelsBySense,
+  frequencyOf,
+  loanLinkOf,
   sharedGlossesBySense,
   usagePatternsBySense
 } from "./usage.ts"
-
-// Building an entry as the app shows it: its forms and senses, cross-references resolved, the
-// labels, usage patterns, cautions and similar words the enrichment model derives, and its
-// example sentences and audio.
-
-const toExample = (example: ExampleRow, clips: ReadonlyMap<string, string>): Example => {
-  const ja = clips.get(`${example.id}:ja`)
-  const en = clips.get(`${example.id}:en`)
-  return {
-    id: example.id,
-    ja: example.ja,
-    furigana: example.furigana,
-    en: example.en,
-    formality: example.formality,
-    note: example.note,
-    noteJa: example.noteJa,
-    source: example.source,
-    audioUrl: ja === undefined ? null : audioUrl(ja),
-    translationAudioUrl: en === undefined ? null : audioUrl(en)
-  }
-}
 
 /** Glosses run together as each language lists them: "to eat; to dine", "食べる、食事をする". */
 const joinGlosses = (entry: EntryRecord, glosses: ReadonlyArray<string>) =>
@@ -55,7 +31,6 @@ const joinGlosses = (entry: EntryRecord, glosses: ReadonlyArray<string>) =>
 
 /** The earliest sense of `similar` sharing a gloss with `sense`, or null when none does. */
 const sharedSense = (sense: EntryRecord["senses"][number], similar: EntryRecord): number | null => {
-  // Glosses are in the other language from the headword, normalised as the import stores them.
   const norm = similar.language === "ja" ? normalizeGloss : normalizeJapaneseGloss
   const own = new Set(sense.glosses.map((gloss) => norm(gloss.text)).filter((text) => text.length > 1))
   const index = similar.senses.findIndex((candidate) => candidate.glosses.some((gloss) => own.has(norm(gloss.text))))
@@ -71,30 +46,49 @@ const xrefSense = (xref: string) => {
   return xref.includes("・") && /^\d+$/.test(last) ? Number(last) - 1 : null
 }
 
-/** The entry `entry` as the app shows it, its enrichment status from `enrichment`, read last. */
-export const assembleEntry = Effect.fnUntraced(function* (
-  db: DatabaseShape,
-  entry: EntryRecord,
-  enrichment: Effect.Effect<Enrichment>
-) {
+/** Collects examples for a sense: Kotori AI examples first (when present), then deterministic external Source examples. */
+const examplesForSense = (doc: EntryDocument, senseIndex: number): Array<Example> => {
+  const enriched = (doc.enrichment?.examples ?? [])
+    .filter((example) => example.sense === senseIndex)
+    .map((example) => ({
+      ja: example.ja,
+      furigana: example.furigana,
+      en: example.en,
+      formality: example.formality,
+      note: example.note,
+      noteJa: example.noteJa ?? null,
+      source: example.source
+    }))
+  const seeded = (doc.base.senses[senseIndex]?.examples ?? []).map((example) => ({
+    ja: example.ja,
+    furigana: example.furigana,
+    en: example.en,
+    formality: null,
+    note: null,
+    noteJa: null,
+    source: example.source
+  }))
+  return [...enriched, ...seeded].map((example, idx) => ({
+    id: senseIndex * 100 + idx + 1,
+    ...example,
+    audioUrl: null,
+    translationAudioUrl: null
+  }))
+}
+
+/** The entry `doc` as the app shows it, assembled from `base`, optional `enrichment`, and spoken Form audio. */
+export const assembleEntry = Effect.fnUntraced(function* (db: DatabaseShape, doc: EntryDocument) {
+  const entry = documentToRecord(doc)
   const tags = yield* tagNames(db)
   const tag = (code: string): Tag => ({ code, name: tags.get(code) ?? code })
 
-  const examples = yield* examplesFor(db, [entry.id])
-  // A seeded sentence beside Kotori's is shown without the clip it may have from before they came.
-  const exampleAudio = yield* exampleClips(
-    db,
-    sentencesHeard(examples).map((example) => example.id)
-  )
-  const headwordClips = (yield* entryClips(db, [entry.id])).get(entry.id) ?? []
+  const headwordClips = (yield* formClips(db, [entry])).get(entry.id) ?? []
   const voiceName = (voice: string | null) =>
     voice === null ? null : (CASTS[entry.language].find((candidate) => candidate.id === voice)?.name ?? null)
 
-  // Cross-references point within the entry's own dictionary: JMDict's are "text・reading・sense",
-  // an English word's are its synonyms and antonyms, matched whatever their case.
+  // Cross-references point within the entry's own dictionary.
   const xrefTexts = unique(entry.senses.flatMap((s) => [...s.xrefs, ...s.antonyms]).map((x) => x.split("・")[0]!))
   const xrefMatches = yield* findForms(db, xrefTexts, entry.language)
-  // "上手・うわて" names the 上手 read うわて, not じょうず: a reading picks among words spelled alike.
   const readingOf = (xref: string) => {
     const reading = xref.split("・")[1]
     return reading !== undefined && !/^\d+$/.test(reading) ? reading : null
@@ -118,11 +112,9 @@ export const assembleEntry = Effect.fnUntraced(function* (
     }
   }
 
-  // The enrichment model: labels (the word's, then what each sense adds), usage patterns, cautions,
-  // frequency signals, the loan link, and similar words derived from cross-references and shared glosses.
-  const ownLabels = (yield* labelsBySense(db, [entry.id])).get(entry.id) ?? new Map<number, Array<Label>>()
+  const ownLabels = extractLabelsBySense(doc)
   const stated = senseLabels(entry.senses.map((_, index) => ownLabels.get(index) ?? []))
-  const usagePatternRows = yield* usagePatternsBySense(db, entry.id)
+  const usagePatternRows = yield* usagePatternsBySense(db, doc)
 
   const candidates: Array<Candidate> = [
     ...entry.senses.flatMap((sense, index) =>
@@ -138,8 +130,9 @@ export const assembleEntry = Effect.fnUntraced(function* (
   ]
   const picked = pickCandidates(entry.id, candidates, SIMILAR_PER_SENSE)
   const pickedIds = unique(picked.map((candidate) => EntryId.make(candidate.entryId)))
-  const pickedEntries = new Map((yield* getEntries(db, pickedIds)).map((e) => [e.id, e]))
-  const pickedLabels = yield* labelsBySense(db, pickedIds)
+  const pickedDocs = yield* getEntryDocuments(db, pickedIds)
+  const pickedEntries = new Map(pickedDocs.map((d) => [d.id, documentToRecord(d)]))
+  const pickedLabels = new Map(pickedDocs.map((d) => [d.id, extractLabelsBySense(d)]))
   const codes = (labels: ReadonlyArray<Label> | undefined) => (labels ?? []).map((label) => label.code)
   const similarWords = (index: number) =>
     picked
@@ -147,8 +140,6 @@ export const assembleEntry = Effect.fnUntraced(function* (
       .flatMap((candidate): Array<SimilarWord> => {
         const other = pickedEntries.get(EntryId.make(candidate.entryId))
         if (other === undefined) return []
-        // A cross-reference naming no sense is close where the two share a gloss, else at
-        // the word's first meanings.
         const shared = candidate.otherSense ?? sharedSense(entry.senses[index]!, other)
         const otherSense = shared !== null && other.senses[shared] !== undefined ? shared : null
         return [
@@ -182,7 +173,7 @@ export const assembleEntry = Effect.fnUntraced(function* (
     related: sense.xrefs.map(resolve),
     antonyms: sense.antonyms.map(resolve),
     origins: [...sense.origins],
-    examples: examples.filter((example) => example.sense === index).map((example) => toExample(example, exampleAudio)),
+    examples: examplesForSense(doc, index),
     labels: stated.senses[index] ?? [],
     usagePatterns: usagePatternRows.get(index) ?? [],
     similarWords: similarWords(index)
@@ -192,15 +183,16 @@ export const assembleEntry = Effect.fnUntraced(function* (
     id: EntryId.make(entry.id),
     language: entry.language,
     source: entry.source,
+    reviewState: doc.reviewState,
     headword: entry.headword,
     reading: entry.reading,
     romaji: entry.language === "ja" ? romanize(entry.reading) : "",
     common: entry.common,
     usuallyKana: entry.senses[0]?.misc.includes("uk") ?? false,
     labels: stated.word,
-    frequency: yield* frequencyFor(db, entry.id),
-    loanLink: yield* loanLinkFor(db, entry.id),
-    cautions: yield* cautionsFor(db, entry.id),
+    frequency: frequencyOf(doc),
+    loanLink: loanLinkOf(doc),
+    cautions: yield* cautionsFor(db, doc),
     forms: entry.forms
       .filter((form) => !form.tags.includes("sK") && !form.tags.includes("sk"))
       .map((form) => ({ text: form.text, kind: form.kind, common: form.common, tags: form.tags.map(tag) })),
@@ -210,7 +202,6 @@ export const assembleEntry = Effect.fnUntraced(function* (
       url: audioUrl(clip.key),
       voice: clip.voice,
       voiceName: voiceName(clip.voice)
-    })),
-    enrichment: yield* enrichment
+    }))
   } satisfies Entry
 })

@@ -24,7 +24,6 @@ release_command = 'node apps/backend/dist/entrypoints/cli.js migrate'
 
 [processes]
 api = 'node apps/backend/dist/entrypoints/http.js'
-worker = 'node apps/backend/dist/entrypoints/worker.js'
 
 [http_service]
 internal_port = 8080
@@ -56,8 +55,3 @@ memory = '512mb'
 cpus = 1
 memory_mb = 512
 processes = ['api']
-
-[[vm]]
-size = 'shared-cpu-1x'
-memory = '512mb'
-processes = ['worker']

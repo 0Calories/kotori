@@ -4,7 +4,7 @@ import { Switch, View } from "react-native"
 import { apiUrl } from "../src/api/config.ts"
 import { useHealth } from "../src/api/queries.ts"
 import { ChangePassword, DeleteAccount, GoogleAccount } from "../src/components/AccountSettings.tsx"
-import { Button, IconButton } from "../src/components/Button.tsx"
+import { Button } from "../src/components/Button.tsx"
 import { Card } from "../src/components/Card.tsx"
 import { ConfirmEmail } from "../src/components/ConfirmEmail.tsx"
 import { Icon } from "../src/components/Icon.tsx"
@@ -17,27 +17,6 @@ import { usePreference } from "../src/session/preferences.ts"
 import { useSession } from "../src/session/SessionProvider.tsx"
 import { useTheme, useThemeName } from "../src/theme/ThemeProvider.tsx"
 import type { ThemeName } from "../src/theme/tokens.ts"
-
-const Stepper = ({
-  label,
-  value,
-  step,
-  onChange
-}: {
-  readonly label: string
-  readonly value: number
-  readonly step: number
-  readonly onChange: (value: number) => void
-}) => (
-  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-    <Text style={{ flex: 1 }}>{label}</Text>
-    <IconButton icon="remove" label="−" tone="muted" size={36} onPress={() => onChange(Math.max(value - step, 0))} />
-    <Text variant="strong" style={{ minWidth: 40, textAlign: "center" }}>
-      {value}
-    </Text>
-    <IconButton icon="add" label="+" tone="muted" size={36} onPress={() => onChange(Math.min(value + step, 9999))} />
-  </View>
-)
 
 const Feature = ({ label, on }: { readonly label: string; readonly on: boolean | undefined }) => {
   const { color } = useTheme()
@@ -109,18 +88,6 @@ export default function SettingsScreen() {
             { value: "ja", label: t.settings.japanese },
             { value: "en", label: t.settings.english }
           ]}
-        />
-        <Stepper
-          label={t.settings.dailyNew}
-          value={profile.dailyNewLimit}
-          step={5}
-          onChange={(dailyNewLimit) => updateProfile({ dailyNewLimit })}
-        />
-        <Stepper
-          label={t.settings.dailyReviews}
-          value={profile.dailyReviewLimit}
-          step={50}
-          onChange={(dailyReviewLimit) => updateProfile({ dailyReviewLimit })}
         />
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <Text style={{ flex: 1 }}>{t.settings.furigana}</Text>

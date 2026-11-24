@@ -137,16 +137,7 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
           <Stack.Screen name="(tabs)" options={{ title: t.appName }} />
           <Stack.Screen name="entry/[id]" options={{ title: t.appName }} />
           <Stack.Screen name="sources/[id]" options={{ title: titled(t.entry.sources) }} />
-          <Stack.Screen name="saved" options={{ title: titled(t.saved.title) }} />
           <Stack.Screen name="settings" options={{ presentation: "modal", title: titled(t.settings.title) }} />
-          <Stack.Screen
-            name="review/session"
-            options={{
-              presentation: "fullScreenModal",
-              gestureEnabled: false,
-              title: titled(t.tabs.review)
-            }}
-          />
         </Stack.Protected>
         <Stack.Protected guard={status === "onboarding"}>
           <Stack.Screen name="onboarding" options={{ animation: "fade", title: t.appName }} />

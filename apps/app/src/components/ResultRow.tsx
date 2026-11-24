@@ -1,7 +1,7 @@
 import type { EntrySummary } from "@kotori/contracts"
 import { Pressable, View } from "react-native"
 import { posLabel } from "../i18n/strings.ts"
-import { labelItems, resultLabels } from "../lib/entry.ts"
+import { labelItems, resultLabels, reviewStateChip } from "../lib/entry.ts"
 import { useSession } from "../session/SessionProvider.tsx"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { AudioButton } from "./AudioButton.tsx"
@@ -29,6 +29,7 @@ export const ResultRow = ({
   const { t } = useSession()
   const pos = posLabel(t, entry.partOfSpeech)
   const labels = labelItems(t, resultLabels(entry.labels))
+  const reviewChip = reviewStateChip(t, entry)
   // A stored clip when there is one; otherwise voiced on demand, from the kana for a Japanese word.
   const speak = {
     text: entry.language === "ja" && entry.reading.length > 0 ? entry.reading : entry.headword,
@@ -65,8 +66,9 @@ export const ResultRow = ({
           <Text color="textMuted" numberOfLines={2}>
             {entry.meanings.join(entry.language === "ja" ? "; " : "、")}
           </Text>
-          {entry.inflection.length > 0 || entry.common || pos || labels.length > 0 ? (
+          {reviewChip !== null || entry.inflection.length > 0 || entry.common || pos || labels.length > 0 ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+              {reviewChip !== null ? <Chip tone="accent" icon={reviewChip.icon} label={reviewChip.label} /> : null}
               {entry.inflection.length > 0 ? (
                 <Chip
                   tone="primary"

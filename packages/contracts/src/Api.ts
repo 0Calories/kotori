@@ -8,7 +8,7 @@ import * as HttpApiSchema from "effect/http-api/HttpApiSchema"
 import * as OpenApi from "effect/http-api/OpenApi"
 import { Profile, UpdateProfileRequest, UserId } from "./Account.ts"
 import { HowToSayRequest, HowToSayResult, NaturalnessRequest, NaturalnessResult } from "./Coach.ts"
-import { AskRequest, Enrichment, Entry, EntryId, Proposal, SearchResult } from "./Dictionary.ts"
+import { AskRequest, Entry, EntryId, Proposal, SearchResult } from "./Dictionary.ts"
 import {
   AiUnavailable,
   AskRefused,
@@ -20,7 +20,7 @@ import {
   Unauthorized
 } from "./Errors.ts"
 import { Language } from "./Language.ts"
-import { AddNoteRequest, AnswerRequest, AnswerResult, DueNotes, Note, NoteId, StudyStats } from "./Study.ts"
+import { AddNoteRequest, Note, NoteId } from "./Notebook.ts"
 
 export class CurrentUser extends Context.Service<
   CurrentUser,
@@ -96,18 +96,6 @@ export class DictionaryApi extends HttpApiGroup.make("dictionary")
       success: Entry,
       error: NotFound
     }),
-    // Whether an entry's example sentences and audio are ready yet. Reads only; never queues work.
-    HttpApiEndpoint.get("enrichment", "/entries/:id/enrichment", {
-      params: { id: EntryId },
-      success: Enrichment,
-      error: NotFound
-    }),
-    // Queue example sentences and audio for an entry that hasn't been enriched yet.
-    HttpApiEndpoint.post("enrich", "/entries/:id/enrich", {
-      params: { id: EntryId },
-      success: Enrichment,
-      error: [NotFound, RateLimited]
-    }),
     // When a search found no exact match, ask Kotori to draft an entry (or name the one it missed).
     HttpApiEndpoint.post("ask", "/ask", {
       payload: AskRequest,
@@ -136,33 +124,22 @@ export class CoachApi extends HttpApiGroup.make("coach")
   .middleware(Authorization)
   .prefix("/coach") {}
 
-export class StudyApi extends HttpApiGroup.make("study")
+export class NotebookApi extends HttpApiGroup.make("notebook")
   .add(
     HttpApiEndpoint.get("notes", "/notes", { success: Schema.Array(Note) }),
     HttpApiEndpoint.post("addNote", "/notes", {
       payload: AddNoteRequest,
       success: Note,
-      error: InvalidRequest
+      error: [NotFound, InvalidRequest]
     }),
     HttpApiEndpoint.delete("removeNote", "/notes/:id", {
       params: { id: NoteId },
       success: HttpApiSchema.NoContent,
       error: NotFound
-    }),
-    HttpApiEndpoint.get("due", "/due", {
-      query: { limit: Schema.optional(Schema.Int) },
-      success: DueNotes
-    }),
-    HttpApiEndpoint.post("answer", "/notes/:id/answer", {
-      params: { id: NoteId },
-      payload: AnswerRequest,
-      success: AnswerResult,
-      error: NotFound
-    }),
-    HttpApiEndpoint.get("stats", "/stats", { success: StudyStats })
+    })
   )
   .middleware(Authorization)
-  .prefix("/study") {}
+  .prefix("/notebook") {}
 
 export const SpeakRequest = Schema.Struct({
   text: Schema.String.pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(200))),
@@ -190,11 +167,11 @@ export class KotoriApi extends HttpApi.make("kotori")
   .add(AccountApi)
   .add(DictionaryApi)
   .add(CoachApi)
-  .add(StudyApi)
+  .add(NotebookApi)
   .add(AudioApi)
   .annotateMerge(
     OpenApi.annotations({
       title: "Kotori API",
-      description: "Bilingual Japanese–English dictionary, Ask Kotori, and spaced-repetition notebook."
+      description: "Bilingual Japanese–English dictionary, Ask Kotori, and notebook."
     })
   ) {}

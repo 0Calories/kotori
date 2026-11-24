@@ -1,4 +1,4 @@
-import type { Label, LabelCode } from "@kotori/contracts"
+import { EntryId, type Label, type LabelCode } from "@kotori/contracts"
 import { labelSeverity } from "@kotori/db"
 import { describe, expect, it } from "vitest"
 import { type Candidate, differenceOf, pickCandidates, senseLabels } from "../../src/features/dictionary/similar.ts"
@@ -70,19 +70,33 @@ describe("differenceOf", () => {
 })
 
 describe("pickCandidates", () => {
-  const gloss = (sense: number, entryId: number): Candidate => ({ sense, entryId, otherSense: 0, via: "gloss" })
-  const xref = (sense: number, entryId: number): Candidate => ({ sense, entryId, otherSense: null, via: "xref" })
+  const id = (n: number) => EntryId.make(`jmdict:${n}`)
+  const gloss = (sense: number, entryId: number): Candidate => ({
+    sense,
+    entryId: id(entryId),
+    otherSense: 0,
+    via: "gloss"
+  })
+  const xref = (sense: number, entryId: number): Candidate => ({
+    sense,
+    entryId: id(entryId),
+    otherSense: null,
+    via: "xref"
+  })
 
   it("lists cross-references first, each word once under its first sense, never the entry itself", () => {
-    const picked = pickCandidates(1, [gloss(0, 2), gloss(0, 1), xref(0, 3), gloss(1, 2), gloss(1, 4)], 4)
+    const picked = pickCandidates(id(1), [gloss(0, 2), gloss(0, 1), xref(0, 3), gloss(1, 2), gloss(1, 4)], 4)
     expect(picked.map((candidate) => [candidate.sense, candidate.entryId, candidate.via])).toEqual([
-      [0, 3, "xref"],
-      [0, 2, "gloss"],
-      [1, 4, "gloss"]
+      [0, id(3), "xref"],
+      [0, id(2), "gloss"],
+      [1, id(4), "gloss"]
     ])
   })
 
   it("keeps at most the given number a sense", () => {
-    expect(pickCandidates(1, [gloss(0, 2), gloss(0, 3), gloss(0, 4)], 2).map((c) => c.entryId)).toEqual([2, 3])
+    expect(pickCandidates(id(1), [gloss(0, 2), gloss(0, 3), gloss(0, 4)], 2).map((c) => c.entryId)).toEqual([
+      id(2),
+      id(3)
+    ])
   })
 })

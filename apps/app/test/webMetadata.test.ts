@@ -120,7 +120,7 @@ describe("web metadata and production assets", () => {
     assert.notInclude(robots, "Disallow: /assets/")
     // Signed-in screens and account forms stay out of the index; a rule without a trailing slash covers the route itself.
     const disallowed = robots.split("\n").flatMap((line) => (line.startsWith("Disallow: ") ? [line.slice(10)] : []))
-    for (const route of ["/say", "/check", "/review", "/saved", "/settings", "/sign-in", "/sign-up"]) {
+    for (const route of ["/say", "/check", "/notebook", "/settings", "/sign-in", "/sign-up"]) {
       assert.include(disallowed, route)
     }
     for (const publicRoute of ["/welcome", "/ja", "/privacy", "/terms"]) {

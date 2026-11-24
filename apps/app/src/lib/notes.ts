@@ -1,41 +1,23 @@
-import type { EntryId, Example, Language, NoteContent } from "@kotori/contracts"
+import type { EntryId, Note } from "@kotori/contracts"
+import { ApiError } from "../api/errors.ts"
+import type { Strings } from "../i18n/strings.ts"
 
-/** A dictionary word saved for review, from the entry page. */
-export const wordNote = (word: {
-  readonly entryId: EntryId
-  /** The headword's language: the one being learned. */
-  readonly language: Language
-  readonly sense: number
-  readonly headword: string
-  readonly reading: string
-  readonly glosses: ReadonlyArray<string>
-  /** The sense's register labels, worded, shown as a hint in reviews. */
-  readonly hint: string | null
-  /** The note most worth remembering, in the learner's language. */
-  readonly note: string | null
-  readonly example: Example | undefined
-  /** The spoken headword, when there is one. */
-  readonly audioUrl: string | null
-}): NoteContent => {
-  return {
-    kind: "word",
-    entryId: word.entryId,
-    senseIndex: word.sense,
-    language: word.language,
-    headword: word.headword,
-    reading: word.reading,
-    meaning: word.glosses.slice(0, 3).join(word.language === "ja" ? "; " : "、"),
-    hint: word.hint,
-    note: word.note,
-    example: word.example
-      ? {
-          ja: word.example.ja,
-          furigana: word.example.furigana,
-          en: word.example.en,
-          audioUrl: word.example.audioUrl,
-          translationAudioUrl: word.example.translationAudioUrl
-        }
-      : null,
-    audioUrl: word.audioUrl
+export const noteOn = (notes: ReadonlyArray<Note> | undefined, entryId: EntryId): Note | undefined =>
+  notes?.find((note) => note.entry.id === entryId)
+
+export const noteErrorText = (t: Strings, error: unknown, action: "save" | "remove"): string => {
+  if (error instanceof ApiError && error.tag === "Offline") return t.common.offline
+  switch (action) {
+    case "save":
+      return t.notebook.saveFailed
+    case "remove":
+      return t.notebook.removeFailed
   }
+}
+
+export const noteGlosses = (note: Note): string => {
+  const glossSeparator = note.entry.language === "ja" ? "; " : "、"
+  return note.senses
+    .map((sense) => sense.glosses.slice(0, 2).join(glossSeparator))
+    .join(note.entry.language === "ja" ? " / " : "／")
 }

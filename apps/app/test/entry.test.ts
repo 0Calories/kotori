@@ -17,15 +17,13 @@ import { strings } from "../src/i18n/strings.ts"
 import {
   contributors,
   frequencyChip,
-  hasKotoriContent,
   hasKotoriMarks,
   heroItems,
   labelItems,
   loanChip,
-  onItsWay,
   loanLine,
   resultLabels,
-  saveDetails,
+  reviewStateChip,
   senseCautions,
   similarWords,
   wordCautions
@@ -59,7 +57,7 @@ const caution = (id: number, sense: number | null, source: Source = "kotori"): E
 })
 
 const similar = (entryId: number): SimilarWord => ({
-  entryId: EntryId.make(entryId),
+  entryId: EntryId.make(`jmdict:${entryId}`),
   headword: `word ${entryId}`,
   reading: "",
   meaning: "meaning",
@@ -86,9 +84,10 @@ const sense = (index: number, overrides: Partial<Sense> = {}): Sense => ({
 
 /** A dictionary-only Japanese word: no labels, frequency, loan or cautions. */
 const entry = (overrides: Partial<Entry> = {}): Entry => ({
-  id: EntryId.make(1),
+  id: EntryId.make("jmdict:1"),
   language: "ja",
   source: "jmdict",
+  reviewState: "approved",
   headword: "食べる",
   reading: "たべる",
   common: false,
@@ -102,7 +101,6 @@ const entry = (overrides: Partial<Entry> = {}): Entry => ({
   senses: [sense(0)],
   audioUrl: null,
   audio: [],
-  enrichment: { examples: "ready", audio: "ready" },
   ...overrides
 })
 
@@ -185,9 +183,9 @@ describe("frequency chip", () => {
 describe("loan link", () => {
   const link = (meaning: "true_loanword" | "wasei_eigo" | null) => ({
     katakana: "アドバイス",
-    katakanaEntryId: EntryId.make(2),
+    katakanaEntryId: EntryId.make("jmdict:2"),
     english: "advice",
-    englishEntryId: EntryId.make(3),
+    englishEntryId: EntryId.make("en:3"),
     meaning,
     source: "kotori" as const,
     meaningSource: meaning === null ? null : ("kotori" as const)
@@ -230,6 +228,24 @@ describe("loan link", () => {
       ["common", "loan", "en-US"]
     )
   })
+
+  it("badges unreviewed drafted entries as unverified and discarded entries as not added", () => {
+    assert.equal(reviewStateChip(t, entry({ reviewState: "approved" })), null)
+
+    const unverified = reviewStateChip(t, entry({ reviewState: "unreviewed" }))
+    assert.equal(unverified?.key, "unverified")
+    assert.equal(unverified?.label, t.entry.unverified)
+    assert.equal(unverified?.kotori, true)
+    assert.deepStrictEqual(
+      heroItems(t, entry({ reviewState: "unreviewed", labels: [label("col")] })).map((chip) => chip.key),
+      ["unverified", "col"]
+    )
+
+    const discarded = reviewStateChip(t, entry({ reviewState: "discarded" }))
+    assert.equal(discarded?.key, "discarded")
+    assert.equal(discarded?.label, t.entry.discarded)
+    assert.equal(discarded?.severity, "avoid")
+  })
 })
 
 describe("cautions", () => {
@@ -263,15 +279,22 @@ describe("Kotori's mark", () => {
     assert.equal(hasKotoriMarks(entry({ cautions: [caution(1, null)] })), true)
   })
 
-  it("waits and polls only for enrichment that is on its way", () => {
-    assert.deepStrictEqual((["ready", "unrequested", "queued", "unavailable"] as const).filter(onItsWay), ["queued"])
-  })
-
-  it("treats seeded sentences as the dictionary's, so the word still offers to ask Kotori", () => {
-    assert.equal(hasKotoriContent(entry({ senses: [sense(0, { examples: [example(1, "tatoeba")] })] })), false)
-    assert.equal(hasKotoriContent(entry({ senses: [sense(0, { examples: [example(1, "kotori")] })] })), true)
-    assert.equal(hasKotoriContent(entry({ audioUrl: "/audio/1" })), true)
-    assert.equal(hasKotoriContent(entry({ cautions: [caution(1, null)] })), true)
+  it("renders a Source-only entry cleanly with no Kotori marks or AI enrichment", () => {
+    const sourceOnly = entry({
+      common: true,
+      labels: [label("col")],
+      senses: [sense(0, { examples: [example(1, "tatoeba")], usagePatterns: [usagePattern("usu. in speech")] })],
+      audioUrl: "/audio/taberu.mp3",
+      audio: [{ url: "/audio/taberu.mp3", voice: "ja-kyoko", voiceName: "Kyoko" }]
+    })
+    assert.equal(hasKotoriMarks(sourceOnly), false)
+    assert.deepStrictEqual(wordCautions(sourceOnly.cautions), [])
+    assert.deepStrictEqual(senseCautions(sourceOnly.cautions, 0), [])
+    assert.deepStrictEqual(contributors(t, sourceOnly), ["JMDict", "Tatoeba"])
+    assert.deepStrictEqual(
+      heroItems(t, sourceOnly).map((item) => item.key),
+      ["common", "col"]
+    )
   })
 })
 
@@ -283,7 +306,7 @@ describe("sources line", () => {
         labels: [label("col")],
         loanLink: {
           katakana: "マンション",
-          katakanaEntryId: EntryId.make(1),
+          katakanaEntryId: EntryId.make("jmdict:1"),
           english: "mansion",
           englishEntryId: null,
           meaning: null,
@@ -309,28 +332,7 @@ describe("similar words", () => {
     ])
     assert.deepStrictEqual(
       words.map((word) => word.entryId),
-      [5, 6, 7]
-    )
-  })
-})
-
-describe("saving a sense", () => {
-  it("carries the usage labels as the hint, and a caution before a usage pattern", () => {
-    const word = entry({
-      labels: [label("col"), label("id")],
-      cautions: [caution(1, null), caution(2, 1)]
-    })
-    const second = sense(1, { labels: [label("male")], usagePatterns: [usagePattern("usu. as 〜ですが")] })
-    assert.deepStrictEqual(saveDetails(t, word, second), {
-      hint: `${t.labels.name.col} · ${t.labels.name.male}`,
-      note: "caution 2"
-    })
-    assert.deepStrictEqual(
-      saveDetails(t, entry(), sense(0, { usagePatterns: [usagePattern("usu. in the negative")] })),
-      {
-        hint: null,
-        note: "usu. in the negative"
-      }
+      ["jmdict:5", "jmdict:6", "jmdict:7"]
     )
   })
 })

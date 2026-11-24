@@ -18,7 +18,7 @@ const ICONS: Record<string, IconName> = {
   index: "search",
   say: "forum",
   check: "spellcheck",
-  review: "bookmarks"
+  notebook: "bookmarks"
 }
 
 const DISABLED_TABS: ReadonlySet<string> = new Set(["say", "check"])
@@ -29,8 +29,7 @@ const Tab = ({
   focused,
   disabled,
   tooltip,
-  onPress,
-  badge
+  onPress
 }: {
   readonly name: string
   readonly label: string
@@ -38,7 +37,6 @@ const Tab = ({
   readonly disabled?: boolean
   readonly tooltip?: string
   readonly onPress: () => void
-  readonly badge?: number
 }) => {
   const { color, radius, shadow } = useTheme()
   const [hovered, setHovered] = useState(false)
@@ -80,7 +78,7 @@ const Tab = ({
       onTouchStart={disabled ? showBriefly : undefined}
       accessibilityRole="tab"
       accessibilityState={{ selected: focused, disabled: !!disabled }}
-      accessibilityLabel={badge ? `${label}, ${badge}` : label}
+      accessibilityLabel={label}
       accessibilityHint={disabled ? tooltip : undefined}
       style={{ flex: 1, alignItems: "center", justifyContent: "center", height: 56, marginHorizontal: 2, gap: 3 }}
     >
@@ -133,29 +131,6 @@ const Tab = ({
       />
       <View style={disabled ? { opacity: 0.45 } : undefined}>
         <Icon name={ICONS[name] ?? "search"} size={25} filled={focused} color={tint} />
-        {badge ? (
-          <View
-            style={{
-              position: "absolute",
-              top: -4,
-              right: -11,
-              minWidth: 18,
-              height: 18,
-              borderRadius: 9,
-              backgroundColor: color.accent,
-              alignItems: "center",
-              justifyContent: "center",
-              paddingHorizontal: 4
-            }}
-          >
-            <Text
-              variant="label"
-              style={{ color: color.onPrimaryDark, fontSize: 10, lineHeight: 12, letterSpacing: 0 }}
-            >
-              {badge > 99 ? "99+" : badge}
-            </Text>
-          </View>
-        ) : null}
       </View>
       <Text
         variant="caption"
@@ -170,12 +145,7 @@ const Tab = ({
 }
 
 /** A floating pill of tabs over a fade, so content scrolls away beneath it. */
-export const TabBar = ({
-  state,
-  emitter,
-  navigateToTab,
-  badges
-}: BottomTabBarProps & { readonly badges?: Record<string, number> }) => {
+export const TabBar = ({ state, emitter, navigateToTab }: BottomTabBarProps) => {
   const theme = useTheme()
   const t = useT()
   const insets = useSafeAreaInsets()
@@ -183,7 +153,7 @@ export const TabBar = ({
     index: t.tabs.dictionary,
     check: t.tabs.check,
     say: t.tabs.say,
-    review: t.tabs.review
+    notebook: t.tabs.notebook
   }
   const bottom = Math.max(insets.bottom - 6, 12)
   const bar = (
@@ -198,7 +168,6 @@ export const TabBar = ({
             focused={state.index === index}
             disabled={disabled}
             tooltip={disabled ? t.tabs.notReady : undefined}
-            badge={badges?.[route.name]}
             onPress={() => {
               if (disabled) return
               const event = emitter.emit({ type: "tabPress", target: route.key, canPreventDefault: true })
