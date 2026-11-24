@@ -856,6 +856,14 @@ describe("toEntries", () => {
       senses: [{ ...emptySense(), glosses: glosses.map((text) => ({ text, type: null })), pos }],
       mayBeName: false
     })
+    const senses = (headword: string, glosses: Array<Array<string>>): Word => ({
+      ...glossed(headword, []),
+      senses: glosses.map((sense) => ({
+        ...emptySense(),
+        glosses: sense.map((text) => ({ text, type: null })),
+        pos: ["n"]
+      }))
+    })
     const twins = mergeSources({
       wiktionary: {
         words: [
@@ -877,7 +885,17 @@ describe("toEntries", () => {
           glossed("Spartan", ["スパルタ式"], ["Spartiate"]),
           // Sharing only a transliteration: the carmaker and the unit sound alike.
           glossed("tesla", ["テスラ"]),
-          glossed("Tesla", ["テスラ"])
+          glossed("Tesla", ["テスラ"]),
+          // Each twin has a meaning the other lacks: Registered Nurse, the Yuan dynasty's 院, food.
+          senses("rn", [["たった今", "今すぐ"]]),
+          senses("RN", [["たった今", "今すぐ"], ["正看護師"]]),
+          senses("yuan", [["元", "人民元"], ["院"]]),
+          senses("Yuan", [["元"]]),
+          senses("diet", [
+            ["飲食", "食事"],
+            ["会合", "議会", "国会"]
+          ]),
+          senses("Diet", [["国会"]])
         ]
       }
     })
@@ -891,7 +909,13 @@ describe("toEntries", () => {
       "March",
       "Mediterranean Sea",
       "tesla",
-      "Tesla"
+      "Tesla",
+      "rn",
+      "RN",
+      "yuan",
+      "Yuan",
+      "diet",
+      "Diet"
     ])
     const spartan = twins.find((word) => word.headword === "spartan")
     expect([...(spartan?.spellings ?? [])]).toEqual(["Spartan", "Spartiate"])

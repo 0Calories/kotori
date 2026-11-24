@@ -82,17 +82,27 @@ const isProperNoun = (word: Built) => word.senses.some((sense) => sense.pos.incl
 
 const glossesOf = (word: Built) => new Set(word.senses.flatMap((sense) => [...meanings(sense)]))
 
+/** Whether every sense of `word` shares a Japanese gloss with `glosses`: it has no meaning they lack. */
+const allSensesIn = (word: Built, glosses: ReadonlySet<string>) =>
+  word.senses.every((sense) => [...meanings(sense)].some((gloss) => glosses.has(gloss)))
+
 /**
- * Whether case twins are one word: every Japanese gloss of one is a gloss of the other, and one
- * they share translates rather than transliterates. "Spartan" and "spartan" (スパルタ式) are one
- * word; "Polish" and "polish" share no gloss, and "Tesla" and "tesla", the carmaker and the unit,
- * only the sound テスラ.
+ * Whether case twins are one word: every Japanese gloss of one is a gloss of the other, one they
+ * share translates rather than transliterates, and neither has a sense the other has no gloss
+ * of. "Spartan" and "spartan" (スパルタ式) are one word. "Polish" and "polish" share no gloss;
+ * "Tesla" and "tesla", the carmaker and the unit, only the sound テスラ; and "RN", "yuan" and
+ * "diet" each have a meaning their twin lacks (Registered Nurse, 院, food).
  */
-const sameWord = (a: ReadonlySet<string>, b: ReadonlySet<string>) => {
-  const [fewer, more] = a.size <= b.size ? [a, b] : [b, a]
+const sameWord = (a: Built, b: Built) => {
+  const [ownA, ownB] = [glossesOf(a), glossesOf(b)]
+  const [fewer, more] = ownA.size <= ownB.size ? [ownA, ownB] : [ownB, ownA]
   const shared = [...fewer]
   return (
-    shared.length > 0 && shared.every((gloss) => more.has(gloss)) && shared.some((gloss) => !isTransliteration(gloss))
+    shared.length > 0 &&
+    shared.every((gloss) => more.has(gloss)) &&
+    shared.some((gloss) => !isTransliteration(gloss)) &&
+    allSensesIn(a, ownB) &&
+    allSensesIn(b, ownA)
   )
 }
 
@@ -108,9 +118,9 @@ const mergeTwins = (words: Map<string, Built>) => {
   for (const word of words.values()) {
     const twin = words.get(word.headword.toLowerCase())
     if (twin === undefined || twin === word) continue
+    if (!sameWord(word, twin)) continue
     const own = glossesOf(word)
     const theirs = glossesOf(twin)
-    if (!sameWord(own, theirs)) continue
     const leads = own.size > theirs.size || (own.size === theirs.size && isProperNoun(word) && !isProperNoun(twin))
     const [kept, gone] = leads ? [word, twin] : [twin, word]
     words.delete(gone.headword)
