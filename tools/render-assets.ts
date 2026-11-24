@@ -220,7 +220,7 @@ renderPng(
     pills: [
       { label: "日英・英日辞書", width: 176 },
       { label: "ことりに聞く", width: 160 },
-      { label: "復習ノート", width: 142 }
+      { label: "ノート", width: 102 }
     ]
   }),
   1200,

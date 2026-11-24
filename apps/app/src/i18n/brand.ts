@@ -42,7 +42,7 @@ export const brand: Record<Language, BrandMeta> = {
     title: "ことり (Kotori) — リアルな英語・日本語のための辞書と相棒",
     tagline: "リアルな英語と日本語を身につけるための、ことばの相棒。",
     description:
-      "リアルな使い方がわかる日英・英日辞書、気になる表現を聞ける「ことりに聞く」、定着させる復習ノートをひとつに。",
+      "リアルな使い方がわかる日英・英日辞書、気になる表現を聞ける「ことりに聞く」、定着させるノートをひとつに。",
     url: `${SITE_URL}/ja`,
     servedOnlyAtUrl: true,
     ogImage: "/og-image-ja.png",
