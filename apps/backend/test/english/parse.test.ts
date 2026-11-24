@@ -709,6 +709,26 @@ describe("wordsFromJmdict", () => {
     expect(nordic).toMatchObject({ id: "en:Nordic", headword: "Nordic", frequency: { spokenCount: 300 } })
   })
 
+  it("takes trademarks as names, and still skips explanations and literal renderings", () => {
+    const typed = (id: number, headword: string, text: string, type: string): EntryRecord => {
+      const entry = jmdictEntry(id, headword, headword, [text], false, ["n"])
+      return { ...entry, senses: [{ ...entry.senses[0]!, glosses: [{ text, type }] }] }
+    }
+    const words = wordsFromJmdict(
+      [
+        typed(100, "セロテープ", "Sellotape", "tm"),
+        typed(101, "リップクリーム", "chapstick", "tm"),
+        typed(102, "花見", "cherry blossom viewing", "expl"),
+        typed(103, "猫舌", "cat tongue", "lit")
+      ],
+      { words: new Set(), verbs: new Set(), gradable: new Set(), spelled: new Set(), phrases: new Set() }
+    )
+    expect(words.map((word) => [word.headword, word.naming])).toEqual([
+      ["Sellotape", "name"],
+      ["chapstick", "name"]
+    ])
+  })
+
   it("ranks a word JMdict names only as a name last, never borrowing the count of the word spelled alike", () => {
     const counts = new Map([
       ["toyota", 5000],

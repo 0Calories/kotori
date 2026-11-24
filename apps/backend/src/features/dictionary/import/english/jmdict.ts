@@ -178,8 +178,12 @@ const properWord = (text: string): string | null => {
   return /^[A-Za-z][A-Za-z0-9'-]*$/.test(word) && /[A-Z]/.test(word) ? word : null
 }
 
-/** Explanations, literal renderings and trademarks aren't English words. */
-const SKIPPED_TYPES = new Set(["expl", "lit", "tm"])
+/**
+ * Glosses that describe the Japanese word rather than name an English one: explanations
+ * ("cherry blossom viewing" for 花見) and literal renderings ("cat tongue" for 猫舌). A
+ * trademark ("Sellotape") is a word, taken as a name.
+ */
+const SKIPPED_TYPES = new Set(["expl", "lit"])
 
 /** The English word class one JMDict part of speech names: "v5k" a verb, "vs" (a noun taking する) a noun… */
 const wordClass = (code: string): "v" | "n" | "adj" | "adv" | null =>
@@ -250,7 +254,7 @@ interface Candidate {
   readonly common: boolean
   readonly pos: ReadonlyArray<string>
   readonly score: number
-  /** Whether JMDict tags the sense glossing it as a name's. */
+  /** Whether JMDict tags the sense glossing it as a name's, or the gloss as a trademark. */
   readonly name: boolean
 }
 
@@ -471,7 +475,7 @@ export const jmdictReader = (known: KnownEnglish) => {
           common: entry.common,
           pos: partOfSpeech(sense.pos),
           score,
-          name: sense.misc.some((tag) => NAME_TAGS.has(tag))
+          name: gloss.type === "tm" || sense.misc.some((tag) => NAME_TAGS.has(tag))
         })
       })
     })
