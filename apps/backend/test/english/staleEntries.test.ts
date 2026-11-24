@@ -1,4 +1,4 @@
-import { assert, layer } from "@effect/vitest"
+import { assert, describe, expect, it, layer } from "@effect/vitest"
 import { EntryId, NoteId } from "@kotori/contracts"
 import { PgliteClient } from "@effect/sql-pglite"
 import * as PgliteDrizzle from "drizzle-orm/effect-pglite"
@@ -7,7 +7,11 @@ import { Database } from "../../src/db/Database.ts"
 import { relations } from "../../src/db/relations.ts"
 import { scopedToUser } from "../../src/db/scopedToUser.ts"
 import { ensureUser } from "../../src/features/accounts/queries.ts"
-import { NotedEntriesWouldBeDeleted, removeStale } from "../../src/features/dictionary/import/english/staleEntries.ts"
+import {
+  NotedEntriesWouldBeDeleted,
+  removeStale,
+  successorsOf
+} from "../../src/features/dictionary/import/english/staleEntries.ts"
 import { insertEntries } from "../../src/features/dictionary/queries.ts"
 import { allNotes, insertNote } from "../../src/features/notebook/queries.ts"
 import { DatabaseMemory } from "../../src/testing/DatabaseMemory.ts"
@@ -41,6 +45,43 @@ const word = (headword: string) => ({
   priority: 0,
   forms: [],
   senses: []
+})
+
+describe("successorsOf", () => {
+  const form = (kind: "spelling" | "inflection", text: string) => ({
+    kind,
+    text,
+    common: false,
+    tags: [],
+    priorities: [],
+    restrictions: [],
+    noKanji: false
+  })
+  const entry = (headword: string, forms: ReadonlyArray<ReturnType<typeof form>>) => ({
+    ...word(headword),
+    forms: [form("spelling", headword), ...forms]
+  })
+
+  it("follows any form of exactly one entry, then a headword differing only by case", () => {
+    const successors = successorsOf(
+      [
+        entry("sin", [form("inflection", "sins")]),
+        entry("spartan", [form("spelling", "Spartan")]),
+        entry("iPod", []),
+        // A form two entries share names neither.
+        entry("lead", [form("inflection", "leads")]),
+        entry("Lead", [form("inflection", "leads")]),
+        entry("EV", []),
+        entry("eV", [])
+      ],
+      ["sins", "Spartan", "ipod", "leads", "ev", "gone"].map((headword) => EntryId.make(`en:${headword}`))
+    )
+    expect(Object.fromEntries(successors)).toEqual({
+      "en:sins": "en:sin",
+      "en:Spartan": "en:spartan",
+      "en:ipod": "en:iPod"
+    })
+  })
 })
 
 layer(LoggedDatabase)("removeStale", (it) => {
