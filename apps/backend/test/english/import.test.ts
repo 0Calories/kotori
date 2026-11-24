@@ -299,3 +299,52 @@ layer(TestLayer)("EnglishDictionary.importFiles with a note on a word the source
     })
   )
 })
+
+layer(TestLayer)("EnglishDictionary.importFiles with a note on a word now written in another case", (it) => {
+  it.effect("moves the note to the one word spelled alike but for case", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      yield* EnglishDictionary.importFiles({
+        files: noteFiles("ipod", [line("ipod", "noun", ["アイポッド"])]),
+        jmdict: noJmdict
+      })
+      yield* ensureUser(db, learner)
+      const one = scopedToUser(db, U1)
+      yield* insertNote(one, {
+        id: NoteId.make("00000000-0000-4000-8000-0000000000c1"),
+        entryId: EntryId.make("en:ipod")
+      })
+
+      const result = yield* EnglishDictionary.importFiles({
+        files: noteFiles("iPod", [line("iPod", "noun", ["アイポッド"])]),
+        jmdict: noJmdict
+      })
+      assert.strictEqual(result.removed, 1)
+      assert.deepStrictEqual(
+        (yield* allNotes(one)).map((note) => note.entryId),
+        [EntryId.make("en:iPod")]
+      )
+    })
+  )
+})
+
+layer(TestLayer)("EnglishDictionary.importFiles with a note on a word now written in several cases", (it) => {
+  it.effect("refuses, as no one word is the noted one", () =>
+    Effect.gen(function* () {
+      const db = yield* Database
+      yield* EnglishDictionary.importFiles({
+        files: noteFiles("ev", [line("ev", "noun", ["電気自動車"])]),
+        jmdict: noJmdict
+      })
+      yield* ensureUser(db, learner)
+      const ev = EntryId.make("en:ev")
+      yield* insertNote(scopedToUser(db, U1), { id: NoteId.make("00000000-0000-4000-8000-0000000000d1"), entryId: ev })
+
+      const twoCases = noteFiles("EV-eV", [line("EV", "noun", ["電気自動車"]), line("eV", "noun", ["電子ボルト"])])
+      const error = yield* Effect.flip(EnglishDictionary.importFiles({ files: twoCases, jmdict: noJmdict }))
+      assert.instanceOf(error, EnglishDictionary.NotedEntriesWouldBeDeleted)
+      assert.include(error.message, "en:ev (1 note)")
+      assert.lengthOf(yield* allNotes(scopedToUser(db, U1)), 1)
+    })
+  )
+})

@@ -216,7 +216,9 @@ export class NotedEntriesWouldBeDeleted extends Schema.TaggedError<NotedEntriesW
 
 /**
  * The entry each stale word lives on as a spelling, when exactly one does: "en:Spartan" in
- * "en:spartan" once the twins fold. A spelling several entries share names none of them.
+ * "en:spartan" once the twins fold. Failing a spelling, the one entry whose headword differs
+ * from it only by case: "en:ipod" is now "en:iPod". A spelling several entries share, or a
+ * word several entries are spelled like but for case ("en:ev": "EV", "eV"), names none.
  */
 const successorsOf = (
   entries: ReadonlyArray<ImportEntry>,
@@ -233,9 +235,17 @@ const successorsOf = (
       owners.set(id, set)
     }
   }
+  // By the headword lowercased: "en:ipod" is "en:iPod" written in another case.
+  const recased = new Map<string, Set<EntryId>>()
+  for (const entry of entries) {
+    const key = englishEntryId(entry.headword).toLowerCase()
+    const set = recased.get(key) ?? new Set<EntryId>()
+    set.add(entry.id)
+    recased.set(key, set)
+  }
   const successors = new Map<EntryId, EntryId>()
   for (const id of stale) {
-    const [only, ...others] = owners.get(id) ?? []
+    const [only, ...others] = owners.get(id) ?? recased.get(id.toLowerCase()) ?? []
     if (only !== undefined && others.length === 0) successors.set(id, only)
   }
   return successors
