@@ -53,6 +53,8 @@ const wakatake = {
   caution: "#7A4E00",
   /** Amber cream: behind caution labels. */
   cautionSoft: "#FFF3D6",
+  /** Amber: the dot that leads a caution label. */
+  cautionMark: "#E2A01B",
   /** The marker behind the word being looked up in an example. */
   highlight: "#FDC5CC",
   /** A pressed or selected row: ink at 7.5%. */

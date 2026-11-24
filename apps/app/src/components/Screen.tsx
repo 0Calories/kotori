@@ -11,6 +11,7 @@ import { useT } from "../session/SessionProvider.tsx"
 import { useTheme } from "../theme/ThemeProvider.tsx"
 import { IconButton } from "./Button.tsx"
 import { Text } from "./Text.tsx"
+import { useCloseOpenTooltip } from "./Tooltip.tsx"
 
 /** A scrolling page with safe-area padding, centred into a readable column on wide screens. */
 export const Screen = ({
@@ -32,6 +33,8 @@ export const Screen = ({
 }) => {
   const theme = useTheme()
   const insets = useSafeAreaInsets()
+  // An open tooltip would stay put while the content it explains scrolls away.
+  const closeTooltip = useCloseOpenTooltip()
   const column = { width: "100%" as const, maxWidth: theme.maxWidth, alignSelf: "center" as const }
   const scrollerRef = useRef<HTMLElement | null>(null)
   // Web only, on the DOM node. react-native-web's "on-drag" blurs on every
@@ -102,8 +105,15 @@ export const Screen = ({
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode={keyboardDismissModeFor(Platform.OS)}
       refreshControl={refreshControl}
-      onScroll={onScroll ? (event) => onScroll(event.nativeEvent.contentOffset.y) : undefined}
-      scrollEventThrottle={onScroll ? 32 : undefined}
+      onScroll={
+        onScroll || closeTooltip
+          ? (event) => {
+              closeTooltip?.()
+              onScroll?.(event.nativeEvent.contentOffset.y)
+            }
+          : undefined
+      }
+      scrollEventThrottle={onScroll || closeTooltip ? 32 : undefined}
     >
       {children}
     </ScrollView>
