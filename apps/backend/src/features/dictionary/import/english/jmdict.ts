@@ -171,7 +171,7 @@ const placeholderForms = (term: string): Array<string> => {
 /**
  * The word a gloss with capitals in it names, as written, when it is one word: "Nordic",
  * "Ramadan", "Viennese (of Vienna)", "NHK", "iPod". Null for glosses of several words, which
- * are sentences and titles ("Good morning!", "New Year's Eve") rather than words.
+ * `resolveGloss` reads as phrases and names.
  */
 const properWord = (text: string): string | null => {
   const word = text.replace(/\([^)]*\)/g, " ").trim()
@@ -287,7 +287,42 @@ interface Resolved {
   readonly headword: string
   readonly variant?: string
   readonly inflection?: ReadonlyArray<EnglishInflection>
+  /** The gloss names something ("Sea of Japan"), though JMDict doesn't tag it as a name. */
+  readonly name?: boolean
 }
+
+/** Words a name of several words may leave lowercase: "Sea of Japan", "Leonardo da Vinci". */
+const NAME_PARTICLES = new Set([
+  "a",
+  "an",
+  "and",
+  "at",
+  "by",
+  "da",
+  "de",
+  "del",
+  "der",
+  "des",
+  "di",
+  "du",
+  "for",
+  "in",
+  "la",
+  "le",
+  "les",
+  "of",
+  "on",
+  "the",
+  "to",
+  "upon",
+  "van",
+  "von",
+  "y"
+])
+
+/** Whether a gloss of several words is written as a name is: every word capitalised but `NAME_PARTICLES`. */
+const isTitleCase = (written: string) =>
+  written.split(" ").every((word, index) => /^[\p{Lu}0-9]/u.test(word) || (index > 0 && NAME_PARTICLES.has(word)))
 
 /**
  * Whether the regular rules could make `word` from `base`, as `uninflect` guesses more widely:
@@ -419,6 +454,33 @@ export const jmdictReader = (known: KnownEnglish) => {
     return null
   }
 
+  /**
+   * The headword a gloss names. A gloss with no capitals is resolved as a word or phrase. With
+   * capitals, one word is a proper word ("Nordic", "NHK"); several are kept when a source
+   * attests them, in the gloss's casing when the phrase is new ("New Year's Eve"), or when they
+   * name something: a name JMDict tags, a trademark, or words written as a name is ("Sea of
+   * Japan"). The rest describe the Japanese word ("Japanese cedar" for 杉) or are sentences no
+   * source lists ("Nice to meet you!"), as unattested lowercase glosses of several words are.
+   */
+  const resolveGloss = (text: string, term: string, pos: ReadonlyArray<string>, named: boolean): Resolved | null => {
+    // Capitals in an aside ("daifuku (Japanese sweet)") don't make the gloss a name.
+    // Nor does a lowercase article before it ("the Alps"), which glosses lose as `normalizeGloss` does.
+    const written = text
+      .replace(/\([^)]*\)/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/^(?:the|a|an) /, "")
+    if (!/\p{Lu}/u.test(written)) return resolveHeadword(term, pos)
+    const proper = properWord(written)
+    if (proper !== null) return resolveProper(proper, pos)
+    const attested = term.includes(" ") ? resolveHeadword(term, pos) : null
+    if (attested !== null) {
+      const isNew = attested.headword === term && attested.variant === undefined && !isKnown(term)
+      return isNew && normalizeGloss(written) === term && isEnglish(written) ? { headword: written } : attested
+    }
+    return isEnglish(written) && (named || isTitleCase(written)) ? { headword: written, name: true } : null
+  }
+
   const candidates = new Map<string, Array<Candidate>>()
   const variants = new Map<string, Set<string>>()
   // Inflections of words already in that JMDict glosses: "sins" of "sin".
@@ -432,15 +494,13 @@ export const jmdictReader = (known: KnownEnglish) => {
     entry.senses.forEach((sense, senseIndex) => {
       sense.glosses.forEach((gloss, position) => {
         if (gloss.type !== null && SKIPPED_TYPES.has(gloss.type)) return
-        // Lowercase glosses are words, and so is a capitalised one of a single word.
-        const proper = properWord(gloss.text)
-        if (proper === null && !/^\p{Ll}/u.test(gloss.text)) return
+        const named = gloss.type === "tm" || sense.misc.some((tag) => NAME_TAGS.has(tag))
         const term = normalizeGloss(gloss.text)
         // A gloss that is the reading's romanisation is a loanword ("tsunami", "sushi") or a
         // romanisation few use in English; the subtitles' count tells them apart in ranking.
         if (term.length < 2 || !isEnglish(term)) return
         const romanised = term === romanize(entry.reading)
-        const resolved = proper === null ? resolveHeadword(term, sense.pos) : resolveProper(proper, sense.pos)
+        const resolved = resolveGloss(gloss.text, term, sense.pos, named)
         if (resolved === null) return
         const { headword, variant, inflection } = resolved
         if (inflection !== undefined && variant !== undefined) {
@@ -479,7 +539,7 @@ export const jmdictReader = (known: KnownEnglish) => {
           common: entry.common,
           pos: partOfSpeech(sense.pos),
           score,
-          name: gloss.type === "tm" || sense.misc.some((tag) => NAME_TAGS.has(tag)),
+          name: named || resolved.name === true,
           romanised
         })
       })

@@ -651,7 +651,7 @@ describe("wordsFromJmdict", () => {
     expect(built.map((word) => word.headword)).toEqual(["diaspora", "Nordic"])
   })
 
-  it("takes capitalised words and acronyms with their casing, and still skips sentences and titles", () => {
+  it("takes capitalised words and acronyms with their casing, and attested sentences and titles", () => {
     const reader = jmdictReader({
       words: new Set(["polish", "us", "islam", "good morning"]),
       verbs: new Set(["polish"]),
@@ -672,7 +672,7 @@ describe("wordsFromJmdict", () => {
     reader.add(jmdictEntry(67, "米国", "べいこく", ["US"], true, ["n", "adj-no"]))
     reader.add(jmdictEntry(68, "ポーランドの", "ポーランドの", ["Polish"], true, ["adj-no"]))
     reader.add(jmdictEntry(69, "回教", "かいきょう", ["Islam"], false, ["n"]))
-    // Sentences and titles: a capitalised gloss of several words.
+    // Sentences and titles a source attests: a word in already, and a phrase Wiktionary lists.
     reader.add(jmdictEntry(70, "お早う", "おはよう", ["Good morning!"], true, ["int"]))
     reader.add(jmdictEntry(71, "大晦日", "おおみそか", ["New Year's Eve"], true, ["n"]))
 
@@ -686,12 +686,47 @@ describe("wordsFromJmdict", () => {
       ["NHK", [["日本放送協会"]]],
       ["iPod", [["アイポッド"]]],
       ["US", [["米国"]]],
-      ["Polish", [["ポーランドの"]]]
+      ["Polish", [["ポーランドの"]]],
+      ["New Year's Eve", [["大晦日"]]]
     ])
     expect(built[0]?.senses[0]?.pos).toEqual(["adj"])
     // "Polish" is not "polish": the verb gains no back-translation from the nationality.
     expect(reader.backTranslations().has("polish")).toBe(false)
-    expect(reader.backTranslations().has("good morning")).toBe(false)
+    expect([...(reader.backTranslations().get("good morning")?.keys() ?? [])]).toEqual(["お早う"])
+  })
+
+  it("takes capitalised glosses of several words that name something, as written, and leaves out descriptions", () => {
+    const reader = jmdictReader({
+      words: new Set(),
+      verbs: new Set(),
+      gradable: new Set(),
+      spelled: new Set(),
+      phrases: new Set()
+    })
+    const typed = (id: number, headword: string, text: string, type: string): EntryRecord => {
+      const entry = jmdictEntry(id, headword, headword, [text], false, ["n"])
+      return { ...entry, senses: [{ ...entry.senses[0]!, glosses: [{ text, type }] }] }
+    }
+    reader.add(jmdictEntry(130, "ニューヨーク", "ニューヨーク", ["New York (USA)"], true, ["n"], ["place"]))
+    reader.add(typed(131, "サランラップ", "Saran Wrap", "tm"))
+    // Every word capitalised but the small ones: a name, tagged or not.
+    reader.add(jmdictEntry(132, "日本海", "にほんかい", ["Sea of Japan"], true, ["n"]))
+    // A description of the Japanese word, and a sentence, that no source attests.
+    reader.add(jmdictEntry(133, "杉", "すぎ", ["Japanese cedar"], true, ["n"]))
+    reader.add(jmdictEntry(134, "初めまして", "はじめまして", ["Nice to meet you!"], true, ["exp"]))
+    // A leading article is not part of the name, as glosses lose it ("the Alps").
+    reader.add(jmdictEntry(136, "アルプス", "アルプス", ["the Alps"], true, ["n"]))
+    reader.add(jmdictEntry(137, "ハーグ", "ハーグ", ["The Hague"], true, ["n"], ["place"]))
+    // Capitals in an aside leave a lowercase word lowercase.
+    reader.add(jmdictEntry(135, "大福", "だいふく", ["daifuku (Japanese sweet)"], true, ["n"]))
+    expect(reader.finish().map((word) => [word.headword, word.naming])).toEqual([
+      ["New York", "name"],
+      ["Saran Wrap", "name"],
+      ["Sea of Japan", "name"],
+      ["Alps", "word"],
+      ["The Hague", "name"],
+      ["daifuku", "possible-name"]
+    ])
   })
 
   it("stores a capitalised word under its own case-preserving id, counted by its lowercase use", () => {
