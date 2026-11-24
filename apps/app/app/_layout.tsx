@@ -25,7 +25,6 @@ import { Button } from "../src/components/Button.tsx"
 import { iconFonts } from "../src/components/Icon.tsx"
 import { Screen } from "../src/components/Screen.tsx"
 import { MascotMessage } from "../src/components/States.tsx"
-import { brand } from "../src/i18n/brand.ts"
 import { strings } from "../src/i18n/strings.ts"
 import { isUnguardedRoute } from "../src/lib/legal.ts"
 import { sentryRedaction } from "../src/lib/sentryRedaction.ts"
@@ -97,6 +96,7 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
   const language = useInterfaceLanguage()
   // Public legal pages (/privacy, /terms) need neither a session nor the API.
   const unguarded = isUnguardedRoute(usePathname())
+  const titled = (part: string) => formatDocumentTitle(part, t.appName)
   const ready = fontsLoaded && (unguarded || status !== "loading")
 
   useEffect(() => {
@@ -131,23 +131,20 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
         {/* Unguarded: public legal pages and 404 open without signing in. */}
         <Stack.Screen name="privacy" />
         <Stack.Screen name="terms" />
-        <Stack.Screen name="ja" options={{ animation: "none", title: brand.ja.appName }} />
+        <Stack.Screen name="ja" options={{ animation: "none", title: strings.ja.appName }} />
         <Stack.Screen name="+not-found" />
         <Stack.Protected guard={status === "ready"}>
           <Stack.Screen name="(tabs)" options={{ title: t.appName }} />
           <Stack.Screen name="entry/[id]" options={{ title: t.appName }} />
-          <Stack.Screen name="sources/[id]" options={{ title: formatDocumentTitle(t.entry.sources, t.appName) }} />
-          <Stack.Screen name="saved" options={{ title: formatDocumentTitle(t.saved.title, t.appName) }} />
-          <Stack.Screen
-            name="settings"
-            options={{ presentation: "modal", title: formatDocumentTitle(t.settings.title, t.appName) }}
-          />
+          <Stack.Screen name="sources/[id]" options={{ title: titled(t.entry.sources) }} />
+          <Stack.Screen name="saved" options={{ title: titled(t.saved.title) }} />
+          <Stack.Screen name="settings" options={{ presentation: "modal", title: titled(t.settings.title) }} />
           <Stack.Screen
             name="review/session"
             options={{
               presentation: "fullScreenModal",
               gestureEnabled: false,
-              title: formatDocumentTitle(t.tabs.review, t.appName)
+              title: titled(t.tabs.review)
             }}
           />
         </Stack.Protected>
@@ -159,12 +156,9 @@ const Navigator = ({ fontsLoaded }: { readonly fontsLoaded: boolean }) => {
         </Stack.Protected>
         <Stack.Protected guard={status === "signedOut"}>
           <Stack.Screen name="welcome" options={{ animation: "fade", title: t.appName }} />
-          <Stack.Screen name="sign-in" options={{ title: formatDocumentTitle(t.auth.signIn, t.appName) }} />
-          <Stack.Screen name="sign-up" options={{ title: formatDocumentTitle(t.auth.signUp, t.appName) }} />
-          <Stack.Screen
-            name="forgot-password"
-            options={{ title: formatDocumentTitle(t.auth.forgotTitle, t.appName) }}
-          />
+          <Stack.Screen name="sign-in" options={{ title: titled(t.auth.signIn) }} />
+          <Stack.Screen name="sign-up" options={{ title: titled(t.auth.signUp) }} />
+          <Stack.Screen name="forgot-password" options={{ title: titled(t.auth.forgotTitle) }} />
         </Stack.Protected>
       </Stack>
     </>

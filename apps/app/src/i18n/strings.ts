@@ -1,4 +1,5 @@
 import type { AskRefusal, CautionKind, LabelCode, SimilarDifference, Source } from "@kotori/contracts"
+import { brand } from "./brand.ts"
 
 /** Tab labels, named here once so copy that points to a tab can't drift from it. */
 const enTabs = {
@@ -18,7 +19,7 @@ const enWrongLanguage =
  * learners get English, English learners get Japanese.
  */
 const en = {
-  appName: "Kotori",
+  appName: brand.en.appName,
   tabs: enTabs,
   greeting: { morning: "Good morning", afternoon: "Good afternoon", evening: "Good evening" },
   common: {
@@ -640,7 +641,7 @@ const jaTabs: Strings["tabs"] = {
 const jaWrongLanguage = "英語ではないようです。ここでは英語の単語や表現だけを調べられます。"
 
 const ja: Strings = {
-  appName: "ことり",
+  appName: brand.ja.appName,
   tabs: jaTabs,
   greeting: { morning: "おはよう", afternoon: "こんにちは", evening: "こんばんは" },
   common: {

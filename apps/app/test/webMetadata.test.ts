@@ -82,11 +82,12 @@ describe("web metadata and production assets", () => {
     for (const file of [
       join(appDir, "app.json"),
       join(appDir, "src/i18n/brand.ts"),
+      join(appDir, "src/lib/legal.ts"),
       join(publicDir, "index.html"),
       join(publicDir, "site.webmanifest"),
       join(repoDir, "tools/render-assets.ts")
     ]) {
-      assert.notMatch(readFileSync(file, "utf8"), /\bnuance\b/i, `banned term 'nuance' in ${file}`)
+      assert.notMatch(readFileSync(file, "utf8"), /\bnuance\b|ニュアンス/i, `banned term 'nuance' in ${file}`)
     }
   })
 
@@ -117,6 +118,17 @@ describe("web metadata and production assets", () => {
     // Never block JS/asset bundles needed for rendering public routes.
     assert.notInclude(robots, "Disallow: /_expo/")
     assert.notInclude(robots, "Disallow: /assets/")
+    // Signed-in screens and account forms stay out of the index; a rule without a trailing slash covers the route itself.
+    const disallowed = robots.split("\n").flatMap((line) => (line.startsWith("Disallow: ") ? [line.slice(10)] : []))
+    for (const route of ["/say", "/check", "/review", "/saved", "/settings", "/sign-in", "/sign-up"]) {
+      assert.include(disallowed, route)
+    }
+    for (const publicRoute of ["/welcome", "/ja", "/privacy", "/terms"]) {
+      assert.isFalse(
+        disallowed.some((rule) => publicRoute.startsWith(rule)),
+        `${publicRoute} must stay crawlable`
+      )
+    }
 
     const sitemap = readFileSync(join(publicDir, "sitemap.xml"), "utf8")
     assert.include(sitemap, "<loc>https://hellokotori.com/</loc>")
@@ -171,10 +183,10 @@ describe("web metadata and production assets", () => {
 
 describe("web chrome helpers", () => {
   it("formats browser document titles cleanly", () => {
-    assert.strictEqual(formatDocumentTitle(undefined), "Kotori")
-    assert.strictEqual(formatDocumentTitle("Kotori"), "Kotori")
-    assert.strictEqual(formatDocumentTitle("Settings"), "Settings · Kotori")
-    assert.strictEqual(formatDocumentTitle("設定", "Kotori"), "設定 · Kotori")
+    assert.strictEqual(formatDocumentTitle(undefined, "Kotori"), "Kotori")
+    assert.strictEqual(formatDocumentTitle("Kotori", "Kotori"), "Kotori")
+    assert.strictEqual(formatDocumentTitle("Settings", "Kotori"), "Settings · Kotori")
+    assert.strictEqual(formatDocumentTitle("設定", "ことり"), "設定 · ことり")
     assert.strictEqual(formatDocumentTitle(["食べる", "Sources"], "Kotori"), "食べる · Sources · Kotori")
     assert.strictEqual(formatDocumentTitle([undefined, "Kotori", ""], "Kotori"), "Kotori")
   })

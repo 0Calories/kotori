@@ -23,15 +23,16 @@ import { storage } from "./storage"
  */
 export type SessionStatus = "loading" | "signedOut" | "pending" | "onboarding" | "ready" | "offline" | "unavailable"
 
-type Status = SessionStatus
-
 /** The home route for each session status, used by public/fallback screens (`+not-found`, legal pages). */
 export const homeHrefFor = (status: SessionStatus): "/" | "/onboarding" | "/pending" | "/welcome" =>
   Match.value(status).pipe(
     Match.when("ready", () => "/" as const),
     Match.when("onboarding", () => "/onboarding" as const),
     Match.when("pending", () => "/pending" as const),
-    Match.whenOr("loading", "signedOut", "offline", "unavailable", () => "/welcome" as const),
+    Match.when("loading", () => "/welcome" as const),
+    Match.when("signedOut", () => "/welcome" as const),
+    Match.when("offline", () => "/welcome" as const),
+    Match.when("unavailable", () => "/welcome" as const),
     Match.exhaustive
   )
 
@@ -43,7 +44,7 @@ export interface SignUp {
 }
 
 interface Session {
-  readonly status: Status
+  readonly status: SessionStatus
   readonly profile: Profile | null
   /** Interface copy in the learner's native language. */
   readonly t: Strings
@@ -82,7 +83,7 @@ const initialWebLanguage = (): Language | null => {
 
 const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC"
 
-const statusOf = (profile: Profile): Status =>
+const statusOf = (profile: Profile): SessionStatus =>
   profile.status !== "approved" && profile.role !== "admin" ? "pending" : profile.onboarded ? "ready" : "onboarding"
 
 /** A JWT for the session just created, or the reason there isn't one. */
@@ -126,7 +127,7 @@ const signInAsDeveloper = async (): Promise<boolean> => {
 
 export const SessionProvider = ({ children }: { readonly children: ReactNode }) => {
   const queryClient = useQueryClient()
-  const [status, setStatus] = useState<Status>("loading")
+  const [status, setStatus] = useState<SessionStatus>("loading")
   const [profile, setProfile] = useState<Profile | null>(null)
   const [attempt, setAttempt] = useState(0)
   const [googleError, setGoogleError] = useState<AuthError | null>(null)

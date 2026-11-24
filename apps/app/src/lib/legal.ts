@@ -1,4 +1,5 @@
 import type { Language } from "@kotori/contracts"
+import { parseLanguage } from "./webLanguage.ts"
 
 export type LegalKind = "privacy" | "terms"
 
@@ -29,8 +30,7 @@ export const isUnguardedRoute = (pathname: string): boolean => {
 
 /** Optional `?lang=en|ja` query override on `/privacy` and `/terms`, falling back to the app language. */
 export const legalLanguageFromParam = (raw: string | readonly string[] | undefined, fallback: Language): Language => {
-  const value = Array.isArray(raw) ? raw[0] : raw
-  return value === "en" || value === "ja" ? value : fallback
+  return parseLanguage(Array.isArray(raw) ? raw[0] : raw) ?? fallback
 }
 
 const documents: Record<Language, Record<LegalKind, LegalDocument>> = {
@@ -64,7 +64,7 @@ const documents: Record<Language, Record<LegalKind, LegalDocument>> = {
           id: "providers",
           title: "Service Providers",
           paragraphs: [
-            "Kotori relies on infrastructure and AI processors strictly to operate the app: Neon (PostgreSQL database and Managed Better Auth for accounts and sessions), Fly.io and Vercel (API and web hosting), Anthropic Claude and TypeSafe Jev (naturalness checks, language answers, nuance judgments, and example sentences), ElevenLabs (pronunciation audio synthesis), Resend (transactional verification, password-reset, and approval emails), and Sentry (crash and error diagnostics, with all on-screen text and images masked in error replays).",
+            "Kotori relies on infrastructure and AI processors strictly to operate the app: Neon (PostgreSQL database and Managed Better Auth for accounts and sessions), Fly.io and Vercel (API and web hosting), Anthropic Claude and TypeSafe Jev (naturalness checks, language answers, usage judgments, and example sentences), ElevenLabs (pronunciation audio synthesis), Resend (transactional verification, password-reset, and approval emails), and Sentry (crash and error diagnostics, with all on-screen text and images masked in error replays).",
             "Kotori does not sell personal information, run third-party advertising networks, or track you across other websites or apps."
           ]
         },
@@ -124,7 +124,7 @@ const documents: Record<Language, Record<LegalKind, LegalDocument>> = {
           id: "ai",
           title: "AI-Generated Guidance",
           paragraphs: [
-            "Alongside human-edited dictionaries, Kotori uses AI models (Anthropic Claude, TypeSafe Jev, and ElevenLabs) to judge formality and nuance, write example sentences, check phrasing, and voice pronunciation audio. AI output can be incomplete or mistaken — please verify high-stakes translations, legal, medical, or professional communications independently."
+            "Alongside human-edited dictionaries, Kotori uses AI models (Anthropic Claude, TypeSafe Jev, and ElevenLabs) to judge formality and usage, write example sentences, check phrasing, and voice pronunciation audio. AI output can be incomplete or mistaken — please verify high-stakes translations, legal, medical, or professional communications independently."
           ]
         },
         {
@@ -175,7 +175,7 @@ const documents: Record<Language, Record<LegalKind, LegalDocument>> = {
           id: "providers",
           title: "利用する外部サービス",
           paragraphs: [
-            "ことりはサービス提供に必要な範囲で以下の事業者の基盤を利用しています。Neon（PostgreSQL データベースおよび認証基盤 Managed Better Auth）、Fly.io・Vercel（API および Web ホスティング）、Anthropic Claude・TypeSafe Jev（ニュアンス判定・例文作成・添削・質問への回答）、ElevenLabs（発音音声の合成）、Resend（確認コード・パスワード再設定・承認通知メールの送信）、Sentry（エラー監視。エラー発生時の画面記録ではテキストと画像はすべてマスクされます）。",
+            "ことりはサービス提供に必要な範囲で以下の事業者の基盤を利用しています。Neon（PostgreSQL データベースおよび認証基盤 Managed Better Auth）、Fly.io・Vercel（API および Web ホスティング）、Anthropic Claude・TypeSafe Jev（使い方の判定・例文作成・添削・質問への回答）、ElevenLabs（発音音声の合成）、Resend（確認コード・パスワード再設定・承認通知メールの送信）、Sentry（エラー監視。エラー発生時の画面記録ではテキストと画像はすべてマスクされます）。",
             "ことりが個人情報を販売したり、広告ネットワークや他サイト横断のトラッキングを行ったりすることはありません。"
           ]
         },
@@ -215,7 +215,7 @@ const documents: Record<Language, Record<LegalKind, LegalDocument>> = {
           id: "service",
           title: "サービス内容とクローズドベータ",
           paragraphs: [
-            "ことりは、リアルな英語と日本語のための日英・英日辞書、ニュアンス解説、間隔反復ノートアプリです。クローズドベータ期間中は、新規登録後に順次承認を行っており、機能や AI 機能の時間・日次の上限は予告なく変更される場合があります。"
+            "ことりは、リアルな英語と日本語のための日英・英日辞書、使い方ガイド、間隔反復ノートアプリです。クローズドベータ期間中は、新規登録後に順次承認を行っており、機能や AI 機能の時間・日次の上限は予告なく変更される場合があります。"
           ]
         },
         {
@@ -236,7 +236,7 @@ const documents: Record<Language, Record<LegalKind, LegalDocument>> = {
           id: "ai",
           title: "AI による解説・音声について",
           paragraphs: [
-            "ことりでは辞書データに加え、AI モデル（Anthropic Claude、TypeSafe Jev、ElevenLabs）を用いて丁寧さ・ニュアンスの判定、例文の作成、表現の添削、および発音音声の合成を行っています。AI の出力には誤りや不十分な点が含まれる可能性があるため、重要な翻訳や業務・法務・医療などに関わる表現はご自身でもご確認ください。"
+            "ことりでは辞書データに加え、AI モデル（Anthropic Claude、TypeSafe Jev、ElevenLabs）を用いて丁寧さ・使い方の判定、例文の作成、表現の添削、および発音音声の合成を行っています。AI の出力には誤りや不十分な点が含まれる可能性があるため、重要な翻訳や業務・法務・医療などに関わる表現はご自身でもご確認ください。"
           ]
         },
         {

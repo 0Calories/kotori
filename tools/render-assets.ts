@@ -6,6 +6,8 @@
 import { Resvg } from "@resvg/resvg-js"
 import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
+import type { Language } from "@kotori/contracts"
+import { brand } from "../apps/app/src/i18n/brand.ts"
 import { palette } from "../apps/app/src/mascot/geometry.ts"
 import { mascotFrontSvg, mascotSvg } from "../apps/app/src/mascot/svg.ts"
 
@@ -43,10 +45,13 @@ const renderPngBuffer = (svg: string, width: number, withFonts = false): Buffer 
       .asPng()
   )
 
-const renderPng = (dir: string, file: string, svg: string, width: number, withFonts = false) => {
-  writeFileSync(join(dir, file), renderPngBuffer(svg, width, withFonts))
-  console.log(`wrote ${file} (${width}px)`)
+const writeBinary = (dir: string, file: string, data: Buffer, detail: string) => {
+  writeFileSync(join(dir, file), data)
+  console.log(`wrote ${file} (${detail})`)
 }
+
+const renderPng = (dir: string, file: string, svg: string, width: number, withFonts = false) =>
+  writeBinary(dir, file, renderPngBuffer(svg, width, withFonts), `${width}px`)
 
 const writeSvg = (dir: string, file: string, svg: string) => {
   writeFileSync(join(dir, file), `${svg}\n`)
@@ -81,27 +86,40 @@ const encodeIco = (images: ReadonlyArray<{ readonly size: number; readonly png: 
 
 const stripXmlSvgWrapper = (svg: string) => svg.replace(/^<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "")
 
+interface OgFont {
+  readonly family: string
+  readonly weight: number
+  readonly size: number
+}
+
+/** Layout of one language's card. The words come from `brand`, so the card can't drift from the page metadata. */
 interface OgCardSpec {
-  readonly brandPrimary: string
-  readonly brandPrimaryFont: string
-  readonly brandPrimaryWeight: number
-  readonly brandPrimarySize: number
-  readonly brandSecondary: string
-  readonly brandSecondaryFont: string
-  readonly brandSecondaryWeight: number
-  readonly brandSecondaryX: number
-  readonly line1: string
-  readonly line2: string
-  readonly taglineFont: string
-  readonly taglineSize: number
+  readonly language: Language
+  readonly appNameFont: OgFont
+  /** The app name in the other language, set beside the main one. */
+  readonly otherAppName: { readonly text: string; readonly font: OgFont; readonly x: number }
+  readonly taglineFont: OgFont
+  /** The tagline wraps onto a second line after this phrase. */
+  readonly taglineBreakAfter: string
+  readonly pillFont: OgFont
   readonly pills: ReadonlyArray<{ readonly label: string; readonly width: number }>
-  readonly pillFont: string
-  readonly pillSize: number
-  readonly domain: string
+}
+
+const fontAttributes = (font: OgFont) =>
+  `font-family="${font.family}" font-weight="${font.weight}" font-size="${font.size}"`
+
+const taglineLines = (tagline: string, breakAfter: string): readonly [string, string] => {
+  const at = tagline.indexOf(breakAfter)
+  if (at === -1) throw new Error(`OG card tagline "${tagline}" no longer contains its line break "${breakAfter}"`)
+  const end = at + breakAfter.length
+  return [tagline.slice(0, end).trim(), tagline.slice(end).trim()]
 }
 
 /** 1200×630 Open Graph / social thumbnail matching the Sora palette. */
 const ogImageSvg = (spec: OgCardSpec) => {
+  const meta = brand[spec.language]
+  const [line1, line2] = taglineLines(meta.tagline, spec.taglineBreakAfter)
+  const domain = meta.url.replace(/^https:\/\//, "").replace(/\/$/, "")
   const mascotInner = stripXmlSvgWrapper(mascotSvg({ mood: "happy", padding: 0 }))
   let pillX = 0
   const pillsMarkup = spec.pills
@@ -109,7 +127,7 @@ const ogImageSvg = (spec: OgCardSpec) => {
       const x = pillX
       pillX += pill.width + 14
       return `<rect x="${x}" y="0" width="${pill.width}" height="46" rx="23" fill="#DAEEFE"/>
-    <text x="${x + pill.width / 2}" y="30" text-anchor="middle" font-family="${spec.pillFont}" font-weight="500" font-size="${spec.pillSize}" fill="#223C4F">${pill.label}</text>`
+    <text x="${x + pill.width / 2}" y="30" text-anchor="middle" ${fontAttributes(spec.pillFont)} fill="#223C4F">${pill.label}</text>`
     })
     .join("\n    ")
 
@@ -132,14 +150,14 @@ const ogImageSvg = (spec: OgCardSpec) => {
   <svg x="156" y="183" width="264" height="264" viewBox="0 0 200 200">
     ${mascotInner}
   </svg>
-  <text x="504" y="236" font-family="${spec.brandPrimaryFont}" font-weight="${spec.brandPrimaryWeight}" font-size="${spec.brandPrimarySize}" fill="#131E26">${spec.brandPrimary}</text>
-  <text x="${spec.brandSecondaryX}" y="230" font-family="${spec.brandSecondaryFont}" font-weight="${spec.brandSecondaryWeight}" font-size="34" fill="#34576F">${spec.brandSecondary}</text>
-  <text x="504" y="302" font-family="${spec.taglineFont}" font-weight="500" font-size="${spec.taglineSize}" fill="#515C64">${spec.line1}</text>
-  <text x="504" y="344" font-family="${spec.taglineFont}" font-weight="500" font-size="${spec.taglineSize}" fill="#515C64">${spec.line2}</text>
+  <text x="504" y="236" ${fontAttributes(spec.appNameFont)} fill="#131E26">${meta.appName}</text>
+  <text x="${spec.otherAppName.x}" y="230" ${fontAttributes(spec.otherAppName.font)} fill="#34576F">${spec.otherAppName.text}</text>
+  <text x="504" y="302" ${fontAttributes(spec.taglineFont)} fill="#515C64">${line1}</text>
+  <text x="504" y="344" ${fontAttributes(spec.taglineFont)} fill="#515C64">${line2}</text>
   <g transform="translate(504, 382)">
     ${pillsMarkup}
   </g>
-  <text x="504" y="496" font-family="Gabarito" font-weight="500" font-size="24" fill="#666F76">${spec.domain}</text>
+  <text x="504" y="496" font-family="Gabarito" font-weight="500" font-size="24" fill="#666F76">${domain}</text>
 </svg>`
 }
 
@@ -160,22 +178,11 @@ renderPng(assetsOut, "mascot-reading.png", mascotSvg({ mood: "reading", backgrou
 
 // Web favicons, PWA icons, and social preview thumbnail
 writeSvg(publicOut, "favicon.svg", webFavicon)
-const favicon16 = renderPngBuffer(webFavicon, 16)
-const favicon32 = renderPngBuffer(webFavicon, 32)
-const favicon48 = renderPngBuffer(webFavicon, 48)
-writeFileSync(join(publicOut, "favicon-16x16.png"), favicon16)
-console.log("wrote favicon-16x16.png (16px)")
-writeFileSync(join(publicOut, "favicon-32x32.png"), favicon32)
-console.log("wrote favicon-32x32.png (32px)")
-writeFileSync(
-  join(publicOut, "favicon.ico"),
-  encodeIco([
-    { size: 16, png: favicon16 },
-    { size: 32, png: favicon32 },
-    { size: 48, png: favicon48 }
-  ])
-)
-console.log("wrote favicon.ico (16/32/48px)")
+const faviconFrames = [16, 32, 48].map((size) => ({ size, png: renderPngBuffer(webFavicon, size) }))
+for (const { size, png } of faviconFrames.filter((frame) => frame.size < 48)) {
+  writeBinary(publicOut, `favicon-${size}x${size}.png`, png, `${size}px`)
+}
+writeBinary(publicOut, "favicon.ico", encodeIco(faviconFrames), "16/32/48px")
 renderPng(publicOut, "apple-touch-icon.png", appIcon, 180)
 renderPng(publicOut, "icon-192.png", appIcon, 192)
 renderPng(publicOut, "icon-512.png", appIcon, 512)
@@ -184,26 +191,17 @@ renderPng(
   publicOut,
   "og-image.png",
   ogImageSvg({
-    brandPrimary: "Kotori",
-    brandPrimaryFont: "Gabarito",
-    brandPrimaryWeight: 800,
-    brandPrimarySize: 88,
-    brandSecondary: "ことり",
-    brandSecondaryFont: "Murecho",
-    brandSecondaryWeight: 500,
-    brandSecondaryX: 774,
-    line1: "Your companion for real-world",
-    line2: "Japanese and English.",
-    taglineFont: "Gabarito",
-    taglineSize: 32,
+    language: "en",
+    appNameFont: { family: "Gabarito", weight: 800, size: 88 },
+    otherAppName: { text: brand.ja.appName, font: { family: "Murecho", weight: 500, size: 34 }, x: 774 },
+    taglineFont: { family: "Gabarito", weight: 500, size: 32 },
+    taglineBreakAfter: "real-world",
+    pillFont: { family: "Gabarito", weight: 500, size: 21 },
     pills: [
       { label: "Usage dictionary", width: 204 },
       { label: "Ask Kotori", width: 146 },
       { label: "Notebook", width: 136 }
-    ],
-    pillFont: "Gabarito",
-    pillSize: 21,
-    domain: "hellokotori.com"
+    ]
   }),
   1200,
   true
@@ -212,26 +210,17 @@ renderPng(
   publicOut,
   "og-image-ja.png",
   ogImageSvg({
-    brandPrimary: "ことり",
-    brandPrimaryFont: "Murecho",
-    brandPrimaryWeight: 700,
-    brandPrimarySize: 74,
-    brandSecondary: "Kotori",
-    brandSecondaryFont: "Gabarito",
-    brandSecondaryWeight: 700,
-    brandSecondaryX: 744,
-    line1: "リアルな英語と日本語を",
-    line2: "身につけるための、ことばの相棒。",
-    taglineFont: "Murecho",
-    taglineSize: 30,
+    language: "ja",
+    appNameFont: { family: "Murecho", weight: 700, size: 74 },
+    otherAppName: { text: brand.en.appName, font: { family: "Gabarito", weight: 700, size: 34 }, x: 744 },
+    taglineFont: { family: "Murecho", weight: 500, size: 30 },
+    taglineBreakAfter: "英語と日本語を",
+    pillFont: { family: "Murecho", weight: 500, size: 20 },
     pills: [
       { label: "日英・英日辞書", width: 176 },
       { label: "ことりに聞く", width: 160 },
       { label: "復習ノート", width: 142 }
-    ],
-    pillFont: "Murecho",
-    pillSize: 20,
-    domain: "hellokotori.com/ja"
+    ]
   }),
   1200,
   true

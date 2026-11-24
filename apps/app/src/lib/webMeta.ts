@@ -9,19 +9,18 @@ const escapeText = (value: string) => value.replace(/[&<>]/g, (ch) => ({ "&": "&
 export const renderMetaHead = (language: Language): string => {
   const meta = brand[language]
   const imageUrl = `${SITE_URL}${meta.ogImage}`
-  const isDedicatedLocalePage = language === "ja"
   return [
     `    <title>${escapeText(meta.title)}</title>`,
     `    <meta name="description" content="${escapeAttribute(meta.description)}" />`,
     `    <meta name="application-name" content="${escapeAttribute(meta.appName)}" />`,
     `    <meta name="apple-mobile-web-app-title" content="${escapeAttribute(meta.appName)}" />`,
-    ...(isDedicatedLocalePage ? [`    <link rel="canonical" href="${escapeAttribute(meta.url)}" />`] : []),
+    ...(meta.servedOnlyAtUrl ? [`    <link rel="canonical" href="${escapeAttribute(meta.url)}" />`] : []),
     `    <link rel="alternate" hreflang="en" href="${escapeAttribute(brand.en.url)}" />`,
     `    <link rel="alternate" hreflang="ja" href="${escapeAttribute(brand.ja.url)}" />`,
     `    <link rel="alternate" hreflang="x-default" href="${escapeAttribute(brand.en.url)}" />`,
     `    <meta property="og:type" content="website" />`,
     `    <meta property="og:site_name" content="${escapeAttribute(meta.appName)}" />`,
-    ...(isDedicatedLocalePage ? [`    <meta property="og:url" content="${escapeAttribute(meta.url)}" />`] : []),
+    ...(meta.servedOnlyAtUrl ? [`    <meta property="og:url" content="${escapeAttribute(meta.url)}" />`] : []),
     `    <meta property="og:title" content="${escapeAttribute(meta.title)}" />`,
     `    <meta property="og:description" content="${escapeAttribute(meta.description)}" />`,
     `    <meta property="og:locale" content="${escapeAttribute(meta.ogLocale)}" />`,

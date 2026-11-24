@@ -45,6 +45,8 @@ describe("branding copy and localized metadata", () => {
     assert.strictEqual(webLanguageFromLocation("/", ""), null)
     assert.strictEqual(webLanguageFromLocation("/japanese", ""), null)
     assert.strictEqual(webLanguageFromLocation("/", "?lang=fr"), null)
+    // The Japanese page is Japanese HTML before the app loads, so its path outranks the query.
+    assert.strictEqual(webLanguageFromLocation("/ja", "?lang=en"), "ja")
   })
 
   it("renders distinct English and Japanese Open Graph and X card HTML", () => {

@@ -8,6 +8,11 @@ export interface BrandMeta {
   readonly tagline: string
   readonly description: string
   readonly url: string
+  /**
+   * Whether this language's HTML is served at `url` alone. English is the app shell behind
+   * every route, so it must not claim `/` as its canonical address; Japanese has `/ja` to itself.
+   */
+  readonly servedOnlyAtUrl: boolean
   readonly ogImage: string
   readonly ogImageAlt: string
   readonly ogLocale: string
@@ -24,6 +29,7 @@ export const brand: Record<Language, BrandMeta> = {
     description:
       "Understand how Japanese and English are really used — with a usage-first dictionary, Ask Kotori for tricky expressions, and a notebook that helps words stick.",
     url: `${SITE_URL}/`,
+    servedOnlyAtUrl: false,
     ogImage: "/og-image.png",
     ogImageAlt: "Kotori — your companion for real-world Japanese and English, with its shima-enaga mascot",
     ogLocale: "en_US",
@@ -38,6 +44,7 @@ export const brand: Record<Language, BrandMeta> = {
     description:
       "リアルな使い方がわかる日英・英日辞書、気になる表現を聞ける「ことりに聞く」、定着させる復習ノートをひとつに。",
     url: `${SITE_URL}/ja`,
+    servedOnlyAtUrl: true,
     ogImage: "/og-image-ja.png",
     ogImageAlt: "ことり — リアルな英語と日本語を身につけるための、ことばの相棒（シマエナガのマスコット付き）",
     ogLocale: "ja_JP",

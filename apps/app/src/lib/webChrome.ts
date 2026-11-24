@@ -23,10 +23,10 @@ export const syncWebLanguage = (language: Language, doc: Document | undefined = 
   doc.documentElement.lang = language
 }
 
-/** Formats a browser tab title (`"Part · Kotori"` or `"Kotori"`). */
+/** Formats a browser tab title (`"Part · Kotori"` or `"Kotori"`) around the app name in the interface language. */
 export const formatDocumentTitle = (
   parts: string | ReadonlyArray<string | undefined> | undefined,
-  appName = "Kotori"
+  appName: string
 ): string => {
   const list = (Array.isArray(parts) ? parts : [parts]).filter(
     (part): part is string => typeof part === "string" && part.length > 0 && part !== appName
