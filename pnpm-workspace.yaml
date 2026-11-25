@@ -15,7 +15,7 @@ catalog:
   "@effect/sql-pg": "4.1.4"
   "@effect/sql-pglite": "4.1.4"
   # Drizzle 1.0 release candidate: the first line with the Effect 4 driver. Pinned exactly; bump both together.
-  drizzle-orm: "1.0.0-rc.5"
+  drizzle-orm: "1.0.0-rc.6"
   drizzle-kit: "1.0.0-rc.5"
   "@effect/vitest": "4.1.4"
   vitest: "^5.1.0"
